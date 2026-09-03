@@ -60,18 +60,21 @@ response, deadline, or browser input. The shared safe render cache is not a reco
 authorize a Student.
 
 The deterministic cache rule relies on the exact seeded-generation contract:
-the same `(question_id, revision_number, seed)` must reproduce the same canonical output. A new
-generation behavior, source revision, renderer compatibility version, or
-authored edit requires a new immutable published question with a fresh Question
-ID and hidden exact evidence rather than cache deletion or overwriting an
-existing entry. A changed object is refused by its
+the same `(question_id, revision_number, seed)` must reproduce the same canonical output. A changed
+Question Source creates a new immutable Question Revision under the existing
+Question ID when the change remains compatible, or a new Published Question
+lineage when it is a substantive fork. Changed generation behavior or renderer
+compatibility likewise creates new exact revision evidence rather than deleting
+or overwriting an existing cache entry. A lineage-metadata edit such as Question
+Title or Question Description changes no Question Revision or render key. A
+changed object is refused by its
 checksum, typed key, schema, Source Object Reference binding, version, seed, title,
 and backend-specific validation.
 
 This gives cache invalidation a simple rule:
 
 - Never mutate an existing published render or asset cache entry.
-- Publish a new immutable question for a content or behavior change.
+- Publish a new immutable Question Revision for a compatible source or behavior change.
 - Treat an invalid, missing, checksum-mismatched, or Source Object Reference-mismatched
   entry as a refusal or a safe cache miss, not as content that may be served.
 - Do not use a cache result to bypass authorization, attempt lifecycle checks,

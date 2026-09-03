@@ -107,15 +107,13 @@ CREATE TABLE ple_private.question_source_registration (
     draft_question_uuid uuid UNIQUE REFERENCES ple_private.draft_question (draft_question_uuid),
     question_id text,
     revision_number integer,
-    backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'qti', 'imathas')),
+    backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'imathas')),
     question_format text NOT NULL CHECK (question_format IN (
-        'pleQuestionJson', 'webworkPg', 'qti', 'imathas'
+        'pleQuestionJson', 'webworkPg', 'imathas'
     )),
     -- Question Backend fields are explicit so the closed backend matrix is
     -- enforceable without parsing an untyped JSON container.
     webwork_pg_path text,
-    qti_package_item_identifier text,
-    workspace_import_id uuid,
     imathas_deployment_reference text,
     imathas_item_reference text,
     imathas_profile text,
@@ -133,10 +131,6 @@ CREATE TABLE ple_private.question_source_registration (
     CONSTRAINT question_source_registration_webwork_pg_path_is_bounded CHECK (
         webwork_pg_path IS NULL OR char_length(btrim(webwork_pg_path)) BETWEEN 1 AND 1000
     ),
-    CONSTRAINT question_source_registration_qti_package_item_identifier_is_bounded CHECK (
-        qti_package_item_identifier IS NULL
-        OR char_length(btrim(qti_package_item_identifier)) BETWEEN 1 AND 1000
-    ),
     CONSTRAINT question_source_registration_imathas_deployment_reference_is_bounded CHECK (
         imathas_deployment_reference IS NULL
         OR char_length(btrim(imathas_deployment_reference)) BETWEEN 1 AND 255
@@ -151,30 +145,16 @@ CREATE TABLE ple_private.question_source_registration (
     CONSTRAINT question_source_registration_backend_fields_are_closed CHECK (COALESCE(
         (backend = 'ple'
             AND webwork_pg_path IS NULL
-            AND qti_package_item_identifier IS NULL
-            AND workspace_import_id IS NULL
             AND imathas_deployment_reference IS NULL
             AND imathas_item_reference IS NULL
             AND imathas_profile IS NULL)
         OR (backend = 'webwork'
             AND webwork_pg_path IS NOT NULL
-            AND qti_package_item_identifier IS NULL
-            AND workspace_import_id IS NULL
             AND imathas_deployment_reference IS NULL
             AND imathas_item_reference IS NULL
             AND imathas_profile IS NULL)
-        OR (backend = 'qti'
-            AND webwork_pg_path IS NULL
-            AND qti_package_item_identifier IS NOT NULL
-            AND imathas_deployment_reference IS NULL
-            AND imathas_item_reference IS NULL
-            AND imathas_profile IS NULL
-            AND ((draft_question_uuid IS NOT NULL AND workspace_import_id IS NOT NULL)
-                OR (question_id IS NOT NULL AND workspace_import_id IS NULL)))
         OR (backend = 'imathas'
             AND webwork_pg_path IS NULL
-            AND qti_package_item_identifier IS NULL
-            AND workspace_import_id IS NULL
             AND imathas_deployment_reference IS NOT NULL
             AND imathas_item_reference IS NOT NULL
             AND ((draft_question_uuid IS NOT NULL AND imathas_profile IS NULL)
@@ -221,7 +201,7 @@ FOR EACH ROW EXECUTE FUNCTION ple_private.reject_published_question_source_regis
 CREATE TABLE ple_private.workspace_import (
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace (workspace_id),
     import_id uuid NOT NULL,
-    question_format text NOT NULL CHECK (question_format IN (
+    import_format text NOT NULL CHECK (import_format IN (
         'pleQuestionJson', 'webworkPg', 'qti', 'h5p', 'imathas'
     )),
     format_import_data jsonb NOT NULL CHECK (jsonb_typeof(format_import_data) = 'object'),

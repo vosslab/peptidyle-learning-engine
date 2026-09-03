@@ -11,14 +11,6 @@ BEGIN
 	IF current_database() <> 'ple_e2e_baseline' THEN
 		RAISE EXCEPTION 'oracle connected to an unexpected database';
 	END IF;
-	IF (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'imathas_question_backend_session' AND column_name IN ('question_attempt_id', 'imathas_deployment_reference', 'imathas_item_reference', 'imathas_profile', 'question_seed', 'imathas_launch_binding_checksum', 'imathas_question_backend_state_key_id', 'imathas_question_backend_state_nonce', 'imathas_question_backend_state_ciphertext') AND is_nullable = 'NO') <> 9
-		OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'imathas_question_backend_session' AND column_name = 'attempt_id')
-		OR EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'imathas_question_backend_session' AND column_name = 'imathas_result_token_sha256')
-		OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'ple_private' AND table_name = 'imathas_result_exchange' AND column_name = 'imathas_result_token_sha256' AND data_type = 'bytea' AND is_nullable = 'YES') OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.imathas_result_exchange'::regclass AND pg_get_constraintdef(oid) LIKE '%octet_length(imathas_result_token_sha256) = 32%')
-		OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'ple_private.imathas_question_backend_session'::regclass AND conname = 'imathas_question_backend_session_state_key_nonce_is_unique')
-		OR (SELECT count(*) FROM pg_proc proc JOIN pg_namespace namespace ON namespace.oid = proc.pronamespace JOIN pg_roles owner_role ON owner_role.oid = proc.proowner WHERE namespace.nspname = 'ple_api' AND proc.proname IN ('create_imathas_question_backend_session', 'load_imathas_question_backend_session', 'lease_imathas_question_backend_session', 'stage_verified_imathas_result') AND owner_role.rolname = 'ple_api_owner' AND proc.prosecdef AND array_to_string(proc.proconfig, ',') LIKE 'search_path=pg_catalog,%' AND has_function_privilege('ple_app', proc.oid, 'EXECUTE') AND NOT has_function_privilege('public', proc.oid, 'EXECUTE')) <> 4 THEN
-		RAISE EXCEPTION 'iMathAS Question Backend Session Store schema/API boundary is incomplete';
-	END IF;
 	IF (SELECT count(*) FROM information_schema.columns
 		WHERE table_schema = 'ple_private' AND table_name = 'question_source_registration'
 		AND column_name IN ('source_object_id', 'source_object_checksum')
@@ -26,9 +18,23 @@ BEGIN
 		OR EXISTS (
 			SELECT 1 FROM information_schema.columns
 			WHERE table_schema = 'ple_private' AND table_name = 'question_source_registration'
-			AND column_name IN ('question_type', 'public_content_checksum', 'source_data', 'source_checksum')
-		) THEN
+			AND column_name IN (
+				'question_type', 'public_content_checksum', 'source_data', 'source_checksum',
+				'qti_package_item_identifier', 'workspace_import_id'
+			)
+	) THEN
 		RAISE EXCEPTION 'Question Source Registration does not have its exact object-backed authority';
+	END IF;
+	IF NOT EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'ple_private' AND table_name = 'workspace_import'
+		AND column_name = 'import_format' AND data_type = 'text' AND is_nullable = 'NO'
+	) OR EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'ple_private' AND table_name = 'workspace_import'
+		AND column_name = 'question_format'
+	) THEN
+		RAISE EXCEPTION 'Workspace Import format evidence is not exact';
 	END IF;
 	IF (SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = current_database()) <> 'ple_database_owner' THEN
 		RAISE EXCEPTION 'database owner is not ple_database_owner';

@@ -47,15 +47,15 @@ PostgreSQL metadata to bytes. The browser can retry an authenticated request, wh
 advance a revision, renew a lease, replace a receipt, or make a pending
 operation final.
 
-| State or decision                              | Authoritative owner                                                      | Status      | Main implementation owner                                                                                                                             |
-| ---------------------------------------------- | ------------------------------------------------------------------------ | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Account identity and row access                | `AuthenticatedSession`, transaction-local forced PostgreSQL RLS          | Implemented | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security), [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
-| Mutable authoring and assignment state         | Revisioned PostgreSQL rows                                               | Planned     | Future Store-backed authoring and Course Instance composition                                                                                         |
-| Student submission outcome                     | Attempt-scoped idempotency and append-only evidence                      | Planned     | Future Store-backed Student delivery composition                                                                                                      |
-| Background work ownership                      | PostgreSQL Job row plus opaque lease token                               | Planned     | Future Store-backed Job composition                                                                                                                   |
-| Current analytic projection                    | Assignment/timing generation plus an active lease                        | Planned     | Future Store-backed scoring and analysis composition                                                                                                  |
-| Published Question Revision                    | Immutable revision rows created from an exact Draft Question Edit Number | Planned     | Future Store-backed published Question composition                                                                                                    |
-| Cross-system object inventory Check and Repair | Object Storage Check and Repair job                                      | Planned     | [release completion plan](active_plans/active/release_completion_plan.md)                                                                             |
+| State or decision                              | Authoritative owner                                                                | Status      | Main implementation owner                                                                                                                             |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Account identity and row access                | `AuthenticatedSession`, transaction-local forced PostgreSQL RLS                    | Implemented | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security), [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
+| Mutable authoring and assignment state         | Draft Question Edit Number and Assignment Edit Number preconditions                | Planned     | Future Store-backed authoring and Course Instance composition                                                                                         |
+| Student submission outcome                     | Attempt-scoped idempotency and append-only evidence                                | Planned     | Future Store-backed Student delivery composition                                                                                                      |
+| Background work ownership                      | PostgreSQL Job row plus opaque lease token                                         | Planned     | Future Store-backed Job composition                                                                                                                   |
+| Current analytic projection                    | Assignment/timing generation plus an active lease                                  | Planned     | Future Store-backed scoring and analysis composition                                                                                                  |
+| Published Question Revision                    | Independent immutable source rows created from an exact Draft Question Edit Number | Planned     | Future Store-backed publication with parallel draft/published metadata and separate source registrations                                              |
+| Cross-system object inventory Check and Repair | Object Storage Check and Repair job                                                | Planned     | [release completion plan](active_plans/active/release_completion_plan.md)                                                                             |
 
 ## Account-scoped transactions and retries
 
@@ -123,16 +123,19 @@ Required behavior:
 
 ### Publication race
 
-Publication consumes one exact workspace draft revision and mints a new
-immutable published question with a fresh Question ID and hidden exact pair. It
-locks the draft row, checks its payload and revision, checks publisher
-ownership, then writes the immutable published-Question facts in the same transaction. A
+Publication consumes one exact Draft Question Edit Number and mints an immutable
+Question Revision under the selected stable Question ID, or creates a new
+Published Question lineage when publication establishes a new Question. It
+locks the draft row, checks its source and Edit Number, checks publisher
+ownership, then writes the immutable revision facts and accepted Published
+Question metadata in the same transaction. A
 concurrent edit or a second publication request cannot silently publish a
 different draft. The publication and assignment-reference constraints are
 described in [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
 
-Published content is never corrected in place. A correction publishes a new
-question; existing assignments and issued attempts retain their pinned exact
+Question Revision source is never corrected in place. A source correction
+publishes a new Question Revision; a Title or Description correction updates
+the stable Published Question metadata. Existing assignments and issued attempts retain their pinned exact
 evidence. This makes a race observable as an explicit conflict or a new
 immutable publication, never as changed historical question content.
 

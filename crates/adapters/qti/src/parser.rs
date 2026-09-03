@@ -21,7 +21,7 @@ use uuid::Uuid;
 const MANIFEST_PATH: &str = "imsmanifest.xml";
 
 use crate::archive::{BoundedArchiveEntries, read_bounded_archive, validate_relative_reference};
-use crate::model::{ArchivedQtiPackage, QtiGradingHandoff};
+use crate::model::{ArchivedQtiPackage, QtiImportAnswerBinding};
 pub use crate::model::{
     ImportedQtiPackage, ImportedQtiQuestion, QtiAssetObject, QtiAssetReferenceError,
     QtiImportError, QtiImportLimits, QtiItemImportResult, QtiItemImportStatus, QtiManifest,
@@ -51,7 +51,7 @@ impl QtiImporter {
         )?;
         let mut unsupported_features = unsupported_manifest_resources(&manifest);
         let mut questions = Vec::new();
-        let mut grading = BTreeMap::new();
+        let mut answer_bindings = BTreeMap::new();
         let mut assets = BTreeMap::new();
         let mut referenced = BTreeSet::new();
         let mut item_results = Vec::new();
@@ -166,7 +166,7 @@ impl QtiImporter {
                         status: QtiItemImportStatus::Accepted,
                         warnings,
                     });
-                    grading.insert(question.item_id.clone(), correct);
+                    answer_bindings.insert(question.item_id.clone(), correct);
                     questions.push(question);
                 }
                 Err(feature) => {
@@ -205,8 +205,8 @@ impl QtiImporter {
             assets: assets.into_values().collect(),
             unsupported: unsupported_features,
             item_results,
-            grading: QtiGradingHandoff {
-                choices_by_item: grading,
+            answer_binding: QtiImportAnswerBinding {
+                choices_by_item: answer_bindings,
             },
         })
     }

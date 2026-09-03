@@ -10,7 +10,7 @@ import {
   type RouteId,
 } from "./route_contract";
 
-function canUseAuthoringTools(state: SessionBootstrapState): boolean {
+function canViewQuestionDrafts(state: SessionBootstrapState): boolean {
   return canAccessRoute(state, "workspaceList");
 }
 
@@ -166,9 +166,9 @@ export function App(props: RouteSectionProps): JSX.Element {
               Blueprint Courses
             </A>
           </Show>
-          <Show when={canUseAuthoringTools(session.state())}>
+          <Show when={canViewQuestionDrafts(session.state())}>
             <A href="/workspace" activeClass="active">
-              Workspace
+              My Question Drafts
             </A>
           </Show>
           <Show when={session.state().kind === "authenticated"}>

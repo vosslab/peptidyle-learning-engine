@@ -1,6 +1,7 @@
 # PLE Question JSON
 
-Status: accepted schema-version-2 source contract. Schema version 2 implements all eight required
+Status: current PLE Question JSON version-3 source-reader contract. Version 3 is the sole reader and
+implements all eight required
 PLE Question JSON Question Types through strict parsing, answer-free compilation,
 publication validation, student rendering, response validation, and isolated
 server grading.
@@ -12,7 +13,7 @@ questions. The contract is named **PLE Question JSON**, not QTI JSON. QTI
 is an import/export adapter and archival interchange format; it does not define
 the internal model.
 
-Version 2 uses a closed type-specific `response` object. PLE does not add QTI
+Version 3 uses a closed type-specific `response` object. PLE does not add QTI
 expression trees, arbitrary response processing, or vendor extension containers.
 
 ## Required Question Type roadmap
@@ -28,7 +29,7 @@ The complete product must support at least these eight PLE Question JSON Questio
 - ordered list (ORDER); and
 - image hot spot (HOTSPOT).
 
-Version 2 is based on the lossless semantics of QTI Package Maker's `MC`,
+Version 3 is based on the lossless semantics of QTI Package Maker's `MC`,
 `MA`, `MATCH`, `NUM`, `FIB`, `MULTI_FIB`, and `ORDER` item models: visible content and stable item
 identifiers compile separately from accepted answers. PLE adds one bounded
 `hotspot` extension because the reviewed QTI Package Maker model does not
@@ -38,12 +39,12 @@ scope.
 This is an internal PLE source contract, not an implementation of a missing or
 future external QTI-JSONL specification. A later QTI-JSONL adapter may map an
 accepted external record into these public/private compiler outputs, but it
-must not silently reinterpret v2 source bytes.
+must not silently reinterpret v3 source bytes.
 
 ## Stored example
 
 The complete accepted record lives in
-`crates/adapters/ple/tests/fixtures/ple_question_json_single_choice_schema_v2.json`.
+`crates/adapters/ple/tests/fixtures/ple_question_json_single_choice_schema_v3.json`.
 Parser and compiler tests load that stored Question data while executable source owns behavior.
 
 Choice IDs are semantic stable identifiers, not display labels such as `A`,
@@ -81,17 +82,17 @@ A QTI Hint request maps to Question Hint even when QTI uses a feedback block as
 its display container. A correct-response declaration supplies private Answer
 Key facts and a trusted source for the display-ready Question Answer. A QTI
 model-solution block maps separately to Question Answer Explanation. A QTI item
-whose adaptive response processing cannot preserve these meanings remains in
-the QTI Question Format or produces an explicit unsupported-feature result. The
-adapter preserves the exact instructional meaning.
+whose adaptive response processing cannot preserve these meanings produces an
+explicit unsupported Workspace Import Item Result and remains in the retained
+QTI import evidence. The adapter preserves the exact instructional meaning.
 
-The current PLE Question JSON schema-version-2 source implements Choice Feedback through
+The current PLE Question JSON schema-version-3 source implements Choice Feedback through
 `response.choices[].feedback`, Correct Feedback through `feedback.correct`, and
 Incorrect Feedback through `feedback.incorrect`. Its accepted-answer members
 compile into the Answer Key. A dedicated Question Answer output, authored
 Question Hint, and authored Question Answer Explanation are open migration
 tasks. Unknown members remain invalid; the dedicated runtime Question Hint
-capability stays separate from the PLE Question JSON schema-version-2 source contract until that
+capability stays separate from the PLE Question JSON schema-version-3 source contract until that
 migration lands.
 
 The current format supports one image-bearing source shape: the HOTSPOT
@@ -102,25 +103,16 @@ Their future image or file support uses explicit Question Hint Asset, Question
 Feedback Asset, Question Answer Asset, or Question Answer Explanation Asset
 relationships and retains the same checksum and accessibility requirements.
 
-## Version 2 contract
+## Version 3 contract
 
-Version 2 keeps the same top-level metadata and policies but places response-specific data
+Version 3 places response-specific data
 inside one closed `response` object. The common top-level members are
-`format`, `version`, `title`, `prompt`, `response`, optional `feedback`,
-`points`, `questionAttemptLimit`, `questionAttemptTimeLimit`, optional `tags`, optional
-`questionLicense`, and `language`. Unknown and duplicate members are
-refused at every level.
-
-`questionAttemptLimit` is closed and contains only `maxAttempts`, which controls the
-retry bound. It does not disclose results, feedback, or answers. Student
-Feedback Release is assignment-owned through the target independent six-field
-`StudentFeedbackReleaseRule`: score, per-item correctness, Question Feedback,
-Question Answer, Question Answer Explanation, and class statistics. Dedicated
-PLE Question JSON authoring and output for Question Answer and Question Answer
-Explanation remain open migration work.
-The server derives Student Feedback for the authorized read. The Assignment
-Revision retains the rule, while the Grading Result and exact Question records
-retain the durable facts.
+`format`, `version`, `title`, `prompt`, `response`, optional `feedback`, optional `tags`, optional
+`questionLicense`, and `language`. Unknown and duplicate members are refused at every level. Points,
+Question Attempt Limit, and Question Attempt Time Limit are not PLE Question JSON source members:
+the exact Assignment Entry owns points and those controls, and its immutable Assignment Revision Entry
+snapshot retains them. Student Feedback Release remains Assignment-owned through the independent
+six-field `StudentFeedbackReleaseRule`.
 
 The eight exact response shapes are:
 
@@ -145,7 +137,7 @@ For example, a matching question is:
 ```json
 {
   "format": "pleQuestionJson",
-  "version": 2,
+  "version": 3,
   "title": "Nucleic-acid sugars",
   "prompt": "Match each nucleic acid with its sugar.",
   "response": {
@@ -163,11 +155,6 @@ For example, a matching question is:
       { "prompt": "rna", "choice": "ribose" }
     ]
   },
-  "points": 2.0,
-  "questionAttemptLimit": {
-    "maxAttempts": null
-  },
-  "questionAttemptTimeLimit": { "kind": "unlimited" },
   "tags": ["nucleic-acids"],
   "questionLicense": "CC-BY-SA-4.0",
   "language": "en-US"
@@ -193,38 +180,35 @@ ordinary-browser-contract, or Wasm payload. The one narrow exception is an
 authenticated author-role instructor requesting that instructor's own private
 workspace source through the dedicated canonical-source `GET`/`PUT` route;
 that route is `no-store`, uses a strong ETag, and does not expose a signed
-object URL or checksum. The PLE Question Backend parses it once and produces two
-independently checksummed values:
+object URL or checksum. The ordinary backend-agnostic authoring and delivery
+operations route the complete source to the PLE Question Backend. That backend
+validates it and derives only the output required by the current operation:
 
 ```text
 answer-bearing PLE JSON
           |
           v
- strict native compiler
+ PLE Question Backend
        /        \
       v          v
-public question  private answer and feedback records
-model            answer key + three feedback forms
+Question         Grading Result and optional
+Presentation     protected teaching content
 ```
 
-| Value                        | Storage and readers                                                                       | Contents                                                                                                              |
-| ---------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Authoring source             | Private workspace source; authenticated author-source route and server-side compiler only | The complete PLE document, including accepted answers, pairings, regions, order, and feedback                         |
-| Published source             | Immutable private Question Source object                                                  | The canonical PLE JSON promoted at publication for source recovery and exact re-import                                |
-| Public compiled model        | Checksummed public Question Revision model                                                | Prompt, choices, policies, points, Question Tags, exact Question License, and language; no answer or private feedback |
-| Private compiled records     | Checksummed grader-only `answer_key` JSONB                                                | Answer Key, Choice Feedback, Correct Feedback, Incorrect Feedback, schema version, and exact public-model binding     |
-| Search and identity metadata | Normal relational columns                                                                 | IDs, title, lifecycle, visibility, and indexed browse fields                                                          |
+| Value                        | Storage and readers                                                                    | Contents                                                                                             |
+| ---------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Authoring source             | Private Draft Question source; authenticated Instructor operation and PLE backend only | The complete PLE document, including accepted answers, pairings, regions, order, and feedback        |
+| Published source             | Immutable private Question Source object                                               | The complete PLE Question JSON frozen for one exact Question Revision                                |
+| Question Presentation        | Shared answer-free issuance contract                                                   | Student-facing prompt, response controls, and presentation bindings derived for the issued variation |
+| Protected derived roles      | Server-side backend and policy-release operations                                      | Format-specific Answer Key, Question Hint, Question Feedback, Question Answer, or explanation        |
+| Search and identity metadata | Normal relational columns                                                              | Question identity, title, lifecycle, availability, attribution, and indexed discovery fields         |
 
-The private Answer Key and Question Feedback record carries the SHA-256 binding
-of the public model. Grading
-refuses a different prompt, choice set, policy, metadata record, Question Format,
-or Question Grading Rule. Authored and published source objects are private source
-records and cannot receive signed delivery URLs. Publication IDs are minted
-only after both compiled halves validate successfully.
-
-This split is more important than the physical JSON representation: a single
-combined JSONB row readable by the student path would violate the grading
-boundary even if the application promised not to serialize certain members.
+The complete Question Source stays on the trusted server boundary. Question
+Presentation supplies the answer-free Student view, while the PLE Question
+Backend evaluates Student Response from the exact issued source. Protected
+roles are format-specific results or views rather than required universal
+database sidecars. Publication creates the Question Revision only after source
+validation succeeds.
 
 ## Why JSON rather than YAML
 
@@ -255,10 +239,9 @@ The native codec currently enforces these bounds:
   digits, `_`, or `-`, are unique, and are at most 64 bytes;
 - prompt, choice, title, tag, language, and Question License text is nonblank and bounded;
 - Choice, Correct, and Incorrect Feedback is optional; when present, it is nonblank and bounded;
-- points are finite and nonnegative, using the shared `f64` score model; and
-- `maxAttempts` is positive or `null` for unlimited attempts.
+- Assignment Entry validates points and attempt/time controls outside this source contract.
 
-The v2 contract additionally enforces exact Question-Type-specific bindings: accepted text
+The v3 contract additionally enforces exact Question-Type-specific bindings: accepted text
 answers are nonempty and unique; multi-blank IDs and answers are complete;
 numeric answers and tolerance parameters are finite; matching binds every
 prompt once to one unique available choice; ordering names every item exactly
@@ -275,36 +258,34 @@ Whitespace and JSON object-member order do not change the canonical checksum.
 
 ## Evolution and QTI adapters
 
-Version 2 is the only current PLE Question Source and reader. Its closed shape is
-parsed exactly: no legacy PLE Question JSON schema-version-1 reader, upcaster, source-byte
-fallback, or republishing path is retained. Additive optional members require
-review against the v2 contract; incompatible future semantics use a new explicit
-version with its own reader and migration plan rather than reinterpreting v2 bytes.
+Version 3 is the sole current PLE Question Source reader. Its closed shape is parsed exactly: no legacy
+reader, upcaster, source-byte fallback, or republishing path is retained. Additive optional members
+require review against the v3 contract; incompatible future semantics use a new explicit version with
+its own reader and migration plan rather than reinterpreting v3 bytes.
 
 Canvas QTI and Blackboard QTI remain separate import/export profiles. Each
 adapter may map the supported PLE Question JSON-supported subset into the same public/private compiler
-outputs, retain the original package as a Question Source with its QTI Import Package Checksum, and record unsupported
-features. Vendor-specific XML is not copied into the PLE Question JSON schema
-merely because one exporter emits it.
+outputs, retain the original QTI package, profile, item reference, mappings, warnings, checksums, and
+vendor points as Workspace Import evidence, and record unsupported features. Vendor-specific XML is not
+copied into the PLE Question JSON schema merely because one exporter emits it.
 
 Vendor classification data remains QTI source-format vocabulary at the adapter
-boundary and in the retained QTI Question Source. PLE Question JSON version 2
+boundary and in the retained Workspace Import evidence. PLE Question JSON version 3
 does not flatten it into a generic `classifications` member or imply a mapping.
 A future Question Classification package may define a mapping only after it
 supports one real Classification System end to end.
 
 The native parser/compiler facade is
-`crates/adapters/ple/src/question_json.rs`; schema-version-2 shapes and
-compilation live in `crates/adapters/ple/src/question_json/schema_v2.rs`.
+`crates/adapters/ple/src/question_json.rs`; schema-version-3 shapes and
+compilation live in `crates/adapters/ple/src/question_json/schema_v3.rs`.
 The persistence boundary is `crates/learning-data-access/src/question_json.rs`
 with focused in-memory and PostgreSQL implementations, and the server owner is
 `crates/server/src/question_json_publication.rs`. The private source saves
 atomically with its typed draft. Future authorized publication atomically
 creates the complete Question Revision-owned Question Source Registration and
-aggregate; it remains unmounted. The runtime obtains private
+aggregate; no publication service or route implements this operation yet. The runtime obtains private
 Answer Keys and Question Grading Input only through an injected grading
-capability. The instructor editor is
-complete; bounded Canvas/Blackboard QTI profile mappings, profile-to-PLE conversion, and their
-live and independent-review gates are accepted. The remaining visual authoring,
-external QTI-JSONL, pilot-content, and hotspot pointer-overlay work is tracked
-without weakening this accepted internal source and runtime contract.
+capability. A future explicitly authored PLE Question JSON Accessibility Alternative relationship may serve a Question
+whose primary source uses WeBWorK, iMathAS, H5P, or another registered technology. That future
+relationship remains separate implementation work. Current QTI work maps supported flat imports into
+PLE Question JSON while retaining exact Workspace Import evidence.

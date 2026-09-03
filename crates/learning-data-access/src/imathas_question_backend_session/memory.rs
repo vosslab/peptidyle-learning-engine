@@ -2,7 +2,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use question_model::{AccountId, CourseId, QuestionAttemptId, QuestionSubmissionId, Timestamp};
+use question_model::{
+    AccountId, CourseId, IssuedQuestion, QuestionAttemptId, QuestionSubmissionId, Timestamp,
+};
 use uuid::Uuid;
 
 use crate::{ImathasQuestionBackendSessionStore, SessionTokenHash, StoreError};
@@ -17,7 +19,7 @@ use super::{
     ImathasResultChecksum, ImathasResultExchangeIdempotencyKey, ImathasResultTokenChecksum, JobId,
     LoadedImathasQuestionBackendSession, MAX_IMATHAS_GRADING_JOB_LEASE_MILLIS,
     QuestionSubmissionGradingId, StageVerifiedImathasResult, StagedImathasResultReceipt,
-    automated_grading_receipt_checksum_v1, derive_imathas_question_backend_grading_result,
+    automated_grading_receipt_checksum_v1, derive_imathas_question_backend_evaluation,
 };
 
 pub struct MemoryImathasQuestionBackendSessionStore {
@@ -29,6 +31,7 @@ struct MemoryState {
     now: Timestamp,
     authenticated_accounts: BTreeMap<SessionTokenHash, AccountId>,
     active_student_authorizations: BTreeSet<(AccountId, CourseId, QuestionAttemptId)>,
+    issued_questions: BTreeMap<QuestionAttemptId, IssuedQuestion>,
     records:
         BTreeMap<ImathasQuestionBackendSessionReference, MemoryImathasQuestionBackendSessionRecord>,
     used_nonces: BTreeSet<(
@@ -58,6 +61,7 @@ impl MemoryImathasQuestionBackendSessionStore {
                 now,
                 authenticated_accounts: BTreeMap::new(),
                 active_student_authorizations: BTreeSet::new(),
+                issued_questions: BTreeMap::new(),
                 records: BTreeMap::new(),
                 used_nonces: BTreeSet::new(),
             }),
@@ -83,6 +87,29 @@ impl MemoryImathasQuestionBackendSessionStore {
             .expect("memory imathas-question-backend session store lock")
             .active_student_authorizations
             .insert((account, course, question_attempt));
+    }
+
+    /// Test-support resolver for the immutable Issued Question snapshot.
+    pub fn install_issued_question_scoring_snapshot(
+        &self,
+        question_attempt: QuestionAttemptId,
+        issued_question: IssuedQuestion,
+    ) -> Result<(), StoreError> {
+        let mut state = self.state.lock().map_err(|_| {
+            StoreError::Unavailable(
+                "memory imathas-question-backend session store lock unavailable".into(),
+            )
+        })?;
+        match state.issued_questions.get(&question_attempt) {
+            Some(existing) if existing == &issued_question => Ok(()),
+            Some(_) => Err(StoreError::Conflict),
+            None => {
+                state
+                    .issued_questions
+                    .insert(question_attempt, issued_question);
+                Ok(())
+            }
+        }
     }
 
     pub fn revoke_active_student_authorization(
@@ -164,6 +191,12 @@ impl ImathasQuestionBackendSessionStore for MemoryImathasQuestionBackendSessionS
             create.course,
             create.grading_context.question_attempt(),
         )?;
+        if !state
+            .issued_questions
+            .contains_key(&create.grading_context.question_attempt())
+        {
+            return Err(StoreError::NotFound);
+        }
         if create.issued_at > state.now || create.expires_at <= state.now {
             return Err(StoreError::Conflict);
         }
@@ -396,6 +429,22 @@ impl ImathasQuestionBackendSessionStore for MemoryImathasQuestionBackendSessionS
             )
         })?;
         let now = state.now;
+        let question_attempt = state
+            .records
+            .values()
+            .find(|record| {
+                record
+                    .exchange
+                    .as_ref()
+                    .is_some_and(|exchange| exchange.grading_job_id == command.lease.grading_job_id)
+            })
+            .map(|record| record.session.grading_context.question_attempt())
+            .ok_or(StoreError::NotFound)?;
+        let issued_question = state
+            .issued_questions
+            .get(&question_attempt)
+            .cloned()
+            .ok_or(StoreError::NotFound)?;
         let record = state
             .records
             .values_mut()
@@ -423,10 +472,11 @@ impl ImathasQuestionBackendSessionStore for MemoryImathasQuestionBackendSessionS
         }
         let id = AutomatedGradingReceiptId::generate()?;
         let grading_result_id = GradingResultId::generate()?;
-        let grading_result = derive_imathas_question_backend_grading_result(
-            &exchange.imathas_result,
-            record.session.question_grading_rule(),
-        )?;
+        let evaluation = derive_imathas_question_backend_evaluation(&exchange.imathas_result)?;
+        let grading_result = question_model::GradingResult::from_issued_question_evaluation(
+            &issued_question,
+            evaluation,
+        );
         let receipt = AutomatedGradingReceipt {
             id,
             checksum: automated_grading_receipt_checksum_v1(

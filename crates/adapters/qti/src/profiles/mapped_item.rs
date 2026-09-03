@@ -10,8 +10,8 @@ use super::normalized_fingerprint::{
 use super::report::{
     MAX_CHOICE_TEXT_CHARS, MAX_PROMPT_CHARS, MAX_SAFE_DIAGNOSTICS,
     MAX_SAFE_SOURCE_IDENTIFIER_CHARS, MAX_SAFE_SOURCE_LOCATION_CHARS, MAX_SAFE_TITLE_CHARS,
-    QtiMappedPoints, QtiPleDefault, QtiSafeDiagnostic, QtiSafeItemReport, QtiSafeItemStatus,
-    char_count,
+    QtiPleDefault, QtiSafeDiagnostic, QtiSafeItemReport, QtiSafeItemStatus,
+    QtiVendorPointsEvidence, char_count,
 };
 use super::server_parts::QtiMappedItemServerParts;
 use super::{
@@ -132,7 +132,7 @@ impl QtiMappedItem {
         title: String,
         prompt_markdown: String,
         choices: Vec<QtiPublicChoiceChecksumInput>,
-        points: QtiMappedPoints,
+        points: QtiVendorPointsEvidence,
         choice_map: Vec<QtiChoiceIdMap>,
         correct_vendor_choice_id: String,
     ) -> Result<Self, QtiMappedItemError> {
@@ -156,7 +156,8 @@ impl QtiMappedItem {
             return Err(QtiMappedItemError::PromptTooLong);
         }
         validate_choices(&choices)?;
-        let blackboard_defaulted_points = matches!(points, QtiMappedPoints::BlackboardDefaulted);
+        let blackboard_defaulted_points =
+            matches!(points, QtiVendorPointsEvidence::BlackboardDefaulted);
         let (points, warnings, safe_warnings) = points.resolve(profile)?;
         validate_choice_map(&choices, &choice_map, &correct_vendor_choice_id)?;
 
@@ -197,7 +198,7 @@ impl QtiMappedItem {
             title: title.clone(),
             prompt_markdown,
             choices,
-            points,
+            vendor_points: points,
             defaults: defaults.clone(),
             warnings: warnings.clone(),
         };

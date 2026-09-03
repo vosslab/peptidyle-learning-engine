@@ -4,16 +4,5 @@
 //! This crate receives verified bytes only: it never receives an Object Address,
 //! a URL, account-ownership information, or an answer key.
 
-/// Microsoft Word output.
-pub mod docx;
-/// PDF output.
-pub mod pdf;
-
-mod print_exam;
-
-pub use crate::print_exam::{
-    ExportArtifact, ExportBundle, ExportabilityError, PrintExam, PrintLayout, PrintQuestion,
-    PrintableAsset, TrustedAssetResolver, UnexportableQuestion,
-};
-
-pub(crate) use crate::print_exam::{FlowBlock, exam_flow};
+//! Export is intentionally unmounted until a format-specific print contract
+//! replaces the retired generic Question source input.

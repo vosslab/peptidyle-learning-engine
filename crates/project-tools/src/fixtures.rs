@@ -9,15 +9,11 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-use adapter_ple::{PleQuestionBackend, QuestionAssetObjectReference};
 use anyhow::{Context, Result, bail, ensure};
-use grading::QuestionGradingOutcome;
-use question_model::question_content::{DraftQuestionContent, QuestionRevision};
 use question_model::{
     AssignmentAttempt, AssignmentGrade, AssignmentProgressRecord, AssignmentSummary,
-    GradebookSummaryRow, IssuedQuestion, QuestionAttempt, QuestionBackend, QuestionFormat,
-    QuestionRevisionReference, QuestionSummary, SourceObjectChecksum, SourceObjectReference,
-    StudentRecordId,
+    GradebookSummaryRow, IssuedQuestion, QuestionAttempt, QuestionRevisionReference,
+    QuestionSummary, SourceObjectChecksum, SourceObjectReference, StudentRecordId,
 };
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -40,7 +36,6 @@ pub struct Report {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FixtureAsset {
-    id: question_model::QuestionAssetId,
     object: question_model::ObjectId,
     filename: String,
     media_type: String,
@@ -55,8 +50,6 @@ struct StoredFixtureSet {
     source_object_reference: SourceObjectReference,
     source_object_checksum: SourceObjectChecksum,
     question_summary: QuestionSummary,
-    published_question_revision: QuestionRevision,
-    draft: DraftQuestionContent,
     assets: Vec<FixtureAsset>,
     course: question_model::CourseSummary,
     assignment: AssignmentSummary,
@@ -123,37 +116,6 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
         validate_asset(&asset_root, asset)?;
     }
 
-    let adapter = PleQuestionBackend::new();
-    ensure!(
-        fixture_set.published_question_revision.question_backend == QuestionBackend::Ple,
-        "stored published Question must use the PLE Question Backend"
-    );
-    ensure!(
-        fixture_set.question_summary.metadata == fixture_set.published_question_revision.metadata,
-        "Question summary metadata must match the stored published Question"
-    );
-    ensure!(
-        fixture_set.question_summary.question_type
-            == fixture_set.published_question_revision.question_type,
-        "Question summary type must match the stored published Question"
-    );
-    ensure!(
-        fixture_set.question_summary.latest_question_revision
-            == QuestionRevisionReference {
-                question_id: fixture_set.published_question_revision.question_id.clone(),
-                revision_number: fixture_set.published_question_revision.revision_number,
-            },
-        "Question Summary Latest Question Revision must match the stored published Question Revision"
-    );
-    ensure!(
-        fixture_set.question_summary.capabilities
-            == adapter.capabilities(&fixture_set.published_question_revision)?,
-        "Question summary capabilities must derive from the stored published Question"
-    );
-    ensure!(
-        fixture_set.draft.workspace == fixture_set.published_question_revision.workspace,
-        "stored Draft Question and Published Question must share their Authoring Workspace"
-    );
     ensure!(
         fixture_set.course.id == fixture_set.assignment.course_id,
         "stored Assignment must belong to the stored Course Instance"
@@ -198,9 +160,39 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
                 .any(|issued_question| issued_question.id == attempt.issued_question),
             "Question Attempt references an absent Issued Question"
         );
+        ensure!(
+            attempt
+                .reproduction_details
+                .source_object_reference
+                .as_ref()
+                == Some(&fixture_set.source_object_reference)
+                && attempt.reproduction_details.source_object_checksum.as_ref()
+                    == Some(&fixture_set.source_object_checksum),
+            "Question Attempt reproduction must retain the fixture source identity"
+        );
+        ensure!(
+            attempt.reproduction_details.asset_objects
+                == fixture_set
+                    .assets
+                    .iter()
+                    .map(|asset| asset.object)
+                    .collect::<Vec<_>>(),
+            "Question Attempt reproduction must retain the fixture asset objects"
+        );
     }
 
-    reproduce_and_grade(fixture_set, &adapter)
+    ensure!(
+        fixture_set.question_summary.latest_question_revision
+            == QuestionRevisionReference {
+                question_id: fixture_set.question_summary.question_id.clone(),
+                revision_number: fixture_set
+                    .question_summary
+                    .latest_question_revision
+                    .revision_number,
+            },
+        "Question Summary Latest Question Revision must name its Question lineage"
+    );
+    Ok(())
 }
 
 fn validate_asset(asset_root: &Path, asset: &FixtureAsset) -> Result<()> {
@@ -273,83 +265,6 @@ fn read_bounded(path: &Path, maximum: u64) -> Result<Vec<u8>> {
         maximum
     );
     fs::read(path).with_context(|| format!("reading {}", path.display()))
-}
-
-fn question_asset_object_references(assets: &[FixtureAsset]) -> Vec<QuestionAssetObjectReference> {
-    assets
-        .iter()
-        .map(|asset| QuestionAssetObjectReference {
-            question_asset: asset.id,
-            object_reference: asset.object,
-        })
-        .collect()
-}
-
-fn reproduce_and_grade(fixture_set: &StoredFixtureSet, adapter: &PleQuestionBackend) -> Result<()> {
-    let question_asset_object_references = question_asset_object_references(&fixture_set.assets);
-    for attempt in &fixture_set.attempts {
-        ensure!(
-            attempt
-                .reproduction_details
-                .source_object_reference
-                .as_ref()
-                == Some(&fixture_set.source_object_reference),
-            "PLE stored fixture must carry its exact Source Object Reference"
-        );
-        ensure!(
-            attempt.reproduction_details.source_object_checksum.as_ref()
-                == Some(&fixture_set.source_object_checksum),
-            "PLE stored fixture must carry its exact Source Object Checksum"
-        );
-        let presentation = adapter.reproduce(
-            &fixture_set.published_question_revision,
-            attempt.question_seed,
-            &attempt.reproduction_details,
-            &question_asset_object_references,
-        )?;
-        ensure!(
-            presentation.variation.question_revision
-                == QuestionRevisionReference {
-                    question_id: fixture_set.published_question_revision.question_id.clone(),
-                    revision_number: fixture_set.published_question_revision.revision_number,
-                },
-            "reproduced fixture uses a different Question Revision"
-        );
-
-        if let Some(submission) = &attempt.submission {
-            if fixture_set.published_question_revision.question_format
-                == QuestionFormat::PleQuestionJson
-            {
-                // Static PLE Question JSON keeps its Answer Key in the verified
-                // immutable source object. This fixture validates public
-                // reproduction here; the resolved-source adapter test validates
-                // private-key grading from those exact bytes.
-                ensure!(
-                    submission.grading_result.is_some(),
-                    "a static PLE Question JSON fixture submission must retain its recorded grade"
-                );
-                continue;
-            }
-            let outcome = adapter.grade(
-                &fixture_set.published_question_revision,
-                attempt.question_seed,
-                &attempt.reproduction_details,
-                &question_asset_object_references,
-                &submission.response,
-            )?;
-            match submission.grading_result {
-                Some(recorded_result) => ensure!(
-                    outcome == QuestionGradingOutcome::Graded(recorded_result),
-                    "stored Grading Result does not reproduce"
-                ),
-                None => ensure!(
-                    outcome == QuestionGradingOutcome::Ungraded,
-                    "an accepted ungraded Question Submission must not fabricate a Grading Result"
-                ),
-            }
-        }
-    }
-    Ok(())
 }
 
 fn sha256(bytes: &[u8]) -> String {

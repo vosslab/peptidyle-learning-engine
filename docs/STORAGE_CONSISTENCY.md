@@ -50,7 +50,7 @@ Public assets are the exception to the simple bytes-first protocol because a fin
 - one `AssetPublication::Pending` registry record per public asset; and
 - a closed `PublishPublicAssets { question_id, revision_number }` job.
 
-The registry points at its final immutable `PublicAssets` key but the `Pending` state has no public delivery. The dedicated publisher re-resolves records from the database under the active job lease, validates that each source is an exact allowed private workspace asset, reads and re-hashes the source, and writes the final public object. It never trusts queue-provided object bytes or a browser-provided path.
+The registry points at its final immutable `PublicAssets` key but the `Pending` state has no public delivery. The dedicated publisher re-resolves records from the database under the active job lease, validates that each input is an exact Question Revision-owned private source or asset created by publication, reads and re-hashes it, and writes the final public object. It never resolves through a Draft Question or Authoring Workspace path and never trusts queue-provided object bytes or a browser-provided path.
 
 After the publisher writes and verifies every public object, a lease-conditional database function performs the mechanical `Pending -> Ready` transitions and job completion in one database transaction. If the worker crashes after a public write but before activation, the retry accepts only an exactly matching immutable object then activates it. If it crashes before the write, the pending registry stays unavailable and the leased job is retried. Thus no pre-commit CDN orphan is created, and public visibility always follows a committed Question Library decision.
 

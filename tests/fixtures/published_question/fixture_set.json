@@ -30,177 +30,6 @@
     },
     "publishedAt": 1786000000000
   },
-  "publishedQuestionRevision": {
-    "questionId": "7K3-M9QP",
-    "revisionNumber": 1,
-    "workspace": "0198e000-0000-7000-8000-000000000002",
-    "questionBackend": "ple",
-    "webworkPgPath": null,
-    "qtiPackageItemIdentifier": null,
-    "imathasQuestionBackendBinding": null,
-    "questionFormat": "pleQuestionJson",
-    "questionType": "multipleChoice",
-    "prompt": [
-      {
-        "kind": "text",
-        "markdown": "Which bond has restricted rotation because resonance gives it partial double-bond character?"
-      },
-      {
-        "kind": "image",
-        "asset": {
-          "asset": "0198e000-0000-7000-8000-000000000010",
-          "checksum": "9d6816fe63b5a1410e9e94c132c42029445cc26e0310bcb468c0d14aa218801b"
-        },
-        "description": "Structural formula highlighting the carbonyl carbon-to-nitrogen bond."
-      },
-      {
-        "kind": "image",
-        "asset": {
-          "asset": "0198e000-0000-7000-8000-000000000012",
-          "checksum": "bdb2582fd499b6d020e3d972f0c1bfcb5124977ecfe9a9f87e3a7e554543623b"
-        },
-        "description": "The six atoms of a peptide group shown in one plane."
-      }
-    ],
-    "response": {
-      "kind": "multipleChoice",
-      "choices": [
-        {
-          "id": "amide",
-          "body": [
-            {
-              "kind": "text",
-              "markdown": "The carbonyl carbon-to-nitrogen bond"
-            }
-          ]
-        },
-        {
-          "id": "carbonyl",
-          "body": [
-            {
-              "kind": "text",
-              "markdown": "The carbonyl carbon-to-oxygen bond"
-            }
-          ]
-        },
-        {
-          "id": "alpha-carbon",
-          "body": [
-            {
-              "kind": "text",
-              "markdown": "The nitrogen-to-alpha-carbon bond"
-            }
-          ]
-        }
-      ],
-      "selection": {
-        "kind": "exactlyOne"
-      }
-    },
-    "questionAttemptLimit": {
-      "maxAttempts": null
-    },
-    "questionAttemptTimeLimit": {
-      "kind": "unlimited"
-    },
-    "grading": {
-      "mode": "allOrNothing",
-      "points": 1
-    },
-    "metadata": {
-      "title": "Peptide bond resonance and planarity",
-      "questionDescription": "Instructor-facing discovery summary for peptide-bond resonance and planarity.",
-      "tags": ["biochemistry", "protein-structure"],
-      "questionLicense": "CC-BY-4.0",
-      "questionCitation": null,
-      "language": "en-US"
-    }
-  },
-  "draft": {
-    "workspace": "0198e000-0000-7000-8000-000000000002",
-    "questionBackend": "ple",
-    "webworkPgPath": null,
-    "qtiPackageItemIdentifier": null,
-    "workspaceImportId": null,
-    "draftImathasQuestionBackendBinding": null,
-    "questionFormat": "pleQuestionJson",
-    "questionType": "multipleChoice",
-    "prompt": [
-      {
-        "kind": "text",
-        "markdown": "Which bond has restricted rotation because resonance gives it partial double-bond character?"
-      },
-      {
-        "kind": "image",
-        "asset": {
-          "asset": "0198e000-0000-7000-8000-000000000010",
-          "checksum": "9d6816fe63b5a1410e9e94c132c42029445cc26e0310bcb468c0d14aa218801b"
-        },
-        "description": "Structural formula highlighting the carbonyl carbon-to-nitrogen bond."
-      },
-      {
-        "kind": "image",
-        "asset": {
-          "asset": "0198e000-0000-7000-8000-000000000012",
-          "checksum": "bdb2582fd499b6d020e3d972f0c1bfcb5124977ecfe9a9f87e3a7e554543623b"
-        },
-        "description": "The six atoms of a peptide group shown in one plane."
-      }
-    ],
-    "response": {
-      "kind": "multipleChoice",
-      "choices": [
-        {
-          "id": "amide",
-          "body": [
-            {
-              "kind": "text",
-              "markdown": "The carbonyl carbon-to-nitrogen bond"
-            }
-          ]
-        },
-        {
-          "id": "carbonyl",
-          "body": [
-            {
-              "kind": "text",
-              "markdown": "The carbonyl carbon-to-oxygen bond"
-            }
-          ]
-        },
-        {
-          "id": "alpha-carbon",
-          "body": [
-            {
-              "kind": "text",
-              "markdown": "The nitrogen-to-alpha-carbon bond"
-            }
-          ]
-        }
-      ],
-      "selection": {
-        "kind": "exactlyOne"
-      }
-    },
-    "questionAttemptLimit": {
-      "maxAttempts": null
-    },
-    "questionAttemptTimeLimit": {
-      "kind": "unlimited"
-    },
-    "grading": {
-      "mode": "allOrNothing",
-      "points": 1
-    },
-    "metadata": {
-      "title": "Draft: peptide resonance wording revision",
-      "questionDescription": "Instructor-facing discovery summary for a peptide-resonance wording revision.",
-      "tags": ["biochemistry", "protein-structure"],
-      "questionLicense": "CC-BY-4.0",
-      "questionCitation": null,
-      "language": "en-US"
-    }
-  },
   "assets": [
     {
       "id": "0198e000-0000-7000-8000-000000000010",
@@ -249,7 +78,13 @@
         ],
         "pointsPossible": "1",
         "availability": "available",
-        "scoringRule": "normal"
+        "scoringRule": "normal",
+        "questionAttemptLimit": {
+          "maxAttempts": null
+        },
+        "questionAttemptTimeLimit": {
+          "kind": "unlimited"
+        }
       }
     ],
     "disclosurePolicy": {

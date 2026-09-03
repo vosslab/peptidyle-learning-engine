@@ -81,14 +81,6 @@ impl StageVerifiedImathasResult {
         {
             return Err(StoreError::Forbidden);
         }
-        if matches!(
-            lease.expectation.question_grading_rule,
-            QuestionGradingRule::Ungraded
-        ) {
-            return Err(StoreError::InvalidRecord(
-                "Ungraded Question Grading Rule cannot stage a iMathAS Result".into(),
-            ));
-        }
         Ok(Self {
             lease,
             idempotency_key,
@@ -356,7 +348,7 @@ impl std::fmt::Debug for LoadedImathasQuestionBackendSession {
     }
 }
 use objects::Sha256Checksum;
-use question_model::{QuestionAttemptId, QuestionGradingRule, QuestionSubmissionId, Timestamp};
+use question_model::{QuestionAttemptId, QuestionSubmissionId, Timestamp};
 use uuid::Uuid;
 
 use crate::StoreError;

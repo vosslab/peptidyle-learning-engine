@@ -123,16 +123,16 @@ seed; only a newly issued instance receives a fresh one.
 PLE currently stores the independent policies below. The recommended mastery configuration is an
 explicit composition of those existing values, not a hidden special case:
 
-| Concern                  | Recommended mastery value     | Student meaning                                                                                             |
-| ------------------------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Completion               | `AllCorrect`                  | Keep working until every required question is correct                                                       |
-| Grade                    | `Highest`                     | Further practice cannot lower the recorded best score                                                       |
-| Continued practice       | `Unlimited`                   | Start another Assignment Attempt after completion whenever useful                                           |
-| Question Pool Reuse Rule | `ReuseSelection`              | Keep the selected Questions from the prior Question Pool Selection                                          |
-| Question Variation Rule  | `NewVariation`                | Use fresh generated values for the selected Questions                                                       |
-| Question attempts        | `max_attempts: None`          | Retry a question until correct                                                                              |
-| Student disclosure       | All six fields `AfterSubmit`  | See the selected score, correctness, Question Feedback, Question Answer, Question Answer Explanation, and permitted statistics after submitting |
-| Timing                   | `Untimed`                     | Work at a learning pace rather than against a clock                                                         |
+| Concern                  | Recommended mastery value    | Student meaning                                                                                                                                 |
+| ------------------------ | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Completion               | `AllCorrect`                 | Keep working until every required question is correct                                                                                           |
+| Grade                    | `Highest`                    | Further practice cannot lower the recorded best score                                                                                           |
+| Continued practice       | `Unlimited`                  | Start another Assignment Attempt after completion whenever useful                                                                               |
+| Question Pool Reuse Rule | `ReuseSelection`             | Keep the selected Questions from the prior Question Pool Selection                                                                              |
+| Question Variation Rule  | `NewVariation`               | Use fresh generated values for the selected Questions                                                                                           |
+| Question attempts        | `max_attempts: None`         | Retry a question until correct                                                                                                                  |
+| Student disclosure       | All six fields `AfterSubmit` | See the selected score, correctness, Question Feedback, Question Answer, Question Answer Explanation, and permitted statistics after submitting |
+| Timing                   | `Untimed`                    | Work at a learning pace rather than against a clock                                                                                             |
 
 The first four fields are assignment `AssignmentActivityRules`. The Assignment also owns the six independent
 Student Feedback Release timings. Attempt count and Question timer are immutable properties of the selected
@@ -181,7 +181,10 @@ integration returns with the fresh course-delivery reconstruction.
 
 ### Time is server-owned
 
-`QuestionAttemptTimeLimit` supports untimed, per-question, and per-attempt limits with an explicit grace period.
+Fixed and Question Pool Assignment Entries own `QuestionAttemptTimeLimit` for one Question Attempt,
+with nullable positive seconds and nullable nonnegative paired grace in the immutable Assignment
+Revision Entry snapshot. Assignment-wide BaseAssignmentPolicy time controls remain distinct. The
+current source models still duplicate QuestionAttemptTimeLimit pending their next source-model cut.
 The browser displays remaining time, but only server-issued timestamps and the server timing verdict
 can accept, auto-submit, or reject work. Effective Assignment Policy separately controls visibility,
 availability, due date, closing date, late treatment, whole Assignment Attempt limits, and Assignment Attempt caps through Assignment Access. This is why a
@@ -211,7 +214,7 @@ claim that an older coarse feedback bundle is directly representable.
 
 | Activity type              | Default intent                                              | Proposed policy bundle                                                                                                                                                | Status                                                                                                                 |
 | -------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Mastery                    | Repeated practice until dependable                          | `AllCorrect`, `Highest`, `Unlimited`, `NewSeeds`; untimed; all six Student Feedback Release fields each `AfterSubmit`                                                | Fully representable today; chooser is planned                                                                          |
+| Mastery                    | Repeated practice until dependable                          | `AllCorrect`, `Highest`, `Unlimited`, `NewSeeds`; untimed; all six Student Feedback Release fields each `AfterSubmit`                                                 | Fully representable today; chooser is planned                                                                          |
 | Standard graded assignment | Complete the assigned work once under ordinary course rules | `AnswerAll`, `Latest`, `Closed`; each of the six assignment disclosure fields set deliberately, for example all `AfterSubmit`                                         | Fully representable today; chooser is planned                                                                          |
 | Exam                       | Controlled single-Assignment-Attempt assessment             | `AnswerAll`, `Latest`, `Closed`; restricted Question Attempts and server timing; each disclosure field explicitly `AfterDue`, `AfterClose`, or `Never` as appropriate | Fully representable today; chooser is planned                                                                          |
 | Practice                   | Low-stakes repeated work                                    | `AnswerAll`, `Unlimited`, `NewSeeds`; each of the six Assignment disclosure fields explicitly selected for learning                                                   | Continued Assignment Attempts are representable; an explicit no-grade / Gradebook-visibility policy is not yet modeled |

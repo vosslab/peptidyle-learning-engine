@@ -7,13 +7,11 @@ import type { QuestionBackendCapabilities } from "../../generated/api/QuestionBa
 import type { Capability } from "../../generated/api/Capability";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
 import type { QuestionPresentationResponseFormat } from "../../generated/api/QuestionPresentationResponseFormat";
-import type { QuestionRevision } from "../../generated/api/QuestionRevision";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { QuestionPresentationToken } from "../../generated/api/QuestionPresentationToken";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { DraftImathasQuestionBackendBinding } from "../../generated/api/DraftImathasQuestionBackendBinding";
-import type { WorkspaceImportId } from "../../generated/api/WorkspaceImportId";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
@@ -73,8 +71,8 @@ export type TimerEvaluator = (
 ) => Promise<QuestionAttemptTimingDecision>;
 
 export interface AssignmentQuestionConfig {
-  readonly question: QuestionRevision;
-  readonly backendCapabilities: QuestionBackendCapabilities;
+  readonly question: QuestionRevisionReference;
+  readonly questionBackendCapabilities: QuestionBackendCapabilities;
 }
 
 export interface AssignmentConfig {
@@ -96,8 +94,6 @@ export interface PleDraftPreviewRequest {
   readonly workspace: string;
   readonly questionBackend: QuestionBackend;
   readonly webworkPgPath: string | null;
-  readonly qtiPackageItemIdentifier: string | null;
-  readonly workspaceImportId: WorkspaceImportId | null;
   readonly draftImathasQuestionBackendBinding: DraftImathasQuestionBackendBinding | null;
   readonly title: string;
   readonly prompt: ReadonlyArray<QuestionContentBlock>;
@@ -193,7 +189,6 @@ function parseQuestionBackend(value: unknown): QuestionBackend {
   switch (value) {
     case "ple":
     case "webwork":
-    case "qti":
     case "imathas":
       return value;
     default:

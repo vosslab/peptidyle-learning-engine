@@ -66,7 +66,6 @@ function decodeQuestionSearchBackendFacet(
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
       "ple",
       "webwork",
-      "qti",
       "imathas",
     ]),
     count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),

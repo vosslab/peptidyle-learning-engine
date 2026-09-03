@@ -11,8 +11,8 @@ use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::generation::QuestionSeed;
 use question_model::{
     QuestionAttemptReproductionDetails, QuestionBackend, QuestionBackendVersion,
-    QuestionGraderVersion, QuestionRendererVersion, QuestionRevision, QuestionTitleError,
-    QuestionVariationPresentation, StudentResponse, Timestamp,
+    QuestionGraderVersion, QuestionRendererVersion, QuestionVariationPresentation, StudentResponse,
+    Timestamp,
 };
 use sha2::{Digest, Sha256};
 #[cfg(test)]
@@ -91,8 +91,8 @@ pub enum WebworkAdapterError {
     SourceChecksumMismatch,
     /// Source was not resolved through its exact immutable published key.
     UntrustedSource,
-    /// A valid source was resolved for a different published question.
-    SourceDoesNotMatchQuestion,
+    /// Registered PG routing facts are malformed.
+    InvalidPgPath,
     /// The renderer failed under its bounded service policy.
     Renderer(RendererFailure),
     /// Render-cache storage failed.
@@ -101,8 +101,6 @@ pub enum WebworkAdapterError {
     InvalidCache(String),
     /// Renderer output did not match the immutable version/seed requested.
     InvalidRendererQuestionPresentation(String),
-    /// Persisted student-facing metadata cannot be delivered safely.
-    InvalidTitle(QuestionTitleError),
 }
 
 impl std::fmt::Display for WebworkAdapterError {
@@ -114,9 +112,7 @@ impl std::fmt::Display for WebworkAdapterError {
             }
             Self::UntrustedSource => formatter
                 .write_str("PG source does not match its immutable published object identity"),
-            Self::SourceDoesNotMatchQuestion => {
-                formatter.write_str("PG source was resolved for a different published question")
-            }
+            Self::InvalidPgPath => formatter.write_str("WeBWorK PG path is invalid"),
             Self::Renderer(error) => error.fmt(formatter),
             Self::ObjectStore(error) => error.fmt(formatter),
             Self::InvalidCache(message) => {
@@ -127,9 +123,6 @@ impl std::fmt::Display for WebworkAdapterError {
                     formatter,
                     "invalid WeBWorK renderer Question Presentation: {message}"
                 )
-            }
-            Self::InvalidTitle(error) => {
-                write!(formatter, "invalid WeBWorK question title: {error}")
             }
         }
     }
@@ -213,9 +206,13 @@ where
     /// Returns the evidence-bounded capabilities of this exact PG source.
     pub fn capabilities(
         &self,
-        question: &QuestionRevision,
+        source: &ResolvedWebworkQuestionSource,
     ) -> Result<QuestionBackendCapabilities, WebworkAdapterError> {
-        webwork_source_capabilities(question.question_backend)
+        reviewed_webwork_source_profile_capabilities(
+            QuestionBackend::Webwork,
+            source.pg_path(),
+            source.source_object_checksum().as_str(),
+        )
     }
 
     /// Issues a browser-safe render, consulting the immutable `(version, seed)` cache first.
@@ -228,35 +225,25 @@ where
     /// are owned by the server snapshot path and do not invoke this method.
     pub async fn issue(
         &self,
-        question: &QuestionRevision,
         seed: QuestionSeed,
         source: &ResolvedWebworkQuestionSource,
         created_at: Timestamp,
     ) -> Result<WebworkIssuedAttempt, WebworkAdapterError> {
-        question
-            .metadata
-            .validate_title()
-            .map_err(WebworkAdapterError::InvalidTitle)?;
-        let (question_revision, pg_path) =
-            crate::source_object_reference::webwork_identity(question)?;
         crate::source_object_reference::verify_source(source)?;
-        crate::source_object_reference::verify_source_binding(source, &question_revision)?;
-        let cache_key = crate::cache::render_key(&question_revision, seed);
+        let question_revision = source.question_revision();
+        let cache_key = crate::cache::render_key(question_revision, seed);
         match self.store.get(&cache_key).await {
             Ok(stored) => {
                 let cached = crate::cache::decode_render(&stored.bytes)?;
                 crate::cache::validate_cached(
                     &cached,
-                    &question_revision,
+                    question_revision,
                     seed,
                     source,
-                    &question.metadata.title,
                     self.renderer.identity(),
                 )?;
                 cache_witness("cache_hit");
-                let replay = self
-                    .render_replay(question, seed, source, pg_path, &cached)
-                    .await?;
+                let replay = self.render_replay(seed, source, &cached).await?;
                 self.issued(cached, seed, source, Some(replay), true)
             }
             Err(ObjectStoreError::NotFound) => {
@@ -265,20 +252,17 @@ where
                     .renderer
                     .render(RenderRequest {
                         pg_source: source.pg_source(),
-                        pg_path,
-                        question_revision: &question_revision,
+                        pg_path: source.pg_path(),
+                        question_revision,
                         seed: seed.value(),
                     })
                     .await
                     .map_err(WebworkAdapterError::Renderer)?;
                 crate::cache::validate_presentation(
                     &untrusted.presentation,
-                    &question_revision,
+                    question_revision,
                     seed,
                 )?;
-                // Renderer output is untrusted. The student title is durable
-                // published metadata, not a renderer/source-provided field.
-                untrusted.presentation.title = question.metadata.title.clone();
                 let replay = untrusted.replay.take().ok_or_else(|| {
                     WebworkAdapterError::InvalidRendererQuestionPresentation(
                         "renderer omitted private replay mapping".to_string(),
@@ -295,10 +279,9 @@ where
                 };
                 crate::cache::validate_cached(
                     &rendered,
-                    &question_revision,
+                    question_revision,
                     seed,
                     source,
-                    &question.metadata.title,
                     self.renderer.identity(),
                 )?;
                 let bytes = serde_json::to_vec(&rendered).map_err(|error| {
@@ -324,10 +307,9 @@ where
                         let cached = crate::cache::decode_render(&stored.bytes)?;
                         crate::cache::validate_cached(
                             &cached,
-                            &question_revision,
+                            question_revision,
                             seed,
                             source,
-                            &question.metadata.title,
                             self.renderer.identity(),
                         )?;
                         cache_witness("cache_hit");
@@ -343,42 +325,34 @@ where
     /// Delegates correctness to the server-only renderer without exposing a key.
     pub async fn grade(
         &self,
-        question: &QuestionRevision,
         seed: QuestionSeed,
         source: &ResolvedWebworkQuestionSource,
         response: &StudentResponse,
         replay: &WebworkQuestionAttemptReplayDetails,
     ) -> Result<grading::QuestionGradingOutcome, WebworkAdapterError> {
-        crate::grade::grade(&self.renderer, question, seed, source, response, replay).await
+        crate::grade::grade(&self.renderer, seed, source, response, replay).await
     }
 
     /// Reproduces only the browser-safe cached render for an existing attempt.
     /// Attempt-bound replay state is loaded separately from course storage.
     pub async fn reproduce(
         &self,
-        question: &QuestionRevision,
         seed: QuestionSeed,
         source: &ResolvedWebworkQuestionSource,
     ) -> Result<WebworkIssuedAttempt, WebworkAdapterError> {
-        question
-            .metadata
-            .validate_title()
-            .map_err(WebworkAdapterError::InvalidTitle)?;
-        let (question_revision, _) = crate::source_object_reference::webwork_identity(question)?;
         crate::source_object_reference::verify_source(source)?;
-        crate::source_object_reference::verify_source_binding(source, &question_revision)?;
+        let question_revision = source.question_revision();
         let stored = self
             .store
-            .get(&crate::cache::render_key(&question_revision, seed))
+            .get(&crate::cache::render_key(question_revision, seed))
             .await
             .map_err(WebworkAdapterError::ObjectStore)?;
         let cached = crate::cache::decode_render(&stored.bytes)?;
         crate::cache::validate_cached(
             &cached,
-            &question_revision,
+            question_revision,
             seed,
             source,
-            &question.metadata.title,
             self.renderer.identity(),
         )?;
         cache_witness("cache_hit");
@@ -387,26 +361,23 @@ where
 
     async fn render_replay(
         &self,
-        question: &QuestionRevision,
         seed: QuestionSeed,
         source: &ResolvedWebworkQuestionSource,
-        pg_path: &str,
         cached: &crate::cache::CachedWebworkRender,
     ) -> Result<WebworkQuestionAttemptReplayDetails, WebworkAdapterError> {
-        let (question_revision, _) = crate::source_object_reference::webwork_identity(question)?;
+        let question_revision = source.question_revision();
         cache_witness("renderer_call");
         let mut rendered = self
             .renderer
             .render(RenderRequest {
                 pg_source: source.pg_source(),
-                pg_path,
-                question_revision: &question_revision,
+                pg_path: source.pg_path(),
+                question_revision: source.question_revision(),
                 seed: seed.value(),
             })
             .await
             .map_err(WebworkAdapterError::Renderer)?;
-        crate::cache::validate_presentation(&rendered.presentation, &question_revision, seed)?;
-        rendered.presentation.title = question.metadata.title.clone();
+        crate::cache::validate_presentation(&rendered.presentation, question_revision, seed)?;
         let replay = rendered.replay.take().ok_or_else(|| {
             WebworkAdapterError::InvalidRendererQuestionPresentation(
                 "renderer omitted private replay mapping".to_string(),

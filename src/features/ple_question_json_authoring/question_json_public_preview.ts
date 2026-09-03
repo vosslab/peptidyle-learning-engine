@@ -1,9 +1,4 @@
-import type {
-  PleQuestionJsonAttemptLimit,
-  PleQuestionJsonChoice,
-  PleQuestionJsonDocument,
-  PleQuestionJsonAttemptTimeLimit,
-} from "./question_json_source";
+import type { PleQuestionJsonChoice, PleQuestionJsonDocument } from "./question_json_source";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 
 /** The local student preview deliberately excludes correctness, Question Hint, and all feedback. */
@@ -11,9 +6,6 @@ export type PleQuestionJsonPublicPreview = {
   readonly title: string;
   readonly prompt: string;
   readonly response: QuestionResponseFormat;
-  readonly points: number;
-  readonly questionAttemptLimit: PleQuestionJsonAttemptLimit;
-  readonly questionAttemptTimeLimit: PleQuestionJsonAttemptTimeLimit;
   readonly tags: ReadonlyArray<string>;
   readonly questionLicense: PleQuestionJsonDocument["questionLicense"];
   readonly language: string;
@@ -28,9 +20,6 @@ export function pleQuestionJsonPublicPreview(
     title: source.title,
     prompt: source.prompt,
     response,
-    points: source.points,
-    questionAttemptLimit: source.questionAttemptLimit,
-    questionAttemptTimeLimit: source.questionAttemptTimeLimit,
     tags: source.tags,
     questionLicense: source.questionLicense,
     language: source.language,

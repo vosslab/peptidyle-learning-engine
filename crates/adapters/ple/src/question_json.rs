@@ -1,6 +1,6 @@
 //! Strict PLE Question JSON source and compiler for static Questions.
 //!
-//! The closed version 2 Question Type set follows the reviewed QTI Package Maker item model.
+//! The closed version 3 Question Type set follows the reviewed QTI Package Maker item model.
 //! Parsing produces two values:
 //! a browser-safe draft and PLE Question JSON Private Grading. The latter stays
 //! in this server-only adapter crate and is bound by checksum to the public
@@ -8,25 +8,18 @@
 
 use std::fmt::Write as _;
 
-use crate::generator::PleQuestionImplementation;
-use grading::AnswerKey;
 pub use grading::ple_question_json::{
     PleQuestionJsonError, PleQuestionJsonEvaluation, PleQuestionJsonPrivateGrading,
-    validate_for_draft, validate_ple_question_json_question,
+    validate_ple_question_json_shape,
 };
 use question_model::QuestionContentBlock;
-use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use question_model::{
-    DraftQuestionContent, QuestionFormat, QuestionHint, QuestionRevision, QuestionType,
-    WorkspaceId,
-    capability::{Capability, QuestionBackendCapabilities},
-};
+use question_model::{QuestionHint, QuestionType};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 /// Trusted QTI-profile mapping bridge for canonical PLE Question JSON source.
 pub mod imported;
-mod schema_v2;
+mod schema_v3;
 
 /// Canonical media type for canonical PLE Question JSON source payloads.
 pub const PLE_QUESTION_JSON_MEDIA_TYPE: &str = "application/vnd.peptidyle.question+json";
@@ -52,50 +45,7 @@ const MAX_METADATA_TEXT_CHARS: usize = 256;
 /// split it before persistence or delivery.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct PleQuestionJsonDocument(schema_v2::PleQuestionJsonDocumentBody);
-
-/// Closed authoring form of the shared Question Attempt Limit.
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct PleQuestionJsonAttemptLimit {
-    max_attempts: Option<u32>,
-}
-
-impl From<PleQuestionJsonAttemptLimit> for QuestionAttemptLimit {
-    fn from(value: PleQuestionJsonAttemptLimit) -> Self {
-        Self {
-            max_attempts: value.max_attempts,
-        }
-    }
-}
-
-/// Closed authoring form of the shared timing policy.
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    tag = "kind",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase",
-    deny_unknown_fields
-)]
-enum PleQuestionJsonAttemptTimeLimit {
-    Unlimited,
-    Limited { seconds: u32, grace_seconds: u32 },
-}
-
-impl From<PleQuestionJsonAttemptTimeLimit> for QuestionAttemptTimeLimit {
-    fn from(value: PleQuestionJsonAttemptTimeLimit) -> Self {
-        match value {
-            PleQuestionJsonAttemptTimeLimit::Unlimited => Self::Unlimited,
-            PleQuestionJsonAttemptTimeLimit::Limited {
-                seconds,
-                grace_seconds,
-            } => Self::Limited {
-                seconds,
-                grace_seconds,
-            },
-        }
-    }
-}
+pub struct PleQuestionJsonDocument(schema_v3::PleQuestionJsonDocumentBody);
 
 /// One student-visible choice and its optional private teaching feedback.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -118,16 +68,41 @@ struct PleQuestionJsonOutcomeFeedback {
 }
 
 /// Public draft plus separately persisted server-only grading and pre-response teaching content.
+#[derive(Clone)]
+pub struct PleQuestionJsonPresentation {
+    title: String,
+    prompt: Vec<QuestionContentBlock>,
+    response: question_model::response::QuestionResponseFormat,
+    question_type: QuestionType,
+}
+
+impl PleQuestionJsonPresentation {
+    pub fn title(&self) -> &str {
+        &self.title
+    }
+    pub fn prompt(&self) -> &[QuestionContentBlock] {
+        &self.prompt
+    }
+    pub fn response(&self) -> &question_model::response::QuestionResponseFormat {
+        &self.response
+    }
+    pub fn question_type(&self) -> QuestionType {
+        self.question_type
+    }
+}
+
+/// Public PLE presentation plus private derivations from exact source bytes.
+#[derive(Clone)]
 pub struct CompiledPleQuestionJson {
-    draft: DraftQuestionContent,
+    presentation: PleQuestionJsonPresentation,
     private: PleQuestionJsonPrivateGrading,
     question_hint: Option<QuestionHint>,
 }
 
 impl CompiledPleQuestionJson {
-    /// Returns the answer-free canonical draft used by Question Library publication.
-    pub fn draft(&self) -> &DraftQuestionContent {
-        &self.draft
+    /// Returns the answer-free presentation derived directly from PLE source.
+    pub fn presentation(&self) -> &PleQuestionJsonPresentation {
+        &self.presentation
     }
 
     /// Returns the PLE Question JSON Private Grading accepted only by a grading capability.
@@ -140,73 +115,7 @@ impl CompiledPleQuestionJson {
     pub fn question_hint(&self) -> Option<&QuestionHint> {
         self.question_hint.as_ref()
     }
-
-    /// Splits the compiled source into Draft Question Content, Private Grading, and Question Hint
-    /// for separate persistence.
-    pub fn into_parts(
-        self,
-    ) -> (
-        DraftQuestionContent,
-        PleQuestionJsonPrivateGrading,
-        Option<QuestionHint>,
-    ) {
-        (self.draft, self.private, self.question_hint)
-    }
 }
-
-/// One registered static version 2 Question Implementation.
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct PleQuestionJsonImplementation(QuestionType);
-
-impl PleQuestionImplementation for PleQuestionJsonImplementation {
-    fn question_format(&self) -> QuestionFormat {
-        QuestionFormat::PleQuestionJson
-    }
-
-    fn question_type(&self) -> QuestionType {
-        self.0
-    }
-
-    fn capabilities(&self) -> QuestionBackendCapabilities {
-        QuestionBackendCapabilities::from_iter([
-            Capability::ClientRendering,
-            Capability::ServerGrading,
-            Capability::Hints,
-            Capability::QuestionAttemptTimeLimit,
-        ])
-    }
-
-    fn derive_answer_key(
-        &self,
-        question: &QuestionRevision,
-    ) -> Result<Option<AnswerKey>, crate::PleQuestionBackendError> {
-        if question.question_backend != question_model::QuestionBackend::Ple
-            || question.question_format != self.question_format()
-            || question.question_type != self.question_type()
-        {
-            return Err(crate::PleQuestionBackendError::IncompatibleQuestionImplementation {
-                message: "PLE Question JSON Implementation requires the matching PLE Question Format and Question Type".to_string(),
-            });
-        }
-        validate_ple_question_json_question(question).map_err(|error| {
-            crate::PleQuestionBackendError::IncompatibleQuestionImplementation {
-                message: error.to_string(),
-            }
-        })?;
-        Ok(None)
-    }
-}
-
-pub(crate) const PLE_QUESTION_JSON_IMPLEMENTATIONS: [PleQuestionJsonImplementation; 8] = [
-    PleQuestionJsonImplementation(QuestionType::MultipleChoice),
-    PleQuestionJsonImplementation(QuestionType::MultipleAnswer),
-    PleQuestionJsonImplementation(QuestionType::FillInBlank),
-    PleQuestionJsonImplementation(QuestionType::MultipleFillInBlank),
-    PleQuestionJsonImplementation(QuestionType::Numeric),
-    PleQuestionJsonImplementation(QuestionType::Matching),
-    PleQuestionJsonImplementation(QuestionType::Ordering),
-    PleQuestionJsonImplementation(QuestionType::Hotspot),
-];
 
 impl PleQuestionJsonDocument {
     /// Parses and validates one complete answer-bearing JSON source.
@@ -214,7 +123,7 @@ impl PleQuestionJsonDocument {
     /// # Errors
     ///
     /// Refuses oversized input, malformed or duplicate members, unknown
-    /// fields, unsupported versions, and invalid v2 content.
+    /// fields, unsupported versions, and invalid v3 content.
     pub fn parse(bytes: &[u8]) -> Result<Self, PleQuestionJsonError> {
         if bytes.len() > MAX_PLE_QUESTION_JSON_BYTES {
             return Err(PleQuestionJsonError::TooLarge);
@@ -249,11 +158,8 @@ impl PleQuestionJsonDocument {
     /// # Errors
     ///
     /// Refuses invalid content before constructing either persistence value.
-    pub fn compile(
-        &self,
-        workspace: WorkspaceId,
-    ) -> Result<CompiledPleQuestionJson, PleQuestionJsonError> {
-        self.0.compile(workspace)
+    pub fn compile(&self) -> Result<CompiledPleQuestionJson, PleQuestionJsonError> {
+        self.0.compile()
     }
 
     /// Returns a publication-only HOTSPOT source with the exact Question Library asset

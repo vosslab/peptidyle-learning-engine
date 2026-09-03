@@ -1,4 +1,4 @@
-//! Closed schema-version-2 source shapes for all supported PLE Question JSON Question Types.
+//! Closed schema-version-3 source shapes for all supported PLE Question JSON Question Types.
 
 use std::collections::HashSet;
 
@@ -8,15 +8,11 @@ use question_model::answer::{
 };
 use question_model::question_citation::QuestionCitation;
 use question_model::question_license::QuestionLicense;
-use question_model::question_tag::Tag;
 use question_model::response::{
     HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
     QuestionResponseFormat, QuestionType, ResponseItemReference, TextEntrySlot,
 };
-use question_model::{
-    DraftQuestionContent, QuestionAssetId, QuestionBackend, QuestionFormat, QuestionGradingRule,
-    QuestionHint, QuestionMetadata, WorkspaceId,
-};
+use question_model::{QuestionAssetId, QuestionHint};
 use question_model::{QuestionAssetReference, QuestionContentBlock};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -24,17 +20,17 @@ use uuid::Uuid;
 use super::{
     CompiledPleQuestionJson, MAX_CHOICE_TEXT_CHARS, MAX_CHOICES, MAX_FEEDBACK_CHARS,
     MAX_METADATA_TEXT_CHARS, MAX_PROMPT_CHARS, MAX_TAG_CHARS, PLE_QUESTION_JSON_FORMAT_NAME,
-    PleQuestionJsonAttemptLimit, PleQuestionJsonAttemptTimeLimit, PleQuestionJsonChoice,
-    PleQuestionJsonError, PleQuestionJsonOutcomeFeedback, PleQuestionJsonPrivateGrading, invalid,
-    markdown_blocks, validate_bounded_text, validate_choice_id, validate_markdown,
-    validate_metadata_text, validate_optional_feedback, validate_optional_hint,
+    PleQuestionJsonChoice, PleQuestionJsonError, PleQuestionJsonOutcomeFeedback,
+    PleQuestionJsonPresentation, PleQuestionJsonPrivateGrading, invalid, markdown_blocks,
+    validate_bounded_text, validate_choice_id, validate_markdown, validate_metadata_text,
+    validate_optional_feedback, validate_optional_hint,
 };
 
-const PLE_QUESTION_JSON_SCHEMA_VERSION: u32 = 2;
+const PLE_QUESTION_JSON_SCHEMA_VERSION: u32 = 3;
 const MAX_BLANKS: usize = 50;
 const MAX_TEXT_RESPONSE_CHARS: u32 = 16_384;
 
-/// Version 2 keeps common metadata outside a closed, type-specific response object.
+/// Version 3 keeps common metadata outside a closed, type-specific response object.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct PleQuestionJsonDocumentBody {
@@ -48,9 +44,6 @@ pub(super) struct PleQuestionJsonDocumentBody {
     feedback: PleQuestionJsonOutcomeFeedback,
     #[serde(default)]
     question_hint: Option<String>,
-    points: f64,
-    question_attempt_limit: PleQuestionJsonAttemptLimit,
-    question_attempt_time_limit: PleQuestionJsonAttemptTimeLimit,
     #[serde(default)]
     tags: Vec<String>,
     #[serde(default)]
@@ -255,7 +248,6 @@ impl PleQuestionJsonDocumentBody {
         prompt: String,
         choices: Vec<PleQuestionJsonChoice>,
         correct_choice: String,
-        points: f64,
     ) -> Self {
         Self {
             format: PLE_QUESTION_JSON_FORMAT_NAME.to_string(),
@@ -269,9 +261,6 @@ impl PleQuestionJsonDocumentBody {
             },
             feedback: PleQuestionJsonOutcomeFeedback::default(),
             question_hint: None,
-            points,
-            question_attempt_limit: PleQuestionJsonAttemptLimit { max_attempts: None },
-            question_attempt_time_limit: PleQuestionJsonAttemptTimeLimit::Unlimited,
             tags: Vec::new(),
             question_license: None,
             question_citation: None,
@@ -297,12 +286,6 @@ impl PleQuestionJsonDocumentBody {
         validate_optional_feedback(self.feedback.correct.as_deref())?;
         validate_optional_feedback(self.feedback.incorrect.as_deref())?;
         validate_optional_hint(self.question_hint.as_deref())?;
-        if !self.points.is_finite() || self.points < 0.0 {
-            return invalid("points must be finite and nonnegative");
-        }
-        if self.question_attempt_limit.max_attempts == Some(0) {
-            return invalid("maxAttempts must be positive or null");
-        }
         validate_metadata_text("language", &self.language)?;
         for tag in &self.tags {
             validate_bounded_text("tag", tag, MAX_TAG_CHARS)?;
@@ -348,43 +331,21 @@ impl PleQuestionJsonDocumentBody {
         }
     }
 
-    pub(super) fn compile(
-        &self,
-        workspace: WorkspaceId,
-    ) -> Result<CompiledPleQuestionJson, PleQuestionJsonError> {
+    pub(super) fn compile(&self) -> Result<CompiledPleQuestionJson, PleQuestionJsonError> {
         self.validate()?;
         let question_type = question_type_for(&self.response);
         let (response, answer_key, choice_feedback, prompt_suffix) =
             compile_response(&self.response)?;
         let mut prompt = markdown_blocks(&self.prompt);
         prompt.extend(prompt_suffix);
-        let draft = DraftQuestionContent {
-            workspace,
-            question_backend: QuestionBackend::Ple,
-            webwork_pg_path: None,
-            qti_package_item_identifier: None,
-            workspace_import_id: None,
-            draft_imathas_question_backend_binding: None,
-            question_format: QuestionFormat::PleQuestionJson,
-            prompt,
-            response,
-            question_type,
-            question_attempt_limit: self.question_attempt_limit.into(),
-            question_attempt_time_limit: self.question_attempt_time_limit.into(),
-            grading: QuestionGradingRule::AllOrNothing {
-                points: self.points,
-            },
-            metadata: QuestionMetadata {
-                title: self.title.clone(),
-                question_description: self.question_description.clone(),
-                tags: self.tags.iter().map(Tag::new).collect(),
-                question_license: self.question_license.clone(),
-                question_citation: self.question_citation.clone(),
-                language: self.language.clone(),
-            },
-        };
+        let source_checksum = super::sha256_hex(
+            &serde_json::to_vec(self)
+                .map_err(|error| PleQuestionJsonError::Encoding(error.to_string()))?,
+        );
         let private = PleQuestionJsonPrivateGrading::new_with_key(
-            &draft,
+            source_checksum,
+            question_type,
+            &response,
             answer_key,
             choice_feedback,
             self.feedback.correct.clone(),
@@ -396,7 +357,12 @@ impl PleQuestionJsonDocumentBody {
             .map(markdown_blocks)
             .and_then(QuestionHint::new);
         Ok(CompiledPleQuestionJson {
-            draft,
+            presentation: PleQuestionJsonPresentation {
+                title: self.title.clone(),
+                prompt,
+                response,
+                question_type,
+            },
             private,
             question_hint,
         })

@@ -89,14 +89,16 @@ Place Account and Profile controls in the upper corner of the Ribbon Context Row
 Instructor Course Invitations, and Sign In use those Context Controls. Their routes retain the
 current Ribbon Schema and render with No Selected Ribbon Tab.
 
-Question Library has five ordered Ribbon Tasks in two Ribbon Task Areas:
+The Question Library interface area has five ordered Ribbon Tasks in two Ribbon Task Areas:
 
-- **Library Views**: **All Questions**, **My Questions**, **My Question Drafts**.
+- **Question destinations**: **All Questions**, **My Questions**, **My Question Drafts**.
 - **Question Relationships**: **Starred**, **Watched**.
 
-Library means discoverable, My means ownership, Draft means publication state, Starred means
-endorsement, and Watched means a private subscription. Question Folders, Question Tags,
-Saved Question Searches, and search facets organize or find Questions inside these views.
+Library means Published Question discovery, My means ownership, Draft means private authoring
+state, Starred means endorsement, and Watched means a private subscription. My Question Drafts
+navigates to the separate Authoring Workspace Store; its placement here does not make drafts part
+of the Question Library. Question Folders, Question Tags, Saved Question Searches, and search
+facets organize or find Questions in their applicable destination.
 
 Course Setup has the ordered Ribbon Tasks **Grade Settings** and **Appearance**. Create Assignment is
 a Page Action on Assignments. Add a future dashboard when it answers a distinct cross-course

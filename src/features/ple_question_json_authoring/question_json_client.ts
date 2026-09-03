@@ -1,13 +1,7 @@
-import type { DraftQuestionContent } from "../../../generated/api/DraftQuestionContent";
-import type { QuestionType } from "../../../generated/api/QuestionType";
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { QuestionAuthorship } from "../../../generated/api/QuestionAuthorship";
 import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
-import {
-  decodeQuestionSummary,
-  decodeDraftQuestionContent,
-  isAvailablePleQuestionSummary,
-} from "../../api/decoders";
+import { decodeQuestionSummary, isAvailablePleQuestionSummary } from "../../api/decoders";
 import { isQuestionAuthorship } from "../../api/question_authorship";
 import { PLE_QUESTION_JSON_MEDIA_TYPE, type PleQuestionJsonDocument } from "./question_json_source";
 import { parsePleQuestionJsonSource, serializePleQuestionJsonSource } from "./question_json_codec";
@@ -54,7 +48,6 @@ export type PleQuestionJsonRead = {
 };
 
 export type PleQuestionJsonSave = {
-  readonly draft: DraftQuestionContent;
   readonly revision: string;
 };
 
@@ -185,44 +178,6 @@ function decodeJson(text: string, path: string): unknown {
   }
 }
 
-function requirePleQuestionJsonContract(
-  draft: DraftQuestionContent,
-  response: PleQuestionJsonDocument["response"] | undefined,
-  responseKind: "save" | "publication",
-): void {
-  if (draft.questionBackend !== "ple" || draft.questionFormat !== "pleQuestionJson") {
-    throw new PleQuestionJsonProtocolError(
-      `PLE Question JSON ${responseKind} response must use PLE Question JSON schema version 2 format`,
-    );
-  }
-  if (response !== undefined && draft.questionType !== questionTypeForResponse(response)) {
-    throw new PleQuestionJsonProtocolError(
-      `PLE Question JSON ${responseKind} response Question Type must match its response shape`,
-    );
-  }
-}
-
-function questionTypeForResponse(response: PleQuestionJsonDocument["response"]): QuestionType {
-  switch (response.kind) {
-    case "singleChoice":
-      return "multipleChoice";
-    case "multipleAnswer":
-      return "multipleAnswer";
-    case "fillIn":
-      return "fillInBlank";
-    case "multiFillIn":
-      return "multipleFillInBlank";
-    case "numeric":
-      return "numeric";
-    case "matching":
-      return "matching";
-    case "ordering":
-      return "ordering";
-    case "hotspot":
-      return "hotspot";
-  }
-}
-
 function requestInit(
   method: "GET" | "PUT" | "POST",
   headers: Record<string, string>,
@@ -279,15 +234,8 @@ export function createPleQuestionJsonClient(
       throw new PleQuestionJsonConflictError(response.status, path);
     if (!response.ok) throw new PleQuestionJsonRequestError(response.status, path);
     requireJson(response, path);
-    const text = await boundedText(response, path);
-    const draft = decodeDraftQuestionContent(decodeJson(text, path));
-    if (draft.workspace !== workspace) {
-      throw new PleQuestionJsonProtocolError(
-        "PLE Question JSON save response does not match its workspace",
-      );
-    }
-    requirePleQuestionJsonContract(draft, source.response, "save");
-    return { draft, revision: strongRevision(response, path) };
+    decodeJson(await boundedText(response, path), path);
+    return { revision: strongRevision(response, path) };
   }
 
   async function publish(

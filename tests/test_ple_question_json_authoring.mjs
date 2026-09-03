@@ -27,7 +27,7 @@ const workspace = "00000000-0000-4000-8000-000000000001";
 function source() {
   return {
     format: "pleQuestionJson",
-    version: 2,
+    version: 3,
     title: "Favorite color",
     questionDescription: "Instructor-facing color-choice example.",
     prompt: "What is my favorite color?",
@@ -41,52 +41,10 @@ function source() {
     },
     questionHint: "Compare each choice before responding.",
     feedback: { correct: "Exactly right.", incorrect: "Try again." },
-    points: 1,
-    questionAttemptLimit: { maxAttempts: null },
-    questionAttemptTimeLimit: { kind: "unlimited" },
     tags: ["example"],
     questionLicense: "CC-BY-SA-4.0",
     questionCitation: null,
     language: "en-US",
-  };
-}
-
-function draftQuestionContent(includeVersion = false) {
-  const content = {
-    workspace,
-    questionBackend: "ple",
-    webworkPgPath: null,
-    qtiPackageItemIdentifier: null,
-    workspaceImportId: null,
-    draftImathasQuestionBackendBinding: null,
-    questionFormat: "pleQuestionJson",
-    prompt: [{ kind: "text", markdown: "What is my favorite color?" }],
-    response: {
-      kind: "multipleChoice",
-      choices: [
-        { id: "blue", body: [{ kind: "text", markdown: "Blue" }] },
-        { id: "red", body: [{ kind: "text", markdown: "Red" }] },
-      ],
-      selection: { kind: "exactlyOne" },
-    },
-    questionType: "multipleChoice",
-    questionAttemptLimit: { maxAttempts: null },
-    questionAttemptTimeLimit: { kind: "unlimited" },
-    grading: { mode: "allOrNothing", points: 1 },
-    metadata: {
-      title: "Favorite color",
-      questionDescription: "Instructor-facing color-choice example.",
-      tags: ["example"],
-      questionLicense: "CC-BY-SA-4.0",
-      questionCitation: null,
-      language: "en-US",
-    },
-  };
-  if (!includeVersion) return content;
-  return {
-    ...content,
-    problem: "00000000-0000-4000-8000-000000000002",
-    version: "00000000-0000-4000-8000-000000000003",
   };
 }
 
@@ -97,7 +55,14 @@ function publicationSummary(backend = "ple") {
     backend,
     questionType: "multipleChoice",
     capabilities: ["serverGrading"],
-    metadata: draftQuestionContent().metadata,
+    metadata: {
+      title: "Favorite color",
+      questionDescription: "Instructor-facing color-choice example.",
+      tags: ["example"],
+      questionLicense: "CC-BY-SA-4.0",
+      questionCitation: null,
+      language: "en-US",
+    },
     authorship: { authors: [{ displayName: "Fixture Instructor" }] },
     availability: { availability: "available" },
     publishedAt: 1786000000000,
@@ -138,17 +103,6 @@ test("Question Citation is exact optional source credit and never becomes an emp
   );
 });
 
-test("codec rejects every retired question-level feedback disclosure value", () => {
-  for (const feedback of ["immediateFull", "immediateCorrectness", "deferred", "onRelease"]) {
-    assert.throws(() =>
-      decodePleQuestionJsonSource({
-        ...source(),
-        questionAttemptLimit: { maxAttempts: null, feedback },
-      }),
-    );
-  }
-});
-
 test("codec normalizes omitted optional feedback to Rust canonical null members", () => {
   const input = source();
   delete input.response.choices[1].feedback;
@@ -174,42 +128,13 @@ test("codec aligns Rust top-level defaults and canonicalizes them on serializati
   );
 });
 
-test("codec enforces Unicode title and Rust u32 numeric bounds", () => {
+test("codec enforces Unicode title bounds", () => {
   const title512 = "😀".repeat(512);
   assert.equal(decodePleQuestionJsonSource({ ...source(), title: title512 }).title, title512);
   assert.throws(() => decodePleQuestionJsonSource({ ...source(), title: "😀".repeat(513) }));
   assert.throws(() => decodePleQuestionJsonSource({ ...source(), questionDescription: "   " }));
   assert.throws(() =>
     decodePleQuestionJsonSource({ ...source(), questionDescription: "😀".repeat(4_001) }),
-  );
-
-  const maximum = 4_294_967_295;
-  const timed = {
-    ...source(),
-    questionAttemptLimit: { maxAttempts: maximum },
-    questionAttemptTimeLimit: { kind: "limited", seconds: maximum, graceSeconds: maximum },
-  };
-  assert.deepEqual(
-    decodePleQuestionJsonSource(timed).questionAttemptTimeLimit,
-    timed.questionAttemptTimeLimit,
-  );
-  assert.throws(() =>
-    decodePleQuestionJsonSource({
-      ...timed,
-      questionAttemptLimit: { maxAttempts: maximum + 1 },
-    }),
-  );
-  assert.throws(() =>
-    decodePleQuestionJsonSource({
-      ...timed,
-      questionAttemptTimeLimit: { kind: "limited", seconds: maximum + 1, graceSeconds: 0 },
-    }),
-  );
-  assert.throws(() =>
-    decodePleQuestionJsonSource({
-      ...timed,
-      questionAttemptTimeLimit: { kind: "limited", seconds: 1, graceSeconds: maximum + 1 },
-    }),
   );
 });
 
@@ -336,7 +261,7 @@ test("matching codec refuses duplicate or incomplete pairings", () => {
   assert.throws(() => decodePleQuestionJsonSource(matching));
 });
 
-test("all remaining v2 source Question Types retain semantic IDs and publish answer-free Question Response Formats", () => {
+test("all remaining v3 source Question Types retain semantic IDs and publish answer-free Question Response Formats", () => {
   const cases = [
     {
       kind: "multipleAnswer",
@@ -497,7 +422,7 @@ test("hotspot public preview does not disclose correct-region cardinality", () =
   assert.equal(serializePleQuestionJsonPublicPreview(twoCorrect).includes("correctRegions"), false);
 });
 
-test("remaining v2 source Question Types reject invalid private contracts", () => {
+test("remaining v3 source Question Types reject invalid private contracts", () => {
   assert.throws(() =>
     decodePleQuestionJsonSource({
       ...source(),
@@ -600,7 +525,7 @@ test("client sends exact protected paths, headers, body, and revisions", async (
           },
         });
       }
-      if (init.method === "PUT") return jsonResponse(draftQuestionContent(), 200, '"2"');
+      if (init.method === "PUT") return jsonResponse({ saved: true }, 200, '"2"');
       return jsonResponse(publicationSummary(), 201, '"2"');
     },
   });
@@ -705,26 +630,7 @@ test("conflicts do not echo a response body and repository preserves the caller 
   });
 });
 
-test("client rejects public responses whose identity does not match the requested workspace", async () => {
-  const client = createPleQuestionJsonClient({
-    fetch: async () =>
-      jsonResponse({
-        ...draftQuestionContent(),
-        workspace: "00000000-0000-4000-8000-000000000099",
-      }),
-  });
-  await assert.rejects(client.save(workspace, source()), /does not match its workspace/u);
-});
-
-test("client rejects save DTOs and publication summaries that do not exactly confirm publication", async () => {
-  const wrongSave = createPleQuestionJsonClient({
-    fetch: async () => jsonResponse({ ...draftQuestionContent(), questionFormat: "webworkPg" }),
-  });
-  await assert.rejects(
-    wrongSave.save(workspace, source()),
-    /PLE Question JSON schema version 2 format/u,
-  );
-
+test("client rejects publication summaries that do not exactly confirm publication", async () => {
   const wrongPublication = createPleQuestionJsonClient({
     fetch: async () => jsonResponse(publicationSummary("webwork")),
   });
@@ -766,7 +672,7 @@ test("client rejects save DTOs and publication summaries that do not exactly con
   }
 });
 
-test("client accepts the exact PLE hotspot Question Type for a strict hotspot source", async () => {
+test("client saves a strict PLE hotspot source through its exact endpoint", async () => {
   const hotspot = decodePleQuestionJsonSource({
     ...source(),
     response: {
@@ -781,30 +687,7 @@ test("client accepts the exact PLE hotspot Question Type for a strict hotspot so
     },
   });
   const client = createPleQuestionJsonClient({
-    fetch: async () =>
-      jsonResponse({
-        ...draftQuestionContent(),
-        questionType: "hotspot",
-        response: {
-          kind: "hotspot",
-          surface: {
-            asset: "00000000-0000-4000-8000-000000000042",
-            checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          },
-          description: "A chromosome map",
-          regions: [
-            {
-              id: "centromere",
-              label: [{ kind: "text", markdown: "Centromere" }],
-              x: 0,
-              y: 0,
-              width: 4_000,
-              height: 4_000,
-            },
-          ],
-          selection: { kind: "atLeastOne" },
-        },
-      }),
+    fetch: async () => jsonResponse({ saved: true }),
   });
   await client.save(workspace, hotspot);
 });
@@ -839,9 +722,9 @@ test("repository does not regress a workspace revision when an older save finish
   await repository.load(workspace);
   const older = repository.save(workspace, source());
   const newer = repository.save(workspace, source());
-  secondSave.resolve({ draft: draftQuestionContent(), revision: '"3"' });
+  secondSave.resolve({ revision: '"3"' });
   await newer;
-  firstSave.resolve({ draft: draftQuestionContent(), revision: '"2"' });
+  firstSave.resolve({ revision: '"2"' });
   await older;
   await repository.publish(workspace, {
     authorship: { authors: [{ displayName: "Fixture Instructor" }] },

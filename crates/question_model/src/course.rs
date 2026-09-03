@@ -7,9 +7,10 @@ use crate::{
     AssignmentEntryId, AssignmentEntryScoringRule, AssignmentGrade, AssignmentId,
     AssignmentInstructions, AssignmentPointValue, AssignmentProgressRecord,
     AssignmentQuestionVariationRule, AssignmentReference, AssignmentScoringState, AssignmentTitle,
-    CourseId, CourseInstanceReference, CourseTimeZone, LateWorkRule, QuestionBackend,
-    QuestionBackendCapabilities, QuestionId, QuestionPoolItemAvailability, QuestionPoolItemId,
-    QuestionPoolSelectionRule, StudentFeedbackReleaseRule, StudentRecordId, Timestamp,
+    CourseId, CourseInstanceReference, CourseTimeZone, LateWorkRule, QuestionAttemptLimit,
+    QuestionAttemptTimeLimit, QuestionBackend, QuestionBackendCapabilities, QuestionId,
+    QuestionPoolItemAvailability, QuestionPoolItemId, QuestionPoolSelectionRule,
+    StudentFeedbackReleaseRule, StudentRecordId, Timestamp,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -62,6 +63,10 @@ pub struct FixedQuestionAssignmentEntrySummary {
     pub availability: AssignmentEntryAvailability,
     /// Current-only scoring treatment.
     pub scoring_rule: AssignmentEntryScoringRule,
+    /// Question Attempt retry bound frozen with this Assignment Entry.
+    pub question_attempt_limit: QuestionAttemptLimit,
+    /// Question Attempt timing frozen with this Assignment Entry.
+    pub question_attempt_time_limit: QuestionAttemptTimeLimit,
 }
 
 /// Browser-safe Question Pool Item in one Question Pool.
@@ -98,6 +103,10 @@ pub struct QuestionPoolAssignmentEntrySummary {
     pub points_per_item: AssignmentPointValue,
     /// Complete reviewed selection behavior.
     pub selection_rule: QuestionPoolSelectionRule,
+    /// Uniform Question Attempt retry bound for every Question selected from this pool.
+    pub question_attempt_limit: QuestionAttemptLimit,
+    /// Uniform Question Attempt timing for every Question selected from this pool.
+    pub question_attempt_time_limit: QuestionAttemptTimeLimit,
     /// Browser-safe current Question Pool Items.
     pub items: Vec<QuestionPoolItemSummary>,
 }
@@ -324,6 +333,8 @@ mod tests {
                     points_possible: crate::AssignmentPointValue::from_whole(1),
                     availability: crate::AssignmentEntryAvailability::Available,
                     scoring_rule: crate::AssignmentEntryScoringRule::Normal,
+                    question_attempt_limit: crate::QuestionAttemptLimit { max_attempts: None },
+                    question_attempt_time_limit: crate::QuestionAttemptTimeLimit::Unlimited,
                 },
             )],
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),

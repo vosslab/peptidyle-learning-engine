@@ -4,7 +4,7 @@ import { createComponent, type Component } from "solid-js";
 import type { RouteDefinition } from "@solidjs/router";
 
 import { AssignmentOverviewPage } from "./pages/assignment_overview_page";
-import { NotFoundPage } from "./pages/contract_pages";
+import { NotFoundPage, WorkspaceListPage } from "./pages/contract_pages";
 import { AssignmentAttemptSummaryPage } from "./pages/assignment_attempt_summary_page";
 import { LibraryRoutePage } from "./pages/library_route_page";
 import { QuestionDetailPage } from "./pages/question_detail_page";
@@ -16,7 +16,6 @@ import { CourseGradeSettingsPage } from "./pages/course_grade_settings_page";
 import { withRouteAccessBoundary } from "./route_access_boundary";
 import { ROUTE_CONTRACT, type RouteId } from "./route_contract";
 import { AssignmentAttemptPage } from "./pages/assignment_attempt_page";
-import { WorkspaceEditorLivePage, WorkspaceListLivePage } from "./pages/editor_live_pages";
 import { CourseRosterPage } from "./pages/course_roster_page";
 import { SignInPage } from "./pages/sign_in_page";
 import { AccountPendingInvitationsPage } from "./pages/account_pending_invitations_page";
@@ -43,8 +42,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   questionDetail: QuestionDetailPage,
   blueprintCourses: BlueprintCoursesLivePage,
   blueprintCourseDetail: BlueprintCourseDetailLivePage,
-  workspaceList: WorkspaceListLivePage,
-  workspaceEditor: WorkspaceEditorLivePage,
+  workspaceList: WorkspaceListPage,
   assignmentCreate: AssignmentWorkspaceCreatePage,
   assignmentWorkspaceOverview: () =>
     createComponent(AssignmentWorkspaceLivePage, { section: "overview" }),

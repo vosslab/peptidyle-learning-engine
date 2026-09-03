@@ -7,6 +7,7 @@ rust-version.workspace = true
 
 [dependencies]
 question_model.workspace = true
+adapter_ple.workspace = true
 domain.workspace = true
 grading.workspace = true
 # The original imported ZIP is archived so the package stays re-importable.

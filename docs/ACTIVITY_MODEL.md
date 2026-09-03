@@ -258,12 +258,12 @@ For example, an instructor can require mastery, keep the highest score, allow
 unlimited practice, and issue new seeds on every Assignment Attempt. Continued practice does
 not decide which score counts; grade policy remains independent.
 
-Question-level policies remain separate from Assignment Activity policy. Every immutable
-published Question Revision owns a `QuestionAttemptLimit` retry bound and a
-`QuestionAttemptTimeLimit`; an assignment cannot silently rewrite either one. Attempt
-policy does not disclose results, feedback, or answers. That lets the same Assignment Attempt
-model work for native, QTI, WeBWorK, and future Question Backends while keeping
-response and grading authority server-side.
+Question evaluation semantics remain separate from Assignment Activity policy.
+Each Fixed Question or Question Pool Assignment Entry owns its Question Attempt
+Limit and Question Attempt Time Limit, which freeze into its immutable
+Assignment Revision Entry. The same Assignment Attempt model and operations
+apply to PLE Question JSON, WeBWorK, iMathAS, H5P, and future registered
+Question technologies. Supported QTI imports participate as PLE Question JSON.
 
 ### Student Feedback Release
 

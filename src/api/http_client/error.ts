@@ -33,14 +33,6 @@ export class ApiProtocolError extends Error {
   }
 }
 
-/** An optimistic workspace save lost its strong revision race; retain local edits. */
-export class WorkspaceConflictError extends ApiRequestError {
-  public constructor(status: 409 | 428, path: string) {
-    super(status, path);
-    this.name = "WorkspaceConflictError";
-  }
-}
-
 /** A revisioned assignment save lost its server-side compare-and-swap race. */
 export class AssignmentConflictError extends ApiRequestError {
   public constructor(status: 409 | 412 | 428, path: string) {
@@ -139,22 +131,5 @@ export class AssignmentPoliciesValidationError extends ApiRequestError {
   ) {
     super(422, path);
     this.name = "AssignmentPoliciesValidationError";
-  }
-}
-
-/** A publish 422 that retains every server-reported capability violation. */
-export class PublicationValidationError extends ApiRequestError {
-  public readonly messageForAuthor: string;
-  public readonly violations: ReadonlyArray<import("../contracts").PublicationViolation>;
-
-  public constructor(
-    path: string,
-    messageForAuthor: string,
-    violations: ReadonlyArray<import("../contracts").PublicationViolation>,
-  ) {
-    super(422, path);
-    this.name = "PublicationValidationError";
-    this.messageForAuthor = messageForAuthor;
-    this.violations = violations;
   }
 }

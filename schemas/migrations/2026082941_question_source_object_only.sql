@@ -1,3 +1,0 @@
--- Question Source object-only authority is established directly in the fresh
--- Private Authoring Roots baseline and verified by Object Record authority.
--- This retained migration identity records no compatibility transition.

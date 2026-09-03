@@ -22,8 +22,8 @@ pub use teaching_settings_local::{
 };
 
 use crate::{
-    AssignmentActivityRules, AssignmentEntryId, QuestionPoolItemId, QuestionRevisionReference,
-    Timestamp,
+    AssignmentActivityRules, AssignmentEntryId, QuestionAttemptLimit, QuestionAttemptTimeLimit,
+    QuestionPoolItemId, QuestionRevisionReference, Timestamp,
 };
 
 /// Maximum Unicode scalar values in one human-facing Assignment Title.
@@ -363,6 +363,10 @@ pub struct FixedQuestionAssignmentEntry {
     pub availability: AssignmentEntryAvailability,
     /// Current-only scoring treatment.
     pub scoring_rule: AssignmentEntryScoringRule,
+    /// Question Attempt retry bound frozen with this Assignment Entry.
+    pub question_attempt_limit: QuestionAttemptLimit,
+    /// Question Attempt timing frozen with this Assignment Entry.
+    pub question_attempt_time_limit: QuestionAttemptTimeLimit,
 }
 
 /// Order used for the selected Questions from one Question Pool.
@@ -411,6 +415,10 @@ pub struct QuestionPoolAssignmentEntry {
     pub points_per_item: AssignmentPointValue,
     /// Instructor-owned ordering behavior for the selected Questions.
     pub selection_rule: QuestionPoolSelectionRule,
+    /// Uniform Question Attempt retry bound for every Question selected from this pool.
+    pub question_attempt_limit: QuestionAttemptLimit,
+    /// Uniform Question Attempt timing for every Question selected from this pool.
+    pub question_attempt_time_limit: QuestionAttemptTimeLimit,
     /// Pinned Question Pool Items; search criteria are deliberately absent.
     pub items: Vec<QuestionPoolItem>,
 }

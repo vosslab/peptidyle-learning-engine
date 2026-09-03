@@ -6,7 +6,8 @@ PLE is one installation with global accounts. The implemented global Account and
 Authenticated Session foundation carries exactly one immutable Student, Instructor,
 or Sysadmin role; a person needing multiple roles uses separate accounts. Full
 service, database, and release acceptance remains incomplete. The installation has one
-immutable shared Question Library of Published Questions used in Assignments, private Instructor
+shared Question Library of stable Published Question lineages and immutable Question
+Revisions used in Assignments, private Instructor
 authoring workspaces, and course-scoped Student educational records. It has no
 institution selector, publication-visibility tier, or creator-owned course
 authority.
@@ -228,10 +229,10 @@ their own fences to the authorization result.
 
 ## Private workspace ownership
 
-Drafts are private authoring records. A draft, curriculum, source package,
-QTI upload, conversion, collaborator grant, and author preview belongs to a
+Drafts are private authoring records. A Draft Question, Blueprint Course, Question Source,
+QTI archive import, conversion, collaborator grant, and author preview belongs to a
 typed `WorkspaceId` with an explicit owner/collaborator relationship. The
-stored current relationship and exact revision authorize draft read, save,
+stored current relationship and Draft Question Edit Number authorize draft read, save,
 edit, sharing, deletion, preview, and publication preparation.
 
 An author preview is an authorized Instructor workspace operation with
@@ -244,8 +245,8 @@ visibility of any published question they reference.
 
 ## Shared publication and Instructor DTO contract
 
-Every published question has one stable Question ID lineage and immutable
-QuestionRevisions, visible to every active Instructor through exactly one shared
+Every Published Question has one stable Question ID lineage and immutable
+Question Revisions, visible to every active Instructor through exactly one shared
 Question Library state. A publication mints a new Question ID only for a new lineage,
 after the private workspace Question Source and private grading records validate. A same-lineage semantic change
 publishes a new immutable QuestionRevision under the existing Question ID. An

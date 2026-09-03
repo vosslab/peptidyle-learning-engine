@@ -43,17 +43,20 @@ scope. The server derives those facts from authenticated course-owned records.
 
 PLE keeps four related but different things separate:
 
-| Thing               | Owner and lifetime                        | Important identity                                       |
-| ------------------- | ----------------------------------------- | -------------------------------------------------------- |
-| Draft               | Instructor workspace; private and mutable | `WorkspaceId`                                            |
-| Published question  | Shared immutable Question Library content | `QuestionId` and `QuestionRevisionNumber`                |
-| Assignment activity | One course's teaching configuration       | Course and assignment IDs                                |
-| Student activity    | Course-owned educational record           | Enrollment, Assignment Attempt, and Question Attempt IDs |
+| Thing               | Owner and lifetime                       | Important identity                                       |
+| ------------------- | ---------------------------------------- | -------------------------------------------------------- |
+| Draft question      | Authoring Workspace; private and mutable | Draft Question UUID and Draft Question Reference         |
+| Published question  | Shared Question Library lineage          | Stable `QuestionId`                                      |
+| Question revision   | Immutable source and historical evidence | `QuestionId` and `QuestionRevisionNumber`                |
+| Assignment activity | One course's teaching configuration      | Course and assignment IDs                                |
+| Student activity    | Course-owned educational record          | Enrollment, Assignment Attempt, and Question Attempt IDs |
 
-Publication is the boundary between the first two rows. Every content change
-publishes a new immutable question with a fresh Question ID and fresh hidden
-`(QuestionId, QuestionRevisionNumber)` pair; an optional Question Fork Source may identify its
-source. An Assignment, Assignment Attempt, or Question Attempt retains its exact
+Publication is the boundary between the Draft Question and Published Question
+lineage. A compatible Question Source change creates a new immutable Question
+Revision under the stable Question ID. A substantive fork creates a new
+Published Question lineage and may retain an optional Question Fork Source.
+Updating lineage metadata such as Question Title or Question Description creates
+no Question Revision. An Assignment, Assignment Attempt, or Question Attempt retains its exact
 pinned pair and does not copy Question Prompt, assets, Question Source, or Answer Key into the
 course. An Assignment Attempt is one pass through an Assignment, and a Question
 Attempt is one issued instance of one assignment position. Repeated use of the
@@ -87,16 +90,22 @@ set, rather than stopping at the first gap, so the instructor can correct the
 whole configuration. Browser/Wasm validation is early feedback; the server
 repeats it before writing a durable transition.
 
-### 3. Commit an immutable publication
+### 3. Publish from isolated draft storage
 
-The server resolves the workspace-owned draft, validates it, mints a fresh Question
-ID and hidden `(QuestionId, QuestionRevisionNumber)` pair only after success, and commits
-immutable metadata, public payload, private Question Grading Input or Question Source binding,
-visibility grant, and draft removal as one transaction. A publication never
-mutates an existing published question. Every content change publishes a new
-question; an optional Question Fork Source may identify its source Question Revision. A deliberate,
-revision-checked assignment replacement changes future Assignment Attempts only, while issued
-Assignment Attempts and Question Attempts retain their original exact evidence.
+The server resolves the workspace-owned Draft Question and validates its exact Edit Number,
+complete Question Source, and required publication metadata. The publication transaction creates a
+fresh Question ID for a new lineage or the next Question Revision Number for an accepted same-lineage
+change. It copies validated discovery values from the private Draft Question Metadata table into the
+separate Published Question Metadata table, writes the complete source to a new immutable Question
+Revision-owned object path, creates the Question Revision Source Registration, and records the
+Question Library publication event.
+
+Published storage has no Draft Question foreign key, draft object path, or draft metadata row. Draft
+expiration and cleanup proceed separately after the configured warning or recovery period. A change
+to the complete Question Source creates a Question Revision; a stable-lineage metadata change such as
+Question Title or Question Description does not. A deliberate, revision-checked Assignment update
+changes future Assignment Attempts only, while issued Assignment Attempts and Question Attempts
+retain their original exact evidence.
 
 Object storage follows the same boundary. The database records intended object
 existence and typed object identities; it does not give a browser a bucket key
@@ -265,26 +274,30 @@ target request/receipt shapes are detailed in
 
 ## Question Backend authority
 
-The common lifecycle deliberately ends at a backend boundary. Adapters can
-share public attempt behavior without sharing private grading data or assuming
-the same source format.
+The common lifecycle crosses each Question Backend through the same operations.
+PLE owns Draft Question authoring, publication, Assignment selection, issuance,
+submission, evaluation recording, feedback release, and Gradebook effects.
+Each adapter owns only validation, presentation, and evaluation behavior for
+its complete format-specific Question Source.
 
-| Question Backend | Publication authority                                                                                                          | Render authority                                                | Grade authority                                                | Important recovery rule                                                                                                                                                             |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PLE              | PLE compiles PLE Question JSON source into answer-free Question Content and server-only key                                     | PLE public renderer                                             | PLE Question Grader                                            | First grade uses the issued checksummed snapshot, private Question Grading Input, and PLE Question JSON grading contract; it never reloads a current published Question/grader view |
-| QTI              | PLE stages, reports, reviews, and promotes a supported profile atomically                                                      | PLE's opted-in published runtime or converted PLE Question Content | Server-only `PostgresGraderStore` when enabled               | Reparse the checksum-pinned archive; refuse unsupported profile features                                                                                                            |
-| WeBWorK          | PLE copies licensed PG/PGML Question Source into immutable storage with its Source Object Reference and Source Object Checksum | Private external `/render-api`, then PLE sanitizes and projects | Private external renderer through PLE                          | First grade loads the issued presentation, mapping, WeBWorK grading contract, and immutable Question Source; submitted reads never rerender                                         |
-| iMathAS          | PLE publishes an answer-free launch control plus trusted backend configuration                                                 | iMathAS Question Backend Session is server-mediated             | iMathAS protocol validation through an iMathAS Result Exchange | Generic attempt records carry no backend token, raw answer, or backend score                                                                                                        |
+| Source or import pathway | Format-specific authority                                                                              | Presentation and evaluation authority                                  | Important recovery rule                                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| PLE Question JSON        | Validate one complete static PLE Question JSON source                                                  | PLE Question Backend                                                   | Use the immutable issued Question Source and exact Question Attempt Reproduction Details                 |
+| QTI Import               | Validate the archive and map each supported flat item into a complete PLE Question JSON Draft Question | PLE Question Backend after conversion                                  | Retain the checksum-pinned archive and mapping as Workspace Import evidence                              |
+| WeBWorK PG               | Validate and retain one complete licensed PG/PGML Question Source                                      | Private `/render-api`, followed by PLE sanitization and shared outputs | Use the immutable issued source, presentation binding, and WeBWorK Question Attempt Reproduction Details |
+| iMathAS                  | Validate the exact deployment, item, profile, and session bindings                                     | Server-mediated iMathAS Question Backend Session                       | Keep backend tokens and raw results inside the exact iMathAS evidence boundary                           |
+| H5P Package              | Validate and retain the supported package and archive evidence                                         | H5P adapter through the shared Question contracts                      | Preserve its current ungraded-practice behavior and exact package evidence                               |
 
 PLE Question JSON Questions use PLE's public `QuestionRevision` plus separate
 PLE Question JSON Private Grading. The exact PLE Question JSON authoring format is
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md), not a second generic
 runtime model.
 
-QTI import refuses unsupported input rather than silently dropping semantics.
-Published QTI runtime is feature-gated and separates its PostgreSQL grader
-access from ordinary public Question Presentations. Its profile and promotion contract is
-registered in [CONTRACTS.md](CONTRACTS.md).
+QTI Import reports unsupported input and maps accepted flat items into PLE
+Question JSON. The resulting Draft Question then uses the same authoring,
+publication, issuance, submission, and evaluation operations as every other
+Question. Its profile and conversion contract is registered in
+[CONTRACTS.md](CONTRACTS.md).
 
 WeBWorK is a private service integration. PLE sends the trusted source, fixed
 seed, and renderer credentials only from the server, turns the approved radio

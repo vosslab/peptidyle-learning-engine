@@ -13,7 +13,6 @@ import {
   createPleQuestionJsonMatchingChoice,
   createPleQuestionJsonMatchingPrompt,
   createPleQuestionJsonOrderingItem,
-  type PleQuestionJsonAttemptLimit,
   type PleQuestionJsonBlank,
   type PleQuestionJsonChoice,
   type PleQuestionJsonHotspotRegion,
@@ -24,7 +23,6 @@ import {
   type PleQuestionJsonNumericResponseTolerance,
   type PleQuestionJsonOutcomeFeedback,
   type PleQuestionJsonDocument,
-  type PleQuestionJsonAttemptTimeLimit,
   type PleQuestionJsonTextResponseMatchRule,
   type PleQuestionJsonOrderingItem,
 } from "./question_json_source";
@@ -34,7 +32,6 @@ const MAX_CHOICES = 100;
 const MAX_CHOICE_ID_BYTES = 64;
 const MAX_TITLE_CHARS = 512;
 const MAX_QUESTION_DESCRIPTION_CHARS = 4_000;
-const MAX_U32 = 4_294_967_295;
 const MAX_PROMPT_CHARS = 65_536;
 const MAX_CHOICE_TEXT_CHARS = 16_384;
 const MAX_FEEDBACK_CHARS = 16_384;
@@ -58,7 +55,7 @@ function onlyFields(
     if (!fields.includes(key)) {
       throw new DecodeError(
         `${path}.${key}`,
-        "a field allowed by PLE Question JSON schema version 2",
+        "a field allowed by PLE Question JSON schema version 3",
       );
     }
   }
@@ -518,40 +515,6 @@ function decodeQuestionHint(value: unknown, path: string): string | null {
   return value === undefined || value === null ? null : boundedText(value, path, MAX_HINT_CHARS);
 }
 
-function decodeQuestionAttemptLimit(value: unknown, path: string): PleQuestionJsonAttemptLimit {
-  const record = decodeRecord(value, path);
-  onlyFields(record, path, ["maxAttempts"]);
-  const attemptsValue = field(record, "maxAttempts", path);
-  return {
-    maxAttempts:
-      attemptsValue === null ? null : integer(attemptsValue, `${path}.maxAttempts`, 1, MAX_U32),
-  };
-}
-
-function decodeQuestionAttemptTimeLimit(
-  value: unknown,
-  path: string,
-): PleQuestionJsonAttemptTimeLimit {
-  const record = decodeRecord(value, path);
-  const kind = string(field(record, "kind", path), `${path}.kind`);
-  if (kind === "unlimited") {
-    onlyFields(record, path, ["kind"]);
-    return { kind };
-  }
-  if (kind !== "limited" && kind !== "limited") {
-    throw new DecodeError(`${path}.kind`, "a known timing policy");
-  }
-  onlyFields(record, path, ["kind", "seconds", "graceSeconds"]);
-  const seconds = integer(field(record, "seconds", path), `${path}.seconds`, 1, MAX_U32);
-  const graceSeconds = integer(
-    field(record, "graceSeconds", path),
-    `${path}.graceSeconds`,
-    0,
-    MAX_U32,
-  );
-  return { kind, seconds, graceSeconds };
-}
-
 function decodeTags(value: unknown, path: string): ReadonlyArray<string> {
   if (!Array.isArray(value)) throw new DecodeError(path, "an array");
   return value.map((entry, index) => boundedText(entry, `${path}[${index}]`, MAX_TAG_CHARS));
@@ -602,9 +565,6 @@ export function decodePleQuestionJsonSource(
     "response",
     "questionHint",
     "feedback",
-    "points",
-    "questionAttemptLimit",
-    "questionAttemptTimeLimit",
     "tags",
     "questionLicense",
     "questionCitation",
@@ -730,15 +690,6 @@ export function decodePleQuestionJsonSource(
       record.feedback === undefined
         ? { correct: null, incorrect: null }
         : decodeOutcomeFeedback(record.feedback, `${path}.feedback`),
-    points: finiteNonnegative(field(record, "points", path), `${path}.points`),
-    questionAttemptLimit: decodeQuestionAttemptLimit(
-      field(record, "questionAttemptLimit", path),
-      `${path}.questionAttemptLimit`,
-    ),
-    questionAttemptTimeLimit: decodeQuestionAttemptTimeLimit(
-      field(record, "questionAttemptTimeLimit", path),
-      `${path}.questionAttemptTimeLimit`,
-    ),
     tags: record.tags === undefined ? [] : decodeTags(record.tags, `${path}.tags`),
     questionLicense: decodeQuestionLicense(
       field(record, "questionLicense", path),

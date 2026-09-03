@@ -252,13 +252,13 @@ impl QtiPleDefault {
 
 /// Exact source-points declaration permitted by the v1 profile contract.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum QtiMappedPoints {
+pub enum QtiVendorPointsEvidence {
     Declared(String),
     BlackboardDefaulted,
 }
 
 #[allow(dead_code)]
-impl QtiMappedPoints {
+impl QtiVendorPointsEvidence {
     pub(super) fn resolve(
         &self,
         profile: QtiProfileId,

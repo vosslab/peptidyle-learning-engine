@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use question_model::generation::QuestionSeed;
-use question_model::{AccountId, QuestionGradingRule, Timestamp};
+use question_model::{AccountId, Timestamp};
 use sqlx::postgres::PgRow;
 use sqlx::{Postgres, Row, Transaction};
 
@@ -87,9 +87,9 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
         let persisted: uuid::Uuid = sqlx::query_scalar(
             "SELECT ple_api.create_imathas_question_backend_session(\
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, decode($10, 'hex'), $11, $12::numeric, \
-                $13, $14::numeric, $15, $16, $17, convert_to($18, 'UTF8'), \
-                to_timestamp($19::double precision / 1000.0), to_timestamp($20::double precision / 1000.0), \
-                $21, $22, $23)",
+                $13, $14, $15, convert_to($16, 'UTF8'), \
+                to_timestamp($17::double precision / 1000.0), to_timestamp($18::double precision / 1000.0), \
+                $19, $20, $21)",
         )
         .bind(parts.reference.as_uuid())
         .bind(parts.course.as_uuid())
@@ -105,8 +105,6 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
         .bind(parts.source_object_checksum.as_str())
         .bind(parts.imathas_question_backend_binding.profile().as_str())
         .bind(parts.grading_context.question_seed().value().to_string())
-        .bind(question_grading_rule_mode(&parts.question_grading_rule))
-        .bind(question_grading_rule_points(&parts.question_grading_rule))
         .bind(parts.imathas_launch_binding_checksum.as_str())
         .bind(parts.response_checksum.as_bytes().to_vec())
         .bind(parts.challenge.as_bytes().to_vec())
@@ -175,14 +173,24 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
         sqlx::query(
             "SELECT ple_api.lease_imathas_question_backend_session(\
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, decode($10, 'hex'), $11, \
-                $12::numeric, $13, $14::numeric, $15, $16, to_timestamp($17::double precision / 1000.0))",
+                $12::numeric, $13, $14, to_timestamp($15::double precision / 1000.0))",
         )
         .bind(lease_parts.reference.as_uuid())
         .bind(context.course.as_uuid())
         .bind(context.assignment.as_uuid())
         .bind(context.grading_context.question_attempt().as_uuid())
-        .bind(context.imathas_question_backend_binding.deployment_reference().as_str())
-        .bind(context.imathas_question_backend_binding.item_reference().as_str())
+        .bind(
+            context
+                .imathas_question_backend_binding
+                .deployment_reference()
+                .as_str(),
+        )
+        .bind(
+            context
+                .imathas_question_backend_binding
+                .item_reference()
+                .as_str(),
+        )
         .bind(
             context
                 .grading_context
@@ -208,8 +216,6 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
         .bind(context.source_object_checksum.as_str())
         .bind(context.imathas_question_backend_binding.profile().as_str())
         .bind(context.grading_context.question_seed().value().to_string())
-        .bind(question_grading_rule_mode(&context.question_grading_rule))
-        .bind(question_grading_rule_points(&context.question_grading_rule))
         .bind(context.imathas_launch_binding_checksum.as_str())
         .bind(lease_parts.capability_checksum.as_bytes().to_vec())
         .bind(lease_parts.expires_at.as_unix_millis())
@@ -234,8 +240,8 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
         let row = sqlx::query(
             "SELECT * FROM ple_api.stage_verified_imathas_result(\
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, decode($10, 'hex'), $11, \
-                $12::numeric, $13, $14::numeric, $15, $16, $17, $18, $19, $20, $21, \
-                $22, $23, to_timestamp($24::double precision / 1000.0))",
+                $12::numeric, $13, $14, $15, $16, $17, $18, $19, $20, \
+                $21, to_timestamp($22::double precision / 1000.0))",
         )
         .bind(lease.reference.as_uuid())
         .bind(context.course.as_uuid())
@@ -278,8 +284,6 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
         .bind(context.source_object_checksum.as_str())
         .bind(context.imathas_question_backend_binding.profile().as_str())
         .bind(context.grading_context.question_seed().value().to_string())
-        .bind(question_grading_rule_mode(&context.question_grading_rule))
-        .bind(question_grading_rule_points(&context.question_grading_rule))
         .bind(context.imathas_launch_binding_checksum.as_str())
         .bind(lease.capability_checksum.as_bytes().to_vec())
         .bind(transition_parts.idempotency_key.as_str())
@@ -398,7 +402,7 @@ async fn load_row(
                 imathas_question_backend_state_key_id, imathas_question_backend_state_nonce, imathas_question_backend_state_ciphertext \
          FROM ple_api.load_imathas_question_backend_session(\
              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, decode($11, 'hex'), $12, \
-             $13::numeric, $14, $15::numeric, $16)",
+             $13::numeric, $14)",
     )
     .bind(reference.as_uuid())
     .bind(expectation.storage_parts().account.as_uuid())
@@ -433,12 +437,6 @@ async fn load_row(
             .as_str(),
     )
     .bind(expectation.storage_parts().grading_context.question_seed().value().to_string())
-    .bind(question_grading_rule_mode(
-        &expectation.storage_parts().question_grading_rule,
-    ))
-    .bind(question_grading_rule_points(
-        &expectation.storage_parts().question_grading_rule,
-    ))
     .bind(expectation.storage_parts().imathas_launch_binding_checksum.as_str())
     .fetch_one(&mut **transaction)
     .await
@@ -520,7 +518,6 @@ fn decode_imathas_question_backend_session_row(
         course: restore.course,
         assignment: restore.assignment,
         grading_context: restore.grading_context,
-        question_grading_rule: restore.question_grading_rule,
         imathas_question_backend_binding: question_model::ImathasQuestionBackendBinding::new(
             restore
                 .imathas_question_backend_binding
@@ -572,22 +569,6 @@ fn ensure_resolved_session_account(
         Ok(())
     } else {
         Err(StoreError::Forbidden)
-    }
-}
-
-fn question_grading_rule_mode(rule: &QuestionGradingRule) -> &'static str {
-    match rule {
-        QuestionGradingRule::AllOrNothing { .. } => "all_or_nothing",
-        QuestionGradingRule::PartialCredit { .. } => "partial_credit",
-        QuestionGradingRule::Ungraded => "ungraded",
-    }
-}
-
-fn question_grading_rule_points(rule: &QuestionGradingRule) -> Option<f64> {
-    match rule {
-        QuestionGradingRule::AllOrNothing { points }
-        | QuestionGradingRule::PartialCredit { points } => Some(*points),
-        QuestionGradingRule::Ungraded => None,
     }
 }
 

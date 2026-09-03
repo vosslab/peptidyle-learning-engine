@@ -122,8 +122,9 @@ fn sample_below(random: &mut ChaCha20Rng, upper: u64) -> u64 {
 mod tests {
     use question_model::{
         AssignmentEntryAvailability, AssignmentEntryId, AssignmentEntryScoringRule,
-        AssignmentPointValue, QuestionPoolItem, QuestionPoolItemId, QuestionPoolSelectionRule,
-        QuestionRevisionNumber, QuestionRevisionReference,
+        AssignmentPointValue, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolItem,
+        QuestionPoolItemId, QuestionPoolSelectionRule, QuestionRevisionNumber,
+        QuestionRevisionReference,
     };
     use uuid::Uuid;
 
@@ -155,6 +156,8 @@ mod tests {
             selection_rule: QuestionPoolSelectionRule {
                 selected_question_order: order,
             },
+            question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+            question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
             items: vec![
                 question_pool_item(2, QuestionPoolItemAvailability::Available),
                 question_pool_item(3, QuestionPoolItemAvailability::Retired),

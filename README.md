@@ -51,7 +51,7 @@ Use the visible seeded-role entry to verify the currently mounted authorization 
   browser request.
 - The current browser surface intentionally stops there. Course, Question Library, Question
   authoring, Assignment delivery, Gradebook, passkey, and email-code workflows have contracts and
-  focused evidence, but remain unmounted until their owning Store and service boundaries exist.
+  focused evidence, but no available routes until their owning Store and service boundaries exist.
 - Use the active implementation registry for exact completion evidence; it distinguishes permanent
   contract tests from disposable database, local-stack, browser, and visual acceptance.
 
@@ -258,19 +258,19 @@ is a design boundary rather than a current browser workflow.
 
 ## What exists today
 
-| Area                                 | State                                                                                                                                                                                                                                                                                                      |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rust domain and learning data access | Question, Assignment, Course, Blueprint-operation, timing, scoring, retention, and Job contracts; focused in-memory and PostgreSQL foundations carry their own conformance evidence.                                                                                                                       |
-| Blueprint and Course contracts       | Exact Blueprint Course and Course Instance operation contracts for forking, creation, copying, updates, new terms, and schedule changes; Memory evidence is complete only where the active registry says so.                                                                                               |
-| API server                           | Authenticated Session handling, composition, health, request lifecycle, and HTTP security are mounted. Course, Question Library, delivery, and Job routes remain explicit downstream work.                                                                                                                 |
-| WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                                                             |
-| Browser client                       | Seeded Live Demo Account selection is the mounted browser entry. Strict browser contracts and unmounted Course, Question Library, authoring, delivery, and Gradebook surfaces remain separately tracked.                                                                                                   |
-| Blueprint operations                 | Fork Blueprint Course, Create Course from Blueprint, Copy Assignment from Blueprint, Apply Blueprint Update, Copy Course for New Term, and Shift Course Dates have exact contracts. Their PostgreSQL/RLS, Store, server, browser, and connected live-evidence layers remain unmounted implementation work. |
-| PostgreSQL                           | Fresh SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification for their accepted foundations.                                                                                                                                                          |
-| Question engines                     | PLE Question JSON schema version 2 supports the eight required Question Types. WeBWorK, QTI, iMathAS, and H5P boundaries have focused adapter contracts; mounted delivery and provider integration remain separately tracked.                                                                              |
-| DOCX and PDF export                  | Deterministic Student and Answer Key artifact generation through the object-store boundary.                                                                                                                                                                                                                |
-| Containers                           | Local PostgreSQL and MinIO named-volume state, stateless API/worker/gateway, and the private external stateless PG renderer; production runtime identities and deployment remain open                                                                                                                      |
-| Worker runtime                       | Typed Job contracts and leases are established; mounted worker delivery remains separately tracked.                                                                                                                                                                                                        |
+| Area                                 | State                                                                                                                                                                                                                                                                                              |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rust domain and learning data access | Question, Assignment, Course, Blueprint-operation, timing, scoring, retention, and Job contracts; focused in-memory and PostgreSQL foundations carry their own conformance evidence.                                                                                                               |
+| Blueprint and Course contracts       | Exact Blueprint Course and Course Instance operation contracts for forking, creation, copying, updates, new terms, and schedule changes; Memory evidence is complete only where the active registry says so.                                                                                       |
+| API server                           | Authenticated Session handling, composition, health, request lifecycle, and HTTP security are available. Course, Question Library, delivery, and Job routes remain explicit downstream work.                                                                                                       |
+| WebAssembly bridge                   | Browser-safe generation, response-format validation, timer, and state behavior; grading remains outside its dependency closure                                                                                                                                                                     |
+| Browser client                       | Seeded Live Demo Account selection is the current browser entry. Strict browser contracts exist for several Course, Question Library, authoring, delivery, and Gradebook surfaces whose server routes remain future work.                                                                          |
+| Blueprint operations                 | Fork Blueprint Course, Create Course from Blueprint, Copy Assignment from Blueprint, Apply Blueprint Update, Copy Course for New Term, and Shift Course Dates have exact contracts. Their PostgreSQL/RLS, Store, server, browser, and connected live-evidence layers remain implementation work.   |
+| PostgreSQL                           | Fresh SQL migrations, forced RLS, least-privilege roles, retention fences, and disposable PostgreSQL verification for their accepted foundations.                                                                                                                                                  |
+| Question technologies                | PLE Question JSON version 3 supports the eight required Question Types. PLE, WeBWorK, iMathAS, and H5P use the shared Question operations according to their current capabilities. QTI maps supported imports into PLE Question JSON. Delivery and provider integration remain separately tracked. |
+| DOCX and PDF export                  | Deterministic Student and Answer Key artifact generation through the object-store boundary.                                                                                                                                                                                                        |
+| Containers                           | Local PostgreSQL and MinIO named-volume state, stateless API/worker/gateway, and the private external stateless PG renderer; production runtime identities and deployment remain open                                                                                                              |
+| Worker runtime                       | Typed Job contracts and leases are established; worker delivery remains separately tracked.                                                                                                                                                                                                        |
 
 The current checkpoint, evidence, and remaining dependency order live in
 [docs/active_plans/reports/project_status_report_2026-08-10.md](docs/active_plans/reports/project_status_report_2026-08-10.md),
@@ -281,9 +281,9 @@ The full architecture and milestone plan remain in
 
 ## Current limitations
 
-- PLE Question JSON schema version 2 is the canonical static Question Source for MC, MA, FIB,
+- PLE Question JSON version 3 is the canonical static Question Source for MC, MA, FIB,
   MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. Browser authoring and delivery require their own
-  mounted Store and service boundaries before they are presented as current workflows.
+  Store and service boundaries before they are presented as current workflows.
 - QTI parsing is intentionally bounded to the reviewed Canvas and Blackboard subsets. A browser
   import workflow awaits one Store-backed Workspace Import and service route; broader vendor
   compatibility, imported media, and optional exporters remain deferred.

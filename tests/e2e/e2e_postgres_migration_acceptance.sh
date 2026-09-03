@@ -122,6 +122,8 @@ assert_imathas_question_backend_service_logins() {
 	expect_denied "API login cannot assume procedure owner" psql_in_container ple_api_login -d "$DATABASE_NAME" -c 'SET ROLE ple_api_owner'; expect_denied "worker login cannot assume procedure owner" psql_in_container ple_worker_login -d "$DATABASE_NAME" -c 'SET ROLE ple_api_owner'
 	expect_denied "API login cannot assume grading worker" psql_in_container ple_api_login -d "$DATABASE_NAME" -c 'SET ROLE ple_imathas_question_backend_grading_worker'; expect_denied "grading worker cannot assume API capability" psql_in_container ple_worker_login -d "$DATABASE_NAME" -c 'SET ROLE ple_app'
 	expect_denied "API login cannot read iMathAS Question Backend Sessions directly" psql_in_container ple_api_login -d "$DATABASE_NAME" -c 'SELECT 1 FROM ple_private.imathas_question_backend_session LIMIT 1'; expect_denied "grading worker cannot read iMathAS Question Backend Sessions directly" psql_in_container ple_worker_login -d "$DATABASE_NAME" -c 'SELECT 1 FROM ple_private.imathas_question_backend_session LIMIT 1'
+	expect_denied "API login cannot update locked Issued Questions directly" psql_in_container ple_api_login -d "$DATABASE_NAME" -c "UPDATE ple_private.issued_question SET issued_question_id = issued_question_id WHERE issued_question_id = '00000000-0000-5000-8000-000000000115'"
+	expect_denied "API login cannot update locked Assignment Attempts directly" psql_in_container ple_api_login -d "$DATABASE_NAME" -c "UPDATE ple_private.assignment_attempt SET assignment_attempt_id = assignment_attempt_id WHERE assignment_attempt_id = '00000000-0000-0000-0000-000000000114'"
 }
 cd "$REPO_ROOT"
 require_command podman
@@ -169,6 +171,7 @@ psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/assignment_revision_entry_snapshot_catalog.sql"
 echo "PostgreSQL Migration Acceptance Runtime E2E: exact principal, schema, ACL, and membership catalog"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/postgres_migration_acceptance_catalog.sql"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/imathas_question_backend_session_catalog_oracle.sql"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/postgres_migration_acceptance_instructor_account_creation.sql"
 assert_restricted_logins
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/imathas_question_backend_session_postgres_oracle.sql"

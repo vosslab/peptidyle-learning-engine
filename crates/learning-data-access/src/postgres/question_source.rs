@@ -1,4 +1,4 @@
-//! PostgreSQL persistence for Draft Question Source Registrations.
+//! PostgreSQL persistence for Draft Question Source Bindings.
 
 use async_trait::async_trait;
 use serde::Serialize;
@@ -7,18 +7,17 @@ use sqlx::{Postgres, Transaction};
 use super::Pool;
 use super::connection::map_sqlx_error;
 use crate::{
-    DraftQuestionSourceRegistrationInput, DraftQuestionSourceRegistrationStore, SessionTokenHash,
-    StoreError,
+    DraftQuestionSourceBindingInput, DraftQuestionSourceBindingStore, SessionTokenHash, StoreError,
 };
 
-/// PostgreSQL implementation of the session-authorized Draft Question Source Registration Store.
+/// PostgreSQL implementation of the session-authorized Draft Question Source Binding Store.
 #[derive(Clone)]
-pub struct PostgresDraftQuestionSourceRegistrationStore {
+pub struct PostgresDraftQuestionSourceBindingStore {
     pool: Pool,
 }
 
-impl PostgresDraftQuestionSourceRegistrationStore {
-    /// Binds the already-attested API pool to private Question Source Registration persistence.
+impl PostgresDraftQuestionSourceBindingStore {
+    /// Binds the already-attested API pool to private Draft Question Source Binding persistence.
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
@@ -51,11 +50,11 @@ impl PostgresDraftQuestionSourceRegistrationStore {
 }
 
 #[async_trait]
-impl DraftQuestionSourceRegistrationStore for PostgresDraftQuestionSourceRegistrationStore {
-    async fn register_draft_question_source_registration(
+impl DraftQuestionSourceBindingStore for PostgresDraftQuestionSourceBindingStore {
+    async fn bind_draft_question_source(
         &self,
         session_token_hash: SessionTokenHash,
-        input: DraftQuestionSourceRegistrationInput,
+        input: DraftQuestionSourceBindingInput,
     ) -> Result<(), StoreError> {
         input.validate()?;
         let question_format = wire_string(&input.question_format, "Question Format")?;
@@ -76,8 +75,8 @@ impl DraftQuestionSourceRegistrationStore for PostgresDraftQuestionSourceRegistr
         // authorizes the exact workspace/Draft Question/Edit Number/object relationship in one
         // transaction before it creates or confirms an immutable record.
         sqlx::query(
-            "SELECT ple_api.register_draft_question_source_registration(\
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13\
+            "SELECT ple_api.bind_draft_question_source(\
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11\
              )",
         )
         .bind(input.draft_question_uuid.as_uuid())
@@ -90,8 +89,6 @@ impl DraftQuestionSourceRegistrationStore for PostgresDraftQuestionSourceRegistr
         .bind(input.question_backend.as_str())
         .bind(question_format)
         .bind(input.webwork_pg_path)
-        .bind(input.qti_package_item_identifier)
-        .bind(input.workspace_import_id.map(|id| id.as_uuid()))
         .bind(imathas_deployment_reference)
         .bind(imathas_item_reference)
         .bind(Option::<String>::None)

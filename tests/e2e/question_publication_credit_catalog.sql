@@ -25,7 +25,7 @@ BEGIN
         ) OR NOT EXISTS (
             SELECT 1 FROM pg_trigger
             WHERE tgrelid = 'ple_data.question_publication_event'::regclass
-            AND tgname = 'question_publication_event_has_question_source_registration' AND NOT tgisinternal
+            AND tgname = 'question_publication_event_has_question_source_binding' AND NOT tgisinternal
         ) THEN
         RAISE EXCEPTION 'Question publication and availability evidence remains conflated';
     END IF;
@@ -200,25 +200,24 @@ BEGIN
         RAISE EXCEPTION 'Question Fork Source lacks its exact Draft, Published Question, or trusted-publication boundary';
     END IF;
 
-    IF NOT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = 'ple_data'
-          AND table_name = 'question_revision'
-          AND column_name = 'question_description'
-          AND is_generated = 'ALWAYS'
-    ) OR NOT EXISTS (
-        SELECT 1
-        FROM pg_class
-        WHERE oid = 'ple_data.question_revision_question_description_search_idx'::regclass
-    ) OR NOT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = 'ple_api'
-          AND table_name = 'published_question_summary'
-          AND column_name = 'question_description'
-    ) THEN
-        RAISE EXCEPTION 'Question Description lacks its generated searchable Question Description result';
+    IF to_regclass('ple_data.published_question_metadata') IS NULL
+        OR EXISTS (
+            SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'ple_data' AND table_name = 'question_revision'
+               AND column_name IN ('public_metadata', 'question_description')
+        ) OR NOT EXISTS (
+            SELECT 1 FROM pg_class
+             WHERE oid = 'ple_data.published_question_metadata_search_idx'::regclass
+        ) OR NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'ple_api' AND table_name = 'published_question_summary'
+               AND column_name = 'question_title'
+        ) OR NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'ple_api' AND table_name = 'published_question_summary'
+               AND column_name = 'question_description'
+        ) THEN
+        RAISE EXCEPTION 'Published Question Metadata does not own searchable discovery fields';
     END IF;
 END;
 $$;
@@ -376,11 +375,8 @@ $$;
 -- Latest Question Revision is derived from immutable acceptance evidence,
 -- rather than from Question Revision Availability or a mutable pointer.
 INSERT INTO ple_data.question_revision (
-    question_id, revision_number, backend, published_at, public_metadata
-) VALUES (
-    'SRC-0001', 2, 'ple', '2026-09-01T00:00:00Z',
-    jsonb_build_object('questionDescription', 'Accepted successor Question Revision')
-);
+    question_id, revision_number, backend, published_at
+) VALUES ('SRC-0001', 2, 'ple', '2026-09-01T00:00:00Z');
 INSERT INTO ple_data.question_revision_acceptance (
     question_id, revision_number, parent_revision_number, editor_account_id,
     accepted_by_account_id, accepted_at, reason_for_edit
@@ -422,12 +418,17 @@ $$;
 -- Question Revision-owned source registration/object evidence and may record
 -- the matching immutable Question Fork Source for a separate published lineage.
 INSERT INTO ple_private.draft_question (
-    draft_question_uuid, workspace_id, draft_question_edit_number, title,
-    question_content, created_at, updated_at
+    draft_question_uuid, workspace_id, draft_question_edit_number, created_at, updated_at
 ) VALUES (
     '00000000-0000-0000-0000-000000000920',
-    '00000000-0000-0000-0000-000000000902', 1, 'Forked source fixture',
-    '{}'::jsonb, '2026-08-31T00:00:00Z', '2026-08-31T00:00:00Z'
+    '00000000-0000-0000-0000-000000000902', 1,
+    '2026-08-31T00:00:00Z', '2026-08-31T00:00:00Z'
+);
+INSERT INTO ple_private.draft_question_metadata (
+    draft_question_uuid, question_title, question_description, created_at, updated_at
+) VALUES (
+    '00000000-0000-0000-0000-000000000920', 'Forked source fixture',
+    'Forked source fixture', '2026-08-31T00:00:00Z', '2026-08-31T00:00:00Z'
 );
 
 BEGIN;
@@ -445,11 +446,11 @@ SELECT ple_api.register_workspace_question_source_object(
     ),
     decode(repeat('ab', 32), 'hex'), 17, 'application/json', 1777603200000
 );
-SELECT ple_api.register_draft_question_source_registration(
+SELECT ple_api.bind_draft_question_source(
     '00000000-0000-0000-0000-000000000920', 1,
     '00000000-0000-0000-0000-000000000902',
     'ple', 'pleQuestionJson',
-    NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL,
     '00000000-0000-0000-0000-000000000922', repeat('ab', 32)
 );
 SELECT ple_api.register_draft_question_fork_source(
@@ -461,10 +462,13 @@ COMMIT;
 INSERT INTO ple_data.published_question (question_id, created_at)
 VALUES ('FRK-0001', '2026-08-31T00:00:00Z');
 INSERT INTO ple_data.question_revision (
-    question_id, revision_number, backend, published_at, public_metadata
+    question_id, revision_number, backend, published_at
+) VALUES ('FRK-0001', 1, 'ple', '2026-08-31T00:00:00Z');
+INSERT INTO ple_data.published_question_metadata (
+    question_id, question_title, question_description, created_at, updated_at
 ) VALUES (
-    'FRK-0001', 1, 'ple', '2026-08-31T00:00:00Z',
-    jsonb_build_object('questionDescription', 'Forked source fixture Question')
+    'FRK-0001', 'Forked source fixture Question', 'Forked source fixture Question',
+    '2026-08-31T00:00:00Z', '2026-08-31T00:00:00Z'
 );
 
 -- Published Question fixtures insert their immutable lineage directly. A future

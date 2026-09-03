@@ -1,6 +1,6 @@
 use objects::Sha256Checksum;
 use question_model::generation::QuestionSeed;
-use question_model::{QuestionAttemptId, QuestionGradingRule, QuestionRevisionReference};
+use question_model::{QuestionAttemptId, QuestionEvaluation, QuestionRevisionReference};
 use uuid::Uuid;
 
 use crate::StoreError;
@@ -355,44 +355,12 @@ impl ImathasGradingContext {
 }
 
 /// Derives PLE's immutable grading fact from accepted iMathAS evidence.
-pub fn derive_imathas_question_backend_grading_result(
+pub fn derive_imathas_question_backend_evaluation(
     imathas_result: &ImathasResult,
-    question_grading_rule: &QuestionGradingRule,
-) -> Result<question_model::GradingResult, StoreError> {
+) -> Result<QuestionEvaluation, StoreError> {
     let normalized_score = imathas_result.normalized_score().value();
-    match question_grading_rule {
-        QuestionGradingRule::AllOrNothing { points } => Ok(question_model::GradingResult {
-            correct: normalized_score == 1.0,
-            points_earned: if normalized_score == 1.0 {
-                *points
-            } else {
-                0.0
-            },
-            points_possible: *points,
-        }),
-        QuestionGradingRule::PartialCredit { points } => Ok(question_model::GradingResult {
-            correct: normalized_score == 1.0,
-            points_earned: points * normalized_score,
-            points_possible: *points,
-        }),
-        QuestionGradingRule::Ungraded => Err(StoreError::InvalidRecord(
-            "Ungraded Question Grading Rule cannot accept an iMathAS Result".into(),
-        )),
-    }
-}
-
-pub(crate) fn validate_question_grading_rule(rule: &QuestionGradingRule) -> Result<(), StoreError> {
-    let points = match rule {
-        QuestionGradingRule::AllOrNothing { points }
-        | QuestionGradingRule::PartialCredit { points } => *points,
-        QuestionGradingRule::Ungraded => return Ok(()),
-    };
-    if !points.is_finite() || points < 0.0 || points.to_bits() == (-0.0_f64).to_bits() {
-        return Err(StoreError::InvalidRecord(
-            "Question Grading Rule points must be finite, nonnegative zero, and nonnegative".into(),
-        ));
-    }
-    Ok(())
+    QuestionEvaluation::new(normalized_score == 1.0, normalized_score)
+        .map_err(|error| StoreError::InvalidRecord(error.to_string()))
 }
 
 impl std::fmt::Debug for ImathasGradingContext {

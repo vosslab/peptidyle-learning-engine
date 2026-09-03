@@ -44,7 +44,7 @@ fn public_mapping() -> QtiPublicMappingChecksumInput {
             ple_choice_id: "blue".to_string(),
             text_markdown: "Blue".to_string(),
         }],
-        points: "1".to_string(),
+        vendor_points: "1".to_string(),
         defaults: Vec::new(),
         warnings: Vec::new(),
     }
@@ -145,11 +145,11 @@ fn public_mapping_deterministic_encoding_and_checksum_are_golden() {
     .expect("deterministic checksum encoding");
     assert_eq!(
         std::str::from_utf8(&bytes).expect("deterministic JSON is UTF-8"),
-        "{\"schema\":\"public-mapping\",\"value\":{\"source_location\":\"canvas_qti12_questions/one.xml\",\"source_identifier\":\"question-1\",\"title\":\"Favorite color\",\"prompt_markdown\":\"What is your favorite color?\",\"choices\":[{\"ple_choice_id\":\"blue\",\"text_markdown\":\"Blue\"}],\"points\":\"1\",\"defaults\":[],\"warnings\":[]}}"
+        "{\"schema\":\"public-mapping\",\"value\":{\"source_location\":\"canvas_qti12_questions/one.xml\",\"source_identifier\":\"question-1\",\"title\":\"Favorite color\",\"prompt_markdown\":\"What is your favorite color?\",\"choices\":[{\"ple_choice_id\":\"blue\",\"text_markdown\":\"Blue\"}],\"vendor_points\":\"1\",\"defaults\":[],\"warnings\":[]}}"
     );
     assert_eq!(
         public_mapping.checksum().expect("checksum").to_string(),
-        "e511e37a056973d2f21e3522f6c8362603e0de4fc807c8ccd006b32515db39c0"
+        "ae8585888bd9bc97b80dac5269c05f45b2759bbd264fe7acbab60ab600aff247"
     );
 }
 

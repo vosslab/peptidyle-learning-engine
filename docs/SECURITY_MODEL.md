@@ -70,7 +70,7 @@ It does not expose the canonical bytes through browser-facing stores, routes,
 generated contracts, or the Wasm closure.
 
 Ungraded content has no `AnswerKey`; it does not use a browser-safe placeholder
-key. Native H5P remains ungraded practice because its own evaluation runs in
+key. Current H5P Package content remains ungraded practice because its own evaluation runs in
 the browser. The authenticated author-role-only PLE Question JSON source `GET`/`PUT` route
 is the narrow exception for an instructor's own canonical source. It uses
 `Cache-Control: no-store` and a strong ETag, exposes no signed object URL or
@@ -285,12 +285,13 @@ accepted zero representation; LDA derives, rather than accepts, its checksum
 from `ple:imathas-result:v1\\0` followed by the score's IEEE-754 binary64
 bytes. That checksum is never the Result Token checksum and neither
 belongs on a Grading Result. `ImathasGradingContext` remains exactly its
-three identity fields; the required `QuestionGradingRule` is a separate
-issue-time iMathAS Question Backend Session fact. Authenticated staging consumes the Session and
+three identity fields. The iMathAS Session stores authentication and Result lifecycle facts and
+binds the exact Question Attempt ID. Authenticated staging consumes the Session and
 creates the marker `StudentResponse::ImathasQuestionBackend {}` Question Submission,
 pending Question Submission Grading, and ready typed Job with ready Result Exchange
-evidence. Only a worker holding that Job's lease can atomically recheck the
-lineage, derive the PLE Grading Result, write its Automated Grading Receipt,
+evidence. Only a worker holding that Job's lease can atomically lock the Issued Question selected by
+that Question Attempt, resolve its point value and scoring rule, combine them with the backend
+`QuestionEvaluation`, derive the Assignment-owned Grading Result, write its Automated Grading Receipt,
 and commit the Result Exchange. Lease expiry enables a later claim; final execution
 failure is the Job/Question Submission Grading's `instructor_attention`, not a
 rewrite of the immutable evidence. No iMathAS Result DTO or raw result
@@ -314,23 +315,21 @@ live-backend acceptance remain absent. iMathAS protocol handles, source bytes, t
 and grades remain server-only. Generic hosted MyOpenMath remains outside the
 supported boundary.
 
-## Published QTI runtime
+## QTI Import boundary
 
-QTI stays unsupported unless `PLE_QTI_RUNTIME_ENABLED=1` and a nonempty
-`PLE_AUTOMATED_GRADING_DATABASE_URL` are both present. Partial, malformed, or unreachable
-configuration fails startup before router construction. The grader URL uses the
-dedicated `ple_grading_reader` login and constructs a separate bounded pool. It is
-never the normal application pool, never acquired through `SET ROLE`, and is
-injected only into the QTI backend's `QtiGradingStore` boundary.
+QTI processing occurs inside the authorized Workspace Import boundary. PLE
+checks the archive limits and checksum, parses the selected QTI Profile as
+hostile input, and reports supported and unsupported items before commit. Each
+accepted flat item becomes one complete PLE Question JSON Draft Question. The
+original archive, profile, item reference, mappings, warnings, and checksums
+remain private Workspace Import evidence.
 
-The normal application store and object store resolve only immutable published
-source, artifact, and asset evidence. The QTI backend reparses the exact
-checksum-pinned archive before a private grading lookup, and the dedicated pool
-can return only the committed published binding for the exact server-resolved
-course assignment and Question Attempt. Disabled QTI has no registry capability or Assignment Attempt
-dispatch; non-QTI and unauthorized dispatches do not reach the grader.
-Connection strings and grading payloads are not included in errors, Debug
-output, browser DTOs, TypeScript, or WASM.
+Every later operation uses the ordinary backend-agnostic Draft Question,
+publication, Assignment, issuance, submission, and evaluation contracts with
+the PLE Question Backend. The active QTI-to-PLE Question JSON convergence
+removes QTI runtime dispatch and QTI grading-store access. Connection strings, archive bytes, answer
+data, and diagnostics remain outside browser DTOs, TypeScript, WASM, errors,
+and Debug output.
 
 ## Student-record retention boundary
 
@@ -415,9 +414,12 @@ publication scope, or a backend capability declaration. The server loads the
 account-authorized draft, resolves capabilities from its trusted adapter
 registry, returns the complete capability-violation list, and generates fresh
 published identities for a new work, correction, or derivative. The Store
-compares and locks the same draft before committing metadata, immutable
-payload, Question Library publication state, and draft deletion in one
-transaction.
+compares and locks the same draft before atomically creating the self-contained
+Question Revision, its immutable Question Source, the initial Published Question
+metadata, and Question Library publication state. Publication writes a new Question
+Revision-owned Source Object Reference rather than reusing the draft object
+path. Draft retention is a separate recovery and expiration policy; published
+reads never join through the Draft Question.
 
 Publication requires an Active Instructor Account and any installation-wide review
 gate. `Sysadmin` status alone does not publish or provide Question Library access.
@@ -666,8 +668,10 @@ source packages, render caches, and `temp-processing` objects cannot be
 registered for this route.
 
 Workspace Import Sources and Question Sources are never direct delivery targets and the
-typed object contract refuses to sign either key. This includes compact PLE
-PLE Question JSON as well as QTI, iMathAS, and other answer-bearing sources.
+typed object contract refuses to sign either key. Question Sources include PLE Question JSON,
+WeBWorK PG, iMathAS content, H5P packages, and future registered Question Formats. A QTI archive
+is Workspace Import evidence; each accepted QTI item becomes PLE Question JSON before entering
+the Draft Question lifecycle.
 An instructor preview or export must use a separate authorized result that
 redacts or deliberately includes the authorized Question Answer, Question Answer Explanation, or other named private record for that operation; it must
 not expose the source object URL.

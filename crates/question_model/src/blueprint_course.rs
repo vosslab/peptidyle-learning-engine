@@ -9,7 +9,6 @@ use std::collections::BTreeSet;
 use std::num::NonZeroU64;
 use std::str::FromStr;
 
-use chrono::NaiveTime;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -17,15 +16,27 @@ use crate::{
     AssignmentInstructions, AssignmentPointValue, BlueprintCourseReference, LateWorkRule,
     MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
     MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
-    MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, QuestionId, QuestionPoolSelectionRule,
-    QuestionSearchResult, StudentFeedbackReleaseRule,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, QuestionAttemptLimit, QuestionAttemptTimeLimit,
+    QuestionId, QuestionPoolSelectionRule, QuestionSearchResult, StudentFeedbackReleaseRule,
 };
 
 /// Shared instructor-content bound for reusable titles and module labels.
 pub const MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS: usize = 200;
 
 mod blueprint_children;
-pub use blueprint_children::*;
+pub use blueprint_children::{
+    BlueprintAssignmentEditHandle, BlueprintAssignmentId, BlueprintChildIdError,
+    BlueprintCourseAssignmentContentView, BlueprintCourseAssignmentReplacementInput,
+    BlueprintCourseModuleReplacementInput, BlueprintCourseModuleView, BlueprintModuleEditHandle,
+    BlueprintModuleId, CreateBlueprintCourseContentInput, CreateBlueprintCourseModuleInput,
+    ReplaceBlueprintCourseContentInput,
+};
+
+mod relative_assignment_schedule;
+pub use relative_assignment_schedule::{
+    LocalTimeOfDay, LocalTimeOfDayError, RelativeAssignmentSchedule,
+    RelativeAssignmentScheduleMoment,
+};
 
 /// Failure to validate a reusable title or module label.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,108 +60,6 @@ pub fn validate_blueprint_course_title(value: &str) -> Result<(), BlueprintCours
         && value.chars().count() <= MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS)
         .then_some(())
         .ok_or(BlueprintCourseTitleError::Invalid)
-}
-
-/// Exact local wall-clock time used with a signed curriculum-day offset.
-///
-/// This is intentionally time-only: B2 resolves it against an instructor's
-/// selected target term and reports any daylight-saving correction required.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct LocalTimeOfDay(String);
-
-impl LocalTimeOfDay {
-    /// Parses the canonical `HH:MM:SS.sss` browser wire value.
-    pub fn parse(value: &str) -> Result<Self, LocalTimeOfDayError> {
-        let bytes = value.as_bytes();
-        let exact_shape = bytes.len() == 12
-            && bytes[2] == b':'
-            && bytes[5] == b':'
-            && bytes[8] == b'.'
-            && bytes
-                .iter()
-                .enumerate()
-                .all(|(index, byte)| matches!(index, 2 | 5 | 8) || byte.is_ascii_digit());
-        if !exact_shape || NaiveTime::parse_from_str(value, "%H:%M:%S%.3f").is_err() {
-            return Err(LocalTimeOfDayError);
-        }
-        Ok(Self(value.to_owned()))
-    }
-
-    /// Returns the canonical browser wire value.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl TryFrom<String> for LocalTimeOfDay {
-    type Error = LocalTimeOfDayError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::parse(&value)
-    }
-}
-
-impl From<LocalTimeOfDay> for String {
-    fn from(value: LocalTimeOfDay) -> Self {
-        value.0
-    }
-}
-
-/// A local time was not the exact time-only browser wire form.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LocalTimeOfDayError;
-
-impl std::fmt::Display for LocalTimeOfDayError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("local time must be exact HH:MM:SS.sss")
-    }
-}
-
-impl std::error::Error for LocalTimeOfDayError {}
-
-/// One curriculum-calendar moment relative to a target term's first day.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct RelativeAssignmentScheduleMoment {
-    /// Signed calendar-day offset from the target term's first local day.
-    pub day_offset: i32,
-    /// Exact local wall-clock time for that calendar day.
-    pub local_time: LocalTimeOfDay,
-}
-
-/// Optional curriculum-relative availability, due, and close defaults.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct RelativeAssignmentSchedule {
-    /// First local moment when students may open a future copied assignment.
-    pub available_at: Option<RelativeAssignmentScheduleMoment>,
-    /// Ordinary local due moment for a future copied assignment.
-    pub due_at: Option<RelativeAssignmentScheduleMoment>,
-    /// Local moment after which a future copied assignment is closed.
-    pub closes_at: Option<RelativeAssignmentScheduleMoment>,
-}
-
-impl RelativeAssignmentSchedule {
-    /// Validates the partial schedule's meaningful chronological order.
-    pub fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
-        if ordered_after(self.available_at.as_ref(), self.due_at.as_ref())
-            || ordered_after(self.available_at.as_ref(), self.closes_at.as_ref())
-            || ordered_after(self.due_at.as_ref(), self.closes_at.as_ref())
-        {
-            return Err(BlueprintCourseValidationError::InvalidScheduleOrder);
-        }
-        Ok(())
-    }
-}
-
-fn ordered_after(
-    earlier: Option<&RelativeAssignmentScheduleMoment>,
-    later: Option<&RelativeAssignmentScheduleMoment>,
-) -> bool {
-    earlier
-        .zip(later)
-        .is_some_and(|(earlier, later)| earlier > later)
 }
 
 /// Blueprint Assignment policy defaults copied into a future teaching course.
@@ -201,6 +110,10 @@ pub struct ReusableFixedQuestionInput {
     pub points_possible: AssignmentPointValue,
     /// Score treatment copied into the future Fixed Question Assignment Entry.
     pub scoring_rule: AssignmentEntryScoringRule,
+    /// Question Attempt retry bound copied into the future Fixed Question Assignment Entry.
+    pub question_attempt_limit: QuestionAttemptLimit,
+    /// Question Attempt timing copied into the future Fixed Question Assignment Entry.
+    pub question_attempt_time_limit: QuestionAttemptTimeLimit,
 }
 
 /// One Question Pool Assignment Entry, including its ordered public Question Pool Item IDs.
@@ -217,6 +130,10 @@ pub struct ReusablePoolInput {
     pub scoring_rule: AssignmentEntryScoringRule,
     /// Complete reviewed selection behavior.
     pub selection_rule: QuestionPoolSelectionRule,
+    /// Uniform Question Attempt retry bound copied for every selected Question Pool Item.
+    pub question_attempt_limit: QuestionAttemptLimit,
+    /// Uniform Question Attempt timing copied for every selected Question Pool Item.
+    pub question_attempt_time_limit: QuestionAttemptTimeLimit,
 }
 
 impl ReusablePoolInput {
@@ -332,6 +249,10 @@ pub struct ReusablePoolView {
     pub scoring_rule: AssignmentEntryScoringRule,
     /// Complete reviewed selection behavior.
     pub selection_rule: QuestionPoolSelectionRule,
+    /// Uniform Question Attempt retry bound copied for every selected Question Pool Item.
+    pub question_attempt_limit: QuestionAttemptLimit,
+    /// Uniform Question Attempt timing copied for every selected Question Pool Item.
+    pub question_attempt_time_limit: QuestionAttemptTimeLimit,
 }
 
 /// Current answer-free reusable-content entry. Vector order is its position.
@@ -346,6 +267,10 @@ pub enum BlueprintAssignmentEntryView {
         points_possible: AssignmentPointValue,
         /// Score treatment copied into the future Fixed Question Assignment Entry.
         scoring_rule: AssignmentEntryScoringRule,
+        /// Question Attempt retry bound copied into the future Fixed Question Assignment Entry.
+        question_attempt_limit: QuestionAttemptLimit,
+        /// Question Attempt timing copied into the future Fixed Question Assignment Entry.
+        question_attempt_time_limit: QuestionAttemptTimeLimit,
     },
     /// One Question Pool Assignment Entry in content order.
     Pool(ReusablePoolView),
@@ -607,6 +532,8 @@ mod tests {
                     question_id: question_id(),
                     points_possible: AssignmentPointValue::from_whole(3),
                     scoring_rule: AssignmentEntryScoringRule::Normal,
+                    question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+                    question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                 }),
                 BlueprintAssignmentEntryInput::Pool(ReusablePoolInput {
                     items: vec![
@@ -620,6 +547,8 @@ mod tests {
                         selected_question_order:
                             crate::QuestionPoolSelectedQuestionOrder::RandomOrder,
                     },
+                    question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+                    question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                 }),
             ],
             defaults: defaults(),
@@ -745,6 +674,8 @@ mod tests {
                     selected_question_order:
                         crate::QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
                 },
+                question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+                question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
             })],
             ..content
         };
@@ -787,6 +718,8 @@ mod tests {
                                 .into(),
                                 points_possible: AssignmentPointValue::from_whole(3),
                                 scoring_rule: AssignmentEntryScoringRule::Normal,
+                                question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+                                question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                             },
                             BlueprintAssignmentEntryView::Pool(ReusablePoolView {
                                 items: vec![ReusableQuestionPoolItemView {
@@ -800,6 +733,8 @@ mod tests {
                                     selected_question_order:
                                         crate::QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
                                 },
+                                question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+                                question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                             }),
                         ],
                         defaults: defaults(),
@@ -860,6 +795,8 @@ mod blueprint_course_tests {
                             question_id: "7K3-M9QX".parse().expect("QuestionId"),
                             points_possible: AssignmentPointValue::from_whole(1),
                             scoring_rule: AssignmentEntryScoringRule::Normal,
+                            question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+                            question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                         },
                     )],
                     defaults: BlueprintAssignmentDefaults {
@@ -916,6 +853,8 @@ mod blueprint_course_tests {
                     question_id: "7K3-M9QX".parse().expect("QuestionId"),
                     points_possible: AssignmentPointValue::from_whole(1),
                     scoring_rule: AssignmentEntryScoringRule::Normal,
+                    question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+                    question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                 },
             )],
             defaults: BlueprintAssignmentDefaults {

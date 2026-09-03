@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use super::*;
-use question_model::QuestionGradingRule;
 
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
@@ -302,7 +301,6 @@ impl std::fmt::Debug for ImathasQuestionBackendStateCipher {
 
 fn imathas_question_backend_state_aad(session: &ImathasQuestionBackendSession) -> Vec<u8> {
     let mut aad = vec![IMATHAS_QUESTION_BACKEND_STATE_AAD_VERSION];
-    let question_grading_rule = question_grading_rule_aad(session.question_grading_rule());
     for value in [
         session.reference.as_uuid().as_bytes().as_slice(),
         session.account.as_uuid().as_bytes().as_slice(),
@@ -348,7 +346,6 @@ fn imathas_question_backend_state_aad(session: &ImathasQuestionBackendSession) -
             .question_seed()
             .value()
             .to_be_bytes(),
-        &question_grading_rule,
         session.response_checksum.as_bytes(),
         session.challenge.as_bytes(),
         session.authentication.as_str().as_bytes(),
@@ -359,22 +356,6 @@ fn imathas_question_backend_state_aad(session: &ImathasQuestionBackendSession) -
         append_aad_field(&mut aad, value);
     }
     aad
-}
-
-fn question_grading_rule_aad(rule: &QuestionGradingRule) -> Vec<u8> {
-    match rule {
-        QuestionGradingRule::AllOrNothing { points } => {
-            let mut bytes = vec![1];
-            bytes.extend_from_slice(&points.to_bits().to_be_bytes());
-            bytes
-        }
-        QuestionGradingRule::PartialCredit { points } => {
-            let mut bytes = vec![2];
-            bytes.extend_from_slice(&points.to_bits().to_be_bytes());
-            bytes
-        }
-        QuestionGradingRule::Ungraded => vec![3],
-    }
 }
 
 fn append_aad_field(aad: &mut Vec<u8>, value: &[u8]) {

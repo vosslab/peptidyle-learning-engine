@@ -9,14 +9,9 @@ use anyhow::{Context, Result, bail};
 use question_model::response::{
     QuestionType, ResponseItemReference, StudentMatch, StudentResponse,
 };
-use question_model::{
-    QuestionBackend, QuestionFormat, QuestionId, QuestionLicense, QuestionRevision,
-    QuestionRevisionNumber, WorkspaceId,
-};
 use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use uuid::Uuid;
 
 const DEFAULT_MANIFEST: &str = "content/pilot/chapter_1_assignments.yaml";
 const EXPECTED_QUESTION_SHAPES: [(Backend, PilotQuestionType); 4] = [
@@ -312,7 +307,7 @@ fn validate_flat(
     _chapter: &Chapter,
     question: &Question,
     source: &Path,
-    identity: u128,
+    _identity: u128,
 ) -> Result<()> {
     if question.upstream_sha256.is_some() || !question.changes.is_empty() {
         bail!(
@@ -339,50 +334,36 @@ fn validate_flat(
     let document = PleQuestionJsonDocument::parse(&bytes)
         .with_context(|| format!("validating PLE Question JSON payload {}", payload.display()))?;
     let compiled = document
-        .compile(WorkspaceId::from_uuid(Uuid::from_u128(identity)))
+        .compile()
         .with_context(|| format!("compiling PLE Question JSON payload {}", payload.display()))?;
-    compiled.private().validate_for_draft(compiled.draft())?;
-    if compiled.draft().metadata.title != question.title {
+    let source_checksum = document.canonical_sha256()?;
+    compiled.private().validate_for_source(
+        &source_checksum,
+        compiled.presentation().question_type(),
+        compiled.presentation().response(),
+    )?;
+    if compiled.presentation().title() != question.title {
         bail!("PLE Question JSON pilot payload title differs from its manifest entry");
     }
-    if compiled.draft().metadata.question_license != Some(QuestionLicense::CcBy4_0) {
+    if !bytes
+        .windows(b"\"questionLicense\":\"CC-BY-4.0\"".len())
+        .any(|window| window == b"\"questionLicense\":\"CC-BY-4.0\"")
+    {
         bail!("PLE Question JSON pilot payload must retain the CC BY license");
     }
     let expected_question_type = match question.question_type {
         PilotQuestionType::MultipleChoice => QuestionType::MultipleChoice,
         PilotQuestionType::Matching => QuestionType::Matching,
     };
-    if compiled.draft().question_backend != QuestionBackend::Ple {
-        bail!("PLE Question JSON payload compiled to a non-PLE Question Source");
-    }
-    if compiled.draft().question_format != QuestionFormat::PleQuestionJson
-        || compiled.draft().question_type != expected_question_type
-    {
+    if compiled.presentation().question_type() != expected_question_type {
         bail!("PLE Question JSON payload question_type differs from its manifest entry");
     }
-    validate_answer_separation(compiled.draft())?;
-    validate_correct_and_wrong_grading(compiled, &bytes, question.question_type)
-}
-
-fn validate_answer_separation(draft: &question_model::DraftQuestionContent) -> Result<()> {
-    let public = serde_json::to_string(draft)?;
-    for private_key in [
-        "\"correctChoice\":",
-        "\"correctChoices\":",
-        "\"matches\":",
-        "\"correctOrder\":",
-        "\"correctRegions\":",
-        "\"answers\":",
-    ] {
-        if public.contains(private_key) {
-            bail!("compiled PLE Question JSON student-safe Question Content exposes {private_key}");
-        }
-    }
-    Ok(())
+    validate_correct_and_wrong_grading(compiled, &source_checksum, &bytes, question.question_type)
 }
 
 fn validate_correct_and_wrong_grading(
     compiled: adapter_ple::question_json::CompiledPleQuestionJson,
+    source_checksum: &str,
     source: &[u8],
     question_type: PilotQuestionType,
 ) -> Result<()> {
@@ -392,25 +373,23 @@ fn validate_correct_and_wrong_grading(
         .and_then(Value::as_object)
         .ok_or_else(|| anyhow::anyhow!("PLE Question JSON payload lacks its response object"))?;
     let (correct, wrong) = source_responses(response, question_type)?;
-    let (draft, private, _question_hint) = compiled.into_parts();
-    if draft.question_backend != QuestionBackend::Ple {
-        bail!("PLE Question JSON payload compiled to a non-PLE Question Source");
-    }
-    let published = QuestionRevision::from_draft(
-        draft,
-        QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
-        QuestionRevisionNumber::new(1).expect("positive version"),
-        None,
+    let presentation = compiled.presentation();
+    let private = compiled.private();
+    let correct_result = private.evaluate(
+        source_checksum,
+        presentation.question_type(),
+        presentation.response(),
+        &correct,
     )?;
-    let correct_result = private.evaluate(&published, &correct)?;
-    let wrong_result = private.evaluate(&published, &wrong)?;
-    let grading::QuestionGradingOutcome::Graded(correct_result) = correct_result.outcome else {
-        bail!("PLE Question JSON correct response did not produce a grade");
-    };
-    let grading::QuestionGradingOutcome::Graded(wrong_result) = wrong_result.outcome else {
-        bail!("PLE Question JSON wrong response did not produce a grade");
-    };
-    if !correct_result.correct || wrong_result.correct {
+    let wrong_result = private.evaluate(
+        source_checksum,
+        presentation.question_type(),
+        presentation.response(),
+        &wrong,
+    )?;
+    let correct_result = correct_result.evaluation;
+    let wrong_result = wrong_result.evaluation;
+    if !correct_result.correct() || wrong_result.correct() {
         bail!("PLE Question JSON pilot payload did not distinguish correct and wrong responses");
     }
     Ok(())

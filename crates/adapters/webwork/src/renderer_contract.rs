@@ -150,9 +150,4 @@ pub struct GradeRequest<'a> {
     pub response: &'a StudentResponse,
     /// Exact issuance mapping already bound to the persisted attempt.
     pub replay: &'a WebworkQuestionAttemptReplayDetails,
-    /// The published all-or-nothing score ceiling. The renderer returns only
-    /// a normalized score and never chooses the assignment's point value.
-    pub points_possible: f64,
-    /// Whether a validated 0--100 upstream fraction is permitted.
-    pub partial_credit: bool,
 }

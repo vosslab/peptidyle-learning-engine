@@ -1,8 +1,8 @@
 use super::*;
 use objects::Sha256Checksum;
 use question_model::{
-    AccountId, AssignmentId, CourseId, ImathasQuestionBackendBinding, QuestionGradingRule,
-    SourceObjectChecksum, SourceObjectReference, Timestamp,
+    AccountId, AssignmentId, CourseId, ImathasQuestionBackendBinding, SourceObjectChecksum,
+    SourceObjectReference, Timestamp,
 };
 
 #[derive(Clone, PartialEq)]
@@ -13,7 +13,6 @@ pub struct ImathasQuestionBackendSession {
     pub(crate) course: CourseId,
     pub(crate) assignment: AssignmentId,
     pub(crate) grading_context: ImathasGradingContext,
-    pub(crate) question_grading_rule: QuestionGradingRule,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub(crate) source_object: SourceObjectReference,
     pub(crate) source_object_checksum: SourceObjectChecksum,
@@ -39,9 +38,6 @@ impl ImathasQuestionBackendSession {
     pub fn grading_context(&self) -> &ImathasGradingContext {
         &self.grading_context
     }
-    pub fn question_grading_rule(&self) -> &QuestionGradingRule {
-        &self.question_grading_rule
-    }
     pub fn expires_at(&self) -> Timestamp {
         self.expires_at
     }
@@ -54,7 +50,6 @@ impl ImathasQuestionBackendSession {
             course: self.course,
             assignment: self.assignment,
             grading_context: self.grading_context.clone(),
-            question_grading_rule: self.question_grading_rule.clone(),
             imathas_question_backend_binding: self.imathas_question_backend_binding.clone(),
             source_object: self.source_object.clone(),
             source_object_checksum: self.source_object_checksum.clone(),
@@ -91,7 +86,6 @@ impl ImathasQuestionBackendSession {
         course: CourseId,
         assignment: AssignmentId,
         grading_context: ImathasGradingContext,
-        question_grading_rule: QuestionGradingRule,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
         source_object: SourceObjectReference,
         source_object_checksum: SourceObjectChecksum,
@@ -106,7 +100,6 @@ impl ImathasQuestionBackendSession {
         lease_expires_at: Option<Timestamp>,
         lease_active: bool,
     ) -> Result<Self, StoreError> {
-        validate_question_grading_rule(&question_grading_rule)?;
         if expires_at <= issued_at
             || revoked_at.is_some_and(|time| time < issued_at)
             || consumed_at.is_some_and(|time| time < issued_at)
@@ -125,7 +118,6 @@ impl ImathasQuestionBackendSession {
             course,
             assignment,
             grading_context,
-            question_grading_rule,
             imathas_question_backend_binding,
             source_object,
             source_object_checksum,
@@ -152,7 +144,6 @@ impl ImathasQuestionBackendSession {
             parts.course,
             parts.assignment,
             parts.grading_context,
-            parts.question_grading_rule,
             parts.imathas_question_backend_binding,
             parts.source_object,
             parts.source_object_checksum,
@@ -202,7 +193,6 @@ pub struct ImathasQuestionBackendSessionRestoreExpectation {
     pub(crate) course: CourseId,
     pub(crate) assignment: AssignmentId,
     pub(crate) grading_context: ImathasGradingContext,
-    pub(crate) question_grading_rule: QuestionGradingRule,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub(crate) source_object: SourceObjectReference,
     pub(crate) source_object_checksum: SourceObjectChecksum,
@@ -217,7 +207,6 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
         course: CourseId,
         assignment: AssignmentId,
         grading_context: ImathasGradingContext,
-        question_grading_rule: QuestionGradingRule,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
         source_object: SourceObjectReference,
         source_object_checksum: SourceObjectChecksum,
@@ -229,7 +218,6 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
             course,
             assignment,
             grading_context,
-            question_grading_rule,
             imathas_question_backend_binding,
             source_object,
             source_object_checksum,
@@ -243,7 +231,6 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
             && self.course == session.course
             && self.assignment == session.assignment
             && self.grading_context == session.grading_context
-            && self.question_grading_rule == session.question_grading_rule
             && self.imathas_question_backend_binding == session.imathas_question_backend_binding
             && self.source_object == session.source_object
             && self.source_object_checksum == session.source_object_checksum
@@ -257,7 +244,6 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
             course: self.course,
             assignment: self.assignment,
             grading_context: self.grading_context.clone(),
-            question_grading_rule: self.question_grading_rule.clone(),
             imathas_question_backend_binding: self.imathas_question_backend_binding.clone(),
             source_object: self.source_object.clone(),
             source_object_checksum: self.source_object_checksum.clone(),
@@ -273,7 +259,6 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
             course: self.course,
             assignment: self.assignment,
             grading_context: self.grading_context.clone(),
-            question_grading_rule: self.question_grading_rule.clone(),
             imathas_question_backend_binding: self.imathas_question_backend_binding.clone(),
             source_object: self.source_object.clone(),
             source_object_checksum: self.source_object_checksum.clone(),
@@ -290,7 +275,6 @@ pub(crate) struct ImathasQuestionBackendSessionStorePredicate {
     pub(crate) course: CourseId,
     pub(crate) assignment: AssignmentId,
     pub(crate) grading_context: ImathasGradingContext,
-    pub(crate) question_grading_rule: QuestionGradingRule,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub(crate) source_object: SourceObjectReference,
     pub(crate) source_object_checksum: SourceObjectChecksum,
@@ -302,7 +286,6 @@ pub(crate) struct ImathasQuestionBackendSessionStorePredicate {
 #[derive(Clone, PartialEq)]
 pub struct ImathasQuestionBackendSessionValidation {
     pub grading_context: ImathasGradingContext,
-    pub question_grading_rule: QuestionGradingRule,
     pub imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub source_object: SourceObjectReference,
     pub source_object_checksum: SourceObjectChecksum,
@@ -317,7 +300,6 @@ impl ImathasQuestionBackendSession {
     pub fn imathas_question_backend_validation(&self) -> ImathasQuestionBackendSessionValidation {
         ImathasQuestionBackendSessionValidation {
             grading_context: self.grading_context.clone(),
-            question_grading_rule: self.question_grading_rule.clone(),
             imathas_question_backend_binding: self.imathas_question_backend_binding.clone(),
             source_object: self.source_object.clone(),
             source_object_checksum: self.source_object_checksum.clone(),
@@ -347,7 +329,6 @@ pub struct ImathasQuestionBackendSessionCreate {
     pub(crate) course: CourseId,
     pub(crate) assignment: AssignmentId,
     pub(crate) grading_context: ImathasGradingContext,
-    pub(crate) question_grading_rule: QuestionGradingRule,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub(crate) source_object: SourceObjectReference,
     pub(crate) source_object_checksum: SourceObjectChecksum,
@@ -367,7 +348,6 @@ impl ImathasQuestionBackendSessionCreate {
         course: CourseId,
         assignment: AssignmentId,
         grading_context: ImathasGradingContext,
-        question_grading_rule: QuestionGradingRule,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
         source_object: SourceObjectReference,
         source_object_checksum: SourceObjectChecksum,
@@ -384,13 +364,11 @@ impl ImathasQuestionBackendSessionCreate {
                 "iMathAS Question Backend Session expiry must follow issue time".into(),
             ));
         }
-        validate_question_grading_rule(&question_grading_rule)?;
         Ok(Self {
             account,
             course,
             assignment,
             grading_context,
-            question_grading_rule,
             imathas_question_backend_binding,
             source_object,
             source_object_checksum,
@@ -417,7 +395,6 @@ impl ImathasQuestionBackendSessionCreate {
             course: self.course,
             assignment: self.assignment,
             grading_context: self.grading_context,
-            question_grading_rule: self.question_grading_rule,
             imathas_question_backend_binding: self.imathas_question_backend_binding,
             source_object: self.source_object,
             source_object_checksum: self.source_object_checksum,

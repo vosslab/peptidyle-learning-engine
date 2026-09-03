@@ -6,6 +6,14 @@ Instance. It never deletes a shared Published Question, Question Revision,
 Question Source, Question Library record, Blueprint Course, Instructor draft,
 or private Authoring Workspace.
 
+Draft Question cleanup is separate from Course Retention. Draft Questions are
+temporary private sandbox content. A configured Authoring Workspace cleanup may
+expire a Draft Question based on its last accepted edit time, then remove its
+draft rows, editable metadata, and draft source object after the applicable
+warning or recovery period. Published Question Revisions remain unaffected
+because publication writes a complete immutable source object and copies the
+accepted discovery metadata into Published Question-owned storage.
+
 Student Work Records and Grades follow a Course Retention Plan independently
 of the Student Account. The Course-owned Assignment Content and every
 released Assignment Revision required to interpret retained Student work also

@@ -18,7 +18,11 @@ function clientWithIssuedQuestion(mutator) {
   const { recordingFetch, requests } = createRecordingFetch(async (request) => {
     if (new URL(request.url).pathname.endsWith("/question")) {
       const issued = structuredClone(
-        issuedQuestionWireFixture(attempt, publishedQuestionFixture.publishedQuestionRevision),
+        issuedQuestionWireFixture(
+          attempt,
+          publishedQuestionFixture.publishedQuestion,
+          publishedQuestionFixture.issuedQuestions.at(-1).reference,
+        ),
       );
       mutator(issued);
       return jsonResponse(issued);

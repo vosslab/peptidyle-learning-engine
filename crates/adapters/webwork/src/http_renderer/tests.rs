@@ -733,18 +733,12 @@ async fn grade_submits_only_the_persisted_selected_upstream_radio_value() {
             seed: request().seed,
             response: &student_response,
             replay: &radio_replay(),
-            points_possible: 7.0,
-            partial_credit: false,
         })
         .await
         .expect("100 percent answer grades");
     assert!(matches!(
         result,
-        QuestionGradingOutcome::Graded(GradingResult {
-            correct: true,
-            points_earned: 7.0,
-            points_possible: 7.0,
-        })
+        QuestionGradingOutcome::Evaluated(result) if result.correct() && result.normalized_credit() == 1.0
     ));
     let wire_request = task.await.expect("fixture task completes");
     assert!(wire_request.starts_with("POST /render-api HTTP/1.1\r\n"));
@@ -769,7 +763,7 @@ async fn grade_submits_only_the_persisted_selected_upstream_radio_value() {
 
 #[tokio::test]
 #[ignore = "opt-in loopback HTTP transport acceptance"]
-async fn grade_refuses_fractional_upstream_score() {
+async fn grade_maps_fractional_upstream_score_to_normalized_evaluation() {
     const BODY: &str = r#"<p>Question</p><div class="radio-buttons-container"><label><input type="radio" name="AnSwEr0001" value="0" id="AnSwEr0001">A</label><label><input type="radio" name="AnSwEr0001" value="1" id="AnSwEr0001_1">B</label></div>"#;
     let (base, task) = start_http_fixture_for(|address| {
         let base = format!("http://{address}/");
@@ -802,20 +796,21 @@ async fn grade_refuses_fractional_upstream_score() {
         selected: vec![selected],
     };
     let renderer = HttpWebworkRenderer::new(settings).expect("fixture client");
+    let result = renderer
+        .grade(GradeRequest {
+            pg_source: request().pg_source,
+            pg_path: request().pg_path,
+            question_revision: request().question_revision,
+            seed: request().seed,
+            response: &response,
+            replay: &radio_replay(),
+        })
+        .await
+        .expect("fractional upstream score becomes backend evaluation");
     assert!(matches!(
-        renderer
-            .grade(GradeRequest {
-                pg_source: request().pg_source,
-                pg_path: request().pg_path,
-                question_revision: request().question_revision,
-                seed: request().seed,
-                response: &response,
-                replay: &radio_replay(),
-                points_possible: 7.0,
-                partial_credit: false,
-            })
-            .await,
-        Err(RendererFailure::InvalidOutput(_))
+        result,
+        QuestionGradingOutcome::Evaluated(result)
+            if !result.correct() && result.normalized_credit() == 0.5
     ));
     let _ = task.await.expect("fixture task completes");
 }
@@ -864,18 +859,12 @@ async fn grade_maps_zero_percent_to_zero_earned_points() {
             seed: request().seed,
             response: &response,
             replay: &radio_replay(),
-            points_possible: 7.0,
-            partial_credit: false,
         })
         .await
         .expect("zero percent answer grades");
     assert!(matches!(
         result,
-        QuestionGradingOutcome::Graded(GradingResult {
-            correct: false,
-            points_earned: 0.0,
-            points_possible: 7.0,
-        })
+        QuestionGradingOutcome::Evaluated(result) if !result.correct() && result.normalized_credit() == 0.0
     ));
     let _ = task.await.expect("fixture task completes");
 }
@@ -939,18 +928,12 @@ async fn matching_grade_is_one_private_call_and_maps_fractional_credit() {
             seed: request().seed,
             response: &response,
             replay: &parsed.replay,
-            points_possible: 8.0,
-            partial_credit: true,
         })
         .await
         .expect("fractional matching response grades");
     assert!(matches!(
         result,
-        QuestionGradingOutcome::Graded(GradingResult {
-            correct: false,
-            points_earned: 4.0,
-            points_possible: 8.0,
-        })
+        QuestionGradingOutcome::Evaluated(result) if !result.correct() && result.normalized_credit() == 0.5
     ));
     let request = task.await.expect("fixture task completes");
     assert!(request.contains("submitAnswers=1"));

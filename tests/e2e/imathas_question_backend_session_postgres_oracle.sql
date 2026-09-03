@@ -19,14 +19,14 @@ INSERT INTO ple_private.object_record (
     'private-content', 'question-source', decode(repeat('aa', 32), 'hex'),
     17, 'application/json', pg_catalog.clock_timestamp()
 );
-INSERT INTO ple_private.question_source_registration (
+INSERT INTO ple_private.question_revision_source_binding (
     question_id, revision_number, backend, question_format,
-    webwork_pg_path, qti_package_item_identifier,
+    webwork_pg_path,
     imathas_deployment_reference, imathas_item_reference, imathas_profile,
     source_object_id, source_object_checksum, created_at, updated_at
 ) VALUES (
     'ABC-DEF0', 1, 'ple',
-    'pleQuestionJson', NULL, NULL, NULL, NULL, NULL,
+    'pleQuestionJson', NULL, NULL, NULL, NULL,
     '00000000-0000-0000-0000-00000000f202', repeat('aa', 32),
     pg_catalog.clock_timestamp(), pg_catalog.clock_timestamp()
 );
@@ -177,7 +177,7 @@ SELECT
           AND NOT issued_question.statistics_eligible
     ) AS has_ineligible_question_attempt,
     EXISTS (SELECT 1 FROM ple_private.issued_question WHERE issued_question_id = '00000000-0000-5000-8000-000000000115') AS has_issued_question,
-    EXISTS (SELECT 1 FROM ple_private.question_source_registration WHERE question_id = 'ABC-DEF0' AND revision_number = 1 AND source_object_id = '00000000-0000-0000-0000-00000000f202') AS has_question_source_registration,
+    EXISTS (SELECT 1 FROM ple_private.question_revision_source_binding WHERE question_id = 'ABC-DEF0' AND revision_number = 1 AND source_object_id = '00000000-0000-0000-0000-00000000f202') AS has_question_source_binding,
     ple_api.current_session_account_owns_student_record('00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000106') AS owns_student_record;
 DO $$
 BEGIN
@@ -192,11 +192,11 @@ BEGIN
           ON student.student_record_id = assignment_attempt.student_record_id
         JOIN ple_data.assignment AS assignment
           ON assignment.assignment_id = assignment_attempt.assignment_id
-        JOIN ple_private.question_source_registration AS question_source_registration
-          ON question_source_registration.question_id = issued_question.question_id
-         AND question_source_registration.revision_number = issued_question.revision_number
-         AND question_source_registration.source_object_id = '00000000-0000-0000-0000-00000000f202'
-         AND question_source_registration.source_object_checksum = repeat('aa', 32)
+        JOIN ple_private.question_revision_source_binding AS question_source_binding
+          ON question_source_binding.question_id = issued_question.question_id
+         AND question_source_binding.revision_number = issued_question.revision_number
+         AND question_source_binding.source_object_id = '00000000-0000-0000-0000-00000000f202'
+         AND question_source_binding.source_object_checksum = repeat('aa', 32)
         WHERE question_attempt.question_attempt_id = '00000000-0000-0000-0000-00000000f205'
           AND student.student_account_id = '00000000-0000-0000-0000-000000000101'
           AND student.course_id = '00000000-0000-0000-0000-000000000105'
@@ -221,7 +221,7 @@ SELECT ple_api.create_imathas_question_backend_session(
     '00000000-0000-0000-0000-00000000f205',
     'self-hosted-imathas', 'fixture-item', 'ABC-DEF0', 1,
     '00000000-0000-0000-0000-00000000f202', decode(repeat('aa', 32), 'hex'),
-    'scored-embed', 1, 'all_or_nothing', 1, repeat('c', 64), decode(repeat('01', 32), 'hex'),
+    'scored-embed', 1, repeat('c', 64), decode(repeat('01', 32), 'hex'),
     decode(repeat('03', 32), 'hex'),
     convert_to('aa.' || repeat('b', 64), 'UTF8'),
     pg_catalog.clock_timestamp() - interval '5 seconds',
@@ -240,7 +240,11 @@ BEGIN
         SELECT 1
         FROM pg_catalog.pg_attribute
         WHERE attrelid = 'ple_private.imathas_question_backend_session'::regclass
-          AND attname = 'imathas_result_token_sha256' AND NOT attisdropped
+          AND attname IN (
+              'imathas_result_token_sha256', 'question_grading_rule',
+              'question_points_possible'
+          )
+          AND NOT attisdropped
     ) OR NOT EXISTS (
         SELECT 1
         FROM pg_catalog.pg_attribute
@@ -260,8 +264,33 @@ BEGIN
           AND pg_catalog.pg_get_constraintdef(oid)
               LIKE '%octet_length(imathas_result_token_sha256) = 32%'
     ) THEN
-        RAISE EXCEPTION 'iMathAS Question Backend Result Token schema boundary is not exact';
+        RAISE EXCEPTION 'iMathAS Question Backend Session scoring and Result Token schema boundary is not exact';
     END IF;
+END
+$$;
+COMMIT;
+
+-- The SECURITY DEFINER owner may acquire row locks through its narrowly scoped
+-- column privileges, but the same capability cannot directly update either
+-- immutable lineage record.
+BEGIN;
+SET LOCAL ROLE ple_api_owner;
+DO $$
+BEGIN
+    BEGIN
+        UPDATE ple_private.issued_question
+        SET issued_question_id = issued_question_id
+        WHERE issued_question_id = '00000000-0000-5000-8000-000000000115';
+        RAISE EXCEPTION 'iMathAS lock capability updated an Issued Question';
+    EXCEPTION WHEN insufficient_privilege THEN NULL;
+    END;
+    BEGIN
+        UPDATE ple_private.assignment_attempt
+        SET assignment_attempt_id = assignment_attempt_id
+        WHERE assignment_attempt_id = '00000000-0000-0000-0000-000000000114';
+        RAISE EXCEPTION 'iMathAS lock capability updated an Assignment Attempt';
+    EXCEPTION WHEN insufficient_privilege THEN NULL;
+    END;
 END
 $$;
 COMMIT;

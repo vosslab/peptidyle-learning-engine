@@ -197,16 +197,17 @@ pub enum QtiAssetReferenceError {
     ConflictingChecksum,
 }
 
-/// Server-only answer handoff. It is intentionally crate-private: public QTI
-/// callers receive only a Question Prompt and cannot retrieve or compare the
+/// Server-only import answer binding. It is intentionally crate-private: public
+/// QTI callers receive only import evidence and cannot retrieve or compare the
 /// Answer Key.
 #[derive(Clone, PartialEq, Eq)]
-pub(crate) struct QtiGradingHandoff {
+pub(crate) struct QtiImportAnswerBinding {
     pub(crate) choices_by_item: BTreeMap<String, ResponseItemReference>,
 }
 
-/// Result of a validated import. `grading` and original bytes are deliberately
-/// not serializable. Persist their two server-only handoffs independently.
+/// Result of a validated import. The import answer binding and original bytes
+/// are deliberately not serializable. Persist their server-only evidence
+/// independently before constructing canonical PLE Question JSON.
 #[derive(Clone, PartialEq)]
 pub struct ImportedQtiPackage {
     pub(crate) original: ArchivedQtiPackage,
@@ -218,7 +219,7 @@ pub struct ImportedQtiPackage {
     pub unsupported: Vec<UnsupportedFeature>,
     /// Complete answer-free per-item report, including rejected resources.
     pub item_results: Vec<QtiItemImportResult>,
-    pub(crate) grading: QtiGradingHandoff,
+    pub(crate) answer_binding: QtiImportAnswerBinding,
 }
 
 impl std::fmt::Debug for ImportedQtiPackage {
@@ -233,7 +234,7 @@ impl std::fmt::Debug for ImportedQtiPackage {
             .field("unsupported", &self.unsupported)
             .field("item_result_count", &self.item_results.len())
             .field("original", &"<server-only>")
-            .field("grading", &"<server-only>")
+            .field("answer_binding", &"<server-only>")
             .finish()
     }
 }
@@ -269,7 +270,7 @@ impl ImportedQtiPackage {
     /// worker so it can write the grader-owned record. No browser projection,
     /// generated type, or Debug implementation receives this association.
     pub fn worker_correct_choice(&self, item_id: &str) -> Option<ResponseItemReference> {
-        self.grading.choices_by_item.get(item_id).cloned()
+        self.answer_binding.choices_by_item.get(item_id).cloned()
     }
 }
 

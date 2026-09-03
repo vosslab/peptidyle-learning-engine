@@ -20,13 +20,12 @@ pub use grading::{
     LoadedImathasQuestionBackendSession, MAX_IMATHAS_GRADING_JOB_LEASE_MILLIS,
     QuestionSubmissionGradingId, StageVerifiedImathasResult, StagedImathasResultReceipt,
 };
-pub(crate) use identifiers::validate_question_grading_rule;
 pub use identifiers::{
     AutomatedGradingReceiptChecksum, ImathasGradingContext, ImathasLaunchBindingChecksum,
     ImathasNormalizedScore, ImathasQuestionBackendSessionAuthentication,
     ImathasQuestionBackendSessionChallenge, ImathasQuestionBackendSessionReference,
     ImathasResponseChecksum, ImathasResult, ImathasResultChecksum, ImathasResultToken,
-    ImathasResultTokenChecksum, derive_imathas_question_backend_grading_result,
+    ImathasResultTokenChecksum, derive_imathas_question_backend_evaluation,
 };
 pub use memory::MemoryImathasQuestionBackendSessionStore;
 pub use preparation::{

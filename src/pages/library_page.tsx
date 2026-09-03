@@ -45,7 +45,6 @@ function backendLabel(value: string): string {
   const labels: Readonly<Record<string, string>> = {
     ple: "PLE",
     webwork: "WeBWorK",
-    qti: "QTI",
     imathas: "IMathAS",
   };
   return labels[value] ?? value;

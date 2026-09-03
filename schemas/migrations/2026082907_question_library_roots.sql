@@ -9,7 +9,7 @@ CREATE TABLE ple_data.published_question (
 CREATE TABLE ple_data.question_revision (
     question_id text NOT NULL REFERENCES ple_data.published_question (question_id),
     revision_number integer NOT NULL CHECK (revision_number > 0),
-    backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'qti', 'imathas')),
+    backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'imathas')),
     published_at timestamp with time zone NOT NULL,
     public_metadata jsonb NOT NULL,
     question_description text GENERATED ALWAYS AS (public_metadata ->> 'questionDescription') STORED,

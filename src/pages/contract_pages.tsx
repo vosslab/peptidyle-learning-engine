@@ -38,13 +38,8 @@ export const QuestionDetailPage = contractPage(
 );
 export const WorkspaceListPage = contractPage(
   "workspaceList",
-  "Instructor workspace",
-  "the editor lane",
-);
-export const WorkspaceEditorPage = contractPage(
-  "workspaceEditor",
-  "Draft editor",
-  "the editor lane",
+  "My Question Drafts",
+  "the registered Draft Question source and edit-number authoring lane",
 );
 export function NotFoundPage(): JSX.Element {
   const params = useParams();

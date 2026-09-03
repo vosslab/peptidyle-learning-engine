@@ -12,9 +12,6 @@ use question_model::{QuestionResponseFormat, WorkspaceId};
 use serde::{Deserialize, Serialize};
 
 /// Browser-safe inputs needed to preview one editable workspace draft.
-///
-/// This deliberately does not reuse `DraftQuestionContent`: preview needs
-/// neither grading policy nor publication-only validation data.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DraftPreviewRequest {

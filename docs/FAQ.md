@@ -50,10 +50,13 @@ assignment action; PLE does not perform an implicit merge.
 ## Is PLE tied to one format?
 
 No. PLE gives Instructors one learning and assignment model while adapters bring different question
-sources into it. PLE Question JSON supports multiple choice, multiple answer,
+sources into it. Every supported technology uses the same Draft Question, publication, Assignment,
+issuance, presentation, submission, evaluation, feedback-release, and Gradebook operations. PLE
+Question JSON supports multiple choice, multiple answer,
 fill-in-the-blank, multiple blanks, numerical entry, matching, ordering, and image hotspots. The
-current external WeBWorK path supports the four reviewed Chapter 1 MC/MATCH PGML sources; QTI, H5P,
-and iMathAS each have their own documented runtime boundary. See [QUESTION_MODEL.md](QUESTION_MODEL.md)
+current WeBWorK path supports the four reviewed Chapter 1 MC/MATCH PGML sources. iMathAS and H5P
+retain their distinct Question Sources behind the shared operations. QTI is an interchange boundary:
+accepted imports become PLE Question JSON before entering the Draft Question lifecycle. See [QUESTION_MODEL.md](QUESTION_MODEL.md)
 and [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md).
 
 ## Does mastery end practice?
@@ -92,8 +95,8 @@ and [QUESTION_MODEL.md](QUESTION_MODEL.md).
 ## Is PLE Question JSON QTI?
 
 No. PLE Question JSON is the small, versioned, answer-bearing authoring format for ordinary
-static Questions. The PLE Question Backend compiles it into an answer-free public Question model and
-separate server-only Answer Key and Question Grading Input. QTI is a bounded import/export adapter and archival interchange
+static Questions. The PLE Question Backend interprets the complete source to produce an answer-free
+Question Presentation and evaluate Student Responses on the server. QTI is a bounded import/export adapter and archival interchange
 format, so vendor XML and QTI expression trees do not become PLE's internal schema. See
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and the current
 [implementation_plan.md](active_plans/implementation_plan.md).

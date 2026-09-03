@@ -19,8 +19,6 @@ import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
-import type { DraftQuestionContent } from "../../generated/api/DraftQuestionContent";
-import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { InstructorCourseInvitationCreateRequest } from "../../generated/api/InstructorCourseInvitationCreateRequest";
 import type { CourseInvitationReference } from "../../generated/api/CourseInvitationReference";
 import type { CourseInvitationTerminalActionRequest } from "../../generated/api/CourseInvitationTerminalActionRequest";
@@ -60,12 +58,6 @@ import type {
   StudentFeedbackReleaseResponse,
   AssignmentAttemptScreenData,
   AssignmentAttemptSummaryResponse,
-  WorkspaceDraftDetail,
-  DraftQuestionPage,
-  QuestionPublicationReview,
-  PublicationResult,
-  PublicationRequest,
-  PublicationValidationResponse,
   PrefetchedNextQuestion,
   QuestionPoolPreview,
 } from "./contracts";
@@ -241,25 +233,6 @@ export interface ApiClient
   readonly resolveNavigation: (reference: PublicRouteReference) => Promise<NavigationResolution>;
   /** Revokes the account credential for this browser. */
   readonly logout: () => Promise<void>;
-  readonly listWorkspaceDrafts: (cursor?: string) => Promise<DraftQuestionPage>;
-  readonly getWorkspaceDraft: (workspace: WorkspaceId) => Promise<WorkspaceDraftDetail>;
-  readonly saveWorkspaceDraft: (
-    workspace: WorkspaceId,
-    draft: DraftQuestionContent,
-    revision?: string,
-  ) => Promise<WorkspaceDraftDetail>;
-  readonly deleteWorkspaceDraft: (workspace: WorkspaceId, revision: string) => Promise<void>;
-  readonly validateWorkspacePublication: (
-    workspace: WorkspaceId,
-  ) => Promise<PublicationValidationResponse>;
-  readonly getQuestionPublicationReview: (
-    workspace: WorkspaceId,
-  ) => Promise<QuestionPublicationReview>;
-  readonly publishWorkspace: (
-    workspace: WorkspaceId,
-    request: PublicationRequest,
-    revision: string,
-  ) => Promise<PublicationResult>;
   readonly listQuestions: (cursor?: string) => Promise<CursorPage<QuestionSummary>>;
   /** Searches Question Library metadata with server-computed facets. */
   readonly searchQuestionLibrary: (query: QuestionSearchRequest) => Promise<QuestionSearchPage>;

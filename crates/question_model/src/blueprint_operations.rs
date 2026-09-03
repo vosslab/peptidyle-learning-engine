@@ -14,9 +14,9 @@ use crate::{
     BaseAssignmentPolicy, BlueprintAssignmentDefaults, BlueprintCourseValidationError,
     CourseInstanceReference, CourseLocalDateAndTime, CourseTerm, CourseTimeZone, LocalTimeOfDay,
     MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
-    MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, QuestionRevisionReference,
-    RelativeAssignmentSchedule, RelativeAssignmentScheduleMoment, Timestamp,
-    validate_blueprint_course_title,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, QuestionAttemptLimit, QuestionAttemptTimeLimit,
+    QuestionRevisionReference, RelativeAssignmentSchedule, RelativeAssignmentScheduleMoment,
+    Timestamp, validate_blueprint_course_title,
 };
 
 mod contracts;
@@ -214,6 +214,10 @@ pub enum BlueprintAssignmentEntryContent {
         points_possible: AssignmentPointValue,
         /// Scoring treatment copied into the destination assignment.
         scoring_rule: AssignmentEntryScoringRule,
+        /// Question Attempt retry bound copied into the destination assignment.
+        question_attempt_limit: QuestionAttemptLimit,
+        /// Question Attempt timing copied into the destination assignment.
+        question_attempt_time_limit: QuestionAttemptTimeLimit,
     },
     /// One validated deterministic item pool.
     Pool(BlueprintQuestionPoolContent),
@@ -226,6 +230,8 @@ pub struct BlueprintQuestionPoolContent {
     points_per_item: AssignmentPointValue,
     scoring_rule: AssignmentEntryScoringRule,
     selection_rule: crate::QuestionPoolSelectionRule,
+    question_attempt_limit: QuestionAttemptLimit,
+    question_attempt_time_limit: QuestionAttemptTimeLimit,
 }
 impl BlueprintQuestionPoolContent {
     /// Validates pool cardinality, uniqueness, and selection bounds.
@@ -235,6 +241,8 @@ impl BlueprintQuestionPoolContent {
         points_per_item: AssignmentPointValue,
         scoring_rule: AssignmentEntryScoringRule,
         selection_rule: crate::QuestionPoolSelectionRule,
+        question_attempt_limit: QuestionAttemptLimit,
+        question_attempt_time_limit: QuestionAttemptTimeLimit,
     ) -> Result<Self, BlueprintCourseValidationError> {
         if items.is_empty() || items.len() > MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY {
             return Err(BlueprintCourseValidationError::InvalidQuestionPoolItems);
@@ -251,6 +259,8 @@ impl BlueprintQuestionPoolContent {
             points_per_item,
             scoring_rule,
             selection_rule,
+            question_attempt_limit,
+            question_attempt_time_limit,
         })
     }
     /// Returns Question Pool Item pins in meaningful authored order.
@@ -268,6 +278,14 @@ impl BlueprintQuestionPoolContent {
     /// Returns the complete reviewed selection behavior.
     pub fn selection_rule(&self) -> crate::QuestionPoolSelectionRule {
         self.selection_rule
+    }
+    /// Returns the uniform Question Attempt retry bound copied to selected Questions.
+    pub fn question_attempt_limit(&self) -> &QuestionAttemptLimit {
+        &self.question_attempt_limit
+    }
+    /// Returns the uniform Question Attempt timing copied to selected Questions.
+    pub fn question_attempt_time_limit(&self) -> &QuestionAttemptTimeLimit {
+        &self.question_attempt_time_limit
     }
 }
 /// Full server-side SHA-256 binding of encoded Blueprint Revision Content.
@@ -367,6 +385,8 @@ enum EncodedEntry<'a> {
         reference: &'a QuestionRevisionReference,
         points_possible: AssignmentPointValue,
         scoring_rule: AssignmentEntryScoringRule,
+        question_attempt_limit: &'a QuestionAttemptLimit,
+        question_attempt_time_limit: &'a QuestionAttemptTimeLimit,
     },
     Pool {
         items: &'a [QuestionRevisionReference],
@@ -374,6 +394,8 @@ enum EncodedEntry<'a> {
         points_per_item: AssignmentPointValue,
         scoring_rule: AssignmentEntryScoringRule,
         selection_rule: crate::QuestionPoolSelectionRule,
+        question_attempt_limit: &'a QuestionAttemptLimit,
+        question_attempt_time_limit: &'a QuestionAttemptTimeLimit,
     },
 }
 
@@ -417,10 +439,14 @@ fn encode_assignment(assignment: &BlueprintAssignmentContent) -> EncodedAssignme
                     reference,
                     points_possible,
                     scoring_rule,
+                    question_attempt_limit,
+                    question_attempt_time_limit,
                 } => EncodedEntry::Fixed {
                     reference,
                     points_possible: *points_possible,
                     scoring_rule: *scoring_rule,
+                    question_attempt_limit,
+                    question_attempt_time_limit,
                 },
                 BlueprintAssignmentEntryContent::Pool(pool) => EncodedEntry::Pool {
                     items: &pool.items,
@@ -428,6 +454,8 @@ fn encode_assignment(assignment: &BlueprintAssignmentContent) -> EncodedAssignme
                     points_per_item: pool.points_per_item,
                     scoring_rule: pool.scoring_rule,
                     selection_rule: pool.selection_rule,
+                    question_attempt_limit: &pool.question_attempt_limit,
+                    question_attempt_time_limit: &pool.question_attempt_time_limit,
                 },
             })
             .collect(),

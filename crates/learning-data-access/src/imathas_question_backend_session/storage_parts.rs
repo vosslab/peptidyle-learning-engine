@@ -2,8 +2,8 @@
 
 use objects::Sha256Checksum;
 use question_model::{
-    AccountId, AssignmentId, CourseId, ImathasQuestionBackendBinding, QuestionGradingRule,
-    QuestionSubmissionId, SourceObjectChecksum, SourceObjectReference, Timestamp,
+    AccountId, AssignmentId, CourseId, ImathasQuestionBackendBinding, QuestionSubmissionId,
+    SourceObjectChecksum, SourceObjectReference, Timestamp,
 };
 use uuid::Uuid;
 
@@ -24,7 +24,6 @@ pub(crate) struct ImathasQuestionBackendSessionStorageParts {
     pub(crate) course: CourseId,
     pub(crate) assignment: AssignmentId,
     pub(crate) grading_context: ImathasGradingContext,
-    pub(crate) question_grading_rule: QuestionGradingRule,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub(crate) source_object: SourceObjectReference,
     pub(crate) source_object_checksum: SourceObjectChecksum,
@@ -47,7 +46,6 @@ pub(crate) struct ImathasQuestionBackendSessionRestoreParts {
     pub(crate) course: CourseId,
     pub(crate) assignment: AssignmentId,
     pub(crate) grading_context: ImathasGradingContext,
-    pub(crate) question_grading_rule: QuestionGradingRule,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub(crate) source_object: SourceObjectReference,
     pub(crate) source_object_checksum: SourceObjectChecksum,

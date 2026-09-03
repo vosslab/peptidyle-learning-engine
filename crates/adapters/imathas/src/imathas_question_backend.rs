@@ -9,10 +9,7 @@
 use async_trait::async_trait;
 use base64::Engine as _;
 use question_model::generation::QuestionSeed;
-use question_model::{
-    DraftImathasQuestionBackendBinding, QuestionBackend as ModelQuestionBackend, QuestionRevision,
-    Timestamp,
-};
+use question_model::{DraftImathasQuestionBackendBinding, Timestamp};
 use sha2::{Digest, Sha256};
 
 use crate::result_verification::{
@@ -23,7 +20,6 @@ use crate::{
     ImathasAdapterError, ImathasQuestionBackendFailure, ImathasQuestionLocation,
     ImathasRenderRequest, ImathasResultRequest, QuestionBackend, ResolvedImathasQuestionSource,
     SafeImathasQuestionRender, SupportedImathasProfile, VerifiedImathasResult, hex, sealed,
-    verify_binding,
 };
 
 const MAX_SNAPSHOT_BYTES: usize = 1_048_576;
@@ -447,50 +443,23 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
     /// Starts the iMathAS launch and returns only LDA-ready iMathAS bytes.
     pub async fn prepare_imathas_question_backend_launch(
         &self,
-        question: &QuestionRevision,
         source: &ResolvedImathasQuestionSource,
         validation: &learning_data_access::ImathasQuestionBackendLaunchPreparationValidation,
         now: Timestamp,
     ) -> Result<ImathasLaunchPreparation, ImathasAdapterError> {
-        verify_binding(question, source)?;
         if source.binding().deployment_reference().as_str()
             != self.config.profile.deployment_reference()
         {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
-        if question.question_backend != ModelQuestionBackend::Imathas {
-            return Err(ImathasAdapterError::UnsupportedSource);
-        }
-        let binding = question
-            .imathas_question_backend_binding
-            .as_ref()
-            .ok_or(ImathasAdapterError::UnsupportedSource)?;
-        if binding.profile().as_str() != IMATHAS_GRADING_PROFILE_ID {
+        if source.binding().profile().as_str() != IMATHAS_GRADING_PROFILE_ID {
             return Err(ImathasAdapterError::UnsupportedProfile);
         }
         let grading_context = &validation.grading_context;
-        let question_revision = question_model::QuestionRevisionReference {
-            question_id: question.question_id.clone(),
-            revision_number: question.revision_number,
-        };
-        if validation
-            .imathas_question_backend_binding
-            .deployment_reference()
-            .as_str()
-            != source.binding().deployment_reference().as_str()
-            || validation
-                .imathas_question_backend_binding
-                .item_reference()
-                .as_str()
-                != source.binding().item_reference().as_str()
-            || validation
-                .imathas_question_backend_binding
-                .profile()
-                .as_str()
-                != source.binding().profile().as_str()
+        if validation.imathas_question_backend_binding != *source.binding()
             || validation.source_object != *source.source_object_reference()
             || validation.source_object_checksum != *source.source_object_checksum()
-            || grading_context.question_revision() != &question_revision
+            || grading_context.question_revision() != source.question_revision()
             || validation.expires_at <= now
             || validation
                 .challenge

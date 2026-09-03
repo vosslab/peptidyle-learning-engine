@@ -75,6 +75,8 @@ test("Question Pool editor encodes public Item Question IDs in Item order", () =
         selectionCount: 1,
         pointsPerItem: "2",
         selectionRule: { selectedQuestionOrder: "randomOrder" },
+        questionAttemptLimit: { maxAttempts: null },
+        questionAttemptTimeLimit: { kind: "unlimited" },
       },
     ],
   };
@@ -91,6 +93,8 @@ test("Question Pool editor encodes public Item Question IDs in Item order", () =
     selectionCount: 1,
     pointsPerItem: "2",
     selectionRule: { selectedQuestionOrder: "randomOrder" },
+    questionAttemptLimit: { maxAttempts: null },
+    questionAttemptTimeLimit: { kind: "unlimited" },
   });
   assert.equal(JSON.stringify(body).includes('"selectedQuestionOrder":"randomOrder"'), true);
   assert.equal(JSON.stringify(body).includes("algorithm"), false);

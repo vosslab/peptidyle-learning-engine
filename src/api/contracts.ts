@@ -18,20 +18,12 @@ import type { AssignmentStatus } from "../../generated/api/AssignmentStatus";
 import type { AssignmentAttemptCompletion } from "../../generated/api/AssignmentAttemptCompletion";
 import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
-import type { DraftQuestionContent } from "../../generated/api/DraftQuestionContent";
-import type { DraftQuestionSummary } from "../../generated/api/DraftQuestionSummary";
 import type { Capability } from "../../generated/api/Capability";
-import type { QuestionLicense } from "../../generated/api/QuestionLicense";
-import type { QuestionCitation } from "../../generated/api/QuestionCitation";
-import type { QuestionAttemptLimit } from "../../generated/api/QuestionAttemptLimit";
-import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
-import type { QuestionBackend } from "../../generated/api/QuestionBackend";
 import type { AccountId } from "../../generated/api/AccountId";
 import type { ProductRole } from "../../generated/api/ProductRole";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import type { InstructorAssignmentAuthoredContentLocal } from "../../generated/api/InstructorAssignmentAuthoredContentLocal";
 import type { InstructorAssignmentAvailabilityView } from "../../generated/api/InstructorAssignmentAvailabilityView";
-import type { QuestionSummary } from "../../generated/api/QuestionSummary";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
@@ -125,6 +117,8 @@ export type AssignmentEditorEntryInput =
       readonly pointsPossible: string;
       readonly availability: "available" | "retired";
       readonly scoringRule: "normal" | "fullCredit" | "extraCredit" | "excluded";
+      readonly questionAttemptLimit: import("../../generated/api/QuestionAttemptLimit").QuestionAttemptLimit;
+      readonly questionAttemptTimeLimit: import("../../generated/api/QuestionAttemptTimeLimit").QuestionAttemptTimeLimit;
     }
   | {
       readonly kind: "questionPool";
@@ -136,6 +130,8 @@ export type AssignmentEditorEntryInput =
       readonly selectionRule: {
         readonly selectedQuestionOrder: "questionPoolOrder" | "randomOrder";
       };
+      readonly questionAttemptLimit: import("../../generated/api/QuestionAttemptLimit").QuestionAttemptLimit;
+      readonly questionAttemptTimeLimit: import("../../generated/api/QuestionAttemptTimeLimit").QuestionAttemptTimeLimit;
     };
 
 /** The deliberately small public request accepted when an instructor creates a course. */
@@ -285,100 +281,6 @@ export interface AssignmentAttemptSummaryResponse {
 /** Receipt for an Instructor command that releases Student Feedback for one attempt. */
 export interface StudentFeedbackReleaseResponse {
   readonly released: true;
-}
-
-/** Strong ETag issued by the workspace route; pass it back byte-for-byte on an update. */
-export interface WorkspaceDraftDetail {
-  readonly draft: DraftQuestionContent;
-  readonly revision: string;
-}
-
-export type DraftQuestionPage = CursorPage<DraftQuestionSummary>;
-
-export interface PublicationViolation {
-  readonly workspace: string;
-  readonly title: string;
-  readonly capability: Capability;
-}
-
-export interface PublicationValidationReport {
-  readonly violations: ReadonlyArray<PublicationViolation>;
-}
-
-/** A persisted draft cannot complete Question Publication Validation without capability issues. */
-export interface QuestionPublicationValidationUnavailable {
-  readonly kind: "questionPublicationValidationUnavailable";
-  readonly message: string;
-}
-
-/** The validation endpoint's browser contract: capability report or exact validation refusal. */
-export type PublicationValidationResponse =
-  | {
-      readonly kind: "capabilityReport";
-      readonly revision: string;
-      readonly violations: ReadonlyArray<PublicationViolation>;
-    }
-  | QuestionPublicationValidationUnavailable;
-
-/**
- * Answer-free review of one saved Draft Question proposed for publication.
- *
- * The edit number is an exact save/publication concurrency token, not retained
- * Draft Question history.
- */
-export interface QuestionPublicationReview {
-  readonly draftQuestionEditNumber: number;
-  readonly revision: string;
-  readonly baseQuestion: "newQuestion";
-  readonly current: QuestionPublicationReviewSummary;
-  readonly changed: ReadonlyArray<
-    | "questionBackend"
-    | "title"
-    | "prompt"
-    | "response"
-    | "questionAttemptLimit"
-    | "questionAttemptTimeLimit"
-    | "metadata"
-  >;
-}
-
-/** Safe review summary; Question Sources, Source Object References, grading, and keys remain server-held. */
-export interface QuestionPublicationReviewSummary {
-  readonly questionBackend: QuestionBackend;
-  readonly title: string;
-  readonly prompt: { readonly blocks: ReadonlyArray<PublicationPromptBlockKind> };
-  readonly response: {
-    readonly kind: PublicationResponseKind;
-    readonly optionCount: number | null;
-  };
-  readonly questionAttemptLimit: QuestionAttemptLimit;
-  readonly questionAttemptTimeLimit: QuestionAttemptTimeLimit;
-  readonly metadata: {
-    readonly questionDescription: string;
-    readonly tags: ReadonlyArray<string>;
-    readonly questionLicense: QuestionLicense | null;
-    readonly questionCitation: QuestionCitation | null;
-    readonly language: string;
-  };
-}
-
-export type PublicationPromptBlockKind = "text" | "math" | "image" | "code" | "table";
-export type PublicationResponseKind =
-  | "numeric"
-  | "multipleChoice"
-  | "shortText"
-  | "multiBlank"
-  | "matching"
-  | "ordering"
-  | "hotspot"
-  | "imathasQuestionBackend";
-
-export interface PublicationResult {
-  readonly summary: QuestionSummary;
-}
-
-export interface PublicationRequest {
-  readonly authorship: QuestionSummary["authorship"];
 }
 
 /**

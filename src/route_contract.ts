@@ -14,7 +14,6 @@ export interface RouteContract {
     | "blueprintCourses"
     | "blueprintCourseDetail"
     | "workspaceList"
-    | "workspaceEditor"
     | "assignmentCreate"
     | "assignmentWorkspaceOverview"
     | "assignmentWorkspaceQuestions"
@@ -106,13 +105,7 @@ export const ROUTE_CONTRACT = [
   {
     id: "workspaceList",
     path: "/workspace",
-    surface: "Instructor drafts",
-    requiredProductRoles: ["instructor"],
-  },
-  {
-    id: "workspaceEditor",
-    path: "/workspace/:workspaceRef",
-    surface: "Draft editor, validation, and preview",
+    surface: "Planned My Question Drafts destination",
     requiredProductRoles: ["instructor"],
   },
   {

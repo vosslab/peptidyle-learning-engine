@@ -86,7 +86,6 @@ const ISSUED_ATTEMPT_CAPABILITIES = [
   "questionPresentation",
   "pleQuestionJsonPresentation",
   "webworkPresentation",
-  "qtiPresentation",
   "notApplicable",
 ] as const satisfies ReadonlyArray<IssuedAttemptCapability>;
 

@@ -26,8 +26,6 @@ CREATE FUNCTION ple_private.register_draft_question_source_registration(
     p_backend text,
     p_question_format text,
     p_webwork_pg_path text,
-    p_qti_package_item_identifier text,
-    p_workspace_import_id uuid,
     p_imathas_deployment_reference text,
     p_imathas_item_reference text,
     p_imathas_profile text,
@@ -71,8 +69,6 @@ BEGIN
         facts_match := current_registration.backend = p_backend
         AND current_registration.question_format = p_question_format
         AND current_registration.webwork_pg_path IS NOT DISTINCT FROM p_webwork_pg_path
-        AND current_registration.qti_package_item_identifier IS NOT DISTINCT FROM p_qti_package_item_identifier
-        AND current_registration.workspace_import_id IS NOT DISTINCT FROM p_workspace_import_id
         AND current_registration.imathas_deployment_reference IS NOT DISTINCT FROM p_imathas_deployment_reference
         AND current_registration.imathas_item_reference IS NOT DISTINCT FROM p_imathas_item_reference
         AND current_registration.imathas_profile IS NOT DISTINCT FROM p_imathas_profile
@@ -97,8 +93,6 @@ BEGIN
         UPDATE ple_private.question_source_registration
            SET backend = p_backend, question_format = p_question_format,
                webwork_pg_path = p_webwork_pg_path,
-               qti_package_item_identifier = p_qti_package_item_identifier,
-               workspace_import_id = p_workspace_import_id,
                imathas_deployment_reference = p_imathas_deployment_reference,
                imathas_item_reference = p_imathas_item_reference,
                imathas_profile = p_imathas_profile, source_object_id = p_source_object_id,
@@ -108,13 +102,13 @@ BEGIN
     ELSE
         INSERT INTO ple_private.question_source_registration (
             draft_question_uuid, backend, question_format,
-            webwork_pg_path, qti_package_item_identifier, workspace_import_id,
+            webwork_pg_path,
             imathas_deployment_reference, imathas_item_reference, imathas_profile,
             source_object_id, source_object_checksum,
             created_at, updated_at
         ) VALUES (
             p_draft_question_uuid, p_backend, p_question_format,
-            p_webwork_pg_path, p_qti_package_item_identifier, p_workspace_import_id,
+            p_webwork_pg_path,
             p_imathas_deployment_reference, p_imathas_item_reference, p_imathas_profile,
             p_source_object_id, p_source_object_checksum,
             pg_catalog.clock_timestamp(), pg_catalog.clock_timestamp()
@@ -127,10 +121,10 @@ BEGIN
 END
 $$;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_private.register_draft_question_source_registration(
-    uuid, bigint, uuid, text, text, text, text, uuid, text, text, text, uuid, text
+    uuid, bigint, uuid, text, text, text, text, text, text, uuid, text
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.register_draft_question_source_registration(
-    uuid, bigint, uuid, text, text, text, text, uuid, text, text, text, uuid, text
+    uuid, bigint, uuid, text, text, text, text, text, text, uuid, text
 ) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
@@ -141,8 +135,6 @@ CREATE FUNCTION ple_api.register_draft_question_source_registration(
     p_backend text,
     p_question_format text,
     p_webwork_pg_path text,
-    p_qti_package_item_identifier text,
-    p_workspace_import_id uuid,
     p_imathas_deployment_reference text,
     p_imathas_item_reference text,
     p_imathas_profile text,
@@ -153,20 +145,19 @@ RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.register_draft_question_source_registration(
         p_draft_question_uuid, p_expected_draft_question_edit_number, p_workspace_id,
-        p_backend, p_question_format, p_webwork_pg_path,
-        p_qti_package_item_identifier, p_workspace_import_id, p_imathas_deployment_reference,
+        p_backend, p_question_format, p_webwork_pg_path, p_imathas_deployment_reference,
         p_imathas_item_reference, p_imathas_profile, p_source_object_id,
         p_source_object_checksum
     )
 $$;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.register_draft_question_source_registration(
-    uuid, bigint, uuid, text, text, text, text, uuid, text, text, text, uuid, text
+    uuid, bigint, uuid, text, text, text, text, text, text, uuid, text
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.register_draft_question_source_registration(
-    uuid, bigint, uuid, text, text, text, text, uuid, text, text, text, uuid, text
+    uuid, bigint, uuid, text, text, text, text, text, text, uuid, text
 ) TO ple_app;
 SET LOCAL ROLE ple_api_owner;
 COMMENT ON FUNCTION ple_api.register_draft_question_source_registration(
-    uuid, bigint, uuid, text, text, text, text, uuid, text, text, text, uuid, text
+    uuid, bigint, uuid, text, text, text, text, text, text, uuid, text
 ) IS 'Locks one authorized mutable Draft Question; a matching Edit Number applies current Source Registration facts once, identical facts are idempotent, and one exact post-increment retry is accepted.';
 RESET ROLE;

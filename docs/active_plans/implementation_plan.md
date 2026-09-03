@@ -66,6 +66,36 @@ prepare publication, a Question Source coordinator, Store, route, schema other
 than the permitted-format removal, browser feature, fixture family, alias, or
 permanent test. Future source/publication rows remain separately open.
 
+`WP-SD1-A-QSOM1-S2A` is the accepted Assignment Entry control move. Fixed and Question Pool
+Assignment Entries, together with immutable Assignment Revision Entry snapshots, own
+QuestionAttemptLimit and QuestionAttemptTimeLimit; BaseAssignmentPolicy attempt/time controls remain
+assignment-wide. The later S2B source-model cut removes the retired generic content and grading
+records rather than treating them as current QSOM1 work. The status registry remains the sole
+allocation authority.
+
+`WP-SD1-A-QSOM1-S2B1A` is accepted and completed. Server-only, non-Serde
+`QuestionEvaluation { correct, normalized_credit }` is Question Backend evaluation while
+Assignment-owned GradingResult remains the scoring record. The direct iMathAS issued-score cut keeps
+QuestionAttemptId and authentication/Result lifecycle facts on the Session; atomic commit locks the
+selected IssuedQuestion and resolves its point_value and scoring_rule. Two independent reviewers
+PASS, and the manager's final `source source_me.sh && ./all_test.sh` exits 0 with 424 generated
+types, 3 fixtures, Rust workspace/Clippy/tests/doctests/Wasm, 315 Node, 4,908 pytest, fresh/no-op/
+catalog/restricted PostgreSQL, 3/3 iMathAS, Course Appearance PostgreSQL-plus-MinIO, and
+`PASS: complete live acceptance is green.` The durable blueprint_course schedule, student_work
+grading, and iMathAS catalog oracle splits are line-gate organization only, not product behavior.
+S2B2 (PLE Question JSON adapter), S2B3 (WeBWorK adapter), S2B4 (iMathAS source/session input
+removal), S2B5 (QTI import mapping and minimal H5P preservation), S2B6 (unbacked generic Draft
+Question editor and PLE Question JSON fallback removal), and S2B7 (final generic-root deletion) are
+accepted and completed after independent review. QTI is now import/export/archive interchange, not a
+runtime dispatch path. `/workspace` is an Instructor-gated, truthful planned **My Question Drafts**
+destination; the authoring and publication server workflow is unmounted. The final manager
+`source source_me.sh && ./all_test.sh` exits 0 with 421 generated types, 3 tracked fixtures, Rust
+format/check/all-feature strict Clippy/tests/doctests/Wasm, 286 Node tests, 4,831 pytest tests,
+PostgreSQL 17 fresh/no-op/catalog/restricted plus 3 iMathAS tests, Course Appearance
+PostgreSQL-plus-MinIO, and `PASS: complete live acceptance is green.` Parent QSOM1 remains open only
+for separately owned publication, persistence, and cleanup work. Published Question Title and
+Description remain mutable lineage facts. The status registry remains the sole allocation authority.
+
 [customer-spec.md](customer-spec.md) describes a
 backend-agnostic assignment platform built around repeated attempts, algorithmic questions, and
 question-level timing. The foundational M0 and M1 platform slices and the main M2 through M4
@@ -375,7 +405,7 @@ release boundary while writing code.
 Three organizing trade-offs.
 
 **Secrecy over local speed.** Answers stay on the server, so responsiveness comes from moving
-_non-secret_ work to the browser and hiding the round trip behind prefetch. Native H5P shows why this
+_non-secret_ work to the browser and hiding the round trip behind prefetch. H5P Package content shows why this
 matters: it ships answer evaluation to the browser, so any H5P question is inspectable by any student.
 That is a property of the format, and it sets the adapter's honest capability declaration.
 
@@ -453,8 +483,9 @@ Phrased as the behavior to follow, per the **prompt positively** principle in
 names what this plan does instead of the excluded alternative, so a subagent reading it acts on the
 instruction directly.
 
-- Serve native H5P as ungraded practice with `serverGrading: false`, and import supported types into
-  the server-graded internal representation when grading is required.
+- Serve current H5P Package content as ungraded practice with `serverGrading: false`. Keep its
+  distinct Question Source behind the same Draft Question, publication, Assignment, and delivery
+  operations used by every supported Question technology.
 - Keep the infrastructure to containers, one PostgreSQL cluster, object storage, and a worker pool.
   Kubernetes, an in-memory cache tier, a streaming bus, sharding, a dedicated search index, and
   multi-region deployment each have a documented threshold in the scale evaluation and arrive when
@@ -526,12 +557,12 @@ Three weaknesses neither review named, each becoming a requirement here:
 | Database                     | **PostgreSQL on RDS**, one cluster                                                                                                              | Owner-selected. JSONB with indexing, forced row-level security, mature `FOR UPDATE SKIP LOCKED`                                                                                                                         |
 | Authorization boundary       | **One installation: global AccountId accounts, AuthenticatedSession, exact course/Student/workspace ownership, forced RLS**                     | SD1 owner decision. Shared published content, private drafts, and course records use their actual relationships; a missing authenticated session, foreign course, another AccountId, and revoked membership fail closed |
 | Grading location             | **Server only**                                                                                                                                 | Owner-selected. No answer, key, or grading code reaches the browser                                                                                                                                                     |
-| H5P grading                  | Native H5P is ungraded practice; `serverGrading: false`                                                                                         | Owner's observation: H5P ships answer evaluation to the browser                                                                                                                                                         |
+| H5P grading                  | Current H5P Package content is ungraded practice; `serverGrading: false`                                                                        | Owner's observation: H5P ships answer evaluation to the browser                                                                                                                                                         |
 | WASM contents                | Parameter generation, answer-format validation, timer display, state transitions                                                                | Non-secret work only, enforced by the dependency graph                                                                                                                                                                  |
 | Sharing boundary             | **Shared published content; private workspaces and exact course/Student records**                                                               | SD1 owner decision. Assignments may be reused as teaching structures while authorization and educational records remain bound to their exact course and Student relationships                                           |
 | Student Work Records model   | `student_record` / `assignment_attempt` / `issued_question` / `question_attempt`                                                                | Owner-reported repeated-practice observation: completion is not terminal and practice continues through new Assignment Attempts with frozen Issued Questions                                                            |
 | Grade computation            | Transactionally maintained summary rows; never scan attempt history                                                                             | The declared capacity model keeps grade pages on summaries as workload grows; one-time query review records the observed plan                                                                                           |
-| Question identity            | One random checked `AAA-BBBB` Question ID; hidden UUIDs and snapshots remain internal                                                           | The Question ID is the only human-facing identity. It is non-sequential, copiable, names one immutable published question, and never carries a version suffix                                                           |
+| Question identity            | One random checked `AAA-BBBB` Question ID; hidden UUIDs and snapshots remain internal                                                           | The Question ID is the only human-facing identity. It is non-sequential, copiable, names one stable Published Question lineage, and never carries a version suffix                                                      |
 | Partitioning                 | Monthly range partitions on the four highest-volume append-only tables only                                                                     | Capacity-model candidate for the declared planning workload; a one-time workload/query review validates it and other tables remain unpartitioned until observed need                                                    |
 | Pagination                   | Cursor only; `OFFSET` banned by lint and review                                                                                                 | Large `OFFSET` scans are unusable at Question Library and history scale                                                                                                                                                 |
 | Content storage              | Split by role with a size backstop (below)                                                                                                      | Answers the owner's direct question                                                                                                                                                                                     |
@@ -629,7 +660,7 @@ browser                     ALB          stateless replicas
 |  +------------------+  |             |            |         |
 +------------------------+             v            v         v
         ^                       PostgreSQL      jobs queue   S3: four domains
-        | immutable Question Library one cluster:     |      public-assets
+        | stable Question lineages, one cluster:      |      public-assets
    CloudFront (tag-gated)        shared content      v      private-content
         |                        + exact course  worker x N  student-records
    POST /api/assets/{id}         + forced RLS    exports,    temp-processing
@@ -903,11 +934,11 @@ Three design consequences, because this cannot be bolted on afterward:
 
 One human identity sits above three implementation identities with distinct jobs:
 
-| ID                       | Scope                                     | Mutability                      | Visibility                              |
-| ------------------------ | ----------------------------------------- | ------------------------------- | --------------------------------------- |
-| Question ID              | One published-question lineage            | Stable for its lineage          | Human-facing, discoverable, and citable |
+| ID                       | Scope                                      | Mutability                      | Visibility                              |
+| ------------------------ | ------------------------------------------ | ------------------------------- | --------------------------------------- |
+| Question ID              | One published-question lineage             | Stable for its lineage          | Human-facing, discoverable, and citable |
 | Draft Question UUID      | One mutable Workspace-owned Draft Question | Freely editable; private        | Server-only implementation identity     |
-| Question Revision Number | One immutable published Question Revision | Never changes after publication | Exact version evidence                  |
+| Question Revision Number | One immutable published Question Revision  | Never changes after publication | Exact version evidence                  |
 
 Lifecycle: `draft -> validated -> published`; published Question Revisions then have Available or Archived Question Revision Availability.
 
@@ -1004,14 +1035,14 @@ The `renders/{seed}` prefix is what makes the WeBWorK renderer affordable: rende
 given `(question_id, revision_number, seed)`, so the first render fills the cache and every later Student with that seed
 gets a CDN hit instead of a Perl fork.
 
-Authoritative-versus-derived roles, settled per backend:
+Authoritative-versus-derived roles, settled per Question Source or import pathway:
 
-| Backend    | Authoritative source_object_reference        | Derived                                                  |
-| ---------- | -------------------------------------------- | -------------------------------------------------------- |
-| PLE static | Canonical versioned PLE Question JSON source | Public Question model and format-specific private evaluation artifacts |
-| WeBWorK    | PG source reference and version              | Question Backend render result, images, cached renders   |
-| QTI        | Original ZIP in object storage               | Parsed model in shared content, extracted assets         |
-| H5P        | Remote package reference                     | Any imported internal representation                     |
+| Question Source or import pathway | Authoritative source or evidence                       | Derived                                                       |
+| --------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------- |
+| PLE Question JSON                 | Complete immutable PLE Question JSON source            | Question Presentation and backend evaluation                  |
+| WeBWorK                           | Complete immutable PG source                           | Question Backend render result, images, and cached renders    |
+| QTI Import                        | Original archive retained as Workspace Import evidence | Parsed import result, extracted assets, and PLE Question JSON |
+| H5P Package                       | Complete immutable H5P Package Question Source         | Current ungraded-practice presentation                        |
 
 QTI import runs in the worker, never a request: store the original ZIP unchanged; validate structure;
 reject unsafe paths, symlinks, and unexpected entries; enforce maximum archive size, maximum expanded
@@ -1058,9 +1089,9 @@ PostgreSQL 17 database exercised the real upload worker, mixed accepted/rejected
 conversion and publication, correct/incorrect grading, role denials, provenance, and exact cleanup.
 WP-QTI-12 independent review and documentation close-out are also complete: six separate passes
 reported no remaining P0/P1 issue after stale README and ownership-map findings were corrected and
-re-reviewed. PLE Question JSON schema version 2 now implements MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT
-source/runtime semantics based on the reviewed QTI Package Maker item models. Version 1 source is
-refused; version 2 is the sole PLE reader. Remaining acceptance is recorded in
+re-reviewed. PLE Question JSON version 3 now implements MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT
+source/runtime semantics based on the reviewed QTI Package Maker item models. Earlier source is
+refused; version 3 is the sole PLE reader. Remaining acceptance is recorded in
 `docs/active_plans/active/ple_question_json_schema_evolution_plan.md`; external QTI-JSONL is a separate
 future adapter concern. Historical course-appearance WP-CA1 through WP-CA7/WP-RC1 and WP-RC2
 receipts do not establish current product acceptance: the durable Store/current-pointer, PostgreSQL,
@@ -1093,18 +1124,17 @@ settled here because discovering the answer during recovery or a decade-later mi
 The PLE Question Backend has one current source rule: **the canonical,
 versioned PLE Question JSON source is authoritative.** Publication preserves it as a private immutable
 source object and compiles it into an answer-free public model plus separately
-protected PLE Question JSON Private Grading. The two compiled values carry checksums and a
-public/private binding, but neither replaces the preserved source for recovery
-or future re-import. QTI remains an adapter into and out of supported internal
-semantics; Canvas or Blackboard XML never becomes the PLE source contract.
+the complete PLE Question JSON source. QTI remains an import/export/archive
+pathway; Canvas or Blackboard XML stays in Workspace Import evidence while the
+accepted PLE Question JSON enters the shared Draft Question pipeline.
 
-| Backend    | Authoritative                                           | Derived and regenerable                                            |
-| ---------- | ------------------------------------------------------- | ------------------------------------------------------------------ |
-| PLE static | Canonical versioned PLE Question JSON source            | Public Question model and format-specific private evaluation artifacts |
-| WeBWorK    | PG source reference and version                         | Normalized model, Question Backend render result, cached renders   |
-| QTI        | Original ZIP in object storage                          | Parsed model, extracted assets                                     |
-| H5P        | Remote package reference                                | Any imported internal representation                               |
-| iMathAS    | Checksum-pinned source snapshot and integration profile | Safe Question Backend render result and deterministic render cache |
+| Question Source or import pathway | Authoritative source or evidence                        | Derived and regenerable                                            |
+| --------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------ |
+| PLE Question JSON                 | Complete immutable PLE Question JSON source             | Question Presentation and backend evaluation                       |
+| WeBWorK                           | Complete immutable PG source                            | Question Backend render result and cached renders                  |
+| QTI Import                        | Original archive retained as Workspace Import evidence  | Parsed import result, extracted assets, and PLE Question JSON      |
+| H5P Package                       | Complete immutable H5P Package Question Source          | Current ungraded-practice presentation                             |
+| iMathAS                           | Checksum-pinned source snapshot and integration profile | Safe Question Backend render result and deterministic render cache |
 
 ### Reading a version 1 payload with version 5 software
 
@@ -1726,10 +1756,14 @@ adapter may consume an intermediate form:
   its existing lineage; a validated full fork mints a new lineage with fork authorship, source
   attribution, and a source-compatible Question License. A failed publication mints neither published
   reference nor version.
-- MOD-STO and MOD-SCHEMA update the memory and PostgreSQL stores, migration and JSON payload
-  boundaries so a Draft Question owns its mutable content and current Question Source Registration,
-  while published rows store the immutable reference. Question Library and API publication paths use
-  that transition rather than draft revision history.
+- MOD-STO and MOD-SCHEMA update the memory and PostgreSQL Stores, migrations, and JSON boundaries.
+  Private Draft Question and Published Question Metadata use parallel tables with shared field
+  validation and separate owner keys, mutability, RLS, indexes, and retention. Draft Question Source
+  Registration and Question Revision Source Registration use separate tables. Publication copies
+  validated discovery metadata, writes a new Question Revision-owned source object, and stores no
+  published-to-draft dependency. Draft cleanup expires the private rows and objects by the configured
+  inactivity policy. Question Library and API publication paths use this transition rather than draft
+  revision history.
 - MOD-CLIENT updates generated TypeScript and all direct browser/API consumers. MOD-QM regenerates
   the generated clients and published/draft fixtures through their owners, and conformance tests
   prove a sandbox draft is private and unversioned until successful publication.
@@ -2047,10 +2081,10 @@ or implementer-authored specification is required.
   `docs/active_plans/active/ple_question_json_schema_evolution_plan.md`.
   Depends on: accepted WP-M3-COURSE-APPEARANCE, the secure student-payload package, and
   the existing PLE Question JSON, grading, object, Store, schema, server, client, and frontend contracts.
-- Touch points: closed PLE Question JSON schema version 2 source/compiler; public/private
+- Touch points: closed PLE Question JSON version 3 source/compiler; public/private
   compilation; Question Type-specific response/checker types; source-to-object bindings; persistence, author
   editors, Student Question Response Controls, live evidence, and durable documentation.
-- Current implementation: the v2-only source/runtime core covers MC, MA, FIB, MULTI-FIB, NUM,
+- Current implementation: the v3-only source/runtime core covers MC, MA, FIB, MULTI-FIB, NUM,
   MATCH, ORDER, and HOTSPOT.
 - Acceptance criteria: keep answers and optional feedback protected; complete supported browser Authoring Workspace
   fields plus imported/trusted HOTSPOT Question Asset bindings and the Memory/PostgreSQL/object-store paths; prove
@@ -2217,7 +2251,7 @@ output lines, and any skipped check with a one-line scope note.
 The current implementation and scope decisions are expanded into dispatchable packages in
 `docs/active_plans/active/release_completion_plan.md`:
 
-- The browser editor supports the Authoring Workspace fields for the seven browser-authored version 2
+- The browser editor supports the Authoring Workspace fields for the seven browser-authored version 3
   Question Types: MC, MA, FIB, MULTI-FIB, NUM, MATCH, and ORDER. HOTSPOT remains a supported PLE
   Question JSON format for registered imported or trusted Question Asset bindings; it has no browser
   file-authoring capability. Its imported/trusted asset and author-to-student object-lifecycle

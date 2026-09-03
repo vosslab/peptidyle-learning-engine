@@ -39,8 +39,8 @@ pub use matrix::{
 };
 pub use normalized_fingerprint::NormalizedQtiItemFingerprint;
 pub use report::{
-    QtiMappedPoints, QtiPleDefault, QtiSafeDiagnostic, QtiSafeDiagnosticLocation,
-    QtiSafeDiagnosticTemplate, QtiSafeItemReport, QtiSafeItemStatus,
+    QtiPleDefault, QtiSafeDiagnostic, QtiSafeDiagnosticLocation, QtiSafeDiagnosticTemplate,
+    QtiSafeItemReport, QtiSafeItemStatus, QtiVendorPointsEvidence,
 };
 pub use server_parts::QtiMappedItemServerParts;
 

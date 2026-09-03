@@ -1,6 +1,6 @@
 {
   "format": "pleQuestionJson",
-  "version": 2,
+  "version": 3,
   "title": "Biochemistry Chapter 1: Functional group matching",
   "questionDescription": "Instructor-facing discovery summary for functional-group matching practice.",
   "prompt": "Match each description to the biochemical functional group it best describes.",
@@ -32,11 +32,8 @@
     "correct": "Correct. The formulas and biochemical roles identify all four functional groups.",
     "incorrect": "Compare each group's characteristic atoms with its biochemical role."
   },
-  "points": 4.0,
-  "questionAttemptLimit": { "maxAttempts": null },
-  "questionAttemptTimeLimit": { "kind": "unlimited" },
   "tags": ["biochemistry", "functional-groups", "chapter-1", "matching"],
-  "questionLicense": "CC-BY-4.0",
+  "questionLicense":"CC-BY-4.0",
   "questionCitation": null,
   "language": "en-US"
 }

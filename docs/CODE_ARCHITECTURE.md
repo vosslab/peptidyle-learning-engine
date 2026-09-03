@@ -106,7 +106,7 @@ assignment. Copy Course for New Term and Shift Course Dates are separate Course 
 | Generated contracts  | `crates/project-tools/src/tsgen.rs` -> `generated/api/` | Derivative TypeScript DTOs generated from Rust contract roots; generated files are not hand-edited.                                                                                                 |
 | Browser              | `src/`                                                  | Strict decoding, route/page state, and retained BlueprintCourse and Blueprint-operation client contracts; course and Blueprint-operation routes remain unmounted.                                   |
 | Object storage       | `crates/objects/`                                       | Typed keys, checksums, image ingress, and the `public-assets`, `private-content`, `student-records`, and `temp-processing` domains.                                                                 |
-| Adapters             | `crates/adapters/`                                      | Bounded PLE, QTI, iMathAS, and WeBWorK Question Backends, plus H5P Package Import.                                                                                                                  |
+| Adapters             | `crates/adapters/`                                      | Bounded PLE, iMathAS, and WeBWorK Question Backends, QTI Import, and H5P Package support behind the shared Question operations.                                                                     |
 
 The current server composition is
 [`crates/server/src/composition.rs`](../crates/server/src/composition.rs).

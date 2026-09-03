@@ -20,27 +20,32 @@ export function createRecordingFetch(respond) {
   return { recordingFetch, requests };
 }
 
-/** Builds a literal browser-issued presentation from an already-public test attempt. */
-export function issuedQuestionWireFixture(attempt, publishedQuestionRevision) {
-  const response = publishedQuestionRevision.response;
-  if (response.kind !== "multipleChoice")
-    throw new Error("fixture requires multiple-choice response");
+/** Builds a literal browser-issued presentation from current Question Summary evidence. */
+export function issuedQuestionWireFixture(attempt, questionSummary, questionRevision) {
   return {
-    questionRevision: { questionId: "7K3-M9QP", revisionNumber: 1 },
+    questionRevision,
     question_seed: attempt.question_seed,
     presentationNonce: attempt.id.replaceAll("-", "").slice(-32),
-    title: publishedQuestionRevision.metadata.title,
-    prompt: publishedQuestionRevision.prompt.map((block) =>
-      block.kind === "text"
-        ? { ...block, markdown: block.markdown.replace("{{residue}}", "glycine") }
-        : block,
-    ),
+    title: questionSummary.metadata.title,
+    prompt: [
+      {
+        kind: "text",
+        markdown:
+          "Which bond has restricted rotation because resonance gives it partial double-bond character?",
+      },
+    ],
     response: {
       kind: "singleChoice",
-      choices: response.choices.map((choice, index) => ({
-        id: (index + 1).toString(16).padStart(4, "0"),
-        body: choice.body,
-      })),
+      choices: [
+        {
+          id: "0001",
+          body: [{ kind: "text", markdown: "The carbonyl carbon-to-nitrogen bond" }],
+        },
+        {
+          id: "0002",
+          body: [{ kind: "text", markdown: "The carbonyl carbon-to-oxygen bond" }],
+        },
+      ],
     },
   };
 }

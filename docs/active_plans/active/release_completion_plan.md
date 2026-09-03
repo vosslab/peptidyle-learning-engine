@@ -63,6 +63,37 @@ the answer-key-free DOCX/PDF renderer, while a future Assignment Export Manifest
 complete authorized service prerequisite rather than a preparatory schema or release claim. Fresh
 PostgreSQL catalog, print-renderer, documentation, Rust, residual, and independent-review evidence pass.
 
+`WP-SD1-A-QSOM1-S2A` is the accepted Assignment Entry control move. Fixed and Question Pool
+Assignment Entries plus their immutable Assignment Revision Entry snapshots own
+QuestionAttemptLimit and QuestionAttemptTimeLimit; BaseAssignmentPolicy attempt/time controls remain
+assignment-wide. The later S2B source-model cut removes the retired generic content and grading
+records rather than retaining them as current QSOM1 work. The current-package status and migration
+allocation remain solely in [implementation_status.md](../implementation_status.md).
+
+`WP-SD1-A-QSOM1-S2B1A` is accepted and completed. Server-only, non-Serde
+`QuestionEvaluation { correct, normalized_credit }` is Question Backend evaluation while
+Assignment-owned GradingResult remains the scoring record. The direct iMathAS issued-score cut keeps
+QuestionAttemptId and authentication/Result lifecycle facts on the Session; atomic commit locks the
+selected IssuedQuestion and resolves its point_value and scoring_rule. Two independent reviewers
+PASS, and the manager's final `source source_me.sh && ./all_test.sh` exits 0 with 424 generated
+types, 3 fixtures, Rust workspace/Clippy/tests/doctests/Wasm, 315 Node, 4,908 pytest, fresh/no-op/
+catalog/restricted PostgreSQL, 3/3 iMathAS, Course Appearance PostgreSQL-plus-MinIO, and
+`PASS: complete live acceptance is green.` The durable blueprint_course schedule, student_work
+grading, and iMathAS catalog oracle splits are line-gate organization only, not product behavior.
+S2B2 (PLE Question JSON adapter), S2B3 (WeBWorK adapter), S2B4 (iMathAS source/session input
+removal), S2B5 (QTI import mapping and minimal H5P preservation), S2B6 (unbacked generic Draft
+Question editor and PLE Question JSON fallback removal), and S2B7 (final generic-root deletion) are
+accepted and completed after independent review. QTI is import/export/archive interchange, not a
+runtime dispatch path. `/workspace` is an Instructor-gated, truthful planned **My Question Drafts**
+destination; the authoring and publication server workflow remains unmounted. The final manager
+`source source_me.sh && ./all_test.sh` exits 0 with 421 generated types, 3 tracked fixtures, Rust
+format/check/all-feature strict Clippy/tests/doctests/Wasm, 286 Node tests, 4,831 pytest tests,
+PostgreSQL 17 fresh/no-op/catalog/restricted plus 3 iMathAS tests, Course Appearance
+PostgreSQL-plus-MinIO, and `PASS: complete live acceptance is green.` Parent QSOM1 remains open only
+for separately owned publication, persistence, and cleanup work. Published Question Title and
+Description remain mutable lineage facts. [implementation_status.md](../implementation_status.md)
+remains the sole allocation registry.
+
 This is the binding release authority for decisions, objectives, architecture, dependency order, acceptance/evidence, migration policy, risks, rollout, and closeout. The [Current Package Registry](../implementation_status.md) records current package status. Update both documents when a release decision, dependency, status, or acceptance condition changes.
 
 ### Evidence classification
@@ -80,10 +111,10 @@ Apply [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md) and the permanent-t
 | Published questions           | Stable `AAA-BBBB` `QuestionId` identifies a lineage; immutable `QuestionRevision` records hold reviewed revisions. Assignments and evidence pin exact versions and never move automatically.                                                                                                                                                                                                                                                        | WP-R2, WP-SD1                                                                                   |
 | Draft questions               | One mutable Draft Question belongs to one Authoring Workspace. Its private UUID is server-only and its positive Draft Question Edit Number is the save/publication concurrency token. Publication creates an immutable `QuestionRevisionReference { question_id, revision_number }`; Draft Question revision history is not retained.                                                                                                               | DQM1 implemented pending independent review; QSRC2 implemented pending joint independent review |
 | Question stewardship          | Moderate owner edits, validated exact-base Change Proposals, full private-draft forks, and audited Sysadmin ForcedQuestionCorrections preserve attribution, compatible CC licensing, history, and exact pins. UI label: **Suggest an improvement**.                                                                                                                                                                                                 | WP-R2, WP-SD1                                                                                   |
-| PLE questions                 | PLE Question JSON schema version 2 is the PLE Question Source for MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. Public Question Presentations are answer-free; grading remains server-owned.                                                                                                                                                                                                                                              | WP-RC4, WP-RC5                                                                                  |
+| PLE questions                 | PLE Question JSON version 3 is the sole PLE Question JSON reader and PLE Question Source for MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. Public Question Presentations are answer-free; grading remains server-owned.                                                                                                                                                                                                                   | WP-RC4, WP-RC5                                                                                  |
 | Question variation and grades | New Assignment Attempts independently use `reuseSelection` for Question Pool membership and `newVariation` for Question Variations; resumed Issued Questions retain their exact issued variation. The grade default is `highest`.                                                                                                                                                                                                                   | WP-RC0, WP-PROF-T5, WP-PROF-G1--G5                                                              |
 | Retention                     | CourseInstance Student records notify at 30 days, archive at 100, delete at 365; course-owned Assignment Content remains. Aggregate publication requires k >= 5.                                                                                                                                                                                                                                                                                    | WP-RC0, WP-SD1                                                                                  |
-| Adapters                      | QTI profiles are strict and lossless or refuse. Canvas/Blackboard QTI interchange remains future dedicated work. H5P is ungraded practice unless translated losslessly into the protected native model.                                                                                                                                                                                                                                             | WP-RC6                                                                                          |
+| Question technologies         | One shared Draft Question, publication, Assignment, issuance, presentation, submission, evaluation, feedback-release, and Gradebook pipeline resolves the registered Question Backend for format-specific work. QTI profiles map accepted flat items into PLE Question JSON or refuse; QTI remains import/export/archive interchange. H5P retains its distinct package source and current ungraded-practice behavior behind the shared operations.  | WP-RC6                                                                                          |
 | Objects                       | Database records define intended bytes; inventory proves storage. Object Storage Check uses two observations and reference rechecks; Object Storage Repair acts only on that evidence. A dedicated publisher alone activates immutable public copies.                                                                                                                                                                                               | WP-RC7                                                                                          |
 | Identity and enrollment       | Email-code sign-in is the primary authentication method; passkeys are optional convenience credentials on the same global account. Invitations create exact course membership and Student records atomically.                                                                                                                                                                                                                                       | WP-RC8                                                                                          |
 | LTI                           | LTI 1.3 launch and AGS passback use verified server credentials and summary-derived grades only.                                                                                                                                                                                                                                                                                                                                                    | WP-RC9                                                                                          |
@@ -91,7 +122,7 @@ Apply [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md) and the permanent-t
 
 ### Out-of-scope decisions
 
-Version 1 excludes content-addressed byte deduplication, a TypeScript API server, scored native H5P, local passwords, mandatory institutional SSO, client analytics, Kubernetes/Redis/Kafka/sharding, unreviewed rich-media QTI mappings, a Rust QTI Package Maker port, actual institutional credentials, and a real 10,000-Student cohort. These future possibilities do not relax release acceptance.
+Version 1 focuses H5P Package content on ungraded practice. Content-addressed byte deduplication, a TypeScript API server, server-graded H5P, local passwords, mandatory institutional SSO, client analytics, Kubernetes/Redis/Kafka/sharding, unreviewed rich-media QTI mappings, a Rust QTI Package Maker port, actual institutional credentials, and a real 10,000-Student cohort remain future possibilities. These future possibilities do not relax release acceptance.
 
 ## Objectives and scope
 
@@ -192,7 +223,7 @@ The final handoff records command, date, material-tree state, environment, recei
 
 ## Migration policy
 
-The shared [Migration Allocation Registry](../implementation_status.md#migration-allocation-registry) is the only allocation registry. New schema packages receive an allocation before implementation; accepted migrations are never inserted or renamed. PLE Question JSON identity stays in its versioned source payload and immutable object/checksum binding; no generic catchall table is added. Current source and disposable test data use PLE Question JSON schema version 2 only. `QuestionPresentationBinding`, QTI profile v1, and `AAA-BBBB` Question IDs are current contracts, not compatibility shims.
+The shared [Migration Allocation Registry](../implementation_status.md#migration-allocation-registry) is the only allocation registry. New schema packages receive an allocation before implementation; accepted migrations are never inserted or renamed. PLE Question JSON identity stays in its versioned source payload and immutable object/checksum binding; no generic catchall table is added. Current source and disposable test data use PLE Question JSON version 3 only. `QuestionPresentationBinding`, QTI profile v1, and `AAA-BBBB` Question IDs are current contracts, not compatibility shims.
 
 ## Risk register
 

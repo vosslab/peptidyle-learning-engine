@@ -1,47 +1,43 @@
-//! Resolved execution boundary for immutable PLE Question JSON sources.
+//! Execution of one exact immutable PLE Question JSON source.
 
-use grading::QuestionGradingOutcome;
+use std::fmt::Write as _;
+
 use objects::{ObjectStore, ResolvedQuestionSource};
 use question_model::generation::QuestionSeed;
 use question_model::{
-    QuestionAttemptReproductionDetails, QuestionBackend, QuestionRevision,
-    QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference, StudentResponse,
+    QuestionAttemptReproductionDetails, QuestionBackendVersion, QuestionGraderVersion,
+    QuestionRevisionReference, QuestionVariation, QuestionVariationPresentation,
+    SourceObjectChecksum, SourceObjectReference, StudentResponse,
 };
+use sha2::{Digest, Sha256};
 
+use crate::question_json::{
+    CompiledPleQuestionJson, PLE_QUESTION_JSON_MEDIA_TYPE, PleQuestionJsonDocument,
+    PleQuestionJsonEvaluation,
+};
 use crate::{
-    PleIssuedQuestion, PleQuestionBackend, PleQuestionBackendError, QuestionAssetObjectReference,
-    question_json::{
-        PLE_QUESTION_JSON_MEDIA_TYPE, PleQuestionJsonDocument, PleQuestionJsonPrivateGrading,
-    },
+    ADAPTER_ID, ADAPTER_VERSION, GRADING_ID, GRADING_VERSION, PleIssuedQuestion,
+    PleQuestionBackend, PleQuestionBackendError,
 };
 
-/// Verified PLE Question JSON bytes compiled into the exact Question Revision they own.
+/// Verified PLE source bytes and their exact immutable Question Revision reference.
 #[derive(Clone)]
 pub struct ResolvedPleQuestionJsonSource {
     source: ResolvedQuestionSource,
-    question: QuestionRevision,
-    private: PleQuestionJsonPrivateGrading,
+    compiled: CompiledPleQuestionJson,
 }
 
 impl ResolvedPleQuestionJsonSource {
-    /// Resolves immutable PLE Question JSON bytes and refuses any public-content mismatch.
+    /// Resolves, parses, and compiles the source attached to this exact revision.
     pub async fn resolve<S: ObjectStore>(
         store: &S,
-        question: &QuestionRevision,
+        question_revision: QuestionRevisionReference,
         source_object_reference: SourceObjectReference,
         source_object_checksum: SourceObjectChecksum,
     ) -> Result<Self, PleQuestionBackendError> {
-        if question.question_backend != QuestionBackend::Ple
-            || question.question_format != question_model::QuestionFormat::PleQuestionJson
-        {
-            return Err(PleQuestionBackendError::UnsupportedSource);
-        }
         let source = ResolvedQuestionSource::resolve(
             store,
-            QuestionRevisionReference {
-                question_id: question.question_id.clone(),
-                revision_number: question.revision_number,
-            },
+            question_revision,
             source_object_reference,
             source_object_checksum,
         )
@@ -55,81 +51,88 @@ impl ResolvedPleQuestionJsonSource {
         let document = PleQuestionJsonDocument::parse(source.bytes())
             .map_err(PleQuestionBackendError::QuestionSourceDocument)?;
         let compiled = document
-            .compile(question.workspace)
+            .compile()
             .map_err(PleQuestionBackendError::QuestionSourceDocument)?;
-        let expected_question = QuestionRevision::from_draft(
-            compiled.draft().clone(),
-            question.question_id.clone(),
-            question.revision_number,
-            None,
-        )
-        .map_err(|_| PleQuestionBackendError::QuestionSourceDoesNotMatchQuestion)?;
-        if expected_question != *question {
-            return Err(PleQuestionBackendError::QuestionSourceDoesNotMatchQuestion);
-        }
-        Ok(Self {
-            source,
-            question: expected_question,
-            private: compiled.private().clone(),
-        })
+        Ok(Self { source, compiled })
     }
 
-    /// The immutable Question Revision compiled from these verified source bytes.
-    pub fn question(&self) -> &QuestionRevision {
-        &self.question
+    pub fn question_revision(&self) -> &QuestionRevisionReference {
+        self.source.question_revision()
     }
-
-    /// Immutable object identity recorded with every issued Question Attempt.
     pub fn source_object_reference(&self) -> &SourceObjectReference {
         self.source.source_object_reference()
     }
-
-    /// SHA-256 verification value recorded with every issued Question Attempt.
     pub fn source_object_checksum(&self) -> &SourceObjectChecksum {
         self.source.source_object_checksum()
     }
-
-    fn private(&self) -> &PleQuestionJsonPrivateGrading {
-        &self.private
+    pub fn source_bytes(&self) -> &[u8] {
+        self.source.bytes()
     }
 }
 
 impl PleQuestionBackend {
-    /// Issues one Question directly from its verified immutable PLE Question JSON source.
+    /// Issues an answer-free presentation from verified PLE source bytes.
     pub fn issue_question_json(
         &self,
         source: &ResolvedPleQuestionJsonSource,
         seed: QuestionSeed,
-        question_asset_object_references: &[QuestionAssetObjectReference],
     ) -> Result<PleIssuedQuestion, PleQuestionBackendError> {
-        self.issue(
-            source.question(),
-            seed,
-            source.source_object_reference(),
-            source.source_object_checksum(),
-            question_asset_object_references,
-        )
+        let presentation = QuestionVariationPresentation {
+            variation: QuestionVariation::from_question_revision_and_seed(
+                source.question_revision().clone(),
+                seed,
+            ),
+            title: source.compiled.presentation().title().to_string(),
+            prompt: source.compiled.presentation().prompt().to_vec(),
+            response: source.compiled.presentation().response().clone(),
+        };
+        let rendered_question_sha256 = sha256_hex(
+            &serde_json::to_vec(&presentation)
+                .map_err(|error| PleQuestionBackendError::Serialization(error.to_string()))?,
+        );
+        Ok(PleIssuedQuestion {
+            presentation,
+            reproduction_details: QuestionAttemptReproductionDetails {
+                backend: QuestionBackendVersion {
+                    name: ADAPTER_ID.to_string(),
+                    version: ADAPTER_VERSION.to_string(),
+                },
+                renderer_version: None,
+                source_object_reference: Some(source.source_object_reference().clone()),
+                source_object_checksum: Some(source.source_object_checksum().clone()),
+                asset_objects: Vec::new(),
+                grader: QuestionGraderVersion {
+                    name: GRADING_ID.to_string(),
+                    version: GRADING_VERSION.to_string(),
+                },
+                rendered_question_sha256,
+            },
+        })
     }
 
-    /// Reproduces and grades with the private key compiled from verified source bytes.
+    /// Grades from the same verified source and exact attempted revision reference.
     pub fn grade_question_json(
         &self,
         source: &ResolvedPleQuestionJsonSource,
-        seed: QuestionSeed,
-        recorded_reproduction_details: &QuestionAttemptReproductionDetails,
-        question_asset_object_references: &[QuestionAssetObjectReference],
         response: &StudentResponse,
-    ) -> Result<QuestionGradingOutcome, PleQuestionBackendError> {
-        self.reproduce(
-            source.question(),
-            seed,
-            recorded_reproduction_details,
-            question_asset_object_references,
-        )?;
-        Ok(source
+    ) -> Result<PleQuestionJsonEvaluation, PleQuestionBackendError> {
+        source
+            .compiled
             .private()
-            .evaluate(source.question(), response)
-            .map_err(PleQuestionBackendError::QuestionSourceDocument)?
-            .outcome)
+            .evaluate(
+                source.compiled.private().public_content_checksum(),
+                source.compiled.presentation().question_type(),
+                source.compiled.presentation().response(),
+                response,
+            )
+            .map_err(PleQuestionBackendError::QuestionSourceDocument)
     }
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let mut output = String::with_capacity(64);
+    for byte in Sha256::digest(bytes) {
+        write!(&mut output, "{byte:02x}").expect("writing to String cannot fail");
+    }
+    output
 }

@@ -2,7 +2,7 @@ import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionCitation } from "../../../generated/api/QuestionCitation";
 
 /**
- * The answer-bearing PLE ple-question-json v2 authoring contract. The server
+ * The answer-bearing PLE ple-question-json v3 authoring contract. The server
  * derives its separate PLE Question JSON Public Content Checksum when it
  * compiles the private Answer Key and Question Feedback binding.
  *
@@ -11,7 +11,7 @@ import type { QuestionCitation } from "../../../generated/api/QuestionCitation";
  */
 
 export const PLE_QUESTION_JSON_FORMAT = "pleQuestionJson";
-export const PLE_QUESTION_JSON_SCHEMA_VERSION = 2;
+export const PLE_QUESTION_JSON_SCHEMA_VERSION = 3;
 export const PLE_QUESTION_JSON_SINGLE_CHOICE_RESPONSE_KIND = "singleChoice" as const;
 export const PLE_QUESTION_JSON_MATCHING_RESPONSE_KIND = "matching" as const;
 export const PLE_QUESTION_JSON_MULTIPLE_ANSWER_RESPONSE_KIND = "multipleAnswer" as const;
@@ -22,14 +22,6 @@ export const PLE_QUESTION_JSON_ORDERING_RESPONSE_KIND = "ordering" as const;
 export const PLE_QUESTION_JSON_HOTSPOT_RESPONSE_KIND = "hotspot" as const;
 /** Compatibility name for the initial single-choice default only. */
 export const PLE_QUESTION_JSON_MEDIA_TYPE = "application/vnd.peptidyle.question+json";
-
-export type PleQuestionJsonAttemptLimit = {
-  readonly maxAttempts: number | null;
-};
-
-export type PleQuestionJsonAttemptTimeLimit =
-  | { readonly kind: "unlimited" }
-  | { readonly kind: "limited"; readonly seconds: number; readonly graceSeconds: number };
 
 export type PleQuestionJsonChoice = {
   readonly id: string;
@@ -201,9 +193,6 @@ export type PleQuestionJsonDocument = {
   /** Learner-requested instructional support before a response; separate from outcome feedback. */
   readonly questionHint: string | null;
   readonly feedback: PleQuestionJsonOutcomeFeedback;
-  readonly points: number;
-  readonly questionAttemptLimit: PleQuestionJsonAttemptLimit;
-  readonly questionAttemptTimeLimit: PleQuestionJsonAttemptTimeLimit;
   readonly tags: ReadonlyArray<string>;
   /** Unset drafts remain editable; publication requires an exact Question License. */
   readonly questionLicense: QuestionLicense | null;

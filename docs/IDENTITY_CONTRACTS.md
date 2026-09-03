@@ -14,8 +14,8 @@ remain separately incomplete.
 
 Every Published Question used in an Assignment is shared Instructor-visible Question Library
 content. A private draft has no Question Library identity and remains visible only
-through its workspace relationship until validated publication creates a new
-immutable published question identity. Shared Question Library content is answer-free
+through its workspace relationship until validated publication creates a stable
+Published Question identity and its first immutable Question Revision. Shared Question Library content is answer-free
 and contains no Student records.
 
 This document maps identities and their scopes. It supplements
@@ -39,9 +39,11 @@ former installation-scope model to these identities.
 - Educational records are owned by their exact Course Instance and Student
   Course Membership relationships. They do not inherit authority from a
   Product Role or a visible Course Reference.
-- Published Question Library content is immutable and shared. Courses, memberships,
-  enrollments, Assignment Attempts, Question Attempts, jobs, and protected objects are independent
-  records that may refer to it.
+- Published Questions are shared. Each Question Revision owns immutable source and
+  exact historical evidence, while stable-lineage discovery metadata such as Question
+  Title and Question Description may be updated independently. Courses, memberships,
+  enrollments, Assignment Attempts, Question Attempts, jobs, and protected objects are
+  independent records that may refer to an exact Question Revision.
 - Rust uses distinct newtypes where mixing values would be a correctness risk.
   UUID strings appear only at a trusted server or defined browser boundary.
 - A checksum or digest detects disagreement in otherwise valid data. It is not
@@ -116,17 +118,17 @@ reads; neither another course nor a visible record ID extends that authority.
 
 ## Workspace and publication identities
 
-| Identity                    | Scope                                        | Intended use                                                                                                                                                                                  |
-| --------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WorkspaceId`               | Global durable private-authoring root        | Names one draft workspace. Its owner/collaborator relationships, rather than its ID, authorize draft, import, source, asset, preview, and publication actions.                                |
-| Workspace relationship      | Durable `AccountId` to `WorkspaceId` binding | Records owner or explicit collaborator access and its lifecycle/revision. It owns private draft visibility.                                                                                   |
-| `WorkspaceImportId`         | One private staged import                    | Names an import within its workspace. It never becomes a public Question Library reference.                                                                                                   |
-| `QuestionId`                | Stable Published Question lineage identity | Human-facing Question Library reference for one Published Question lineage. Every Published Question used in an Assignment is discoverable by active Instructors through the shared Question Library. |
-| `QuestionRevisionReference` | Server-only immutable Question Revision      | Pairs one Question ID with its positive Question Revision Number for exact assignment, delivery, grading, replay, audit, and source evidence.                                                 |
-| `QuestionAssetId`           | Logical published content asset              | Names a published logical asset; it does not grant object delivery.                                                                                                                           |
-| `ObjectId`                  | Immutable stored bytes                       | Names stored source, asset, export, or student-record bytes under an exact typed scope.                                                                                                       |
+| Identity                    | Scope                                        | Intended use                                                                                                                                                                                          |
+| --------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WorkspaceId`               | Global durable private-authoring root        | Names one draft workspace. Its owner/collaborator relationships, rather than its ID, authorize draft, import, source, asset, preview, and publication actions.                                        |
+| Workspace relationship      | Durable `AccountId` to `WorkspaceId` binding | Records owner or explicit collaborator access and its lifecycle/revision. It owns private draft visibility.                                                                                           |
+| `WorkspaceImportId`         | One private staged import                    | Names an import within its workspace. It never becomes a public Question Library reference.                                                                                                           |
+| `QuestionId`                | Stable Published Question lineage identity   | Human-facing Question Library reference for one Published Question lineage. Every Published Question used in an Assignment is discoverable by active Instructors through the shared Question Library. |
+| `QuestionRevisionReference` | Server-only immutable Question Revision      | Pairs one Question ID with its positive Question Revision Number for exact assignment, delivery, grading, replay, audit, and source evidence.                                                         |
+| `QuestionAssetId`           | Logical published content asset              | Names a published logical asset; it does not grant object delivery.                                                                                                                                   |
+| `ObjectId`                  | Immutable stored bytes                       | Names stored source, asset, export, or student-record bytes under an exact typed scope.                                                                                                               |
 
-Validated publication either starts a new immutable Question Library identity for a new
+Validated publication either starts a new stable Published Question identity for a new
 question or records a new immutable `QuestionRevision` under an existing stable
 `QuestionId` lineage. A correction or compatible material improvement does not
 mint a new `QuestionId`; it preserves the lineage and creates exact new
@@ -210,7 +212,7 @@ session account and the appropriate parent relationship before returning a recor
 
 | Value                                                                                                         | Browser use                                     | Server meaning                                                                                                                                                     |
 | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `QuestionId` (`AAA-BBBB`)                                                                                     | Question Library search, display, and selection | Resolves one immutable published question after approved-Instructor authorization; not a version selector or answer authority.                                     |
+| `QuestionId` (`AAA-BBBB`)                                                                                     | Question Library search, display, and selection | Resolves one stable Published Question lineage after approved-Instructor authorization; not a Question Revision selector or answer authority.                      |
 | `CourseInstanceReference`, `AssignmentReference`, `AssignmentAttemptReference`, `AuthoringWorkspaceReference` | Human-readable route/display References         | Positive `C-`, `A-`, `R-`, and `W-` References resolve only inside the authenticated Account's authorized Course Instance or Authoring Workspace relationship.     |
 | `QuestionAttemptId` in a route                                                                                | Names an already issued Question Attempt        | Server additionally verifies exact active Student Record ownership or permitted current Instructor scope.                                                          |
 | `SubmissionIdempotencyKey` header                                                                             | Bounded ASCII key for one retry                 | Matches stored request/receipt hashes; identical replay is safe and changed replay conflicts.                                                                      |

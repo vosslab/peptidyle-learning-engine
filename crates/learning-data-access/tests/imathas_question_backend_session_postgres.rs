@@ -20,9 +20,9 @@ use learning_data_access::{
 use question_model::generation::QuestionSeed;
 use question_model::{
     AccountId, AssignmentId, CourseId, ImathasDeploymentReference, ImathasItemReference,
-    ImathasProfile, ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId,
-    QuestionGradingRule, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
-    SourceObjectChecksum, SourceObjectReference, Timestamp,
+    ImathasProfile, ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId, QuestionId,
+    QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference,
+    Timestamp,
 };
 use sqlx::Executor;
 use uuid::Uuid;
@@ -167,7 +167,6 @@ fn facts_with_grading_context(
     let imathas_launch_binding_checksum =
         ImathasLaunchBindingChecksum::parse(digest.to_string().repeat(64))
             .expect("iMathAS Launch Binding Checksum");
-    let question_grading_rule = QuestionGradingRule::PartialCredit { points: 1.0 };
     let authentication = ImathasQuestionBackendSessionAuthentication::from_server_value(format!(
         "aa.{}",
         "b".repeat(64)
@@ -178,7 +177,6 @@ fn facts_with_grading_context(
         course,
         assignment,
         grading_context.clone(),
-        question_grading_rule.clone(),
         imathas_question_backend_binding.clone(),
         source.clone(),
         checksum.clone(),
@@ -190,7 +188,6 @@ fn facts_with_grading_context(
         course,
         assignment,
         grading_context,
-        question_grading_rule,
         imathas_question_backend_binding,
         source,
         checksum,
@@ -296,6 +293,7 @@ fn transition_with_score(
 #[ignore = "requires the disposable PostgreSQL 17 iMathAS Question Backend Session oracle"]
 async fn postgres_store_persists_opens_and_consumes_one_exact_session() {
     let oracle = oracle().await;
+    oracle.admin.execute("UPDATE ple_private.issued_question SET point_value = 2.5, scoring_rule = 'full_credit', statistics_eligible = false WHERE issued_question_id = '00000000-0000-5000-8000-000000000115'").await.expect("set Full Credit issued scoring fixture");
     let issued_at = Timestamp::from_unix_millis(now().as_unix_millis() - 5_000);
     let expires_at = Timestamp::from_unix_millis(issued_at.as_unix_millis() + 180_000);
     let (baseline_create, expectation) = create_for_attempt(
@@ -329,11 +327,25 @@ async fn postgres_store_persists_opens_and_consumes_one_exact_session() {
         )
         .await
         .expect("lease");
-    oracle
+    let stage = oracle
         .store
         .stage_verified_imathas_result(oracle.token, transition(lease, now()))
         .await
         .expect("verified result stage");
+    let claim = oracle
+        .grading_worker_store
+        .claim_imathas_result_grading_job(
+            stage.job_id(),
+            Timestamp::from_unix_millis(now().as_unix_millis() + 120_000),
+        )
+        .await
+        .expect("claim Full Credit grading Job");
+    let receipt = oracle
+        .grading_worker_store
+        .commit_staged_imathas_result_grading(CommitStagedImathasResultGrading::new(claim, now()))
+        .await
+        .expect("commit Full Credit grade");
+    assert_eq!(receipt.grading_result().points_earned, 2.5);
     assert!(
         oracle
             .store
@@ -347,6 +359,7 @@ async fn postgres_store_persists_opens_and_consumes_one_exact_session() {
 #[ignore = "requires the disposable PostgreSQL 17 iMathAS Question Backend Session oracle"]
 async fn postgres_store_commits_statistics_from_the_stored_grade_exactly_once() {
     let oracle = oracle().await;
+    oracle.admin.execute("UPDATE ple_private.issued_question SET point_value = 2.5, scoring_rule = CASE issued_question_id WHEN '00000000-0000-0000-0000-00000000f213'::uuid THEN 'normal' WHEN '00000000-0000-0000-0000-00000000f209'::uuid THEN 'excluded' END WHERE issued_question_id IN ('00000000-0000-0000-0000-00000000f213', '00000000-0000-0000-0000-00000000f209')").await.expect("set issued scoring fixtures");
     let issued_at = Timestamp::from_unix_millis(now().as_unix_millis() - 5_000);
     let expires_at = Timestamp::from_unix_millis(issued_at.as_unix_millis() + 180_000);
     let (eligible_create, eligible_expectation) = create_for_attempt(
@@ -372,7 +385,10 @@ async fn postgres_store_commits_statistics_from_the_stored_grade_exactly_once() 
         .expect("lease eligible grading Job");
     let eligible_stage = oracle
         .store
-        .stage_verified_imathas_result(oracle.token, transition(eligible_lease.clone(), now()))
+        .stage_verified_imathas_result(
+            oracle.token,
+            transition_with_score(eligible_lease.clone(), now(), 0.4),
+        )
         .await
         .expect("stage eligible verified result");
     let eligible_claim = oracle
@@ -391,6 +407,9 @@ async fn postgres_store_commits_statistics_from_the_stored_grade_exactly_once() 
         ))
         .await
         .expect("commit eligible grading");
+    assert!(!eligible_receipt.grading_result().correct);
+    assert_eq!(eligible_receipt.grading_result().points_possible, 2.5);
+    assert_eq!(eligible_receipt.grading_result().points_earned, 1.0);
     let stored_grade_matches_observation: bool = sqlx::query_scalar(
         "SELECT observation.correct = result.correct \
          FROM ple_private.question_statistics_observation_receipt AS observation \
@@ -413,7 +432,7 @@ async fn postgres_store_commits_statistics_from_the_stored_grade_exactly_once() 
     .fetch_one(&oracle.admin)
     .await
     .expect("eligible statistics counters");
-    assert_eq!(eligible_counts, (1, 1));
+    assert_eq!(eligible_counts, (1, 0));
     let replay = oracle
         .grading_worker_store
         .commit_staged_imathas_result_grading(CommitStagedImathasResultGrading::new(
@@ -433,7 +452,7 @@ async fn postgres_store_commits_statistics_from_the_stored_grade_exactly_once() 
     .fetch_one(&oracle.admin)
     .await
     .expect("replay leaves statistics unchanged");
-    assert_eq!(replay_counts, (1, 1, 1));
+    assert_eq!(replay_counts, (1, 0, 1));
 
     let (ineligible_create, ineligible_expectation) = create_for_attempt(
         oracle.account,
@@ -460,7 +479,7 @@ async fn postgres_store_commits_statistics_from_the_stored_grade_exactly_once() 
         .store
         .stage_verified_imathas_result(
             oracle.token,
-            transition_with_score(ineligible_lease, now(), 0.0),
+            transition_with_score(ineligible_lease, now(), 0.4),
         )
         .await
         .expect("stage ineligible verified result");
@@ -472,7 +491,7 @@ async fn postgres_store_commits_statistics_from_the_stored_grade_exactly_once() 
         )
         .await
         .expect("claim ineligible grading Job");
-    oracle
+    let ineligible_receipt = oracle
         .grading_worker_store
         .commit_staged_imathas_result_grading(CommitStagedImathasResultGrading::new(
             ineligible_claim,
@@ -480,6 +499,7 @@ async fn postgres_store_commits_statistics_from_the_stored_grade_exactly_once() 
         ))
         .await
         .expect("commit ineligible grading");
+    assert_eq!(ineligible_receipt.grading_result().points_earned, 0.0);
     let ineligible_counts: (i64, i64, i64) = sqlx::query_as(
         "SELECT statistics.accepted_graded_attempt_count, statistics.correct_count, \
                 (SELECT count(*) FROM ple_private.question_statistics_observation_receipt) \
@@ -488,8 +508,8 @@ async fn postgres_store_commits_statistics_from_the_stored_grade_exactly_once() 
     )
     .fetch_one(&oracle.admin)
     .await
-    .expect("ineligible grading leaves statistics unchanged");
-    assert_eq!(ineligible_counts, (1, 1, 1));
+    .expect("non-statistics issued scoring leaves statistics unchanged");
+    assert_eq!(ineligible_counts, (1, 0, 1));
 }
 
 #[tokio::test]
@@ -832,14 +852,19 @@ async fn postgres_store_rejects_context_lifecycle_and_authority_bypasses() {
         );
     }
     let api_owner_writes: bool = sqlx::query_scalar(
-        "SELECT has_table_privilege('ple_api_owner', 'ple_private.question_source_registration', 'INSERT')",
+        "SELECT has_table_privilege(\
+            'ple_api_owner', 'ple_private.question_revision_source_binding', 'INSERT'\
+        )",
     )
     .fetch_one(&oracle.admin)
     .await
     .expect("owner privilege catalog probe");
     if api_owner_writes {
-        failures.push("ple_api_owner can write unrelated Question Source records".to_string());
+        failures.push(
+            "ple_api_owner can write unrelated Question Revision Source Bindings".to_string(),
+        );
     }
+    oracle.admin.execute("UPDATE ple_private.issued_question SET point_value = 2.5, scoring_rule = 'extra_credit', statistics_eligible = false WHERE issued_question_id = '00000000-0000-5000-8000-000000000115'").await.expect("set Extra Credit issued scoring fixture");
     let (contention_create, contention_expectation) = create(oracle.account, issued_at, expires_at);
     let contention_reference = oracle
         .store
@@ -868,7 +893,7 @@ async fn postgres_store_rejects_context_lifecycle_and_authority_bypasses() {
         if leases.next().is_some() {
             failures.push("lease contention admitted more than one winner".to_string());
         }
-        let first_transition = transition(lease.clone(), now());
+        let first_transition = transition_with_score(lease.clone(), now(), 0.4);
         let second_transition = first_transition.clone();
         let left_store = oracle.store.clone();
         let right_store = oracle.store.clone();
@@ -876,13 +901,19 @@ async fn postgres_store_rejects_context_lifecycle_and_authority_bypasses() {
             left_store.stage_verified_imathas_result(oracle.token, first_transition),
             right_store.stage_verified_imathas_result(oracle.token, second_transition),
         );
-        match (left, right) {
+        let staged_job = match (left, right) {
             (Ok(left_receipt), Ok(right_receipt))
-                if left_receipt.job_id() == right_receipt.job_id() => {}
-            (Ok(_), Err(_)) | (Err(_), Ok(_)) => {}
-            _ => failures
-                .push("verified result stage contention did not retain one result".to_string()),
-        }
+                if left_receipt.job_id() == right_receipt.job_id() =>
+            {
+                Some(left_receipt.job_id())
+            }
+            (Ok(receipt), Err(_)) | (Err(_), Ok(receipt)) => Some(receipt.job_id()),
+            _ => {
+                failures
+                    .push("verified result stage contention did not retain one result".to_string());
+                None
+            }
+        };
         if oracle
             .store
             .stage_verified_imathas_result(oracle.token, transition_with_score(lease, now(), 0.5))
@@ -890,6 +921,27 @@ async fn postgres_store_rejects_context_lifecycle_and_authority_bypasses() {
             .is_ok()
         {
             failures.push("verified result stage accepted a changed terminal replay".to_string());
+        }
+        if let Some(job_id) = staged_job {
+            let claim = oracle
+                .grading_worker_store
+                .claim_imathas_result_grading_job(
+                    job_id,
+                    Timestamp::from_unix_millis(now().as_unix_millis() + 120_000),
+                )
+                .await
+                .expect("claim Extra Credit grading Job");
+            let receipt = oracle
+                .grading_worker_store
+                .commit_staged_imathas_result_grading(CommitStagedImathasResultGrading::new(
+                    claim,
+                    now(),
+                ))
+                .await
+                .expect("commit Extra Credit grade");
+            if receipt.grading_result().points_earned != 1.0 {
+                failures.push("Extra Credit issued scoring result was not 1.0".to_string());
+            }
         }
     } else {
         failures.push("lease contention had no winner".to_string());

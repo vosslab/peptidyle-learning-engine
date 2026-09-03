@@ -12,14 +12,11 @@ import type { CourseBannerReference } from "../../../generated/api/CourseBannerR
 import type { StudentRecordId } from "../../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
-import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import type { ApiClient } from "../client";
 import type {
   AssignmentAttemptScreenData,
-  QuestionPublicationReview,
   AssignmentAttemptSummaryResponse,
   StudentQuestionAttempt,
-  WorkspaceDraftDetail,
 } from "../contracts";
 import { questionReferencePath, questionSearchPath } from "../question_search_query";
 import { assignmentRouteReference } from "../../navigation/public_route";
@@ -37,15 +34,12 @@ import {
   decodeCourseGradebookTotalsView,
   decodeCoursePage,
   decodeCourseSummary,
-  decodeDraftQuestionContent,
   decodeImathasQuestionBackendLaunch,
   decodeStudentQuestionAttempt,
   decodeIssuedQuestionPresentation,
   decodeAssignmentAttemptPage,
   decodeAssignmentAttemptSummaryResponse,
   decodeStudentAssignmentProgress,
-  decodeDraftQuestionPage,
-  decodeQuestionPublicationReview,
   decodeNavigationResolution,
 } from "../decoders";
 import { ApiProtocolError, ApiRequestError } from "./error";
@@ -145,15 +139,6 @@ export async function boundedResponseJson(response: Response, path: string): Pro
   return decodeJson(text, path);
 }
 
-function workspacePath(workspace: WorkspaceId): string {
-  return `/api/workspaces/${encodedId(workspace)}`;
-}
-function workspaceRevision(response: Response, path: string): string {
-  const revision = response.headers.get("etag");
-  if (revision === null || !/^"[0-9]+"$/u.test(revision))
-    throw new ApiProtocolError(`API response ${path} must include one strong numeric ETag`);
-  return revision;
-}
 function courseAppearanceViewPath(courseId: CourseId): string {
   return `/api/courses/${encodedId(courseId)}/appearance`;
 }
@@ -161,24 +146,6 @@ function strongAppearanceRevision(value: string): string {
   if (!/^[1-9][0-9]*$/u.test(value) || BigInt(value) > 9_223_372_036_854_775_807n)
     throw new ApiProtocolError("Course appearance needs a canonical positive revision");
   return `"${value}"`;
-}
-async function workspaceDraft(
-  fetchImplementation: ApiFetch,
-  basePath: string,
-  workspace: WorkspaceId,
-): Promise<WorkspaceDraftDetail> {
-  const path = workspacePath(workspace);
-  const response = await fetchImplementation(requestPath(basePath, path), {
-    headers: { accept: "application/json" },
-    credentials: "same-origin",
-    cache: "no-store",
-  });
-  if (!response.ok) throw new ApiRequestError(response.status, path);
-  const value = await boundedResponseJson(response, path);
-  return {
-    draft: decodeDraftQuestionContent(value, "response"),
-    revision: workspaceRevision(response, path),
-  };
 }
 async function courseAppearanceView(
   fetchImplementation: ApiFetch,
@@ -210,28 +177,6 @@ async function questionDetails(
       "Question Details identity does not match its requested immutable version",
     );
   return detail;
-}
-async function questionPublicationReview(
-  fetchImplementation: ApiFetch,
-  basePath: string,
-  workspace: WorkspaceId,
-): Promise<QuestionPublicationReview> {
-  const path = `${workspacePath(workspace)}/question-publication-review`;
-  const response = await fetchImplementation(requestPath(basePath, path), {
-    headers: { accept: "application/json" },
-    credentials: "same-origin",
-    cache: "no-store",
-  });
-  if (!response.ok) throw new ApiRequestError(response.status, path);
-  const review = decodeQuestionPublicationReview(
-    await boundedResponseJson(response, path),
-    "response",
-  );
-  if (workspaceRevision(response, path) !== review.revision)
-    throw new ApiProtocolError(
-      "Question Publication Review ETag does not match its working-copy edit number",
-    );
-  return review;
 }
 async function activeAttempt(
   client: ApiClient,
@@ -272,10 +217,7 @@ export function createResponseClient(
   getClient: () => ApiClient,
 ): Pick<
   ApiClient,
-  | "listWorkspaceDrafts"
   | "resolveNavigation"
-  | "getWorkspaceDraft"
-  | "getQuestionPublicationReview"
   | "listQuestions"
   | "searchQuestionLibrary"
   | "resolveQuestion"
@@ -308,16 +250,6 @@ export function createResponseClient(
         `/api/navigation/${encodedId(reference)}`,
         decodeNavigationResolution,
       ),
-    listWorkspaceDrafts: (cursor) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        cursorPath("/api/workspaces", cursor),
-        decodeDraftQuestionPage,
-      ),
-    getWorkspaceDraft: (workspace) => workspaceDraft(fetchImplementation, basePath, workspace),
-    getQuestionPublicationReview: (workspace) =>
-      questionPublicationReview(fetchImplementation, basePath, workspace),
     listQuestions: (cursor) =>
       requestJson(
         fetchImplementation,

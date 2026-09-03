@@ -109,7 +109,14 @@ function uniqueQuestionIds(selection: QuestionPickerSelection): ReadonlyArray<st
 }
 
 function fixedEntry(questionId: string): BlueprintAssignmentEntryInput {
-  return { kind: "fixed", question_id: questionId, points_possible: "1", scoring_rule: "normal" };
+  return {
+    kind: "fixed",
+    question_id: questionId,
+    points_possible: "1",
+    scoring_rule: "normal",
+    question_attempt_limit: { maxAttempts: null },
+    question_attempt_time_limit: { kind: "unlimited" },
+  };
 }
 
 function poolEntry(questionPoolItems: ReadonlyArray<string>): BlueprintAssignmentEntryInput {
@@ -120,6 +127,8 @@ function poolEntry(questionPoolItems: ReadonlyArray<string>): BlueprintAssignmen
     points_per_item: "1",
     scoring_rule: "normal",
     selection_rule: { selectedQuestionOrder: "questionPoolOrder" },
+    question_attempt_limit: { maxAttempts: null },
+    question_attempt_time_limit: { kind: "unlimited" },
   };
 }
 
@@ -332,6 +341,8 @@ function entryInputFromView(entry: BlueprintAssignmentEntryView): BlueprintAssig
       points_per_item: entry.points_per_item,
       scoring_rule: entry.scoring_rule,
       selection_rule: entry.selection_rule,
+      question_attempt_limit: entry.question_attempt_limit,
+      question_attempt_time_limit: entry.question_attempt_time_limit,
     };
   }
   return {
@@ -339,6 +350,8 @@ function entryInputFromView(entry: BlueprintAssignmentEntryView): BlueprintAssig
     question_id: entry.question.question_library.summary.questionId,
     points_possible: entry.points_possible,
     scoring_rule: entry.scoring_rule,
+    question_attempt_limit: entry.question_attempt_limit,
+    question_attempt_time_limit: entry.question_attempt_time_limit,
   };
 }
 

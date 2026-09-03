@@ -12,9 +12,9 @@ security and storage rules.
 ## Status and authority
 
 [composition.rs](../crates/server/src/composition.rs) is the executable
-authority for the production route surface. Its current entry point mounts only
+authority for the production route surface. Its current entry point provides only
 health, session resolution/logout, and the deployment-gated seeded Live Demo
-account selector. Unmounted route modules, generated DTOs, browser clients,
+account selector. Route modules absent from server composition, generated DTOs, browser clients,
 schemas, and models retain product design; none establishes an available HTTP
 endpoint.
 
@@ -52,7 +52,7 @@ and Course Instance operations; roster, invitation, and enrollment; assignment
 workspace; Student delivery and Question submission; automated grading;
 Gradebook; Student-work inspection; object delivery; Course Retention; and
 iMathAS Question Backend browser boundaries are retained Store-backed product
-requirements. Their current HTTP routes are unmounted.
+requirements. Server composition currently provides none of these HTTP routes.
 
 When implemented, each route uses the session-derived Account plus exact stored
 relationships. Course and Assignment references locate a resource only after

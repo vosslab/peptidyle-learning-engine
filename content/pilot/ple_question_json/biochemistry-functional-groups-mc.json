@@ -1,6 +1,6 @@
 {
   "format": "pleQuestionJson",
-  "version": 2,
+  "version": 3,
   "title": "Biochemistry Chapter 1: Charged functional groups",
   "questionDescription": "Instructor-facing discovery summary for charged functional-group practice.",
   "prompt": "Which biochemical functional group can carry a positive charge under biological conditions?",
@@ -18,11 +18,8 @@
     "correct": "Correct. An amino group can accept a proton and become positively charged.",
     "incorrect": "Consider which functional group can accept a proton under biological conditions."
   },
-  "points": 1.0,
-  "questionAttemptLimit": { "maxAttempts": null },
-  "questionAttemptTimeLimit": { "kind": "unlimited" },
   "tags": ["biochemistry", "functional-groups", "chapter-1"],
-  "questionLicense": "CC-BY-4.0",
+  "questionLicense":"CC-BY-4.0",
   "questionCitation": null,
   "language": "en-US"
 }

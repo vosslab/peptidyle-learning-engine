@@ -5,9 +5,9 @@ use std::fmt::Write as _;
 use objects::ObjectAddress;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    ImathasQuestionBackendBinding, ObjectId, QuestionBackend, QuestionBackendVersion,
-    QuestionGraderVersion, QuestionRevision, QuestionRevisionReference,
-    QuestionVariationPresentation, SourceObjectChecksum, SourceObjectReference,
+    ImathasQuestionBackendBinding, ObjectId, QuestionBackendVersion, QuestionGraderVersion,
+    QuestionRevisionReference, QuestionVariationPresentation, SourceObjectChecksum,
+    SourceObjectReference,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -31,7 +31,7 @@ pub(super) fn decode_cache(bytes: &[u8]) -> Result<CachedRender, ImathasAdapterE
 
 pub(super) fn validate_cache(
     cached: &CachedRender,
-    question: &QuestionRevision,
+    question_revision: &QuestionRevisionReference,
     seed: QuestionSeed,
     source: &ResolvedImathasQuestionSource,
 ) -> Result<(), ImathasAdapterError> {
@@ -39,11 +39,7 @@ pub(super) fn validate_cache(
         || cached.source != *source.source_object_reference()
         || cached.source_object_checksum != *source.source_object_checksum()
         || cached.binding != source.binding
-        || cached.presentation.variation.question_revision
-            != (QuestionRevisionReference {
-                question_id: question.question_id.clone(),
-                revision_number: question.revision_number,
-            })
+        || cached.presentation.variation.question_revision != *question_revision
         || cached.presentation.variation.question_seed != seed
         || question_model::validate_question_title(&cached.presentation.title).is_err()
         || !matches!(
@@ -57,20 +53,10 @@ pub(super) fn validate_cache(
 }
 
 pub(super) fn verify_binding(
-    question: &QuestionRevision,
+    question_revision: &QuestionRevisionReference,
     source: &ResolvedImathasQuestionSource,
 ) -> Result<(), ImathasAdapterError> {
-    if *source.question_revision()
-        != (QuestionRevisionReference {
-            question_id: question.question_id.clone(),
-            revision_number: question.revision_number,
-        })
-    {
-        return Err(ImathasAdapterError::SourceDoesNotMatchQuestion);
-    }
-    if question.question_backend == QuestionBackend::Imathas
-        && question.imathas_question_backend_binding.as_ref() == Some(&source.binding)
-    {
+    if source.question_revision() == question_revision {
         Ok(())
     } else {
         Err(ImathasAdapterError::SourceDoesNotMatchQuestion)

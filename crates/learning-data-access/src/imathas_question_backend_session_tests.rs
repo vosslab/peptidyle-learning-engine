@@ -1,24 +1,15 @@
 use super::*;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    AccountId, AssignmentId, CourseId, ImathasDeploymentReference, ImathasItemReference,
-    ImathasProfile, ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId,
-    QuestionGradingRule, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
+    AccountId, AssignmentAttemptId, AssignmentEntryId, AssignmentEntryScoringRule, AssignmentId,
+    AssignmentPointValue, CourseId, ImathasDeploymentReference, ImathasItemReference,
+    ImathasProfile, ImathasQuestionBackendBinding, IssuedQuestion, IssuedQuestionId, ObjectId,
+    QuestionAttemptId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
     SourceObjectChecksum, SourceObjectReference, Timestamp,
 };
 use uuid::Uuid;
 fn facts(
     account: AccountId,
-) -> (
-    ImathasQuestionBackendSessionCreate,
-    ImathasQuestionBackendSessionRestoreExpectation,
-) {
-    facts_with_rule(account, QuestionGradingRule::PartialCredit { points: 10.0 })
-}
-
-fn facts_with_rule(
-    account: AccountId,
-    grading_rule: QuestionGradingRule,
 ) -> (
     ImathasQuestionBackendSessionCreate,
     ImathasQuestionBackendSessionRestoreExpectation,
@@ -53,7 +44,6 @@ fn facts_with_rule(
         course,
         assignment,
         grading_context.clone(),
-        grading_rule.clone(),
         imathas_question_backend_binding.clone(),
         source.clone(),
         checksum.clone(),
@@ -65,7 +55,6 @@ fn facts_with_rule(
         course,
         assignment,
         grading_context,
-        grading_rule,
         imathas_question_backend_binding,
         source,
         checksum,
@@ -455,102 +444,6 @@ async fn changed_stage_replays_refuse_without_replacing_first_receipt() {
 }
 
 #[test]
-fn session_rejects_invalid_points_and_ungraded_reaches_only_launch() {
-    let account = AccountId::from_uuid(Uuid::from_u128(1));
-    for points in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -0.0, -1.0] {
-        assert!(
-            preparation_with_rule(account, QuestionGradingRule::AllOrNothing { points }).is_err()
-        );
-    }
-}
-
-fn preparation_with_rule(
-    account: AccountId,
-    rule: QuestionGradingRule,
-) -> Result<ImathasQuestionBackendSessionPreparationContext, StoreError> {
-    ImathasQuestionBackendSessionPreparationContext::new(
-        account,
-        CourseId::from_uuid(Uuid::from_u128(2)),
-        AssignmentId::from_uuid(Uuid::from_u128(3)),
-        ImathasGradingContext::new(
-            QuestionAttemptId::from_uuid(Uuid::from_u128(4)),
-            QuestionRevisionReference {
-                question_id: "123-4567".parse::<QuestionId>().expect("question"),
-                revision_number: QuestionRevisionNumber::new(1).expect("revision"),
-            },
-            QuestionSeed::new(7),
-        ),
-        rule,
-        ImathasQuestionBackendBinding::new(
-            ImathasDeploymentReference::new("imathas").expect("deployment"),
-            ImathasItemReference::new("item-1").expect("item"),
-            ImathasProfile::new("imathas_remote_grading_v1").expect("profile"),
-        ),
-        SourceObjectReference {
-            object: ObjectId::from_uuid(Uuid::from_u128(5)),
-        },
-        SourceObjectChecksum::parse("a".repeat(64)).expect("checksum"),
-        ImathasResponseChecksum::from_bytes([1; 32]),
-        ImathasQuestionBackendSessionChallenge::generate().expect("challenge"),
-        ImathasQuestionBackendSessionAuthentication::from_server_value(format!(
-            "aa.{}",
-            "b".repeat(64)
-        ))
-        .expect("auth"),
-        Timestamp::from_unix_millis(10),
-        Timestamp::from_unix_millis(100),
-    )
-}
-
-#[tokio::test]
-async fn ungraded_session_refuses_stage_before_exchange_creation() {
-    let account = AccountId::from_uuid(Uuid::from_u128(1));
-    let token = SessionTokenHash::compute(b"ungraded");
-    let store =
-        MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
-    authorize(&store, token, account);
-    let (create, expectation) = facts_with_rule(account, QuestionGradingRule::Ungraded);
-    let reference = store
-        .create_imathas_question_backend_session(token, create)
-        .await
-        .expect("create");
-    let lease = store
-        .lease_imathas_question_backend_session(
-            token,
-            reference,
-            expectation,
-            Timestamp::from_unix_millis(30),
-        )
-        .await
-        .expect("lease");
-    assert!(
-        StageVerifiedImathasResult::new(
-            lease.clone(),
-            lease.expectation.grading_context.clone(),
-            lease.expectation.authentication.clone(),
-            ImathasResultExchangeIdempotencyKey::parse("ungraded").expect("key"),
-            ImathasResultTokenChecksum::from_verified_token(
-                &ImathasResultToken::from_server_adapter_bytes(vec![1]).expect("token")
-            ),
-            ImathasResult::new(ImathasNormalizedScore::try_from_f64(1.0).expect("score")),
-            Timestamp::from_unix_millis(20)
-        )
-        .is_err()
-    );
-    assert!(
-        store
-            .lease_imathas_question_backend_session(
-                token,
-                reference,
-                lease.expectation,
-                Timestamp::from_unix_millis(30)
-            )
-            .await
-            .is_err()
-    );
-}
-
-#[test]
 fn imathas_question_backend_result_token_bounds_redaction_and_checksum_are_exact() {
     assert!(ImathasResultToken::from_server_adapter_bytes(Vec::new()).is_err());
     assert!(ImathasResultToken::from_server_adapter_bytes(vec![0; 8_193]).is_err());
@@ -602,37 +495,6 @@ fn normalized_score_boundaries_and_result_checksum_are_fixed() {
     assert!(format!("{zero:?}").contains("[redacted]"));
 }
 
-#[test]
-fn exact_imathas_question_backend_grading_rule_translation_is_closed() {
-    let partial = ImathasResult::new(ImathasNormalizedScore::try_from_f64(0.5).expect("score"));
-    assert_eq!(
-        derive_imathas_question_backend_grading_result(
-            &partial,
-            &QuestionGradingRule::AllOrNothing { points: 4.0 }
-        )
-        .expect("result")
-        .points_earned,
-        0.0
-    );
-    assert_eq!(
-        derive_imathas_question_backend_grading_result(
-            &partial,
-            &QuestionGradingRule::PartialCredit { points: 4.0 }
-        )
-        .expect("result")
-        .points_earned,
-        2.0
-    );
-    assert!(
-        derive_imathas_question_backend_grading_result(&partial, &QuestionGradingRule::Ungraded)
-            .is_err()
-    );
-    for points in [f64::NAN, f64::INFINITY, -0.0, -1.0] {
-        assert!(
-            validate_question_grading_rule(&QuestionGradingRule::AllOrNothing { points }).is_err()
-        );
-    }
-}
 fn authorize(
     store: &MemoryImathasQuestionBackendSessionStore,
     token: SessionTokenHash,
@@ -644,6 +506,37 @@ fn authorize(
         CourseId::from_uuid(Uuid::from_u128(2)),
         QuestionAttemptId::from_uuid(Uuid::from_u128(4)),
     );
+    store
+        .install_issued_question_scoring_snapshot(
+            QuestionAttemptId::from_uuid(Uuid::from_u128(4)),
+            issued_question(
+                AssignmentPointValue::from_whole(10),
+                AssignmentEntryScoringRule::Normal,
+            ),
+        )
+        .expect("install immutable Issued Question snapshot");
+}
+
+fn issued_question(
+    point_value: AssignmentPointValue,
+    scoring_rule: AssignmentEntryScoringRule,
+) -> IssuedQuestion {
+    IssuedQuestion {
+        id: IssuedQuestionId::from_uuid(Uuid::from_u128(40)),
+        assignment_attempt: AssignmentAttemptId::from_uuid(Uuid::from_u128(41)),
+        assignment_entry: AssignmentEntryId::from_uuid(Uuid::from_u128(42)),
+        assignment_content_entry_index: 0,
+        issued_position: 0,
+        reference: QuestionRevisionReference {
+            question_id: "123-4567".parse().expect("question ID"),
+            revision_number: QuestionRevisionNumber::new(1).expect("revision"),
+        },
+        point_value,
+        scoring_rule,
+        statistics_eligible: true,
+        question_pool_selection: None,
+        question_pool_item: None,
+    }
 }
 
 #[tokio::test]
@@ -653,6 +546,16 @@ async fn memory_oracle_restores_exact_context_and_consumes_through_exchange_tran
     let store =
         MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
     authorize(&store, token, account);
+    assert_eq!(
+        store.install_issued_question_scoring_snapshot(
+            QuestionAttemptId::from_uuid(Uuid::from_u128(4)),
+            issued_question(
+                AssignmentPointValue::from_whole(11),
+                AssignmentEntryScoringRule::Normal
+            ),
+        ),
+        Err(StoreError::Conflict),
+    );
     let (create, expectation) = facts(account);
     let (session, _) =
         facts(account)

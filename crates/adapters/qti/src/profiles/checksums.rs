@@ -110,7 +110,8 @@ pub struct QtiPublicMappingChecksumInput {
     pub title: String,
     pub prompt_markdown: String,
     pub choices: Vec<QtiPublicChoiceChecksumInput>,
-    pub points: String,
+    /// Normalized QTI source-points evidence; never Assignment Entry policy.
+    pub vendor_points: String,
     pub defaults: Vec<QtiProfileDiagnostic>,
     pub warnings: Vec<QtiProfileDiagnostic>,
 }

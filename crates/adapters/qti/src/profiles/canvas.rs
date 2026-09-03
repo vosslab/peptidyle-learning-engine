@@ -1,10 +1,10 @@
 use super::markup::MarkupLimits;
 use super::{
     CANVAS_ITEM_NAMESPACE, IMS_CONTENT_PACKAGING_NAMESPACE, QtiImportResultChecksumInput,
-    QtiMappedItem, QtiMappedPoints, QtiProfileDetection, QtiProfileDetectionEvidence,
-    QtiProfileDiagnosticCode, QtiProfileId, QtiProfileItemEvidence, QtiProfileResourceEvidence,
-    QtiPublicChoiceChecksumInput, QtiSafeDiagnostic, QtiSafeDiagnosticLocation,
-    QtiSafeDiagnosticTemplate, QtiSafeItemReport, map_qti_choice_ids,
+    QtiMappedItem, QtiProfileDetection, QtiProfileDetectionEvidence, QtiProfileDiagnosticCode,
+    QtiProfileId, QtiProfileItemEvidence, QtiProfileResourceEvidence, QtiPublicChoiceChecksumInput,
+    QtiSafeDiagnostic, QtiSafeDiagnosticLocation, QtiSafeDiagnosticTemplate, QtiSafeItemReport,
+    QtiVendorPointsEvidence, map_qti_choice_ids,
 };
 use crate::archive::read_bounded_archive;
 use crate::model::QtiImportLimits;
@@ -410,7 +410,7 @@ fn parse_item(
         title,
         prompt,
         mapped_choices,
-        QtiMappedPoints::Declared(points),
+        QtiVendorPointsEvidence::Declared(points),
         map,
         correct,
     )

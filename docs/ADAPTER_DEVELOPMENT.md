@@ -54,15 +54,17 @@ Use the following sequence for a question-agnostic adapter.
 
 1. Store one immutable Question Source and bind it through its Source Object Reference to the
    owning Draft Question or Question Revision. Record the Question Backend separately,
-   with only its exact backend-specific location field: WeBWorK PG Path, QTI package item
-   identifier, or `ImathasQuestionBackendBinding`. Keep credentials and mutable locations outside
-   the stored relationship.
+   with only its exact backend-specific reference when one is required, such as a WeBWorK PG Path
+   or `ImathasQuestionBackendBinding`. Keep credentials and mutable locations outside the stored
+   relationship. QTI package and item references belong to Workspace Import evidence; an accepted
+   QTI item becomes PLE Question JSON before this Question Source boundary.
 2. At import or publication, preserve the exact source in typed object storage with its SHA-256,
    media type, Question License, Source Object Reference and Source Object Checksum, immutable Question Revision binding, and any required assets.
    Source archives are private and non-signable. Do not reconstruct source identity from a title or
    display label.
-3. Compile the source to a key-free `QuestionRevision`. Keep an answer-bearing compilation product
-   in private grading storage, or retain an immutable source that only server-side grading can read.
+3. Ask the registered Question Backend to interpret the complete source and produce an answer-free
+   Question Presentation. The generic Question model stores and routes the complete source without
+   imposing universal Answer Key or Question Grading Input records.
 4. Implement `issue` with the trusted Question ID, Question Revision Number, Source Object Reference,
    and Question Seed inputs. It returns an answer-free
    `QuestionPresentation`, a parameter hash, and complete `QuestionAttemptReproductionDetails`.
@@ -75,10 +77,10 @@ Use the following sequence for a question-agnostic adapter.
 6. Register the backend through the server Assignment Attempt boundary, where course authorization, attempt
    identity, idempotency, timer policy, and persistence remain PLE responsibilities.
 
-The PLE Question JSON adapter is the small reference: it compiles answer-bearing PLE Question JSON schema version 2
-into a public Question Revision and separate PLE Question JSON Private Grading. Its closed v2 `singleChoice` Question Type is one of
-the eight PLE Question Types; new semantics require their own reviewed contract rather than an
-ad hoc adapter widening. See
+The PLE Question Backend is the small reference: it interprets complete PLE Question JSON version 3
+and produces the answer-free Question Presentation and server-owned evaluation behavior required by
+the shared pipeline. Its supported Question Types are MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and
+HOTSPOT. See
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and
 [implementation_plan.md](active_plans/implementation_plan.md).
 
@@ -118,8 +120,8 @@ is needed, correlate and verify it with server-held attempt state before it beco
 | Adapter           | Implemented behavior                                                                                                                                                              | Current boundary and status                                                                                                                                                  |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | PLE Question JSON | PLE Question JSON compilation, client rendering, and server grading for all eight runtime Question Types                                                                          | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-type integrated acceptance remain open.                                          |
-| QTI               | Hostile archive parsing, Canvas 1.2 and Blackboard 2.1 static single-choice profile import, private QTI Import Package Checksum evidence, PLE conversion, and server-only grading | The accepted static-import boundary deliberately supports only those profiles.                                                                                               |
-| H5P               | Supported static multiple-choice H5P Package Import into an answer-free practice payload                                                                                          | H5P Package Import is ungraded practice, not a Question Backend. Server-graded H5P is not supported; protected PLE conversion and complete capability close-out remain open. |
+| QTI Import        | Hostile archive parsing, Canvas 1.2 and Blackboard 2.1 static single-choice profile import, private QTI Import Package Checksum evidence, and PLE Question JSON mapping          | The accepted static-import boundary deliberately supports only those profiles. Accepted items use the PLE Question Backend after conversion.                                |
+| H5P               | Supported H5P Package parsing and current ungraded-practice behavior                                                                                                               | H5P retains its distinct package source behind the shared Draft Question, publication, Assignment, and delivery operations as integration advances.                         |
 | iMathAS           | Immutable Question Source snapshot, `imathas_remote_grading_v1`-pinned iMathAS Render Cache, server-managed iMathAS Question Backend Launch, and iMathAS Result verification      | The direct iMathAS Question Backend boundary is implemented. Browser-trusted launch or score flows are refused; live iMathAS Question Backend acceptance is not claimed.     |
 | WeBWorK           | Private standalone `/render-api` Question Backend client, bounded PGML projection, server-only grading, sanitized immutable render cache, and private stateless container         | The four reviewed Chapter 1 MC/MATCH sources passed live renderer and browser acceptance. Other PG controls or source revisions require their own evidence.                  |
 

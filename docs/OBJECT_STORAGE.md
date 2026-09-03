@@ -137,17 +137,18 @@ publication atomically:
    transaction.
 
 The dedicated publisher subsequently claims only that job kind, re-reads each
-pending record and its exact private workspace source from PostgreSQL, verifies
+pending record and its exact Question Revision-owned private source or asset, verifies
 the Source Object Reference and Source Object Checksum, and writes the final public key. It uses
 immutable creation semantics. A retry accepts an existing final key only when
 its exact record and checksum agree. Finally, a lease-conditional database
 function changes the complete batch from `Pending` to `Ready` and completes
 that same job atomically. Pending records have no public route result.
 
-The pending source is an exact allowlist: a private workspace asset with the
-exact Workspace Asset Object Address and no published version. It is never a
-public object, arbitrary private key, browser value, or queue payload byte
-sequence. The dedicated publisher has a separate database capability and
+The pending publication input is an exact allowlist of Question Revision-owned
+private objects created by publication. It has no Draft Question relationship
+or Authoring Workspace path and remains complete after draft cleanup. It is
+never an arbitrary private key, browser value, or queue payload byte sequence.
+The dedicated publisher has a separate database capability and
 production IAM role; ordinary API and worker roles cannot write public objects.
 The publisher writes and verifies immutable public objects before activation.
 This closes pre-commit CDN orphans and a confused deputy that could

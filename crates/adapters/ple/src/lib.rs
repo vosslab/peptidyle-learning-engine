@@ -1,272 +1,99 @@
-//! First-party static PLE Question JSON Backend adapter.
+//! First-party PLE Question JSON backend.
 //!
-//! The adapter dispatches by Question Format and Question Type. Question
-//! Implementations validate static content and derive server-only keys. The
-//! stable facade coordinates focused registry, issue, grading,
-//! reproduction, and capability owners.
+//! PLE executes the exact immutable JSON source registered for one Question
+//! Revision Reference. It never reconstructs a generic Question Revision or
+//! Draft Question Content from that source.
 
-use std::collections::{BTreeMap, BTreeSet};
-use std::sync::Arc;
-
-use grading::GradingError;
 use question_model::{
-    ObjectId, QuestionAssetId, QuestionAttemptReproductionDetails, QuestionBackendVersion,
-    QuestionGraderVersion, QuestionTitleError,
+    ObjectId, QuestionAttemptReproductionDetails, QuestionBackendVersion, QuestionGraderVersion,
+    QuestionVariationPresentation,
 };
-use question_model::{QuestionContentBlock, QuestionVariationPresentation};
 
-use crate::generator::PleQuestionImplementation;
-
-#[path = "lib/capabilities.rs"]
-mod capabilities;
-#[path = "lib/grade.rs"]
-mod grade;
-#[path = "lib/issue.rs"]
-mod issue;
 #[path = "lib/question_json_source.rs"]
 mod question_json_source;
-#[path = "lib/registry.rs"]
-mod registry;
-#[path = "lib/reproduction.rs"]
-mod reproduction;
-#[path = "lib/source_implementation.rs"]
-mod source_implementation;
 
 pub use question_json_source::ResolvedPleQuestionJsonSource;
-use registry::PleQuestionImplementationKey;
 
-#[cfg(test)]
-use registry::{backend_version, grader_version};
+/// Strict, versioned PLE Question JSON source for first-party static Questions.
+pub mod question_json;
+
 #[cfg(test)]
 #[path = "lib/question_json_source_tests.rs"]
 mod question_json_source_tests;
 #[cfg(test)]
 mod test_support;
 
-/// Extensible Question Implementation contract and server-only derived Question data.
-pub mod generator;
-/// Strict, versioned PLE Question JSON source for first-party static Questions.
-pub mod question_json;
-
 /// Stable Question Backend identifier persisted with every PLE Question Attempt.
 pub const ADAPTER_ID: &str = "ple-question-backend";
 /// Current Question Backend Version for issuance and replay.
-///
-/// This is distinct from the repository CalVer release and from a Question Revision.
 pub const ADAPTER_VERSION: &str = "1";
 /// Stable Question Grader identifier persisted with every PLE Question Attempt.
 pub const GRADING_ID: &str = "generic-grader";
 /// Current Question Grader Version for issuance and replay.
 pub const GRADING_VERSION: &str = "1";
 
-/// One trusted, server-side relationship between a Question Asset and immutable Object Reference.
-///
-/// The browser never constructs this input. A server storage adapter resolves
-/// immutable asset records for the published question revision before calling
-/// PLE issue, replay, or grading.
+/// Trusted server-side relationship between one PLE asset and immutable object bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct QuestionAssetObjectReference {
-    /// Logical identifier embedded in a renderable content block.
-    pub question_asset: QuestionAssetId,
-    /// Immutable object-store record selected by the trusted storage layer.
+    pub question_asset: question_model::QuestionAssetId,
     pub object_reference: ObjectId,
 }
 
 /// Key-free PLE Issued Question returned at Question Attempt issue time.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PleIssuedQuestion {
-    /// Generated prompt and response shape safe to deliver to the browser.
     pub presentation: QuestionVariationPresentation,
-    /// Versions and object identities needed to reproduce the attempt.
     pub reproduction_details: QuestionAttemptReproductionDetails,
 }
 
-/// One verified PLE Question Backend grading evaluation with separately named
-/// trusted teaching values for the exact issued Question Variation.
-///
-/// Question Feedback, Question Answer, and Question Answer Explanation remain
-/// independently policy-released by the Domain layer. This boundary never
-/// carries an Answer Key or browser-safe Student Feedback DTO.
-pub struct PleQuestionGradingEvaluation {
-    /// Automatic grading outcome for the accepted Student Response.
-    pub outcome: grading::QuestionGradingOutcome,
-    /// Teaching content selected for the submitted Student Response.
-    pub question_feedback: question_model::QuestionFeedback,
-    /// Optional display-ready accepted response for this Question Variation.
-    pub question_answer: Option<question_model::QuestionAnswer>,
-    /// Optional explanation of how or why the Question Answer is reached.
-    pub question_answer_explanation: Option<question_model::QuestionAnswerExplanation>,
-}
-
-/// Server-only author presentation for one PLE Draft Question.
-///
-/// Its fields are already-rendered student-facing blocks. It deliberately
-/// excludes Answer Keys, choice IDs, grading rules, Source Object References, and
-/// published identity.
-#[derive(Clone, PartialEq)]
-pub struct PleDraftAuthorPresentation {
-    /// Student-facing title.
-    pub title: String,
-    /// Constructed student-facing prompt for the generated Question Variation.
-    pub prompt: Vec<QuestionContentBlock>,
-    /// Browser-safe response shape.
-    pub response: question_model::QuestionResponseFormat,
-    /// Display-ready accepted response for the exact generated variation.
-    pub question_answer: Vec<QuestionContentBlock>,
-    /// Optional display-ready explanation of how or why the answer is reached.
-    pub question_answer_explanation: Option<Vec<QuestionContentBlock>>,
-}
-
-/// Versioned PLE Question Implementation registry and orchestration boundary.
-pub struct PleQuestionBackend {
-    implementations: BTreeMap<PleQuestionImplementationKey, Arc<dyn PleQuestionImplementation>>,
-    backend_versions: BTreeSet<(String, String)>,
-    grader_versions: BTreeSet<(String, String)>,
-    current_backend: QuestionBackendVersion,
-    current_grader: QuestionGraderVersion,
-}
-
-struct PreparedPleQuestion {
-    derived: DerivedPleQuestion,
-    presentation: QuestionVariationPresentation,
-    rendered_question_sha256: String,
-}
-
-struct DerivedPleQuestion {
-    prompt: Vec<QuestionContentBlock>,
-    answer_key: Option<grading::AnswerKey>,
-}
-
-/// Explicit ple-question-backend failure without database, HTTP, or SDK types.
+/// PLE source-only backend failure.
 #[derive(Debug)]
 pub enum PleQuestionBackendError {
-    /// A caller selected a non-PLE Question source.
-    UnsupportedSource,
-    /// No installed implementation matches the Question's explicit contract.
-    UnknownQuestionImplementation {
-        question_format: question_model::QuestionFormat,
-        question_type: question_model::QuestionType,
-    },
-    /// Two implementations attempted to own one exact Question contract.
-    DuplicateQuestionImplementation {
-        question_format: question_model::QuestionFormat,
-        question_type: question_model::QuestionType,
-    },
-    /// A persisted Question Backend Version has no compiled implementation.
-    UnknownQuestionBackendVersion { version: QuestionBackendVersion },
-    /// A persisted Question Grader Version has no compiled implementation.
-    UnknownQuestionGraderVersion { version: QuestionGraderVersion },
-    /// The authored Question Response Format or PLE Question JSON Private
-    /// Grading does not meet its implementation's contract.
-    IncompatibleQuestionImplementation { message: String },
-    /// Persisted student-facing metadata cannot be delivered safely.
-    InvalidTitle(QuestionTitleError),
-    /// A browser-safe Question Presentation could not be serialized for hashing.
-    Serialization(String),
-    /// Stored attempt metadata disagreed with exact regeneration.
-    ReproductionMismatch { field: &'static str },
-    /// A renderable asset was not bound by the trusted storage layer.
-    MissingAssetBinding(QuestionAssetId),
-    /// A trusted binding was supplied for an asset the Question Presentation does not render.
-    UnrelatedAssetBinding(QuestionAssetId),
-    /// A binding list assigned one logical asset more than once.
-    ConflictingAssetBinding(QuestionAssetId),
-    /// Immutable Question Source bytes could not be resolved from object storage.
     QuestionSourceResolution(objects::QuestionSourceResolutionError),
-    /// PLE Question JSON source bytes did not use the canonical media type.
     UnexpectedQuestionSourceMediaType { media_type: String },
-    /// PLE Question JSON source bytes did not compile into their Question Revision.
-    QuestionSourceDoesNotMatchQuestion,
-    /// PLE Question JSON source bytes were malformed or invalid.
     QuestionSourceDocument(question_json::PleQuestionJsonError),
-    /// The server-only generic grader refused the Student Response, Question
-    /// Response Format, or Question Grading Rule.
-    Grading(GradingError),
+    UnknownQuestionBackendVersion { version: QuestionBackendVersion },
+    UnknownQuestionGraderVersion { version: QuestionGraderVersion },
+    Serialization(String),
+    ReproductionMismatch { field: &'static str },
 }
 
 impl std::fmt::Display for PleQuestionBackendError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UnsupportedSource => formatter.write_str("question source is not PLE"),
-            Self::UnknownQuestionImplementation {
-                question_format,
-                question_type,
-            } => write!(
+            Self::QuestionSourceResolution(error) => error.fmt(formatter),
+            Self::UnexpectedQuestionSourceMediaType { media_type } => write!(
                 formatter,
-                "PLE Question Implementation is not installed for {question_format:?}/{question_type:?}",
+                "unexpected PLE Question JSON media type: {media_type}"
             ),
-            Self::DuplicateQuestionImplementation {
-                question_format,
-                question_type,
-            } => write!(
-                formatter,
-                "PLE Question Implementation is registered twice for {question_format:?}/{question_type:?}"
-            ),
+            Self::QuestionSourceDocument(error) => error.fmt(formatter),
             Self::UnknownQuestionBackendVersion { version } => write!(
                 formatter,
-                "PLE Question Backend Version is not installed: {}@{}",
+                "unknown PLE Question Backend Version: {}:{}",
                 version.name, version.version
             ),
             Self::UnknownQuestionGraderVersion { version } => write!(
                 formatter,
-                "PLE Question Grader Version is not installed: {}@{}",
+                "unknown PLE Question Grader Version: {}:{}",
                 version.name, version.version
             ),
-            Self::IncompatibleQuestionImplementation { message } => {
-                write!(
-                    formatter,
-                    concat!(
-                        "PLE Question Implementation rejected its Question Response Format or ",
-                        "PLE Question JSON Private Grading: {}"
-                    ),
-                    message
-                )
-            }
-            Self::InvalidTitle(error) => {
-                write!(formatter, "invalid PLE Question title: {error}")
-            }
             Self::Serialization(message) => {
-                write!(
-                    formatter,
-                    "PLE Question Presentation could not be hashed: {message}"
-                )
+                write!(formatter, "PLE serialization failed: {message}")
             }
             Self::ReproductionMismatch { field } => {
-                write!(
-                    formatter,
-                    "PLE Question Attempt does not reproduce field {field}"
-                )
+                write!(formatter, "PLE reproduction mismatch: {field}")
             }
-            Self::MissingAssetBinding(asset) => {
-                write!(formatter, "PLE trusted binding missing for asset: {asset}")
-            }
-            Self::UnrelatedAssetBinding(asset) => write!(
-                formatter,
-                "PLE trusted binding is unrelated to Question Presentation asset: {asset}"
-            ),
-            Self::ConflictingAssetBinding(asset) => write!(
-                formatter,
-                "PLE trusted bindings conflict for asset: {asset}"
-            ),
-            Self::QuestionSourceResolution(error) => error.fmt(formatter),
-            Self::UnexpectedQuestionSourceMediaType { media_type } => write!(
-                formatter,
-                "PLE Question Source has media type {media_type:?} instead of the canonical PLE Question JSON media type"
-            ),
-            Self::QuestionSourceDoesNotMatchQuestion => formatter
-                .write_str("PLE Question JSON source does not compile into its Question Revision"),
-            Self::QuestionSourceDocument(error) => error.fmt(formatter),
-            Self::Grading(error) => write!(formatter, "PLE grading failed: {error}"),
         }
     }
 }
-
 impl std::error::Error for PleQuestionBackendError {}
 
-#[cfg(test)]
-#[path = "lib/tests.rs"]
-mod tests;
+/// Stateless PLE source executor.
+#[derive(Debug, Default)]
+pub struct PleQuestionBackend;
 
-#[cfg(test)]
-#[path = "lib/source_evidence_tests.rs"]
-mod source_evidence_tests;
+impl PleQuestionBackend {
+    pub fn new() -> Self {
+        Self
+    }
+}

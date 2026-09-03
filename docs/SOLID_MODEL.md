@@ -111,10 +111,14 @@ from that origin and that iframe. The final submission remains the ordinary PLE 
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Navigation, display, controlled input, local buffering, and answer-free previews | Authentication, authorization, authenticated Account context, private drafts, and durable revisions                                  |
 | Course-theme presentation from an authorized `CourseRouteView`                   | Course identity, appearance revision, banner-object authorization, and conflict decisions                                            |
-| PLE Question JSON author editing state and local QTI archive selection           | PLE Question JSON source persistence, publication review, correctness, points, and feedback disclosure                               |
+| Question authoring state and local QTI archive selection                         | Complete Question Source persistence, publication review, backend evaluation, and feedback disclosure                               |
 | QTI report display, item selection, acknowledgement, and refetch handoff         | ZIP/XML parsing, bounded profile recognition, accepted-item evidence, conversion, QTI Import Checksums, and atomic draft replacement |
 | iMathAS iframe presentation and same-origin readiness status                     | iMathAS Question Backend Launch authorization, configuration, correlation, verification, correctness, and grade recording            |
 | Countdown display reconciled from server data                                    | Deadline and late-submission verdict                                                                                                 |
+
+The Assignment Entry owns points, scoring treatment, attempt limits, timing, and grade aggregation.
+The same browser/server ownership split applies to every registered Question Backend; QTI Import maps
+accepted items into PLE Question JSON before the shared Draft Question and publication operations.
 
 Everything crossing the browser boundary is JSON-serializable except browser-local `File`, DOM ref,
 and object-URL state, which never crosses it. The generated client surface derives from

@@ -75,11 +75,6 @@ CREATE TABLE ple_private.imathas_question_backend_session (
         CHECK (imathas_profile ~ '^[A-Za-z0-9._-]{1,160}$'),
     question_seed numeric(20, 0) NOT NULL
         CHECK (question_seed >= 0 AND question_seed <= 18446744073709551615),
-    question_grading_rule text NOT NULL
-        CHECK (question_grading_rule IN ('all_or_nothing', 'partial_credit', 'ungraded')),
-    question_points_possible numeric
-        CHECK (question_points_possible IS NULL OR (question_points_possible >= 0
-            AND question_points_possible NOT IN ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric))),
     imathas_launch_binding_checksum text NOT NULL
         CHECK (imathas_launch_binding_checksum ~ '^[0-9a-f]{64}$'),
     imathas_response_sha256 bytea NOT NULL
@@ -126,11 +121,6 @@ CREATE TABLE ple_private.imathas_question_backend_session (
     ),
     CONSTRAINT imathas_question_backend_session_terminal_state_is_exclusive CHECK (
         revoked_at IS NULL OR consumed_at IS NULL
-    ),
-    CONSTRAINT imathas_question_backend_session_question_grading_rule_is_exact CHECK (
-        (question_grading_rule IN ('all_or_nothing', 'partial_credit')
-            AND question_points_possible IS NOT NULL)
-        OR (question_grading_rule = 'ungraded' AND question_points_possible IS NULL)
     ),
     CONSTRAINT imathas_question_backend_session_state_key_nonce_is_unique
         UNIQUE (imathas_question_backend_state_key_id, imathas_question_backend_state_nonce)
@@ -207,6 +197,8 @@ CREATE TABLE ple_private.imathas_result_exchange (
 GRANT SELECT ON TABLE ple_private.account, ple_private.assignment_attempt,
     ple_private.question_source_registration TO ple_api_owner;
 GRANT UPDATE ON TABLE ple_private.question_attempt TO ple_api_owner;
+GRANT UPDATE (issued_question_id) ON TABLE ple_private.issued_question TO ple_api_owner;
+GRANT UPDATE (assignment_attempt_id) ON TABLE ple_private.assignment_attempt TO ple_api_owner;
 GRANT INSERT ON TABLE ple_private.question_submission TO ple_api_owner;
 GRANT INSERT, UPDATE ON TABLE ple_private.question_submission_grading,
     ple_private.job TO ple_api_owner;
@@ -236,8 +228,6 @@ BEGIN
        OR NEW.source_object_checksum IS DISTINCT FROM OLD.source_object_checksum
        OR NEW.imathas_profile IS DISTINCT FROM OLD.imathas_profile
        OR NEW.question_seed IS DISTINCT FROM OLD.question_seed
-       OR NEW.question_grading_rule IS DISTINCT FROM OLD.question_grading_rule
-       OR NEW.question_points_possible IS DISTINCT FROM OLD.question_points_possible
        OR NEW.imathas_launch_binding_checksum IS DISTINCT FROM OLD.imathas_launch_binding_checksum
        OR NEW.imathas_response_sha256 IS DISTINCT FROM OLD.imathas_response_sha256
        OR NEW.imathas_question_backend_session_challenge IS DISTINCT FROM OLD.imathas_question_backend_session_challenge
@@ -400,6 +390,12 @@ CREATE POLICY imathas_result_exchange_api_owner_update
 CREATE POLICY question_attempt_api_owner_update
     ON ple_private.question_attempt FOR UPDATE TO ple_api_owner
     USING (true) WITH CHECK (true);
+CREATE POLICY issued_question_api_owner_lock
+    ON ple_private.issued_question FOR UPDATE TO ple_api_owner
+    USING (true) WITH CHECK (false);
+CREATE POLICY assignment_attempt_api_owner_lock
+    ON ple_private.assignment_attempt FOR UPDATE TO ple_api_owner
+    USING (true) WITH CHECK (false);
 CREATE POLICY question_submission_api_owner_insert
     ON ple_private.question_submission FOR INSERT TO ple_api_owner WITH CHECK (true);
 CREATE POLICY question_submission_grading_api_owner_insert
@@ -443,8 +439,7 @@ CREATE FUNCTION ple_api.create_imathas_question_backend_session(
     p_imathas_question_backend_session_id uuid, p_course_id uuid, p_assignment_id uuid, p_question_attempt_id uuid,
     p_imathas_deployment_reference text, p_imathas_item_reference text, p_question_id text,
     p_revision_number integer, p_source_object_id uuid, p_source_object_checksum bytea,
-    p_imathas_profile text, p_question_seed numeric, p_question_grading_rule text,
-    p_question_points_possible numeric, p_imathas_launch_binding_checksum text,
+    p_imathas_profile text, p_question_seed numeric, p_imathas_launch_binding_checksum text,
     p_imathas_response_sha256 bytea, p_imathas_question_backend_session_challenge bytea,
     p_imathas_question_backend_session_authentication bytea, p_issued_at timestamp with time zone,
     p_expires_at timestamp with time zone, p_imathas_question_backend_state_key_id text,
@@ -461,11 +456,7 @@ BEGIN
        OR p_imathas_question_backend_state_nonce IS NULL
        OR p_imathas_question_backend_state_ciphertext IS NULL
        OR p_imathas_item_reference IS NULL OR p_question_seed IS NULL
-       OR p_imathas_launch_binding_checksum IS NULL OR p_question_grading_rule NOT IN ('all_or_nothing', 'partial_credit', 'ungraded')
-       OR (p_question_grading_rule IN ('all_or_nothing', 'partial_credit')
-           AND (p_question_points_possible IS NULL OR p_question_points_possible < 0
-                OR p_question_points_possible IN ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)))
-       OR (p_question_grading_rule = 'ungraded' AND p_question_points_possible IS NOT NULL) THEN
+       OR p_imathas_launch_binding_checksum IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'iMathAS Question Backend Session requires a future expiry';
     END IF;
     IF NOT EXISTS (
@@ -482,7 +473,6 @@ BEGIN
           AND sr.course_id = p_course_id AND a.course_id = p_course_id
           AND aa.assignment_id = p_assignment_id AND iq.question_id = p_question_id
           AND iq.revision_number = p_revision_number AND qa.question_seed = p_question_seed
-          AND (p_question_grading_rule = 'ungraded' OR iq.point_value = p_question_points_possible)
           AND ple_api.current_session_account_owns_student_record(p_course_id, aa.student_record_id)
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'iMathAS Question Backend Session context is not owned by the installed Account';
@@ -490,8 +480,7 @@ BEGIN
     INSERT INTO ple_private.imathas_question_backend_session (
         imathas_question_backend_session_id, course_id, assignment_id, question_attempt_id, account_id, imathas_deployment_reference,
         imathas_item_reference, question_id, revision_number, source_object_id,
-        source_object_checksum, imathas_profile, question_seed, question_grading_rule,
-        question_points_possible, imathas_launch_binding_checksum,
+        source_object_checksum, imathas_profile, question_seed, imathas_launch_binding_checksum,
         imathas_response_sha256, imathas_question_backend_session_challenge,
         imathas_question_backend_session_authentication, issued_at, expires_at,
         imathas_question_backend_state_key_id, imathas_question_backend_state_nonce,
@@ -500,7 +489,6 @@ BEGIN
         p_imathas_question_backend_session_id, p_course_id, p_assignment_id, p_question_attempt_id, v_account_id,
         p_imathas_deployment_reference, p_imathas_item_reference, p_question_id, p_revision_number,
         p_source_object_id, p_source_object_checksum, p_imathas_profile, p_question_seed,
-        p_question_grading_rule, p_question_points_possible,
         p_imathas_launch_binding_checksum, p_imathas_response_sha256,
         p_imathas_question_backend_session_challenge, p_imathas_question_backend_session_authentication,
         p_issued_at, p_expires_at, p_imathas_question_backend_state_key_id,
@@ -513,12 +501,10 @@ CREATE FUNCTION ple_api.load_imathas_question_backend_session(
     p_imathas_question_backend_session_id uuid, p_account_id uuid, p_course_id uuid, p_assignment_id uuid, p_question_attempt_id uuid,
     p_imathas_deployment_reference text, p_imathas_item_reference text, p_question_id text, p_revision_number integer,
     p_source_object_id uuid, p_source_object_checksum bytea, p_imathas_profile text,
-    p_question_seed numeric, p_question_grading_rule text, p_question_points_possible numeric,
-    p_imathas_launch_binding_checksum text
+    p_question_seed numeric, p_imathas_launch_binding_checksum text
 ) RETURNS TABLE (
     imathas_question_backend_session_id uuid, imathas_item_reference text, question_seed numeric,
-    imathas_profile text, question_grading_rule text, question_points_possible numeric,
-    imathas_launch_binding_checksum text, imathas_response_sha256 bytea,
+    imathas_profile text, imathas_launch_binding_checksum text, imathas_response_sha256 bytea,
     imathas_question_backend_session_challenge bytea,
     imathas_question_backend_session_authentication bytea, issued_at timestamp with time zone,
     expires_at timestamp with time zone, imathas_question_backend_state_key_id text,
@@ -526,8 +512,7 @@ CREATE FUNCTION ple_api.load_imathas_question_backend_session(
 ) LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
 BEGIN
     RETURN QUERY SELECT s.imathas_question_backend_session_id, s.imathas_item_reference, s.question_seed,
-        s.imathas_profile, s.question_grading_rule, s.question_points_possible,
-        s.imathas_launch_binding_checksum, s.imathas_response_sha256,
+        s.imathas_profile, s.imathas_launch_binding_checksum, s.imathas_response_sha256,
         s.imathas_question_backend_session_challenge,
         s.imathas_question_backend_session_authentication, s.issued_at, s.expires_at,
         s.imathas_question_backend_state_key_id, s.imathas_question_backend_state_nonce,
@@ -540,8 +525,6 @@ BEGIN
       AND s.question_id = p_question_id AND s.revision_number = p_revision_number
       AND s.source_object_id = p_source_object_id AND s.source_object_checksum = p_source_object_checksum
       AND s.imathas_profile = p_imathas_profile AND s.question_seed = p_question_seed
-      AND s.question_grading_rule = p_question_grading_rule
-      AND s.question_points_possible IS NOT DISTINCT FROM p_question_points_possible
       AND s.imathas_launch_binding_checksum = p_imathas_launch_binding_checksum
       AND EXISTS (SELECT 1 FROM ple_private.question_attempt qa
           JOIN ple_private.issued_question iq ON iq.issued_question_id = qa.issued_question_id
@@ -558,9 +541,8 @@ CREATE FUNCTION ple_api.lease_imathas_question_backend_session(
     p_imathas_question_backend_session_id uuid, p_course_id uuid, p_assignment_id uuid, p_question_attempt_id uuid,
     p_imathas_deployment_reference text, p_imathas_item_reference text, p_question_id text,
     p_revision_number integer, p_source_object_id uuid, p_source_object_checksum bytea,
-    p_imathas_profile text, p_question_seed numeric, p_question_grading_rule text,
-    p_question_points_possible numeric,
-    p_imathas_launch_binding_checksum text, p_lease_token_sha256 bytea,
+    p_imathas_profile text, p_question_seed numeric, p_imathas_launch_binding_checksum text,
+    p_lease_token_sha256 bytea,
     p_lease_expires_at timestamp with time zone
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -579,8 +561,6 @@ BEGIN
        OR s.revision_number <> p_revision_number OR s.source_object_id <> p_source_object_id
        OR s.source_object_checksum <> p_source_object_checksum
        OR s.imathas_profile <> p_imathas_profile OR s.question_seed <> p_question_seed
-       OR s.question_grading_rule <> p_question_grading_rule
-       OR s.question_points_possible IS DISTINCT FROM p_question_points_possible
        OR s.imathas_launch_binding_checksum <> p_imathas_launch_binding_checksum
        OR s.revoked_at IS NOT NULL OR s.consumed_at IS NOT NULL
        OR s.issued_at > pg_catalog.clock_timestamp()
@@ -606,9 +586,8 @@ CREATE FUNCTION ple_api.stage_verified_imathas_result(
     p_imathas_question_backend_session_id uuid, p_course_id uuid, p_assignment_id uuid, p_question_attempt_id uuid,
     p_imathas_deployment_reference text, p_imathas_item_reference text, p_question_id text,
     p_revision_number integer, p_source_object_id uuid, p_source_object_checksum bytea,
-    p_imathas_profile text, p_question_seed numeric, p_question_grading_rule text,
-    p_question_points_possible numeric,
-    p_imathas_launch_binding_checksum text, p_lease_token_sha256 bytea,
+    p_imathas_profile text, p_question_seed numeric, p_imathas_launch_binding_checksum text,
+    p_lease_token_sha256 bytea,
     p_idempotency_key text, p_imathas_result_token_sha256 bytea,
     p_imathas_result_normalized_score double precision, p_imathas_result_checksum bytea,
     p_submission_id uuid, p_job_id uuid, p_question_submission_grading_id uuid,
@@ -640,8 +619,6 @@ BEGIN
        OR s.question_id IS DISTINCT FROM p_question_id OR s.revision_number IS DISTINCT FROM p_revision_number
        OR s.source_object_id IS DISTINCT FROM p_source_object_id OR s.source_object_checksum IS DISTINCT FROM p_source_object_checksum
        OR s.imathas_profile IS DISTINCT FROM p_imathas_profile OR s.question_seed IS DISTINCT FROM p_question_seed
-       OR s.question_grading_rule IS DISTINCT FROM p_question_grading_rule
-       OR s.question_points_possible IS DISTINCT FROM p_question_points_possible
        OR s.imathas_launch_binding_checksum <> p_imathas_launch_binding_checksum THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'iMathAS Question Backend Session context is unavailable';
     END IF;
@@ -669,8 +646,6 @@ BEGIN
        OR s.revision_number IS DISTINCT FROM p_revision_number OR s.source_object_id IS DISTINCT FROM p_source_object_id
        OR s.source_object_checksum IS DISTINCT FROM p_source_object_checksum
        OR s.imathas_profile IS DISTINCT FROM p_imathas_profile OR s.question_seed IS DISTINCT FROM p_question_seed
-       OR s.question_grading_rule IS DISTINCT FROM p_question_grading_rule
-       OR s.question_points_possible IS DISTINCT FROM p_question_points_possible
        OR s.imathas_launch_binding_checksum <> p_imathas_launch_binding_checksum
        OR s.revoked_at IS NOT NULL OR s.consumed_at IS NOT NULL
        OR s.issued_at > pg_catalog.clock_timestamp() OR s.issued_at > p_updated_at
@@ -683,9 +658,6 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM ple_private.question_attempt qa JOIN ple_private.issued_question iq ON iq.issued_question_id = qa.issued_question_id JOIN ple_private.assignment_attempt aa ON aa.assignment_attempt_id = iq.assignment_attempt_id WHERE qa.question_attempt_id = s.question_attempt_id AND ple_api.current_session_account_owns_student_record(s.course_id, aa.student_record_id)) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'iMathAS Question Backend Session cannot be consumed';
-    END IF;
-    IF s.question_grading_rule NOT IN ('all_or_nothing', 'partial_credit') THEN
-        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Ungraded Question Grading Rule cannot stage an iMathAS Result';
     END IF;
     INSERT INTO ple_private.imathas_result_exchange (
         imathas_question_backend_session_id, idempotency_key, state, lease_token_sha256, lease_expires_at, created_at, updated_at
@@ -817,6 +789,8 @@ DECLARE
     v_correct boolean;
     v_points_earned double precision;
     v_points_possible double precision;
+    v_issued_question_point_value numeric;
+    v_issued_question_scoring_rule text;
     v_grading_result_id uuid;
     v_automated_grading_receipt_id uuid;
     v_automated_grading_receipt_checksum bytea;
@@ -841,7 +815,8 @@ BEGIN
         IF FOUND THEN RETURN; END IF;
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'iMathAS Question Backend committed lineage has no receipt';
     END IF;
-    SELECT * INTO s FROM ple_private.imathas_question_backend_session WHERE imathas_question_backend_session_id = e.imathas_question_backend_session_id FOR UPDATE;
+    SELECT * INTO s FROM ple_private.imathas_question_backend_session
+     WHERE imathas_question_backend_session_id = e.imathas_question_backend_session_id FOR UPDATE;
     SELECT * INTO j FROM ple_private.job WHERE job_id = p_job_id FOR UPDATE;
     SELECT * INTO g FROM ple_private.question_submission_grading
       WHERE question_submission_grading_id = e.question_submission_grading_id FOR UPDATE;
@@ -855,15 +830,36 @@ BEGIN
        OR s.question_attempt_id <> (SELECT question_attempt_id FROM ple_private.question_submission WHERE submission_id = e.submission_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'iMathAS Question Backend grading commit does not own the live typed Job lease';
     END IF;
-    v_points_possible := s.question_points_possible::double precision;
+    SELECT issued_question.point_value, issued_question.scoring_rule
+      INTO v_issued_question_point_value, v_issued_question_scoring_rule
+      FROM ple_private.question_attempt AS question_attempt
+      JOIN ple_private.issued_question AS issued_question
+        ON issued_question.issued_question_id = question_attempt.issued_question_id
+      JOIN ple_private.assignment_attempt AS assignment_attempt
+        ON assignment_attempt.assignment_attempt_id = issued_question.assignment_attempt_id
+      JOIN ple_data.assignment AS assignment
+        ON assignment.assignment_id = assignment_attempt.assignment_id
+     WHERE question_attempt.question_attempt_id = s.question_attempt_id
+       AND assignment_attempt.assignment_id = s.assignment_id
+       AND assignment.course_id = s.course_id
+       AND issued_question.question_id = s.question_id
+       AND issued_question.revision_number = s.revision_number
+       AND question_attempt.question_seed = s.question_seed
+     FOR UPDATE OF question_attempt, issued_question, assignment_attempt;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'iMathAS Question Backend grading commit does not own the issued Question lineage';
+    END IF;
+    v_points_possible := v_issued_question_point_value::double precision;
     IF v_points_possible IS NULL OR v_points_possible IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)
        OR v_points_possible < 0 OR pg_catalog.float8send(v_points_possible) = pg_catalog.decode('8000000000000000', 'hex') THEN
-        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Session Question Points Possible is invalid for iMathAS Question Backend grading';
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Issued Question point value is invalid for iMathAS Question Backend grading';
     END IF;
     v_correct := e.imathas_result_normalized_score = 1.0;
-    v_points_earned := CASE s.question_grading_rule
-        WHEN 'all_or_nothing' THEN CASE WHEN v_correct THEN v_points_possible ELSE 0 END
-        WHEN 'partial_credit' THEN v_points_possible * e.imathas_result_normalized_score
+    v_points_earned := CASE v_issued_question_scoring_rule
+        WHEN 'normal' THEN v_points_possible * e.imathas_result_normalized_score
+        WHEN 'full_credit' THEN v_points_possible
+        WHEN 'extra_credit' THEN v_points_possible * e.imathas_result_normalized_score
+        WHEN 'excluded' THEN 0
         ELSE NULL END;
     IF v_points_earned IS NULL OR v_points_earned IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)
        OR v_points_earned < 0 OR pg_catalog.float8send(v_points_earned) = pg_catalog.decode('8000000000000000', 'hex') THEN
@@ -916,18 +912,18 @@ BEGIN
 END $$;
 
 REVOKE ALL PRIVILEGES ON FUNCTION
-    ple_api.create_imathas_question_backend_session(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, numeric, text, bytea, bytea, bytea, timestamp with time zone, timestamp with time zone, text, bytea, bytea),
-    ple_api.load_imathas_question_backend_session(uuid, uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, numeric, text),
-    ple_api.lease_imathas_question_backend_session(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, numeric, text, bytea, timestamp with time zone),
-    ple_api.stage_verified_imathas_result(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, numeric, text, bytea, text, bytea, double precision, bytea, uuid, uuid, uuid, timestamp with time zone),
+    ple_api.create_imathas_question_backend_session(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, bytea, bytea, bytea, timestamp with time zone, timestamp with time zone, text, bytea, bytea),
+    ple_api.load_imathas_question_backend_session(uuid, uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text),
+    ple_api.lease_imathas_question_backend_session(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, bytea, timestamp with time zone),
+    ple_api.stage_verified_imathas_result(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, bytea, text, bytea, double precision, bytea, uuid, uuid, uuid, timestamp with time zone),
     ple_api.claim_imathas_result_grading_job(uuid, uuid, timestamp with time zone),
     ple_api.commit_imathas_result_grading(uuid, uuid, timestamp with time zone)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
-    ple_api.create_imathas_question_backend_session(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, numeric, text, bytea, bytea, bytea, timestamp with time zone, timestamp with time zone, text, bytea, bytea),
-    ple_api.load_imathas_question_backend_session(uuid, uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, numeric, text),
-    ple_api.lease_imathas_question_backend_session(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, numeric, text, bytea, timestamp with time zone),
-    ple_api.stage_verified_imathas_result(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, numeric, text, bytea, text, bytea, double precision, bytea, uuid, uuid, uuid, timestamp with time zone)
+    ple_api.create_imathas_question_backend_session(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, bytea, bytea, bytea, timestamp with time zone, timestamp with time zone, text, bytea, bytea),
+    ple_api.load_imathas_question_backend_session(uuid, uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text),
+    ple_api.lease_imathas_question_backend_session(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, bytea, timestamp with time zone),
+    ple_api.stage_verified_imathas_result(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, bytea, text, bytea, double precision, bytea, uuid, uuid, uuid, timestamp with time zone)
 TO ple_app;
 GRANT EXECUTE ON FUNCTION ple_api.claim_imathas_result_grading_job(uuid, uuid, timestamp with time zone),
     ple_api.commit_imathas_result_grading(uuid, uuid, timestamp with time zone)

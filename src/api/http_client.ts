@@ -28,8 +28,6 @@ export {
   CourseGradeSchemeConflictError,
   BlueprintCourseConflictError,
   CourseTermValidationError,
-  PublicationValidationError,
-  WorkspaceConflictError,
   resolveAssignmentContentSaveFailure,
 } from "./http_client/error";
 export type { ApiFetch, HttpApiClientConfig } from "./http_client/request";

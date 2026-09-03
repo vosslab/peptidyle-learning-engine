@@ -18,7 +18,7 @@ fn choices() -> Vec<QtiPublicChoiceChecksumInput> {
     ]
 }
 
-fn mapped_item(points: QtiMappedPoints) -> QtiMappedItem {
+fn mapped_item(points: QtiVendorPointsEvidence) -> QtiMappedItem {
     let vendor_choice_ids = vec!["blue".to_string(), "red".to_string()];
     let choice_map = map_qti_choice_ids(QtiProfileId::BLACKBOARD, "item-1", &vendor_choice_ids)
         .expect("choice mapping");
@@ -38,7 +38,7 @@ fn mapped_item(points: QtiMappedPoints) -> QtiMappedItem {
 
 #[test]
 fn safe_report_is_bounded_exact_and_contains_no_private_binding() {
-    let item = mapped_item(QtiMappedPoints::BlackboardDefaulted);
+    let item = mapped_item(QtiVendorPointsEvidence::BlackboardDefaulted);
     let report = item.safe_report();
     let encoded = serde_json::to_string(report).expect("safe report serializes");
     assert_eq!(report.status(), QtiSafeItemStatus::Accepted);
@@ -52,8 +52,8 @@ fn safe_report_is_bounded_exact_and_contains_no_private_binding() {
 
 #[test]
 fn mapped_item_produces_checksum_inputs_and_server_parts_without_private_debug() {
-    let item = mapped_item(QtiMappedPoints::BlackboardDefaulted);
-    assert_eq!(item.public_mapping_checksum_input().points, "1.0");
+    let item = mapped_item(QtiVendorPointsEvidence::BlackboardDefaulted);
+    assert_eq!(item.public_mapping_checksum_input().vendor_points, "1.0");
     let item_result = item
         .accepted_workspace_import_item_result()
         .expect("mapped item owns its accepted Workspace Import Item Result");
@@ -76,6 +76,23 @@ fn mapped_item_produces_checksum_inputs_and_server_parts_without_private_debug()
 }
 
 #[test]
+fn supported_qti_item_converts_to_ple_json_without_vendor_points_or_policy() {
+    let source = mapped_item(QtiVendorPointsEvidence::BlackboardDefaulted);
+    let bytes = source
+        .into_server_parts()
+        .into_ple_question_json()
+        .expect("supported QTI item converts to PLE Question JSON")
+        .canonical_bytes()
+        .expect("canonical PLE Question JSON");
+    let text = String::from_utf8(bytes).expect("canonical JSON is UTF-8");
+
+    assert!(text.contains(r#""format":"pleQuestionJson","version":3"#));
+    assert!(!text.contains("1.0"));
+    assert!(!text.contains("points"));
+    assert!(!text.contains("attempt"));
+}
+
+#[test]
 fn normalized_fingerprint_is_owned_by_mapped_item_and_excludes_mapping_transport_fields() {
     let first = QtiMappedItem::new(
         QtiProfileId::CANVAS,
@@ -84,7 +101,7 @@ fn normalized_fingerprint_is_owned_by_mapped_item_and_excludes_mapping_transport
         "Favorite color".to_string(),
         "What is my favorite color?".to_string(),
         choices(),
-        QtiMappedPoints::Declared("1.0".to_string()),
+        QtiVendorPointsEvidence::Declared("1.0".to_string()),
         vec![
             QtiChoiceIdMap::new("blue-vendor".to_string(), "blue".to_string()),
             QtiChoiceIdMap::new("red-vendor".to_string(), "red".to_string()),
@@ -108,7 +125,7 @@ fn normalized_fingerprint_is_owned_by_mapped_item_and_excludes_mapping_transport
                 text_markdown: "Red".to_string(),
             },
         ],
-        QtiMappedPoints::Declared("1.0".to_string()),
+        QtiVendorPointsEvidence::Declared("1.0".to_string()),
         vec![
             QtiChoiceIdMap::new("blue-vendor".to_string(), "first_blue".to_string()),
             QtiChoiceIdMap::new("red-vendor".to_string(), "second_red".to_string()),
@@ -124,7 +141,7 @@ fn normalized_fingerprint_is_owned_by_mapped_item_and_excludes_mapping_transport
         first.into_server_parts().normalized_qti_item_fingerprint()
     );
 
-    let blackboard = mapped_item(QtiMappedPoints::BlackboardDefaulted);
+    let blackboard = mapped_item(QtiVendorPointsEvidence::BlackboardDefaulted);
     assert_ne!(
         first_fingerprint,
         blackboard.normalized_qti_item_fingerprint()
@@ -134,18 +151,18 @@ fn normalized_fingerprint_is_owned_by_mapped_item_and_excludes_mapping_transport
 #[test]
 fn points_policy_and_public_private_choice_binding_are_closed() {
     assert!(matches!(
-        QtiMappedPoints::BlackboardDefaulted.resolve(QtiProfileId::CANVAS),
+        QtiVendorPointsEvidence::BlackboardDefaulted.resolve(QtiProfileId::CANVAS),
         Err(QtiMappedItemError::ProfilePointsPolicy)
     ));
     assert!(matches!(
-        QtiMappedPoints::Declared("NaN".to_string()).resolve(QtiProfileId::CANVAS),
+        QtiVendorPointsEvidence::Declared("NaN".to_string()).resolve(QtiProfileId::CANVAS),
         Err(QtiMappedItemError::InvalidPoints)
     ));
     assert!(matches!(
-        QtiMappedPoints::Declared("1".to_string()).resolve(QtiProfileId::BLACKBOARD),
+        QtiVendorPointsEvidence::Declared("1".to_string()).resolve(QtiProfileId::BLACKBOARD),
         Err(QtiMappedItemError::ProfilePointsPolicy)
     ));
-    let negative_zero = QtiMappedPoints::Declared("-0.0".to_string())
+    let negative_zero = QtiVendorPointsEvidence::Declared("-0.0".to_string())
         .resolve(QtiProfileId::CANVAS)
         .expect("negative zero normalizes");
     assert_eq!(negative_zero.0, "0.0");
@@ -165,7 +182,7 @@ fn points_policy_and_public_private_choice_binding_are_closed() {
             "Favorite color".to_string(),
             "Prompt".to_string(),
             choices(),
-            QtiMappedPoints::Declared("1".to_string()),
+            QtiVendorPointsEvidence::Declared("1".to_string()),
             choice_map,
             "blue".to_string(),
         ),
@@ -184,7 +201,7 @@ fn points_policy_and_public_private_choice_binding_are_closed() {
             "Favorite color".to_string(),
             "Prompt".to_string(),
             choices(),
-            QtiMappedPoints::Declared("1".to_string()),
+            QtiVendorPointsEvidence::Declared("1".to_string()),
             duplicate_vendor,
             "vendor".to_string(),
         ),
@@ -203,7 +220,7 @@ fn points_policy_and_public_private_choice_binding_are_closed() {
             "Favorite color".to_string(),
             "Prompt".to_string(),
             choices(),
-            QtiMappedPoints::Declared("1".to_string()),
+            QtiVendorPointsEvidence::Declared("1".to_string()),
             reversed_map,
             "blue-vendor".to_string(),
         ),
@@ -227,7 +244,7 @@ fn safe_report_constructor_refuses_values_beyond_its_visible_bounds() {
             "e".repeat(MAX_SAFE_TITLE_CHARS + 1),
             "Prompt".to_string(),
             choices(),
-            QtiMappedPoints::Declared("1".to_string()),
+            QtiVendorPointsEvidence::Declared("1".to_string()),
             choice_map,
             "blue".to_string(),
         ),
@@ -250,7 +267,7 @@ fn integrity_checksums_refuse_a_report_owned_by_another_profile() {
         "Favorite color".to_string(),
         "Prompt".to_string(),
         choices(),
-        QtiMappedPoints::Declared("1".to_string()),
+        QtiVendorPointsEvidence::Declared("1".to_string()),
         choice_map,
         "blue".to_string(),
     )

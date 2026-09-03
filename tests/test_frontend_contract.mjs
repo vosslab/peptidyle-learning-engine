@@ -11,7 +11,7 @@ import { prefetchMatchesIssuedSuccessor } from "../src/features/question_attempt
 import { assignmentWorkspacePath } from "../src/pages/assignment_workspace/assignment_workspace_paths.ts";
 import { productRoleMayAccessRoute, routeContractForPathname } from "../src/route_contract.ts";
 
-test("route contracts fail closed and reserve authoring routes for teaching roles", () => {
+test("route contracts fail closed and reserve planned question drafts for teaching roles", () => {
   assert.equal(routeContractForPathname("/library/7K3-M9QP")?.id, "questionDetail");
   assert.equal(routeContractForPathname("/library/7K3-M9QP/extra"), undefined);
   assert.equal(routeContractForPathname("/blueprint-courses")?.id, "blueprintCourses");
@@ -52,9 +52,11 @@ test("route contracts fail closed and reserve authoring routes for teaching role
     productRoleMayAccessRoute("assignmentWorkspaceGradingOperations", "sysadmin"),
     false,
   );
-  assert.equal(productRoleMayAccessRoute("workspaceEditor", "student"), false);
-  assert.equal(productRoleMayAccessRoute("workspaceEditor", "instructor"), true);
-  assert.equal(productRoleMayAccessRoute("workspaceEditor", "sysadmin"), false);
+  assert.equal(routeContractForPathname("/workspace")?.id, "workspaceList");
+  assert.equal(routeContractForPathname("/workspace/draft-1"), undefined);
+  assert.equal(productRoleMayAccessRoute("workspaceList", "student"), false);
+  assert.equal(productRoleMayAccessRoute("workspaceList", "instructor"), true);
+  assert.equal(productRoleMayAccessRoute("workspaceList", "sysadmin"), false);
   assert.equal(productRoleMayAccessRoute("teachingOperations", "sysadmin"), false);
   assert.equal(productRoleMayAccessRoute("blueprintCourses", "student"), false);
   assert.equal(productRoleMayAccessRoute("blueprintCourses", "sysadmin"), false);

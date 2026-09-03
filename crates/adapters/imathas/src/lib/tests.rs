@@ -2,12 +2,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use objects::memory::MemoryObjectStore;
-use question_model::QuestionLicense;
-use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use question_model::{
-    QuestionBackend as ModelQuestionBackend, QuestionFormat, QuestionGradingRule, QuestionMetadata,
-    QuestionRevision, QuestionType, WorkspaceId,
-};
 
 use super::*;
 
@@ -22,7 +16,7 @@ struct RecordedImathasQuestionBackend {
 #[derive(Clone, Copy)]
 enum Mismatch {
     Attempt,
-    QuestionRevision,
+    QuestionRevisionReference,
     Version,
     QuestionSeed,
     LaunchSessionAuthentication,
@@ -85,7 +79,7 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
                     verdict.grading_context.question_seed(),
                 )
             }
-            Some(Mismatch::QuestionRevision) => {
+            Some(Mismatch::QuestionRevisionReference) => {
                 verdict.grading_context = learning_data_access::ImathasGradingContext::new(
                     verdict.grading_context.question_attempt(),
                     QuestionRevisionReference {
@@ -173,37 +167,17 @@ fn question_backend() -> RecordedImathasQuestionBackend {
     }
 }
 
-fn question() -> QuestionRevision {
-    QuestionRevision {
+fn question() -> QuestionRevisionReference {
+    QuestionRevisionReference {
         question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
-        workspace: WorkspaceId::from_uuid(Uuid::from_u128(3)),
-        question_backend: ModelQuestionBackend::Imathas,
-        webwork_pg_path: None,
-        qti_package_item_identifier: None,
-        imathas_question_backend_binding: Some(binding()),
-        question_format: QuestionFormat::Imathas,
-        prompt: Vec::new(),
-        response: question_model::QuestionResponseFormat::ImathasQuestionBackend {},
-        question_type: QuestionType::Numeric,
-        question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
-        question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-        grading: QuestionGradingRule::AllOrNothing { points: 1.0 },
-        metadata: QuestionMetadata {
-            title: "Recorded iMathAS question".into(),
-            question_description: "Instructor-facing recorded iMathAS fixture summary.".into(),
-            tags: Vec::new(),
-            question_license: Some(QuestionLicense::CcBySa4_0),
-            question_citation: None,
-            language: "en-US".into(),
-        },
     }
 }
 
 async fn stored_source(
     store: &MemoryObjectStore,
 ) -> (
-    QuestionRevision,
+    QuestionRevisionReference,
     ResolvedImathasQuestionSource,
     SourceObjectReference,
 ) {
@@ -212,10 +186,7 @@ async fn stored_source(
     let object = store
         .put(PutObject {
             address: ObjectAddress::QuestionSource {
-                question_revision: QuestionRevisionReference {
-                    question_id: question.question_id.clone(),
-                    revision_number: question.revision_number,
-                },
+                question_revision: question.clone(),
                 object: snapshot,
             },
             bytes: b"{\"recorded\":true}".to_vec(),
@@ -227,7 +198,8 @@ async fn stored_source(
     let artifact = SourceObjectReference { object: snapshot };
     let source = ResolvedImathasQuestionSource::resolve(
         store,
-        &question,
+        question.clone(),
+        binding(),
         artifact.clone(),
         SourceObjectChecksum::parse(object.sha256.to_string())
             .expect("stored checksum is canonical"),
@@ -294,7 +266,6 @@ async fn immutable_snapshot_cache_and_verified_grade_are_bound_to_exact_attempt(
     }
     let result = adapter
         .verify_imathas_result(
-            &question,
             &source,
             &grading_context(&question, QuestionSeed::new(17)),
             &launch_session_authentication(&grading_context(&question, QuestionSeed::new(17))),
@@ -302,28 +273,6 @@ async fn immutable_snapshot_cache_and_verified_grade_are_bound_to_exact_attempt(
         .await
         .unwrap();
     assert_eq!(result.imathas_result().normalized_score().value(), 1.0);
-}
-
-#[tokio::test]
-async fn historical_invalid_metadata_title_is_refused_before_question_backend_or_cache() {
-    let store = MemoryObjectStore::default();
-    let recorded = question_backend();
-    let renders = recorded.renders.clone();
-    let adapter = ImathasAdapter::new(store.clone(), recorded, [profile()]);
-    let (mut question, source, _) = stored_source(&store).await;
-    question.metadata.title = " \n ".into();
-    assert!(matches!(
-        adapter
-            .issue(
-                &question,
-                QuestionSeed::new(17),
-                &source,
-                Timestamp::from_unix_millis(2),
-            )
-            .await,
-        Err(ImathasAdapterError::InvalidTitle(_))
-    ));
-    assert_eq!(renders.load(Ordering::SeqCst), 0);
 }
 
 #[tokio::test]
@@ -337,7 +286,13 @@ async fn wrong_locator_binding_and_outage_refuse_without_fabricating_incorrectne
         ImathasProfile::new("recorded-v1").expect("recorded profile"),
     );
     assert_eq!(
-        verify_binding(&question, &changed_source),
+        verify_binding(
+            &QuestionRevisionReference {
+                question_id: QuestionId::from_canonical_parts("BCDEFG", 'H').expect("Question ID"),
+                revision_number: question.revision_number,
+            },
+            &changed_source,
+        ),
         Err(ImathasAdapterError::SourceDoesNotMatchQuestion)
     );
     let wrong = ImathasAdapter::new(
@@ -350,7 +305,6 @@ async fn wrong_locator_binding_and_outage_refuse_without_fabricating_incorrectne
     );
     let error = wrong
         .verify_imathas_result(
-            &question,
             &source,
             &grading_context(&question, QuestionSeed::new(17)),
             &launch_session_authentication(&grading_context(&question, QuestionSeed::new(17))),
@@ -387,7 +341,7 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
     let (question, source, _) = stored_source(&store).await;
     for mismatch in [
         Mismatch::Attempt,
-        Mismatch::QuestionRevision,
+        Mismatch::QuestionRevisionReference,
         Mismatch::Version,
         Mismatch::QuestionSeed,
         Mismatch::LaunchSessionAuthentication,
@@ -403,7 +357,6 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
         assert_eq!(
             adapter
                 .verify_imathas_result(
-                    &question,
                     &source,
                     &grading_context(&question, QuestionSeed::new(17)),
                     &launch_session_authentication(&grading_context(
@@ -424,7 +377,7 @@ async fn every_verified_grade_binding_dimension_and_restored_handle_is_checked()
     let adapter = ImathasAdapter::new(store.clone(), question_backend(), [profile()]);
     assert_eq!(
         adapter
-            .verify_imathas_result(&question, &source, &binding, &restored)
+            .verify_imathas_result(&source, &binding, &restored)
             .await
             .unwrap()
             .imathas_result()
@@ -522,13 +475,7 @@ fn grading_context_dimensions_change_hmac_and_imathas_launch_binding_checksum() 
 async fn malformed_stored_cache_and_grade_outage_remain_local_and_redacted() {
     let store = MemoryObjectStore::default();
     let (question, source, _) = stored_source(&store).await;
-    let key = render_key(
-        &QuestionRevisionReference {
-            question_id: question.question_id.clone(),
-            revision_number: question.revision_number,
-        },
-        QuestionSeed::new(31),
-    );
+    let key = render_key(&question, QuestionSeed::new(31));
     store
         .put(PutObject {
             address: key,
@@ -562,7 +509,6 @@ async fn malformed_stored_cache_and_grade_outage_remain_local_and_redacted() {
     assert!(matches!(
         outage
             .verify_imathas_result(
-                &question,
                 &source,
                 &grading_context(&question, QuestionSeed::new(17)),
                 &launch_session_authentication(&grading_context(&question, QuestionSeed::new(17))),
@@ -604,15 +550,12 @@ async fn concurrent_replicas_reuse_the_winning_immutable_render() {
 }
 
 fn grading_context(
-    question: &QuestionRevision,
+    question: &QuestionRevisionReference,
     question_seed: QuestionSeed,
 ) -> learning_data_access::ImathasGradingContext {
     learning_data_access::ImathasGradingContext::new(
         QuestionAttemptId::from_uuid(Uuid::from_u128(6)),
-        QuestionRevisionReference {
-            question_id: question.question_id.clone(),
-            revision_number: question.revision_number,
-        },
+        question.clone(),
         question_seed,
     )
 }

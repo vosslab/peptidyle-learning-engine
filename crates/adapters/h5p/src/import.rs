@@ -15,8 +15,7 @@ use async_trait::async_trait;
 use question_model::ObjectId;
 use question_model::QuestionContentBlock;
 use question_model::answer::ResponseSelectionRule;
-use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use question_model::question_content::{QuestionGradingRule, QuestionMetadata};
+use question_model::question_content::QuestionMetadata;
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use sha2::{Digest, Sha256};
 
@@ -24,7 +23,7 @@ use sha2::{Digest, Sha256};
 ///
 /// This is deliberately independent of the repository CalVer release version:
 /// it changes only when the durable import record needs a migration.
-pub const IMPORT_SCHEMA_VERSION: u16 = 2;
+pub const IMPORT_SCHEMA_VERSION: u16 = 3;
 /// The only native H5P content type currently converted by this small,
 /// explicit importer.
 pub const MULTI_CHOICE_CONTENT_TYPE: &str = "H5P.MultiChoice";
@@ -174,21 +173,13 @@ pub struct H5pImportRequest {
     /// does not map.  They are retained as structured data and cause a safe
     /// refusal rather than being silently discarded.
     pub unsupported_features: Vec<H5pUnsupportedFeature>,
-    /// Practice retry policy.
-    pub question_attempt_limit: QuestionAttemptLimit,
-    /// Timing policy requested by the source.
-    ///
-    /// Native H5P timing is not claimed by this adapter, so any timed request
-    /// is rejected explicitly rather than silently downgraded.
-    pub question_attempt_time_limit: QuestionAttemptTimeLimit,
 }
 
 /// A converted, unpublished H5P sandbox draft.
 ///
-/// This intentionally is not [`QuestionRevision`]: an H5P import has no
-/// published Question or version identity. The Question Library's publication transition
-/// owns that identity assignment, preserving the invariant that sandbox
-/// imports cannot masquerade as immutable published content.
+/// This has no published Question or version identity. The Question Library's
+/// publication transition owns identity assignment, preserving the invariant
+/// that sandbox imports cannot masquerade as immutable published content.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImportedH5pQuestion {
     /// Version of the internal record shape used for this import.
@@ -199,12 +190,6 @@ pub struct ImportedH5pQuestion {
     pub prompt: Vec<QuestionContentBlock>,
     /// Response shape, without a correct answer.
     pub response: QuestionResponseFormat,
-    /// Practice retry behavior.
-    pub question_attempt_limit: QuestionAttemptLimit,
-    /// The only timing policy currently supported by the adapter.
-    pub question_attempt_time_limit: QuestionAttemptTimeLimit,
-    /// Always `Ungraded` for native H5P practice.
-    pub grading: QuestionGradingRule,
     /// Browser-safe title and licensing metadata.
     pub metadata: QuestionMetadata,
     /// Deterministic identity of the exact source package and reference.
@@ -221,7 +206,7 @@ impl H5pImporter {
     /// # Errors
     ///
     /// Fails closed for unsupported content types, malformed source identity
-    /// inputs, unsupported timing, and invalid multiple-choice structure.
+    /// inputs, unmapped source features, and invalid multiple-choice structure.
     pub fn import(&self, request: H5pImportRequest) -> Result<ImportedH5pQuestion, H5pImportError> {
         let package_import = validate_and_normalize_package_import(request.package_import)?;
         if package_import.content_type != MULTI_CHOICE_CONTENT_TYPE {
@@ -233,12 +218,6 @@ impl H5pImporter {
             return Err(H5pImportError::UnsupportedFeatures(
                 request.unsupported_features,
             ));
-        }
-        if !matches!(
-            request.question_attempt_time_limit,
-            QuestionAttemptTimeLimit::Unlimited
-        ) {
-            return Err(H5pImportError::UnsupportedTiming);
         }
         if request.prompt_markdown.trim().is_empty() {
             return Err(H5pImportError::EmptyPrompt);
@@ -256,9 +235,6 @@ impl H5pImporter {
                 choices,
                 selection: ResponseSelectionRule::ExactlyOne,
             },
-            question_attempt_limit: request.question_attempt_limit,
-            question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            grading: QuestionGradingRule::Ungraded,
             metadata: request.metadata,
             package_import_fingerprint,
         })
@@ -352,8 +328,6 @@ pub enum H5pImportError {
     UnsupportedFeatures(Vec<H5pUnsupportedFeature>),
     /// The imported prompt cannot render a meaningful question.
     EmptyPrompt,
-    /// Native H5P timing cannot honestly be declared through this adapter.
-    UnsupportedTiming,
     /// A multiple-choice activity needs at least two options.
     TooFewChoices,
     /// A choice lacks an opaque source-local identifier.
@@ -404,10 +378,6 @@ impl fmt::Display for H5pImportError {
                 features.len()
             ),
             Self::EmptyPrompt => write!(formatter, "H5P multiple-choice prompt must not be empty"),
-            Self::UnsupportedTiming => write!(
-                formatter,
-                "H5P timing is not supported by this ungraded-practice adapter"
-            ),
             Self::TooFewChoices => write!(
                 formatter,
                 "H5P multiple-choice import requires at least two visible choices"
@@ -516,8 +486,6 @@ mod tests {
     use super::*;
     use question_model::QuestionContentBlock;
     use question_model::QuestionLicense;
-    use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
-    use question_model::question_content::QuestionGradingRule;
     use uuid::Uuid;
 
     const ARCHIVE_BYTES: &[u8] = b"fixture h5p archive bytes";
@@ -567,13 +535,11 @@ mod tests {
                 },
             ],
             unsupported_features: Vec::new(),
-            question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
-            question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
         }
     }
 
     #[test]
-    fn supported_h5p_import_becomes_a_key_free_ungraded_internal_question() {
+    fn supported_h5p_import_remains_key_free_ungraded_practice() {
         let mut import_request = request();
         import_request
             .package_import
@@ -582,13 +548,8 @@ mod tests {
         let imported = H5pImporter
             .import(import_request)
             .expect("supported H5P imports");
-        assert_eq!(imported.grading, QuestionGradingRule::Ungraded);
         assert_eq!(imported.import_schema_version, IMPORT_SCHEMA_VERSION);
         assert_eq!(imported.package_import, request().package_import);
-        assert_eq!(
-            imported.question_attempt_time_limit,
-            QuestionAttemptTimeLimit::Unlimited
-        );
         assert!(matches!(
             imported.prompt.as_slice(),
             [QuestionContentBlock::Text { markdown }] if markdown == "Which linkage joins amino acids?"
@@ -656,7 +617,6 @@ mod tests {
             .expect("verified archive can be re-imported");
 
         assert_eq!(imported.package_import, source);
-        assert_eq!(imported.grading, QuestionGradingRule::Ungraded);
     }
 
     #[tokio::test]
@@ -709,16 +669,6 @@ mod tests {
             ))
         );
 
-        let mut timed = request();
-        timed.question_attempt_time_limit = QuestionAttemptTimeLimit::Limited {
-            seconds: 30,
-            grace_seconds: 2,
-        };
-        assert_eq!(
-            H5pImporter.import(timed),
-            Err(H5pImportError::UnsupportedTiming)
-        );
-
         let mut rich_multiple_choice = request();
         rich_multiple_choice.unsupported_features = vec![H5pUnsupportedFeature {
             location: "content.params.behaviour.enableRetry".to_string(),
@@ -737,6 +687,20 @@ mod tests {
                 if features.len() == 1
                     && features[0].location == "content.params.behaviour.enableRetry"
                     && features[0].feature == "retry-behavior"
+        ));
+
+        let mut timed_multiple_choice = request();
+        timed_multiple_choice.unsupported_features = vec![H5pUnsupportedFeature {
+            location: "content.params.behaviour.timeLimit".to_string(),
+            feature: "timing".to_string(),
+            reason: "the H5P Package Import has no timing policy".to_string(),
+            recovery: "Keep this activity as native ungraded H5P practice, or remove timing and re-import."
+                .to_string(),
+        }];
+        assert!(matches!(
+            H5pImporter.import(timed_multiple_choice),
+            Err(H5pImportError::UnsupportedFeatures(features))
+                if features[0].feature == "timing"
         ));
     }
 

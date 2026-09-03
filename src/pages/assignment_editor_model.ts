@@ -44,6 +44,8 @@ export interface AssignmentEditorQuestionPoolAssignmentEntry {
   readonly selectionRule: {
     readonly selectedQuestionOrder: "questionPoolOrder" | "randomOrder";
   };
+  readonly questionAttemptLimit: import("../../generated/api/QuestionAttemptLimit").QuestionAttemptLimit;
+  readonly questionAttemptTimeLimit: import("../../generated/api/QuestionAttemptTimeLimit").QuestionAttemptTimeLimit;
 }
 
 export type AssignmentEditorEntry =
@@ -94,6 +96,8 @@ export function questionPoolAssignmentEntry(
     selectionCount: entry.selectionCount,
     pointsPerItem: entry.pointsPerItem,
     selectionRule: entry.selectionRule,
+    questionAttemptLimit: entry.questionAttemptLimit,
+    questionAttemptTimeLimit: entry.questionAttemptTimeLimit,
   };
 }
 
@@ -145,6 +149,8 @@ export function appendFixedEntries(
         pointsPossible: "1",
         availability: "available",
         scoringRule: "normal",
+        questionAttemptLimit: { maxAttempts: null },
+        questionAttemptTimeLimit: { kind: "unlimited" },
       }),
     ),
   ];
@@ -160,6 +166,8 @@ export function appendQuestionPool(draft: AssignmentEditorState): AssignmentEdit
     selectionCount: 1,
     pointsPerItem: "1",
     selectionRule: { selectedQuestionOrder: "questionPoolOrder" },
+    questionAttemptLimit: { maxAttempts: null },
+    questionAttemptTimeLimit: { kind: "unlimited" },
   };
   return { ...draft, entries: [...draft.entries, questionPool] };
 }
@@ -172,6 +180,8 @@ function entryInput(entry: AssignmentEditorEntry): AssignmentEditorEntryInput {
       pointsPossible: entry.pointsPossible,
       availability: entry.availability,
       scoringRule: entry.scoringRule,
+      questionAttemptLimit: entry.questionAttemptLimit,
+      questionAttemptTimeLimit: entry.questionAttemptTimeLimit,
     };
   }
   return {
@@ -182,6 +192,8 @@ function entryInput(entry: AssignmentEditorEntry): AssignmentEditorEntryInput {
     selectionCount: entry.selectionCount,
     pointsPerItem: entry.pointsPerItem,
     selectionRule: entry.selectionRule,
+    questionAttemptLimit: entry.questionAttemptLimit,
+    questionAttemptTimeLimit: entry.questionAttemptTimeLimit,
   };
 }
 
@@ -251,7 +263,7 @@ export function assignmentQuestionLabel(
   return row.questionId;
 }
 export function questionBackendLabel(backend: QuestionBackend): string {
-  return { ple: "PLE", webwork: "WeBWorK", qti: "QTI", imathas: "iMathAS" }[backend];
+  return { ple: "PLE", webwork: "WeBWorK", imathas: "iMathAS" }[backend];
 }
 export function violationMatchesQuestion(
   violation: AssignmentCapabilityViolation,

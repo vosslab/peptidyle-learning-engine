@@ -1,6 +1,6 @@
 {
   "format": "pleQuestionJson",
-  "version": 2,
+  "version": 3,
   "title": "Favorite color",
   "questionDescription": "Instructor-facing color-choice example.",
   "prompt": "What is my favorite color?",
@@ -28,13 +28,6 @@
   "feedback": {
     "correct": "Exactly right.",
     "incorrect": "Try thinking of a cool color."
-  },
-  "points": 1.0,
-  "questionAttemptLimit": {
-    "maxAttempts": null
-  },
-  "questionAttemptTimeLimit": {
-    "kind": "unlimited"
   },
   "tags": ["example"],
   "questionLicense": "CC-BY-SA-4.0",

@@ -7,7 +7,11 @@
 
 Peptidyle Learning Engine is a backend-agnostic assignment and assessment platform built around repeated attempts, algorithmic questions, and question-level timing.
 
-The platform does not own a single question format. It provides a common execution layer for multiple question backends, including WeBWorK, MyMathWorks, H5P, and QTI question pools.
+The platform provides one common execution layer for registered Question
+Backends, including PLE Question JSON, WeBWorK, iMathAS, and supported H5P
+content. QTI supplies flat-question import, export, and archive interchange;
+supported QTI imports become PLE Question JSON before entering the shared
+Draft Question and publication pipeline.
 
 ## Core behavior
 
@@ -118,29 +122,13 @@ The browser may perform preliminary validation, but the server must reproduce th
 
 ## Backend-neutral question model
 
-All question engines should map into a shared internal representation.
+The shared model identifies an exact immutable Question Revision and routes its one opaque,
+format-specific Question Source to the registered Question Backend. It does not normalize prompt,
+response, grading, point, or attempt-control fields into a generic source-bearing Question Revision.
+Assignment Entries own points, scoring treatment, and per-question attempt controls; Assignment
+policy owns aggregate behavior. The backend interprets its source and returns server-only evaluation.
 
-For example:
-
-```ts
-interface QuestionRevision {
-  id: string;
-  questionBackend: QuestionBackend;
-  webworkPgPath?: string;
-  qtiPackageItemIdentifier?: string;
-  imathasQuestionBackendBinding?: ImathasQuestionBackendBinding;
-  version: string;
-  prompt: QuestionContent;
-  responseFormat: QuestionResponseFormat;
-  questionAttemptLimit: QuestionAttemptLimit;
-  timingPolicy: TimingPolicy;
-  questionVariationRule?: QuestionVariationRule;
-  grading: QuestionGradingRule;
-  metadata: QuestionMetadata;
-}
-```
-
-The internal model should represent platform behavior without requiring every backend to support every feature.
+The shared model represents platform behavior without requiring every backend to support every feature.
 
 Each backend adapter should publish its capabilities.
 
@@ -167,13 +155,19 @@ Each question system should implement a common adapter boundary.
 interface QuestionBackendAdapter {
   getCapabilities(): QuestionBackendCapabilities;
 
-  loadQuestion(reference: QuestionBackendReference): Promise<QuestionRevision>;
+  loadQuestionSource(reference: QuestionBackendReference): Promise<QuestionBackendMaterial>;
 
-  createAttempt(question: QuestionRevision, context: AttemptContext): Promise<QuestionAttempt>;
+  createAttempt(
+    question: QuestionBackendMaterial,
+    context: AttemptContext,
+  ): Promise<QuestionAttempt>;
 
   gradeAttempt(attempt: QuestionAttempt, response: StudentResponse): Promise<GradeResult>;
 
-  exportQuestion?(question: QuestionRevision, format: ExportFormat): Promise<ExportedQuestion>;
+  exportQuestion?(
+    question: QuestionBackendMaterial,
+    format: ExportFormat,
+  ): Promise<ExportedQuestion>;
 }
 ```
 
@@ -182,7 +176,7 @@ Initial adapters may include:
 - WeBWorK adapter
 - MyMathWorks adapter
 - H5P adapter
-- QTI adapter
+- QTI import/archive adapter
 
 Adapters may run locally, call a remote service, or delegate to another execution environment.
 

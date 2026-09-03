@@ -66,7 +66,6 @@ pub(super) fn validate_cached(
     question_revision: &QuestionRevisionReference,
     seed: QuestionSeed,
     source: &ResolvedWebworkQuestionSource,
-    title: &str,
     active_renderer_version: &QuestionRendererVersion,
 ) -> Result<(), WebworkAdapterError> {
     if cached.schema_version != CACHE_SCHEMA_VERSION
@@ -86,11 +85,6 @@ pub(super) fn validate_cached(
         ));
     }
     validate_presentation(&cached.rendered.presentation, question_revision, seed)?;
-    if cached.rendered.presentation.title != title {
-        return Err(WebworkAdapterError::InvalidCache(
-            "cache title does not match immutable published metadata".to_string(),
-        ));
-    }
     Ok(())
 }
 

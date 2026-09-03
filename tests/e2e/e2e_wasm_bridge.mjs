@@ -128,11 +128,11 @@ const capabilityViolations = JSON.parse(
     JSON.stringify({
       questions: [
         {
-          question: fixture.publishedQuestionRevision,
+          question: fixture.questionSummary.latestQuestionRevision,
           questionBackendCapabilities: [],
         },
       ],
-      requiredCapabilities: [],
+      requiredCapabilities: ["serverGrading"],
     }),
   ),
 );
@@ -147,8 +147,6 @@ const draftPreview = JSON.parse(
       workspace: "00000000-0000-0000-0000-000000000001",
       questionBackend: "ple",
       webworkPgPath: null,
-      qtiPackageItemIdentifier: null,
-      workspaceImportId: null,
       draftImathasQuestionBackendBinding: null,
       title: "Fixture",
       prompt: [{ kind: "text", markdown: "Static value" }],

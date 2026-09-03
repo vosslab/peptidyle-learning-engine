@@ -4,6 +4,10 @@ use super::{
     QtiChoiceIdMap, QtiChoiceMapPayload, QtiMappingVersion, QtiPrivateMappingChecksumInput,
     QtiProfileId, QtiProfileVersion, QtiPublicMappingChecksumInput,
 };
+use adapter_ple::question_json::imported::{
+    ImportedChoice, ImportedPleQuestionJson, ImportedPleQuestionJsonError,
+    ImportedSingleChoiceInput,
+};
 
 /// Private fields passed only to the server's native conversion bridge.
 ///
@@ -59,5 +63,25 @@ impl QtiMappedItemServerParts {
     }
     pub fn server_choice_map_payload(&self) -> &QtiChoiceMapPayload {
         &self.choice_map_payload
+    }
+
+    /// Converts one supported QTI item into the sole-current PLE Question JSON
+    /// source. QTI vendor points remain only in Workspace Import evidence and
+    /// never become Question or Assignment policy.
+    pub fn into_ple_question_json(
+        self,
+    ) -> Result<ImportedPleQuestionJson, ImportedPleQuestionJsonError> {
+        let input = ImportedSingleChoiceInput::new(
+            self.public_mapping.title,
+            "Imported from a supported QTI package.".to_string(),
+            self.public_mapping.prompt_markdown,
+            self.public_mapping
+                .choices
+                .into_iter()
+                .map(|choice| ImportedChoice::new(choice.ple_choice_id, choice.text_markdown))
+                .collect(),
+            self.correct_ple_choice_id,
+        );
+        ImportedPleQuestionJson::from_imported(input)
     }
 }

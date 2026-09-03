@@ -208,4 +208,5 @@ See [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md) for why each loca
 [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for the render and
 response payload boundary, and
 [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md) for comparison
-with native, QTI, iMathAS, and Question Backends.
+with PLE Question JSON, iMathAS, H5P, and the QTI Import pathway behind the
+shared Question operations.

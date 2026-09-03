@@ -19,8 +19,6 @@ use async_trait::async_trait;
 use base64::Engine as _;
 #[cfg(test)]
 use grading::QuestionGradingOutcome;
-#[cfg(test)]
-use question_model::GradingResult;
 use question_model::QuestionContentBlock;
 use question_model::answer::ResponseSelectionRule;
 use question_model::response::{
@@ -228,11 +226,6 @@ impl WebworkRenderer for HttpWebworkRenderer {
         &self,
         request: GradeRequest<'_>,
     ) -> Result<grading::QuestionGradingOutcome, RendererFailure> {
-        if !request.points_possible.is_finite() || request.points_possible <= 0.0 {
-            return Err(RendererFailure::InvalidOutput(
-                "WeBWorK supported questions require positive finite points".into(),
-            ));
-        }
         let mut fields = super::protocol::render_fields(RenderRequest {
             pg_source: request.pg_source,
             pg_path: request.pg_path,
@@ -294,7 +287,7 @@ impl WebworkRenderer for HttpWebworkRenderer {
             ),
             &self.settings.base_uri,
         )?;
-        super::grade::score(score, request.points_possible, request.partial_credit)
+        super::grade::score(score)
     }
 }
 

@@ -6,13 +6,11 @@ import {
   createPleQuestionJsonOrderingItem,
 } from "./question_json_source";
 import type {
-  PleQuestionJsonAttemptLimit,
   PleQuestionJsonChoice,
   PleQuestionJsonMatchingChoice,
   PleQuestionJsonMatchingPrompt,
   PleQuestionJsonOutcomeFeedback,
   PleQuestionJsonDocument,
-  PleQuestionJsonAttemptTimeLimit,
 } from "./question_json_source";
 
 const DEFAULT_CHOICES: ReadonlyArray<PleQuestionJsonChoice> = [
@@ -424,13 +422,6 @@ function defaultResponse(
   }
 }
 
-export function setPleQuestionJsonPoints(
-  source: PleQuestionJsonDocument,
-  points: number,
-): PleQuestionJsonDocument {
-  return { ...source, points };
-}
-
 export function setChoiceText(
   source: PleQuestionJsonDocument,
   choiceId: string,
@@ -564,20 +555,6 @@ export function setQuestionHint(
   return { ...source, questionHint };
 }
 
-export function setQuestionAttemptLimit(
-  source: PleQuestionJsonDocument,
-  questionAttemptLimit: PleQuestionJsonAttemptLimit,
-): PleQuestionJsonDocument {
-  return { ...source, questionAttemptLimit };
-}
-
-export function setQuestionAttemptTimeLimit(
-  source: PleQuestionJsonDocument,
-  questionAttemptTimeLimit: PleQuestionJsonAttemptTimeLimit,
-): PleQuestionJsonDocument {
-  return { ...source, questionAttemptTimeLimit };
-}
-
 export function setTags(
   source: PleQuestionJsonDocument,
   tags: ReadonlyArray<string>,
@@ -656,7 +633,5 @@ function validationMessage(field: string): string {
     return "Check the choices and select one correct answer.";
   if (field.startsWith("title")) return "Add a short question title.";
   if (field.startsWith("prompt")) return "Add the Student-facing question prompt.";
-  if (field.startsWith("points")) return "Points must be a nonnegative number.";
-  if (field.startsWith("questionAttemptTimeLimit")) return "Check the timing policy values.";
   return "Check the question details before saving.";
 }

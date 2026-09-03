@@ -95,8 +95,9 @@ pub use crate::assignment_activity_rules::{
     AssignmentActivityRules, AssignmentAttemptContinuationRule, AssignmentAttemptGradeRule,
     AssignmentAttemptResumeRule, AssignmentCompletionRule, AssignmentNavigationRule,
     AssignmentQuestionDisplayRule, AssignmentQuestionOrderRule, AssignmentQuestionVariationRule,
-    QuestionAttemptLimit, QuestionPoolPreviewNonce, QuestionPoolReuseRule,
-    QuestionPoolSelectionInputs, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolPreviewNonce,
+    QuestionPoolReuseRule, QuestionPoolSelectionInputs, StudentFeedbackReleaseRule,
+    StudentFeedbackReleaseTiming,
 };
 pub use crate::assignment_workspace::{
     AssignmentEntryRequest, AssignmentPoliciesValidationFailure,
@@ -204,10 +205,10 @@ pub use crate::question_backend_fields::{
 };
 pub use crate::question_citation::{QuestionCitation, QuestionCitationError};
 pub use crate::question_content::{
-    DraftQuestionContent, DraftQuestionSummary, MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS,
+    DraftQuestionSummary, MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS,
     MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionAssetReference, QuestionContentBlock,
-    QuestionDescriptionError, QuestionFormat, QuestionGradingRule, QuestionMetadata,
-    QuestionRevision, QuestionTitleError, validate_question_description, validate_question_title,
+    QuestionDescriptionError, QuestionFormat, QuestionMetadata, QuestionTitleError,
+    validate_question_description, validate_question_title,
 };
 pub use crate::question_library::{
     CourseQuestionUse, MAX_QUESTION_ID_COUNT, MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS,
@@ -241,11 +242,12 @@ pub use crate::student_work::{
     AssignmentProgress, AssignmentProgressRecord, CourseId, CourseMembershipId, GradingResult,
     IssuedAttemptCapability, IssuedQuestion, IssuedQuestionId, QuestionAttempt, QuestionAttemptId,
     QuestionAttemptReproductionDetails, QuestionAttemptState, QuestionAttemptTiming,
-    QuestionBackendVersion, QuestionGraderVersion, QuestionPoolItemId, QuestionPoolSelectedItem,
-    QuestionPoolSelection, QuestionPoolSelectionId, QuestionPoolSelectionReuseError,
-    QuestionRendererVersion, QuestionSubmission, QuestionSubmissionId, SourceObjectChecksum,
-    SourceObjectChecksumError, SourceObjectReference, StudentAssignmentGrade,
-    StudentAssignmentProgress, StudentQuestionAttemptView, StudentRecordId, Timestamp,
+    QuestionBackendVersion, QuestionEvaluation, QuestionEvaluationError, QuestionGraderVersion,
+    QuestionPoolItemId, QuestionPoolSelectedItem, QuestionPoolSelection, QuestionPoolSelectionId,
+    QuestionPoolSelectionReuseError, QuestionRendererVersion, QuestionSubmission,
+    QuestionSubmissionId, SourceObjectChecksum, SourceObjectChecksumError, SourceObjectReference,
+    StudentAssignmentGrade, StudentAssignmentProgress, StudentQuestionAttemptView, StudentRecordId,
+    Timestamp,
 };
 pub use crate::teaching_authority::{
     CourseInvitation, CourseInvitationEvent, CourseInvitationEventKind, CourseInvitationId,

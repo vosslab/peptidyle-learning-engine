@@ -12,7 +12,6 @@ import {
   renameQuestionChoiceReference,
   reorderChoices,
   reorderMatchingSide,
-  setQuestionAttemptLimit,
   setChoiceText,
   setCorrectChoice,
   setPleQuestionJsonTitle,
@@ -24,7 +23,6 @@ import {
   setQuestionHint,
   setOutcomeFeedback,
   setTags,
-  setQuestionAttemptTimeLimit,
   validatePleQuestionJsonSource,
 } from "../src/features/ple_question_json_authoring/question_json_editor_model.ts";
 
@@ -129,27 +127,19 @@ test("choice edits retain semantic IDs and enforce choices and correct-answer in
   );
 });
 
-test("policy and metadata helpers are immutable and validation gives safe author guidance", () => {
+test("metadata helpers are immutable and validation gives safe author guidance", () => {
   const base = source();
   const edited = setLanguage(
     setQuestionLicense(
-      setTags(
-        setQuestionAttemptTimeLimit(
-          setQuestionAttemptLimit(
-            setOutcomeFeedback(base, { correct: "Good", incorrect: "Try again" }),
-            { maxAttempts: 3 },
-          ),
-          { kind: "limited", seconds: 60, graceSeconds: 5 },
-        ),
-        ["biology", "assessment"],
-      ),
+      setTags(setOutcomeFeedback(base, { correct: "Good", incorrect: "Try again" }), [
+        "biology",
+        "assessment",
+      ]),
       "CC-BY-4.0",
     ),
     "en",
   );
   assert.equal(base.language, "en-US");
-  assert.deepEqual(edited.questionAttemptLimit, { maxAttempts: 3 });
-  assert.equal(edited.questionAttemptTimeLimit.kind, "limited");
   assert.deepEqual(edited.tags, ["biology", "assessment"]);
   assert.equal(validatePleQuestionJsonSource(edited).valid, true);
   const invalid = setPleQuestionJsonTitle(edited, " ");

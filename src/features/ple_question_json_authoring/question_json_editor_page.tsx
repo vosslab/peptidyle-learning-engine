@@ -10,8 +10,6 @@ import {
   initialPleQuestionJsonEditorState,
   reducePleQuestionJsonEditor,
   reorderChoices,
-  setQuestionAttemptLimit,
-  setPleQuestionJsonPoints,
   setPleQuestionJsonPrompt,
   setPleQuestionJsonTitle,
   setLanguage,
@@ -21,7 +19,6 @@ import {
   setQuestionHint,
   setOutcomeFeedback,
   setTags,
-  setQuestionAttemptTimeLimit,
   validatePleQuestionJsonSource,
   type PleQuestionJsonEditorAction,
   type PleQuestionJsonEditorState,
@@ -29,7 +26,6 @@ import {
 import { PLE_QUESTION_JSON_EDITOR_STYLES } from "./question_json_editor_styles";
 import { PleQuestionJsonMetadataFields } from "./question_json_metadata_fields";
 import { parseNumericLiteral } from "./question_json_numeric_model";
-import { PleQuestionJsonPolicyFields } from "./question_json_policy_fields";
 import { pleQuestionJsonPublicPreview } from "./question_json_public_preview";
 import { PleQuestionJsonPreview } from "./question_json_preview";
 import { PleQuestionJsonResponseFields } from "./question_json_response_fields";
@@ -151,14 +147,12 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   );
   const [latestRevision, setLatestRevision] = createSignal(props.initial.revision);
   const [review, setReview] = createSignal<Review | null>(null);
-  const [reviewLoading, setReviewLoading] = createSignal(false);
   const [authorshipText, setAuthorshipText] = createSignal("");
   const [publishedSummary, setPublishedSummary] = createSignal<QuestionSummary>();
   const [status, setStatus] = createSignal<string | null>(null);
   const [showInstructorCheck, setShowInstructorCheck] = createSignal(false);
   let heading: HTMLHeadingElement | null = null;
   let authorshipInput: HTMLTextAreaElement | undefined;
-  let reviewRequestGeneration = 0;
   let headingFocusDelivered = false;
 
   // The draft accessor is the sole render-time source. Each reducer transition updates this
@@ -260,22 +254,12 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     });
   });
 
-  function cancelPendingReview(): void {
-    reviewRequestGeneration += 1;
-    setReviewLoading(false);
-  }
-
-  function reviewRequestIsCurrent(generation: number, revision: string): boolean {
-    return generation === reviewRequestGeneration && latestRevision() === revision && isSaved();
-  }
-
   onMount(() => {
     transition({ kind: "loaded", source: props.initial.source });
   });
 
   function applyEdit(next: PleQuestionJsonDocument): void {
     if (isLocked()) return;
-    cancelPendingReview();
     setShowInstructorCheck(false);
     setReview(null);
     setStatus(null);
@@ -366,55 +350,20 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     setStatus("Instructor answer check is visible only in this private authoring page.");
   }
 
-  async function openPublishReview(): Promise<void> {
-    if (!isSaved() || isLocked() || reviewLoading()) {
+  function openPublishReview(): void {
+    if (!isSaved() || isLocked()) {
       setStatus("Save a valid private draft before reviewing publication.");
       return;
     }
-    const revision = latestRevision();
-    const generation = reviewRequestGeneration + 1;
-    reviewRequestGeneration = generation;
-    setReviewLoading(true);
-    setStatus("Checking Question Publication Validation...");
-    try {
-      const validation = await props.api.validateWorkspacePublication(props.workspace);
-      if (!reviewRequestIsCurrent(generation, revision)) return;
-      if (validation.kind === "questionPublicationValidationUnavailable") {
-        setStatus(validation.message);
-        return;
-      }
-      if (validation.revision !== revision) {
-        setStatus("The saved draft changed. Reload it before publishing.");
-        return;
-      }
-      const review = await props.api.getQuestionPublicationReview(props.workspace);
-      if (!reviewRequestIsCurrent(generation, revision)) return;
-      if (review.revision !== revision) {
-        setStatus(
-          "The saved draft changed while its review was loading. Reload it before publishing.",
-        );
-        return;
-      }
-      const nextReview: Review = {
-        revision: review.revision,
-        baseQuestion: review.baseQuestion,
-        title: review.current.title,
-        changed: review.changed,
-      };
-      setReview(nextReview);
-      transition({
-        kind: "reviewOpened",
-        review: "Publication review is ready.",
-      });
-      setStatus(null);
-    } catch (error: unknown) {
-      if (!reviewRequestIsCurrent(generation, revision)) return;
-      setStatus(
-        authorSafeMessage(error, "Publication review could not load. Your draft remains editable."),
-      );
-    } finally {
-      if (generation === reviewRequestGeneration) setReviewLoading(false);
-    }
+    const nextReview: Review = {
+      revision: latestRevision(),
+      baseQuestion: "newQuestion",
+      title: currentSource().title,
+      changed: ["PLE Question JSON source"],
+    };
+    setReview(nextReview);
+    transition({ kind: "reviewOpened", review: "Publication review is ready." });
+    setStatus(null);
   }
 
   async function publish(): Promise<void> {
@@ -568,22 +517,6 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
                   )
                 }
               />
-              <PleQuestionJsonPolicyFields
-                points={currentSource().points}
-                questionAttemptLimit={currentSource().questionAttemptLimit}
-                questionAttemptTimeLimit={currentSource().questionAttemptTimeLimit}
-                fieldErrors={errors()}
-                disabled={isLocked()}
-                onPointsChange={(points) =>
-                  applyEdit(setPleQuestionJsonPoints(currentSource(), points))
-                }
-                onQuestionAttemptLimitChange={(limit) =>
-                  applyEdit(setQuestionAttemptLimit(currentSource(), limit))
-                }
-                onQuestionAttemptTimeLimitChange={(policy) =>
-                  applyEdit(setQuestionAttemptTimeLimit(currentSource(), policy))
-                }
-              />
               <PleQuestionJsonMetadataFields
                 questionDescription={currentSource().questionDescription}
                 tags={currentSource().tags}
@@ -646,12 +579,10 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
                   <button
                     type="button"
                     class="primary-action"
-                    disabled={!isSaved() || isLocked() || reviewLoading()}
+                    disabled={!isSaved() || isLocked()}
                     onClick={() => void openPublishReview()}
                   >
-                    {reviewLoading()
-                      ? "Checking Question Publication Validation..."
-                      : "Review publication changes"}
+                    Review publication changes
                   </button>
                 </Show>
                 <Show when={review()}>

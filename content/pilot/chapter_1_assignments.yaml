@@ -45,7 +45,7 @@ chapters:
         source_sha256: d1555789992c6249b22d34c9852546209b1fa4989465500aa46d09106c3cd9a6
         source_item: 8894_6964
         payload: ple_question_json/genetics-disorders-mc.json
-        payload_sha256: cb7116a41141bd2283ea4155bf1c9bde144404104b357495c5737137b6a936aa
+        payload_sha256: c7aa41a2cbdca18128045559a546c268c27c6a0cc8e196508bbb75520660eca6
       - slug: genetics-disorders-ple-question-json-matching
         title: "Genetics Chapter 1: Genetic disorder matching"
         backend: pleQuestionJson
@@ -55,7 +55,7 @@ chapters:
         source_sha256: 10f25986c8faa47a449a71cf299eb99d15c51ecb1986c431e6cbb6f74f1823ed
         source_item: ce62_fc20
         payload: ple_question_json/genetics-disorders-matching.json
-        payload_sha256: cb3d787914a9899b770d3cc4b89c5772219746372f209e9f6ba1d8c24b092a14
+        payload_sha256: 1cac8f073e6053649f21134c6a130467a96302f03144051a32a1c30cc7bbe706
 
   - slug: biochemistry-chapter-1
     course: Biochemistry
@@ -98,7 +98,7 @@ chapters:
         source_sha256: 12f176f64fb223f75ef699f51a688cd7029242a8cd61e9cf7f38e25e8ea8792c
         source_item: 1138_f177
         payload: ple_question_json/biochemistry-functional-groups-mc.json
-        payload_sha256: ff40e4ac88fde84188d45074dc534e6cb1d020e6a309be034d79557302295358
+        payload_sha256: cf2110d81333cadc4cfd1409430338d4f8e99aa34215d4a86d452ca58e4c01bb
       - slug: biochemistry-functional-groups-ple-question-json-matching
         title: "Biochemistry Chapter 1: Functional group matching"
         backend: pleQuestionJson
@@ -108,4 +108,4 @@ chapters:
         source_sha256: 331a5e806e4a5dd751640eaf22f8911e3870cbbf8b4019da79632ad77f391e44
         source_item: c4c1_c919
         payload: ple_question_json/biochemistry-functional-groups-matching.json
-        payload_sha256: ce6de853b2eb51a22b7593dc22d47e6bfd0ddf979309aff6395b845e80f59f61
+        payload_sha256: d7036be8750d4dfe030742148952d4b4cefe59c035f8c0b891e23e8ad038f525

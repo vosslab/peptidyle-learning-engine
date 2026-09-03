@@ -43,7 +43,6 @@ export const MAX_PUBLIC_ROUTE_NUMBER = 2_147_483_647;
 export const QUESTION_BACKENDS = [
   "ple",
   "webwork",
-  "qti",
   "imathas",
 ] as const satisfies ReadonlyArray<QuestionBackend>;
 

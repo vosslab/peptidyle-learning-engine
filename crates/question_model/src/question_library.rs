@@ -208,22 +208,19 @@ pub enum QuestionBackend {
     Ple,
     /// WeBWorK PG question.
     Webwork,
-    /// IMS QTI item.
-    Qti,
     /// iMathAS item served through the verified iMathAS Question Backend Transport.
     Imathas,
 }
 
 impl QuestionBackend {
     /// Every browser-safe Question Backend supported by this release.
-    pub const ALL: [Self; 4] = [Self::Ple, Self::Webwork, Self::Qti, Self::Imathas];
+    pub const ALL: [Self; 3] = [Self::Ple, Self::Webwork, Self::Imathas];
 
     /// Canonical public wire value for this closed backend vocabulary.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Ple => "ple",
             Self::Webwork => "webwork",
-            Self::Qti => "qti",
             Self::Imathas => "imathas",
         }
     }
@@ -486,7 +483,7 @@ mod tests {
         );
         assert_eq!(
             QuestionBackend::ALL.map(QuestionBackend::as_str),
-            ["ple", "webwork", "qti", "imathas"]
+            ["ple", "webwork", "imathas"]
         );
     }
 

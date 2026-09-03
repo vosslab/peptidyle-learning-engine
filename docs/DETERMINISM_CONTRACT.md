@@ -24,10 +24,11 @@ The first four rows are reproducibility and consistency contracts. The final
 row is an authorization and lifecycle contract. No checksum authenticates a
 student, replaces TLS, or makes a client-side grade authoritative.
 
-## Immutable identity
+## Stable lineage and revision identity
 
-Published Question identity is the pair of durable Question ID and immutable
-Question Revision Number. Current static PLE Question JSON has no
+Question ID identifies the stable Published Question lineage. Question Revision
+Reference, the pair of Question ID and immutable Question Revision Number,
+identifies one exact source-bearing revision. Current static PLE Question JSON has no
 Question-authored Question Variation Rule. WeBWorK and iMathAS retain their
 backend-owned variation behavior. A future Question Generator requires
 immutable registered source data and a complete publication-to-reproduction
@@ -63,10 +64,10 @@ JSON values and returns serialized safe reports. Malformed public JSON becomes
 a JavaScript string error; a structurally invalid but well-formed response
 returns a report. No export accepts an answer key or produces correctness.
 
-PLE Question JSON schema version 2 source is answer-bearing, so its parser and compiler remain in the
+PLE Question JSON version 3 source is answer-bearing, so its parser and compiler remain in the
 server-only PLE Question Backend. Browser parity therefore covers the actual public
 boundary: answer-free `QuestionResponseFormat` values compiled from the current
-PLE Question JSON schema version 2 MC and MATCH Question Types, and `StudentResponse` values. Inline PLE,
+PLE Question JSON version 3 MC and MATCH Question Types, and `StudentResponse` values. Inline PLE,
 generated-Node, and headless-browser cases cover valid selections and matching
 permutations, empty-response boundaries, malformed JSON errors, and repeated
 calls. They compare serialized reports exactly. This is a behavior test, not a

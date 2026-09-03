@@ -30,8 +30,29 @@ BEGIN
         AND column_name IN (
             'assignment_revision_id', 'assignment_entry_id', 'assignment_content_entry_index',
             'entry_kind', 'availability', 'scoring_rule', 'point_value'
-        ) AND is_nullable = 'NO') <> 7 THEN
+        ) AND is_nullable = 'NO') <> 7
+       OR (SELECT count(*) FROM information_schema.columns
+        WHERE table_schema = 'ple_data' AND table_name = 'assignment_revision_entry'
+        AND column_name IN (
+            'question_attempt_limit', 'question_attempt_time_limit_seconds',
+            'question_attempt_time_limit_grace_seconds'
+        ) AND is_nullable = 'YES') <> 3 THEN
         RAISE EXCEPTION 'Assignment Revision Entry does not retain its exact released facts';
+    END IF;
+    IF (SELECT count(*) FROM pg_constraint
+        WHERE conrelid = 'ple_data.assignment_revision_entry'::regclass
+          AND pg_get_constraintdef(oid) LIKE '%question_attempt_limit > 0%') <> 1
+       OR (SELECT count(*) FROM pg_constraint
+        WHERE conrelid = 'ple_data.assignment_revision_entry'::regclass
+          AND pg_get_constraintdef(oid) LIKE '%question_attempt_time_limit_seconds > 0%') <> 1
+       OR (SELECT count(*) FROM pg_constraint
+        WHERE conrelid = 'ple_data.assignment_revision_entry'::regclass
+          AND pg_get_constraintdef(oid) LIKE '%question_attempt_time_limit_grace_seconds >= 0%') <> 1
+       OR (SELECT count(*) FROM pg_constraint
+        WHERE conrelid = 'ple_data.assignment_revision_entry'::regclass
+          AND pg_get_constraintdef(oid) LIKE '%question_attempt_time_limit_seconds IS NULL%'
+          AND pg_get_constraintdef(oid) LIKE '%question_attempt_time_limit_grace_seconds IS NULL%') <> 1 THEN
+        RAISE EXCEPTION 'Assignment Revision Entry Question Attempt controls are not constrained';
     END IF;
     IF EXISTS (
         SELECT 1 FROM information_schema.columns
@@ -268,10 +289,11 @@ UPDATE ple_data.assignment
 BEGIN;
 INSERT INTO ple_data.assignment_revision_entry (
     assignment_revision_id, assignment_entry_id, assignment_content_entry_index, entry_kind, availability,
-    scoring_rule, point_value
+    scoring_rule, point_value, question_attempt_limit, question_attempt_time_limit_seconds,
+    question_attempt_time_limit_grace_seconds
 ) VALUES (
     '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000112', 0,
-    'fixed_question', 'available', 'normal', 1
+    'fixed_question', 'available', 'normal', 1, 2, 300, 0
 );
 INSERT INTO ple_data.assignment_revision_fixed_question (
     assignment_revision_id, assignment_entry_id, question_id, revision_number
@@ -279,7 +301,63 @@ INSERT INTO ple_data.assignment_revision_fixed_question (
     '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000112',
     'ABC-DEF0', 1
 );
+INSERT INTO ple_data.assignment_revision_entry (
+    assignment_revision_id, assignment_entry_id, assignment_content_entry_index, entry_kind, availability,
+    scoring_rule, point_value, question_attempt_limit, question_attempt_time_limit_seconds,
+    question_attempt_time_limit_grace_seconds
+) VALUES (
+    '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000117', 1,
+    'question_pool', 'available', 'normal', 1, 3, 600, 30
+);
+INSERT INTO ple_data.assignment_revision_question_pool (
+    assignment_revision_id, assignment_entry_id, selection_count, selected_question_order
+) VALUES (
+    '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000117', 1,
+    'question_pool_order'
+);
+INSERT INTO ple_data.assignment_revision_question_pool_item (
+    assignment_revision_id, assignment_entry_id, question_pool_item_id, question_pool_item_index,
+    question_id, revision_number, availability
+) VALUES (
+    '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000117',
+    '00000000-0000-0000-0000-000000000118', 0, 'ABC-DEF0', 1, 'available'
+);
 COMMIT;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_data.assignment_revision_entry
+        WHERE assignment_revision_id = '00000000-0000-0000-0000-000000000111'
+          AND assignment_entry_id = '00000000-0000-0000-0000-000000000112'
+          AND entry_kind = 'fixed_question'
+          AND question_attempt_limit = 2
+          AND question_attempt_time_limit_seconds = 300
+          AND question_attempt_time_limit_grace_seconds = 0
+    ) OR NOT EXISTS (
+        SELECT 1 FROM ple_data.assignment_revision_entry
+        WHERE assignment_revision_id = '00000000-0000-0000-0000-000000000111'
+          AND assignment_entry_id = '00000000-0000-0000-0000-000000000117'
+          AND entry_kind = 'question_pool'
+          AND question_attempt_limit = 3
+          AND question_attempt_time_limit_seconds = 600
+          AND question_attempt_time_limit_grace_seconds = 30
+    ) THEN
+        RAISE EXCEPTION 'Released Assignment Revision Entry did not retain limited Question Attempt controls';
+    END IF;
+    BEGIN
+        INSERT INTO ple_data.assignment_revision_entry (
+            assignment_revision_id, assignment_entry_id, assignment_content_entry_index, entry_kind,
+            availability, scoring_rule, point_value, question_attempt_limit,
+            question_attempt_time_limit_seconds, question_attempt_time_limit_grace_seconds
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000000119', 2,
+            'fixed_question', 'available', 'normal', 1, 1, 60, NULL
+        );
+        RAISE EXCEPTION 'Assignment Revision Entry accepted an unpaired Question Attempt time/grace limit';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+END
+$$;
 INSERT INTO ple_private.authenticated_session (
     session_id, account_id, product_role, token_hash, created_at, expires_at, revoked_at
 ) VALUES (
@@ -307,16 +385,37 @@ BEGIN
           '00000000-0000-0000-0000-000000000114',
           '00000000-0000-0000-0000-000000000106',
           '00000000-0000-0000-0000-000000000110',
-          '[]'::jsonb,
           jsonb_build_array(jsonb_build_object(
-              'issued_question_id', '00000000-0000-5000-8000-000000000115',
-              'assignment_entry_id', '00000000-0000-0000-0000-000000000112',
-              'issued_position', 0,
-              'question_id', 'ABC-DEF0',
-              'revision_number', 1,
-              'question_pool_selection_id', NULL,
-              'question_pool_item_id', NULL
-          ))
+              'question_pool_selection_id', '00000000-0000-0000-0000-000000000120',
+              'assignment_entry_id', '00000000-0000-0000-0000-000000000117',
+              'reused_from_question_pool_selection_id', NULL,
+              'selected_items', jsonb_build_array(jsonb_build_object(
+                  'question_pool_item_id', '00000000-0000-0000-0000-000000000118',
+                  'selection_position', 0,
+                  'question_id', 'ABC-DEF0',
+                  'revision_number', 1
+              ))
+          )),
+          jsonb_build_array(
+              jsonb_build_object(
+                  'issued_question_id', '00000000-0000-5000-8000-000000000115',
+                  'assignment_entry_id', '00000000-0000-0000-0000-000000000112',
+                  'issued_position', 0,
+                  'question_id', 'ABC-DEF0',
+                  'revision_number', 1,
+                  'question_pool_selection_id', NULL,
+                  'question_pool_item_id', NULL
+              ),
+              jsonb_build_object(
+                  'issued_question_id', '00000000-0000-5000-8000-000000000121',
+                  'assignment_entry_id', '00000000-0000-0000-0000-000000000117',
+                  'issued_position', 1,
+                  'question_id', 'ABC-DEF0',
+                  'revision_number', 1,
+                  'question_pool_selection_id', '00000000-0000-0000-0000-000000000120',
+                  'question_pool_item_id', '00000000-0000-0000-0000-000000000118'
+              )
+          )
       );
     SELECT assignment_attempt_id, attempt_number, resumed
       INTO resumed_attempt, resumed_number, second_resumed

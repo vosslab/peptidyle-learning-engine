@@ -4,6 +4,87 @@
 
 ### Decisions and Failures
 
+- **Final closeout for `WP-SD1-A-QSOM1-S2B2`--`S2B7`.** This entry supersedes the earlier
+  same-day current-state wording that left these completed source-model slices acceptance-open.
+  The PLE Question JSON and WeBWorK adapters, iMathAS source/session-input removal, QTI import
+  mapping with minimal H5P preservation, unbacked-editor and PLE Question JSON fallback removal,
+  and final generic-root deletion are accepted and completed after independent review. The final
+  `source source_me.sh && ./all_test.sh` exits 0 with 421 generated types, 3 tracked fixtures,
+  Rust format/check/all-feature strict Clippy/tests/doctests/Wasm, 286 Node tests, 4,831 pytest
+  tests, PostgreSQL 17 fresh/no-op/catalog/restricted plus 3 iMathAS tests, Course Appearance
+  PostgreSQL-plus-MinIO, and `PASS: complete live acceptance is green.` Vocabulary rows 181, 182,
+  and 275 are accepted for their exact source-model boundaries. Parent QSOM1 remains open only for
+  separately owned publication, persistence, and cleanup work; its remaining vocabulary rows are
+  not accepted by this closeout.
+
+- **Current-state synchronization for `WP-SD1-A-QSOM1-S2B2`--`S2B7`.** The PLE Question JSON,
+  WeBWorK, iMathAS, QTI-import, H5P-preservation, unbacked-editor removal, and final generic-root
+  deletion slices are implemented and their independent reviews pass. The retired generic
+  `DraftQuestionContent`, source-bearing generic Question Revision, `QuestionGradingRule`, and QTI
+  runtime-dispatch claims are superseded. `/workspace` is an Instructor-gated **Planned My Question
+  Drafts** destination, not a mounted editor; authorized authoring and publication server workflows
+  remain unmounted. QSOM1 remains open for separately owned publication, persistence, and cleanup
+  work, and final aggregate acceptance is pending.
+
+- **Clarified Published Question metadata mutability.** A stable Published Question lineage owns
+  mutable discovery metadata such as Question Title and Question Description. Editing those values
+  creates no Question Revision. A Question Revision instead preserves one immutable complete
+  Question Source and its exact historical evidence. The terminology, lifecycle, identity,
+  concurrency, retention, caching, data-classification, authorization, and active-plan documents now
+  use that boundary consistently. Parallel Draft Question and Published Question Metadata tables
+  remain required by the open QSOM1 source-isolation migration; the current mixed schema is evidence
+  of unfinished implementation rather than the target design.
+
+- **Accepted and completed `WP-SD1-A-QSOM1-S2B1A` (backend evaluation and Assignment scoring).**
+  Server-only, non-Serde `QuestionEvaluation { correct, normalized_credit }` is Question Backend
+  evaluation; Assignment-owned GradingResult remains the scoring record. The direct iMathAS
+  issued-score cut keeps authentication/Result lifecycle facts and QuestionAttemptId on the Session,
+  while atomic commit locks the selected IssuedQuestion and resolves its point_value and scoring_rule.
+  Two independent reviewers PASS, and the manager's final `source source_me.sh && ./all_test.sh`
+  exits 0 with 424 generated types, 3 fixtures, Rust workspace/Clippy/tests/doctests/Wasm, 315 Node,
+  4,908 pytest, fresh/no-op/catalog/restricted PostgreSQL, 3/3 iMathAS, Course Appearance
+  PostgreSQL-plus-MinIO, and `PASS: complete live acceptance is green.` The durable blueprint_course
+  schedule, student_work grading, and iMathAS catalog oracle splits are line-gate organization only,
+  not product behavior. S2B2--S2B7, generic source structs, and final no-point QuestionGradingRule
+  deletion remain open; parent QSOM1 remains open.
+
+- **Accepted and completed `WP-SD1-A-QSOM1-S2A` (Assignment Entry Question
+  Attempt controls).** Fixed and Question Pool Assignment Entries now own QuestionAttemptLimit and
+  QuestionAttemptTimeLimit. Immutable Assignment Revision Entry snapshots carry nullable positive
+  attempt limits/time-limit seconds, nullable nonnegative grace seconds, and paired time/grace.
+  Assignment-wide BaseAssignmentPolicy attempt/time controls remain distinct. Backend evaluation
+  remains distinct from AssignmentEntryScoringRule and AssignmentPointValue. Generic
+  DraftQuestionContent and QuestionRevision still duplicate the prompt/response/attempt-control
+  material and await the next source-model cut; QuestionGradingRule remains open for removal. Parent
+  QSOM1 and row 528 remain open, with no generic source-model, exact Assignment Entry/policy
+  ownership, generated/browser authoring, or publication completion claim. Independent review and
+  focused PostgreSQL acceptance pass. The final manager `source source_me.sh && ./all_test.sh` exits
+  0 with 424 generated types, 3 fixtures, Rust/workspace/Clippy/doctests/Wasm, 315 Node, 4,908
+  pytest, PostgreSQL fresh/no-op/catalog/restricted/iMathAS, Course Appearance PostgreSQL-plus-
+  MinIO, and `PASS: complete live acceptance is green.` The existing
+  `test_assignment_workspace_content_conflict_client.mjs` and
+  `test_assignment_workspace_questions.mjs` Node fixture files state explicit unlimited controls;
+  the behavior-preserving Blueprint Course module split satisfies the code line gate.
+
+- **Accepted and completed `WP-SD1-A-QSOM1-S1` (Question Source authority
+  documentation).** The current object-backed boundary records Question Source as complete
+  immutable format-specific bytes in object storage; Source Object Reference identifies those bytes
+  and Source Object Checksum verifies them. Question Source Registration binds a Draft Question or
+  Question Revision owner with exact Backend/Format and backend-specific routing. The fresh baseline
+  and `2026082940` Object Record validation own the active authority directly. The generic
+  registration Question Type/content checksum and universal generic Answer
+  Key, Question Feedback, Question Answer Explanation, Question Grading Input, and Workspace Import
+  Grading Input sidecars are absent. The terms remain legitimate backend-produced or policy-released
+  runtime contracts, while private artifacts remain backend-specific. Vocabulary row 528 is reopened:
+  generic split sidecars are not canonical. QSOM1 remains open for generic DraftQuestionContent and
+  QuestionRevision prompt/response/QuestionGradingRule/QuestionAttemptLimit/QuestionAttemptTimeLimit
+  material and its exact Assignment Entry/policy, consumer, generated-contract, browser, and
+  publication migration. This documentation package makes no mounted publication, editor, Store,
+  route, browser, generated-contract, or QSOM1-acceptance claim. Independent review passes and the
+  manager terminal `source source_me.sh && ./all_test.sh` exits 0 with 424 generated types, 4,908
+  pytest checks, Rust/workspace/browser/static gates, PostgreSQL fresh/no-op/catalog/restricted/
+  iMathAS acceptance, and Course Appearance PostgreSQL-plus-MinIO acceptance.
+
 - **Accepted `WP-SD1-A-DQM1` (mutable Draft Question cut).** One
   mutable Draft Question belongs to one Authoring Workspace, with a server-private Draft Question
   UUID and positive Draft Question Edit Number concurrency token. The active fresh schema, LDA
@@ -340,6 +421,15 @@ revision_number)`; XOR and unique-owner constraints remain. The registrar return
   strict-decoder, and browser gates pass.
 
 ### Fixes and Maintenance
+
+- Directly unmounted the unbacked PLE Question JSON authoring route composition. `/workspace`
+  now presents only the Instructor-gated planned My Question Drafts contract destination, and
+  `/workspace/:workspaceRef` fails closed rather than creating browser UUIDs or calling unhandled
+  PLE Question JSON read/write/publication paths. The format-specific PLE Question JSON client and
+  editor remain non-mounted source exercised by their existing focused Node tests; this change adds
+  no server endpoint, compatibility path, fixture, or test family. Focused Node, TypeScript,
+  ESLint, Prettier, and diff checks pass. QSOM1 remains open pending the registered Draft Question
+  UUID/Edit Number authoring boundary and independent review.
 
 - Aligned the processed WebAssembly export allowlist with the existing
   `validate_presentation_response_format` function. That function is the key-free

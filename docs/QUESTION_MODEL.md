@@ -1,12 +1,14 @@
 # Question model
 
-The backend-neutral representation every Question Backend maps into. It lives in
-`crates/question_model` and is the root contract: adapters
-translate into it, and everything downstream reads only it.
+The backend-agnostic contracts implemented by every Question Backend live in
+`crates/question_model`. Each backend retains its complete format-specific
+Question Source and maps operation results into the shared Question
+Presentation, Student Response, evaluation, and Student Feedback boundaries.
 
-One shared shape is what lets a WeBWorK problem, a QTI item, an H5P activity,
-an iMathAS item, and a first-party algorithmic question flow through the same
-attempt loop, gradebook, and export path.
+One shared pipeline lets PLE Question JSON, WeBWorK, H5P, iMathAS, and future
+registered technologies flow through the same Draft Question, publication,
+Assignment, attempt, Gradebook, and export operations. Supported QTI imports
+become PLE Question JSON before joining that pipeline.
 
 ## The rule for what belongs here
 
@@ -20,12 +22,12 @@ grading-adjacent details the renderer does not need.
 
 Applied to answers, the split is:
 
-| Belongs here                                                       | Belongs in `crates/grading`     |
-| ------------------------------------------------------------------ | ------------------------------- |
-| The Numeric Response Tolerance a number is compared within         | The expected value              |
-| The Text Response Match Rule (Exact, Case Insensitive, Normalized) | The accepted text               |
-| How many choices may be selected                                   | Which choices are correct       |
-| Whether partial credit applies, and the points available           | The per-part weighting of a key |
+| Belongs here                                                       | Belongs in `crates/grading` |
+| ------------------------------------------------------------------ | --------------------------- |
+| The Numeric Response Tolerance a number is compared within         | The expected value          |
+| The Text Response Match Rule (Exact, Case Insensitive, Normalized) | The accepted text           |
+| How many choices may be selected                                   | Which choices are correct   |
+| Correctness-neutral response constraints                           | Accepted-response facts     |
 
 The left column is answer-free shared-model information. An individual
 a Student's Question Presentation may still omit it when it is not needed to render an input;
@@ -90,8 +92,11 @@ identity.
 
 Question Library is the shared authoritative set of Published Questions.
 My Questions filters it to Published Questions owned by the current Account,
-and My Question Drafts filters private Draft Questions the current Account may
-edit. Question Tags guide search within the Question Library; they do not
+while My Question Drafts is a separate private Authoring Workspace View for
+Draft Questions the current Account may edit. Its placement in the Question Library
+interface area is navigation, not Library membership. Draft Questions remain absent
+from published search, facets, statistics, Stars, Watches, and Assignment selection.
+Question Tags guide search within the Question Library; they do not
 partition questions by subject, author, course, or audience. Every assignment item
 resolves a Question ID already present in the Question Library. A draft must
 validate and publish before an Instructor can place it in an assignment, so an
@@ -244,24 +249,19 @@ reviewed table covering all eight capabilities and the return-all behavior.
 
 ### Question Revision
 
-`QuestionRevision` carries the fields the specification names:
-
-| Field                           | Type                                    | Purpose                                                                                                        |
-| ------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `questionId`                    | `QuestionId`                            | Stable Question lineage                                                                                        |
-| `revisionNumber`                | `QuestionRevisionNumber`                | Exact immutable version within the lineage                                                                     |
-| `workspace`                     | `WorkspaceId`                           | Authoring workspace                                                                                            |
-| `questionBackend`               | `QuestionBackend`                       | Selected Question Backend, separate from the stored Question Source                                            |
-| `webworkPgPath`                 | `Option<String>`                        | WeBWorK PG Path when the Question Backend is WeBWorK                                                           |
-| `qtiPackageItemIdentifier`      | `Option<String>`                        | QTI package item identifier when the Question Backend is QTI                                                   |
-| `imathasQuestionBackendBinding` | `Option<ImathasQuestionBackendBinding>` | iMathAS Deployment Reference, iMathAS Item Reference, and iMathAS Profile when the Question Backend is iMathAS |
-| `prompt`                        | `Vec<QuestionContentBlock>`             | Renderable content, in order                                                                                   |
-| `questionType`                  | `QuestionType`                          | Educational interaction: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT                                 |
-| `response`                      | `QuestionResponseFormat`                | Accepted Student Response shape and constraints                                                                |
-| `questionAttemptLimit`          | `QuestionAttemptLimit`                  | Retry bound for this Question                                                                                  |
-| `questionAttemptTimeLimit`      | `QuestionAttemptTimeLimit`              | Time limits, with grace                                                                                        |
-| `grading`                       | `QuestionGradingRule`                   | How a response is judged                                                                                       |
-| `metadata`                      | `QuestionMetadata`                      | Title, tags, Question License, language                                                                        |
+`QuestionRevision` owns one immutable Question Source, its exact Question
+Backend and Question Format routing, and the exact historical facts assigned to
+that revision. The stable Published Question owns mutable discovery metadata
+such as Question Title and Question Description. Draft Question and Published
+Question metadata use parallel persistence tables with shared field validation
+and separate ownership, access, indexing, and retention. Publication copies
+accepted values rather than sharing a draft row. Backend
+locations remain qualified routing facts, such as WeBWorK PG Path or iMathAS
+Item Reference. Prompt, response structure, and evaluation semantics remain
+inside the complete format-specific source. Assignment Entries own point value,
+scoring treatment, Question Attempt Limit, and Question Attempt Time Limit.
+QTI Package Item Reference remains Workspace Import evidence for a Question
+converted into PLE Question JSON rather than a runtime Question Revision field.
 
 ### Response shapes
 
@@ -292,11 +292,11 @@ them in a different order therefore does not change answer meaning. A Hotspot
 selection submits an authored Hotspot Region Reference; its rectangle or ellipse
 geometry belongs to the Question Response Format rather than the Student Response.
 
-Server-side grading loads the attempt's exact published `QuestionRevision`
-and calls `grading::grade(question, response, key)`. The Question Grading Rule supplies
-the response comparison and point policy that are intentionally absent from
-the compact attempt row; the key remains in the server-only grading boundary.
-Grading is deterministic and automated for every supported Question Type.
+Server-side grading resolves the attempt's exact published Question Revision and
+format-specific Question Source through its Question Backend. The backend evaluates the Student
+Response, while the Assignment Entry separately supplies points and scoring treatment; no generic
+Question Grading Rule participates in that boundary. Keys remain server-only, format-specific
+grading material. Grading is deterministic and automated for every supported Question Type.
 
 ### Attempt presentation
 
@@ -375,11 +375,14 @@ error.
 
 ### Policies
 
-Question-level rules are authored with the Question: `QuestionAttemptLimit`
-(a retry bound) and `QuestionAttemptTimeLimit` (unlimited or limited for one Question Attempt,
-each with a grace period for network delay). Student Feedback Release is not a
-question policy: the assignment owns its five-field `StudentFeedbackReleaseRule`
-and the server evaluates it for current Student Feedback.
+Fixed and Question Pool Assignment Entries own `QuestionAttemptLimit` (a retry bound) and
+`QuestionAttemptTimeLimit` (time and grace for one Question Attempt). Their immutable Assignment
+Revision Entry snapshots retain nullable positive limits/seconds, nullable nonnegative grace, and a
+paired time/grace invariant. Draft Question and Question Revision records no longer carry generic
+attempt-control duplicates; BaseAssignmentPolicy attempt/time controls remain assignment-wide and
+distinct. Student Feedback Release is not a Question policy: the
+assignment owns its five-field `StudentFeedbackReleaseRule` and the server evaluates it for current
+Student Feedback.
 
 A Question Hint is requested before a Student selects or submits a response.
 Question Feedback is selected only after automatic grading and remains three
@@ -580,26 +583,26 @@ together; WN1-B does not change their effective Serde spelling.
 
 [PLE Question JSON](QTI-JSON_OBJECT_FORMAT.md) is a narrow answer-bearing
 authoring format for ordinary static questions. It is not another public
-question model. The PLE Question Backend compiles it into this crate's answer-free
-`DraftQuestion` plus separate PLE Question JSON Private Grading. Published browser
-and Question Library browser results therefore continue to use the shared question model
-regardless of whether the author wrote PLE JSON or imported a supported QTI
-profile.
+question model. A PLE Question JSON Draft Question retains one complete private
+source. The PLE Question Backend interprets that source through the same
+backend-agnostic validation, preview, publication, issuance, presentation,
+submission, evaluation, and feedback-release operations used for every
+Question technology. Published browser and Question Library results use shared
+answer-free contracts whether the Instructor authored PLE Question JSON
+directly or imported a supported QTI profile.
 
-The former PLE Question JSON schema version 1 `singleChoice` reader and source contract are
-retired and unsupported. There is no v1 compatibility reader, source-byte
-fallback, or compatibility behavior. Version 2 is the only current PLE
-source shape: a closed contract with eight Question Types, `singleChoice`,
-`multipleAnswer`, `fillIn`, `multiFillIn`, `numeric`, `matching`, `ordering`,
-and `hotspot`. V2 input is answer-bearing private PLE Question JSON source, not a
+PLE Question JSON version 3 is the sole current PLE source shape: a closed contract with eight
+Question Types, `singleChoice`, `multipleAnswer`, `fillIn`, `multiFillIn`, `numeric`, `matching`,
+`ordering`, and `hotspot`. Version 3 input is answer-bearing private PLE Question JSON source, not a
 Student payload. It does not claim browser file-selection or iMathAS Question Backend authoring
-support. The compiler emits an answer-free draft/public model and separately
-checksummed grader-only Answer Key and Question Feedback.
+support. The backend derives the answer-free Question Presentation, Grading
+Result, and any policy-released teaching content required by the current
+operation from the exact complete source.
 
 The distinction matters when evolving either contract: the source format owns
 author ergonomics, durable Question Choice References, Question Answers, and private Question Feedback; this crate
-owns the engine-neutral public runtime shape. Neither layer grows a vendor QTI
-extension container.
+owns the shared backend-agnostic runtime contracts. QTI-specific XML and profile
+facts remain Workspace Import evidence rather than fields in PLE Question JSON.
 
 ## Generated TypeScript
 

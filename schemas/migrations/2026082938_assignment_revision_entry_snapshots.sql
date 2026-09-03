@@ -15,6 +15,15 @@ CREATE TABLE ple_data.assignment_revision_entry (
         scoring_rule IN ('normal', 'full_credit', 'extra_credit', 'excluded')
     ),
     point_value numeric NOT NULL CHECK (point_value >= 0),
+    question_attempt_limit integer CHECK (question_attempt_limit > 0),
+    question_attempt_time_limit_seconds integer CHECK (question_attempt_time_limit_seconds > 0),
+    question_attempt_time_limit_grace_seconds integer CHECK (
+        question_attempt_time_limit_grace_seconds >= 0
+    ),
+    CHECK (
+        (question_attempt_time_limit_seconds IS NULL)
+        = (question_attempt_time_limit_grace_seconds IS NULL)
+    ),
     PRIMARY KEY (assignment_revision_id, assignment_entry_id),
     UNIQUE (assignment_revision_id, assignment_content_entry_index),
     CONSTRAINT assignment_revision_entry_revision_matches
@@ -207,7 +216,7 @@ REVOKE ALL PRIVILEGES ON TABLE ple_data.assignment_revision_entry,
 REVOKE ALL PRIVILEGES ON FUNCTION ple_data.reject_assignment_revision_entry_change() FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_data.validate_assignment_revision_entry_shape() FROM PUBLIC;
 COMMENT ON TABLE ple_data.assignment_revision_entry IS
-    'Immutable ordered Assignment Entry snapshot for one released Assignment Revision.';
+    'Immutable ordered Assignment Entry snapshot for one released Assignment Revision, including Question Attempt controls.';
 COMMENT ON TABLE ple_data.assignment_revision_fixed_question IS
     'Exact Published Question Revision pin for one fixed Assignment Entry.';
 COMMENT ON TABLE ple_data.assignment_revision_question_pool IS

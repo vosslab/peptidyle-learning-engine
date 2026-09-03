@@ -25,6 +25,8 @@ const input = {
       pointsPossible: "1",
       availability: "available",
       scoringRule: "normal",
+      questionAttemptLimit: { maxAttempts: null },
+      questionAttemptTimeLimit: { kind: "unlimited" },
     },
   ],
 };

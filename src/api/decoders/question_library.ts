@@ -89,7 +89,11 @@ import {
   requireOnlyFields,
 } from "./shared";
 import { decodeCourseTerm } from "./course_term";
-import { decodeQuestionContentBlock } from "./question_model";
+import {
+  decodeQuestionAttemptLimit,
+  decodeQuestionAttemptTimeLimit,
+  decodeQuestionContentBlock,
+} from "./question_model";
 import { decodeStudentFeedbackReleaseRule } from "./assignment_policy";
 import { decodeCourseAppearanceView } from "./course_appearance";
 import { decodeQuestionSearchFacets } from "./question_type_facets";
@@ -132,7 +136,6 @@ export function decodeQuestionSummary(
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
       "ple",
       "webwork",
-      "qti",
       "imathas",
     ]),
     questionType: decodeStringEnum(field(record, "questionType", path), `${path}.questionType`, [
@@ -625,6 +628,8 @@ function decodeFixedQuestionAssignmentEntry(
     "pointsPossible",
     "availability",
     "scoringRule",
+    "questionAttemptLimit",
+    "questionAttemptTimeLimit",
   ]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
@@ -633,7 +638,6 @@ function decodeFixedQuestionAssignmentEntry(
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
       "ple",
       "webwork",
-      "qti",
       "imathas",
     ]),
     capabilities: decodeQuestionBackendCapabilities(
@@ -654,6 +658,14 @@ function decodeFixedQuestionAssignmentEntry(
       "extraCredit",
       "excluded",
     ] as const satisfies ReadonlyArray<AssignmentEntryScoringRule>),
+    questionAttemptLimit: decodeQuestionAttemptLimit(
+      field(record, "questionAttemptLimit", path),
+      `${path}.questionAttemptLimit`,
+    ),
+    questionAttemptTimeLimit: decodeQuestionAttemptTimeLimit(
+      field(record, "questionAttemptTimeLimit", path),
+      `${path}.questionAttemptTimeLimit`,
+    ),
   };
 }
 
@@ -671,6 +683,8 @@ function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentE
       "pointsPossible",
       "availability",
       "scoringRule",
+      "questionAttemptLimit",
+      "questionAttemptTimeLimit",
     ]);
     return {
       kind: "fixedQuestion",
@@ -689,6 +703,14 @@ function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentE
         "extraCredit",
         "excluded",
       ] as const satisfies ReadonlyArray<AssignmentEntryScoringRule>),
+      questionAttemptLimit: decodeQuestionAttemptLimit(
+        field(record, "questionAttemptLimit", path),
+        `${path}.questionAttemptLimit`,
+      ),
+      questionAttemptTimeLimit: decodeQuestionAttemptTimeLimit(
+        field(record, "questionAttemptTimeLimit", path),
+        `${path}.questionAttemptTimeLimit`,
+      ),
     };
   }
   requireOnlyFields(record, path, [
@@ -699,6 +721,8 @@ function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentE
     "selectionCount",
     "pointsPerItem",
     "selectionRule",
+    "questionAttemptLimit",
+    "questionAttemptTimeLimit",
   ]);
   const questionIds = decodeBoundedArray(
     field(record, "questionIds", path),
@@ -738,6 +762,14 @@ function decodeAssignmentContentEntry(value: unknown, path: string): AssignmentE
     selectionRule: decodeQuestionPoolSelectionRule(
       field(record, "selectionRule", path),
       `${path}.selectionRule`,
+    ),
+    questionAttemptLimit: decodeQuestionAttemptLimit(
+      field(record, "questionAttemptLimit", path),
+      `${path}.questionAttemptLimit`,
+    ),
+    questionAttemptTimeLimit: decodeQuestionAttemptTimeLimit(
+      field(record, "questionAttemptTimeLimit", path),
+      `${path}.questionAttemptTimeLimit`,
     ),
   };
 }
@@ -794,7 +826,6 @@ function decodeQuestionPoolItem(value: unknown, path: string): QuestionPoolItem 
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
       "ple",
       "webwork",
-      "qti",
       "imathas",
     ]),
     capabilities: decodeQuestionBackendCapabilities(
@@ -836,6 +867,8 @@ function decodeQuestionPoolAssignmentEntry(
     "selectionCount",
     "pointsPerItem",
     "selectionRule",
+    "questionAttemptLimit",
+    "questionAttemptTimeLimit",
     "items",
   ]);
   return {
@@ -861,6 +894,14 @@ function decodeQuestionPoolAssignmentEntry(
     selectionRule: decodeQuestionPoolSelectionRule(
       field(record, "selectionRule", path),
       `${path}.selectionRule`,
+    ),
+    questionAttemptLimit: decodeQuestionAttemptLimit(
+      field(record, "questionAttemptLimit", path),
+      `${path}.questionAttemptLimit`,
+    ),
+    questionAttemptTimeLimit: decodeQuestionAttemptTimeLimit(
+      field(record, "questionAttemptTimeLimit", path),
+      `${path}.questionAttemptTimeLimit`,
     ),
     items: decodeArray(field(record, "items", path), `${path}.items`, decodeQuestionPoolItem),
   };

@@ -1,7 +1,7 @@
 use super::*;
 use question_model::{
-    AccountId, AssignmentId, CourseId, ImathasQuestionBackendBinding, QuestionGradingRule,
-    SourceObjectChecksum, SourceObjectReference, Timestamp,
+    AccountId, AssignmentId, CourseId, ImathasQuestionBackendBinding, SourceObjectChecksum,
+    SourceObjectReference, Timestamp,
 };
 
 /// Server-only pre-imathas_question_backend-launch facts for one iMathAS Question Backend Session.
@@ -10,7 +10,6 @@ pub struct ImathasQuestionBackendSessionPreparationContext {
     course: CourseId,
     assignment: AssignmentId,
     grading_context: ImathasGradingContext,
-    question_grading_rule: QuestionGradingRule,
     imathas_question_backend_binding: ImathasQuestionBackendBinding,
     source_object: SourceObjectReference,
     source_object_checksum: SourceObjectChecksum,
@@ -25,7 +24,6 @@ pub struct ImathasQuestionBackendSessionPreparationContext {
 #[derive(Clone, PartialEq)]
 pub struct ImathasQuestionBackendLaunchPreparationValidation {
     pub grading_context: ImathasGradingContext,
-    pub question_grading_rule: QuestionGradingRule,
     pub imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub source_object: SourceObjectReference,
     pub source_object_checksum: SourceObjectChecksum,
@@ -42,7 +40,6 @@ impl ImathasQuestionBackendSessionPreparationContext {
         course: CourseId,
         assignment: AssignmentId,
         grading_context: ImathasGradingContext,
-        question_grading_rule: QuestionGradingRule,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
         source_object: SourceObjectReference,
         source_object_checksum: SourceObjectChecksum,
@@ -57,13 +54,11 @@ impl ImathasQuestionBackendSessionPreparationContext {
                 "iMathAS Question Backend Session expiry must follow issue time".into(),
             ));
         }
-        validate_question_grading_rule(&question_grading_rule)?;
         Ok(Self {
             account,
             course,
             assignment,
             grading_context,
-            question_grading_rule,
             imathas_question_backend_binding,
             source_object,
             source_object_checksum,
@@ -78,7 +73,6 @@ impl ImathasQuestionBackendSessionPreparationContext {
     pub fn preparation_validation(&self) -> ImathasQuestionBackendLaunchPreparationValidation {
         ImathasQuestionBackendLaunchPreparationValidation {
             grading_context: self.grading_context.clone(),
-            question_grading_rule: self.question_grading_rule.clone(),
             imathas_question_backend_binding: self.imathas_question_backend_binding.clone(),
             source_object: self.source_object.clone(),
             source_object_checksum: self.source_object_checksum.clone(),
@@ -99,7 +93,6 @@ impl ImathasQuestionBackendSessionPreparationContext {
             self.course,
             self.assignment,
             self.grading_context,
-            self.question_grading_rule,
             self.imathas_question_backend_binding,
             self.source_object,
             self.source_object_checksum,

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { createDefaultPleQuestionJsonSource } from "../src/features/ple_question_json_authoring/question_json_defaults.ts";
 import {
   addMultiFillBlank,
   removeMultiFillBlank,
@@ -16,17 +17,10 @@ import {
 
 function source(response) {
   return {
-    format: "pleQuestionJson",
-    version: 2,
+    ...createDefaultPleQuestionJsonSource(),
     title: "Question",
     prompt: "Prompt",
     response,
-    feedback: { correct: null, incorrect: null },
-    points: 1,
-    questionAttemptLimit: { maxAttempts: null },
-    questionAttemptTimeLimit: { kind: "unlimited" },
-    tags: [],
-    questionLicense: null,
     language: "en",
   };
 }

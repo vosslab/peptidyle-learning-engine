@@ -146,7 +146,7 @@ fn maps_the_frozen_blackboard_pool_with_defaulted_points() {
     assert_eq!(package.reports()[0].warnings().len(), 1);
     let item = package.into_mapped_items().pop().expect("mapped item");
     let parts = item.into_server_parts();
-    assert_eq!(parts.public_mapping().points, "1.0");
+    assert_eq!(parts.public_mapping().vendor_points, "1.0");
     assert_eq!(parts.server_correct_ple_choice_id(), "blue");
     assert_eq!(
         parts.normalized_qti_item_fingerprint(),

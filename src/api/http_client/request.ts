@@ -6,9 +6,7 @@ import type { CourseId } from "../../../generated/api/CourseId";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
-import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
 import type { ApiClient } from "../client";
-import { isQuestionAuthorship } from "../question_authorship";
 import type {
   AssignmentEditorDetail,
   AssignmentContentInput,
@@ -16,12 +14,8 @@ import type {
   AssignmentPoliciesInput,
   StudentFeedbackReleaseResponse,
   InstructorStudentView,
-  PublicationResult,
-  PublicationRequest,
-  PublicationValidationResponse,
   PrefetchedNextQuestion,
   QuestionSubmissionAcknowledgement,
-  WorkspaceDraftDetail,
 } from "../contracts";
 import {
   decodeAssignmentContentInput,
@@ -34,13 +28,8 @@ import {
   decodeCourseCreateInput,
   decodeCourseSummary,
   decodeCourseTermValidationFailure,
-  decodeDraftQuestionContent,
   decodeStudentFeedbackReleaseResponse,
   decodePrefetchedNextQuestion,
-  decodeQuestionPublicationValidationUnavailable,
-  decodePublicationResult,
-  decodePublicationValidationFailure,
-  decodePublicationValidationReport,
   decodeStudentResponseFormatCheck,
   decodeStudentResponse,
   decodeQuestionSubmissionAcknowledgement,
@@ -58,8 +47,6 @@ import {
   AssignmentPoliciesValidationError,
   CourseGradeSchemeConflictError,
   CourseTermValidationError,
-  PublicationValidationError,
-  WorkspaceConflictError,
 } from "./error";
 import {
   MAX_RESPONSE_CHARACTERS,
@@ -177,9 +164,6 @@ async function requestCourseCreate(
   return decodeCourseSummary(await boundedResponseJson(response, path), "response");
 }
 
-function workspacePath(workspace: WorkspaceId): string {
-  return `/api/workspaces/${encodedId(workspace)}`;
-}
 function validRevision(value: string): boolean {
   return /^"[1-9][0-9]*"$/u.test(value) && BigInt(value.slice(1, -1)) <= 9_223_372_036_854_775_807n;
 }
@@ -189,12 +173,6 @@ function assignmentEditPrecondition(assignmentEditEtag: string): string {
   if (!validRevision(assignmentEditEtag))
     throw new ApiProtocolError("assignment edit number must be one positive strong numeric ETag");
   return assignmentEditEtag.slice(1, -1);
-}
-function workspaceRevision(response: Response, path: string): string {
-  const value = response.headers.get("etag");
-  if (value === null || !/^"[0-9]+"$/u.test(value))
-    throw new ApiProtocolError(`API response ${path} must include one strong numeric ETag`);
-  return value;
 }
 function assignmentPath(courseId: CourseId, assignmentId?: AssignmentId): string {
   const course = encodedId(courseId);
@@ -227,37 +205,6 @@ function verifyQuestionSubmissionAcknowledgement(
   if (status.receipt.nextPending && status.receipt.nextIssued !== null)
     throw new ApiProtocolError("Submission receipt cannot issue and defer the same successor");
   return status;
-}
-
-async function workspaceDraft(
-  fetchImplementation: ApiFetch,
-  basePath: string,
-  path: string,
-  options: RequestOptions = {},
-): Promise<WorkspaceDraftDetail> {
-  const headers: Record<string, string> = { accept: "application/json", ...options.headers };
-  const body = options.body === undefined ? undefined : JSON.stringify(options.body);
-  if (body !== undefined) headers["content-type"] = "application/json";
-  const response = await fetchImplementation(requestPath(basePath, path), {
-    method: options.method ?? "GET",
-    headers,
-    body,
-    credentials: "same-origin",
-    cache: "no-store",
-  });
-  if (response.status === 409 || response.status === 428)
-    throw new WorkspaceConflictError(response.status, path);
-  if (!response.ok) throw new ApiRequestError(response.status, path);
-  responseContentType(response, path);
-  const text = await response.text();
-  if (text.length === 0 || text.length > MAX_RESPONSE_CHARACTERS)
-    throw new ApiProtocolError(
-      `API response ${path} must contain 1 to ${MAX_RESPONSE_CHARACTERS} JSON characters`,
-    );
-  return {
-    draft: decodeDraftQuestionContent(decodeJson(text, path), "response"),
-    revision: workspaceRevision(response, path),
-  };
 }
 
 export async function requestAssignmentEditor(
@@ -367,10 +314,6 @@ export function createRequestClient(
   basePath: string,
 ): Pick<
   ApiClient,
-  | "saveWorkspaceDraft"
-  | "deleteWorkspaceDraft"
-  | "validateWorkspacePublication"
-  | "publishWorkspace"
   | "saveCourseGradeScheme"
   | "createCourseGradeExport"
   | "createCourse"
@@ -450,98 +393,6 @@ export function createRequestClient(
       if (csv.size > 4 * 1_024 * 1_024)
         throw new ApiProtocolError(`API response ${path} exceeds the course export limit`);
       return { exportId, filename, csv };
-    },
-    saveWorkspaceDraft: (
-      workspace,
-      draft,
-      revision,
-    ): ReturnType<ApiClient["saveWorkspaceDraft"]> => {
-      if (draft.workspace !== workspace)
-        return Promise.reject(
-          new ApiProtocolError("workspace save path does not match draft body"),
-        );
-      if (revision !== undefined && !/^"[0-9]+"$/u.test(revision))
-        return Promise.reject(
-          new ApiProtocolError("workspace revision must be one strong numeric ETag"),
-        );
-      return workspaceDraft(fetchImplementation, basePath, workspacePath(workspace), {
-        method: "PUT",
-        body: draft,
-        headers: revision === undefined ? {} : { "if-match": revision },
-      });
-    },
-    deleteWorkspaceDraft: async (workspace, revision): Promise<void> => {
-      const path = workspacePath(workspace);
-      if (!/^"[0-9]+"$/u.test(revision))
-        throw new ApiProtocolError("workspace revision must be one strong numeric ETag");
-      const response = await fetchImplementation(requestPath(basePath, path), {
-        method: "DELETE",
-        headers: { accept: "application/json", "if-match": revision },
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      if (response.status === 409 || response.status === 428)
-        throw new WorkspaceConflictError(response.status, path);
-      if (!response.ok) throw new ApiRequestError(response.status, path);
-      if (response.status !== 204) throw new ApiProtocolError(`API response ${path} must be 204`);
-    },
-    validateWorkspacePublication: async (workspace): Promise<PublicationValidationResponse> => {
-      const path = `${workspacePath(workspace)}/publication-validation`;
-      const response = await fetchImplementation(requestPath(basePath, path), {
-        method: "POST",
-        headers: { accept: "application/json" },
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      responseContentType(response, path);
-      const text = await response.text();
-      if (text.length === 0 || text.length > MAX_RESPONSE_CHARACTERS)
-        throw new ApiProtocolError(`API response ${path} must contain a bounded JSON body`);
-      const value = decodeJson(text, path);
-      if (response.status === 422)
-        return decodeQuestionPublicationValidationUnavailable(value, "response");
-      if (!response.ok) throw new ApiRequestError(response.status, path);
-      const report = decodePublicationValidationReport(value, "response");
-      return {
-        kind: "capabilityReport",
-        revision: workspaceRevision(response, path),
-        violations: report.violations,
-      };
-    },
-    publishWorkspace: async (
-      workspace,
-      request: PublicationRequest,
-      revision: string,
-    ): Promise<PublicationResult> => {
-      if (!isQuestionAuthorship(request.authorship))
-        throw new ApiProtocolError("publication requires one to sixteen reviewed Question Authors");
-      if (!validRevision(revision))
-        throw new ApiProtocolError("publication revision must be one positive strong numeric ETag");
-      const path = `/api/questions/${encodedId(workspace)}/publish`;
-      const response = await fetchImplementation(requestPath(basePath, path), {
-        method: "POST",
-        headers: {
-          accept: "application/json",
-          "content-type": "application/json",
-          "if-match": revision,
-        },
-        body: JSON.stringify(request),
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      responseContentType(response, path);
-      const text = await response.text();
-      if (text.length === 0 || text.length > MAX_RESPONSE_CHARACTERS)
-        throw new ApiProtocolError(`API response ${path} must contain a bounded JSON body`);
-      const value = decodeJson(text, path);
-      if (response.status === 409 || response.status === 428)
-        throw new WorkspaceConflictError(response.status, path);
-      if (response.status === 422) {
-        const failure = decodePublicationValidationFailure(value, "response");
-        throw new PublicationValidationError(path, failure.message, failure.violations);
-      }
-      if (!response.ok) throw new ApiRequestError(response.status, path);
-      return decodePublicationResult(value, "response");
     },
     createCourse: (input): Promise<CourseSummary> =>
       requestCourseCreate(fetchImplementation, basePath, decodeCourseCreateInput(input, "request")),

@@ -114,7 +114,7 @@ current acceptance status remains in
   documents copying questions and downloading/uploading packages. PLE's
   [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md#current-adapter-posture) records the supported
   bounded static-import path.
-- Notes: native H5P remains ungraded practice in PLE because browser-evaluated answers do not satisfy
+- Notes: current H5P Package content remains ungraded practice in PLE because browser-evaluated answers do not satisfy
   PLE's server-owned grading boundary.
 
 ### QTI Package Maker
@@ -125,7 +125,7 @@ current acceptance status remains in
   Upload text into Canvas, Blackboard, HTML self-test, and other teaching formats.
 - Evidence: the project's official README documents its conversion workflow, while
   [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) records the reviewed item semantics used by
-  PLE Question JSON schema version 2.
+  PLE Question JSON version 3.
 - Notes: QTI Package Maker is an interoperability and interaction oracle, not a PLE runtime
   dependency or a Rust porting target.
 

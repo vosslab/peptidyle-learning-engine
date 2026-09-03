@@ -7,7 +7,6 @@ import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeQuestionPage,
-  decodeDraftQuestionContent,
   decodeQuestionSubmissionAcknowledgement,
   decodeIssuedQuestionPresentation,
   decodeAssignmentAttempt,
@@ -19,24 +18,6 @@ import {
   issuedQuestionWireFixture,
   jsonResponse,
 } from "./http_client_test_support.mjs";
-
-test("question decoders reject answer-bearing and iMathAS-secret fields", () => {
-  const draft = publishedQuestionFixture.draft;
-  assert.throws(() => decodeDraftQuestionContent({ ...draft, answer: "secret" }), DecodeError);
-  assert.throws(
-    () =>
-      decodeDraftQuestionContent({
-        ...draft,
-        questionBackend: "imathas",
-        draftImathasQuestionBackendBinding: {
-          deploymentReference: "self-hosted",
-          itemReference: "42",
-          backendSecret: "secret",
-        },
-      }),
-    DecodeError,
-  );
-});
 
 test("an issued iMathAS Question Backend Question Presentation accepts only its public marker", () => {
   const presentation = {
@@ -183,7 +164,6 @@ test("Student Question Attempt decoding accepts every generated issued capabilit
     "questionPresentation",
     "pleQuestionJsonPresentation",
     "webworkPresentation",
-    "qtiPresentation",
     "notApplicable",
   ]) {
     assert.equal(
@@ -207,7 +187,11 @@ test("prefetch rejects a descriptor with a mismatched issued identity", async ()
   const predecessor = publishedQuestionFixture.attempts[0];
   assert.ok(predecessor);
   const questionPresentation = {
-    ...issuedQuestionWireFixture(predecessor, publishedQuestionFixture.publishedQuestionRevision),
+    ...issuedQuestionWireFixture(
+      predecessor,
+      publishedQuestionFixture.publishedQuestion,
+      publishedQuestionFixture.issuedQuestions[0].reference,
+    ),
     questionRevision: {
       questionId: "BCDEFGH",
       revisionNumber: "99",
@@ -243,7 +227,8 @@ test("prefetch preserves safe Question Pool selection for the cache-hit successo
   assert.ok(predecessor);
   const questionPresentation = issuedQuestionWireFixture(
     predecessor,
-    publishedQuestionFixture.publishedQuestionRevision,
+    publishedQuestionFixture.publishedQuestion,
+    publishedQuestionFixture.issuedQuestions[0].reference,
   );
   const client = createHttpApiClient({
     fetch: async () =>

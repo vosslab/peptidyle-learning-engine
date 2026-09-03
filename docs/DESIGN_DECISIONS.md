@@ -40,21 +40,25 @@ boundaries. This index gives those entries their product and architectural ratio
 
 ## Learning and content
 
-### Question Source Registration binds source evidence
+### Draft and published source bindings are separate
 
-**Decision.** The private relation which binds one complete opaque format-specific Question Source,
-its exact Question Backend and Question Format routing, and bounded metadata to a Draft Question or
-Question Revision is Question Source Registration. It has no surrogate UUID. Its registrar,
-publication-event completeness predicate, LDA input, and Store use that name.
+**Decision.** Draft Question Source Binding and Question Revision Source Binding are
+separate relationships and separate persistence boundaries. Each binds one complete opaque
+format-specific Question Source to its exact owner together with Question Backend, Question Format,
+Source Object Reference, Source Object Checksum, and any exact backend-specific location. Neither
+binding has a surrogate UUID.
 
-**Why.** Question Source denotes the complete immutable authored or imported source. The binding
-records ownership and exact routing, so it is not the source or its identity.
+**Why.** Drafts are high-churn sandbox content with expiration, while Published Question Revisions
+are durable shared content. One mixed table would make published source resolution carry nullable
+draft ownership, draft update behavior, and cleanup concerns. Qualified bindings preserve the
+real owner and lifecycle boundary.
 
-**Consequence.** The current schema supports both direct Draft Question and immutable Question
-Revision ownership, the Draft Question registrar, and a publication-event completeness predicate.
-A future authorized publication operation atomically creates the complete Question Revision-owned
-Question Source Registration and aggregate; it remains unmounted. Existing RLS, grants, retry
-semantics, and typed addresses apply to the registered source relationship.
+**Consequence.** Draft saves replace only the Draft Question Source Binding. A future
+authorized publication operation creates a new immutable source object and complete Question
+Revision Source Binding in the publication transaction. Published reads use only the latter.
+The current mixed `ple_private.question_source_registration` table requires a direct pre-production
+split; its one-owner nullable columns are implementation evidence rather than the target model.
+Existing RLS, grants, retry semantics, and typed addresses apply to each exact relationship.
 
 **Owner.** `docs/TERMINOLOGY_CONTRACT.md` and the active fresh-schema migrations.
 
@@ -87,8 +91,17 @@ schema, generated contract, route, test, detector, or migration allocation.
 ### Question agnosticism
 
 **Decision.** PLE is a learning engine, not a question-authoring language or a single renderer.
-PLE Question JSON Questions, WeBWorK, bounded QTI import/runtime, and iMathAS Question Backend operations sit
-behind typed server-side adapters.
+PLE Question JSON, WeBWorK PG, iMathAS, H5P Packages, and future registered Question technologies
+retain their distinct Question Source and Question Backend boundaries behind typed server-side
+adapters. QTI import/export/archive is the flat-question interchange pathway. A supported QTI
+import becomes PLE Question JSON before it enters the Draft Question and publication lifecycle.
+Draft Question remains the shared mutable authoring lifecycle for every supported Question Type,
+Question Format, and Question Backend. Its identity and lifecycle are independent of PLE Question
+JSON. Authoring, validation, preview, testing, publication, Assignment selection, issuance,
+presentation, submission, evaluation, and feedback release use the same PLE contracts for every
+Question Backend. Each shared operation resolves the registered backend and delegates its
+format-specific work. Publication freezes the selected format-specific Question Source into the new
+immutable Question Revision.
 
 **Why.** Biology, genetics, and biochemistry need both reusable static questions and generated
 questions without making a vendor format or a browser Question Response Control the platform's core model.
@@ -183,16 +196,38 @@ evidence.
 Draft Question UUID is server-only; its opaque Draft Question Reference supports authorized
 Instructor navigation. Each accepted save updates that same Draft Question and advances its positive
 Draft Question Edit Number, which is the concurrency token. Its complete opaque format-specific
-Question Source and current Question Source Registration belong to that Draft Question; the
-registration has no surrogate UUID.
+Question Source and current Draft Question Source Binding belong to that Draft Question; the
+binding has no surrogate UUID.
 Future authorized atomic publication validates one exact Edit Number, then mints an immutable
 Question Revision in the installation-wide Question Library under a stable QuestionId. The
 Question Revision Reference is
 `{ QuestionId, positive Question Revision Number }` and is also the storage identity.
 
+Draft Questions are isolated sandbox authoring content. They may be incomplete,
+invalid, experimental, duplicated, or abandoned. Draft rows, editable metadata,
+and Draft Question Source Object References remain in private Authoring Workspace
+storage and are absent from Published Question tables and indexes. Draft Question
+Metadata and Published Question Metadata use parallel tables with shared field
+validation where the facts correspond, while their owner keys, mutability, RLS,
+indexes, and retention remain separate. Publication validates the exact Draft
+Question Edit Number, copies the accepted values into the Published Question
+Metadata table, writes the complete source to a new immutable Question
+Revision-owned object path, and stores a new Source Object Reference and
+Source Object Checksum for that published object. Mutable Published Question
+metadata such as Question Title and Question Description belongs to the stable
+Question lineage and may change without creating a Question Revision. Immutable
+Question Revision language applies to its source and exact historical evidence,
+not to every Published Question metadata field. The Question Revision has no
+identity, storage, or lifecycle dependency on the Draft Question or its object path.
+
+Draft Question cleanup uses the last accepted edit time and a configured expiration
+policy. Publishing a Question does not make retention of its source Draft Question
+necessary; cleanup may remove the draft rows, draft metadata, and draft source object
+after any configured recovery period while the Published Question remains complete.
+
 This supersedes retained Draft Question Revision, Draft Question Revision Number, Draft Question
 Revision UUID, and Draft Question Revision Reference concepts. It also supersedes Draft Question
-Revision ownership for Question Source Registration. The Authoring Workspace remains owned by its
+Revision ownership for Draft Question Source Binding. The Authoring Workspace remains owned by its
 Instructor and shared only through an explicit workspace relationship. The browser receives only the
 opaque Draft Question Reference and the Draft Question Edit Number. The Question stewardship decision
 below classifies whether a later publication creates another version in that lineage or a fork with a
@@ -621,7 +656,7 @@ Course Roster Import matching. Course-scoped authorization, Student ownership, a
 disclosure through separate Student Records and Student Course Memberships. Passkeys are optional
 convenience credentials for that Account.
 
-**Consequence.** The planned, unmounted The planned Course Roster Import transaction will use each
+**Consequence.** The planned Course Roster Import transaction will use each
 institutional email to resolve an existing Student Account or create one when none exists, then
 complete its Store, route, invitation, and Course Enrollment transaction atomically. Current
 authentication ceremonies authenticate existing Accounts only. An authorized pre-activity Assignment read returns
@@ -852,11 +887,15 @@ renderer output do not cross the PLE browser boundary.
 **Planned closure.** Broader WeBWorK Question compatibility and any unreviewed matching source require their
 own accepted Question Presentation and live evidence; they are not inferred from the Chapter 1 profile.
 
-### H5P Package Import is not a Question Backend
+### H5P Package Import retains its minimal QSOM1 adaptation
 
 **Decision.** H5P is the `h5p` Question Format and bounded H5P Package Import path.
 **Why.** Its immutable archive, checksum, content type, and import fingerprint retain archival evidence for an unpublished, key-free, ungraded practice payload; it has no server validation, issue, reproduction, or automated-grading lifecycle.
-**Consequence.** H5P cannot enter Question Backend, backend-specific location fields, Question Source, Question Library, or Assignment records; its importer retains hostile-input archive validation, immutable archive resolution, checksum verification, and unsupported-feature refusal; graded Questions use an approved Question Backend.
+**Consequence.** H5P retains its exact format-specific archive/source boundary with only the minimal
+QSOM1 adaptation. It creates no generic PLE source fields, generic Assignment attempt/time controls, or
+generic grading-rule facts. Its importer retains hostile-input archive validation, immutable archive
+resolution, checksum verification, and unsupported-feature refusal; graded Questions use an approved
+Question Backend.
 **Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md#question-format-and-question-type), [INPUT_FORMATS.md](INPUT_FORMATS.md), and `crates/adapters/h5p/src/import.rs`.
 
 ### Tests prove behavior at the right layer
@@ -917,14 +956,17 @@ Separating content from policy prevents unrelated fields from competing on one p
 
 ### Product navigation exposes Questions through one library surface
 
-**Decision.** The Product Ribbon has four ordered slots: Courses, Question Library, Blueprint
-Courses, and Account. Question Library contains All Questions, My Questions, My Question Drafts,
-Starred, and Watched as its five Ribbon Tasks. The first three are library views; Starred and
-Watched are exact Account relationships to Questions.
+**Decision.** The Instructor Product Ribbon has three ordered slots: Courses, Question Library,
+and Blueprint Courses. Account and Profile are Ribbon Context Controls. The Question Library
+interface area links to All Questions, My Questions, My Question Drafts, Starred, and Watched.
+All Questions and My Questions are Published Question Library Views; My Question Drafts navigates
+to the separate private Authoring Workspace Store. Starred and Watched are exact Account
+relationships to Published Questions.
 
 **Why.** The Product Ribbon stays organized by primary object type. Ownership, publication state,
-endorsement, and notification subscription remain distinct views of Questions instead of becoming
-competing top-level repositories.
+endorsement, and notification subscription remain distinct destinations instead of becoming
+competing top-level repositories. Interface adjacency does not merge private Draft Questions into
+the Question Library.
 
 **Consequence.** Question Folders, Question Tags, Saved Question Searches, and search facets
 organize or find Questions within those views. Star means visible endorsement, and Watch
@@ -995,7 +1037,7 @@ values. `ActiveStudentCourseMembershipGrantReason` continues to describe actual
 selected-membership surfaces. The hypothetical branch retains its private
 admission evaluator and policy decision. The output has no person locator or
 authority token. The declared Assignment Delivery Preview route, Store, schema,
-PostgreSQL persistence, fixture, and feature remain unmounted.
+PostgreSQL persistence, fixture, and browser feature do not exist yet.
 
 **Owner.** `crates/question_model/src/preview_plane.rs` owns the public output;
 `crates/domain/src/preview_plane.rs` owns branch evaluation; and
@@ -1032,7 +1074,7 @@ mismatched Job Kind Registrations, expired leases, and client-supplied scope val
 ### Assignment Export enters only as a complete typed service
 
 **Decision.** PLE has no current Assignment Export service. The Assignment Export stub removal establishes
-that baseline by removing unmounted export tables, export-only Job target members, and present-tense
+that baseline by removing unused export tables, export-only Job target members, and present-tense
 service claims. The package includes the former route/Store/worker/delivery claims in `SECURITY_MODEL`,
 identity claims in `IDENTITY_CONTRACTS`, authorization and retention claims in
 `DATABASE_AUTHORIZATION`, worker/storage/classification/audit claims in `MULTI_SERVER_SETUP`,
@@ -1091,7 +1133,7 @@ toy or forcing the full release Question Library into every walkthrough.
 **Decision.** Question Model owns the typed `ImathasQuestionBackendBinding`: iMathAS Deployment Reference, iMathAS Item Reference, and the pinned `imathas_remote_grading_v1` profile.
 LDA owns the sole server-only iMathAS Question Backend Session, persists that exact binding, and owns its typed Session Reference, preparation/restore/lease/iMathAS Result Exchange Store boundary, and XChaCha20-Poly1305 backend-state protection with rotation.
 The iMathAS adapter owns iMathAS Launch Reference, iMathAS Launch State protocol bytes, iMathAS Render Cache Entry, and iMathAS Launch/Result HMAC and protocol verification. LDA mints the Session's OS-CSPRNG 256-bit Challenge, which iMathAS carries only as signed `ple_launch_challenge`.
-`ImathasGradingContext` remains exactly its redacted non-Serde `{ QuestionAttemptId, QuestionRevisionReference, QuestionSeed }` triple, expires with its Session, and preserves `authentication_payload_v1`; the separate required `QuestionGradingRule` is an issue-time Session fact.
+`ImathasGradingContext` remains exactly its redacted non-Serde `{ QuestionAttemptId, QuestionRevisionReference, QuestionSeed }` triple, expires with its Session, and preserves `authentication_payload_v1`. The Session stores authentication and Result lifecycle facts and binds QuestionAttemptId; the atomic worker commit locks the selected IssuedQuestion, resolves its point_value and scoring_rule, and combines those Assignment facts with backend QuestionEvaluation to write the Assignment-owned GradingResult.
 The iMathAS Result Token and checksum are LDA evidence after server-to-server verification; raw bytes never persist or enter browser/generated/log/Debug output.
 
 **Why.** One owner lets `2026090102` enforce exact restore, RLS, forward iMathAS Session/Result Exchange transitions, and four-axis context mismatch refusal without a parallel adapter or browser identity boundary. The browser launch shell accepts only validated `{ launchUrl }`; its LDA-backed Rust route, cookie/env backend composition, and live-backend acceptance remain separate work.
@@ -1106,9 +1148,27 @@ The iMathAS Result Token and checksum are LDA evidence after server-to-server ve
 
 ### PLE Question JSON is the static-Question authority
 
-**Decision.** Versioned PLE Question JSON is canonical for MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. YAML may compile once into that contract; QTI is an import, export, and archival adapter rather than internal authority.
+**Decision.** PLE Question JSON version 3 is the sole PLE Question JSON reader and is canonical for
+MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. Its source excludes points, Question Attempt
+Limit, and Question Attempt Time Limit; the exact Assignment Entry owns those facts. YAML may compile
+once into that contract. QTI is an import, export, and archival pathway rather than a stored runtime
+Question Format or Question Backend. An accepted Workspace Import validates and maps each supported QTI
+item into one complete PLE Question JSON Draft Question.
+When that Draft Question is published, its Question Revision owns the mapped PLE Question JSON as
+its immutable Question Source and the PLE Question Backend presents and evaluates it. Published
+Questions backed by WeBWorK, iMathAS, H5P, or another registered technology retain their own
+complete Question Source and Question Backend boundary. The QTI-to-PLE Question JSON mapping
+applies specifically to supported flat QTI imports.
 
-**Why.** One deterministic cross-language contract avoids competing source models. Adapter formats can preserve interchange without dictating the engine's internal representation.
+The original QTI package, QTI Profile, QTI Package Item Reference, mappings, warnings, checksums, and
+vendor points remain Workspace Import evidence. QTI export may be generated from PLE Question JSON
+where the supported mapping preserves its meaning. A future explicitly authored PLE Question JSON
+Accessibility Alternative may serve a Question whose primary source uses WeBWorK, iMathAS, H5P, or
+another registered technology. It uses the shared backend-agnostic Question operations and remains
+separate future implementation and authoring work.
+
+**Why.** One deterministic cross-language contract avoids competing source models. QTI preserves
+interchange and import evidence without dictating runtime storage, presentation, or grading.
 
 ### Native interactions adapt the QTI self-test model
 
@@ -1118,7 +1178,7 @@ The iMathAS Result Token and checksum are LDA evidence after server-to-server ve
 
 ### Binary question assets use object storage
 
-**Decision.** Images and other binary references keep bytes, checksums, media types, lifecycle, and authorization in typed PLE object storage rather than JSON or database rows. Optional correct and incorrect feedback remain shared sidecars and do not determine validity.
+**Decision.** Images and other binary references keep bytes, checksums, media types, lifecycle, and authorization in typed PLE object storage rather than JSON or database rows. Optional feedback remains part of the complete format-specific Question Source; its Question Backend may derive Question Feedback for an authorized release.
 
 **Why.** Typed storage preserves authorization and lifecycle boundaries while keeping the canonical question contract compact even when author feedback is incomplete.
 

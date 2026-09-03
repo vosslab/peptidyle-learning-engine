@@ -5,10 +5,10 @@ use std::fmt;
 
 use super::markup::MarkupLimits;
 use super::{
-    QtiImportResultChecksumInput, QtiMappedItem, QtiMappedPoints, QtiProfileDetection,
-    QtiProfileDetectionEvidence, QtiProfileDiagnosticCode, QtiProfileId, QtiProfileItemEvidence,
-    QtiPublicChoiceChecksumInput, QtiSafeDiagnostic, QtiSafeDiagnosticLocation,
-    QtiSafeDiagnosticTemplate, QtiSafeItemReport, map_qti_choice_ids,
+    QtiImportResultChecksumInput, QtiMappedItem, QtiProfileDetection, QtiProfileDetectionEvidence,
+    QtiProfileDiagnosticCode, QtiProfileId, QtiProfileItemEvidence, QtiPublicChoiceChecksumInput,
+    QtiSafeDiagnostic, QtiSafeDiagnosticLocation, QtiSafeDiagnosticTemplate, QtiSafeItemReport,
+    QtiVendorPointsEvidence, map_qti_choice_ids,
 };
 use crate::archive::read_bounded_archive;
 use crate::model::QtiImportLimits;
@@ -347,7 +347,7 @@ fn parse_item(
         title.to_string(),
         prompt,
         choices,
-        QtiMappedPoints::BlackboardDefaulted,
+        QtiVendorPointsEvidence::BlackboardDefaulted,
         map,
         correct,
     )

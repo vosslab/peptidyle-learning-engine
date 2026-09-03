@@ -383,7 +383,7 @@ fn asset_collector_includes_images_in_choice_bodies() {
     assert_eq!(question.prompt.len(), 1, "image is not in the prompt");
 }
 #[test]
-fn import_handoff_keeps_archive_assets_and_grading_server_only() {
+fn import_handoff_keeps_archive_assets_and_answer_binding_server_only() {
     let imported = QtiImporter::default()
         .import(&fixture(VALID_PACKAGE))
         .expect("valid");

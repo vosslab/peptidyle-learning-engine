@@ -50,7 +50,7 @@ pub use imathas_question_backend_session::{
     MAX_IMATHAS_QUESTION_BACKEND_STATE_CIPHERTEXT_BYTES,
     MAX_IMATHAS_QUESTION_BACKEND_STATE_PLAINTEXT_BYTES, MemoryImathasQuestionBackendSessionStore,
     QuestionSubmissionGradingId, StageVerifiedImathasResult, StagedImathasResultReceipt,
-    derive_imathas_question_backend_grading_result,
+    derive_imathas_question_backend_evaluation,
 };
 #[allow(unused_imports)] // Crate-private PostgreSQL Store row-binding surface.
 pub(crate) use imathas_question_backend_session::{
@@ -58,15 +58,15 @@ pub(crate) use imathas_question_backend_session::{
     ImathasQuestionBackendSessionLeaseParts, ImathasQuestionBackendSessionRestoreParts,
     ImathasQuestionBackendSessionStorageParts, ImathasQuestionBackendSessionStorePredicate,
     ImathasQuestionBackendStateCipherStorageParts, StageVerifiedImathasResultParts,
-    automated_grading_receipt_checksum_v1, validate_question_grading_rule,
+    automated_grading_receipt_checksum_v1,
 };
 pub use object_record::{
     WorkspaceQuestionSourceObjectRecordStore, validate_workspace_question_source_object_record,
 };
 pub use pagination::{Cursor, Page, PageRequest, PageSize, PaginationError};
 pub use question_source::{
-    DraftQuestionEditNumber, DraftQuestionSourceRegistrationInput,
-    DraftQuestionSourceRegistrationStore, DraftQuestionUuid,
+    DraftQuestionEditNumber, DraftQuestionSourceBindingInput, DraftQuestionSourceBindingStore,
+    DraftQuestionUuid,
 };
 pub use session::{
     SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash,

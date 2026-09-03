@@ -2,8 +2,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::QuestionBackend;
-
 /// Maximum bytes in an opaque iMathAS deployment, item, or profile identifier.
 ///
 /// These identifiers are configuration and source-location keys, not URLs,
@@ -223,89 +221,6 @@ impl std::fmt::Display for QuestionBackendFieldsError {
 
 impl std::error::Error for QuestionBackendFieldsError {}
 
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct QuestionBackendFieldPresence {
-    pub(crate) webwork_pg_path: bool,
-    pub(crate) qti_package_item_identifier: bool,
-    pub(crate) workspace_import_id: bool,
-    pub(crate) imathas_question_backend_binding: bool,
-    pub(crate) draft_imathas_question_backend_binding: bool,
-}
-
-/// Validates the closed Question Backend field matrix shared by editable and
-/// published Question records.
-pub(crate) fn validate_question_backend_field_matrix(
-    question_backend: QuestionBackend,
-    fields: QuestionBackendFieldPresence,
-    is_draft: bool,
-) -> Result<(), QuestionBackendFieldsError> {
-    let QuestionBackendFieldPresence {
-        webwork_pg_path,
-        qti_package_item_identifier,
-        workspace_import_id,
-        imathas_question_backend_binding,
-        draft_imathas_question_backend_binding,
-    } = fields;
-
-    let no_location_fields = !webwork_pg_path
-        && !qti_package_item_identifier
-        && !workspace_import_id
-        && !imathas_question_backend_binding
-        && !draft_imathas_question_backend_binding;
-    match question_backend {
-        QuestionBackend::Ple if no_location_fields => Ok(()),
-        QuestionBackend::Ple => Err(QuestionBackendFieldsError::UnexpectedField),
-        QuestionBackend::Webwork
-            if webwork_pg_path
-                && !qti_package_item_identifier
-                && !workspace_import_id
-                && !imathas_question_backend_binding
-                && !draft_imathas_question_backend_binding =>
-        {
-            Ok(())
-        }
-        QuestionBackend::Webwork if !webwork_pg_path => {
-            Err(QuestionBackendFieldsError::MissingRequiredField)
-        }
-        QuestionBackend::Webwork => Err(QuestionBackendFieldsError::UnexpectedField),
-        QuestionBackend::Qti
-            if qti_package_item_identifier
-                && (is_draft == workspace_import_id)
-                && !webwork_pg_path
-                && !imathas_question_backend_binding
-                && !draft_imathas_question_backend_binding =>
-        {
-            Ok(())
-        }
-        QuestionBackend::Qti
-            if !qti_package_item_identifier || (is_draft && !workspace_import_id) =>
-        {
-            Err(QuestionBackendFieldsError::MissingRequiredField)
-        }
-        QuestionBackend::Qti => Err(QuestionBackendFieldsError::UnexpectedField),
-        QuestionBackend::Imathas
-            if !webwork_pg_path
-                && !qti_package_item_identifier
-                && !workspace_import_id
-                && ((is_draft
-                    && draft_imathas_question_backend_binding
-                    && !imathas_question_backend_binding)
-                    || (!is_draft
-                        && imathas_question_backend_binding
-                        && !draft_imathas_question_backend_binding)) =>
-        {
-            Ok(())
-        }
-        QuestionBackend::Imathas
-            if (is_draft && !draft_imathas_question_backend_binding)
-                || (!is_draft && !imathas_question_backend_binding) =>
-        {
-            Err(QuestionBackendFieldsError::MissingRequiredField)
-        }
-        QuestionBackend::Imathas => Err(QuestionBackendFieldsError::UnexpectedField),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -315,21 +230,6 @@ mod tests {
         assert_eq!(
             ImathasItemReference::new("item..17"),
             Err(ImathasQuestionBackendBindingError::InvalidItemReference)
-        );
-    }
-
-    #[test]
-    fn matrix_requires_qti_workspace_import_for_drafts_only() {
-        let fields = QuestionBackendFieldPresence {
-            webwork_pg_path: false,
-            qti_package_item_identifier: true,
-            workspace_import_id: false,
-            imathas_question_backend_binding: false,
-            draft_imathas_question_backend_binding: false,
-        };
-        assert_eq!(
-            validate_question_backend_field_matrix(QuestionBackend::Qti, fields, true),
-            Err(QuestionBackendFieldsError::MissingRequiredField)
         );
     }
 }

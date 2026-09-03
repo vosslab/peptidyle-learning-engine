@@ -14,11 +14,13 @@ use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use uuid::Uuid;
 
+mod grading;
 mod source_object_checksum;
 #[cfg(test)]
 #[path = "student_work/source_object_checksum_tests.rs"]
 mod source_object_checksum_tests;
 
+pub use grading::{GradingResult, QuestionEvaluation, QuestionEvaluationError};
 pub use source_object_checksum::{SourceObjectChecksum, SourceObjectChecksumError};
 
 use crate::QuestionRevisionReference;
@@ -295,21 +297,6 @@ pub enum QuestionAttemptState {
     ClosedAtDeadline,
 }
 
-/// A grading result without an answer key.
-///
-/// The server may disclose this according to the assignment feedback policy;
-/// the correct response and Question Grader code remain in `grading`.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GradingResult {
-    /// Whether the submitted response was correct.
-    pub correct: bool,
-    /// Points awarded by server-side grading.
-    pub points_earned: f64,
-    /// Maximum points available for this question.
-    pub points_possible: f64,
-}
-
 /// One immutable accepted Student Response and its current grading result.
 ///
 /// The containing Question Attempt supplies the exact issue-time reproduction details
@@ -413,11 +400,6 @@ pub enum IssuedAttemptCapability {
     /// The WeBWorK capability carries required server-only Question Grading Input and replay
     /// details.
     WebworkPresentation,
-    /// A QTI presentation and its copied per-attempt private grading payload.
-    ///
-    /// This is distinct from the generic presentation tag so loss of the
-    /// opaque contract fails closed instead of inviting a Question Library lookup.
-    QtiPresentation,
     /// iMathAS session and launch lifecycle state without a format-specific
     /// private grading contract. Student delivery remains a Question Presentation.
     NotApplicable,

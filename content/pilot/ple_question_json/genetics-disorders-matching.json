@@ -1,6 +1,6 @@
 {
   "format": "pleQuestionJson",
-  "version": 2,
+  "version": 3,
   "title": "Genetics Chapter 1: Genetic disorder matching",
   "questionDescription": "Instructor-facing discovery summary for genetic-disorder matching practice.",
   "prompt": "Match each description to the genetic disorder it best describes.",
@@ -29,11 +29,8 @@
     "correct": "Correct. Each disorder is paired with its defining chromosome, protein, or enzyme defect.",
     "incorrect": "Review the chromosome, blood, hemoglobin, and lysosomal-enzyme clues."
   },
-  "points": 4.0,
-  "questionAttemptLimit": { "maxAttempts": null },
-  "questionAttemptTimeLimit": { "kind": "unlimited" },
   "tags": ["genetics", "genetic-disorders", "chapter-1", "matching"],
-  "questionLicense": "CC-BY-4.0",
+  "questionLicense":"CC-BY-4.0",
   "questionCitation": null,
   "language": "en-US"
 }

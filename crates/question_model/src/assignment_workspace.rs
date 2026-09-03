@@ -11,9 +11,9 @@ use crate::{
     AssignmentActivityRules, AssignmentDeadlineRule, AssignmentEditNumber, AssignmentEntry,
     AssignmentEntryAvailability, AssignmentEntryScoringRule, AssignmentOverview,
     AssignmentPointValue, AssignmentQuestionVariationRule, AssignmentStatus, AssignmentTitle,
-    Capability, CourseTimeZone, InstructorAssignmentAuthoredContentLocal, LateWorkRule, QuestionId,
-    QuestionPoolItemAvailability, QuestionPoolReuseRule, QuestionPoolSelectionRule,
-    StudentFeedbackReleaseRule,
+    Capability, CourseTimeZone, InstructorAssignmentAuthoredContentLocal, LateWorkRule,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId, QuestionPoolItemAvailability,
+    QuestionPoolReuseRule, QuestionPoolSelectionRule, StudentFeedbackReleaseRule,
 };
 
 /// Browser request to create one stable Assignment.
@@ -120,6 +120,8 @@ pub enum AssignmentEntryRequest {
         points_possible: AssignmentPointValue,
         availability: AssignmentEntryAvailability,
         scoring_rule: AssignmentEntryScoringRule,
+        question_attempt_limit: QuestionAttemptLimit,
+        question_attempt_time_limit: QuestionAttemptTimeLimit,
     },
     /// A server-resolved selection from a pool of immutable questions.
     QuestionPool {
@@ -129,6 +131,8 @@ pub enum AssignmentEntryRequest {
         selection_count: u32,
         points_per_item: AssignmentPointValue,
         selection_rule: QuestionPoolSelectionRule,
+        question_attempt_limit: QuestionAttemptLimit,
+        question_attempt_time_limit: QuestionAttemptTimeLimit,
     },
 }
 
@@ -352,7 +356,7 @@ mod tests {
     #[test]
     fn content_and_policy_requests_use_closed_camel_case_contracts() {
         let content = serde_json::from_str::<ReplaceAssignmentContentRequest>(
-            r#"{"baseEditNumber":"1","title":"Protein folding","entries":[{"kind":"questionPool","questionIds":["7K3-M9QP"],"availability":"available","scoringRule":"normal","selectionCount":1,"pointsPerItem":"1","selectionRule":{"selectedQuestionOrder":"questionPoolOrder"}}]}"#,
+            r#"{"baseEditNumber":"1","title":"Protein folding","entries":[{"kind":"questionPool","questionIds":["7K3-M9QP"],"availability":"available","scoringRule":"normal","selectionCount":1,"pointsPerItem":"1","selectionRule":{"selectedQuestionOrder":"questionPoolOrder"},"questionAttemptLimit":{"maxAttempts":null},"questionAttemptTimeLimit":{"kind":"unlimited"}}]}"#,
         );
         assert!(content.is_ok());
         assert!(
