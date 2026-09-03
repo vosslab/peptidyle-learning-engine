@@ -264,7 +264,7 @@ impl std::fmt::Display for QuestionSearchRequestError {
 impl std::error::Error for QuestionSearchRequestError {}
 
 impl QuestionSearchRequest {
-    /// Returns the immutable-publication Question ID named in the text field.
+    /// Returns the stable Published Question lineage ID named in the text field.
     pub fn exact_question_id(&self) -> Option<QuestionId> {
         self.text.as_deref()?.parse::<QuestionId>().ok()
     }

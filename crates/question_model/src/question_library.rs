@@ -40,8 +40,9 @@ pub const QUESTION_ID_COMPACT_LENGTH: usize = 7;
 /// Product limit kept independent of the larger encoded namespace.
 pub const MAX_QUESTION_ID_COUNT: u64 = 100_000_000;
 
-/// One stable, non-sequential human-facing identity for an immutable published
-/// question.
+/// One stable, non-sequential human-facing identity for a Published Question
+/// lineage. [`QuestionRevisionReference`] pairs it with a positive revision
+/// number to identify one immutable Question Revision.
 ///
 /// The canonical display is `AAA-BBBB`. Parsing accepts unhyphenated and
 /// lowercase Crockford input plus the documented `O` to `0` and `I`/`L` to
@@ -146,8 +147,8 @@ impl From<QuestionId> for String {
     }
 }
 
-/// Exact immutable publication evidence used by storage, delivery, grading,
-/// replay, and audit.
+/// Exact immutable Question Revision identity used by storage, delivery,
+/// grading, replay, and audit.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionRevisionReference {

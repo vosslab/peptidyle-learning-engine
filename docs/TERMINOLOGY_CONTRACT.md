@@ -317,26 +317,25 @@ relationship for a manual-grading workflow and has no present implementation.
 ## Content and delivery relationships
 
 **Authoring Workspace** is the private authority boundary owned by one Active
-Instructor Account. It contains Draft Question lineages and Workspace Imports
+Instructor Account. It contains Draft Questions and Workspace Imports
 and may grant a Workspace Collaborator relationship. Draft Question supplies
 the authored content identity and lifecycle. My Question Drafts supplies the
 Instructor-facing View. **Authoring Workspace Owner** names the Workspace's
 owning Account relationship.
 
-**Draft Question** is one private Question lineage inside an Authoring Workspace.
-Its **Draft Question Reference** is an opaque `D-` locator for Instructor-facing
-navigation; it resolves only inside the authorized Authoring Workspace and is
-never a storage UUID. A **Draft Question Content** is editable authored content before acceptance; it
-has an Authoring Workspace relationship but no Draft Question identity. A
-**Draft Question Revision** binds accepted Draft Question Content to one exact
-**Draft Question Revision Reference**: its private persisted Draft Question UUID
-and positive Draft Question Revision Number. It is a server persistence record,
-not a browser contract. Its
-Question Source, Question Grading Rule, Answer Key, optional Question Hint,
-Question Feedback, Question Answer Explanation, and any Question Format-specific
-Question Grading Input bind to that exact revision when the role applies.
-A **Draft Question Revision Number** is the positive sequence of accepted Draft
-Question Revisions within that Draft Question lineage.
+**Draft Question** is one mutable private Question inside an Authoring Workspace.
+Its **Draft Question UUID** is the complete server-side identity of that Draft
+Question.
+Its **Draft Question Reference** is the corresponding opaque `D-` locator for
+Instructor-facing navigation inside the authorized Authoring Workspace. The
+Draft Question owns one current editable Question Source and its editable
+Question Metadata. Saving updates that same Draft Question. Its positive **Draft
+Question Edit Number** increases with each accepted save and supports
+concurrency checks for later saves and publication. The browser uses the Draft
+Question Reference for navigation and the Draft Question Edit Number for
+concurrency. The Draft Question UUID remains on the trusted server boundary.
+Use Revision for immutable Published Question history and qualified concepts
+such as Question Change Proposal Revision.
 
 **Workspace Import** is one staged, Authoring Workspace-owned import through a
 registered Question Format. It retains the source package evidence, source
@@ -345,18 +344,42 @@ committed Workspace Import creates Draft Questions for the ordinary Question
 publication workflow. Assignment composition remains a separate Instructor
 choice.
 
-**Question Source** is the exact authored or imported immutable source data
-owned by one exact Draft Question Revision or Question Revision. The owning
-revision supplies its Draft or Published lifecycle; use Question Source in both.
+**Question Source** is the complete format-specific authored Question unit. At
+the generic Question boundary it is one opaque unit, not a common set of
+database fields. It carries everything its Question Backend needs to validate,
+reproduce, present, and evaluate the Question in the representation defined by
+its Question Format. Evaluation semantics are intrinsic to the Question Source;
+the Question Backend performs the evaluation. For example, PLE Question JSON stores one complete static
+Question document, while WeBWorK PG stores one complete executable Question
+program. PLE stores and routes the complete source; the selected Question
+Backend alone interprets its internal statement, response structure, accepted
+response behavior, feedback behavior, and other format-specific meaning.
+
+A Draft Question owns one current editable Question Source. A Question Revision
+owns one complete immutable Question Source. Changing any part of the Question
+Source creates a Question Revision. The selected Question Backend derives the
+Question Variation Presentation and evaluates the Student Response from that
+source. Its Grading Result reports that evaluation. Assignment Point Value,
+Assignment Entry Scoring Rule, Question Attempt Limit, and Assignment grade
+aggregation determine how the evaluation contributes to the Assignment and
+Course Gradebook.
+
+Answer Key, Question Hint, Question Feedback, Question Answer Explanation, and
+Question Grading Input name semantic or protected roles that a Question Format
+and its Question Backend may expose or derive. They do not require matching
+generic database fields or records. When present, they remain subordinate to
+the one complete Question Source, share its Question Revision Reference, and do
+not create independent content revisions.
+
 When the source is stored as an object, **Source Object Reference** identifies the exact private stored object.
 **Source Object Checksum** is the SHA-256 integrity property that verifies its stored bytes.
 Both are reproduction evidence, while Object Delivery owns any authorized retrieval.
 
-The Draft Question Source Store binds a registered Source Object Reference and
-Source Object Checksum to one exact authorized Draft Question Revision. It
+The Draft Question Source Registration Store binds a registered Source Object Reference and
+Source Object Checksum to one exact authorized Draft Question. It
 validates the Question Backend, Question Format, and backend-specific location
 separately from the source bytes, and an identical retry returns the existing
-immutable Question Source.
+Question Source Registration.
 The Object Record exists only after the server writes its bytes and registers the exact typed owner address.
 
 **Object Address** is the server-created typed physical location for immutable
@@ -447,7 +470,6 @@ nonce, presentation-scoped Response Item References, or issuance binding. A
 Question Backend may safely cache it by immutable Question Revision and
 Question Seed.
 
-**Question Grading Rule** names how automatic grading awards points.
 **Answer Key** names the private accepted-response facts. A **Question Answer**
 is the display-ready accepted response or responses for one exact Question
 Variation. A trusted Question Backend derives it from the Answer Key and exact
@@ -598,16 +620,17 @@ durable records keep their exact names, including Question Folder, Saved
 Question Search, Question Star, Question Watch, and Question Change Proposal.
 
 **Question Metadata** is the structured, answer-free discovery and credit
-information stored with every Question Revision. Publication requires a
-Question Title, Question Description, Question Authorship, Question License,
-language, Question Tags, and a Question Citation. Question Subject, Question
-Subsubject, Question Classification, and Question Bloom Classification remain
-future packages and add no current generic field, default, facet, fixture,
-route, or browser control. Question Type, Question Format, and Question Backend
-remain exact searchable Question Revision facts rather than free-form metadata.
-Question Metadata is a bounded grouping. Each contained fact keeps its exact
-canonical name, validation, and Question Revision ownership. Question Revision
-continues to supply identity, authority, and lifecycle.
+information associated with a Published Question and its Question Revisions. It
+contains only the bounded metadata fields defined below. Question Source and
+Assignment grading policy remain separate. Question Subject, Question Subsubject,
+Question Classification, and Question Bloom Classification remain future
+packages and add no current generic field, default, facet, fixture, route, or
+browser control. Question Type, Question Format, and Question Backend remain
+exact searchable Question Revision facts rather than free-form metadata.
+Each metadata fact keeps its exact canonical name, validation, and Question
+ownership. A Question Title edit updates discovery information and does not
+create a Question Revision. Question Revision continues to supply immutable
+Question Source identity and lifecycle.
 
 **Question Title** is the short name used to identify a Question. **Question
 Description** is a concise Instructor-facing, answer-free explanation of what
@@ -736,21 +759,22 @@ to select Published Questions for an Assignment or Blueprint Course; selection
 supplies no Question ownership or editing authority.
 
 **Question Publication Requirements** are the closed conditions a Draft
-Question Revision must satisfy before publication. **Question Publication
-Validation** evaluates one exact Draft Question Revision against those
-requirements and returns its complete set of **Question Publication Issues**.
-The validation result is calculated rather than stored as a lifecycle state.
-A **Question Publication Review** is the answer-free comparison prepared from
-that exact Draft Question Revision before publication.
+Question must satisfy before publication. **Question Publication Validation**
+evaluates the Draft Question at one exact Draft Question Edit Number against
+those requirements and returns its complete set of **Question Publication
+Issues**. The validation result is calculated rather than stored as a lifecycle
+state. A **Question Publication Review** is the answer-free comparison prepared
+from that same saved Draft Question before publication.
 
 **Published Question** is a validated Question lineage in the Question Library,
-available to every Active Instructor Account. **Question Revision** is an
-immutable published state identified by the exact `(question_id,
-revision_number)` pair. Its Question Revision Number is positive and increases
-monotonically within that lineage. Instructor history surfaces use Revision and
-Compare Revisions. Draft Question Revision and Question Change Proposal
-Revision retain their qualified private meanings. Every Question Revision
-snapshots its Question Metadata and records its exact parent Question Revision,
+available to every Active Instructor Account. Its Question ID is the complete
+identity of that stable lineage. **Question Revision** is an immutable published
+state identified by its complete **Question Revision Reference**: the Question
+ID together with its positive Question Revision Number. The Question Revision
+Number increases monotonically within that lineage. Instructor history surfaces
+use Revision and Compare Revisions. Question Change Proposal Revision retains
+its qualified proposal meaning. Every Question Revision owns one complete
+immutable Question Source and records its exact parent Question Revision,
 **Question Revision Editor**, **Question Revision Accepted By**, accepted time,
 and **Question Revision Reason**. The Question Revision Editor is the Account
 credited for the submitted change. Question Revision Accepted By records the
@@ -765,6 +789,15 @@ Revision Number in that lineage. The stable Question owns this relationship;
 Published Question and Question Revision retain their existing identities and
 lifecycles. Latest Question Revision is independent of Question Revision
 Availability.
+
+Future authorized publication validates the exact Draft Question Edit Number and
+atomically creates the complete Question Revision-owned Question Source
+Registration and aggregate, including its validated Question Metadata and
+publication evidence; it remains unmounted. The Question Revision Reference owns the immutable source, its Source
+Object Reference and Source Object Checksum when object storage is used, and
+every derived or protected value needed to present and grade that source. The
+complete Question Revision remains resolvable after its Draft Question is
+purged. Draft Question retention is a separate recovery and cleanup policy.
 
 A **Question Revision Update Choice** accompanies creation of a new Question
 Revision and is either Use New Revision in My Assignments or Keep Existing

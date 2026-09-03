@@ -205,7 +205,7 @@ CREATE TABLE ple_private.imathas_result_exchange (
     )
 );
 GRANT SELECT ON TABLE ple_private.account, ple_private.assignment_attempt,
-    ple_private.question_source TO ple_api_owner;
+    ple_private.question_source_registration TO ple_api_owner;
 GRANT UPDATE ON TABLE ple_private.question_attempt TO ple_api_owner;
 GRANT INSERT ON TABLE ple_private.question_submission TO ple_api_owner;
 GRANT INSERT, UPDATE ON TABLE ple_private.question_submission_grading,
@@ -417,8 +417,8 @@ CREATE POLICY grading_result_api_owner_insert
     ON ple_private.grading_result FOR INSERT TO ple_api_owner WITH CHECK (true);
 CREATE POLICY assignment_attempt_api_owner_access
     ON ple_private.assignment_attempt FOR SELECT TO ple_api_owner USING (true);
-CREATE POLICY question_source_api_owner_access
-    ON ple_private.question_source FOR SELECT TO ple_api_owner USING (true);
+CREATE POLICY question_source_registration_api_owner_access
+    ON ple_private.question_source_registration FOR SELECT TO ple_api_owner USING (true);
 CREATE POLICY account_api_owner_access
     ON ple_private.account FOR SELECT TO ple_api_owner USING (true);
 RESET ROLE;
@@ -474,7 +474,7 @@ BEGIN
         JOIN ple_private.assignment_attempt aa ON aa.assignment_attempt_id = iq.assignment_attempt_id
         JOIN ple_data.student_record sr ON sr.student_record_id = aa.student_record_id
         JOIN ple_data.assignment a ON a.assignment_id = aa.assignment_id
-        JOIN ple_private.question_source qs ON qs.question_id = iq.question_id
+        JOIN ple_private.question_source_registration qs ON qs.question_id = iq.question_id
             AND qs.revision_number = iq.revision_number
             AND qs.source_object_id = p_source_object_id
             AND qs.source_object_checksum = pg_catalog.encode(p_source_object_checksum, 'hex')

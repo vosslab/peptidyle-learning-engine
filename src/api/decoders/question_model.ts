@@ -675,14 +675,14 @@ export function decodeQuestionPublicationReview(
 ): QuestionPublicationReview {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "draftQuestionRevisionNumber",
+    "draftQuestionEditNumber",
     "baseQuestion",
     "current",
     "changed",
   ]);
-  const draftQuestionRevisionNumber = decodePositiveInteger(
-    field(record, "draftQuestionRevisionNumber", path),
-    `${path}.draftQuestionRevisionNumber`,
+  const draftQuestionEditNumber = decodePositiveInteger(
+    field(record, "draftQuestionEditNumber", path),
+    `${path}.draftQuestionEditNumber`,
   );
   const baseQuestion = decodeStringEnum(
     field(record, "baseQuestion", path),
@@ -706,8 +706,8 @@ export function decodeQuestionPublicationReview(
     throw new DecodeError(`${path}.changed`, "unique baseline-consistent semantic fields");
   }
   return {
-    draftQuestionRevisionNumber,
-    revision: `"${draftQuestionRevisionNumber}"`,
+    draftQuestionEditNumber,
+    revision: `"${draftQuestionEditNumber}"`,
     baseQuestion,
     current,
     changed,

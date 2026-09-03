@@ -237,7 +237,7 @@ pub struct QuestionMetadata {
     pub tags: Vec<Tag>,
     /// Exact versioned legal grant under which this Question Revision may be reused.
     ///
-    /// A Draft Question Revision may leave this unset until it is ready for
+    /// A Draft Question may leave this unset until it is ready for
     /// publication; publication requires a compatible value.
     pub question_license: Option<QuestionLicense>,
     /// Optional source-publication credit distinct from Authorship and ownership.
@@ -258,12 +258,12 @@ impl QuestionMetadata {
     }
 }
 
-/// Editable Question content before it is accepted into a private persisted revision.
+/// Editable content of one mutable Draft Question.
 ///
-/// This transient value carries its owning Authoring Workspace but has no
-/// Draft Question identity. The server persistence boundary binds it to an
-/// exact Draft Question Revision; publication then mints the distinct
-/// [`QuestionId`] and [`QuestionRevisionNumber`].
+/// This value carries its owning Authoring Workspace but no browser-visible
+/// private UUID. The trusted server binds that UUID privately; browser
+/// navigation uses a [`crate::DraftQuestionReference`]. Publication mints the
+/// distinct immutable [`QuestionRevisionReference`](crate::QuestionRevisionReference).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DraftQuestionContent {

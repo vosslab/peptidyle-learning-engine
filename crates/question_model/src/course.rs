@@ -48,7 +48,7 @@ pub struct CourseSummary {
 pub struct FixedQuestionAssignmentEntrySummary {
     /// Server-minted identity for this editable assignment slot.
     pub id: AssignmentEntryId,
-    /// Sole browser-visible Question ID for the immutable published Question.
+    /// Browser-visible Question ID for the stable Published Question lineage.
     pub question_id: QuestionId,
     /// Safe Question Library label shown while editing this assignment.
     pub title: String,
@@ -70,7 +70,7 @@ pub struct FixedQuestionAssignmentEntrySummary {
 pub struct QuestionPoolItemSummary {
     /// Server-minted identity for this editable Question Pool Item.
     pub id: QuestionPoolItemId,
-    /// Sole browser-visible Question ID for the immutable published Question.
+    /// Browser-visible Question ID for the stable Published Question lineage.
     pub question_id: QuestionId,
     /// Safe Question Library label shown while editing this assignment.
     pub title: String,

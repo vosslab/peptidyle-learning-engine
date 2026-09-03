@@ -73,7 +73,7 @@ impl ResolvedImathasQuestionSource {
         })
     }
 
-    pub fn artifact(&self) -> &SourceObjectReference {
+    pub fn source_object_reference(&self) -> &SourceObjectReference {
         self.resolved.source_object_reference()
     }
 
@@ -227,7 +227,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
         }
         let record = CachedRender {
             schema: 1,
-            source: source.artifact().clone(),
+            source: source.source_object_reference().clone(),
             source_object_checksum: source.source_object_checksum().clone(),
             binding: source.binding.clone(),
             presentation: QuestionVariationPresentation {
@@ -285,7 +285,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
                     name: "imathas-profile".to_string(),
                     version: source.binding.profile().as_str().to_owned(),
                 }),
-                source_object_reference: Some(source.artifact().clone()),
+                source_object_reference: Some(source.source_object_reference().clone()),
                 source_object_checksum: Some(source.source_object_checksum().clone()),
                 asset_objects: Vec::new(),
                 grader: grader_version(GRADING_ID, GRADING_VERSION),

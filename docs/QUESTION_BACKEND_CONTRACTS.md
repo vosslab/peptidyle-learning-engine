@@ -65,7 +65,7 @@ draft for Question Revision/Question Presentation, private Answer Key, Question
 Feedback, Question Answer Explanation, and format-specific Question Grading
 Input, plus an optional private Question Hint. The Hint is bounded authored
 pre-response teaching content, not Question Feedback or grading content. Its
-Draft Question Revision/Question Revision persistence and issued-Question
+Draft Question/Question Revision persistence and issued-Question
 delivery binding remain open. The trusted server bridge
 resolves immutable published-Question Asset References before issue, replay, or grade. The browser receives prompt
 blocks, public Question Response Format, asset references, version, and seed. It returns only the PLE

@@ -125,11 +125,12 @@ BEGIN
 END
 $$;
 
--- The trusted publication coordinator binds the existing Draft Question Fork
--- Source to the new, separate Published Question lineage. It is deliberately
--- unavailable to the application role until a complete publication Store owns
--- the surrounding validation, Question Authorship, Question License,
--- source-transfer, and event work.
+-- This protected procedure records existing Draft Question Fork Source evidence
+-- on one separate Published Question lineage. A future authorized publication
+-- operation atomically creates its complete Question Revision-owned Question
+-- Source Registration, object evidence, bounded metadata as applicable, and
+-- this immutable fork evidence. Backend/Format-specific private artifacts are
+-- derived or stored only when that backend requires them.
 CREATE FUNCTION ple_private.publish_question_fork_source(
     p_draft_question_uuid uuid,
     p_forked_question_id text
@@ -216,6 +217,6 @@ SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.draft_question_fork_source IS
     'Immutable Question Fork Source from one private Draft Question to the exact source Question Revision.';
 COMMENT ON FUNCTION ple_private.publish_question_fork_source(uuid, text) IS
-    'Trusted publication-coordinator helper that binds an existing Draft Question Fork Source to its separate Published Question lineage and is a no-op for an ordinary Draft Question.';
+    'Protected persistence procedure for immutable Question Fork Source evidence from a Draft Question to one separate Published Question lineage; it is a no-op for an ordinary Draft Question.';
 
 RESET ROLE;

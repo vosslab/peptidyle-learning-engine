@@ -832,7 +832,7 @@ async fn postgres_store_rejects_context_lifecycle_and_authority_bypasses() {
         );
     }
     let api_owner_writes: bool = sqlx::query_scalar(
-        "SELECT has_table_privilege('ple_api_owner', 'ple_private.question_source', 'INSERT')",
+        "SELECT has_table_privilege('ple_api_owner', 'ple_private.question_source_registration', 'INSERT')",
     )
     .fetch_one(&oracle.admin)
     .await

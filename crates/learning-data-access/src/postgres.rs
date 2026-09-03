@@ -32,7 +32,7 @@ pub use migrations::{
 #[cfg(feature = "postgres")]
 pub use object_record::PostgresWorkspaceQuestionSourceObjectRecordStore;
 #[cfg(feature = "postgres")]
-pub use question_source::PostgresDraftQuestionSourceStore;
+pub use question_source::PostgresDraftQuestionSourceRegistrationStore;
 #[cfg(feature = "postgres")]
 pub use sessions::PostgresSessionStore;
 

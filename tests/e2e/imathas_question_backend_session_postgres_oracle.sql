@@ -19,16 +19,15 @@ INSERT INTO ple_private.object_record (
     'private-content', 'question-source', decode(repeat('aa', 32), 'hex'),
     17, 'application/json', pg_catalog.clock_timestamp()
 );
-INSERT INTO ple_private.question_source (
-    question_source_uuid, question_id, revision_number, backend, question_format,
-    question_type, webwork_pg_path, qti_package_item_identifier,
+INSERT INTO ple_private.question_source_registration (
+    question_id, revision_number, backend, question_format,
+    webwork_pg_path, qti_package_item_identifier,
     imathas_deployment_reference, imathas_item_reference, imathas_profile,
-    source_object_id, source_object_checksum,
-    public_content_checksum, created_at, updated_at
+    source_object_id, source_object_checksum, created_at, updated_at
 ) VALUES (
-    '00000000-0000-0000-0000-00000000f201', 'ABC-DEF0', 1, 'ple',
-    'pleQuestionJson', 'multipleChoice', NULL, NULL, NULL, NULL, NULL,
-    '00000000-0000-0000-0000-00000000f202', repeat('aa', 32), repeat('cc', 32),
+    'ABC-DEF0', 1, 'ple',
+    'pleQuestionJson', NULL, NULL, NULL, NULL, NULL,
+    '00000000-0000-0000-0000-00000000f202', repeat('aa', 32),
     pg_catalog.clock_timestamp(), pg_catalog.clock_timestamp()
 );
 INSERT INTO ple_private.question_attempt (
@@ -178,7 +177,7 @@ SELECT
           AND NOT issued_question.statistics_eligible
     ) AS has_ineligible_question_attempt,
     EXISTS (SELECT 1 FROM ple_private.issued_question WHERE issued_question_id = '00000000-0000-5000-8000-000000000115') AS has_issued_question,
-    EXISTS (SELECT 1 FROM ple_private.question_source WHERE question_id = 'ABC-DEF0' AND revision_number = 1 AND source_object_id = '00000000-0000-0000-0000-00000000f202') AS has_question_source,
+    EXISTS (SELECT 1 FROM ple_private.question_source_registration WHERE question_id = 'ABC-DEF0' AND revision_number = 1 AND source_object_id = '00000000-0000-0000-0000-00000000f202') AS has_question_source_registration,
     ple_api.current_session_account_owns_student_record('00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000106') AS owns_student_record;
 DO $$
 BEGIN
@@ -193,11 +192,11 @@ BEGIN
           ON student.student_record_id = assignment_attempt.student_record_id
         JOIN ple_data.assignment AS assignment
           ON assignment.assignment_id = assignment_attempt.assignment_id
-        JOIN ple_private.question_source AS question_source
-          ON question_source.question_id = issued_question.question_id
-         AND question_source.revision_number = issued_question.revision_number
-         AND question_source.source_object_id = '00000000-0000-0000-0000-00000000f202'
-         AND question_source.source_object_checksum = repeat('aa', 32)
+        JOIN ple_private.question_source_registration AS question_source_registration
+          ON question_source_registration.question_id = issued_question.question_id
+         AND question_source_registration.revision_number = issued_question.revision_number
+         AND question_source_registration.source_object_id = '00000000-0000-0000-0000-00000000f202'
+         AND question_source_registration.source_object_checksum = repeat('aa', 32)
         WHERE question_attempt.question_attempt_id = '00000000-0000-0000-0000-00000000f205'
           AND student.student_account_id = '00000000-0000-0000-0000-000000000101'
           AND student.course_id = '00000000-0000-0000-0000-000000000105'

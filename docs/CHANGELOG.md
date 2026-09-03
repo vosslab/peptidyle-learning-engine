@@ -4,6 +4,34 @@
 
 ### Decisions and Failures
 
+- **Accepted `WP-SD1-A-DQM1` (mutable Draft Question cut).** One
+  mutable Draft Question belongs to one Authoring Workspace, with a server-private Draft Question
+  UUID and positive Draft Question Edit Number concurrency token. The active fresh schema, LDA
+  boundary, and PostgreSQL oracle directly bind current Question Source Registration to that Draft
+  Question and reject retained draft-revision ownership. Publication is still unmounted: its future
+  operation must validate an exact Edit Number and create an immutable Question Revision identified
+  by `QuestionRevisionReference { question_id, revision_number }`. Draft retention remains a
+  separate policy decision. Independent schema/LDA and documentation/contracts reviews pass; the
+  shared terminal gate below validates the final tree.
+
+- **Accepted `WP-SD1-A-TERM-01-QSRC2` (Question Source Registration cut).** Question Source
+  Registration binds immutable Question Source evidence, exact Question Backend/Format routing,
+  and bounded metadata to either the current Draft Question or an immutable Question Revision. It
+  has no surrogate UUID. Draft ownership is `draft_question_uuid` with a
+  positive expected Draft Question Edit Number; published ownership is `(question_id,
+revision_number)`; XOR and unique-owner constraints remain. The registrar returns void, accepts
+  identical facts idempotently, and rejects stale, changed, or unauthorized facts. A future
+  authorized publication operation atomically creates the complete Question Revision-owned Question
+  Source Registration and aggregate; it remains unmounted. Generic Answer Key, Feedback, Hint,
+  Explanation, and Grading Input
+  records are not universal requirements. Focused Rust, PostgreSQL fresh/no-op/catalog/restricted
+  acceptance, contextual residual, formatting, and hygiene evidence pass. Independent schema/LDA
+  and documentation/contracts reviews pass. The manager terminal `source source_me.sh &&
+./all_test.sh` passes Rust/generated/browser/documentation gates, 4,912 pytest checks,
+  PostgreSQL 17 fresh/no-op/catalog/restricted/iMathAS, and Course Appearance
+  PostgreSQL-plus-MinIO acceptance. QSOM1 remains open for the opaque-source, publication, and
+  browser work not claimed by this persistence correction.
+
 - Accepted and completed `WN1-TERM-LEARNING-REFERENCE-H0` as a documentation-only correction of
   vocabulary rows 447, 448, and 453. The proposed `AccountId`, Course,
   membership, Student Record, Assignment, Assignment Attempt, Issued Question,

@@ -488,7 +488,7 @@ impl<T: ImathasQuestionBackendTransport> ImathasQuestionBackend<T> {
                 .profile()
                 .as_str()
                 != source.binding().profile().as_str()
-            || validation.source_object != *source.artifact()
+            || validation.source_object != *source.source_object_reference()
             || validation.source_object_checksum != *source.source_object_checksum()
             || grading_context.question_revision() != &question_revision
             || validation.expires_at <= now

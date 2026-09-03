@@ -207,13 +207,13 @@ public question  private answer and feedback records
 model            answer key + three feedback forms
 ```
 
-| Value                        | Storage and readers                                                                       | Contents                                                                                                          |
-| ---------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Authoring source             | Private workspace source; authenticated author-source route and server-side compiler only | The complete PLE document, including accepted answers, pairings, regions, order, and feedback                     |
-| Published source             | Immutable private Question Source object                                                  | The canonical PLE JSON promoted at publication for source recovery and exact re-import                            |
+| Value                        | Storage and readers                                                                       | Contents                                                                                                              |
+| ---------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Authoring source             | Private workspace source; authenticated author-source route and server-side compiler only | The complete PLE document, including accepted answers, pairings, regions, order, and feedback                         |
+| Published source             | Immutable private Question Source object                                                  | The canonical PLE JSON promoted at publication for source recovery and exact re-import                                |
 | Public compiled model        | Checksummed public Question Revision model                                                | Prompt, choices, policies, points, Question Tags, exact Question License, and language; no answer or private feedback |
-| Private compiled records     | Checksummed grader-only `answer_key` JSONB                                                | Answer Key, Choice Feedback, Correct Feedback, Incorrect Feedback, schema version, and exact public-model binding |
-| Search and identity metadata | Normal relational columns                                                                 | IDs, title, lifecycle, visibility, and indexed browse fields                                                      |
+| Private compiled records     | Checksummed grader-only `answer_key` JSONB                                                | Answer Key, Choice Feedback, Correct Feedback, Incorrect Feedback, schema version, and exact public-model binding     |
+| Search and identity metadata | Normal relational columns                                                                 | IDs, title, lifecycle, visibility, and indexed browse fields                                                          |
 
 The private Answer Key and Question Feedback record carries the SHA-256 binding
 of the public model. Grading
@@ -299,8 +299,9 @@ compilation live in `crates/adapters/ple/src/question_json/schema_v2.rs`.
 The persistence boundary is `crates/learning-data-access/src/question_json.rs`
 with focused in-memory and PostgreSQL implementations, and the server owner is
 `crates/server/src/question_json_publication.rs`. The private source saves
-atomically with its typed draft, publication copies its exact canonical bytes
-to an immutable non-signable source object, and the runtime obtains private
+atomically with its typed draft. Future authorized publication atomically
+creates the complete Question Revision-owned Question Source Registration and
+aggregate; it remains unmounted. The runtime obtains private
 Answer Keys and Question Grading Input only through an injected grading
 capability. The instructor editor is
 complete; bounded Canvas/Blackboard QTI profile mappings, profile-to-PLE conversion, and their

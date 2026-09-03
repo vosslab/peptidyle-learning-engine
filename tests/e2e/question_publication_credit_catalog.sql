@@ -25,7 +25,7 @@ BEGIN
         ) OR NOT EXISTS (
             SELECT 1 FROM pg_trigger
             WHERE tgrelid = 'ple_data.question_publication_event'::regclass
-            AND tgname = 'question_publication_event_has_question_source' AND NOT tgisinternal
+            AND tgname = 'question_publication_event_has_question_source_registration' AND NOT tgisinternal
         ) THEN
         RAISE EXCEPTION 'Question publication and availability evidence remains conflated';
     END IF;
@@ -418,21 +418,16 @@ END;
 $$;
 
 -- An authorized Instructor binds a Draft Question to one exact source revision.
--- Only the trusted publication coordinator can bind that same source to a
--- separate Published Question lineage.
+-- A future authorized publication operation atomically creates its complete
+-- Question Revision-owned source registration/object evidence and may record
+-- the matching immutable Question Fork Source for a separate published lineage.
 INSERT INTO ple_private.draft_question (
-    draft_question_uuid, workspace_id, created_at
+    draft_question_uuid, workspace_id, draft_question_edit_number, title,
+    question_content, created_at, updated_at
 ) VALUES (
     '00000000-0000-0000-0000-000000000920',
-    '00000000-0000-0000-0000-000000000902', '2026-08-31T00:00:00Z'
-);
-INSERT INTO ple_private.draft_question_revision (
-    draft_question_revision_uuid, draft_question_uuid, revision_number, title,
-    question_content, created_at
-) VALUES (
-    '00000000-0000-0000-0000-000000000921',
-    '00000000-0000-0000-0000-000000000920', 1, 'Forked source fixture',
-    '{}'::jsonb, '2026-08-31T00:00:00Z'
+    '00000000-0000-0000-0000-000000000902', 1, 'Forked source fixture',
+    '{}'::jsonb, '2026-08-31T00:00:00Z', '2026-08-31T00:00:00Z'
 );
 
 BEGIN;
@@ -450,13 +445,12 @@ SELECT ple_api.register_workspace_question_source_object(
     ),
     decode(repeat('ab', 32), 'hex'), 17, 'application/json', 1777603200000
 );
-SELECT ple_api.register_draft_question_source(
-    '00000000-0000-0000-0000-000000000923',
+SELECT ple_api.register_draft_question_source_registration(
     '00000000-0000-0000-0000-000000000920', 1,
     '00000000-0000-0000-0000-000000000902',
-    'ple', 'pleQuestionJson', 'multipleChoice',
+    'ple', 'pleQuestionJson',
     NULL, NULL, NULL, NULL, NULL, NULL,
-    '00000000-0000-0000-0000-000000000922', repeat('ab', 32), repeat('cd', 32)
+    '00000000-0000-0000-0000-000000000922', repeat('ab', 32)
 );
 SELECT ple_api.register_draft_question_fork_source(
     '00000000-0000-0000-0000-000000000920',
@@ -473,33 +467,12 @@ INSERT INTO ple_data.question_revision (
     jsonb_build_object('questionDescription', 'Forked source fixture Question')
 );
 
-SET ROLE ple_api_owner;
-SELECT ple_private.transfer_draft_question_source_to_question_revision(
-    '00000000-0000-0000-0000-000000000924',
-    '00000000-0000-0000-0000-000000000920', 1,
-    'FRK-0001', 1, NULL,
-    '00000000-0000-0000-0000-000000000925',
-    jsonb_build_object(
-        'kind', 'questionSource',
-        'questionRevision', jsonb_build_object('questionId', 'FRK-0001', 'revisionNumber', 1),
-        'object', '00000000-0000-0000-0000-000000000925'::uuid
-    ),
-    decode(repeat('ab', 32), 'hex'), 17, 'application/json', 1777603200000
-);
-RESET ROLE;
-
-DO $$
-BEGIN
-    BEGIN
-        UPDATE ple_data.question_fork_source
-           SET source_revision_number = 2
-         WHERE forked_question_id = 'FRK-0001';
-        RAISE EXCEPTION 'Question Fork Source unexpectedly changed';
-    EXCEPTION WHEN SQLSTATE '55000' THEN
-        NULL;
-    END;
-END;
-$$;
+-- Published Question fixtures insert their immutable lineage directly. A future
+-- authorized publication operation atomically creates the complete Question
+-- Revision-owned Question Source Registration, its object evidence, and bounded
+-- metadata as applicable. Backend/Format-specific private artifacts are derived
+-- or stored only when that backend requires them; no universal generic private
+-- sidecar is required.
 
 DO $$
 BEGIN

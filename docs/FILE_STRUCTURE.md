@@ -92,7 +92,7 @@ crates/learning-data-access/src/
 +- imathas_question_backend_session/     iMathAS Question Backend Session contracts and Memory support
 +- object_record.rs                      workspace Question Source object records
 +- pagination.rs                         cursor and page contracts
-+- question_source.rs                    Draft Question Source Store contract
++- question_source.rs                    Draft Question Source Registration Store contract
 +- session.rs                            Account Session Store contract
 `- postgres/                             current PostgreSQL connection, migration, Account Session, Assignment Attempt, Question Source, object-record, and iMathAS Session modules
 ```

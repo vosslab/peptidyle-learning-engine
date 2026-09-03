@@ -40,6 +40,24 @@ boundaries. This index gives those entries their product and architectural ratio
 
 ## Learning and content
 
+### Question Source Registration binds source evidence
+
+**Decision.** The private relation which binds one complete opaque format-specific Question Source,
+its exact Question Backend and Question Format routing, and bounded metadata to a Draft Question or
+Question Revision is Question Source Registration. It has no surrogate UUID. Its registrar,
+publication-event completeness predicate, LDA input, and Store use that name.
+
+**Why.** Question Source denotes the complete immutable authored or imported source. The binding
+records ownership and exact routing, so it is not the source or its identity.
+
+**Consequence.** The current schema supports both direct Draft Question and immutable Question
+Revision ownership, the Draft Question registrar, and a publication-event completeness predicate.
+A future authorized publication operation atomically creates the complete Question Revision-owned
+Question Source Registration and aggregate; it remains unmounted. Existing RLS, grants, retry
+semantics, and typed addresses apply to the registered source relationship.
+
+**Owner.** `docs/TERMINOLOGY_CONTRACT.md` and the active fresh-schema migrations.
+
 ### References remain scoped locators
 
 **Decision.** Opaque UUID-backed private record IDs and SQL `*_id` keys remain
@@ -75,9 +93,9 @@ behind typed server-side adapters.
 **Why.** Biology, genetics, and biochemistry need both reusable static questions and generated
 questions without making a vendor format or a browser Question Response Control the platform's core model.
 
-**Consequence.** A new Question Backend adds a bounded adapter, public Question Presentation, private
-Question Grading Input, and capability declaration. It does not spread vendor fields, answer rules, or renderer
-details through storage, browser DTOs, and UI components.
+**Consequence.** A new Question Backend adds a bounded adapter, public Question Presentation,
+format-specific private evaluation artifacts when needed, and a capability declaration. It does not
+spread vendor fields, answer rules, or renderer details through storage, browser DTOs, and UI components.
 **Owner.** [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md),
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md), and the adapter entries in
 [CONTRACTS.md](CONTRACTS.md#storage-and-adapter-contracts).
@@ -159,17 +177,26 @@ PLE-owned documentation, UI, routes, types, and schema use this full hierarchy.
 migration work own the coordinated implementation cutover and its acceptance
 evidence.
 
-### Drafts and publications are different identities
+### Mutable Draft Question cut supersedes draft revision history
 
-**Decision.** Unpersisted Draft Question Content carries its private Authoring Workspace relationship
-without using that Workspace as Question identity. A persisted Draft Question Revision binds that content
-to one Draft Question lineage and positive revision number. The Authoring Workspace remains owned by its
-Instructor and shared only through an explicit workspace relationship. Publication mints one
-immutable QuestionRevision in the installation-wide Question Library under a stable QuestionId.
-Private Draft Question and Question Source UUIDs belong only to the server persistence boundary;
-the browser receives an opaque Draft Question Reference when it must select one draft. The Question
-stewardship decision below classifies whether a later change creates another
-version in that lineage or a fork with a new QuestionId. Every Assignment's pinned Question Revision remains
+**Decision.** One mutable Draft Question belongs to one Authoring Workspace. Its private
+Draft Question UUID is server-only; its opaque Draft Question Reference supports authorized
+Instructor navigation. Each accepted save updates that same Draft Question and advances its positive
+Draft Question Edit Number, which is the concurrency token. Its complete opaque format-specific
+Question Source and current Question Source Registration belong to that Draft Question; the
+registration has no surrogate UUID.
+Future authorized atomic publication validates one exact Edit Number, then mints an immutable
+Question Revision in the installation-wide Question Library under a stable QuestionId. The
+Question Revision Reference is
+`{ QuestionId, positive Question Revision Number }` and is also the storage identity.
+
+This supersedes retained Draft Question Revision, Draft Question Revision Number, Draft Question
+Revision UUID, and Draft Question Revision Reference concepts. It also supersedes Draft Question
+Revision ownership for Question Source Registration. The Authoring Workspace remains owned by its
+Instructor and shared only through an explicit workspace relationship. The browser receives only the
+opaque Draft Question Reference and the Draft Question Edit Number. The Question stewardship decision
+below classifies whether a later publication creates another version in that lineage or a fork with a
+new QuestionId. Every Assignment's pinned Question Revision remains
 exactly resolvable in both Available and Archived states, with availability visible in the
 Instructor-safe Question Library view. Publication has one Question Library visibility contract.
 Selection eligibility is separate: Available versions appear in ordinary discovery and selection;
@@ -184,10 +211,11 @@ Keeping drafts private prevents unfinished material from reducing discovery qual
 **Consequence.** Existing Assignments and issued Assignment Attempts retain their exact references. An Instructor
 must deliberately replace or opt in to a newer version; no publication, correction, or background
 action may advance an assignment. Browser requests never choose a hidden version. Internal
-Question Revision UUID evidence supports replay, grading, audit, source history, and authorized transport
-only; publication atomically records the version payload, lineage, source history, and visibility. The
-assigned `AAA-BBBB` Question ID names the durable lineage. The Question Revision UUID is the sole
-immutable content identity used by exact Assignment and evidence pins.
+Question Revision Reference evidence supports replay, grading, audit, source history, and authorized
+transport only; publication atomically records the version payload, lineage, source history, and
+visibility. The assigned `AAA-BBBB` Question ID names the durable lineage. The `(Question ID,
+positive Question Revision Number)` pair is the sole immutable content identity used by exact
+Assignment and evidence pins.
 **Owner.** [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
 [SECURITY_MODEL.md](SECURITY_MODEL.md#question-library-publication-boundary), and the Question Library rows
 in [CONTRACTS.md](CONTRACTS.md#domain-contracts).
@@ -980,7 +1008,7 @@ in addition to its closed handler kind, generation fence, and opaque current
 lease. Course work records its exact Course Instance UUID and Assignment or
 Assignment Attempt UUID;
 workspace work records its Authoring Workspace UUID and import when applicable;
-Question Library work records its exact immutable Question Revision UUID. A future approved
+Question Library work records its exact immutable Question Revision Reference. A future approved
 Assignment Export service records its own exact Course Instance, Assignment Revision, frozen
 Manifest, and Artifact identities before it creates work. A worker
 Job claim-and-lease operation compares handler kind, typed target, generation, unexpired lease, and

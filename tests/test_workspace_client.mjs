@@ -57,7 +57,7 @@ function questionPublicationReviewCurrent(content) {
 test("Question Publication Review admits only safe review summaries and a consistent base", () => {
   const current = questionPublicationReviewCurrent(draft);
   const first = {
-    draftQuestionRevisionNumber: 1,
+    draftQuestionEditNumber: 1,
     baseQuestion: "newQuestion",
     current,
     changed: [],
@@ -68,6 +68,10 @@ test("Question Publication Review admits only safe review summaries and a consis
     { ...first, current: { ...current, prompt: { blocks: ["text", "secret"] } } },
     { ...first, current: { ...current, response: { kind: "numeric", optionCount: 1 } } },
     { ...first, changed: ["title"] },
+    {
+      ...first,
+      draftQuestionRevisionNumber: first.draftQuestionEditNumber,
+    },
     {
       ...first,
       prior: "hidden",
@@ -88,7 +92,7 @@ test("publication transport uses a bodyless validation request and explicit Ques
       if (String(input).endsWith("question-publication-review")) {
         return jsonResponse(
           {
-            draftQuestionRevisionNumber: 1,
+            draftQuestionEditNumber: 1,
             baseQuestion: "newQuestion",
             current: questionPublicationReviewCurrent(draft),
             changed: [],
@@ -208,7 +212,7 @@ test("publication revisions reject missing, mismatched, zero, and out-of-range e
     fetch: async () =>
       jsonResponse(
         {
-          draftQuestionRevisionNumber: 2,
+          draftQuestionEditNumber: 2,
           baseQuestion: "newQuestion",
           current: questionPublicationReviewCurrent(draft),
           changed: [],

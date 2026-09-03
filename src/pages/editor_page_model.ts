@@ -65,7 +65,12 @@ export interface QuestionPublicationReviewSection {
   readonly after: string;
 }
 
-/** A server-computed, browser-safe review of one saved Draft Question Revision. */
+/**
+ * A server-computed, browser-safe review of one saved Draft Question.
+ *
+ * The associated strong ETag is an edit concurrency token; it is not Draft
+ * Question revision history.
+ */
 export interface QuestionPublicationReview {
   /** Exact strong ETag returned with the server-computed review. */
   readonly revision: string;

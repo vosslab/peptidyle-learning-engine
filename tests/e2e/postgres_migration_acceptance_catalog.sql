@@ -19,21 +19,16 @@ BEGIN
 		OR (SELECT count(*) FROM pg_proc proc JOIN pg_namespace namespace ON namespace.oid = proc.pronamespace JOIN pg_roles owner_role ON owner_role.oid = proc.proowner WHERE namespace.nspname = 'ple_api' AND proc.proname IN ('create_imathas_question_backend_session', 'load_imathas_question_backend_session', 'lease_imathas_question_backend_session', 'stage_verified_imathas_result') AND owner_role.rolname = 'ple_api_owner' AND proc.prosecdef AND array_to_string(proc.proconfig, ',') LIKE 'search_path=pg_catalog,%' AND has_function_privilege('ple_app', proc.oid, 'EXECUTE') AND NOT has_function_privilege('public', proc.oid, 'EXECUTE')) <> 4 THEN
 		RAISE EXCEPTION 'iMathAS Question Backend Session Store schema/API boundary is incomplete';
 	END IF;
-	IF NOT EXISTS (
-		SELECT 1 FROM information_schema.columns
-		WHERE table_schema = 'ple_private' AND table_name = 'question_source'
-		AND column_name = 'public_content_checksum' AND data_type = 'text' AND is_nullable = 'NO'
-	) OR NOT EXISTS (
-		SELECT 1 FROM information_schema.columns
-		WHERE table_schema = 'ple_private' AND table_name = 'draft_question_answer_key'
-		AND column_name = 'public_content_checksum' AND data_type = 'text' AND is_nullable = 'NO'
-	) OR EXISTS (
-		SELECT 1 FROM information_schema.columns
-		WHERE table_schema = 'ple_private'
-		AND table_name IN ('question_source', 'draft_question_answer_key')
-		AND column_name = 'public_binding_sha256'
-	) THEN
-		RAISE EXCEPTION 'Question Source public-content checksum columns are not exact';
+	IF (SELECT count(*) FROM information_schema.columns
+		WHERE table_schema = 'ple_private' AND table_name = 'question_source_registration'
+		AND column_name IN ('source_object_id', 'source_object_checksum')
+		AND data_type IN ('uuid', 'text') AND is_nullable = 'NO') <> 2
+		OR EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'ple_private' AND table_name = 'question_source_registration'
+			AND column_name IN ('question_type', 'public_content_checksum', 'source_data', 'source_checksum')
+		) THEN
+		RAISE EXCEPTION 'Question Source Registration does not have its exact object-backed authority';
 	END IF;
 	IF (SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = current_database()) <> 'ple_database_owner' THEN
 		RAISE EXCEPTION 'database owner is not ple_database_owner';

@@ -906,7 +906,7 @@ One human identity sits above three implementation identities with distinct jobs
 | ID                       | Scope                                     | Mutability                      | Visibility                              |
 | ------------------------ | ----------------------------------------- | ------------------------------- | --------------------------------------- |
 | Question ID              | One published-question lineage            | Stable for its lineage          | Human-facing, discoverable, and citable |
-| `workspace_id`           | One Instructor's private authoring item   | Freely editable and deletable   | Private implementation identity         |
+| Draft Question UUID      | One mutable Workspace-owned Draft Question | Freely editable; private        | Server-only implementation identity     |
 | Question Revision Number | One immutable published Question Revision | Never changes after publication | Exact version evidence                  |
 
 Lifecycle: `draft -> validated -> published`; published Question Revisions then have Available or Archived Question Revision Availability.
@@ -1008,7 +1008,7 @@ Authoritative-versus-derived roles, settled per backend:
 
 | Backend    | Authoritative source_object_reference        | Derived                                                  |
 | ---------- | -------------------------------------------- | -------------------------------------------------------- |
-| PLE static | Canonical versioned PLE Question JSON source | Public Question model and private Question Grading Input |
+| PLE static | Canonical versioned PLE Question JSON source | Public Question model and format-specific private evaluation artifacts |
 | WeBWorK    | PG source reference and version              | Question Backend render result, images, cached renders   |
 | QTI        | Original ZIP in object storage               | Parsed model in shared content, extracted assets         |
 | H5P        | Remote package reference                     | Any imported internal representation                     |
@@ -1100,7 +1100,7 @@ semantics; Canvas or Blackboard XML never becomes the PLE source contract.
 
 | Backend    | Authoritative                                           | Derived and regenerable                                            |
 | ---------- | ------------------------------------------------------- | ------------------------------------------------------------------ |
-| PLE static | Canonical versioned PLE Question JSON source            | Public Question model and private Question Grading Input           |
+| PLE static | Canonical versioned PLE Question JSON source            | Public Question model and format-specific private evaluation artifacts |
 | WeBWorK    | PG source reference and version                         | Normalized model, Question Backend render result, cached renders   |
 | QTI        | Original ZIP in object storage                          | Parsed model, extracted assets                                     |
 | H5P        | Remote package reference                                | Any imported internal representation                               |
@@ -1546,7 +1546,7 @@ substitution for a required production path.
 | MOD-GEN                    | Question Variation generation                                            | `generate(question_seed, question_variation_rule)`                                                                                    | MOD-QM                                                                                  | n/a                                 | Question Seed parity (WP-C4)                                                                                                                                                                                                                |
 | MOD-GRD                    | Grading (server-only)                                                    | `grade(question, response, key)` and typed PLE Question JSON private integrity                                                        | MOD-QM, MOD-STATE                                                                       | n/a                                 | Checker behavior tests; MOD-STO's opaque typed integrity use is server-only; absent from the `wasm32` closure (WP-C5)                                                                                                                       |
 | MOD-OBJ                    | Object store                                                             | `ObjectStore` trait                                                                                                                   | MOD-ID                                                                                  | `MemoryObjectStore`                 | Conformance suite on memory, MinIO, S3                                                                                                                                                                                                      |
-| MOD-STO                    | Persistence and RLS context                                              | `Store` trait                                                                                                                         | MOD-QM, MOD-ID, MOD-ACTIVITY, MOD-GRD (opaque PLE Question JSON private integrity only) | `MemoryStore`                       | Conformance suite on memory and PostgreSQL; cursor pagination only; no Answer Key or Question Grading Input enters Wasm                                                                                                                     |
+| MOD-STO                    | Persistence and RLS context                                              | `Store` trait                                                                                                                         | MOD-QM, MOD-ID, MOD-ACTIVITY, MOD-GRD (opaque PLE Question JSON private integrity only) | `MemoryStore`                       | Conformance suite on memory and PostgreSQL; cursor pagination only; no private evaluation artifact enters Wasm                                                                                                                              |
 | MOD-SCHEMA                 | Migrations, RLS policies, partitions                                     | Shared schema with exact relationship predicates                                                                                      | MOD-ID, MOD-ACTIVITY                                                                    | n/a                                 | Fresh apply; a missing authenticated session, foreign course, another AccountId, and revoked membership return zero rows                                                                                                                    |
 | MOD-ADP-PLE                | PLE Question Backend                                                     | Static PLE Question JSON compiler                                                                                                     | MOD-QM, MOD-GRD                                                                         | n/a                                 | PLE Question JSON public/private split and reproducible hash                                                                                                                                                                                |
 | MOD-ADP-WW                 | WeBWorK adapter                                                          | Adapter impl, renderer client, render cache                                                                                           | MOD-QM, MOD-OBJ                                                                         | Recorded renderer fixtures          | Approved immutable authored `which_hydrophobic-simple.pgml` RadioButtons fixture renders and grades; repeat seed cache hit; private topology, timeout, PLE API, and browser gates pass; broad OPL fixture-set compatibility is out of scope |
@@ -1717,8 +1717,9 @@ deployment is not a second Question Backend. Before MOD-ADP-IMATHAS begins, land
 draft-identity refactor. It is a prerequisite for every adapter, not an iMathAS-lane repair, and no
 adapter may consume an intermediate form:
 
-- MOD-QM defines a private workspace-owned `DraftQuestionRevision` with workspace-only identity and no
-  `QuestionId` or `QuestionRevisionNumber`; published Question Revisions and references require both IDs.
+- MOD-QM defines one private workspace-owned mutable Draft Question with a Draft Question UUID and
+  positive Draft Question Edit Number. It has no `QuestionId` or `QuestionRevisionNumber`; published
+  Question Revisions and references require both IDs.
 - MOD-ID makes the lifecycle transition from validated draft to published content mint the full
   `QuestionRevisionReference`, stable QuestionId lineage, and immutable QuestionRevision only after all
   publication validation succeeds. A validated moderate steward edit mints a successor version in
@@ -1726,8 +1727,9 @@ adapter may consume an intermediate form:
   attribution, and a source-compatible Question License. A failed publication mints neither published
   reference nor version.
 - MOD-STO and MOD-SCHEMA update the memory and PostgreSQL stores, migration and JSON payload
-  boundaries so drafts store only their workspace identity and published rows store the immutable
-  reference. Question Library and API publication paths use that transition rather than a draft-held version.
+  boundaries so a Draft Question owns its mutable content and current Question Source Registration,
+  while published rows store the immutable reference. Question Library and API publication paths use
+  that transition rather than draft revision history.
 - MOD-CLIENT updates generated TypeScript and all direct browser/API consumers. MOD-QM regenerates
   the generated clients and published/draft fixtures through their owners, and conformance tests
   prove a sandbox draft is private and unversioned until successful publication.

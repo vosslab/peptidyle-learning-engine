@@ -35,89 +35,26 @@ CREATE POLICY draft_question_workspace_access ON ple_private.draft_question
     FOR ALL TO ple_app
     USING (ple_api.current_session_account_can_access_workspace(workspace_id))
     WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY draft_question_revision_workspace_access ON ple_private.draft_question_revision
-    FOR ALL TO ple_app
-    USING (EXISTS (
-        SELECT 1 FROM ple_private.draft_question AS question
-        WHERE question.draft_question_uuid = draft_question_revision.draft_question_uuid
-          AND ple_api.current_session_account_can_access_workspace(question.workspace_id)
-    ))
-    WITH CHECK (EXISTS (
-        SELECT 1 FROM ple_private.draft_question AS question
-        WHERE question.draft_question_uuid = draft_question_revision.draft_question_uuid
-          AND ple_api.current_session_account_can_access_workspace(question.workspace_id)
-    ));
-CREATE POLICY question_source_draft_workspace_access ON ple_private.question_source
+CREATE POLICY question_source_registration_draft_workspace_access ON ple_private.question_source_registration
     FOR ALL TO ple_app
     USING (EXISTS (
         SELECT 1
-          FROM ple_private.draft_question_revision AS revision
-          JOIN ple_private.draft_question AS question
-            ON question.draft_question_uuid = revision.draft_question_uuid
-         WHERE revision.draft_question_revision_uuid = question_source.draft_question_revision_uuid
+          FROM ple_private.draft_question AS question
+         WHERE question.draft_question_uuid = question_source_registration.draft_question_uuid
            AND ple_api.current_session_account_can_access_workspace(question.workspace_id)
     ))
     WITH CHECK (EXISTS (
         SELECT 1
-          FROM ple_private.draft_question_revision AS revision
-          JOIN ple_private.draft_question AS question
-            ON question.draft_question_uuid = revision.draft_question_uuid
-         WHERE revision.draft_question_revision_uuid = question_source.draft_question_revision_uuid
+          FROM ple_private.draft_question AS question
+         WHERE question.draft_question_uuid = question_source_registration.draft_question_uuid
            AND ple_api.current_session_account_can_access_workspace(question.workspace_id)
     ));
-CREATE POLICY draft_question_answer_key_write_access ON ple_private.draft_question_answer_key
-    FOR INSERT TO ple_app
-    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY draft_question_answer_key_update_access ON ple_private.draft_question_answer_key
-    FOR UPDATE TO ple_app
-    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
-    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY draft_question_answer_key_delete_access ON ple_private.draft_question_answer_key
-    FOR DELETE TO ple_app
-    USING (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY draft_question_feedback_write_access ON ple_private.draft_question_feedback
-    FOR INSERT TO ple_app
-    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY draft_question_feedback_update_access ON ple_private.draft_question_feedback
-    FOR UPDATE TO ple_app
-    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
-    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY draft_question_feedback_delete_access ON ple_private.draft_question_feedback
-    FOR DELETE TO ple_app
-    USING (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY draft_question_answer_explanation_write_access ON ple_private.draft_question_answer_explanation
-    FOR INSERT TO ple_app
-    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY draft_question_answer_explanation_update_access ON ple_private.draft_question_answer_explanation
-    FOR UPDATE TO ple_app
-    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
-    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY draft_question_answer_explanation_delete_access ON ple_private.draft_question_answer_explanation
-    FOR DELETE TO ple_app
-    USING (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY draft_question_grading_input_write_access ON ple_private.draft_question_grading_input
-    FOR INSERT TO ple_app
-    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY draft_question_grading_input_update_access ON ple_private.draft_question_grading_input
-    FOR UPDATE TO ple_app
-    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
-    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY draft_question_grading_input_delete_access ON ple_private.draft_question_grading_input
-    FOR DELETE TO ple_app
-    USING (ple_api.current_session_account_can_access_workspace(workspace_id));
 CREATE POLICY workspace_import_access ON ple_private.workspace_import
     FOR ALL TO ple_app
     USING (ple_api.current_session_account_can_access_workspace(workspace_id))
     WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
 CREATE POLICY workspace_import_item_result_access ON ple_private.workspace_import_item_result
     FOR ALL TO ple_app
-    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
-    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY workspace_import_grading_input_write_access ON ple_private.workspace_import_grading_input
-    FOR INSERT TO ple_app
-    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY workspace_import_grading_input_update_access ON ple_private.workspace_import_grading_input
-    FOR UPDATE TO ple_app
     USING (ple_api.current_session_account_can_access_workspace(workspace_id))
     WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
 RESET ROLE;

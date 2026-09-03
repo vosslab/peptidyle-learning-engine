@@ -1,31 +1,30 @@
--- Session-authorized binding of immutable Question Source bytes to one Draft
--- Question Revision. Source bytes are registered first as an Object Record.
+-- Register current immutable source-byte evidence against one mutable Draft
+-- Question. Source bytes are registered first as an Object Record; this path
+-- only binds those bytes and exact closed Question Backend facts.
 
 SET LOCAL ROLE ple_private_owner;
 
 CREATE POLICY draft_question_private_owner_source_lookup ON ple_private.draft_question
     FOR SELECT TO ple_private_owner USING (true);
-CREATE POLICY draft_question_revision_private_owner_source_lookup ON ple_private.draft_question_revision
+CREATE POLICY draft_question_private_owner_source_update ON ple_private.draft_question
+    FOR UPDATE TO ple_private_owner USING (true) WITH CHECK (true);
+CREATE POLICY question_source_registration_private_owner_source_lookup ON ple_private.question_source_registration
     FOR SELECT TO ple_private_owner USING (true);
-CREATE POLICY question_source_private_owner_source_lookup ON ple_private.question_source
-    FOR SELECT TO ple_private_owner USING (true);
-CREATE POLICY question_source_private_owner_source_registration ON ple_private.question_source
+CREATE POLICY question_source_registration_private_owner_source_registration ON ple_private.question_source_registration
     FOR INSERT TO ple_private_owner WITH CHECK (true);
+CREATE POLICY question_source_registration_private_owner_source_replacement ON ple_private.question_source_registration
+    FOR UPDATE TO ple_private_owner USING (true) WITH CHECK (true);
 CREATE POLICY workspace_import_private_owner_source_lookup ON ple_private.workspace_import
     FOR SELECT TO ple_private_owner USING (true);
 
--- ASVS 1.2.4, 2.1.1, 2.2.1, 2.2.2, 2.3.1, 8.1.1, 8.2.1, and 8.3.1:
--- this is the sole session-authorized path that creates an immutable private
--- Question Source. It validates direct backend fields, rechecks the exact
--- Draft Question Revision workspace, and permits only an identical retry.
-CREATE FUNCTION ple_private.register_draft_question_source(
-    p_question_source_uuid uuid,
+-- ASVS 2.1.1, 2.2.1, and 2.3.1: this trusted transaction locks the exact
+-- authorized Draft Question and uses its positive Edit Number as a CAS token.
+CREATE FUNCTION ple_private.register_draft_question_source_registration(
     p_draft_question_uuid uuid,
-    p_draft_question_revision_number integer,
+    p_expected_draft_question_edit_number bigint,
     p_workspace_id uuid,
     p_backend text,
     p_question_format text,
-    p_question_type text,
     p_webwork_pg_path text,
     p_qti_package_item_identifier text,
     p_workspace_import_id uuid,
@@ -33,141 +32,114 @@ CREATE FUNCTION ple_private.register_draft_question_source(
     p_imathas_item_reference text,
     p_imathas_profile text,
     p_source_object_id uuid,
-    p_source_object_checksum text,
-    p_public_content_checksum text
+    p_source_object_checksum text
 )
-RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE
-    resolved_draft_question_revision_uuid uuid;
-    resolved_question_source_uuid uuid;
+    current_edit_number bigint;
+    current_registration ple_private.question_source_registration%ROWTYPE;
+    has_registration boolean;
+    facts_match boolean;
 BEGIN
+    IF p_expected_draft_question_edit_number IS NULL
+       OR p_expected_draft_question_edit_number <= 0 THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Draft Question Source Registration requires a positive Draft Question Edit Number';
+    END IF;
     IF NOT ple_api.current_session_account_can_access_workspace(p_workspace_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Draft Question Source registration requires current workspace access';
+            MESSAGE = 'Draft Question Source Registration requires current workspace access';
     END IF;
-    SELECT revision.draft_question_revision_uuid
-      INTO resolved_draft_question_revision_uuid
-      FROM ple_private.draft_question_revision AS revision
-      JOIN ple_private.draft_question AS question
-        ON question.draft_question_uuid = revision.draft_question_uuid
-     WHERE revision.draft_question_uuid = p_draft_question_uuid
-       AND revision.revision_number = p_draft_question_revision_number
-       AND question.workspace_id = p_workspace_id;
+    SELECT question.draft_question_edit_number
+      INTO current_edit_number
+      FROM ple_private.draft_question AS question
+     WHERE question.draft_question_uuid = p_draft_question_uuid
+       AND question.workspace_id = p_workspace_id
+     FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Draft Question Source must use its exact Draft Question Revision and workspace';
+            MESSAGE = 'Draft Question Source Registration must use its exact Draft Question and workspace';
     END IF;
-    IF p_source_object_checksum !~ '^[0-9a-f]{64}$'
-       OR p_public_content_checksum !~ '^[0-9a-f]{64}$' THEN
-        RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Question Source checksums must be canonical lowercase SHA-256 values';
+    SELECT registration.*
+      INTO current_registration
+     FROM ple_private.question_source_registration AS registration
+     WHERE registration.draft_question_uuid = p_draft_question_uuid
+     FOR UPDATE;
+    has_registration := FOUND;
+    IF has_registration THEN
+        facts_match := current_registration.backend = p_backend
+        AND current_registration.question_format = p_question_format
+        AND current_registration.webwork_pg_path IS NOT DISTINCT FROM p_webwork_pg_path
+        AND current_registration.qti_package_item_identifier IS NOT DISTINCT FROM p_qti_package_item_identifier
+        AND current_registration.workspace_import_id IS NOT DISTINCT FROM p_workspace_import_id
+        AND current_registration.imathas_deployment_reference IS NOT DISTINCT FROM p_imathas_deployment_reference
+        AND current_registration.imathas_item_reference IS NOT DISTINCT FROM p_imathas_item_reference
+        AND current_registration.imathas_profile IS NOT DISTINCT FROM p_imathas_profile
+        AND current_registration.source_object_id = p_source_object_id
+        AND current_registration.source_object_checksum = p_source_object_checksum;
+    ELSE
+        facts_match := false;
     END IF;
-    IF p_question_type NOT IN (
-        'multipleChoice', 'multipleAnswer', 'fillInBlank', 'multipleFillInBlank',
-        'numeric', 'matching', 'ordering', 'hotspot'
-    ) THEN
-        RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Question Source must use a supported Question Type';
+    IF facts_match THEN
+        IF current_edit_number = p_expected_draft_question_edit_number THEN
+            RETURN;
+        END IF;
+        IF current_edit_number - p_expected_draft_question_edit_number = 1 THEN
+            RETURN;
+        END IF;
     END IF;
-    IF (p_backend = 'ple' AND p_question_format <> 'pleQuestionJson')
-       OR (p_backend = 'webwork' AND p_question_format <> 'webworkPg')
-       OR (p_backend = 'qti' AND p_question_format <> 'qti')
-       OR (p_backend = 'imathas' AND p_question_format <> 'imathas')
-       OR p_backend NOT IN ('ple', 'webwork', 'qti', 'imathas') THEN
-        RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Question Source Format must be supported by its Question Backend';
+    IF current_edit_number <> p_expected_draft_question_edit_number THEN
+        RAISE EXCEPTION USING ERRCODE = '40001',
+            MESSAGE = 'Draft Question Edit Number is stale or Source Registration facts do not match';
     END IF;
-    IF NOT COALESCE((
-        (p_backend = 'ple'
-            AND p_webwork_pg_path IS NULL AND p_qti_package_item_identifier IS NULL
-            AND p_workspace_import_id IS NULL AND p_imathas_deployment_reference IS NULL
-            AND p_imathas_item_reference IS NULL AND p_imathas_profile IS NULL)
-        OR (p_backend = 'webwork'
-            AND char_length(btrim(p_webwork_pg_path)) BETWEEN 1 AND 1000
-            AND p_qti_package_item_identifier IS NULL AND p_workspace_import_id IS NULL
-            AND p_imathas_deployment_reference IS NULL AND p_imathas_item_reference IS NULL
-            AND p_imathas_profile IS NULL)
-        OR (p_backend = 'qti'
-            AND p_webwork_pg_path IS NULL
-            AND char_length(btrim(p_qti_package_item_identifier)) BETWEEN 1 AND 1000
-            AND p_workspace_import_id IS NOT NULL
-            AND p_imathas_deployment_reference IS NULL AND p_imathas_item_reference IS NULL
-            AND p_imathas_profile IS NULL
-            AND EXISTS (
-                SELECT 1 FROM ple_private.workspace_import AS workspace_import
-                 WHERE workspace_import.workspace_id = p_workspace_id
-                   AND workspace_import.import_id = p_workspace_import_id
-            ))
-        OR (p_backend = 'imathas'
-            AND p_webwork_pg_path IS NULL AND p_qti_package_item_identifier IS NULL
-            AND p_workspace_import_id IS NULL
-            AND char_length(btrim(p_imathas_deployment_reference)) BETWEEN 1 AND 255
-            AND char_length(btrim(p_imathas_item_reference)) BETWEEN 1 AND 255
-            AND p_imathas_profile IS NULL)
-    ), false) THEN
-        RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Question Source must use exactly the fields for its Question Backend';
+    IF has_registration THEN
+        UPDATE ple_private.question_source_registration
+           SET backend = p_backend, question_format = p_question_format,
+               webwork_pg_path = p_webwork_pg_path,
+               qti_package_item_identifier = p_qti_package_item_identifier,
+               workspace_import_id = p_workspace_import_id,
+               imathas_deployment_reference = p_imathas_deployment_reference,
+               imathas_item_reference = p_imathas_item_reference,
+               imathas_profile = p_imathas_profile, source_object_id = p_source_object_id,
+               source_object_checksum = p_source_object_checksum,
+               updated_at = pg_catalog.clock_timestamp()
+         WHERE draft_question_uuid = p_draft_question_uuid;
+    ELSE
+        INSERT INTO ple_private.question_source_registration (
+            draft_question_uuid, backend, question_format,
+            webwork_pg_path, qti_package_item_identifier, workspace_import_id,
+            imathas_deployment_reference, imathas_item_reference, imathas_profile,
+            source_object_id, source_object_checksum,
+            created_at, updated_at
+        ) VALUES (
+            p_draft_question_uuid, p_backend, p_question_format,
+            p_webwork_pg_path, p_qti_package_item_identifier, p_workspace_import_id,
+            p_imathas_deployment_reference, p_imathas_item_reference, p_imathas_profile,
+            p_source_object_id, p_source_object_checksum,
+            pg_catalog.clock_timestamp(), pg_catalog.clock_timestamp()
+        );
     END IF;
-
-    INSERT INTO ple_private.question_source (
-        question_source_uuid, draft_question_revision_uuid, backend, question_format,
-        question_type, webwork_pg_path, qti_package_item_identifier, workspace_import_id,
-        imathas_deployment_reference, imathas_item_reference, imathas_profile,
-        source_object_id, source_object_checksum, public_content_checksum, created_at, updated_at
-    ) VALUES (
-        p_question_source_uuid, resolved_draft_question_revision_uuid, p_backend, p_question_format,
-        p_question_type, p_webwork_pg_path, p_qti_package_item_identifier, p_workspace_import_id,
-        p_imathas_deployment_reference, p_imathas_item_reference, p_imathas_profile,
-        p_source_object_id, p_source_object_checksum, p_public_content_checksum,
-        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-    ) ON CONFLICT DO NOTHING
-    RETURNING question_source_uuid INTO resolved_question_source_uuid;
-    IF FOUND THEN
-        RETURN resolved_question_source_uuid;
-    END IF;
-
-    SELECT source.question_source_uuid
-      INTO resolved_question_source_uuid
-      FROM ple_private.question_source AS source
-     WHERE source.draft_question_revision_uuid = resolved_draft_question_revision_uuid
-       AND source.backend = p_backend
-       AND source.question_format = p_question_format
-       AND source.question_type = p_question_type
-       AND source.webwork_pg_path IS NOT DISTINCT FROM p_webwork_pg_path
-       AND source.qti_package_item_identifier IS NOT DISTINCT FROM p_qti_package_item_identifier
-       AND source.workspace_import_id IS NOT DISTINCT FROM p_workspace_import_id
-       AND source.imathas_deployment_reference IS NOT DISTINCT FROM p_imathas_deployment_reference
-       AND source.imathas_item_reference IS NOT DISTINCT FROM p_imathas_item_reference
-       AND source.imathas_profile IS NOT DISTINCT FROM p_imathas_profile
-       AND source.source_object_id = p_source_object_id
-       AND source.source_object_checksum = p_source_object_checksum
-       AND source.public_content_checksum = p_public_content_checksum;
-    IF FOUND THEN
-        RETURN resolved_question_source_uuid;
-    END IF;
-    RAISE EXCEPTION USING ERRCODE = '23505',
-        MESSAGE = 'Draft Question Revision or Question Source identity already names different immutable facts';
+    UPDATE ple_private.draft_question
+       SET draft_question_edit_number = draft_question_edit_number + 1,
+           updated_at = pg_catalog.clock_timestamp()
+     WHERE draft_question_uuid = p_draft_question_uuid;
 END
 $$;
-
-REVOKE ALL PRIVILEGES ON FUNCTION ple_private.register_draft_question_source(
-    uuid, uuid, integer, uuid, text, text, text, text, text, uuid, text, text, text, uuid, text, text
+REVOKE ALL PRIVILEGES ON FUNCTION ple_private.register_draft_question_source_registration(
+    uuid, bigint, uuid, text, text, text, text, uuid, text, text, text, uuid, text
 ) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_private.register_draft_question_source(
-    uuid, uuid, integer, uuid, text, text, text, text, text, uuid, text, text, text, uuid, text, text
+GRANT EXECUTE ON FUNCTION ple_private.register_draft_question_source_registration(
+    uuid, bigint, uuid, text, text, text, text, uuid, text, text, text, uuid, text
 ) TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
-
-CREATE FUNCTION ple_api.register_draft_question_source(
-    p_question_source_uuid uuid,
+CREATE FUNCTION ple_api.register_draft_question_source_registration(
     p_draft_question_uuid uuid,
-    p_draft_question_revision_number integer,
+    p_expected_draft_question_edit_number bigint,
     p_workspace_id uuid,
     p_backend text,
     p_question_format text,
-    p_question_type text,
     p_webwork_pg_path text,
     p_qti_package_item_identifier text,
     p_workspace_import_id uuid,
@@ -175,29 +147,26 @@ CREATE FUNCTION ple_api.register_draft_question_source(
     p_imathas_item_reference text,
     p_imathas_profile text,
     p_source_object_id uuid,
-    p_source_object_checksum text,
-    p_public_content_checksum text
+    p_source_object_checksum text
 )
-RETURNS uuid LANGUAGE sql SECURITY DEFINER
+RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
-    SELECT ple_private.register_draft_question_source(
-        p_question_source_uuid, p_draft_question_uuid, p_draft_question_revision_number, p_workspace_id,
-        p_backend, p_question_format, p_question_type, p_webwork_pg_path,
+    SELECT ple_private.register_draft_question_source_registration(
+        p_draft_question_uuid, p_expected_draft_question_edit_number, p_workspace_id,
+        p_backend, p_question_format, p_webwork_pg_path,
         p_qti_package_item_identifier, p_workspace_import_id, p_imathas_deployment_reference,
         p_imathas_item_reference, p_imathas_profile, p_source_object_id,
-        p_source_object_checksum, p_public_content_checksum
+        p_source_object_checksum
     )
 $$;
-
-REVOKE ALL PRIVILEGES ON FUNCTION ple_api.register_draft_question_source(
-    uuid, uuid, integer, uuid, text, text, text, text, text, uuid, text, text, text, uuid, text, text
+REVOKE ALL PRIVILEGES ON FUNCTION ple_api.register_draft_question_source_registration(
+    uuid, bigint, uuid, text, text, text, text, uuid, text, text, text, uuid, text
 ) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.register_draft_question_source(
-    uuid, uuid, integer, uuid, text, text, text, text, text, uuid, text, text, text, uuid, text, text
+GRANT EXECUTE ON FUNCTION ple_api.register_draft_question_source_registration(
+    uuid, bigint, uuid, text, text, text, text, uuid, text, text, text, uuid, text
 ) TO ple_app;
-
-COMMENT ON FUNCTION ple_api.register_draft_question_source(
-    uuid, uuid, integer, uuid, text, text, text, text, text, uuid, text, text, text, uuid, text, text
-) IS 'Resolves one exact Draft Question Revision within its authorized Authoring Workspace, then binds it to immutable Question Source bytes and exact Question Backend fields.';
-
+SET LOCAL ROLE ple_api_owner;
+COMMENT ON FUNCTION ple_api.register_draft_question_source_registration(
+    uuid, bigint, uuid, text, text, text, text, uuid, text, text, text, uuid, text
+) IS 'Locks one authorized mutable Draft Question; a matching Edit Number applies current Source Registration facts once, identical facts are idempotent, and one exact post-increment retry is accepted.';
 RESET ROLE;

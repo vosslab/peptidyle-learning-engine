@@ -32,7 +32,7 @@ is only a lookup/input value; it cannot establish authority.
 | Data                          | Exact owner                                            | Local enforcement                         |
 | ----------------------------- | ------------------------------------------------------ | ----------------------------------------- |
 | Account, session, and passkey | Global `AccountId`                                     | Server session and PostgreSQL             |
-| Published question            | Global immutable `QuestionId`/`QuestionRevisionNumber` | Approved-Instructor Question Library      |
+| Published question            | Stable `QuestionId` lineage plus immutable `QuestionRevisionReference` | Approved-Instructor Question Library      |
 | Draft or curriculum           | `WorkspaceId` plus owner/collaborators                 | Workspace relationship                    |
 | Course and assignment         | `CourseId` and child records                           | Current direct Instructor membership      |
 | Student work and grades       | Exact course plus Student owner                        | Student self or current course Instructor |
@@ -43,7 +43,7 @@ ordinary Instructor membership and does not create an elevated owner. Students
 see only their own work in enrolled courses. Published questions remain in one
 shared Instructor Question Library after publication. Question Revision
 Availability is `Available` or `Archived`; only `Available` Question Revisions
-are eligible for ordinary new selection. Draft Question Source and Answer Keys remain private.
+are eligible for ordinary new selection. Draft Question Source Registrations and Answer Keys remain private.
 
 Institution names, roster IDs, display labels, provider IDs, renderer IDs, and
 similar fields are metadata for presentation, audit, provenance, or routing.

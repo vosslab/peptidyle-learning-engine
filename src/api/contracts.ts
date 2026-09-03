@@ -320,9 +320,14 @@ export type PublicationValidationResponse =
     }
   | QuestionPublicationValidationUnavailable;
 
-/** Answer-free review of the saved Draft Question Revision proposed for publication. */
+/**
+ * Answer-free review of one saved Draft Question proposed for publication.
+ *
+ * The edit number is an exact save/publication concurrency token, not retained
+ * Draft Question history.
+ */
 export interface QuestionPublicationReview {
-  readonly draftQuestionRevisionNumber: number;
+  readonly draftQuestionEditNumber: number;
   readonly revision: string;
   readonly baseQuestion: "newQuestion";
   readonly current: QuestionPublicationReviewSummary;

@@ -36,9 +36,9 @@ legacy readers, or parallel authorization model.
 | 2932-2936            | Baseline witness and current root extensions                          | Baseline Acceptance Witness, Credential Authentication Completion (present in the baseline; its application route remains unmounted), Sysadmin Create Instructor Account, Blueprint publication/collaboration/availability events, and identity-free Question Revision Statistics.                                                  |
 | 2937-2940            | Released Assignment snapshots and Object Record authority             | Independent Question Pool Reuse and Variation Rules, immutable released Assignment Entries and Question Pool Items, authenticated Assignment Attempt start, and immutable Object Records that bind Question Source object references.                                                                                               |
 | 2941                 | Question Source object-only relationship                              | Every Question Source requires one immutable Source Object Reference and Source Object Checksum; inline source bytes are absent.                                                                                                                                                                                                    |
-| 2942                 | Draft Question Source registration                                    | The session-authorized, idempotent registration procedure binds a pre-registered immutable source object to one Draft Question Revision.                                                                                                                                                                                            |
+| 2942                 | Draft Question Source Registration                                    | The session-authorized, idempotent registration procedure binds a pre-registered immutable source object to one Draft Question at its exact Edit Number.                                                                                                                                                                            |
 | 2943                 | Question credit and stewardship                                       | Immutable Question Revision acceptance, authorship, license, citation, and stewardship facts.                                                                                                                                                                                                                                       |
-| 2944                 | Question Source publication transfer                                  | The protected transfer records the exact immutable Draft Question Source relationship for one published Question Revision.                                                                                                                                                                                                          |
+| 2944                 | Question Source Registration publication boundary                     | The publication-event completeness predicate requires a Question Revision-owned registration. A future authorized publication operation atomically creates the complete Question Revision-owned registration and aggregate; it remains unmounted.                                                                                   |
 | 2945                 | Question fork source                                                  | Immutable source-lineage relationships for Draft Questions and separately published Question lineages.                                                                                                                                                                                                                              |
 | 2026090101           | Latest Question Revision summary                                      | The answer-free Question Summary projection derives one Latest Question Revision from immutable acceptance evidence; availability remains separate.                                                                                                                                                                                 |
 | 2026090102           | iMathAS Question Backend Session                                      | Durable iMathAS Question Backend Session, render-cache, launch, challenge, result, grading, lease, and authorization records.                                                                                                                                                                                                       |
@@ -66,7 +66,7 @@ Account
 
 Blueprint Course -> Blueprint Course Revision -> Course Instance -> Course Origin
 Published Question -> Question Revision -> Question Revision Availability Event
-Authoring Workspace -> Draft Question -> Draft Question Revision
+Authoring Workspace -> Draft Question
 ```
 
 An immutable Assignment Revision carries the exact resolved delivery schedule,
@@ -96,12 +96,11 @@ after object bytes are written. Every Question Source has one required Source
 Object Reference and Source Object Checksum, with no inline source-data
 alternative; the reference names that exact record and verifies its owner
 address and checksum before use.
-The Draft Question Source Store then mints the source identity only after it
-resolves the current session, verifies the Draft Question Revision belongs to
-the requested Authoring Workspace, validates the Question Backend/Question
-Format pairing, and binds that exact pre-registered object. An identical retry
-returns the established source; changed facts or an unauthorized workspace are
-refused.
+The Draft Question Source Registration Store has no registration identity to mint. It resolves the
+current session, verifies that the Draft Question belongs to the requested Authoring Workspace,
+locks its exact positive Edit Number, validates the Question Backend/Question Format pairing, and
+binds that exact pre-registered object. An identical retry is a no-op; changed facts, a stale Edit
+Number, or an unauthorized workspace are refused.
 Object Data Class derives from the exact Object Address and owning relationship.
 Reuse rights resolve through the owning Question Revision's Question License, or
 through an exact Question Source or Question Asset License when it differs.

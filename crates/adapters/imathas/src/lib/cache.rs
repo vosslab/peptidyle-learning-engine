@@ -36,7 +36,7 @@ pub(super) fn validate_cache(
     source: &ResolvedImathasQuestionSource,
 ) -> Result<(), ImathasAdapterError> {
     if cached.schema != 1
-        || cached.source != *source.artifact()
+        || cached.source != *source.source_object_reference()
         || cached.source_object_checksum != *source.source_object_checksum()
         || cached.binding != source.binding
         || cached.presentation.variation.question_revision

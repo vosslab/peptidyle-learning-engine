@@ -83,7 +83,7 @@ mod tests {
     }
 
     #[test]
-    fn workspace_question_source_registration_requires_its_exact_owner_address() {
+    fn workspace_question_source_object_record_requires_its_exact_owner_address() {
         let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
         let record = object_record(workspace);
 

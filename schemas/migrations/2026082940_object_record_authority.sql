@@ -39,12 +39,12 @@ REVOKE ALL PRIVILEGES ON TABLE ple_private.object_record FROM PUBLIC;
 CREATE POLICY object_record_private_owner_access ON ple_private.object_record
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
-ALTER TABLE ple_private.question_source
-    ADD CONSTRAINT question_source_object_record_exists
+ALTER TABLE ple_private.question_source_registration
+    ADD CONSTRAINT question_source_registration_object_record_exists
     FOREIGN KEY (source_object_id)
     REFERENCES ple_private.object_record (object_id);
 
-CREATE FUNCTION ple_private.validate_question_source_object_record()
+CREATE FUNCTION ple_private.validate_question_source_registration_object_record()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 DECLARE
     owner_workspace_id uuid;
@@ -55,13 +55,11 @@ BEGIN
         RETURN NEW;
     END IF;
 
-    IF NEW.draft_question_revision_uuid IS NOT NULL THEN
+    IF NEW.draft_question_uuid IS NOT NULL THEN
         SELECT question.workspace_id
           INTO owner_workspace_id
-          FROM ple_private.draft_question_revision AS revision
-          JOIN ple_private.draft_question AS question
-            ON question.draft_question_uuid = revision.draft_question_uuid
-         WHERE revision.draft_question_revision_uuid = NEW.draft_question_revision_uuid;
+          FROM ple_private.draft_question AS question
+         WHERE question.draft_question_uuid = NEW.draft_question_uuid;
         expected_address := jsonb_build_object(
             'kind', 'workspaceQuestionSource',
             'workspace', owner_workspace_id,
@@ -96,9 +94,9 @@ BEGIN
 END
 $$;
 
-CREATE TRIGGER question_source_object_record_matches_owner
-BEFORE INSERT OR UPDATE ON ple_private.question_source
-FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_source_object_record();
+CREATE TRIGGER question_source_registration_object_record_matches_owner
+BEFORE INSERT OR UPDATE ON ple_private.question_source_registration
+FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_source_registration_object_record();
 
 -- ASVS 2.1.1, 2.2.1, 2.3.1, 8.1.1, 8.2.1, and 8.3.1: this is the sole
 -- session-authorized registration capability for a private workspace Question
@@ -205,9 +203,9 @@ SET LOCAL ROLE ple_private_owner;
 
 COMMENT ON TABLE ple_private.object_record IS
     'Immutable database-authoritative Object Record for one typed Object Address and exact stored bytes.';
-COMMENT ON CONSTRAINT question_source_object_record_exists ON ple_private.question_source IS
+COMMENT ON CONSTRAINT question_source_registration_object_record_exists ON ple_private.question_source_registration IS
     'A Source Object Reference must identify an existing immutable Object Record.';
-COMMENT ON FUNCTION ple_private.validate_question_source_object_record() IS
+COMMENT ON FUNCTION ple_private.validate_question_source_registration_object_record() IS
     'Requires a Source Object Reference to use an exact private Object Address, Object Data Class, and Object Checksum.';
 
 RESET ROLE;

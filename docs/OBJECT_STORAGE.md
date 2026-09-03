@@ -58,10 +58,10 @@ from that address, accepts an identical retry, and rejects a changed address or
 immutable record. A Question Source stores that Source Object Reference and
 Source Object Checksum as its only source-data representation. Published source
 registration remains part of the separate Question Publication operation.
-The Draft Question Source Store binds those bytes only to an authorized Draft
-Question Revision and rechecks the closed Question Backend, Question Format,
-and backend-location facts. It returns an earlier source only when every
-immutable fact agrees.
+The Draft Question Source Registration Store binds that byte evidence only to an
+authorized Draft Question at its exact Edit Number and rechecks the closed Question Backend,
+Question Format, and backend-location facts. It returns the earlier Question
+Source Registration only when every immutable fact agrees.
 
 ## Instructional image boundary
 

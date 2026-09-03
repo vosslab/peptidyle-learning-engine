@@ -1,24 +1,24 @@
-//! PostgreSQL persistence for immutable Draft Question Sources.
+//! PostgreSQL persistence for Draft Question Source Registrations.
 
 use async_trait::async_trait;
 use serde::Serialize;
-use sqlx::{Postgres, Row, Transaction};
+use sqlx::{Postgres, Transaction};
 
 use super::Pool;
 use super::connection::map_sqlx_error;
 use crate::{
-    DraftQuestionSourceInput, DraftQuestionSourceStore, QuestionSourceUuid, SessionTokenHash,
+    DraftQuestionSourceRegistrationInput, DraftQuestionSourceRegistrationStore, SessionTokenHash,
     StoreError,
 };
 
-/// PostgreSQL implementation of the session-authorized Draft Question Source Store.
+/// PostgreSQL implementation of the session-authorized Draft Question Source Registration Store.
 #[derive(Clone)]
-pub struct PostgresDraftQuestionSourceStore {
+pub struct PostgresDraftQuestionSourceRegistrationStore {
     pool: Pool,
 }
 
-impl PostgresDraftQuestionSourceStore {
-    /// Binds the already-attested API pool to private Question Source persistence.
+impl PostgresDraftQuestionSourceRegistrationStore {
+    /// Binds the already-attested API pool to private Question Source Registration persistence.
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
@@ -51,22 +51,14 @@ impl PostgresDraftQuestionSourceStore {
 }
 
 #[async_trait]
-impl DraftQuestionSourceStore for PostgresDraftQuestionSourceStore {
-    async fn register_draft_question_source(
+impl DraftQuestionSourceRegistrationStore for PostgresDraftQuestionSourceRegistrationStore {
+    async fn register_draft_question_source_registration(
         &self,
         session_token_hash: SessionTokenHash,
-        input: DraftQuestionSourceInput,
-    ) -> Result<QuestionSourceUuid, StoreError> {
+        input: DraftQuestionSourceRegistrationInput,
+    ) -> Result<(), StoreError> {
         input.validate()?;
-        let question_source_uuid = crate::random_uuid::random_uuid_v4(|error| {
-            StoreError::Unavailable(format!(
-                "Question Source ID randomness unavailable: {error}"
-            ))
-        })?;
         let question_format = wire_string(&input.question_format, "Question Format")?;
-        let question_type = wire_string(&input.question_type, "Question Type")?;
-        let draft_question_revision_number =
-            postgres_revision_number(input.draft_question_revision.revision_number)?;
         let imathas_deployment_reference = input
             .draft_imathas_question_backend_binding
             .as_ref()
@@ -81,20 +73,22 @@ impl DraftQuestionSourceStore for PostgresDraftQuestionSourceStore {
             .await?;
         // ASVS 1.2.4, 2.2.2, 2.3.1, 8.2.1, and 8.3.1: every value is
         // parameterized; the database resolves the authenticated session and
-        // authorizes the exact workspace/revision/object relationship in one
-        // transaction before it creates or returns an immutable record.
-        let row = sqlx::query(
-            "SELECT ple_api.register_draft_question_source(\
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16\
-             ) AS question_source_uuid",
+        // authorizes the exact workspace/Draft Question/Edit Number/object relationship in one
+        // transaction before it creates or confirms an immutable record.
+        sqlx::query(
+            "SELECT ple_api.register_draft_question_source_registration(\
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13\
+             )",
         )
-        .bind(question_source_uuid)
-        .bind(input.draft_question_revision.draft_question_uuid.as_uuid())
-        .bind(draft_question_revision_number)
+        .bind(input.draft_question_uuid.as_uuid())
+        .bind(
+            input
+                .expected_draft_question_edit_number
+                .as_postgres_bigint(),
+        )
         .bind(input.workspace.as_uuid())
         .bind(input.question_backend.as_str())
         .bind(question_format)
-        .bind(question_type)
         .bind(input.webwork_pg_path)
         .bind(input.qti_package_item_identifier)
         .bind(input.workspace_import_id.map(|id| id.as_uuid()))
@@ -103,16 +97,11 @@ impl DraftQuestionSourceStore for PostgresDraftQuestionSourceStore {
         .bind(Option::<String>::None)
         .bind(input.source_object_reference.object.as_uuid())
         .bind(input.source_object_checksum.as_str())
-        .bind(input.public_content_checksum.as_str())
-        .fetch_one(&mut *transaction)
+        .execute(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        let source = QuestionSourceUuid::from_uuid(
-            row.try_get("question_source_uuid")
-                .map_err(map_sqlx_error)?,
-        );
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(source)
+        Ok(())
     }
 }
 
@@ -122,33 +111,5 @@ fn wire_string(value: &impl Serialize, label: &str) -> Result<String, StoreError
         _ => Err(StoreError::InvalidRecord(format!(
             "{label} must have one scalar canonical wire value"
         ))),
-    }
-}
-
-fn postgres_revision_number(value: crate::DraftQuestionRevisionNumber) -> Result<i32, StoreError> {
-    i32::try_from(value.get()).map_err(|_| {
-        StoreError::InvalidRecord(
-            "Draft Question Revision Number exceeds the PostgreSQL integer range".to_string(),
-        )
-    })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::postgres_revision_number;
-    use crate::{DraftQuestionRevisionNumber, StoreError};
-
-    #[test]
-    fn draft_question_revision_number_must_fit_its_postgresql_storage_column() {
-        let maximum =
-            DraftQuestionRevisionNumber::new(i32::MAX as u32).expect("positive PostgreSQL maximum");
-        assert_eq!(postgres_revision_number(maximum), Ok(i32::MAX));
-
-        let too_large = DraftQuestionRevisionNumber::new(i32::MAX as u32 + 1)
-            .expect("positive number beyond PostgreSQL range");
-        assert!(matches!(
-            postgres_revision_number(too_large),
-            Err(StoreError::InvalidRecord(_))
-        ));
     }
 }

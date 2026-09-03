@@ -71,10 +71,10 @@ once in the route. The server resolves Student, assignment, version, seed,
 backend, and policy from that authenticated attempt instead of asking the
 browser to resend their UUIDs.
 
-The draft rule is carried by separate types rather than a flag:
-`DraftQuestionRevision` has no Question identity, while `QuestionRevision`
-requires both a Question ID and Question Revision Number. There is no separate
-boolean to fall out of sync with that boundary.
+The draft rule is carried by separate records rather than a flag: one mutable
+`DraftQuestion` has no Question identity, while immutable `QuestionRevision`
+requires both a Question ID and Question Revision Number. A Draft Question's
+positive Edit Number is its save and publication concurrency token.
 
 `QuestionId` is stable across one question lineage. Each publication in that
 lineage has a fresh immutable `QuestionRevisionNumber`, and `QuestionRevisionReference` keeps the
@@ -449,7 +449,7 @@ does not select a PLE-authored generated variation. Question Backend, Renderer,
 and Grader Version remain distinct reproduction evidence.
 
 A future Question Generator must arrive as immutable registered Question
-Generator source data owned by a Draft Question Revision or Question Revision,
+Generator source data owned by a Draft Question or Question Revision,
 with its parser, publication, issue, grading, repair, and reproduction path.
 
 ### Licensing and future classification
@@ -581,7 +581,7 @@ together; WN1-B does not change their effective Serde spelling.
 [PLE Question JSON](QTI-JSON_OBJECT_FORMAT.md) is a narrow answer-bearing
 authoring format for ordinary static questions. It is not another public
 question model. The PLE Question Backend compiles it into this crate's answer-free
-`DraftQuestionRevision` plus separate PLE Question JSON Private Grading. Published browser
+`DraftQuestion` plus separate PLE Question JSON Private Grading. Published browser
 and Question Library browser results therefore continue to use the shared question model
 regardless of whether the author wrote PLE JSON or imported a supported QTI
 profile.
