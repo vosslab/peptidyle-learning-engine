@@ -35,6 +35,7 @@ import type { QuestionSummary } from "../../generated/api/QuestionSummary";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
+import type { AssignmentEditNumber } from "../../generated/api/AssignmentEditNumber";
 import type { AssignmentReleaseValidation } from "../../generated/api/AssignmentReleaseValidation";
 import type { InstructorStudentView } from "../../generated/api/InstructorStudentView";
 import type { CreateAssignmentRequest } from "../../generated/api/CreateAssignmentRequest";
@@ -102,7 +103,7 @@ export interface QuestionPoolPreviewRequest {
 /** A no-store Instructor sample of one saved pool; it is never student activity or evidence. */
 export interface QuestionPoolPreview {
   readonly assignment: AssignmentReference;
-  readonly revision: string;
+  readonly editNumber: AssignmentEditNumber;
   readonly assignmentEntryId: string;
   readonly questionPoolLabel: string;
   readonly selectionCount: number;

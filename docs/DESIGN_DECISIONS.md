@@ -1073,7 +1073,8 @@ presentation shape, while accepted QC2 removed the Question Curation aggregate;
 stale Graphify Curation edges are not consumer authority.
 
 **Consequence.** This direct terminology cutover changes no Store, route,
-schema, generated transport source, fixture, or behavior. Vocabulary row 318
-remains unchecked until independent review of `WP-SD1-A-TERM-01-QLB1`.
+schema, generated transport source, fixture, or behavior. Independent QLB1
+review passed, and the browser-local/generated Question Search collision is
+closed.
 
 The settled identity, authentication, privacy, recovery, and Blueprint-collaboration decisions are retained in [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md). The focused local-stack, Gradebook, wire-contract, and Blueprint-operation decisions are retained in [DESIGN_DECISIONS_OPERATIONS.md](DESIGN_DECISIONS_OPERATIONS.md).

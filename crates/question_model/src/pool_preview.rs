@@ -8,8 +8,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssignmentEntryId, AssignmentReference, QuestionId, QuestionPoolSelectionRule,
-    TeachingOperationRevision,
+    AssignmentEditNumber, AssignmentEntryId, AssignmentReference, QuestionId,
+    QuestionPoolSelectionRule,
 };
 
 /// Strict request body for an Instructor's one-off sample of a saved pool.
@@ -35,7 +35,7 @@ pub struct QuestionPoolPreviewItem {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPoolPreview {
     pub assignment: AssignmentReference,
-    pub revision: TeachingOperationRevision,
+    pub edit_number: AssignmentEditNumber,
     pub assignment_entry_id: AssignmentEntryId,
     /// Stable presentation label derived from the saved Question Pool
     /// Assignment Entry order. Question Pool Assignment Entries have no
@@ -62,7 +62,7 @@ mod tests {
         let question_id: QuestionId = "ABC-DEF1".parse().expect("canonical question ID");
         let result = QuestionPoolPreview {
             assignment: "A-4".parse().expect("assignment reference"),
-            revision: TeachingOperationRevision::new(3).expect("revision"),
+            edit_number: "3".parse().expect("edit number"),
             assignment_entry_id: serde_json::from_value(serde_json::json!(
                 "0198e000-0000-7000-8000-000000000017"
             ))
@@ -84,7 +84,7 @@ mod tests {
         assert_eq!(
             serde_json::to_value(result).expect("serializes"),
             serde_json::json!({
-                "assignment":"A-4", "revision":"3", "assignmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
+                "assignment":"A-4", "editNumber":"3", "assignmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
                 "selectionCount":1, "selectionRule":{"selectedQuestionOrder":"randomOrder"},
                 "items":[{"questionId":"ABC-DEF1", "title":"Question Pool Item"}],
                 "selectedItems":[{"questionId":"ABC-DEF1", "title":"Question Pool Item"}]

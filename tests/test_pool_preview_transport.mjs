@@ -14,13 +14,13 @@ import {
 
 const course = "C-12";
 const assignment = "A-34";
-const revision = "7";
+const editNumber = "7";
 const assignmentEntryId = "0198e000-0000-7000-8000-000000000017";
 
 function previewResponse() {
   return {
     assignment,
-    revision,
+    editNumber,
     assignmentEntryId,
     questionPoolLabel: "Pool 2",
     selectionCount: 1,
@@ -62,7 +62,7 @@ test("pool preview decoder accepts only the safe closed Instructor Question Pool
   );
 });
 
-test("pool preview transport sends only position with revision and requires no-store", async () => {
+test("pool preview transport sends only position with an Assignment edit number and requires no-store", async () => {
   const calls = [];
   const client = createHttpApiClient({
     fetch: async (input, init) => {
@@ -70,7 +70,12 @@ test("pool preview transport sends only position with revision and requires no-s
       return jsonResponse(previewResponse());
     },
   });
-  const preview = await client.previewQuestionPool(course, assignment, revision, assignmentEntryId);
+  const preview = await client.previewQuestionPool(
+    course,
+    assignment,
+    editNumber,
+    assignmentEntryId,
+  );
   assert.equal(preview.questionPoolLabel, "Pool 2");
   assert.equal(
     calls[0]?.input,
@@ -86,12 +91,12 @@ test("pool preview transport sends only position with revision and requires no-s
 test("pool preview reports reload and unavailable recovery without response enumeration", async () => {
   const stale = createHttpApiClient({ fetch: async () => jsonResponse({}, 412) });
   await assert.rejects(
-    stale.previewQuestionPool(course, assignment, revision, assignmentEntryId),
+    stale.previewQuestionPool(course, assignment, editNumber, assignmentEntryId),
     PreviewPlaneConflictError,
   );
   const unavailable = createHttpApiClient({ fetch: async () => jsonResponse({}, 404) });
   await assert.rejects(
-    unavailable.previewQuestionPool(course, assignment, revision, assignmentEntryId),
+    unavailable.previewQuestionPool(course, assignment, editNumber, assignmentEntryId),
     (error) => error instanceof ApiRequestError && error.status === 404,
   );
 });

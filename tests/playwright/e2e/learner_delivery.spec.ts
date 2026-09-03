@@ -322,22 +322,6 @@ async function observeInstructorOutcomesAndAccess(
   await expect(assignmentCell).toBeFocused();
 
   await openCourseAssignments(page);
-  const assignmentCard = page
-    .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
-  await expect(assignmentCard).toHaveCount(1);
-  await assignmentCard.getByRole("link", { name: "Access and modifiers" }).click();
-  await expect(page.locator("[data-route-surface=assignmentAccess]")).toBeVisible();
-  const student = page.getByRole("combobox", { name: "Student", exact: true });
-  await student.selectOption({ label: "Mary Okafor" });
-  const allowedPreview = page.getByRole("region", { name: "Resolved student preview" });
-  await expect(allowedPreview).toBeVisible();
-  await expect(allowedPreview).toContainText("Course time zone:");
-  await expect(page.getByText("This student is not entitled to this assignment.")).toHaveCount(0);
-
-  // Access has its own course-management navigation. Return through the visible
-  // Assignments link and reacquire the article before following its semantic title link.
-  await openCourseAssignments(page);
   const workspaceCard = assignmentArticle(page, assignmentTitle);
   await expect(workspaceCard).toHaveCount(1);
   await workspaceCard.getByRole("link", { name: assignmentTitle, exact: true }).click();
@@ -348,17 +332,6 @@ async function observeInstructorOutcomesAndAccess(
   await expect(
     page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
   ).toBeVisible();
-
-  await openCourseAssignments(page);
-  const retiredCard = assignmentArticle(page, assignmentTitle);
-  await expect(retiredCard).toHaveCount(1);
-  await retiredCard.getByRole("link", { name: "Access and modifiers" }).click();
-  await expect(page.locator("[data-route-surface=assignmentAccess]")).toBeVisible();
-  await page
-    .getByRole("combobox", { name: "Student", exact: true })
-    .selectOption({ label: "Mary Okafor" });
-  const deniedPreview = page.getByText("This student is not entitled to this assignment.");
-  await expect(deniedPreview).toBeVisible();
 }
 
 test.describe.configure({ mode: "serial" });

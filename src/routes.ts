@@ -20,7 +20,6 @@ import { WorkspaceEditorLivePage, WorkspaceListLivePage } from "./pages/editor_l
 import { CourseRosterPage } from "./pages/course_roster_page";
 import { SignInPage } from "./pages/sign_in_page";
 import { AccountPendingInvitationsPage } from "./pages/account_pending_invitations_page";
-import { AssignmentAccessLivePage } from "./pages/assignment_access_live_page";
 import { TeachingOperationsPage } from "./pages/teaching_operations_page";
 import { AssignmentPreviewPage } from "./pages/assignment_preview_page";
 import {
@@ -57,7 +56,6 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
     createComponent(AssignmentWorkspaceLivePage, { section: "studentView" }),
   assignmentWorkspaceGradingOperations: () =>
     createComponent(AssignmentWorkspaceLivePage, { section: "gradingOperations" }),
-  assignmentAccess: AssignmentAccessLivePage,
   assignmentPreview: AssignmentPreviewPage,
   gradebook: GradebookPage,
   studentWorkInspection: StudentWorkInspectionPage,

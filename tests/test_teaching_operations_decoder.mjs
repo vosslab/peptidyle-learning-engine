@@ -7,45 +7,8 @@ import {
   decodeInstructorCourseInvitationCreateRequest,
   decodeCourseInvitationTargetSearchPage,
   decodeCourseInvitationTargetSearchRequest,
-  decodeCourseStudentMembershipsPage,
   decodeInstructorMembershipRemovalRequest,
-  decodeTeachingOperationRevisionResponse,
-  decodeTeachingPreviewView,
 } from "../src/api/decoders.ts";
-
-function membership(reference, display) {
-  return { reference, display, role: "student", status: "active" };
-}
-
-function baseSource() {
-  return { kind: "base", label: "Course policy" };
-}
-
-test("allowed preview carries its Assignment Policy Source while denied preview is sealed", () => {
-  const source = baseSource();
-  const preview = {
-    active_student_course_membership: "allowed",
-    timeZone: "America/Chicago",
-    start: { kind: "mayStart", late: "onTime" },
-    available_at: { value: null, source },
-    due_at: { value: "2026-08-20T09:30:00.000", source },
-    closes_at: { value: "2026-08-20T10:30:00.000", source },
-    assignment_attempt_time_limit_seconds: { value: 3600, source },
-    attempt_limit: { value: 2, source },
-    late_work_rule: { value: "accept", source },
-    assignment_deadline_rule: { value: "auto_submit", source },
-  };
-  assert.deepEqual(decodeTeachingPreviewView(preview), preview);
-  assert.throws(
-    () =>
-      decodeTeachingPreviewView({
-        active_student_course_membership: "denied",
-        reason: "activeStudentCourseMembershipRequired",
-        due_at: preview.due_at,
-      }),
-    DecodeError,
-  );
-});
 
 test("policy mutation decoders require every explicit adjustment state", () => {
   const request = {
@@ -86,10 +49,6 @@ test("policy mutation decoders require every explicit adjustment state", () => {
       }),
     DecodeError,
   );
-  assert.deepEqual(decodeTeachingOperationRevisionResponse({ revision: "42" }), {
-    revision: "42",
-  });
-  assert.throws(() => decodeTeachingOperationRevisionResponse({ revision: "042" }), DecodeError);
 });
 
 test("safe-picker pages reject PII and preserve only bounded safe rows", () => {
@@ -101,10 +60,6 @@ test("safe-picker pages reject PII and preserve only bounded safe rows", () => {
     ],
     nextCursor: "after-7",
   };
-  const studentPage = {
-    students: [membership("M-9", "Ada Lovelace")],
-    nextCursor: null,
-  };
   assert.deepEqual(decodeCourseInvitationTargetSearchPage(targetPage), targetPage);
   assert.deepEqual(
     decodeCourseInvitationTargetSearchRequest({ query: "Ada", after: null, size: 20 }),
@@ -114,7 +69,6 @@ test("safe-picker pages reject PII and preserve only bounded safe rows", () => {
       size: 20,
     },
   );
-  assert.deepEqual(decodeCourseStudentMembershipsPage(studentPage), studentPage);
   assert.throws(
     () =>
       decodeCourseInvitationTargetSearchPage({
@@ -130,14 +84,6 @@ test("safe-picker pages reject PII and preserve only bounded safe rows", () => {
   );
   assert.throws(
     () => decodeCourseInvitationTargetSearchRequest({ query: "A", after: null, size: 20 }),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeCourseStudentMembershipsPage({
-        ...studentPage,
-        students: [{ ...studentPage.students[0], userId: "private" }],
-      }),
     DecodeError,
   );
 });

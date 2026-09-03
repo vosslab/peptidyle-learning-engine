@@ -90,8 +90,8 @@ relationship, ordinary account flows derive authority from the authenticated
 account and current course membership.
 
 The implemented passwordless foundation, owned by migrations `2026082902` through
-`2026082904` and `2026082933`, issues one immutable account and session role. It confirms that
-every selected Student or Instructor membership matches that role, and a
+`2026082904` and `2026082933`, issues one immutable Account Product Role and Session Product Role. It confirms that
+every selected Student or Instructor Course Membership Role matches that Account Product Role, and a
 Sysadmin Account cannot select a Course Membership. Create Instructor Account
 fixes the resulting Product Role to Instructor; the application does not change it.
 
@@ -154,7 +154,7 @@ public asset bytes before activation after the committed outbox decision.
   existence itself is sensitive.
 - Serialize Instructor membership revocation with response disclosure,
   roster mutation, grading, exports, and other protected operations.
-- Accept browser requests through server-issued references and derive role,
+- Accept browser requests through server-issued references and derive Account Product Role,
   Account, membership, and approval from server-owned records.
 
 ## Canonical terms
@@ -193,6 +193,6 @@ Current titles, prose, code, APIs, and schemas use **Instructor** directly.
   capabilities.
 - The removed installation-scoped role schema is historical evidence only. The fresh
   [global Account and session migration](../schemas/migrations/2026082902_global_account_authenticated_session.sql)
-  owns fixed singular immutable Account and Authenticated Session role storage.
+  owns fixed singular immutable Account Product Role and Authenticated Session Product Role storage.
   Sysadmin Instructor Vetting occurs before Create Instructor Account; the fixed Instructor Product
   Role and Account State then own the resulting Instructor Account authorization boundary.

@@ -1,12 +1,12 @@
 // Strict same-origin browser transport for read-only Instructor preview operations.
 
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
+import type { AssignmentEditNumber } from "../../../generated/api/AssignmentEditNumber";
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { HypotheticalStudentViewScenarioRequest } from "../../../generated/api/HypotheticalStudentViewScenarioRequest";
 import type { InstructorPreviewSchedulePage } from "../../../generated/api/InstructorPreviewSchedulePage";
 import type { PreviewPlaneResponse } from "../../../generated/api/PreviewPlaneResponse";
 import type { SelectedStudentViewScenarioRequest } from "../../../generated/api/SelectedStudentViewScenarioRequest";
-import type { TeachingOperationRevision } from "../../../generated/api/TeachingOperationRevision";
 import type { ApiClient } from "../client";
 import type { QuestionPoolPreview } from "../contracts";
 import {
@@ -27,9 +27,9 @@ import { boundedResponseJson, requireNoStore } from "./response";
 
 type JsonDecoder<T> = (value: unknown, path?: string) => T;
 
-function strongRevision(value: TeachingOperationRevision, path: string): string {
+function strongAssignmentEditNumber(value: AssignmentEditNumber, path: string): string {
   if (!/^[1-9][0-9]*$/u.test(value) || BigInt(value) > 9_223_372_036_854_775_807n) {
-    throw new ApiProtocolError(`${path} needs a canonical positive revision`);
+    throw new ApiProtocolError(`${path} needs a canonical positive Assignment edit number`);
   }
   return `"${value}"`;
 }
@@ -79,12 +79,12 @@ async function previewJson<T>(
   options: {
     readonly method?: "GET" | "POST";
     readonly body?: unknown;
-    readonly revision: TeachingOperationRevision;
+    readonly editNumber: AssignmentEditNumber;
   },
 ): Promise<T> {
   const headers: Record<string, string> = {
     accept: "application/json",
-    "if-match": strongRevision(options.revision, "Preview request"),
+    "if-match": strongAssignmentEditNumber(options.editNumber, "Preview request"),
   };
   if (options.body !== undefined) headers["content-type"] = "application/json";
   const response = await fetchImplementation(requestPath(basePath, path), {
@@ -102,11 +102,11 @@ async function previewJson<T>(
 
 function hypotheticalStudentViewScenarioBody(
   assignment: AssignmentReference,
-  revision: TeachingOperationRevision,
-  request: Omit<HypotheticalStudentViewScenarioRequest, "assignment" | "revision">,
-): Omit<HypotheticalStudentViewScenarioRequest, "assignment" | "revision"> {
+  editNumber: AssignmentEditNumber,
+  request: Omit<HypotheticalStudentViewScenarioRequest, "assignment" | "edit_number">,
+): Omit<HypotheticalStudentViewScenarioRequest, "assignment" | "edit_number"> {
   const parsed = decodeHypotheticalStudentViewScenarioRequest(
-    { assignment, revision, ...request },
+    { assignment, edit_number: editNumber, ...request },
     "request",
   );
   return {
@@ -117,11 +117,11 @@ function hypotheticalStudentViewScenarioBody(
 
 function selectedStudentViewScenarioBody(
   assignment: AssignmentReference,
-  revision: TeachingOperationRevision,
-  request: Omit<SelectedStudentViewScenarioRequest, "assignment" | "revision">,
-): Omit<SelectedStudentViewScenarioRequest, "assignment" | "revision"> {
+  editNumber: AssignmentEditNumber,
+  request: Omit<SelectedStudentViewScenarioRequest, "assignment" | "edit_number">,
+): Omit<SelectedStudentViewScenarioRequest, "assignment" | "edit_number"> {
   const parsed = decodeSelectedStudentViewScenarioRequest(
-    { assignment, revision, ...request },
+    { assignment, edit_number: editNumber, ...request },
     "request",
   );
   return {
@@ -144,7 +144,7 @@ export function createPreviewPlaneClient(
     listPreviewSchedule: (
       course,
       assignment,
-      revision,
+      editNumber,
       cursor,
       pageSize,
     ): Promise<InstructorPreviewSchedulePage> =>
@@ -153,40 +153,40 @@ export function createPreviewPlaneClient(
         basePath,
         schedulePath(course, assignment, cursor, pageSize),
         decodeInstructorPreviewSchedulePage,
-        { revision },
+        { editNumber },
       ),
     constructHypotheticalStudentViewScenario: async (
       course,
       assignment,
-      revision,
+      editNumber,
       request,
     ): Promise<PreviewPlaneResponse> => {
       const path = `${previewRoutePath(course, assignment)}/student-view-scenarios/hypothetical`;
-      const body = hypotheticalStudentViewScenarioBody(assignment, revision, request);
+      const body = hypotheticalStudentViewScenarioBody(assignment, editNumber, request);
       return previewJson(fetchImplementation, basePath, path, decodePreviewPlaneResponse, {
         method: "POST",
         body,
-        revision,
+        editNumber,
       });
     },
     constructSelectedStudentViewScenario: async (
       course,
       assignment,
-      revision,
+      editNumber,
       request,
     ): Promise<PreviewPlaneResponse> => {
       const path = `${previewRoutePath(course, assignment)}/student-view-scenarios/selected-student`;
-      const body = selectedStudentViewScenarioBody(assignment, revision, request);
+      const body = selectedStudentViewScenarioBody(assignment, editNumber, request);
       return previewJson(fetchImplementation, basePath, path, decodePreviewPlaneResponse, {
         method: "POST",
         body,
-        revision,
+        editNumber,
       });
     },
     previewQuestionPool: async (
       course,
       assignment,
-      revision,
+      editNumber,
       assignmentEntryId,
     ): Promise<QuestionPoolPreview> => {
       const path = `${previewRoutePath(course, assignment)}/preview-question-pool-selection`;
@@ -194,7 +194,7 @@ export function createPreviewPlaneClient(
       return previewJson(fetchImplementation, basePath, path, decodeQuestionPoolPreview, {
         method: "POST",
         body,
-        revision,
+        editNumber,
       });
     },
   };

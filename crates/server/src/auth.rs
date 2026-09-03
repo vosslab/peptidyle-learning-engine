@@ -1,6 +1,6 @@
 //! Provider-neutral authentication and replica-safe sessions.
 //!
-//! A credential provider establishes an Account and immutable ProductRole. This module then
+//! A credential provider establishes an Account and immutable Product Role. This module then
 //! mints a 256-bit opaque cookie credential, persists only its SHA-256 hash,
 //! and resolves an authenticated account session from the database row. Request
 //! parameters, headers, and bodies never construct authenticated identity.
@@ -111,7 +111,7 @@ pub struct AuthenticatedSession {
 pub struct AuthSessionResponse {
     /// Literal true for this authenticated response shape.
     pub authenticated: bool,
-    /// Browser-safe identity with one immutable role and no credential.
+    /// Browser-safe identity with one immutable Product Role and no credential.
     pub account: AuthAccountResponse,
 }
 
@@ -121,7 +121,7 @@ pub struct AuthSessionResponse {
 pub struct AuthAccountResponse {
     /// Authenticated Account, not a course-work record identifier.
     pub id: AccountId,
-    /// Immutable account role.
+    /// Immutable Account Product Role.
     pub product_role: ProductRole,
 }
 

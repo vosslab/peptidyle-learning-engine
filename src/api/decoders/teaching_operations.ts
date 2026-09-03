@@ -8,21 +8,13 @@ import type { HypotheticalStudentViewScenarioModifiers } from "../../../generate
 import type { InstructorCourseInvitationCreateRequest } from "../../../generated/api/InstructorCourseInvitationCreateRequest";
 import type { CourseInvitationTerminalActionRequest } from "../../../generated/api/CourseInvitationTerminalActionRequest";
 import type { InstructorCourseInvitationsPage } from "../../../generated/api/InstructorCourseInvitationsPage";
-import type { AccommodationAdjustmentUpdateRequest } from "../../../generated/api/AccommodationAdjustmentUpdateRequest";
 import type { InstructorMembershipRemovalRequest } from "../../../generated/api/InstructorMembershipRemovalRequest";
 import type { InstructorMembershipsPage } from "../../../generated/api/InstructorMembershipsPage";
 import type { PendingCourseInvitationsPage } from "../../../generated/api/PendingCourseInvitationsPage";
-import type { TeachingPreviewView } from "../../../generated/api/TeachingPreviewView";
-import type { TeachingOperationRevisionResponse } from "../../../generated/api/TeachingOperationRevisionResponse";
 import type { TeachingAccountView } from "../../../generated/api/TeachingAccountView";
 import type { CourseInvitationTargetView } from "../../../generated/api/CourseInvitationTargetView";
 import type { CourseInvitationTargetSearchPage } from "../../../generated/api/CourseInvitationTargetSearchPage";
 import type { CourseInvitationTargetSearchRequest } from "../../../generated/api/CourseInvitationTargetSearchRequest";
-import type { CourseStudentMembershipsPage } from "../../../generated/api/CourseStudentMembershipsPage";
-import type { StudentMembershipView } from "../../../generated/api/StudentMembershipView";
-import type { AssignmentPolicySource } from "../../../generated/api/AssignmentPolicySource";
-import type { TeachingPreviewLimitField } from "../../../generated/api/TeachingPreviewLimitField";
-import type { TeachingPreviewTimeField } from "../../../generated/api/TeachingPreviewTimeField";
 import {
   DecodeError,
   decodeNullable,
@@ -42,20 +34,6 @@ import {
 const MAX_ROUTE_REFERENCE = 2_147_483_647;
 const MEMBERSHIP_STATUSES = ["active", "revoked"] as const;
 const INVITATION_STATES = ["pending", "expired", "accepted", "declined", "revoked"] as const;
-
-function studentMembership(value: unknown, path: string): StudentMembershipView {
-  const record = closed(value, path, ["reference", "display", "role", "status"]);
-  return {
-    reference: reference(record.reference, `${path}.reference`, "M"),
-    display: boundedTrimmedText(
-      record.display,
-      `${path}.display`,
-      MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS,
-    ),
-    role: decodeStringEnum(record.role, `${path}.role`, ["instructor", "student"] as const),
-    status: decodeStringEnum(record.status, `${path}.status`, MEMBERSHIP_STATUSES),
-  };
-}
 
 function closed(
   value: unknown,
@@ -87,10 +65,10 @@ function reference(value: unknown, path: string, prefix: string): string {
   return parsed;
 }
 
-function revision(value: unknown, path: string): string {
+function canonicalPositivePostgresBigint(value: unknown, path: string): string {
   const parsed = decodeString(value, path);
   if (!/^[1-9][0-9]{0,18}$/u.test(parsed) || BigInt(parsed) > 9_223_372_036_854_775_807n) {
-    throw new DecodeError(path, "a canonical positive PostgreSQL bigint revision");
+    throw new DecodeError(path, "a canonical positive PostgreSQL bigint decimal");
   }
   return parsed;
 }
@@ -133,20 +111,6 @@ function courseLocalDateAndTime(value: unknown, path: string): string {
     throw new DecodeError(path, "an exact valid YYYY-MM-DDTHH:MM:SS.sss local date-time");
   }
   return text;
-}
-
-function courseTimeZone(value: unknown, path: string): string {
-  const timeZone = boundedTrimmedText(value, path, 255);
-  return timeZone;
-}
-
-/** Decode the common exact strong-revision response for accepted M2--M4 mutations. */
-export function decodeTeachingOperationRevisionResponse(
-  value: unknown,
-  path = "response",
-): TeachingOperationRevisionResponse {
-  const record = closed(value, path, ["revision"]);
-  return { revision: revision(record.revision, `${path}.revision`) };
 }
 
 function timePatch(
@@ -237,161 +201,6 @@ export function decodeHypotheticalStudentViewScenarioModifiers(
   return decodeAccommodationAdjustmentWrite(value, path);
 }
 
-export function decodeAccommodationAdjustmentUpdateRequest(
-  value: unknown,
-  path = "request",
-): AccommodationAdjustmentUpdateRequest {
-  return decodeAccommodationAdjustmentWrite(value, path);
-}
-
-function assignmentPolicySource(value: unknown, path: string): AssignmentPolicySource {
-  const record = decodeRecord(value, path);
-  const kind = decodeString(field(record, "kind", path), `${path}.kind`);
-  switch (kind) {
-    case "base":
-      requireOnlyFields(record, path, ["kind", "label"]);
-      return {
-        kind,
-        label: boundedTrimmedText(
-          field(record, "label", path),
-          `${path}.label`,
-          MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS,
-        ),
-      };
-    case "accommodation":
-      requireOnlyFields(record, path, ["kind", "membership", "label"]);
-      return {
-        kind,
-        membership: reference(field(record, "membership", path), `${path}.membership`, "M"),
-        label: boundedTrimmedText(
-          field(record, "label", path),
-          `${path}.label`,
-          MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS,
-        ),
-      };
-    default:
-      throw new DecodeError(`${path}.kind`, "a known Assignment Policy Source kind");
-  }
-}
-
-function previewTimeField(value: unknown, path: string): TeachingPreviewTimeField {
-  const record = closed(value, path, ["value", "source"]);
-  return {
-    value: decodeNullable(record.value, `${path}.value`, courseLocalDateAndTime),
-    source: assignmentPolicySource(record.source, `${path}.source`),
-  };
-}
-
-function previewLimitField(value: unknown, path: string): TeachingPreviewLimitField {
-  const record = closed(value, path, ["value", "source"]);
-  return {
-    value: decodeNullable(record.value, `${path}.value`, (entry, entryPath) =>
-      positiveInteger(entry, entryPath, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS),
-    ),
-    source: assignmentPolicySource(record.source, `${path}.source`),
-  };
-}
-
-function assignmentStartDecision(
-  value: unknown,
-  path: string,
-): Extract<TeachingPreviewView, { active_student_course_membership: "allowed" }>["start"] {
-  const record = decodeRecord(value, path);
-  const kind = decodeString(field(record, "kind", path), `${path}.kind`);
-  switch (kind) {
-    case "mayStart":
-      requireOnlyFields(record, path, ["kind", "late"]);
-      return {
-        kind,
-        late: decodeStringEnum(field(record, "late", path), `${path}.late`, [
-          "onTime",
-          "acceptedLate",
-          "markedLate",
-        ] as const),
-      };
-    case "notYetAvailable":
-    case "closed":
-    case "attemptLimitReached":
-    case "lateWorkRefused":
-      requireOnlyFields(record, path, ["kind"]);
-      return { kind };
-    default:
-      throw new DecodeError(`${path}.kind`, "a known Assignment Start Decision");
-  }
-}
-
-export function decodeTeachingPreviewView(value: unknown, path = "response"): TeachingPreviewView {
-  const record = decodeRecord(value, path);
-  const active_student_course_membership = decodeString(
-    field(record, "active_student_course_membership", path),
-    `${path}.active_student_course_membership`,
-  );
-  if (active_student_course_membership === "denied") {
-    requireOnlyFields(record, path, ["active_student_course_membership", "reason"]);
-    return {
-      active_student_course_membership,
-      reason: decodeStringEnum(field(record, "reason", path), `${path}.reason`, [
-        "activeStudentCourseMembershipRequired",
-      ] as const),
-    };
-  }
-  if (active_student_course_membership !== "allowed")
-    throw new DecodeError(`${path}.active_student_course_membership`, "allowed or denied");
-  requireOnlyFields(record, path, [
-    "active_student_course_membership",
-    "timeZone",
-    "start",
-    "available_at",
-    "due_at",
-    "closes_at",
-    "assignment_attempt_time_limit_seconds",
-    "attempt_limit",
-    "late_work_rule",
-    "assignment_deadline_rule",
-  ]);
-  const lateWorkRule = closed(field(record, "late_work_rule", path), `${path}.late_work_rule`, [
-    "value",
-    "source",
-  ]);
-  const assignmentDeadlineRule = closed(
-    field(record, "assignment_deadline_rule", path),
-    `${path}.assignment_deadline_rule`,
-    ["value", "source"],
-  );
-  return {
-    active_student_course_membership,
-    timeZone: courseTimeZone(field(record, "timeZone", path), `${path}.timeZone`),
-    start: assignmentStartDecision(field(record, "start", path), `${path}.start`),
-    available_at: previewTimeField(field(record, "available_at", path), `${path}.available_at`),
-    due_at: previewTimeField(field(record, "due_at", path), `${path}.due_at`),
-    closes_at: previewTimeField(field(record, "closes_at", path), `${path}.closes_at`),
-    assignment_attempt_time_limit_seconds: previewLimitField(
-      field(record, "assignment_attempt_time_limit_seconds", path),
-      `${path}.assignment_attempt_time_limit_seconds`,
-    ),
-    attempt_limit: previewLimitField(field(record, "attempt_limit", path), `${path}.attempt_limit`),
-    late_work_rule: {
-      value: decodeStringEnum(lateWorkRule.value, `${path}.late_work_rule.value`, [
-        "accept",
-        "mark_late",
-        "reject",
-      ] as const),
-      source: assignmentPolicySource(lateWorkRule.source, `${path}.late_work_rule.source`),
-    },
-    assignment_deadline_rule: {
-      value: decodeStringEnum(
-        assignmentDeadlineRule.value,
-        `${path}.assignment_deadline_rule.value`,
-        ["auto_submit"] as const,
-      ),
-      source: assignmentPolicySource(
-        assignmentDeadlineRule.source,
-        `${path}.assignment_deadline_rule.source`,
-      ),
-    },
-  };
-}
-
 function teachingAccount(value: unknown, path: string): TeachingAccountView {
   const record = closed(value, path, ["reference", "display"]);
   return {
@@ -408,7 +217,7 @@ export function decodeInstructorMembershipsPage(
   value: unknown,
   path = "response",
 ): InstructorMembershipsPage {
-  const record = closed(value, path, ["instructors", "nextCursor", "rosterRevision"]);
+  const record = closed(value, path, ["instructors", "nextCursor", "rosterChangeNumber"]);
   return {
     instructors: decodeBoundedArray(
       record.instructors,
@@ -424,7 +233,10 @@ export function decodeInstructorMembershipsPage(
       },
     ),
     nextCursor: pageCursor(record.nextCursor, `${path}.nextCursor`),
-    rosterRevision: revision(record.rosterRevision, `${path}.rosterRevision`),
+    rosterChangeNumber: canonicalPositivePostgresBigint(
+      record.rosterChangeNumber,
+      `${path}.rosterChangeNumber`,
+    ),
   };
 }
 
@@ -479,24 +291,6 @@ export function decodeCourseInvitationTargetSearchRequest(
   };
 }
 
-/** Decode the bounded safe-picker roster page and preserve only student memberships. */
-export function decodeCourseStudentMembershipsPage(
-  value: unknown,
-  path = "response",
-): CourseStudentMembershipsPage {
-  const record = closed(value, path, ["students", "nextCursor"]);
-  const students = decodeBoundedArray(
-    record.students,
-    `${path}.students`,
-    MAX_TEACHING_PAGE_SIZE,
-    studentMembership,
-  );
-  if (!students.every((student) => student.role === "student")) {
-    throw new DecodeError(`${path}.students`, "student membership rows");
-  }
-  return { students, nextCursor: pageCursor(record.nextCursor, `${path}.nextCursor`) };
-}
-
 export function decodeInstructorCourseInvitationsPage(
   value: unknown,
   path = "response",
@@ -514,7 +308,7 @@ export function decodeInstructorCourseInvitationsPage(
           "state",
           "createdAt",
           "expiresAt",
-          "revision",
+          "state_precondition",
         ]);
         return {
           reference: reference(invitation.reference, `${entryPath}.reference`, "CI"),
@@ -522,7 +316,10 @@ export function decodeInstructorCourseInvitationsPage(
           state: decodeStringEnum(invitation.state, `${entryPath}.state`, INVITATION_STATES),
           createdAt: decodeTimestamp(invitation.createdAt, `${entryPath}.createdAt`),
           expiresAt: decodeTimestamp(invitation.expiresAt, `${entryPath}.expiresAt`),
-          revision: revision(invitation.revision, `${entryPath}.revision`),
+          state_precondition: canonicalPositivePostgresBigint(
+            invitation.state_precondition,
+            `${entryPath}.state_precondition`,
+          ),
         };
       },
     ),
@@ -546,7 +343,7 @@ export function decodePendingCourseInvitationsPage(
           "courseLabel",
           "state",
           "expiresAt",
-          "revision",
+          "state_precondition",
         ]);
         return {
           reference: reference(invitation.reference, `${entryPath}.reference`, "CI"),
@@ -557,7 +354,10 @@ export function decodePendingCourseInvitationsPage(
           ),
           state: decodeStringEnum(invitation.state, `${entryPath}.state`, INVITATION_STATES),
           expiresAt: decodeTimestamp(invitation.expiresAt, `${entryPath}.expiresAt`),
-          revision: revision(invitation.revision, `${entryPath}.revision`),
+          state_precondition: canonicalPositivePostgresBigint(
+            invitation.state_precondition,
+            `${entryPath}.state_precondition`,
+          ),
         };
       },
     ),

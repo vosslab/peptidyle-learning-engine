@@ -72,7 +72,6 @@ passkey authentication adapters.
 ![Instructor teaching operations groups](screenshots/instructor/teaching_operations/01_teaching_operations_groups.png)
 ![Instructor active roster](screenshots/instructor/course_management/01_instructor_active_roster.png)
 ![Instructor Gradebook with Student progress](screenshots/instructor/grading/01_instructor_gradebook.png)
-![Instructor assignment access preview](screenshots/instructor/assignment_access/01_access_preview_allowed.png)
 ![Instructor grade settings conflict recovery](screenshots/instructor/grade_settings_conflict/02_retry_saved.png)
 ![Instructor assignment delivery preview](screenshots/instructor/assignment_preview/01_schedule_entitlement.png)
 ![Instructor item pool preview](screenshots/instructor/item_pool_delivery/01_pool_preview.png)

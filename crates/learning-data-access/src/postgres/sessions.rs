@@ -132,7 +132,7 @@ fn decode_product_role(value: &str) -> Result<ProductRole, StoreError> {
         "instructor" => Ok(ProductRole::Instructor),
         "sysadmin" => Ok(ProductRole::Sysadmin),
         _ => Err(StoreError::Unavailable(
-            "stored session role is invalid".to_string(),
+            "stored Session Product Role is invalid".to_string(),
         )),
     }
 }

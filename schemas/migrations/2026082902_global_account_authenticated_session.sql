@@ -2,7 +2,7 @@
 --
 -- The role strings deliberately match question_model::ProductRole's lower-camel
 -- wire names.  PostgreSQL service roles such as ple_student are not human
--- product roles and are never stored in these columns.
+-- Product Roles and are never stored in these columns.
 
 DO $$
 BEGIN
@@ -191,11 +191,11 @@ REVOKE ALL PRIVILEGES ON FUNCTION ple_private.reject_authenticated_session_ident
     FROM PUBLIC;
 
 COMMENT ON TABLE ple_private.account IS
-    'Global account identity and its one immutable human role; no email or credential data.';
+    'Global Account identity and its one immutable human Product Role; no email or credential data.';
 COMMENT ON COLUMN ple_private.account.product_role IS
     'Closed lower-camel ProductRole value: student, instructor, or sysadmin.';
 COMMENT ON TABLE ple_private.authenticated_session IS
-    'Server-only Session Token Hash, expiry, revocation, and account-role binding.';
+    'Server-only Session Token Hash, expiry, revocation, and Account Product Role binding.';
 COMMENT ON COLUMN ple_private.authenticated_session.token_hash IS
     'Fixed-size Session Token Hash for an opaque browser credential; raw credentials are never stored.';
 

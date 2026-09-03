@@ -16,7 +16,7 @@ import {
 
 const course = "C-12";
 const assignment = "A-34";
-const revision = "7";
+const editNumber = "7";
 const selectedMoment = { value: "2026-08-25T09:00:00.000", time_zone: "America/Chicago" };
 const inheritedAdjustment = {
   available_at: { kind: "inherit" },
@@ -51,7 +51,7 @@ function allowedEvaluation() {
     student_view_scenario: {
       origin: "selected_student",
       assignment,
-      revision,
+      edit_number: editNumber,
       selected_moment: selectedMoment,
       policy: effective_assignment_policy("accommodation"),
       prior_assignment_attempt_count: 0,
@@ -104,7 +104,7 @@ test("preview decoders accept the closed server projections", () => {
   assert.deepEqual(decoded, response);
 
   const schedulePage = {
-    revision,
+    edit_number: editNumber,
     rows: [
       {
         kind: "granted",
@@ -126,7 +126,7 @@ test("preview decoders accept the closed server projections", () => {
 
   const hypotheticalRequest = {
     assignment,
-    revision,
+    edit_number: editNumber,
     selected_moment: selectedMoment,
     modifiers: { mode: "extend_only", adjustment: inheritedAdjustment },
   };
@@ -137,11 +137,16 @@ test("preview decoders accept the closed server projections", () => {
   assert.deepEqual(
     decodeSelectedStudentViewScenarioRequest({
       assignment,
-      revision,
+      edit_number: editNumber,
       selected_moment: selectedMoment,
       selected_student_membership: "M-9",
     }),
-    { assignment, revision, selected_moment: selectedMoment, selected_student_membership: "M-9" },
+    {
+      assignment,
+      edit_number: editNumber,
+      selected_moment: selectedMoment,
+      selected_student_membership: "M-9",
+    },
   );
 });
 
@@ -216,7 +221,7 @@ test("preview decoders reject unknown and protected fields at closed boundaries"
   assert.throws(
     () =>
       decodeInstructorPreviewSchedulePage({
-        revision,
+        edit_number: editNumber,
         rows: [
           {
             kind: "denied",
@@ -251,7 +256,7 @@ test("preview decoders reject unknown and protected fields at closed boundaries"
     () =>
       decodeHypotheticalStudentViewScenarioRequest({
         assignment,
-        revision,
+        edit_number: editNumber,
         selected_moment: selectedMoment,
         unexpectedGroups: ["G-3"],
         modifiers: { mode: "extend_only", adjustment: inheritedAdjustment },
@@ -266,17 +271,17 @@ test("preview transport uses the public C-/A- routes, headers, bodies, and canon
     fetch: async (input, init) => {
       requests.push({ path: String(input), init });
       return String(input).includes("preview-schedule")
-        ? jsonResponse({ revision, rows: [], next_cursor: null })
+        ? jsonResponse({ edit_number: editNumber, rows: [], next_cursor: null })
         : jsonResponse(previewResponse());
     },
   });
 
-  await client.listPreviewSchedule(course, assignment, revision, "opaque +/", 25);
-  await client.constructHypotheticalStudentViewScenario(course, assignment, revision, {
+  await client.listPreviewSchedule(course, assignment, editNumber, "opaque +/", 25);
+  await client.constructHypotheticalStudentViewScenario(course, assignment, editNumber, {
     selected_moment: selectedMoment,
     modifiers: { mode: "extend_only", adjustment: inheritedAdjustment },
   });
-  await client.constructSelectedStudentViewScenario(course, assignment, revision, {
+  await client.constructSelectedStudentViewScenario(course, assignment, editNumber, {
     selected_moment: selectedMoment,
     selected_student_membership: "M-9",
   });
@@ -309,7 +314,7 @@ test("preview transport maps stale revisions and cache violations safely", async
     fetch: async () => jsonResponse({ error: "assignment changed; reload it" }, 412),
   });
   await assert.rejects(
-    staleClient.constructSelectedStudentViewScenario(course, assignment, revision, {
+    staleClient.constructSelectedStudentViewScenario(course, assignment, editNumber, {
       selected_moment: selectedMoment,
       selected_student_membership: "M-9",
     }),
@@ -318,10 +323,14 @@ test("preview transport maps stale revisions and cache violations safely", async
 
   const cacheableClient = createHttpApiClient({
     fetch: async () =>
-      jsonResponse({ revision, rows: [], next_cursor: null }, 200, "private, max-age=1"),
+      jsonResponse(
+        { edit_number: editNumber, rows: [], next_cursor: null },
+        200,
+        "private, max-age=1",
+      ),
   });
   await assert.rejects(
-    cacheableClient.listPreviewSchedule(course, assignment, revision),
+    cacheableClient.listPreviewSchedule(course, assignment, editNumber),
     ApiProtocolError,
   );
 });

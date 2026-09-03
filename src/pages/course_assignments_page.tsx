@@ -101,12 +101,6 @@ function AssignmentCard(props: AssignmentCardProps): JSX.Element {
         <Show when={props.canManageAssignment}>
           <A
             class="quiet-link"
-            href={`/instructor/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}/access`}
-          >
-            Access and modifiers
-          </A>
-          <A
-            class="quiet-link"
             href={`/instructor/courses/${props.courseReference}/assignments/${assignmentRouteReference(props.assignment.reference)}/delivery-check`}
           >
             Check assignment delivery

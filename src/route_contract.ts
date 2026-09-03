@@ -27,12 +27,11 @@ export interface RouteContract {
     | "signIn"
     | "courseRoster"
     | "teachingOperations"
-    | "assignmentAccess"
     | "assignmentPreview"
     | "pendingCourseInvitations";
   readonly path: string;
   readonly surface: string;
-  /** Role gate for the route; each route declares the real roles it serves. */
+  /** Product Role gate for the route; each route declares the Product Roles it serves. */
   readonly requiredProductRoles: ReadonlyArray<ProductRole>;
 }
 
@@ -41,7 +40,7 @@ export const ROUTE_CONTRACT = [
   {
     id: "courses",
     path: "/",
-    surface: "Course list for the signed-in role",
+    surface: "Course list for the signed-in Product Role",
     requiredProductRoles: [],
   },
   {
@@ -151,12 +150,6 @@ export const ROUTE_CONTRACT = [
     path: "/instructor/courses/:courseRef/assignments/:assignmentRef/grading-operations",
     surface: "Instructor automated-grading operations workspace",
     // ASVS 8.3.1: mirror the server's explicit Instructor authority boundary.
-    requiredProductRoles: ["instructor"],
-  },
-  {
-    id: "assignmentAccess",
-    path: "/instructor/courses/:courseRef/assignments/:assignmentRef/access",
-    surface: "Assignment access modifiers and server preview",
     requiredProductRoles: ["instructor"],
   },
   {

@@ -62,10 +62,10 @@ function reference(value: unknown, path: string, prefix: string): string {
   return parsed;
 }
 
-function revision(value: unknown, path: string): string {
+function editNumber(value: unknown, path: string): string {
   const parsed = decodeString(value, path);
   if (!/^[1-9][0-9]{0,18}$/u.test(parsed) || BigInt(parsed) > 9_223_372_036_854_775_807n) {
-    throw new DecodeError(path, "a canonical positive PostgreSQL bigint revision");
+    throw new DecodeError(path, "a canonical positive PostgreSQL bigint Assignment edit number");
   }
   return parsed;
 }
@@ -98,7 +98,7 @@ export function decodeQuestionPoolPreviewRequest(
 export function decodeQuestionPoolPreview(value: unknown, path = "response"): QuestionPoolPreview {
   const record = closed(value, path, [
     "assignment",
-    "revision",
+    "editNumber",
     "assignmentEntryId",
     "questionPoolLabel",
     "selectionCount",
@@ -139,7 +139,7 @@ export function decodeQuestionPoolPreview(value: unknown, path = "response"): Qu
     throw new DecodeError(`${path}.selectedItems`, "unique Question Pool Item Question IDs");
   return {
     assignment: reference(record.assignment, `${path}.assignment`, "A"),
-    revision: revision(record.revision, `${path}.revision`),
+    editNumber: editNumber(record.editNumber, `${path}.editNumber`),
     assignmentEntryId,
     questionPoolLabel: label(record.questionPoolLabel, `${path}.questionPoolLabel`),
     selectionCount,
@@ -286,7 +286,7 @@ function studentViewScenario(value: unknown, path: string): StudentViewScenario 
   const record = closed(value, path, [
     "origin",
     "assignment",
-    "revision",
+    "edit_number",
     "selected_moment",
     "policy",
     "prior_assignment_attempt_count",
@@ -297,7 +297,7 @@ function studentViewScenario(value: unknown, path: string): StudentViewScenario 
       "hypothetical",
     ] as const),
     assignment: reference(record.assignment, `${path}.assignment`, "A"),
-    revision: revision(record.revision, `${path}.revision`),
+    edit_number: editNumber(record.edit_number, `${path}.edit_number`),
     selected_moment: selectedMoment(record.selected_moment, `${path}.selected_moment`),
     policy: effective_assignment_policy(record.policy, `${path}.policy`),
     prior_assignment_attempt_count: nonnegativeInteger(
@@ -510,9 +510,9 @@ export function decodeInstructorPreviewSchedulePage(
   value: unknown,
   path = "response",
 ): InstructorPreviewSchedulePage {
-  const record = closed(value, path, ["revision", "rows", "next_cursor"]);
+  const record = closed(value, path, ["edit_number", "rows", "next_cursor"]);
   return {
-    revision: revision(record.revision, `${path}.revision`),
+    edit_number: editNumber(record.edit_number, `${path}.edit_number`),
     rows: decodeBoundedArray(record.rows, `${path}.rows`, MAX_TEACHING_PAGE_SIZE, scheduleRow),
     next_cursor: decodeNullable(record.next_cursor, `${path}.next_cursor`, decodeCursor),
   };
@@ -522,10 +522,10 @@ export function decodeHypotheticalStudentViewScenarioRequest(
   value: unknown,
   path = "request",
 ): HypotheticalStudentViewScenarioRequest {
-  const record = closed(value, path, ["assignment", "revision", "selected_moment", "modifiers"]);
+  const record = closed(value, path, ["assignment", "edit_number", "selected_moment", "modifiers"]);
   return {
     assignment: reference(record.assignment, `${path}.assignment`, "A"),
-    revision: revision(record.revision, `${path}.revision`),
+    edit_number: editNumber(record.edit_number, `${path}.edit_number`),
     selected_moment: selectedMoment(record.selected_moment, `${path}.selected_moment`),
     modifiers: decodeHypotheticalStudentViewScenarioModifiers(
       record.modifiers,
@@ -540,13 +540,13 @@ export function decodeSelectedStudentViewScenarioRequest(
 ): SelectedStudentViewScenarioRequest {
   const record = closed(value, path, [
     "assignment",
-    "revision",
+    "edit_number",
     "selected_moment",
     "selected_student_membership",
   ]);
   return {
     assignment: reference(record.assignment, `${path}.assignment`, "A"),
-    revision: revision(record.revision, `${path}.revision`),
+    edit_number: editNumber(record.edit_number, `${path}.edit_number`),
     selected_moment: selectedMoment(record.selected_moment, `${path}.selected_moment`),
     selected_student_membership: reference(
       record.selected_student_membership,

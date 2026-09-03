@@ -108,7 +108,7 @@ INSERT INTO ple_private.question_attempt (
     pg_catalog.clock_timestamp(), NULL, 'open', '{}'::jsonb
 );
 INSERT INTO ple_private.authenticated_session (
-    session_id, account_id, role, token_hash, created_at, expires_at
+    session_id, account_id, product_role, token_hash, created_at, expires_at
 ) VALUES (
     '00000000-0000-0000-0000-00000000f203',
     '00000000-0000-0000-0000-000000000101', 'student',

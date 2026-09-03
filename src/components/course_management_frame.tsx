@@ -24,7 +24,6 @@ export function courseManagementSectionForRoute(
     case "assignmentWorkspacePolicies":
     case "assignmentWorkspaceStudentView":
     case "assignmentWorkspaceGradingOperations":
-    case "assignmentAccess":
     case "assignmentPreview":
       return "assignments";
     case "assignmentCreate":

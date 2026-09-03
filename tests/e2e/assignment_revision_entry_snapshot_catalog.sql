@@ -281,7 +281,7 @@ INSERT INTO ple_data.assignment_revision_fixed_question (
 );
 COMMIT;
 INSERT INTO ple_private.authenticated_session (
-    session_id, account_id, role, token_hash, created_at, expires_at, revoked_at
+    session_id, account_id, product_role, token_hash, created_at, expires_at, revoked_at
 ) VALUES (
     '00000000-0000-0000-0000-000000000113', '00000000-0000-0000-0000-000000000101',
     'student', decode(repeat('ab', 32), 'hex'), pg_catalog.clock_timestamp(),

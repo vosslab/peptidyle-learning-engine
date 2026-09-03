@@ -7,7 +7,7 @@ import type { AssignmentReference } from "../../generated/api/AssignmentReferenc
 import type { InstructorPreviewSchedulePage } from "../../generated/api/InstructorPreviewSchedulePage";
 import type { PreviewPlaneResponse } from "../../generated/api/PreviewPlaneResponse";
 import type { EffectiveAssignmentPolicyView } from "../../generated/api/EffectiveAssignmentPolicyView";
-import type { TeachingOperationRevision } from "../../generated/api/TeachingOperationRevision";
+import type { AssignmentEditNumber } from "../../generated/api/AssignmentEditNumber";
 import type { CourseRouteView } from "../api/contracts";
 import { ApiRequestError, PreviewPlaneConflictError } from "../api/http_client";
 import { useApplicationApi } from "../api/application_api";
@@ -57,11 +57,11 @@ function safeModifierError(error: unknown): string {
   return "Enter valid whole Assignment Attempt seconds and attempt-limit values, or leave them blank.";
 }
 
-/** Assignment-editor ETags retain HTTP quotes; preview requests use the generated decimal revision. */
-function previewRevision(value: string): TeachingOperationRevision {
+/** Assignment-editor ETags retain HTTP quotes; preview requests use the generated edit number. */
+function previewEditNumber(value: string): AssignmentEditNumber {
   const match = /^"([1-9][0-9]*)"$/u.exec(value);
   if (match === null)
-    throw new Error("The assignment revision is unavailable for a delivery check.");
+    throw new Error("The assignment edit number is unavailable for a delivery check.");
   return match[1]!;
 }
 
@@ -241,7 +241,7 @@ export function AssignmentPreviewPage(): JSX.Element {
     return reference === undefined ? undefined : (parseAssignmentReference(reference) ?? undefined);
   };
   const [state, setState] = createSignal<PageState>("loading");
-  const [revision, setRevision] = createSignal<TeachingOperationRevision>();
+  const [editNumber, setEditNumber] = createSignal<AssignmentEditNumber>();
   const [effective_assignment_policy, setSchedule] = createSignal<InstructorPreviewSchedulePage>();
   const [cursor, setCursor] = createSignal<string>();
   const [studentViewScenarioBuilder, setStudentViewScenarioBuilder] =
@@ -270,8 +270,8 @@ export function AssignmentPreviewPage(): JSX.Element {
     }
     setState("loading");
     try {
-      let activeRevision = revision();
-      if (activeRevision === undefined) {
+      let activeEditNumber = editNumber();
+      if (activeEditNumber === undefined) {
         const resolved = await resolveAssignmentRoute(runtime.client, selectedAssignment);
         if (resolved.courseId !== selectedCourse.id) {
           setState("unavailable");
@@ -285,16 +285,16 @@ export function AssignmentPreviewPage(): JSX.Element {
           setState("unavailable");
           return;
         }
-        activeRevision = previewRevision(editor.revision);
+        activeEditNumber = previewEditNumber(editor.revision);
       }
       const page = await runtime.client.listPreviewSchedule(
         selectedCourse.reference,
         selectedAssignment,
-        activeRevision,
+        activeEditNumber,
         nextCursor,
         25,
       );
-      setRevision(page.revision);
+      setEditNumber(page.edit_number);
       setSchedule(page);
       setCursor(page.next_cursor ?? undefined);
       if (moment().length === 0) setMoment(courseMoment(selectedCourse.term.startDate));
@@ -308,7 +308,7 @@ export function AssignmentPreviewPage(): JSX.Element {
 
   async function reloadAfterConflict(): Promise<void> {
     setNeedsReload(false);
-    setRevision(undefined);
+    setEditNumber(undefined);
     setResult(undefined);
     await load();
     if (state() === "ready") {
@@ -347,11 +347,11 @@ export function AssignmentPreviewPage(): JSX.Element {
   async function resolvePreview(): Promise<void> {
     const selectedCourse = course();
     const selectedAssignment = assignment();
-    const activeRevision = revision();
+    const activeEditNumber = editNumber();
     if (
       selectedCourse === undefined ||
       selectedAssignment === undefined ||
-      activeRevision === undefined
+      activeEditNumber === undefined
     )
       return;
     const selectedMoment = normalizeCourseLocalMoment(moment());
@@ -364,7 +364,7 @@ export function AssignmentPreviewPage(): JSX.Element {
         response = await runtime.client.constructSelectedStudentViewScenario(
           selectedCourse.reference,
           selectedAssignment,
-          activeRevision,
+          activeEditNumber,
           {
             selected_student_membership: selectedStudentMembership(),
             selected_moment: { value: selectedMoment, time_zone: selectedCourse.term.timeZone },
@@ -376,7 +376,7 @@ export function AssignmentPreviewPage(): JSX.Element {
         response = await runtime.client.constructHypotheticalStudentViewScenario(
           selectedCourse.reference,
           selectedAssignment,
-          activeRevision,
+          activeEditNumber,
           {
             selected_moment: { value: selectedMoment, time_zone: selectedCourse.term.timeZone },
             modifiers,

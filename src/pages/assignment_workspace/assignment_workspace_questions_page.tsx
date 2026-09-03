@@ -4,7 +4,7 @@ import { A } from "@solidjs/router";
 import { For, Show, createEffect, createSignal, onMount, type JSX } from "solid-js";
 
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
-import type { TeachingOperationRevision } from "../../../generated/api/TeachingOperationRevision";
+import type { AssignmentEditNumber } from "../../../generated/api/AssignmentEditNumber";
 import { AssignmentEditorContentList } from "../assignment_editor_content_list";
 import { createAssignmentEditorQuestionLookupController } from "../assignment_editor_question_lookup_controller";
 import {
@@ -29,7 +29,7 @@ import type { QuestionPoolPreview } from "../../api/contracts";
 import { assignmentWorkspacePath } from "./assignment_workspace_nav";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
 
-function previewRevision(revision: string): TeachingOperationRevision {
+function previewEditNumber(revision: string): AssignmentEditNumber {
   const match = /^"([1-9][0-9]*)"$/u.exec(revision);
   const value = match?.[1];
   if (value === undefined || BigInt(value) > 9_223_372_036_854_775_807n)
@@ -283,7 +283,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       const preview = await workspace.client.previewQuestionPool(
         workspace.courseReference,
         saved.reference,
-        previewRevision(saved.revision),
+        previewEditNumber(saved.revision),
         assignmentEntryId,
       );
       setPoolPreview(preview);

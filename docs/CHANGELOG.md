@@ -4,9 +4,57 @@
 
 ### Behavior or Interface Changes
 
+- Allocated and implemented `WP-SD1-A-TERM-01-603-CI1` as the final ordered row-603 child.
+  `CourseInvitationStatePrecondition` replaces the remaining generic Course Invitation transport
+  through Rust/Serde, generated declarations, strict decoder, teaching-operation client, API
+  facade, and the Instructor/Pending invitation callers. Both invitation views serialize
+  `state_precondition`; revoke, accept, and decline require that exact type for `If-Match`, while
+  create retains its Location and strong-ETag validation. The retired generic Rust export and
+  generated declaration are removed. AE1 `AssignmentEditNumber`, AC1R deletion and Scenario
+  modifiers, CR1 `CourseRosterChangeNumber`, Product Role, route, Store, schema, migration,
+  fixture, browser scenario, compatibility behavior, and permanent tests are unchanged. Focused
+  evidence and final residual/diff checks are pending; row 603 remains open pending independent
+  CI1 and overall closure review.
+
+- Completed `WP-SD1-A-TERM-01-603-CR1` with a direct pre-production Course Roster
+  change-number cut. `CourseRosterChangeNumber` now owns the Instructor Memberships page
+  `roster_change_number` and direct-Instructor-removal `If-Match` through Rust/Serde, generated
+  declarations, strict decoder, teaching-operation client, API facade, and Teaching Team panel.
+  The existing generic `TeachingOperationRevision` remains only for deferred Course Invitation
+  flows; AE1 `AssignmentEditNumber`, AC1R deletion/Scenario modifiers, and the distinct local
+  roster import/list client remain unchanged. A private shared canonical-positive-decimal validator
+  preserves the PostgreSQL-BIGINT boundary without adding public generic transport vocabulary.
+  No route, Store, schema, migration, fixture, browser scenario, compatibility alias, or permanent
+  test was added. Focused Rust/Node/TypeScript, generation, formatting, strict Clippy, residual,
+  and diff checks pass. Independent CR1 review passes; only the one-time scoped CR1 detector is
+  retired. Row 603 remains open for CI1 and final generic retirement.
+
 - Allocated `WP-SD1-A-TERM-01-PR1` for the approved direct Product Role cutover. It replaces the global Account and Authenticated Session role names through fresh schema, Rust, generated contract, strict browser decoder, route gate, Live Demo selector, direct PostgreSQL oracle, and current documentation while preserving distinct Course Membership Role and authorization/RLS behavior. Vocabulary row 446 remains unchecked pending independent review and full required acceptance evidence.
 
-- Allocated `WP-SD1-A-TERM-01-QLB1` for the Question Library Browse boundary. The browser-only flattened row, evidence, facet aggregate, query, page, repository, state, session, decoder, normalization, virtual-window, and bound now use direct `QuestionLibraryBrowse*` names in the Library, Question Picker, Assignment Editor, and sole API adapter. Generated `QuestionSearchRequest`, `QuestionSearchResult`, and `QuestionSearchPage` remain the sole transport vocabulary; `QuestionSearchAuthorship` and `questionSearchRequest()` remain generated-request vocabulary. The scoped residual detector is zero; 18 focused Node tests, both TypeScript checks, QLB1 Prettier, and `git diff --check` pass. `check_codebase.sh` is non-green only for unrelated formatting drift in `src/api/decoders/assignment_attempt.ts` and `src/route_access_boundary.tsx`, so QLB1 is ready for independent implementation review but not accepted; vocabulary row 318 remains unchecked. No Store, route, schema, generated transport source, fixture, feature, or alias changed.
+- Rejected and superseded `WP-SD1-A-TERM-01-603-AC1`: its proposed Accommodation revision
+  reference had no producer and incorrectly received an Assignment edit number at the unmounted
+  Assignment Access gate. Completed `WP-SD1-A-TERM-01-603-AC1R` with the direct deletion of that
+  unsupported mutation/preview route, browser surface, client/decoder, and AC1-only Question
+  Model/generated plumbing. The value-only Student View Scenario modifier model and AE1
+  `AssignmentEditNumber` remain; deferred roster/invitation generic uses remain. No route, Store,
+  schema, migration, fixture, alias, replacement browser surface, or permanent test is added.
+  Focused Rust/Node/TypeScript, formatting, strict Clippy, codebase, residual, and diff gates plus
+  independent AC1R review pass. Only AC1R's removed-surface detectors are retired. Row 603 remains
+  open; CR1 and CI1 are pending.
+
+- Completed `WP-SD1-A-TERM-01-603-AE1` as the first sequential row-603 Assignment edit-number
+  transport cut. It replaces the generic teaching-operation value only in Assignment workspace/edit,
+  Instructor Preview Schedule, Question Pool Preview, and hypothetical/selected/returned Student
+  View Scenario generated contracts, strict readers/writers, and direct consumers with existing
+  `AssignmentEditNumber`. The existing Question Pool lower-camel field is `editNumber`; preview
+  plane fields are `edit_number`. Accommodation, roster, invitation, and generic response uses
+  remain for AC1, CR1, and CI1. This direct pre-production cut adds no route, Store, schema,
+  migration, fixture family, compatibility alias, or permanent test. Focused Question Model
+  (11 + 2 + 1), Node (7), TypeScript, formatting, strict Clippy, scoped residual, diff, and
+  independent review pass. The AE1 direct-consumer detector is retired. Row 603 remains open
+  pending AC1, CR1, CI1, and final retirement evidence.
+
+- Completed `WP-SD1-A-TERM-01-QLB1` and vocabulary row 318: generated `QuestionSearchRequest`, `QuestionSearchResult`, and `QuestionSearchPage` remain the sole Question Model transport vocabulary, while the intentionally flattened browser contract directly uses the complete `QuestionLibraryBrowse*` family in the Library, Question Picker, Assignment Editor, and sole API adapter. `QuestionSearchAuthorship` remains generated vocabulary in the browse query and `questionSearchRequest()` remains the server-request constructor; no alias remains. The one-time QLB1 residual detector is zero and retired after independent review marked closure eligible. Focused Node (18), both TypeScript checks, QLB1 scoped Prettier, Markdown-link (194), and diff checks pass; fresh `check_codebase.sh` passes all five gates, including 316 Node tests. No Store, route, schema, generated transport source, fixture, test, feature, or behavior changed.
 
 - Completed `WP-SD1-A-TERM-01-QC2` by unmounting the unsupported generic Question Curation
   aggregate: its Question Model contracts, generated declarations, browser transport, repository,
@@ -60,7 +108,11 @@
   The retired PLE registry/one-variant execution family, algorithmic PLE format,
   hard-coded authored Question implementation, and Question Definition names
   are absent from the current model, schema, adapters, generated contracts,
-  browser boundary, fixtures, and durable documentation. Direct static PLE
+  browser boundary, fixtures, and durable documentation. A post-closure
+  documentation-integrity repair removes the obsolete deterministic-generator
+  vector links and regeneration command: current static PLE evidence is the
+  existing server-owned issue/reproduce and Question Presentation descriptor
+  checks, while future source-owned generator work remains open. Direct static PLE
   Question JSON selects by exact Question Format and Question Type; Draft
   Question Revision and Question Revision name the accepted private and
   immutable published records. The completed exact algorithmic, hard-coded

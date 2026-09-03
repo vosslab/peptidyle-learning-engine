@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AccommodationAdjustmentView, AccommodationApplicationRuleView, AssignmentDeadlineRule,
-    AssignmentReference, CourseLocalDateAndTime, CourseMembershipReference, CourseTimeZone,
-    LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
-    TeachingDisplayLabel, TeachingOperationRevision,
+    AssignmentEditNumber, AssignmentReference, CourseLocalDateAndTime, CourseMembershipReference,
+    CourseTimeZone, LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
+    MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, TeachingDisplayLabel,
 };
 
 /// Bounded Instructor wall-clock input. The server resolves it in this exact course zone.
@@ -27,7 +27,7 @@ pub struct PreviewSelectedMoment {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct HypotheticalStudentViewScenarioRequest {
     pub assignment: AssignmentReference,
-    pub revision: TeachingOperationRevision,
+    pub edit_number: AssignmentEditNumber,
     pub selected_moment: PreviewSelectedMoment,
     pub modifiers: HypotheticalStudentViewScenarioModifiers,
 }
@@ -51,7 +51,7 @@ pub struct HypotheticalStudentViewScenarioModifiers {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct SelectedStudentViewScenarioRequest {
     pub assignment: AssignmentReference,
-    pub revision: TeachingOperationRevision,
+    pub edit_number: AssignmentEditNumber,
     pub selected_moment: PreviewSelectedMoment,
     pub selected_student_membership: CourseMembershipReference,
 }
@@ -253,7 +253,7 @@ pub enum StudentViewScenarioAdmission {
 pub struct StudentViewScenario {
     pub origin: StudentViewScenarioOrigin,
     pub assignment: AssignmentReference,
-    pub revision: TeachingOperationRevision,
+    pub edit_number: AssignmentEditNumber,
     pub selected_moment: PreviewSelectedMoment,
     pub policy: PreviewResolvedPolicy,
     pub prior_assignment_attempt_count: PreviewPriorAssignmentAttemptCount,
@@ -264,7 +264,7 @@ pub struct StudentViewScenario {
 struct StudentViewScenarioWire {
     origin: StudentViewScenarioOrigin,
     assignment: AssignmentReference,
-    revision: TeachingOperationRevision,
+    edit_number: AssignmentEditNumber,
     selected_moment: PreviewSelectedMoment,
     policy: PreviewResolvedPolicy,
     prior_assignment_attempt_count: PreviewPriorAssignmentAttemptCount,
@@ -276,7 +276,7 @@ impl TryFrom<StudentViewScenarioWire> for StudentViewScenario {
         Self::new(
             value.origin,
             value.assignment,
-            value.revision,
+            value.edit_number,
             value.selected_moment,
             value.policy,
             value.prior_assignment_attempt_count,
@@ -290,7 +290,7 @@ impl StudentViewScenario {
     pub fn new(
         origin: StudentViewScenarioOrigin,
         assignment: AssignmentReference,
-        revision: TeachingOperationRevision,
+        edit_number: AssignmentEditNumber,
         selected_moment: PreviewSelectedMoment,
         policy: PreviewResolvedPolicy,
         prior_assignment_attempt_count: PreviewPriorAssignmentAttemptCount,
@@ -298,7 +298,7 @@ impl StudentViewScenario {
         Ok(Self {
             origin,
             assignment,
-            revision,
+            edit_number,
             selected_moment,
             policy,
             prior_assignment_attempt_count,
@@ -361,7 +361,7 @@ pub enum InstructorPreviewScheduleRow {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct InstructorPreviewSchedulePage {
-    pub revision: TeachingOperationRevision,
+    pub edit_number: AssignmentEditNumber,
     pub rows: Vec<InstructorPreviewScheduleRow>,
     pub next_cursor: Option<String>,
 }
@@ -502,7 +502,7 @@ mod direct_preview_tests {
     fn hypothetical_student_view_scenario_request_accepts_only_direct_preview_fields() {
         let request = serde_json::json!({
             "assignment": "A-1",
-            "revision": "1",
+            "edit_number": "1",
             "selected_moment": { "value": "2026-08-20T09:00:00.000", "time_zone": "America/Chicago" },
             "modifiers": { "mode": "extend_only", "adjustment": {
                 "available_at": { "kind": "inherit" },
@@ -534,7 +534,7 @@ mod direct_preview_tests {
         let student_view_scenario = StudentViewScenario::new(
             StudentViewScenarioOrigin::Hypothetical,
             AssignmentReference::new(1).expect("assignment reference"),
-            TeachingOperationRevision::new(1).expect("revision"),
+            "1".parse().expect("edit number"),
             PreviewSelectedMoment {
                 value: CourseLocalDateAndTime::parse("2026-08-20T09:00:00.000").expect("moment"),
                 time_zone: CourseTimeZone::parse("America/Chicago").expect("zone"),

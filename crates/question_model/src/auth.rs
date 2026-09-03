@@ -31,10 +31,10 @@ impl std::fmt::Display for AccountId {
     }
 }
 
-/// The one immutable global role assigned to an account.
+/// The one immutable global Product Role assigned to an Account.
 ///
 /// Course-specific permissions remain exact course relationships and do not
-/// become global session roles.
+/// become global session Product Roles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ProductRole {

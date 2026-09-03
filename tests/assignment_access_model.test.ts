@@ -2,15 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  adoptReloadedRevision,
   canonicalCourseLocalDateAndTime,
   emptyPatchDraft,
   policyRequest,
-  assignmentPolicySourceLabel,
-  startLabel,
 } from "../src/pages/assignment_access/model";
 
-test("access policy writes preserve every explicit adjustment state", () => {
+test("Student View Scenario modifiers preserve every explicit adjustment state", () => {
   const draft = {
     ...emptyPatchDraft(),
     dueAt: { kind: "set" as const, value: "2026-08-20T09:30" },
@@ -23,7 +20,7 @@ test("access policy writes preserve every explicit adjustment state", () => {
   assert.deepEqual(request.adjustment.due_at, { kind: "set", value: "2026-08-20T09:30:00.000" });
 });
 
-test("synthetic accommodation requests keep dates inherited and accept both modes", () => {
+test("Student View Scenario modifiers keep dates inherited and accept both modes", () => {
   const draft = {
     ...emptyPatchDraft(),
     assignmentAttemptTimeLimitSeconds: { kind: "set" as const, value: "180" },
@@ -51,23 +48,4 @@ test("course-local inputs are canonical strings with no epoch conversion", () =>
     "2026-08-20T09:30:45.123",
   );
   assert.throws(() => canonicalCourseLocalDateAndTime("2026-08-20T09:30:45.1"));
-});
-
-test("reloading a revision preserves the caller-owned modifier draft", () => {
-  const draft = { dueAt: { kind: "set", value: "2026-08-20T09:30:00.000" } };
-  const reloaded = adoptReloadedRevision("42", draft);
-  assert.equal(reloaded.revision, "42");
-  assert.equal(reloaded.draft, draft);
-});
-
-test("safe preview copy uses only display labels and closed verdict copy", () => {
-  assert.equal(
-    assignmentPolicySourceLabel({
-      kind: "accommodation",
-      membership: "M-private",
-      label: "Jordan Lee",
-    }),
-    "Jordan Lee",
-  );
-  assert.equal(startLabel("lateWorkRefused"), "Due date prevents a new Assignment Attempt");
 });

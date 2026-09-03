@@ -4,9 +4,48 @@ Last updated: 2026-09-03. This is the sole mutable registry for the global curre
 
 ## Current handoff
 
+- **Allocated `WP-SD1-A-TERM-01-603-CI1` (Course Invitation state-precondition transport and
+  generic retirement).** This final ordered row-603 child directly replaces the remaining generic
+  `TeachingOperationRevision` with `CourseInvitationStatePrecondition` through the two current
+  Course Invitation views, Rust/Serde, generated declarations, strict decoder, teaching-operation
+  client, API facade, and invitation callers. The serialized invitation member is
+  `state_precondition`; revoke, accept, and decline require that exact state precondition for
+  `If-Match`, while create retains its existing Location and strong-ETag validation. It preserves
+  AE1 `AssignmentEditNumber`, AC1R deletion and Scenario modifiers, CR1
+  `CourseRosterChangeNumber`, and Product Role. No route, Store, schema, migration, fixture,
+  browser scenario, compatibility alias, or permanent test is added. Focused evidence and the
+  final generic/residual detectors are in progress. Vocabulary row 603 remains open pending
+  independent CI1 review and overall row-603 closure review.
+
+- **Accepted `WP-SD1-A-TERM-01-603-CR1` (Course Roster change-number transport).** The direct
+  pre-production Question Model-to-browser contract cut introduces exact `CourseRosterChangeNumber`
+  for the Instructor Memberships page's `roster_change_number` and direct-Instructor-removal
+  `If-Match`. Rust/Serde, generated declarations, the strict decoder, teaching-operation client,
+  API facade, and Teaching Team panel now use that nominal value; the generic
+  `TeachingOperationRevision` remains only for deferred Course Invitation flows. The separate
+  browser-local Course Roster import/list client, membership role/status vocabulary, routes, Store,
+  schema, migrations, fixtures, browser scenario, and permanent tests are unchanged. The private
+  canonical positive PostgreSQL-BIGINT decimal validator is shared by the existing generic value
+  and the new roster value without becoming public transport vocabulary. Focused Rust, Node,
+  TypeScript, formatting, strict Clippy, generated-contract inspection, residual, and diff gates
+  pass. Independent CR1 review passes. The one-time scoped CR1 detector is retired after
+  classifying the remaining generic invitation uses as CI1-owned; no other row-603 detector is
+  retired. Vocabulary row 603 remains open for CI1 and final generic retirement.
+
+- **Completed `WP-SD1-A-TERM-01-603-AC1R` (Accommodation mutation-surface removal).** The original
+  AC1 nominal-reference proposal is rejected and superseded because no Accommodation revision
+  producer, route, Store, schema, or response exists. This deletion-only correction removes the
+  unsupported direct Accommodation mutation/preview route, browser surface, client/decoder, and
+  AC1-only Question Model/generated plumbing. It preserves AE1 `AssignmentEditNumber`, the
+  value-only Student View Scenario modifier model, and deferred generic roster/invitation uses.
+  No replacement route, Store, schema, fixture, alias, or permanent test is added. Focused Rust,
+  Node, TypeScript, formatting, strict Clippy, codebase, residual, and diff gates pass; independent
+  AC1R review passes, and only AC1R's removed-surface detectors are retired. Row 603 remains open;
+  CI1 and final generic retirement are pending.
+
 - **Allocated `WP-SD1-A-TERM-01-PR1` (Product Role direct cutover).** This approved pre-production package directly replaces the Account/session global classification from `AccountRole`/`role` with `ProductRole`/`product_role` in fresh schema, Rust, generated contract, strict browser decoder, route presentation gate, Live Demo selector, direct PostgreSQL oracles, and current documentation. `CourseMembershipRole` and its course-scoped `role` remain distinct; authorization and RLS predicates are unchanged. Vocabulary row 446 remains unchecked until independent contextual review and every required acceptance gate pass.
 
-- **Allocated `WP-SD1-A-TERM-01-QLB1` (Question Library Browse boundary).** The generated Question Model `QuestionSearchRequest`, `QuestionSearchResult`, and `QuestionSearchPage` remain the sole transport vocabulary. The intentionally flattened browser presentation contract is directly renamed in `library_page_model.ts` and its mounted Library, Picker, and Assignment Editor consumers to the `QuestionLibraryBrowse*` family, with no compatibility aliases. `QuestionSearchAuthorship` remains the generated contract used by the local browse query, and `questionSearchRequest()` remains the server-request constructor. The API repository continues as the sole generated-to-browse adapter; stores, routes, schema, generated transport source, fixtures, and behavior are unchanged. The one-time scoped residual detector is zero, the 18-test focused Node suite, both TypeScript checks, QLB1 Prettier check, and `git diff --check` pass. `check_codebase.sh` reaches its format check but remains non-green only for unrelated concurrent formatting drift in `src/api/decoders/assignment_attempt.ts` and `src/route_access_boundary.tsx`; therefore QLB1 is ready for independent implementation review but cannot close until the required shared codebase gate is green. Graphify Curation edges are stale after accepted QC2 and are not current consumer authority. Vocabulary row 318 remains unchecked pending independent review and the green shared gate.
+- **Completed `WP-SD1-A-TERM-01-QLB1` (Question Library Browse boundary).** Generated Question Model `QuestionSearchRequest`, `QuestionSearchResult`, and `QuestionSearchPage` remain the sole transport vocabulary. The intentionally flattened browser presentation contract directly uses the `QuestionLibraryBrowse*` family in `library_page_model.ts` and its mounted Library, Picker, Assignment Editor, and sole API-adapter consumers, with no compatibility aliases. `QuestionSearchAuthorship` remains generated vocabulary in the local browse query, and `questionSearchRequest()` remains the server-request constructor. The generated-to-browse adapter, Store/route/schema/generated-transport/fixture boundaries, and behavior are unchanged. The QLB1 one-time scoped residual detector is zero and retired after independent review marked closure eligible. Focused Node (18), both TypeScript checks, QLB1 scoped Prettier, Markdown-link (194), and diff checks pass; fresh `check_codebase.sh` passes all five gates, including 316 Node tests. Graphify Curation edges are stale after accepted QC2 and are not current consumer authority. Vocabulary row 318 is checked; no other ledger rows are allocated by this closure.
 
 - **Completed `WN1-QM-QUESTION-SEED-WIRE` (Question Seed portable-wire cutover).** The six direct Question Seed fields on Question Variation, Question Presentation, Question Attempt, Student Question Attempt View, Next Issued Attempt, and Prefetched Next Question now use `question_seed` through Rust-Serde, generated declarations, strict readers, browser consumers, and existing fixture data. The aggregate gate found and corrected the existing inline Wasm Question Presentation payload from `seed` to `question_seed`; its descriptor expectation remains unchanged because the codec encodes the numeric Question Seed. Descriptor bytes, Question Presentation Checksums, and public Question Presentation Tokens remain unchanged. Concurrent response-item-reference and Question Presentation Response Format vector changes are outside this package. The exact bare-portable-seed detector reached zero, received independent review, and is retired. Local typed `seed` values, the hostile Question Pool Preview refusal, static-PLE absence wording, and WeBWorK/iMathAS reproduction and security boundaries remain exact. The broader contextual Question Seed audit and the source-owned Question Generator and visible Question Seed authoring checklist work remain open. This direct field cutover adds no Question Generator, Question Variation authoring, Question Pool behavior, source, Store, route, schema, migration, backend protocol, fixture family, feature, compatibility alias, or permanent test.
 - **Completed `WP-SD1-A-TERM-01-SD1LABEL` (transient SD1 label correction).** Exact local component, capability, responsibility, and guarantee language replaces 52 `SD1` comment or diagnostic occurrences in 34 active SQL migrations and 71 `SD1` occurrences in 18 durable current-state files (17 `docs/*.md` files and `README.md`). The scoped residual audit is zero; the completed temporary detector is retired. `SD1` remains only in approved active-plan/status allocation, dated changelog or archive history, and the vocabulary ledger. SQL behavior is unchanged: object names, predicates, privileges, data shape, and authorization behavior remain intact. PostgreSQL acceptance, documentation/style/Prettier gates, and independent contextual review pass. Row 630 remains checked because PostgreSQL Migration Acceptance Runtime is a separate completed Local Stack boundary. This terminology-only correction adds no schema, route, Store, generated contract, fixture, feature, permanent test, or compatibility layer; it does not claim overall terminology or `WP-SD1-A` release acceptance.

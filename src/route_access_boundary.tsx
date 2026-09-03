@@ -17,7 +17,8 @@ interface RouteAccessDeniedProps {
 
 function RouteAccessDenied(props: RouteAccessDeniedProps): JSX.Element {
   const sysadminOnly =
-    props.route.requiredProductRoles.length === 1 && props.route.requiredProductRoles[0] === "sysadmin";
+    props.route.requiredProductRoles.length === 1 &&
+    props.route.requiredProductRoles[0] === "sysadmin";
   let heading: HTMLHeadingElement | undefined;
   onMount(() => {
     queueMicrotask(() => heading?.focus());

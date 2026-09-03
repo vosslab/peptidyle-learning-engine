@@ -694,11 +694,8 @@ export function decodeAuthenticatedSession(
       productRole: decodeStringEnum(
         field(account, "productRole", `${path}.account`),
         `${path}.account.productRole`,
-        [
-        "student",
-        "instructor",
-        "sysadmin",
-      ]),
+        ["student", "instructor", "sysadmin"],
+      ),
     },
   } satisfies AuthenticatedSession;
   return decoded;

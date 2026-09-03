@@ -1,6 +1,6 @@
 -- Passwordless credential completion.
 --
--- These operations establish only an existing Account's immutable role. The
+-- These operations establish only an existing Account's immutable Product Role. The
 -- route subsequently creates the one Authenticated Session through its
 -- separate operation; no credential ceremony creates an Account or grants a
 -- course relationship.
@@ -87,7 +87,7 @@ GRANT EXECUTE ON FUNCTION ple_private.consume_email_authentication_challenge(uui
 GRANT EXECUTE ON FUNCTION ple_private.consume_passkey_authentication(uuid, bytea, bytea) TO ple_api_owner;
 
 COMMENT ON FUNCTION ple_private.consume_email_authentication_challenge(uuid, bytea, bytea) IS
-    'Atomically consumes one eligible browser-bound email challenge and returns its existing Account role.';
+    'Atomically consumes one eligible browser-bound email challenge and returns its existing Account Product Role.';
 COMMENT ON FUNCTION ple_private.consume_passkey_authentication(uuid, bytea, bytea) IS
     'Consumes one validated browser-bound WebAuthn ceremony and records active passkey use.';
 

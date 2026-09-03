@@ -1,11 +1,8 @@
 // model.ts - typed, browser-safe state helpers for assignment access modifiers.
 
 import type { HypotheticalStudentViewScenarioModifiers } from "../../../generated/api/HypotheticalStudentViewScenarioModifiers";
-import type { AccommodationAdjustmentUpdateRequest } from "../../../generated/api/AccommodationAdjustmentUpdateRequest";
-import type { AssignmentPolicySource } from "../../../generated/api/AssignmentPolicySource";
 import type { TeachingTimeFieldPatch } from "../../../generated/api/TeachingTimeFieldPatch";
 
-export type ModifierScope = "accommodation";
 export type PatchKind = "inherit" | "set" | "unrestricted";
 export type ModifierMode = "extend_only" | "replace";
 
@@ -15,19 +12,6 @@ export interface ModifierPatchDraft {
   readonly closesAt: { readonly kind: PatchKind; readonly value: string };
   readonly assignmentAttemptTimeLimitSeconds: { readonly kind: PatchKind; readonly value: string };
   readonly attemptLimit: { readonly kind: PatchKind; readonly value: string };
-}
-
-export interface SelectedStudent {
-  readonly reference: string;
-  readonly display: string;
-}
-
-/** A reload changes only the strong revision; a caller-owned modifier draft is deliberately retained. */
-export function adoptReloadedRevision<T>(
-  revision: string,
-  draft: T,
-): { readonly revision: string; readonly draft: T } {
-  return { revision, draft };
 }
 
 export function emptyPatchDraft(): ModifierPatchDraft {
@@ -73,7 +57,7 @@ function limitPatch(
 export function policyRequest(
   mode: ModifierMode,
   draft: ModifierPatchDraft,
-): HypotheticalStudentViewScenarioModifiers | AccommodationAdjustmentUpdateRequest {
+): HypotheticalStudentViewScenarioModifiers {
   return {
     mode,
     adjustment: {
@@ -87,22 +71,4 @@ export function policyRequest(
       attempt_limit: limitPatch(draft.attemptLimit, "Attempt limit"),
     },
   };
-}
-
-export function assignmentPolicySourceLabel(source: AssignmentPolicySource): string {
-  if (source.kind === "base") return source.label;
-  return source.label;
-}
-
-export function startLabel(
-  start: "mayStart" | "notYetAvailable" | "closed" | "attemptLimitReached" | "lateWorkRefused",
-): string {
-  const labels: Record<typeof start, string> = {
-    mayStart: "May start",
-    notYetAvailable: "Not yet available",
-    closed: "Closed",
-    attemptLimitReached: "Attempt limit reached",
-    lateWorkRefused: "Due date prevents a new Assignment Attempt",
-  };
-  return labels[start];
 }

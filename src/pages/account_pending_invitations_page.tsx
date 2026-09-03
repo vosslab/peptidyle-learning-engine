@@ -98,7 +98,7 @@ export function AccountPendingInvitationsPage(): JSX.Element {
       await runtime.client.respondToCourseInvitation(
         response.invitation.reference,
         { action: response.action },
-        response.invitation.revision,
+        response.invitation.state_precondition,
       );
       setAnnouncement(
         response.action === "accept" ? "Invitation accepted." : "Invitation declined.",

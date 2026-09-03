@@ -28,16 +28,14 @@ import type { CourseInvitationTargetSearchPage } from "../../generated/api/Cours
 import type { TeachingAccountSearchQuery } from "../../generated/api/TeachingAccountSearchQuery";
 import type { InstructorCourseInvitationsPage } from "../../generated/api/InstructorCourseInvitationsPage";
 import type { CourseMembershipReference } from "../../generated/api/CourseMembershipReference";
-import type { CourseStudentMembershipsPage } from "../../generated/api/CourseStudentMembershipsPage";
-import type { AccommodationAdjustmentUpdateRequest } from "../../generated/api/AccommodationAdjustmentUpdateRequest";
 import type { InstructorMembershipRemovalRequest } from "../../generated/api/InstructorMembershipRemovalRequest";
 import type { InstructorMembershipsPage } from "../../generated/api/InstructorMembershipsPage";
 import type { PendingCourseInvitationsPage } from "../../generated/api/PendingCourseInvitationsPage";
-import type { TeachingOperationRevision } from "../../generated/api/TeachingOperationRevision";
-import type { TeachingOperationRevisionResponse } from "../../generated/api/TeachingOperationRevisionResponse";
-import type { TeachingPreviewView } from "../../generated/api/TeachingPreviewView";
+import type { CourseInvitationStatePrecondition } from "../../generated/api/CourseInvitationStatePrecondition";
+import type { CourseRosterChangeNumber } from "../../generated/api/CourseRosterChangeNumber";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
+import type { AssignmentEditNumber } from "../../generated/api/AssignmentEditNumber";
 import type { HypotheticalStudentViewScenarioRequest } from "../../generated/api/HypotheticalStudentViewScenarioRequest";
 import type { InstructorPreviewSchedulePage } from "../../generated/api/InstructorPreviewSchedulePage";
 import type { PreviewPlaneResponse } from "../../generated/api/PreviewPlaneResponse";
@@ -155,34 +153,11 @@ export interface ApiClient
     BlueprintOperationsClient,
     GradingOperationsClient,
     CalculatedGradebookClient {
-  readonly listCourseStudentTargets: (
-    courseId: CourseId,
-    cursor?: string,
-    pageSize?: number,
-  ) => Promise<CourseStudentMembershipsPage>;
-  readonly putAccommodation: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    student: CourseMembershipReference,
-    request: AccommodationAdjustmentUpdateRequest,
-    revision: TeachingOperationRevision,
-  ) => Promise<TeachingOperationRevisionResponse>;
-  readonly deleteAccommodation: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    student: CourseMembershipReference,
-    revision: TeachingOperationRevision,
-  ) => Promise<TeachingOperationRevisionResponse>;
-  readonly getTeachingPreview: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    student: CourseMembershipReference,
-  ) => Promise<TeachingPreviewView>;
   /** Instructor-only Assignment Delivery Preview schedule page using public C-/A- route references. */
   readonly listPreviewSchedule: (
     course: CourseInstanceReference,
     assignment: AssignmentReference,
-    revision: TeachingOperationRevision,
+    editNumber: AssignmentEditNumber,
     cursor?: string,
     pageSize?: number,
   ) => Promise<InstructorPreviewSchedulePage>;
@@ -192,21 +167,21 @@ export interface ApiClient
   readonly constructHypotheticalStudentViewScenario: (
     course: CourseInstanceReference,
     assignment: AssignmentReference,
-    revision: TeachingOperationRevision,
-    request: Omit<HypotheticalStudentViewScenarioRequest, "assignment" | "revision">,
+    editNumber: AssignmentEditNumber,
+    request: Omit<HypotheticalStudentViewScenarioRequest, "assignment" | "edit_number">,
   ) => Promise<PreviewPlaneResponse>;
   /** Constructs an identity-free Student View Scenario from one selected Student membership. */
   readonly constructSelectedStudentViewScenario: (
     course: CourseInstanceReference,
     assignment: AssignmentReference,
-    revision: TeachingOperationRevision,
-    request: Omit<SelectedStudentViewScenarioRequest, "assignment" | "revision">,
+    editNumber: AssignmentEditNumber,
+    request: Omit<SelectedStudentViewScenarioRequest, "assignment" | "edit_number">,
   ) => Promise<PreviewPlaneResponse>;
   /** Samples one saved Question Pool with server-owned entropy and no student activity. */
   readonly previewQuestionPool: (
     course: CourseInstanceReference,
     assignment: AssignmentReference,
-    revision: TeachingOperationRevision,
+    editNumber: AssignmentEditNumber,
     assignmentEntryId: string,
   ) => Promise<QuestionPoolPreview>;
   readonly listInstructorCourseInvitations: (
@@ -227,7 +202,7 @@ export interface ApiClient
   readonly revokeInstructorCourseInvitation: (
     courseId: CourseId,
     invitation: CourseInvitationReference,
-    revision: TeachingOperationRevision,
+    statePrecondition: CourseInvitationStatePrecondition,
   ) => Promise<void>;
   readonly listPendingCourseInvitations: (
     cursor?: string,
@@ -236,7 +211,7 @@ export interface ApiClient
   readonly respondToCourseInvitation: (
     invitation: CourseInvitationReference,
     request: CourseInvitationTerminalActionRequest,
-    revision: TeachingOperationRevision,
+    statePrecondition: CourseInvitationStatePrecondition,
   ) => Promise<void>;
   readonly listCourseInstructors: (
     courseId: CourseId,
@@ -247,7 +222,7 @@ export interface ApiClient
     courseId: CourseId,
     membership: CourseMembershipReference,
     request: InstructorMembershipRemovalRequest,
-    revision: TeachingOperationRevision,
+    rosterChangeNumber: CourseRosterChangeNumber,
   ) => Promise<void>;
   readonly getCourseGradeScheme: (
     courseId: CourseId,

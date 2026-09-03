@@ -76,19 +76,14 @@ The release plan does not currently define a browser bundle-size or startup
 budget. The release build remains the source_object_reference under inspection, but a measured
 byte count or timing is not yet an acceptance threshold.
 
-The reviewed compatibility baseline is
-[`crates/domain/tests/seed_vectors.json`](../crates/domain/tests/seed_vectors.json).
-It currently covers `parameter-map@1` with seeds 0 through 63 and `u64::MAX`.
-The same assertion implementation is used by the Rust host test and the
-headless-browser Wasm test. Regenerate the fixture only for a deliberate new
-generator version or reviewed correction:
-
-```bash
-cargo run -p domain --example generate_seed_vectors -- --write
-```
-
-Review the complete fixture diff before accepting new hashes. The fixture is a
-permanent compatibility baseline, not generated scratch output.
+Current static PLE Question JSON has no Question Generator vector fixture or
+generator-regeneration command. Its existing reproduction evidence is the
+server-owned PLE Question Backend issue/reproduce path in
+[`crates/adapters/ple/src/lib/tests.rs`](../crates/adapters/ple/src/lib/tests.rs)
+and the Question Presentation descriptor checks at the Rust/Wasm boundary. A
+future source-owned Question Generator must introduce its own reviewed,
+immutable evidence with the complete publication, issue, grading, repair, and
+reproduction path.
 
 ## Issued presentation
 

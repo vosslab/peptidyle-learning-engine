@@ -7,7 +7,7 @@ import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseInvitationTargetView } from "../../generated/api/CourseInvitationTargetView";
 import type { InstructorCourseInvitationView } from "../../generated/api/InstructorCourseInvitationView";
 import type { InstructorMembershipView } from "../../generated/api/InstructorMembershipView";
-import type { TeachingOperationRevision } from "../../generated/api/TeachingOperationRevision";
+import type { CourseRosterChangeNumber } from "../../generated/api/CourseRosterChangeNumber";
 import { ApiRequestError } from "../api/http_client/error";
 import { useApplicationApi } from "../api/application_api";
 import {
@@ -27,7 +27,7 @@ interface TeachingTeamPanelProps {
 interface TeachingTeamData {
   readonly instructors: ReadonlyArray<InstructorMembershipView>;
   readonly invitations: ReadonlyArray<InstructorCourseInvitationView>;
-  readonly rosterRevision: TeachingOperationRevision;
+  readonly rosterChangeNumber: CourseRosterChangeNumber;
   readonly instructorCursor: string | null;
   readonly invitationCursor: string | null;
 }
@@ -77,7 +77,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
       setData({
         instructors: instructors.instructors,
         invitations: invitations.invitations,
-        rosterRevision: instructors.rosterRevision,
+        rosterChangeNumber: instructors.rosterChangeNumber,
         instructorCursor: instructors.nextCursor,
         invitationCursor: invitations.nextCursor,
       });
@@ -167,7 +167,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
     try {
       if (kind === "instructors") {
         const next = await runtime.client.listCourseInstructors(props.courseId, cursor, 25);
-        if (next.rosterRevision !== current.rosterRevision) {
+        if (next.rosterChangeNumber !== current.rosterChangeNumber) {
           await load();
           setAnnouncement(conflictRecoveryCopy());
           return;
@@ -219,7 +219,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
         await runtime.client.revokeInstructorCourseInvitation(
           props.courseId,
           invitation.reference,
-          invitation.revision,
+          invitation.state_precondition,
         );
         setAnnouncement("The pending Instructor Course Invitation was canceled.");
       } else {
@@ -228,7 +228,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
           props.courseId,
           instructor.membership,
           {},
-          current.rosterRevision,
+          current.rosterChangeNumber,
         );
         setAnnouncement(`${instructor.account.display} no longer has course instructor access.`);
       }

@@ -12,23 +12,14 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AccountReference, AssignmentDeadlineRule, CourseInvitationReference, CourseLocalDateAndTime,
-    CourseMembershipReference, CourseTimeZone, LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, Timestamp,
+    AccountReference, CourseInvitationReference, CourseLocalDateAndTime, CourseMembershipReference,
+    MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, Timestamp,
 };
 
 pub use crate::preview_plane::HypotheticalStudentViewScenarioModifiers;
 
-mod assignment_policy_source;
-mod local_time;
-mod modifier_revision_response;
-mod student_memberships;
 mod target_search;
 
-pub use assignment_policy_source::AssignmentPolicySource;
-pub use local_time::{convert_teaching_preview_time_field, resolve_teaching_local_time};
-pub use modifier_revision_response::TeachingOperationRevisionResponse;
-pub use student_memberships::CourseStudentMembershipsPage;
 pub use target_search::{
     CourseInvitationTargetSearchPage, CourseInvitationTargetSearchRequest,
     CourseInvitationTargetView, MAX_TEACHING_ACCOUNT_SEARCH_QUERY_UNICODE_SCALARS,
@@ -69,13 +60,28 @@ impl From<TeachingPageSize> for u32 {
     }
 }
 
-/// Positive PostgreSQL-safe strong revision represented as canonical decimal JSON.
+fn canonical_positive_postgres_bigint(value: &str) -> Result<NonZeroU64, &'static str> {
+    if value.is_empty()
+        || (value.len() > 1 && value.starts_with('0'))
+        || !value.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return Err("must be a canonical positive decimal string");
+    }
+    value
+        .parse::<u64>()
+        .ok()
+        .filter(|value| *value <= i64::MAX as u64)
+        .and_then(NonZeroU64::new)
+        .ok_or("must fit a positive PostgreSQL bigint")
+}
+
+/// One Course Invitation's current lifecycle-state precondition, represented as canonical decimal JSON.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct TeachingOperationRevision(NonZeroU64);
+pub struct CourseInvitationStatePrecondition(NonZeroU64);
 
-impl TeachingOperationRevision {
-    /// Creates a positive revision that fits PostgreSQL `BIGINT`.
+impl CourseInvitationStatePrecondition {
+    /// Creates a positive lifecycle-state precondition that fits PostgreSQL `BIGINT`.
     pub fn new(value: u64) -> Option<Self> {
         (value <= i64::MAX as u64)
             .then(|| NonZeroU64::new(value))
@@ -83,37 +89,27 @@ impl TeachingOperationRevision {
             .map(Self)
     }
 
-    /// Returns the exact revision used in a strong conditional request.
+    /// Returns the exact lifecycle-state precondition used in a strong conditional request.
     pub fn value(self) -> u64 {
         self.0.get()
     }
 }
 
-impl std::fmt::Display for TeachingOperationRevision {
+impl std::fmt::Display for CourseInvitationStatePrecondition {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(formatter, "{}", self.value())
     }
 }
 
-impl FromStr for TeachingOperationRevision {
+impl FromStr for CourseInvitationStatePrecondition {
     type Err = &'static str;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        if value.is_empty()
-            || (value.len() > 1 && value.starts_with('0'))
-            || !value.bytes().all(|byte| byte.is_ascii_digit())
-        {
-            return Err("teaching revision must be a canonical positive decimal string");
-        }
-        value
-            .parse::<u64>()
-            .ok()
-            .and_then(Self::new)
-            .ok_or("teaching revision must fit a positive PostgreSQL bigint")
+        canonical_positive_postgres_bigint(value).map(Self)
     }
 }
 
-impl TryFrom<String> for TeachingOperationRevision {
+impl TryFrom<String> for CourseInvitationStatePrecondition {
     type Error = &'static str;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -121,8 +117,56 @@ impl TryFrom<String> for TeachingOperationRevision {
     }
 }
 
-impl From<TeachingOperationRevision> for String {
-    fn from(value: TeachingOperationRevision) -> Self {
+impl From<CourseInvitationStatePrecondition> for String {
+    fn from(value: CourseInvitationStatePrecondition) -> Self {
+        value.to_string()
+    }
+}
+
+/// One Course Roster's current change number, represented as canonical decimal JSON.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct CourseRosterChangeNumber(NonZeroU64);
+
+impl CourseRosterChangeNumber {
+    /// Creates a positive change number that fits PostgreSQL `BIGINT`.
+    pub fn new(value: u64) -> Option<Self> {
+        (value <= i64::MAX as u64)
+            .then(|| NonZeroU64::new(value))
+            .flatten()
+            .map(Self)
+    }
+
+    /// Returns the exact change number used in a strong conditional request.
+    pub fn value(self) -> u64 {
+        self.0.get()
+    }
+}
+
+impl std::fmt::Display for CourseRosterChangeNumber {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{}", self.value())
+    }
+}
+
+impl FromStr for CourseRosterChangeNumber {
+    type Err = &'static str;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        canonical_positive_postgres_bigint(value).map(Self)
+    }
+}
+
+impl TryFrom<String> for CourseRosterChangeNumber {
+    type Error = &'static str;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<CourseRosterChangeNumber> for String {
+    fn from(value: CourseRosterChangeNumber) -> Self {
         value.to_string()
     }
 }
@@ -167,28 +211,6 @@ pub struct MembershipPageRequest {
     pub after: Option<String>,
     /// Required bounded page size.
     pub size: TeachingPageSize,
-}
-
-/// Browser-safe Student Membership View; email and UUID are absent by type.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct StudentMembershipView {
-    /// Course-local Course Membership Reference.
-    pub reference: CourseMembershipReference,
-    /// Authorized display label.
-    pub display: TeachingDisplayLabel,
-    /// Closed course role.
-    pub role: TeachingMembershipRole,
-    /// Closed current membership status.
-    pub status: TeachingMembershipStatus,
-}
-
-/// Closed browser role vocabulary for a current course membership.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum TeachingMembershipRole {
-    Instructor,
-    Student,
 }
 
 /// Closed browser current-status vocabulary for a course membership.
@@ -291,109 +313,6 @@ pub struct AccommodationAdjustmentView {
     pub attempt_limit: TeachingAttemptLimitFieldPatch,
 }
 
-/// Strict direct Student Accommodation update; the membership reference selects its scope.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct AccommodationAdjustmentUpdateRequest {
-    pub mode: AccommodationApplicationRuleView,
-    pub adjustment: AccommodationAdjustmentView,
-}
-
-/// Server-derived resolved time value and its safe source label.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct TeachingPreviewTimeField {
-    pub value: Option<CourseLocalDateAndTime>,
-    pub source: AssignmentPolicySource,
-}
-
-/// Server-derived resolved positive limit and its safe source label.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct TeachingPreviewLimitField {
-    pub value: Option<NonZeroU32>,
-    pub source: AssignmentPolicySource,
-}
-
-/// Closed safe reason for an Active Student Course Membership preview denial. It never
-/// exposes Effective Assignment Policy inputs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum TeachingPreviewDenialReason {
-    ActiveStudentCourseMembershipRequired,
-}
-
-/// Closed Assignment Start Decision for an allowed Teaching Preview.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
-pub enum TeachingAssignmentStartDecision {
-    MayStart { late: TeachingStudentLateWorkStatus },
-    NotYetAvailable,
-    Closed,
-    AttemptLimitReached,
-    LateWorkRefused,
-}
-
-/// Closed late status supplied only inside an allowed Effective Assignment Policy start decision.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum TeachingStudentLateWorkStatus {
-    OnTime,
-    AcceptedLate,
-    MarkedLate,
-}
-
-/// Server-derived resolved late-submission behavior and its safe source.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct TeachingPreviewLateWorkRuleField {
-    pub value: LateWorkRule,
-    pub source: AssignmentPolicySource,
-}
-
-/// Server-derived resolved deadline behavior and its safe source.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct TeachingPreviewAssignmentDeadlineRuleField {
-    pub value: AssignmentDeadlineRule,
-    pub source: AssignmentPolicySource,
-}
-
-/// Server-derived Active Student Course Membership and Effective Assignment Policy preview.
-/// Denied views cannot carry a schedule or an Assignment Policy Source.
-#[allow(clippy::large_enum_variant)]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(
-    tag = "active_student_course_membership",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase",
-    deny_unknown_fields
-)]
-pub enum TeachingPreviewView {
-    Denied {
-        reason: TeachingPreviewDenialReason,
-    },
-    Allowed {
-        /// Course-owned zone that gives every resolved local time its meaning.
-        time_zone: CourseTimeZone,
-        start: TeachingAssignmentStartDecision,
-        #[serde(rename = "available_at")]
-        available_at: TeachingPreviewTimeField,
-        #[serde(rename = "due_at")]
-        due_at: TeachingPreviewTimeField,
-        #[serde(rename = "closes_at")]
-        closes_at: TeachingPreviewTimeField,
-        #[serde(rename = "assignment_attempt_time_limit_seconds")]
-        assignment_attempt_time_limit_seconds: TeachingPreviewLimitField,
-        #[serde(rename = "attempt_limit")]
-        attempt_limit: TeachingPreviewLimitField,
-        #[serde(rename = "late_work_rule")]
-        late_work_rule: TeachingPreviewLateWorkRuleField,
-        #[serde(rename = "assignment_deadline_rule")]
-        assignment_deadline_rule: TeachingPreviewAssignmentDeadlineRuleField,
-    },
-}
-
 /// Strict Instructor Course Invitation creation request for one existing Account.
 ///
 /// The target-discovery and teaching-team endpoints are exclusively for adding
@@ -414,7 +333,9 @@ pub struct InstructorCourseInvitationView {
     pub state: CourseInvitationStateView,
     pub created_at: Timestamp,
     pub expires_at: Timestamp,
-    pub revision: TeachingOperationRevision,
+    /// Exact lifecycle-state precondition required by Instructor revoke `If-Match`.
+    #[serde(rename = "state_precondition")]
+    pub state_precondition: CourseInvitationStatePrecondition,
 }
 
 /// Bounded exact-course Instructor Course Invitation page.
@@ -433,7 +354,9 @@ pub struct PendingCourseInvitationView {
     pub course_label: TeachingDisplayLabel,
     pub state: CourseInvitationStateView,
     pub expires_at: Timestamp,
-    pub revision: TeachingOperationRevision,
+    /// Exact lifecycle-state precondition required by accept or decline `If-Match`.
+    #[serde(rename = "state_precondition")]
+    pub state_precondition: CourseInvitationStatePrecondition,
 }
 
 /// Closed pending-invitation lifecycle state.
@@ -485,8 +408,8 @@ pub struct InstructorMembershipView {
 pub struct InstructorMembershipsPage {
     pub instructors: Vec<InstructorMembershipView>,
     pub next_cursor: Option<String>,
-    /// Exact roster revision required by direct-Instructor removal `If-Match`.
-    pub roster_revision: TeachingOperationRevision,
+    /// Exact roster change number required by direct-Instructor removal `If-Match`.
+    pub roster_change_number: CourseRosterChangeNumber,
 }
 
 /// Empty-body direct Instructor removal action; its revision is `If-Match`.
@@ -499,11 +422,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn revisions_and_labels_are_canonical_and_bounded() {
-        assert!("01".parse::<TeachingOperationRevision>().is_err());
-        assert!("0".parse::<TeachingOperationRevision>().is_err());
+    fn state_preconditions_change_numbers_and_labels_are_canonical_and_bounded() {
+        assert!("01".parse::<CourseInvitationStatePrecondition>().is_err());
+        assert!("0".parse::<CourseInvitationStatePrecondition>().is_err());
         assert_eq!(
-            "42".parse::<TeachingOperationRevision>().unwrap().value(),
+            "42".parse::<CourseInvitationStatePrecondition>()
+                .unwrap()
+                .value(),
+            42
+        );
+        assert!("01".parse::<CourseRosterChangeNumber>().is_err());
+        assert!("0".parse::<CourseRosterChangeNumber>().is_err());
+        assert_eq!(
+            "42".parse::<CourseRosterChangeNumber>().unwrap().value(),
             42
         );
         assert!(TeachingDisplayLabel::try_from(" ".to_owned()).is_err());
@@ -556,36 +487,13 @@ mod tests {
     }
 
     #[test]
-    fn denied_preview_omits_every_resolved_schedule_key() {
-        let denied = serde_json::to_value(TeachingPreviewView::Denied {
-            reason: TeachingPreviewDenialReason::ActiveStudentCourseMembershipRequired,
-        })
-        .unwrap();
-        assert_eq!(
-            denied,
-            serde_json::json!({"active_student_course_membership":"denied","reason":"activeStudentCourseMembershipRequired"})
-        );
-        for key in [
-            "start",
-            "available_at",
-            "due_at",
-            "closes_at",
-            "source",
-            "timeZone",
-            "late_work_rule",
-        ] {
-            assert!(denied.get(key).is_none());
-        }
-    }
-
-    #[test]
     fn pending_invitation_serializes_server_owned_expiry_without_inviter() {
         let row = PendingCourseInvitationView {
             reference: "CI-4".parse().unwrap(),
             course_label: TeachingDisplayLabel::try_from("Biochemistry".to_owned()).unwrap(),
             state: CourseInvitationStateView::Pending,
             expires_at: Timestamp::from_unix_millis(2_592_000_000),
-            revision: "3".parse().unwrap(),
+            state_precondition: "3".parse().unwrap(),
         };
         let value = serde_json::to_value(row).unwrap();
         assert_eq!(value["expiresAt"], 2_592_000_000_i64);

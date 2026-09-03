@@ -4,8 +4,8 @@
 
 PLE is one installation with global accounts. The intended global Account contract
 requires each account to have one global `AccountId` and exactly one immutable
-Student, Instructor, or Sysadmin role; a person who needs multiple roles uses
-separate accounts. A session then establishes one account and its one role, and
+Student, Instructor, or Sysadmin Product Role; a person who needs multiple Product Roles uses
+separate accounts. A session then establishes one Account and its one Session Product Role, and
 an operation derives authorization from the exact course membership, Student
 ownership, workspace relationship, approved-Instructor state, or narrowly typed
 platform capability that applies to that operation. The Account and Authenticated
@@ -49,14 +49,14 @@ former installation-scope model to these identities.
 
 ## Account, session, and relationship identities
 
-| Identity or value         | Scope                            | Intended use                                                                                                                                                       |
-| ------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `AccountId`               | Global, durable                  | Names one PLE login account across courses and workspaces. It is distinct from Student membership and enrollment identity.                                         |
-| Product Role              | Implemented global Account state | Stores exactly one closed Student, Instructor, or Sysadmin Product Role. Account/session storage never combines roles.                                             |
-| `SessionId`               | Global, durable session record   | Names one server-tracked login session, including expiry and revocation state.                                                                                     |
-| `SessionTokenHash`        | Server-only session record       | Stores the hash of the opaque browser credential. The raw credential is never a DTO, record reference, or log value.                                               |
-| Active Instructor Account | Global Account role and state    | An Account with Instructor Product Role and active Account State establishes current Instructor product capabilities and is re-evaluated for protected operations. |
-| `Sysadmin` Product Role   | Implemented global Account state | Names limited platform operations. It has no Course Membership; teaching and FERPA reads use direct Instructor Account authority or audited support.               |
+| Identity or value         | Scope                                 | Intended use                                                                                                                                                       |
+| ------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `AccountId`               | Global, durable                       | Names one PLE login account across courses and workspaces. It is distinct from Student membership and enrollment identity.                                         |
+| Product Role              | Global Account Product Role and state | Stores exactly one closed Student, Instructor, or Sysadmin Product Role. Account/session storage never combines Product Roles.                                     |
+| `SessionId`               | Global, durable session record        | Names one server-tracked login session, including expiry and revocation state.                                                                                     |
+| `SessionTokenHash`        | Server-only session record            | Stores the hash of the opaque browser credential. The raw credential is never a DTO, record reference, or log value.                                               |
+| Active Instructor Account | Global Account Product Role and state | An Account with Instructor Product Role and active Account State establishes current Instructor product capabilities and is re-evaluated for protected operations. |
+| `Sysadmin` Product Role   | Implemented global Account state      | Names limited platform operations. It has no Course Membership; teaching and FERPA reads use direct Instructor Account authority or audited support.               |
 
 The server resolves the opaque first-party session credential to a `SessionRecord`
 with its global account and session identity. The browser receives only its own answer-free

@@ -56,30 +56,30 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private
 AS $$
 DECLARE
-    v_new_role text;
-    v_old_role text;
+    v_new_product_role text;
+    v_old_product_role text;
 BEGIN
-    SELECT account.product_role INTO v_new_role
+    SELECT account.product_role INTO v_new_product_role
       FROM ple_private.account AS account
      WHERE account.account_id = NEW.account_id;
-    IF v_new_role IS NULL THEN
+    IF v_new_product_role IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '23503',
             MESSAGE = 'Authentication Email requires an existing Account';
     END IF;
-    IF v_new_role NOT IN ('student', 'instructor') THEN
+    IF v_new_product_role NOT IN ('student', 'instructor') THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Authentication Email requires a supported Account role';
+            MESSAGE = 'Authentication Email requires a supported Account Product Role';
     END IF;
     IF TG_OP = 'UPDATE' THEN
         IF NEW.account_id IS DISTINCT FROM OLD.account_id THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
                 MESSAGE = 'Authentication Email Account binding is immutable';
         END IF;
-        SELECT account.product_role INTO v_old_role
+        SELECT account.product_role INTO v_old_product_role
           FROM ple_private.account AS account
          WHERE account.account_id = OLD.account_id;
-        IF v_old_role IS DISTINCT FROM 'instructor'
-           OR v_new_role IS DISTINCT FROM 'instructor' THEN
+        IF v_old_product_role IS DISTINCT FROM 'instructor'
+           OR v_new_product_role IS DISTINCT FROM 'instructor' THEN
             RAISE EXCEPTION USING ERRCODE = '23514',
                 MESSAGE = 'Student Authentication Email is immutable';
         END IF;
