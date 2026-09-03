@@ -195,10 +195,9 @@ Use the fixed lifecycle for the developer/browser stack:
 ./run_live_demo.sh stop
 ```
 
-The script sources `source_me.sh`, prepares the repo-local Python 3.12
-environment through `devel/setup_python.sh`, installs TypeScript dependencies
-through `devel/setup_typescript.sh` when needed, and delegates to
-`.venv/bin/python local_stack.py`. Its only mutable browser-session choices
+The script sources `source_me.sh` through its fixed script-directory path,
+installs TypeScript dependencies through `devel/setup_typescript.sh` when needed,
+and delegates to `python3 local_stack.py`. Its only mutable browser-session choices
 are start and stop, with optional `--headless` on start. It does not accept a
 project, environment, identity, SMTP, or skipped-build selector.
 
@@ -206,10 +205,10 @@ Use the controller's read-only commands for the default `containers` project;
 raw Compose is for diagnosis after the owner has selected the exact target:
 
 ```bash
-source source_me.sh && .venv/bin/python local_stack.py doctor
-source source_me.sh && .venv/bin/python local_stack.py status
-source source_me.sh && .venv/bin/python local_stack.py logs api worker
-source source_me.sh && .venv/bin/python local_stack.py validate
+source source_me.sh && python3 local_stack.py doctor
+source source_me.sh && python3 local_stack.py status
+source source_me.sh && python3 local_stack.py logs api worker
+source source_me.sh && python3 local_stack.py validate
 ```
 
 The normal developer session is not stopped with a global Podman command. The

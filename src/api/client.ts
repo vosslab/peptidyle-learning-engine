@@ -20,7 +20,6 @@ import type { QuestionVariationPresentation } from "../../generated/api/Question
 import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { AssignmentProgress } from "../../generated/api/AssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
-import type { QuestionClassification } from "../../generated/api/QuestionClassification";
 import type { DraftQuestionContent } from "../../generated/api/DraftQuestionContent";
 import type { WorkspaceId } from "../../generated/api/WorkspaceId";
 import type { InstructorCourseInvitationCreateRequest } from "../../generated/api/InstructorCourseInvitationCreateRequest";
@@ -295,9 +294,6 @@ export interface ApiClient
   readonly resolveQuestion: (displayReference: string) => Promise<QuestionSummary>;
   /** Gets the safe immutable Question Details View, never a complete Question Revision. */
   readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
-  readonly listQuestionClassifications: (
-    cursor?: string,
-  ) => Promise<CursorPage<QuestionClassification>>;
   readonly listCourses: (cursor?: string) => Promise<CursorPage<CourseSummary>>;
   /** Creates one course for an authenticated instructor or sysadmin. */
   readonly createCourse: (input: CourseCreateInput) => Promise<CourseSummary>;

@@ -181,7 +181,7 @@ mod tests {
     use super::*;
     use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
     use question_model::assignment_activity_rules::QuestionAttemptLimit;
-    use question_model::classification::{QuestionLicense, Tag};
+    use question_model::{QuestionLicense, Tag};
     use question_model::generation::{QuestionGeneratorParameter, QuestionGeneratorReference};
     use question_model::response::QuestionResponseFormat;
     use question_model::QuestionContentBlock;
@@ -246,7 +246,6 @@ mod tests {
                 title: "Capability fixture".to_string(),
                 question_description: "Instructor-facing capability fixture summary.".to_string(),
                 tags: vec![Tag::new("fixture")],
-                classifications: Vec::new(),
                 question_license: Some(QuestionLicense::CcBy4_0),
                 question_citation: None,
                 language: "en-US".to_string(),

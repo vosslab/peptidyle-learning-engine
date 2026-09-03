@@ -31,12 +31,6 @@ export type PleQuestionJsonAttemptTimeLimit =
   | { readonly kind: "unlimited" }
   | { readonly kind: "limited"; readonly seconds: number; readonly graceSeconds: number };
 
-export type PleQuestionJsonClassification = {
-  readonly system: string;
-  readonly code: string;
-  readonly name: string;
-};
-
 export type PleQuestionJsonChoice = {
   readonly id: string;
   readonly text: string;
@@ -211,7 +205,6 @@ export type PleQuestionJsonDocument = {
   readonly questionAttemptLimit: PleQuestionJsonAttemptLimit;
   readonly questionAttemptTimeLimit: PleQuestionJsonAttemptTimeLimit;
   readonly tags: ReadonlyArray<string>;
-  readonly classifications: ReadonlyArray<PleQuestionJsonClassification>;
   /** Unset drafts remain editable; publication requires an exact Question License. */
   readonly questionLicense: QuestionLicense | null;
   readonly questionCitation: QuestionCitation | null;

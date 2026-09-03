@@ -71,7 +71,6 @@ import {
   decodeIdentifier,
   decodeQuestionLicense,
   decodeQuestionCitation,
-  decodeQuestionClassification,
   field,
   kind,
   requireOnlyFields,
@@ -733,7 +732,6 @@ function decodeQuestionPublicationReviewSummary(
   requireOnlyFields(metadata, `${path}.metadata`, [
     "questionDescription",
     "tags",
-    "classifications",
     "questionLicense",
     "questionCitation",
     "language",
@@ -782,13 +780,6 @@ function decodeQuestionPublicationReviewSummary(
         `${path}.metadata.tags`,
         MAX_PUBLICATION_SEMANTIC_ENTRIES,
         decodeString,
-      ),
-      classifications: decodeBoundedArray(
-        field(metadata, "classifications", `${path}.metadata`),
-        `${path}.metadata.classifications`,
-        MAX_PUBLICATION_SEMANTIC_ENTRIES,
-        (classification, classificationPath) =>
-          decodeQuestionClassification(classification, classificationPath, true),
       ),
       questionLicense: decodeNullable(
         field(metadata, "questionLicense", `${path}.metadata`),

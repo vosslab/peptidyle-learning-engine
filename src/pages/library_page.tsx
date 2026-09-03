@@ -18,7 +18,7 @@ import {
   type QuestionSearchState,
 } from "./library_page_model";
 
-/* Each virtual row reserves room for a title, two-line summary, Question Authors, and classification.
+/* Each virtual row reserves room for a title, two-line summary, and Question Authors.
  * Keep this fallback aligned with --ple-question-library-row-block-size in src/style.css. */
 const FALLBACK_ROW_HEIGHT_PX = 164;
 const OVERSCAN_ROWS = 5;
@@ -116,7 +116,6 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
       | "backend"
       | "tag"
       | "questionType"
-      | "classification"
       | "capability"
       | "questionLicense"
       | "evidence"
@@ -260,18 +259,6 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           </select>
         </label>
         <label>
-          Topic
-          <select
-            value={query().classification ?? ""}
-            onChange={(event) => changeQuery({ classification: event.currentTarget.value || null })}
-          >
-            <option value="">All topics</option>
-            <For each={facets("classification")()}>
-              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
-            </For>
-          </select>
-        </label>
-        <label>
           Question License
           <select
             value={query().questionLicense ?? ""}
@@ -378,9 +365,6 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                     <p class="question-library-row-summary">{row.summary}</p>
                     <p class="question-library-row-authors" aria-label="Question Authors">
                       Authors: {row.authorNames.join(", ")}
-                    </p>
-                    <p class="question-library-row-classifications card-kicker">
-                      {row.classifications.join(" / ")}
                     </p>
                     <QuestionStatisticsPreview row={row} />
                     <CopyableQuestionId displayId={row.displayId} />

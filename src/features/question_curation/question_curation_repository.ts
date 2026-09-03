@@ -27,9 +27,6 @@ function rowFromFolderEntry(
     title: entry.summary.metadata.title,
     summary: entry.summary.metadata.questionDescription,
     authorNames: entry.summary.authorship.authors.map((author) => author.displayName),
-    classifications: entry.summary.metadata.classifications.map(
-      (classification) => `${classification.system}:${classification.code}`,
-    ),
     capabilities: entry.summary.capabilities,
     questionLicense: entry.summary.metadata.questionLicense,
     evidence: { state: "insufficientEvidence" },

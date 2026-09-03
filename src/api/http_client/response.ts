@@ -46,7 +46,6 @@ import {
   decodeAssignmentAttemptPage,
   decodeAssignmentAttemptSummaryResponse,
   decodeAssignmentProgress,
-  decodeQuestionClassificationPage,
   decodeDraftQuestionPage,
   decodeQuestionPublicationReview,
   decodeNavigationResolution,
@@ -291,7 +290,6 @@ export function createResponseClient(
   | "searchQuestionLibrary"
   | "resolveQuestion"
   | "getQuestionDetails"
-  | "listQuestionClassifications"
   | "listCourses"
   | "getCourse"
   | "getCourseAppearanceView"
@@ -351,13 +349,6 @@ export function createResponseClient(
       );
     },
     getQuestionDetails: (questionId) => questionDetails(fetchImplementation, basePath, questionId),
-    listQuestionClassifications: (cursor) =>
-      requestJson(
-        fetchImplementation,
-        basePath,
-        cursorPath("/api/question-classifications", cursor),
-        decodeQuestionClassificationPage,
-      ),
     listCourses: (cursor) =>
       requestJson(
         fetchImplementation,

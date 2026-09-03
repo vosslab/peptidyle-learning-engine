@@ -2,10 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::classification::{QuestionClassification, QuestionLicense};
-use crate::question_library::{
-    QuestionBackend, QuestionId, MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS,
-};
+use crate::question_library::{QuestionBackend, QuestionId};
+use crate::question_license::QuestionLicense;
 use crate::response::QuestionType;
 use crate::Capability;
 
@@ -103,19 +101,6 @@ pub struct QuestionSearchCourseUseFacet {
     pub used: u64,
 }
 
-/// One exact Question Classification selected in Question Search.
-///
-/// The label is intentionally absent. It is presentation metadata, while a
-/// `(scheme, code)` pair is the durable term identity.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionSearchClassificationFilter {
-    /// External or institutional classification system.
-    pub system: String,
-    /// Classification code within that system.
-    pub code: String,
-}
-
 /// Availability filter for disclosed, validity-governed evidence.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -147,8 +132,6 @@ pub struct QuestionSearchRequest {
     pub tags: Vec<String>,
     /// Immutable Question Types; any supplied type may match.
     pub question_types: Vec<QuestionType>,
-    /// Exact Question Classifications; every supplied classification must be present.
-    pub classifications: Vec<QuestionSearchClassificationFilter>,
     /// Required adapter capabilities; every supplied capability must be present.
     pub capabilities: Vec<Capability>,
     /// Accepted exact Question Licenses; any supplied value may match.
@@ -181,7 +164,6 @@ pub struct QuestionSearchFilter {
     pub backends: Vec<QuestionBackend>,
     pub tags: Vec<String>,
     pub question_types: Vec<QuestionType>,
-    pub classifications: Vec<QuestionSearchClassificationFilter>,
     pub capabilities: Vec<Capability>,
     pub question_licenses: Vec<QuestionLicense>,
     pub evidence: QuestionStatisticsAvailability,
@@ -204,7 +186,6 @@ impl QuestionSearchFilter {
             backends: query.backends,
             tags: query.tags,
             question_types: query.question_types,
-            classifications: query.classifications,
             capabilities: query.capabilities,
             question_licenses: query.question_licenses,
             evidence: query.evidence,
@@ -227,7 +208,6 @@ impl From<QuestionSearchFilter> for QuestionSearchRequest {
             backends: filter.backends,
             tags: filter.tags,
             question_types: filter.question_types,
-            classifications: filter.classifications,
             capabilities: filter.capabilities,
             question_licenses: filter.question_licenses,
             evidence: filter.evidence,
@@ -247,7 +227,6 @@ impl Default for QuestionSearchRequest {
             backends: Vec::new(),
             tags: Vec::new(),
             question_types: Vec::new(),
-            classifications: Vec::new(),
             capabilities: Vec::new(),
             question_licenses: Vec::new(),
             evidence: QuestionStatisticsAvailability::Any,
@@ -298,7 +277,7 @@ impl QuestionSearchRequest {
     /// `authorship`
     /// combine with every other active filter using AND. Within Question Author names,
     /// backends, tags, Question Types, and Question Licenses, values combine using
-    /// OR. Question Classifications and capabilities retain every-value-matches semantics.
+    /// OR. Capabilities retain every-value-matches semantics.
     pub fn normalized(mut self) -> Result<Self, QuestionSearchRequestError> {
         self.text = self
             .text
@@ -311,28 +290,13 @@ impl QuestionSearchRequest {
             120,
         )?;
         normalize_text_filters(&mut self.tags, MAX_QUESTION_SEARCH_TAG_FILTERS, 256)?;
-        for classification in &mut self.classifications {
-            classification.system = classification.system.trim().to_string();
-            classification.code = classification.code.trim().to_string();
-            if classification.system.is_empty() || classification.code.is_empty() {
-                return Err(QuestionSearchRequestError::BlankFilter);
-            }
-            if classification.system.chars().count() > 128
-                || classification.code.chars().count() > 128
-            {
-                return Err(QuestionSearchRequestError::TooLarge);
-            }
-        }
-        if self.classifications.len() > MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS
-            || self.capabilities.len() > Capability::ALL.len()
+        if self.capabilities.len() > Capability::ALL.len()
             || self.question_licenses.len() > 3
             || self.backends.len() > QuestionBackend::ALL.len()
             || self.question_types.len() > MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS
         {
             return Err(QuestionSearchRequestError::TooLarge);
         }
-        self.classifications.sort();
-        self.classifications.dedup();
         self.capabilities.sort();
         self.capabilities.dedup();
         self.question_licenses.sort();
@@ -382,16 +346,6 @@ fn normalize_text(
     Ok(normalized)
 }
 
-/// Server-computed count for one exact Question Classification.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionSearchClassificationFacet {
-    /// Classification system, code, and display name.
-    pub classification: QuestionClassification,
-    /// Number of matching discoverable publications in the query snapshot.
-    pub count: u64,
-}
-
 /// Server-computed count for one capability.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -434,8 +388,6 @@ pub struct QuestionSearchFacets {
     pub tags: Vec<QuestionSearchTagFacet>,
     /// Closed immutable Question Type counts.
     pub question_types: Vec<QuestionTypeFacet>,
-    /// Question Classification counts.
-    pub classifications: Vec<QuestionSearchClassificationFacet>,
     /// Adapter capability counts.
     pub capabilities: Vec<QuestionSearchCapabilityFacet>,
     /// Exact Question License counts.

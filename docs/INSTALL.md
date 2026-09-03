@@ -11,8 +11,8 @@ and private WebWork renderer services.
 - Current Node.js and npm. The first launch installs the dependencies locked in `package-lock.json`.
 - Current stable Rust through `rustup`; [rust-toolchain.toml](../rust-toolchain.toml) selects
   `rustfmt`, Clippy, and `wasm32-unknown-unknown`.
-- Python 3.12. The live-demo wrapper creates its fixed repo-local `.venv` and installs the
-  declared runtime and developer dependencies with that interpreter.
+- Python 3.12 available as `python3`. The live-demo wrapper sources the repository shell
+  environment and invokes the fixed local-stack controller with that interpreter.
 - Podman and a usable Compose provider for the local stack. On macOS, also start a Podman machine;
   see [MACOS_PODMAN.md](MACOS_PODMAN.md).
 - `curl`, `awk`, `openssl`, `xxd`, and `lsof`, which the typed stack lifecycle uses.
@@ -27,10 +27,10 @@ cd peptidyle-learning-engine
 ./run_live_demo.sh
 ```
 
-`./run_live_demo.sh` is the supported fresh-clone front door. It creates or refreshes the fixed
-repo-local `.venv` with Python 3.12, installs [pip_requirements-dev.txt](../pip_requirements-dev.txt),
-and verifies its PyYAML runtime import. When `node_modules` is absent, it also visibly runs
-`devel/setup_typescript.sh`; it then builds the production `dist/` bundle, creates the disposable
+`./run_live_demo.sh` is the supported fresh-clone front door. It sources the repository shell
+environment through its fixed `source_me.sh` path and invokes `python3 local_stack.py`. When
+`node_modules` is absent, it also visibly runs `devel/setup_typescript.sh`; it then builds the
+production `dist/` bundle, creates the disposable
 `ple-live-demo-browser` HTTPS session, waits for readiness, and opens the printed origin.
 Select a seeded role in the visible PLE sign-in flow; its account, course membership, and
 authorization come from ordinary seeded PLE state.

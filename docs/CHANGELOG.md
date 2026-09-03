@@ -4,6 +4,11 @@
 
 ### Fixes and Maintenance
 
+- `run_live_demo.sh` now sources the fixed repository shell setup and directly invokes
+  `python3 local_stack.py` for start, headless start, and owner-scoped stop. It no longer creates
+  a virtual environment or selects a `.venv` interpreter; Node dependency setup and fixed-owner
+  lifecycle behavior remain unchanged.
+
 - Completed the Tier 2 terminology closure for Entitlement, Material, Materialization,
   Disposition, and Ledger. Current boundaries use Assignment Access and Active Student Course
   Membership; exact operation records and Receipts; Answer Key, Question Grading Input, Question

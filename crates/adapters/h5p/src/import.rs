@@ -208,7 +208,7 @@ pub struct ImportedH5pQuestion {
     pub question_variation_rule: QuestionVariationRule,
     /// Always `Ungraded` for native H5P practice.
     pub grading: QuestionGradingRule,
-    /// Browser-safe title, Question Classification, and licensing metadata.
+    /// Browser-safe title and licensing metadata.
     pub metadata: QuestionMetadata,
     /// Deterministic identity of the exact source package and reference.
     pub package_import_fingerprint: H5pPackageImportFingerprint,
@@ -520,7 +520,7 @@ mod tests {
     use super::*;
     use question_model::QuestionContentBlock;
     use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
-    use question_model::classification::QuestionLicense;
+    use question_model::QuestionLicense;
     use question_model::question_content::QuestionGradingRule;
     use uuid::Uuid;
 
@@ -555,7 +555,6 @@ mod tests {
                 question_description: "Instructor-facing peptide-bond practice summary."
                     .to_string(),
                 tags: Vec::new(),
-                classifications: Vec::new(),
                 question_license: Some(QuestionLicense::CcBy4_0),
                 question_citation: None,
                 language: "en-US".to_string(),

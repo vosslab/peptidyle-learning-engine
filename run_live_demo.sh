@@ -50,10 +50,9 @@ esac
 # shellcheck disable=SC1091
 source "$script_directory/source_me.sh"
 
-"$script_directory/devel/setup_python.sh"
-
 if [ "$command" = "stop" ]; then
-  exec "$script_directory/.venv/bin/python" "$script_directory/local_stack.py" stop
+  # ASVS 1.2.5: fixed controller path and literal arguments avoid shell evaluation.
+  exec python3 "$script_directory/local_stack.py" stop
 fi
 
 if [ ! -d "$script_directory/node_modules" ]; then
@@ -62,7 +61,9 @@ if [ ! -d "$script_directory/node_modules" ]; then
 fi
 
 if [ "$headless" = "true" ]; then
-  exec "$script_directory/.venv/bin/python" "$script_directory/local_stack.py" start --headless
+  # ASVS 1.2.5: fixed controller path and literal arguments avoid shell evaluation.
+  exec python3 "$script_directory/local_stack.py" start --headless
 fi
 
-exec "$script_directory/.venv/bin/python" "$script_directory/local_stack.py" start
+# ASVS 1.2.5: fixed controller path and literal arguments avoid shell evaluation.
+exec python3 "$script_directory/local_stack.py" start

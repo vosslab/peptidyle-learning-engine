@@ -50,10 +50,9 @@ cd "$repo_root"
 # repo_root is resolved above before sourcing.
 # shellcheck disable=SC1091
 source "$repo_root/source_me.sh"
-"$repo_root/devel/setup_python.sh"
 
 set +e
-preview_output="$("$repo_root/.venv/bin/python" "$repo_root/local_stack.py" reset --dry-run 2>&1)"
+preview_output="$(python3 "$repo_root/local_stack.py" reset --dry-run 2>&1)"
 preview_status=$?
 set -e
 
@@ -76,4 +75,4 @@ fi
 printf '%s\n' \
 	'Resetting the fixed local Podman project "containers".' \
 	'This deletes its three disposable named volumes and generated fictional Chapter One pilot record.'
-exec "$repo_root/.venv/bin/python" "$repo_root/local_stack.py" reset --confirm-project containers
+exec python3 "$repo_root/local_stack.py" reset --confirm-project containers

@@ -31,9 +31,7 @@ import {
 } from "./shared";
 
 const MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS = 256;
-const MAX_QUESTION_SEARCH_CLASSIFICATION_FILTERS = 64;
 const MAX_QUESTION_SEARCH_FILTER_TEXT_UNICODE_SCALARS = 256;
-const MAX_QUESTION_SEARCH_CLASSIFICATION_PART_UNICODE_SCALARS = 128;
 const MAX_SAVED_QUESTION_SEARCHES_PAGE_ITEMS = 100;
 const MAX_NAMED_QUESTION_FOLDERS_PAGE_ITEMS = 100;
 const QUESTION_ID_PATTERN = /^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u;
@@ -86,7 +84,6 @@ function decodeQuestionSearchFilter(value: unknown, path: string): QuestionSearc
     "backends",
     "tags",
     "question_types",
-    "classifications",
     "capabilities",
     "question_licenses",
     "evidence",
@@ -132,27 +129,6 @@ function decodeQuestionSearchFilter(value: unknown, path: string): QuestionSearc
           "ordering",
           "hotspot",
         ]),
-    ),
-    classifications: decodeBoundedArray(
-      field(record, "classifications", path),
-      `${path}.classifications`,
-      MAX_QUESTION_SEARCH_CLASSIFICATION_FILTERS,
-      (entry, entryPath) => {
-        const classification = decodeRecord(entry, entryPath);
-        requireOnlyFields(classification, entryPath, ["system", "code"]);
-        return {
-          system: decodeFilterText(
-            field(classification, "system", entryPath),
-            `${entryPath}.system`,
-            MAX_QUESTION_SEARCH_CLASSIFICATION_PART_UNICODE_SCALARS,
-          ),
-          code: decodeFilterText(
-            field(classification, "code", entryPath),
-            `${entryPath}.code`,
-            MAX_QUESTION_SEARCH_CLASSIFICATION_PART_UNICODE_SCALARS,
-          ),
-        };
-      },
     ),
     capabilities: decodeBoundedArray(
       field(record, "capabilities", path),

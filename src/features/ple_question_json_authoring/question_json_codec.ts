@@ -24,7 +24,6 @@ import {
   type PleQuestionJsonNumericResponseTolerance,
   type PleQuestionJsonOutcomeFeedback,
   type PleQuestionJsonDocument,
-  type PleQuestionJsonClassification,
   type PleQuestionJsonAttemptTimeLimit,
   type PleQuestionJsonTextResponseMatchRule,
   type PleQuestionJsonOrderingItem,
@@ -558,27 +557,6 @@ function decodeTags(value: unknown, path: string): ReadonlyArray<string> {
   return value.map((entry, index) => boundedText(entry, `${path}[${index}]`, MAX_TAG_CHARS));
 }
 
-function decodeClassifications(
-  value: unknown,
-  path: string,
-): ReadonlyArray<PleQuestionJsonClassification> {
-  if (!Array.isArray(value)) throw new DecodeError(path, "an array");
-  return value.map((entry, index) => {
-    const entryPath = `${path}[${index}]`;
-    const record = decodeRecord(entry, entryPath);
-    onlyFields(record, entryPath, ["system", "code", "name"]);
-    return {
-      system: boundedText(
-        field(record, "system", entryPath),
-        `${entryPath}.system`,
-        MAX_METADATA_CHARS,
-      ),
-      code: boundedText(field(record, "code", entryPath), `${entryPath}.code`, MAX_METADATA_CHARS),
-      name: boundedText(field(record, "name", entryPath), `${entryPath}.name`, MAX_METADATA_CHARS),
-    };
-  });
-}
-
 function decodeQuestionLicense(
   value: unknown,
   path: string,
@@ -628,7 +606,6 @@ export function decodePleQuestionJsonSource(
     "questionAttemptLimit",
     "questionAttemptTimeLimit",
     "tags",
-    "classifications",
     "questionLicense",
     "questionCitation",
     "language",
@@ -763,10 +740,6 @@ export function decodePleQuestionJsonSource(
       `${path}.questionAttemptTimeLimit`,
     ),
     tags: record.tags === undefined ? [] : decodeTags(record.tags, `${path}.tags`),
-    classifications:
-      record.classifications === undefined
-        ? []
-        : decodeClassifications(record.classifications, `${path}.classifications`),
     questionLicense: decodeQuestionLicense(
       field(record, "questionLicense", path),
       `${path}.questionLicense`,

@@ -14,7 +14,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use crate::classification::{QuestionClassification, QuestionLicense, Tag};
+use crate::question_license::QuestionLicense;
+use crate::question_tag::Tag;
 use crate::generation::QuestionVariationRule;
 use crate::identity::{QuestionAssetId, WorkspaceId, WorkspaceImportId};
 use crate::question_backend_fields::{
@@ -237,8 +238,6 @@ pub struct QuestionMetadata {
     pub question_description: String,
     /// Free-form labels for search.
     pub tags: Vec<Tag>,
-    /// Exact mappings to external or institutional classification systems.
-    pub classifications: Vec<QuestionClassification>,
     /// Exact versioned legal grant under which this Question Revision may be reused.
     ///
     /// A Draft Question Revision may leave this unset until it is ready for
@@ -299,7 +298,7 @@ pub struct DraftQuestionContent {
     pub question_variation_rule: QuestionVariationRule,
     /// How a response is judged.
     pub grading: QuestionGradingRule,
-    /// Title, Question Description, tags, Question Classifications, Question License, and language.
+    /// Title, Question Description, tags, Question License, and language.
     pub metadata: QuestionMetadata,
 }
 
@@ -380,7 +379,7 @@ pub struct QuestionRevision {
     pub question_variation_rule: QuestionVariationRule,
     /// How a response is judged.
     pub grading: QuestionGradingRule,
-    /// Title, tags, Question Classifications, Question License, language.
+    /// Title, tags, Question License, language.
     pub metadata: QuestionMetadata,
 }
 
@@ -502,7 +501,6 @@ mod tests {
                 title: "Molar mass".to_string(),
                 question_description: "Instructor-facing molar-mass fixture summary.".to_string(),
                 tags: vec![Tag::new("stoichiometry")],
-                classifications: Vec::new(),
                 question_license: Some(QuestionLicense::CcBySa4_0),
                 question_citation: None,
                 language: "en-US".to_string(),

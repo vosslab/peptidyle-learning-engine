@@ -11,7 +11,7 @@ use question_model::response::{
 };
 use question_model::{
     QuestionBackend, QuestionFormat, QuestionId, QuestionRevision, QuestionRevisionNumber,
-    WorkspaceId, classification::QuestionLicense,
+    QuestionLicense, WorkspaceId,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -347,15 +347,6 @@ fn validate_flat(
     }
     if compiled.draft().metadata.question_license != Some(QuestionLicense::CcBy4_0) {
         bail!("PLE Question JSON pilot payload must retain the CC BY license");
-    }
-    if !compiled
-        .draft()
-        .metadata
-        .classifications
-        .iter()
-        .any(|classification| classification.name == format!("{} Chapter 1", chapter.course))
-    {
-        bail!("PLE Question JSON pilot payload classification does not match its chapter");
     }
     let expected_question_type = match question.question_type {
         PilotQuestionType::MultipleChoice => QuestionType::MultipleChoice,

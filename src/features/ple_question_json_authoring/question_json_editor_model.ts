@@ -12,7 +12,6 @@ import type {
   PleQuestionJsonMatchingPrompt,
   PleQuestionJsonOutcomeFeedback,
   PleQuestionJsonDocument,
-  PleQuestionJsonClassification,
   PleQuestionJsonAttemptTimeLimit,
 } from "./question_json_source";
 
@@ -579,13 +578,6 @@ export function setTags(
   tags: ReadonlyArray<string>,
 ): PleQuestionJsonDocument {
   return { ...source, tags: [...tags] };
-}
-
-export function setClassifications(
-  source: PleQuestionJsonDocument,
-  classifications: ReadonlyArray<PleQuestionJsonClassification>,
-): PleQuestionJsonDocument {
-  return { ...source, classifications: [...classifications] };
 }
 
 export function setQuestionLicense(

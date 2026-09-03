@@ -10,7 +10,7 @@ use question_model::QuestionContentBlock;
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::Capability;
-use question_model::classification::QuestionLicense;
+use question_model::QuestionLicense;
 use question_model::generation::{QuestionSeed, QuestionVariationRule};
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use question_model::{
@@ -187,7 +187,6 @@ fn question_with_response(response: QuestionResponseFormat) -> QuestionRevision 
             title: "Recorded OPL selection".to_string(),
             question_description: "Instructor-facing recorded OPL fixture summary.".to_string(),
             tags: Vec::new(),
-            classifications: Vec::new(),
             question_license: Some(QuestionLicense::CcBySa4_0),
             question_citation: None,
             language: "en-US".to_string(),

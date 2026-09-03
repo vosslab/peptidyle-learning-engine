@@ -233,11 +233,6 @@ function reusableQuestionLibraryRow(item: {
     readonly metadata: {
       readonly title: string;
       readonly questionDescription: string;
-      readonly classifications: ReadonlyArray<{
-        readonly system: string;
-        readonly code: string;
-        readonly name: string;
-      }>;
       readonly questionLicense: "CC0-1.0" | "CC-BY-4.0" | "CC-BY-SA-4.0" | null;
     };
     readonly authorship: { readonly authors: ReadonlyArray<{ readonly displayName: string }> };
@@ -269,9 +264,6 @@ function reusableQuestionLibraryRow(item: {
     title: summary.metadata.title,
     summary: summary.metadata.questionDescription,
     authorNames: summary.authorship.authors.map((author) => author.displayName),
-    classifications: summary.metadata.classifications.map(
-      (classification) => `${classification.system}:${classification.code}`,
-    ),
     capabilities: summary.capabilities,
     questionLicense: summary.metadata.questionLicense,
     evidence,

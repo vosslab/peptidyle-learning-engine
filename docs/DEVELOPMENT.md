@@ -57,7 +57,7 @@ Use the read-only help surfaces to confirm available local-stack and browser opt
 starting a service or acceptance lane:
 
 ```bash
-source source_me.sh && .venv/bin/python local_stack.py --help
+source source_me.sh && python3 local_stack.py --help
 ./run_live_demo.sh --help
 ```
 
@@ -216,8 +216,8 @@ Use the fixed owner when a work package needs the supported PostgreSQL, MinIO,
 API, worker, gateway, and external stateless WeBWorK PG renderer:
 
 ```bash
-source source_me.sh && .venv/bin/python local_stack.py start --headless
-source source_me.sh && .venv/bin/python local_stack.py stop
+source source_me.sh && python3 local_stack.py start --headless
+source source_me.sh && python3 local_stack.py stop
 ```
 
 `start` first authenticates to and cleans the previous developer owner, then builds production
@@ -231,17 +231,16 @@ than building a second WeBWorK platform or database. See
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for the owner and cleanup
 contract.
 
-The convenience wrapper `./run_live_demo.sh` starts or stops that same owner. It first creates or
-refreshes the fixed Python 3.12 `.venv`, installs the declared dependencies, verifies PyYAML, and
-installs TypeScript dependencies when `node_modules` is absent. Use it for a human demo; use the
-repo-local `.venv/bin/python local_stack.py` directly when selecting a controller command or
-collecting acceptance evidence.
+The convenience wrapper `./run_live_demo.sh` starts or stops that same owner. It sources the
+repository shell environment through its fixed `source_me.sh` path, runs `python3 local_stack.py`,
+and installs TypeScript dependencies when `node_modules` is absent. Use it for a human demo; use
+`source source_me.sh && python3 local_stack.py <command>` directly when selecting a controller
+command or collecting diagnostics.
 
-`source_me.sh` is a shell precondition, not a Python-environment activator: it requires Bash and
-loads the repository's shell setup. Prepare the fixed environment with `./devel/setup_python.sh`,
-then invoke repository Python through `.venv/bin/python`. Root shell front doors own their own
-setup and should be called directly; do not substitute a system `python3` for the documented
-`.venv/bin/python` commands when collecting pytest or local-stack evidence.
+`source_me.sh` is a shell precondition: it requires Bash and loads the repository's shell setup.
+`run_live_demo.sh` and direct controller diagnostics use that shell environment and `python3`.
+`devel/setup_python.sh`, pytest, and aggregate-validation workflows retain their own documented
+interpreter setup and invocation.
 
 ### Validation classes
 

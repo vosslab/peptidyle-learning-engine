@@ -7,7 +7,7 @@ use grading::{AnswerKey, GradingError};
 use question_model::answer::NumericResponseTolerance;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
-use question_model::classification::QuestionLicense;
+use question_model::QuestionLicense;
 use question_model::generation::{QuestionGeneratorReference, QuestionSeed, QuestionVariationRule};
 use question_model::response::{QuestionResponseFormat, ResponseItemReference};
 use question_model::{
@@ -60,7 +60,6 @@ fn metadata(title: &str) -> QuestionMetadata {
         title: title.to_string(),
         question_description: format!("Instructor-facing summary for {title}."),
         tags: Vec::new(),
-        classifications: Vec::new(),
         question_license: Some(QuestionLicense::CcBySa4_0),
         question_citation: None,
         language: "en-US".to_string(),

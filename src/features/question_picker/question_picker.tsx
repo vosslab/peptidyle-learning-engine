@@ -69,7 +69,6 @@ function facetValues(
     | "backend"
     | "tag"
     | "questionType"
-    | "classification"
     | "capability"
     | "questionLicense"
     | "evidence"
@@ -273,18 +272,6 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
           </select>
         </label>
         <label>
-          Classification
-          <select
-            value={query().classification ?? ""}
-            onChange={(event) => updateQuery({ classification: event.currentTarget.value || null })}
-          >
-            <option value="">All classifications</option>
-            <For each={facetValues(state(), "classification")}>
-              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
-            </For>
-          </select>
-        </label>
-        <label>
           Capability
           <select
             value={query().capability ?? ""}
@@ -389,7 +376,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
                         <span>
                           <strong>{row.title}</strong>
                           <span>{row.summary}</span>
-                          <small>{`${row.displayId} - ${row.classifications.join(" / ") || "No classification"}`}</small>
+                          <small>{row.displayId}</small>
                         </span>
                       </article>
                     }
@@ -404,7 +391,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
                       <span>
                         <strong>{row.title}</strong>
                         <span>{row.summary}</span>
-                        <small>{`${row.displayId} - ${row.classifications.join(" / ") || "No classification"}`}</small>
+                        <small>{row.displayId}</small>
                       </span>
                     </label>
                   </Show>

@@ -10,7 +10,6 @@ import type { QuestionRevisionReference } from "../../../generated/api/QuestionR
 import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionMetadata } from "../../../generated/api/QuestionMetadata";
-import type { QuestionClassification } from "../../../generated/api/QuestionClassification";
 import type { CursorPage } from "../contracts";
 import {
   DecodeError,
@@ -232,23 +231,6 @@ export function decodeQuestionRevisionReference(
   return decoded;
 }
 
-export function decodeQuestionClassification(
-  value: unknown,
-  path: string,
-  strict = false,
-): QuestionClassification {
-  const record = decodeRecord(value, path);
-  if (strict) {
-    requireOnlyFields(record, path, ["system", "code", "name"]);
-  }
-  const decoded = {
-    system: decodeNonemptyString(field(record, "system", path), `${path}.system`),
-    code: decodeNonemptyString(field(record, "code", path), `${path}.code`),
-    name: decodeNonemptyString(field(record, "name", path), `${path}.name`),
-  } satisfies QuestionClassification;
-  return decoded;
-}
-
 export function decodeQuestionLicense(value: unknown, path: string): QuestionLicense {
   return decodeStringEnum<QuestionLicense>(value, path, ["CC0-1.0", "CC-BY-4.0", "CC-BY-SA-4.0"]);
 }
@@ -283,7 +265,6 @@ export function decodeQuestionMetadata(
       "title",
       "questionDescription",
       "tags",
-      "classifications",
       "questionLicense",
       "questionCitation",
       "language",
@@ -296,12 +277,6 @@ export function decodeQuestionMetadata(
       `${path}.questionDescription`,
     ),
     tags: decodeArray(field(record, "tags", path), `${path}.tags`, decodeString),
-    classifications: decodeArray(
-      field(record, "classifications", path),
-      `${path}.classifications`,
-      (classification, classificationPath) =>
-        decodeQuestionClassification(classification, classificationPath, strict),
-    ),
     questionLicense: decodeNullable(
       field(record, "questionLicense", path),
       `${path}.questionLicense`,

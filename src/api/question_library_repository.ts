@@ -82,17 +82,6 @@ function selectedPublicText(value: string | null): Array<string> {
   return value === null ? [] : [value];
 }
 
-function classificationFilter(value: string | null): QuestionSearchRequest["classifications"] {
-  if (value === null) {
-    return [];
-  }
-  const separator = value.indexOf(":");
-  if (separator < 1 || separator === value.length - 1) {
-    throw new Error("Question Library classification selection is invalid");
-  }
-  return [{ system: value.slice(0, separator), code: value.slice(separator + 1) }];
-}
-
 function evidenceFilter(value: string | null): QuestionSearchRequest["evidence"] {
   return value === "available" || value === "unavailable" ? value : "any";
 }
@@ -119,11 +108,6 @@ function facets(
     ...page.facets.questionTypes.map((facet) => ({
       facet: "questionType" as const,
       value: facet.questionType,
-      count: facet.count,
-    })),
-    ...page.facets.classifications.map((facet) => ({
-      facet: "classification" as const,
-      value: `${facet.classification.system}:${facet.classification.code}`,
       count: facet.count,
     })),
     ...page.facets.capabilities.map((facet) => ({
@@ -158,7 +142,6 @@ export function questionSearchRequest(
     backends: selectedBackend(query.backend),
     tags: selectedPublicText(query.tag),
     question_types: selectedQuestionType(query.questionType),
-    classifications: classificationFilter(query.classification),
     capabilities: selectedCapability(query.capability),
     question_licenses: selectedQuestionLicense(query.questionLicense),
     evidence: evidenceFilter(query.evidence),
@@ -184,9 +167,6 @@ export function createQuestionLibraryRepository(
           title: item.summary.metadata.title,
           summary: item.summary.metadata.questionDescription,
           authorNames: item.summary.authorship.authors.map((author) => author.displayName),
-          classifications: item.summary.metadata.classifications.map(
-            (classification) => `${classification.system}:${classification.code}`,
-          ),
           capabilities: item.summary.capabilities,
           questionLicense: item.summary.metadata.questionLicense,
           evidence:

@@ -64,7 +64,7 @@
     "summary action"
     "evidence action"
     "authors action"
-    "classification identity";
+    "identity identity";
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: auto minmax(0, 2.6em) auto auto auto;
   gap: 0.18rem 1rem;
@@ -109,14 +109,6 @@
   overflow-wrap: anywhere;
 }
 
-.library-page .question-library-row-classifications {
-  grid-area: classification;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .library-page .question-library-row .copyable-question-id {
   grid-area: identity;
   justify-content: end;
@@ -144,7 +136,6 @@
       "summary"
       "evidence"
       "authors"
-      "classification"
       "identity action";
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto minmax(0, 2.6em) auto auto auto auto;

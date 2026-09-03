@@ -5,7 +5,6 @@ import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS } from "../../generated/api/MAX
 import { MAX_QUESTION_SEARCH_TAG_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FILTERS";
 
 const MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS = 256;
-const MAX_QUESTION_SEARCH_CLASSIFICATION_FILTERS = 64;
 const MAX_QUESTION_SEARCH_PAGE_SIZE = 100;
 const MAX_QUESTION_ID_CHARACTERS = 44;
 const QUESTION_SEARCH_CAPABILITIES = [
@@ -36,7 +35,6 @@ const QUESTION_SEARCH_QUERY_FIELDS = [
   "backends",
   "tags",
   "question_types",
-  "classifications",
   "capabilities",
   "question_licenses",
   "evidence",
@@ -164,24 +162,6 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
         "Question Library Question Type",
       ),
     );
-  }
-  if (query.classifications.length > MAX_QUESTION_SEARCH_CLASSIFICATION_FILTERS) {
-    throw new Error(
-      `Question Library classification filters must contain at most ${MAX_QUESTION_SEARCH_CLASSIFICATION_FILTERS} entries`,
-    );
-  }
-  for (const classification of query.classifications) {
-    const system = questionSearchFilterText(
-      classification.system,
-      "Question Library classification system",
-      128,
-    );
-    const code = questionSearchFilterText(
-      classification.code,
-      "Question Library classification code",
-      128,
-    );
-    parameters.append("classifications", `${system}:${code}`);
   }
   if (query.capabilities.length > QUESTION_SEARCH_CAPABILITIES.length) {
     throw new Error(

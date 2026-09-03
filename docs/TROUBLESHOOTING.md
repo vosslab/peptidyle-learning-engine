@@ -10,9 +10,9 @@ For prerequisites and normal operation, see [INSTALL.md](INSTALL.md),
 
 ## Triage order
 
-Use the root front door for mutations. It prepares the fixed Python 3.12
-environment, selects the owner-locked `ple-live-demo-browser` project, and
-does not accept a caller-selected project, environment, or identity. Start
+Use the root front door for mutations. It sources the repository shell environment and invokes
+the fixed controller with `python3`, selects the owner-locked `ple-live-demo-browser` project,
+and does not accept a caller-selected project, environment, or identity. Start
 with read-only inspection, preserve the private owner receipt, and change one
 named failure at a time. The command surface is implemented in
 [local_stack.py](../local_stack.py#L1-L28) and the wrapper dispatch is in
@@ -24,9 +24,8 @@ the project scope.
 
 ## Preflight failures
 
-- **`Python 3.12 is required`:** install `python3.12`, then rerun
-  `./run_live_demo.sh`. The wrapper creates the repository `.venv` and installs
-  the declared requirements there.
+- **`Python 3.12 is required`:** install `python3.12`, make it available as `python3`, then rerun
+  `./run_live_demo.sh`. The wrapper sources `source_me.sh` and invokes the controller directly.
 - **`command not found on PATH`:** install the named prerequisite and retry
   `./run_live_demo.sh`. The wrapper requires Git, Podman, curl, awk, OpenSSL,
   xxd, and lsof.
@@ -39,7 +38,7 @@ the project scope.
 
 ## Read-only diagnostics
 
-Prepare the fixed interpreter if the wrapper has not already done so:
+Prepare the repository Python environment when a separate developer workflow requires it:
 
 ```bash
 ./devel/setup_python.sh
@@ -48,11 +47,11 @@ Prepare the fixed interpreter if the wrapper has not already done so:
 Run these commands from the repository root before changing the stack:
 
 ```bash
-source source_me.sh && .venv/bin/python local_stack.py doctor
-source source_me.sh && .venv/bin/python local_stack.py projects
-source source_me.sh && .venv/bin/python local_stack.py status --project ple-live-demo-browser
-source source_me.sh && .venv/bin/python local_stack.py logs --project ple-live-demo-browser --tail 120 gateway api worker
-source source_me.sh && .venv/bin/python local_stack.py validate
+source source_me.sh && python3 local_stack.py doctor
+source source_me.sh && python3 local_stack.py projects
+source source_me.sh && python3 local_stack.py status --project ple-live-demo-browser
+source source_me.sh && python3 local_stack.py logs --project ple-live-demo-browser --tail 120 gateway api worker
+source source_me.sh && python3 local_stack.py validate
 ```
 
 `doctor` checks Podman, its Compose provider, the macOS machine, the selected
@@ -95,8 +94,8 @@ the renderer identity, and the available engine without mutating the stack.
   logs, correct the reported container, image, or volume problem, then retry:
 
   ```bash
-  source source_me.sh && .venv/bin/python local_stack.py status --project ple-live-demo-browser
-  source source_me.sh && .venv/bin/python local_stack.py logs --project ple-live-demo-browser --tail 120 postgres
+  source source_me.sh && python3 local_stack.py status --project ple-live-demo-browser
+  source source_me.sh && python3 local_stack.py logs --project ple-live-demo-browser --tail 120 postgres
   ./run_live_demo.sh
   ```
 

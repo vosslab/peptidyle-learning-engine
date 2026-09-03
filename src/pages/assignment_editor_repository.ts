@@ -46,7 +46,6 @@ function retainedQueryMatches(row: QuestionSearchResult, query: QuestionSearchQu
       row.title,
       row.displayId,
       row.summary,
-      ...row.classifications,
       ...row.authorNames,
     ]
       .join(" ")
@@ -55,8 +54,6 @@ function retainedQueryMatches(row: QuestionSearchResult, query: QuestionSearchQu
   }
   if (query.authorName !== null && !row.authorNames.includes(query.authorName)) return false;
   if (query.backend !== null || query.questionType !== null || query.tag !== null) return false;
-  if (query.classification !== null && !row.classifications.includes(query.classification))
-    return false;
   if (query.capability !== null && !row.capabilities.includes(query.capability)) return false;
   if (query.questionLicense !== null && row.questionLicense !== query.questionLicense) return false;
   if (query.evidence === "available" || query.usedInMyCourses === "used") return false;
@@ -105,7 +102,6 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
           title: entry.title,
           summary: "Active fixed question retained in this assignment.",
           authorNames: [],
-          classifications: [],
           capabilities: entry.capabilities,
           questionLicense: null,
           evidence: { state: "insufficientEvidence" as const },
@@ -117,7 +113,6 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
               title: item.title,
               summary: "Question retained in this assignment pool.",
               authorNames: [],
-              classifications: [],
               capabilities: [],
               questionLicense: null,
               evidence: { state: "insufficientEvidence" as const },

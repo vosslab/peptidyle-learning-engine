@@ -350,7 +350,7 @@ mod tests {
     use question_model::assignment_activity_rules::{
         QuestionAttemptLimit, QuestionAttemptTimeLimit,
     };
-    use question_model::classification::QuestionLicense;
+    use question_model::QuestionLicense;
     use question_model::generation::QuestionVariationRule;
     use question_model::response::{OrderingItem, QuestionChoice, QuestionType};
     use question_model::{
@@ -399,7 +399,6 @@ mod tests {
                 title: "Grading fixture".to_string(),
                 question_description: "Instructor-facing grading fixture summary.".to_string(),
                 tags: Vec::new(),
-                classifications: Vec::new(),
                 question_license: Some(QuestionLicense::CcBySa4_0),
                 question_citation: None,
                 language: "en-US".to_string(),

@@ -21,7 +21,6 @@ import {
   setQuestionHint,
   setOutcomeFeedback,
   setTags,
-  setClassifications,
   setQuestionAttemptTimeLimit,
   validatePleQuestionJsonSource,
   type PleQuestionJsonEditorAction,
@@ -588,7 +587,6 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
               <PleQuestionJsonMetadataFields
                 questionDescription={currentSource().questionDescription}
                 tags={currentSource().tags}
-                classifications={currentSource().classifications}
                 questionLicense={currentSource().questionLicense}
                 questionCitation={currentSource().questionCitation}
                 language={currentSource().language}
@@ -598,9 +596,6 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
                   applyEdit(setQuestionDescription(currentSource(), questionDescription))
                 }
                 onTagsChange={(tags) => applyEdit(setTags(currentSource(), tags))}
-                onClassificationsChange={(classifications) =>
-                  applyEdit(setClassifications(currentSource(), classifications))
-                }
                 onQuestionLicenseChange={(questionLicense) =>
                   applyEdit(setQuestionLicense(currentSource(), questionLicense))
                 }

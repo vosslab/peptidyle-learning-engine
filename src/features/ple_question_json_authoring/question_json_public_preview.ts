@@ -2,7 +2,6 @@ import type {
   PleQuestionJsonAttemptLimit,
   PleQuestionJsonChoice,
   PleQuestionJsonDocument,
-  PleQuestionJsonClassification,
   PleQuestionJsonAttemptTimeLimit,
 } from "./question_json_source";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
@@ -16,7 +15,6 @@ export type PleQuestionJsonPublicPreview = {
   readonly questionAttemptLimit: PleQuestionJsonAttemptLimit;
   readonly questionAttemptTimeLimit: PleQuestionJsonAttemptTimeLimit;
   readonly tags: ReadonlyArray<string>;
-  readonly classifications: ReadonlyArray<PleQuestionJsonClassification>;
   readonly questionLicense: PleQuestionJsonDocument["questionLicense"];
   readonly language: string;
 };
@@ -34,7 +32,6 @@ export function pleQuestionJsonPublicPreview(
     questionAttemptLimit: source.questionAttemptLimit,
     questionAttemptTimeLimit: source.questionAttemptTimeLimit,
     tags: source.tags,
-    classifications: source.classifications,
     questionLicense: source.questionLicense,
     language: source.language,
   };

@@ -2,24 +2,17 @@
 
 import { For, Show, type JSX } from "solid-js";
 
-import type { PleQuestionJsonClassification } from "./question_json_source";
 import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionCitation } from "../../../generated/api/QuestionCitation";
-
-const MAXIMUM_CLASSIFICATIONS = 32;
 
 export interface PleQuestionJsonMetadataFieldsProps {
   readonly questionDescription: string;
   readonly tags: ReadonlyArray<string>;
-  readonly classifications: ReadonlyArray<PleQuestionJsonClassification>;
   readonly questionLicense: QuestionLicense | null;
   readonly questionCitation: QuestionCitation | null;
   readonly language: string;
   readonly onTagsChange: (tags: ReadonlyArray<string>) => void;
   readonly onQuestionDescriptionChange: (questionDescription: string) => void;
-  readonly onClassificationsChange: (
-    classifications: ReadonlyArray<PleQuestionJsonClassification>,
-  ) => void;
   readonly onQuestionLicenseChange: (questionLicense: QuestionLicense | null) => void;
   readonly onQuestionCitationChange: (questionCitation: QuestionCitation | null) => void;
   readonly onLanguageChange: (language: string) => void;
@@ -64,29 +57,10 @@ function citationWith(
   return next.citationUrl === null && next.citationText === null ? null : next;
 }
 
-/** Metadata remains deliberate and compact: classification rows are capped before validation. */
+/** Metadata remains deliberate and compact. */
 export function PleQuestionJsonMetadataFields(
   props: PleQuestionJsonMetadataFieldsProps,
 ): JSX.Element {
-  const classificationsError = (): string | undefined => props.fieldErrors?.["classifications"];
-  const updateClassification = (
-    index: number,
-    patch: Partial<PleQuestionJsonClassification>,
-  ): void => {
-    props.onClassificationsChange(
-      props.classifications.map((classification, classificationIndex) =>
-        classificationIndex === index ? { ...classification, ...patch } : classification,
-      ),
-    );
-  };
-  const removeClassification = (index: number): void =>
-    props.onClassificationsChange(
-      props.classifications.filter(
-        (_classification, classificationIndex) => classificationIndex !== index,
-      ),
-    );
-  const addClassification = (): void =>
-    props.onClassificationsChange([...props.classifications, { system: "", code: "", name: "" }]);
   return (
     <fieldset>
       <legend>Question Library metadata</legend>
@@ -155,73 +129,6 @@ export function PleQuestionJsonMetadataFields(
           }
         />
       </label>
-      <section aria-labelledby="ple-question-json-classifications-heading">
-        <h3 id="ple-question-json-classifications-heading">Question classification</h3>
-        <p class="ple-question-json-authoring__help">
-          Use the established classification system, code, and readable name.
-        </p>
-        <Show when={classificationsError() !== undefined}>
-          <p class="ple-question-json-authoring__error" role="alert">
-            {classificationsError()}
-          </p>
-        </Show>
-        <ol class="ple-question-json-authoring__classification-list">
-          <For each={props.classifications}>
-            {(classification, index) => (
-              <li class="ple-question-json-authoring__classification-row">
-                <div class="ple-question-json-authoring__grid">
-                  <label class="ple-question-json-authoring__field">
-                    <span>Classification system</span>
-                    <input
-                      value={classification.system}
-                      disabled={props.disabled}
-                      onInput={(event) =>
-                        updateClassification(index(), { system: event.currentTarget.value })
-                      }
-                    />
-                  </label>
-                  <label class="ple-question-json-authoring__field">
-                    <span>Code</span>
-                    <input
-                      value={classification.code}
-                      disabled={props.disabled}
-                      onInput={(event) =>
-                        updateClassification(index(), { code: event.currentTarget.value })
-                      }
-                    />
-                  </label>
-                </div>
-                <label class="ple-question-json-authoring__field">
-                  <span>Classification name</span>
-                  <input
-                    value={classification.name}
-                    disabled={props.disabled}
-                    onInput={(event) =>
-                      updateClassification(index(), { name: event.currentTarget.value })
-                    }
-                  />
-                </label>
-                <button
-                  type="button"
-                  class="quiet-action"
-                  disabled={props.disabled}
-                  onClick={() => removeClassification(index())}
-                >
-                  Remove classification
-                </button>
-              </li>
-            )}
-          </For>
-        </ol>
-        <button
-          type="button"
-          class="quiet-action"
-          disabled={props.disabled || props.classifications.length >= MAXIMUM_CLASSIFICATIONS}
-          onClick={addClassification}
-        >
-          Add classification
-        </button>
-      </section>
     </fieldset>
   );
 }

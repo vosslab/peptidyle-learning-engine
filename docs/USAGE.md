@@ -12,8 +12,8 @@ Start and open the live demo:
 ./run_live_demo.sh
 ```
 
-On a fresh clone, this command creates or refreshes the fixed Python 3.12 `.venv`, installs the
-declared Python dependencies, verifies PyYAML, and runs `devel/setup_typescript.sh` when
+On a fresh clone, this command sources the repository shell environment through its fixed
+`source_me.sh` path, invokes `python3 local_stack.py`, and runs `devel/setup_typescript.sh` when
 `node_modules` is absent. The lifecycle then builds production `dist/`, starts
 `ple-live-demo-browser`, waits for HTTPS readiness, and opens the canonical origin. Select a seeded
 Student, Instructor, or Sysadmin persona in the visible production-auth flow. Those personas use
@@ -129,10 +129,10 @@ These read-only commands are the supported exception to the root-wrapper path. S
 shell environment before invoking the controller directly:
 
 ```bash
-source source_me.sh && .venv/bin/python local_stack.py doctor
-source source_me.sh && .venv/bin/python local_stack.py status
-source source_me.sh && .venv/bin/python local_stack.py logs --tail 120
-source source_me.sh && .venv/bin/python local_stack.py validate
+source source_me.sh && python3 local_stack.py doctor
+source source_me.sh && python3 local_stack.py status
+source source_me.sh && python3 local_stack.py logs --tail 120
+source source_me.sh && python3 local_stack.py validate
 ```
 
 `doctor` checks Podman and its Compose provider; `status` reports semantic readiness; `logs` prints

@@ -559,7 +559,7 @@ impl std::error::Error for BlueprintCourseValidationError {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::classification::QuestionLicense;
+    use crate::QuestionLicense;
     use crate::{
         QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionBackend,
         QuestionBackendCapabilities, QuestionMetadata, QuestionRevisionAvailability,
@@ -645,7 +645,6 @@ mod tests {
                     question_description: "Instructor-facing Question Library row fixture."
                         .to_string(),
                     tags: Vec::new(),
-                    classifications: Vec::new(),
                     question_license: Some(QuestionLicense::Cc0_1_0),
                     question_citation: None,
                     language: "en".to_string(),

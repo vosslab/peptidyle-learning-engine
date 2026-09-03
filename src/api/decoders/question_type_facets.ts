@@ -1,6 +1,5 @@
 // Strict runtime decoding for the answer-free Question Search facet DTO.
 
-import { MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS } from "../../../generated/api/MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS";
 import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS } from "../../../generated/api/MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS";
 import { MAX_QUESTION_SEARCH_TAG_FACETS } from "../../../generated/api/MAX_QUESTION_SEARCH_TAG_FACETS";
 import type { QuestionSearchBackendFacet } from "../../../generated/api/QuestionSearchBackendFacet";
@@ -12,7 +11,6 @@ import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionTypeFacet } from "../../../generated/api/QuestionTypeFacet";
 import type { QuestionSearchFacets } from "../../../generated/api/QuestionSearchFacets";
 import type { QuestionSearchTagFacet } from "../../../generated/api/QuestionSearchTagFacet";
-import type { QuestionSearchClassificationFacet } from "../../../generated/api/QuestionSearchClassificationFacet";
 import type { QuestionSearchCourseUseFacet } from "../../../generated/api/QuestionSearchCourseUseFacet";
 import {
   DecodeError,
@@ -26,29 +24,12 @@ import {
   MAX_QUESTION_SEARCH_QUESTION_LICENSE_FACETS,
   decodeBoundedArray,
   decodeCapability,
-  decodeQuestionClassification,
   field,
   requireOnlyFields,
 } from "./shared";
 
 const MAX_QUESTION_SEARCH_BACKEND_FACETS = 5;
 const MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS = 8;
-
-function decodeQuestionSearchClassificationFacet(
-  value: unknown,
-  path: string,
-): QuestionSearchClassificationFacet {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["classification", "count"]);
-  return {
-    classification: decodeQuestionClassification(
-      field(record, "classification", path),
-      `${path}.classification`,
-      true,
-    ),
-    count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
-  };
-}
 
 function decodeQuestionSearchFacetText(value: unknown, path: string, maximum: number): string {
   const decoded = decodeNonemptyString(value, path);
@@ -184,7 +165,6 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
     "backends",
     "tags",
     "questionTypes",
-    "classifications",
     "capabilities",
     "questionLicenses",
     "evidence",
@@ -214,12 +194,6 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
       `${path}.questionTypes`,
       MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
       decodeQuestionTypeFacet,
-    ),
-    classifications: decodeBoundedArray(
-      field(record, "classifications", path),
-      `${path}.classifications`,
-      MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS,
-      decodeQuestionSearchClassificationFacet,
     ),
     capabilities: decodeBoundedArray(
       field(record, "capabilities", path),

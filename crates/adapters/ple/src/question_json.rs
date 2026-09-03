@@ -16,7 +16,6 @@ pub use grading::ple_question_json::{
 };
 use question_model::QuestionContentBlock;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use question_model::classification::QuestionClassification;
 use question_model::{
     DraftQuestionContent, QuestionFormat, QuestionHint, QuestionRevision, QuestionType,
     WorkspaceId,
@@ -94,25 +93,6 @@ impl From<PleQuestionJsonAttemptTimeLimit> for QuestionAttemptTimeLimit {
                 seconds,
                 grace_seconds,
             },
-        }
-    }
-}
-
-/// Closed authoring form of one exact Question Classification.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct PleQuestionJsonClassification {
-    system: String,
-    code: String,
-    name: String,
-}
-
-impl From<&PleQuestionJsonClassification> for QuestionClassification {
-    fn from(value: &PleQuestionJsonClassification) -> Self {
-        Self {
-            system: value.system.clone(),
-            code: value.code.clone(),
-            name: value.name.clone(),
         }
     }
 }

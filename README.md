@@ -178,9 +178,9 @@ cd peptidyle-learning-engine
 ./run_live_demo.sh
 ```
 
-On a fresh clone, `run_live_demo.sh` creates or refreshes its fixed `.venv` with Python 3.12,
-installs the declared Python dependencies, and invokes `devel/setup_typescript.sh` before
-delegating to the canonical local-stack owner. It builds the
+On a fresh clone, `run_live_demo.sh` sources the repository shell environment through its fixed
+`source_me.sh` path, invokes `python3 local_stack.py`, and runs `devel/setup_typescript.sh` when
+`node_modules` is absent before delegating to the canonical local-stack owner. It builds the
 production `dist/` bundle, creates a fresh disposable
 `ple-live-demo-browser` HTTPS stack, waits for production-auth readiness, and opens
 the canonical browser origin. For a headless alternative, run

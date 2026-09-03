@@ -2,7 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::classification::{QuestionClassification, QuestionLicense, Tag};
+use crate::question_license::QuestionLicense;
+use crate::question_tag::Tag;
 use crate::{
     CourseInstanceReference, QuestionBackendCapabilities, QuestionMetadata, QuestionRevisionNumber,
     Timestamp,
@@ -10,8 +11,7 @@ use crate::{
 
 pub use crate::question_search::{
     QuestionSearchAuthorFacet, QuestionSearchAuthorship, QuestionSearchBackendFacet,
-    QuestionSearchCapabilityFacet, QuestionSearchClassificationFacet,
-    QuestionSearchClassificationFilter, QuestionSearchCourseUse, QuestionSearchCourseUseFacet,
+    QuestionSearchCapabilityFacet, QuestionSearchCourseUse, QuestionSearchCourseUseFacet,
     QuestionSearchFacets, QuestionSearchFilter, QuestionSearchQuestionLicenseFacet,
     QuestionSearchRequest, QuestionSearchRequestError, QuestionSearchTagFacet,
     QuestionStatisticsAvailability, QuestionStatisticsAvailabilityFacet, QuestionTypeFacet,
@@ -21,9 +21,6 @@ pub use crate::question_search::{
     MAX_QUESTION_SEARCH_TAG_FILTERS,
 };
 pub use crate::response::QuestionType;
-
-/// Maximum Question Classification values returned with one bounded Question Search page.
-pub const MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS: usize = 64;
 
 /// Maximum own-course rows included with one exact Question Library usage detail.
 ///
@@ -246,7 +243,7 @@ pub struct QuestionSummary {
     pub question_type: QuestionType,
     /// Capabilities declared by the owning adapter at publication time.
     pub capabilities: QuestionBackendCapabilities,
-    /// Shared metadata used for title, Question Classification, Question License, and language facets.
+    /// Shared metadata used for title, Question License, and language facets.
     pub metadata: QuestionMetadata,
     /// Immutable reviewed Question Authorship display snapshot; never Question Owner authority.
     pub authorship: crate::QuestionAuthorship,
@@ -261,11 +258,6 @@ impl QuestionSummary {
     /// Free-form tags for filtering without loading the question payload.
     pub fn tags(&self) -> &[Tag] {
         &self.metadata.tags
-    }
-
-    /// Exact Question Classifications for aggregation and filtering.
-    pub fn classifications(&self) -> &[QuestionClassification] {
-        &self.metadata.classifications
     }
 
     /// Question License facet for reuse decisions.
@@ -524,16 +516,6 @@ mod tests {
                 "protein structure".to_string(),
             ],
             question_types: vec![QuestionType::MultipleChoice; 2],
-            classifications: vec![
-                QuestionSearchClassificationFilter {
-                    system: "  discipline ".to_string(),
-                    code: " core ".to_string(),
-                },
-                QuestionSearchClassificationFilter {
-                    system: "discipline".to_string(),
-                    code: "core".to_string(),
-                },
-            ],
             capabilities: vec![Capability::Hints, Capability::Hints],
             question_licenses: vec![QuestionLicense::CcBy4_0, QuestionLicense::CcBy4_0],
             ..QuestionSearchRequest::default()
@@ -545,7 +527,6 @@ mod tests {
         assert_eq!(query.backends, vec![QuestionBackend::Ple]);
         assert_eq!(query.tags, vec!["protein structure"]);
         assert_eq!(query.question_types, vec![QuestionType::MultipleChoice]);
-        assert_eq!(query.classifications.len(), 1);
         assert_eq!(query.capabilities, vec![Capability::Hints]);
         assert_eq!(query.question_licenses, vec![QuestionLicense::CcBy4_0]);
         assert!(QuestionSearchRequest {
@@ -573,7 +554,6 @@ mod tests {
                     question_description: "Instructor-facing safe detail fixture summary."
                         .to_string(),
                     tags: Vec::new(),
-                    classifications: Vec::new(),
                     question_license: Some(QuestionLicense::Cc0_1_0),
                     question_citation: None,
                     language: "en".to_string(),

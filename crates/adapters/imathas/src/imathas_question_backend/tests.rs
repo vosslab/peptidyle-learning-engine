@@ -111,7 +111,6 @@ mod launch_session_bridge {
                 title: "Recorded launch-session fixture".into(),
                 question_description: "Adapter-only protected launch fixture.".into(),
                 tags: Vec::new(),
-                classifications: Vec::new(),
                 question_license: None,
                 question_citation: None,
                 language: "en-US".into(),

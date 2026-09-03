@@ -103,11 +103,9 @@ Use the root script from the repository root:
 ./run_live_demo.sh --headless
 ```
 
-The script sources [source_me.sh](../source_me.sh), runs
-[devel/setup_python.sh](../devel/setup_python.sh) for the repo-local Python
-3.12 environment, installs Node dependencies with
-[devel/setup_typescript.sh](../devel/setup_typescript.sh) when `node_modules`
-is absent, and runs `.venv/bin/python local_stack.py start`. Start always
+The script sources [source_me.sh](../source_me.sh) through its fixed script-directory path,
+installs Node dependencies with [devel/setup_typescript.sh](../devel/setup_typescript.sh) when
+`node_modules` is absent, and runs `python3 local_stack.py start`. Start always
 builds the production `dist/` bundle, creates a fresh fixed target, and waits
 for the HTTPS gateway. Without `--headless` it opens the URL; with it, it
 prints the URL for an operator to open.
@@ -191,10 +189,10 @@ failure.
 Inspect through the controller:
 
 ```bash
-source source_me.sh && .venv/bin/python local_stack.py doctor
-source source_me.sh && .venv/bin/python local_stack.py status
-source source_me.sh && .venv/bin/python local_stack.py logs api gateway
-source source_me.sh && .venv/bin/python local_stack.py validate
+source source_me.sh && python3 local_stack.py doctor
+source source_me.sh && python3 local_stack.py status
+source source_me.sh && python3 local_stack.py logs api gateway
+source source_me.sh && python3 local_stack.py validate
 ```
 
 Raw Compose inspection is diagnostic only and must use the exact env file:

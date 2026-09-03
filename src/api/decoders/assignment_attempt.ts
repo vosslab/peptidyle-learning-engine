@@ -26,7 +26,6 @@ import type { AssignmentProgress } from "../../../generated/api/AssignmentProgre
 import type { StudentClassStatistics } from "../../../generated/api/StudentClassStatistics";
 import type { AssignmentProgressScoreState } from "../../../generated/api/AssignmentProgressScoreState";
 import type { AssignmentScoringState } from "../../../generated/api/AssignmentScoringState";
-import type { QuestionClassification } from "../../../generated/api/QuestionClassification";
 import type {
   AuthenticatedSession,
   CursorPage,
@@ -62,7 +61,6 @@ import {
   decodeIdentifier,
   decodeQuestionRevisionReference,
   decodeSha256,
-  decodeQuestionClassification,
   decodeTimestamp,
   field,
   requireOnlyFields,
@@ -682,15 +680,6 @@ export function decodePrefetchedNextQuestion(
 export function decodeQuestionPage(value: unknown, path = "response"): CursorPage<QuestionSummary> {
   return decodeCursorPage(value, path, (item, itemPath) =>
     decodeQuestionSummary(item, itemPath, true),
-  );
-}
-
-export function decodeQuestionClassificationPage(
-  value: unknown,
-  path = "response",
-): CursorPage<QuestionClassification> {
-  return decodeCursorPage(value, path, (item, itemPath) =>
-    decodeQuestionClassification(item, itemPath, true),
   );
 }
 

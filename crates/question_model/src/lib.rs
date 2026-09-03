@@ -1,7 +1,7 @@
 //! Browser-safe domain contracts for the Peptidyle Learning Engine.
 //!
 //! Question types, Student Work Records, backend capabilities, identity, and
-//! Question Classifications live here.
+//! Question metadata includes exact licensing and free-form tags.
 //! Every backend adapter maps its engine's questions into these types, and
 //! everything downstream reads only these types, which is what lets one
 //! attempt loop, gradebook, and export path serve every engine.
@@ -26,7 +26,8 @@ pub mod blueprint_course;
 /// Exact Blueprint operations, immutable evidence, and target-term schedule resolution.
 pub mod blueprint_operations;
 pub mod capability;
-pub mod classification;
+pub mod question_license;
+pub mod question_tag;
 /// Course and assignment browser projections.
 pub mod course;
 /// Closed, browser-safe course appearance and banner presentation contracts.
@@ -210,6 +211,8 @@ pub use crate::question_backend_fields::{
     MAX_IMATHAS_IDENTIFIER_BYTES, QuestionBackendFieldsError,
 };
 pub use crate::question_citation::{QuestionCitation, QuestionCitationError};
+pub use crate::question_license::QuestionLicense;
+pub use crate::question_tag::Tag;
 pub use crate::question_content::{
     DraftQuestionContent, DraftQuestionSummary, MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS,
     MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionAssetReference, QuestionContentBlock,
@@ -219,14 +222,13 @@ pub use crate::question_content::{
 pub use crate::question_library::{
     CourseQuestionUse, MAX_QUESTION_ID_COUNT, MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS,
     MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS, MAX_QUESTION_SEARCH_BACKEND_FACETS,
-    MAX_QUESTION_SEARCH_CLASSIFICATION_FACETS, MAX_QUESTION_SEARCH_OWN_COURSE_USAGES,
+    MAX_QUESTION_SEARCH_OWN_COURSE_USAGES,
     MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS,
     MAX_QUESTION_SEARCH_TAG_FACETS, MAX_QUESTION_SEARCH_TAG_FILTERS, QUESTION_ID_ALPHABET,
     QUESTION_ID_COMPACT_LENGTH, QUESTION_ID_IDENTIFIER_LENGTH, QuestionBackend, QuestionDetails,
     QuestionDetailsPromptView, QuestionId, QuestionRevisionAvailability, QuestionRevisionReference,
     QuestionSearchAuthorFacet, QuestionSearchAuthorship, QuestionSearchBackendFacet,
-    QuestionSearchCapabilityFacet, QuestionSearchClassificationFacet,
-    QuestionSearchClassificationFilter, QuestionSearchCourseUse, QuestionSearchCourseUseFacet,
+    QuestionSearchCapabilityFacet, QuestionSearchCourseUse, QuestionSearchCourseUseFacet,
     QuestionSearchFacets, QuestionSearchFilter, QuestionSearchPage,
     QuestionSearchQuestionLicenseFacet, QuestionSearchRequest, QuestionSearchRequestError,
     QuestionSearchResult, QuestionSearchTagFacet, QuestionStatistics,

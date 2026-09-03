@@ -23,7 +23,6 @@ import type { DraftQuestionSummary } from "../../generated/api/DraftQuestionSumm
 import type { Capability } from "../../generated/api/Capability";
 import type { QuestionLicense } from "../../generated/api/QuestionLicense";
 import type { QuestionCitation } from "../../generated/api/QuestionCitation";
-import type { QuestionClassification } from "../../generated/api/QuestionClassification";
 import type { QuestionAttemptLimit } from "../../generated/api/QuestionAttemptLimit";
 import type { QuestionAttemptTimeLimit } from "../../generated/api/QuestionAttemptTimeLimit";
 import type { QuestionBackend } from "../../generated/api/QuestionBackend";
@@ -353,7 +352,6 @@ export interface QuestionPublicationReviewSummary {
   readonly metadata: {
     readonly questionDescription: string;
     readonly tags: ReadonlyArray<string>;
-    readonly classifications: ReadonlyArray<QuestionClassification>;
     readonly questionLicense: QuestionLicense | null;
     readonly questionCitation: QuestionCitation | null;
     readonly language: string;

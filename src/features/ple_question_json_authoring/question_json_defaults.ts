@@ -27,7 +27,6 @@ export function createDefaultPleQuestionJsonSource(): PleQuestionJsonDocument {
     questionAttemptLimit: { maxAttempts: null },
     questionAttemptTimeLimit: { kind: "unlimited" },
     tags: [],
-    classifications: [],
     questionLicense: null,
     questionCitation: null,
     language: "en-US",

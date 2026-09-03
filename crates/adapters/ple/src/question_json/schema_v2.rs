@@ -6,7 +6,8 @@ use grading::AnswerKey;
 use question_model::answer::{
     NumericResponseTolerance, ResponseSelectionRule, TextResponseMatchRule,
 };
-use question_model::classification::{QuestionClassification, QuestionLicense, Tag};
+use question_model::question_license::QuestionLicense;
+use question_model::question_tag::Tag;
 use question_model::generation::QuestionVariationRule;
 use question_model::question_citation::QuestionCitation;
 use question_model::response::{
@@ -25,7 +26,7 @@ use super::{
     CompiledPleQuestionJson, MAX_CHOICE_TEXT_CHARS, MAX_CHOICES, MAX_FEEDBACK_CHARS,
     MAX_METADATA_TEXT_CHARS, MAX_PROMPT_CHARS, MAX_TAG_CHARS, PLE_QUESTION_JSON_FORMAT_NAME,
     PleQuestionJsonAttemptLimit, PleQuestionJsonAttemptTimeLimit, PleQuestionJsonChoice,
-    PleQuestionJsonClassification, PleQuestionJsonError, PleQuestionJsonOutcomeFeedback,
+    PleQuestionJsonError, PleQuestionJsonOutcomeFeedback,
     PleQuestionJsonPrivateGrading, invalid, markdown_blocks, validate_bounded_text,
     validate_choice_id, validate_markdown, validate_metadata_text, validate_optional_feedback,
     validate_optional_hint,
@@ -54,8 +55,6 @@ pub(super) struct PleQuestionJsonDocumentBody {
     question_attempt_time_limit: PleQuestionJsonAttemptTimeLimit,
     #[serde(default)]
     tags: Vec<String>,
-    #[serde(default)]
-    classifications: Vec<PleQuestionJsonClassification>,
     #[serde(default)]
     question_license: Option<QuestionLicense>,
     #[serde(default)]
@@ -276,7 +275,6 @@ impl PleQuestionJsonDocumentBody {
             question_attempt_limit: PleQuestionJsonAttemptLimit { max_attempts: None },
             question_attempt_time_limit: PleQuestionJsonAttemptTimeLimit::Unlimited,
             tags: Vec::new(),
-            classifications: Vec::new(),
             question_license: None,
             question_citation: None,
             language: "en-US".to_string(),
@@ -310,11 +308,6 @@ impl PleQuestionJsonDocumentBody {
         validate_metadata_text("language", &self.language)?;
         for tag in &self.tags {
             validate_bounded_text("tag", tag, MAX_TAG_CHARS)?;
-        }
-        for classification in &self.classifications {
-            validate_metadata_text("classification system", &classification.system)?;
-            validate_metadata_text("classification code", &classification.code)?;
-            validate_metadata_text("classification name", &classification.name)?;
         }
         self.validate_response()
     }
@@ -388,11 +381,6 @@ impl PleQuestionJsonDocumentBody {
                 title: self.title.clone(),
                 question_description: self.question_description.clone(),
                 tags: self.tags.iter().map(Tag::new).collect(),
-                classifications: self
-                    .classifications
-                    .iter()
-                    .map(QuestionClassification::from)
-                    .collect(),
                 question_license: self.question_license.clone(),
                 question_citation: self.question_citation.clone(),
                 language: self.language.clone(),

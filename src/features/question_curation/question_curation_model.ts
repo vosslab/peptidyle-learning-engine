@@ -284,14 +284,6 @@ export function questionSearchFilterFromLibraryQuery(
   query: QuestionSearchQuery,
 ): QuestionSearchFilter {
   const normalized = savedSearchQuery(query);
-  const classification = normalized.classification;
-  const classificationSeparator = classification === null ? -1 : classification.indexOf(":");
-  if (
-    classification !== null &&
-    (classificationSeparator < 1 || classificationSeparator === classification.length - 1)
-  ) {
-    throw new Error("Choose a complete topic before saving this search.");
-  }
   return {
     text: normalized.search === "" ? null : normalized.search,
     author_names: normalized.authorName === null ? [] : [normalized.authorName],
@@ -302,15 +294,6 @@ export function questionSearchFilterFromLibraryQuery(
       normalized.questionType === null
         ? []
         : ([normalized.questionType] as QuestionSearchFilter["question_types"]),
-    classifications:
-      classification === null
-        ? []
-        : [
-            {
-              system: classification.slice(0, classificationSeparator),
-              code: classification.slice(classificationSeparator + 1),
-            },
-          ],
     capabilities:
       normalized.capability === null
         ? []
@@ -340,10 +323,6 @@ export function libraryQueryFromSavedSearch(search: SavedQuestionSearchView): Qu
     backend: filter.backends[0] ?? null,
     tag: filter.tags[0] ?? null,
     questionType: filter.question_types[0] ?? null,
-    classification:
-      filter.classifications[0] === undefined
-        ? null
-        : `${filter.classifications[0].system}:${filter.classifications[0].code}`,
     capability: filter.capabilities[0] ?? null,
     questionLicense: filter.question_licenses[0] ?? null,
     evidence: filter.evidence === "any" ? null : filter.evidence,
