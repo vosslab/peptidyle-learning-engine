@@ -101,7 +101,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Assignments and grading evidence pin an exact version. A newer version becomes an available controlled update. It never silently changes issued or graded work. Not sure if a security or major flaw override makes sense here. Maybe overrides are only approved by a **Sysadmin**?
 - Question writers may add Question Feedback when it helps. It remains optional Question-authored
   teaching content, and Student workflows remain complete whether or not Students read it.
-- The platform is question agnostic, but for its initial run, the primary question types are the native flat question style PLE JSON (which is compatible with QTI) and WeBWorK; IMathAS and H5P are included but are considered secondary.
+- The platform is question agnostic, but for its initial run, the primary question formats/backends are the native flat question style PLE JSON (which is compatible with QTI) and WeBWorK; IMathAS and H5P are included but are considered secondary.
 
 ## Question library philosophy
 
