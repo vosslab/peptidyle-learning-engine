@@ -45,7 +45,6 @@ function source() {
     questionAttemptLimit: { maxAttempts: null },
     questionAttemptTimeLimit: { kind: "unlimited" },
     tags: ["example"],
-    classifications: [],
     questionLicense: "CC-BY-SA-4.0",
     questionCitation: null,
     language: "en-US",
@@ -79,7 +78,6 @@ function publicDefinition(includeVersion = false) {
       title: "Favorite color",
       questionDescription: "Instructor-facing color-choice example.",
       tags: ["example"],
-      classifications: [],
       questionLicense: "CC-BY-SA-4.0",
       questionCitation: null,
       language: "en-US",
@@ -166,7 +164,6 @@ test("codec aligns Rust top-level defaults and canonicalizes them on serializati
   const input = source();
   delete input.feedback;
   delete input.tags;
-  delete input.classifications;
   const serialized = serializePleQuestionJsonSource(decodePleQuestionJsonSource(input));
   assert.equal(
     serialized,
@@ -174,7 +171,6 @@ test("codec aligns Rust top-level defaults and canonicalizes them on serializati
       ...source(),
       feedback: { correct: null, incorrect: null },
       tags: [],
-      classifications: [],
     }),
   );
 });
@@ -232,6 +228,7 @@ test("source JSON parse failures do not expose parser details or source text", (
 
 test("codec rejects unknown fields, invalid identifiers, invalid choice count, and bad correct choices", () => {
   assert.throws(() => decodePleQuestionJsonSource({ ...source(), surprise: true }));
+  assert.throws(() => decodePleQuestionJsonSource({ ...source(), classifications: [] }));
   assert.throws(() =>
     decodePleQuestionJsonSource({
       ...source(),

@@ -6,10 +6,10 @@ use grading::AnswerKey;
 use question_model::answer::{
     NumericResponseTolerance, ResponseSelectionRule, TextResponseMatchRule,
 };
-use question_model::question_license::QuestionLicense;
-use question_model::question_tag::Tag;
 use question_model::generation::QuestionVariationRule;
 use question_model::question_citation::QuestionCitation;
+use question_model::question_license::QuestionLicense;
+use question_model::question_tag::Tag;
 use question_model::response::{
     HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
     QuestionResponseFormat, QuestionType, ResponseItemReference, TextEntrySlot,
@@ -26,10 +26,9 @@ use super::{
     CompiledPleQuestionJson, MAX_CHOICE_TEXT_CHARS, MAX_CHOICES, MAX_FEEDBACK_CHARS,
     MAX_METADATA_TEXT_CHARS, MAX_PROMPT_CHARS, MAX_TAG_CHARS, PLE_QUESTION_JSON_FORMAT_NAME,
     PleQuestionJsonAttemptLimit, PleQuestionJsonAttemptTimeLimit, PleQuestionJsonChoice,
-    PleQuestionJsonError, PleQuestionJsonOutcomeFeedback,
-    PleQuestionJsonPrivateGrading, invalid, markdown_blocks, validate_bounded_text,
-    validate_choice_id, validate_markdown, validate_metadata_text, validate_optional_feedback,
-    validate_optional_hint,
+    PleQuestionJsonError, PleQuestionJsonOutcomeFeedback, PleQuestionJsonPrivateGrading, invalid,
+    markdown_blocks, validate_bounded_text, validate_choice_id, validate_markdown,
+    validate_metadata_text, validate_optional_feedback, validate_optional_hint,
 };
 
 const PLE_QUESTION_JSON_SCHEMA_VERSION: u32 = 2;

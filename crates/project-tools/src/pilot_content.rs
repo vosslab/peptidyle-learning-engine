@@ -10,8 +10,8 @@ use question_model::response::{
     QuestionType, ResponseItemReference, StudentMatch, StudentResponse,
 };
 use question_model::{
-    QuestionBackend, QuestionFormat, QuestionId, QuestionRevision, QuestionRevisionNumber,
-    QuestionLicense, WorkspaceId,
+    QuestionBackend, QuestionFormat, QuestionId, QuestionLicense, QuestionRevision,
+    QuestionRevisionNumber, WorkspaceId,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -309,7 +309,7 @@ fn validate_webwork(question: &Question, source: &Path) -> Result<()> {
 
 fn validate_flat(
     root: &Path,
-    chapter: &Chapter,
+    _chapter: &Chapter,
     question: &Question,
     source: &Path,
     identity: u128,

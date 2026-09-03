@@ -48,7 +48,6 @@ function questionPublicationReviewCurrent(content) {
     metadata: {
       questionDescription: content.metadata.questionDescription,
       tags: content.metadata.tags,
-      classifications: content.metadata.classifications,
       questionLicense: content.metadata.questionLicense,
       questionCitation: content.metadata.questionCitation,
       language: content.metadata.language,

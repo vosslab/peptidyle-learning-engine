@@ -181,7 +181,6 @@ mod tests {
     use super::*;
     use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
     use question_model::assignment_activity_rules::QuestionAttemptLimit;
-    use question_model::{QuestionLicense, Tag};
     use question_model::generation::{QuestionGeneratorParameter, QuestionGeneratorReference};
     use question_model::response::QuestionResponseFormat;
     use question_model::QuestionContentBlock;
@@ -189,6 +188,7 @@ mod tests {
         QuestionBackend, QuestionFormat, QuestionId, QuestionMetadata, QuestionRevisionNumber,
         QuestionRevisionReference, QuestionType, WorkspaceId,
     };
+    use question_model::{QuestionLicense, Tag};
     use uuid::Uuid;
 
     #[derive(Debug, Deserialize)]

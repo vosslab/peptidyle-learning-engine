@@ -52,10 +52,12 @@ mod tests {
 
     #[test]
     fn request_is_strict_and_result_serializes_only_public_question_identity() {
-        assert!(serde_json::from_value::<QuestionPoolPreviewRequest>(
-            serde_json::json!({"assignmentEntryId": 2, "nonce": "browser-controlled"})
-        )
-        .is_err());
+        assert!(
+            serde_json::from_value::<QuestionPoolPreviewRequest>(
+                serde_json::json!({"assignmentEntryId": 2, "nonce": "browser-controlled"})
+            )
+            .is_err()
+        );
         let question_id: QuestionId = "ABC-DEF1".parse().expect("canonical question ID");
         let result = QuestionPoolPreview {
             assignment: "A-4".parse().expect("assignment reference"),

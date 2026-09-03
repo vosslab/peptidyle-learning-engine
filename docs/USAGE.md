@@ -108,7 +108,7 @@ the normal demo launch when their named evidence is needed:
 ./build.sh
 ./check_rust.sh
 ./check_codebase.sh
-source source_me.sh && .venv/bin/python local_stack.py acceptance
+source source_me.sh && python3 local_stack.py acceptance
 ```
 
 `./build.sh` builds the Rust workspace, WebAssembly bridge, generated contracts, fixture evidence,

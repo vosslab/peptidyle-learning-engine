@@ -119,10 +119,10 @@ fails if any other workspace crate enters this closure. Including build
 dependencies matters because a build script could otherwise embed secret data
 without becoming a runtime dependency.
 
-Run the closure gate with the repository Python environment:
+Run the closure gate with the selected Python 3.12 interpreter:
 
 ```bash
-source source_me.sh && .venv/bin/python -m pytest tests/test_crate_boundaries.py
+source source_me.sh && python3 -m pytest tests/test_crate_boundaries.py
 ```
 
 ## Export allowlist

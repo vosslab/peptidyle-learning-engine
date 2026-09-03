@@ -31,8 +31,8 @@ remains owned by the active release plan and `WP-RC12`.
   retry through durable server-owned receipts, leases, and generation fences.
 - Reconciled browser, service, PostgreSQL, migration, replica-restart, and cleanup oracles around
   production contracts and exact owner-scoped disposable resources.
-- Made the live-demo runtime self-contained through the repository-owned Python 3.12 `.venv`,
-  declared dependency manifests, and aligned operator documentation.
+- Unified live-demo and validation commands on the Python 3.12 interpreter selected after sourcing
+  `source_me.sh`, with dependencies declared by the requirements manifests.
 - Reused the accessible Question ID copy control in Instructor grading operations and clarified
   response-redaction, selector ownership, and retry identity.
 - Applied audit repairs covering source ownership, generated artifacts, documentation links,
@@ -45,8 +45,8 @@ remains owned by the active release plan and `WP-RC12`.
   version `26.07.14`.
 - Browser-facing question, response, grading, and identity contracts remain answer-free and
   server-owned; integrations must use the documented typed adapters and routes.
-- Superseded GitHub Pages, mock-browser, local-file authentication, and alternate test-only browser
-  paths are no longer canonical. Live-demo and aggregate commands use the repository-owned `.venv`.
+- The production-shaped live demo and aggregate commands use the repository shell setup and invoke
+  `python3` directly.
 
 ### Validation
 

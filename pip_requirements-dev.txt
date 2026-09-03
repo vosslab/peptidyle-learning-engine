@@ -1,5 +1,4 @@
 # Development dependencies
--r pip_requirements.txt
 bandit  # security linting for Python code
 packaging  # version parsing/comparison helpers used by tooling/tests
 pyflakes  # static analysis lint checks

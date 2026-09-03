@@ -24,12 +24,15 @@ Clone the repository and run its one supported developer front door:
 ```bash
 git clone https://github.com/vosslab/peptidyle-learning-engine.git
 cd peptidyle-learning-engine
+source source_me.sh && python3 -m pip install --requirement pip_requirements-dev.txt
 ./run_live_demo.sh
 ```
 
-`./run_live_demo.sh` is the supported fresh-clone front door. It sources the repository shell
-environment through its fixed `source_me.sh` path and invokes `python3 local_stack.py`. When
-`node_modules` is absent, it also visibly runs `devel/setup_typescript.sh`; it then builds the
+The explicit Python command installs the declared runtime and developer dependencies into the
+selected Python 3.12 environment. `./run_live_demo.sh` is the supported live-demo front door. It
+sources the repository shell environment through its fixed `source_me.sh` path and invokes
+`python3 local_stack.py`. When `node_modules` is absent, it also visibly runs
+`devel/setup_typescript.sh`; it then builds the
 production `dist/` bundle, creates the disposable
 `ple-live-demo-browser` HTTPS session, waits for readiness, and opens the printed origin.
 Select a seeded role in the visible PLE sign-in flow; its account, course membership, and
@@ -55,11 +58,10 @@ finish:
 
 ## Developer tools
 
-The same repo-local Python environment supports the controller and repository checks. Refresh it
-without activating an environment when you need the developer tools:
+Install or refresh the declared Python dependencies for the selected Python 3.12 interpreter:
 
 ```bash
-./devel/setup_python.sh
+source source_me.sh && python3 -m pip install --requirement pip_requirements-dev.txt
 ```
 
 The repository toolchain and Cargo lockfile provide the Rust dependencies. Keep the developer live
@@ -107,7 +109,7 @@ For an offline cross-language verification after installing the developer tools,
 ```bash
 ./check_rust.sh
 ./check_codebase.sh
-source source_me.sh && .venv/bin/python -m pytest tests/
+source source_me.sh && python3 -m pytest tests/
 ```
 
 Run `./check_rust.sh` before `./check_codebase.sh`: it generates the ignored TypeScript API and

@@ -50,6 +50,22 @@ esac
 # shellcheck disable=SC1091
 source "$script_directory/source_me.sh"
 
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "ERROR: python3 is required. Follow docs/INSTALL.md." >&2
+  exit 1
+fi
+
+python_version="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+if [ "$python_version" != "3.12" ]; then
+  echo "ERROR: python3 must be Python 3.12; found $python_version. Follow docs/INSTALL.md." >&2
+  exit 1
+fi
+
+if ! python3 -c 'import yaml' >/dev/null 2>&1; then
+  echo "ERROR: PyYAML is required. Follow docs/INSTALL.md." >&2
+  exit 1
+fi
+
 if [ "$command" = "stop" ]; then
   # ASVS 1.2.5: fixed controller path and literal arguments avoid shell evaluation.
   exec python3 "$script_directory/local_stack.py" stop

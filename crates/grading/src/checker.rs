@@ -7,7 +7,7 @@
 use std::collections::BTreeSet;
 
 use domain::statistics::QuestionStatisticsObservation;
-use domain::validation::{StudentResponseFormatIssue, validate_response_format};
+use domain::validation::{validate_response_format, StudentResponseFormatIssue};
 use question_model::answer::{NumericResponseTolerance, TextResponseMatchRule};
 use question_model::response::{QuestionResponseFormat, ResponseItemReference, StudentResponse};
 use question_model::{GradingResult, QuestionGradingRule, QuestionRevision};
@@ -345,14 +345,14 @@ fn normalized_text(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::QuestionContentBlock;
     use question_model::answer::ResponseSelectionRule;
     use question_model::assignment_activity_rules::{
         QuestionAttemptLimit, QuestionAttemptTimeLimit,
     };
-    use question_model::QuestionLicense;
     use question_model::generation::QuestionVariationRule;
     use question_model::response::{OrderingItem, QuestionChoice, QuestionType};
+    use question_model::QuestionContentBlock;
+    use question_model::QuestionLicense;
     use question_model::{
         QuestionBackend, QuestionFormat, QuestionId, QuestionMetadata, QuestionRevisionNumber,
         WorkspaceId,

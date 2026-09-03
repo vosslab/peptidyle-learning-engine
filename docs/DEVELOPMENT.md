@@ -30,14 +30,14 @@ build and validation interface. The TypeScript and Playwright installers are pro
 helpers; the root build and validation scripts are repository-owned front doors:
 
 ```bash
-./devel/setup_python.sh
+source source_me.sh && python3 -m pip install --requirement pip_requirements-dev.txt
 ./devel/setup_typescript.sh
 ./devel/setup_playwright.sh       # once, before browser tests
 ./devel/setup_wasm_tests.sh       # only when running wasm-bindgen tests
 ./build.sh
 ./check_rust.sh
 ./check_codebase.sh
-source source_me.sh && .venv/bin/python -m pytest tests/
+source source_me.sh && python3 -m pytest tests/
 ```
 
 `devel/DEVEL_README.md` indexes maintainer-only helpers. Use `devel/clean_build.sh` for a light
@@ -123,14 +123,14 @@ instructor-visible UI, URLs, copyable links, or public fixtures.
 Run the narrowest gate that proves the changed behavior, then the broader gate required by the
 active work package.
 
-| Change or concern                          | Command                                                             | What it proves                                                       |
-| ------------------------------------------ | ------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Rust code, features, lints, tests, or Wasm | `./check_rust.sh`                                                   | The complete offline Cargo and Rust gate.                            |
-| TypeScript, browser lint, format, or tests | `./check_codebase.sh`                                               | The vendored TypeScript and Node gate.                               |
-| Repository documentation and hygiene       | `source source_me.sh && .venv/bin/python -m pytest tests/`          | Fast Python hygiene and repository-rule checks.                      |
-| Connected current acceptance               | `source source_me.sh && .venv/bin/python local_stack.py acceptance` | Current database/object service receipts under the typed controller. |
-| Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                                      | The named disposable whole-system oracle.                            |
-| Local stack diagnosis and lifecycle        | `source source_me.sh && .venv/bin/python local_stack.py <command>`  | The scoped controller contract.                                      |
+| Change or concern                          | Command                                                    | What it proves                                                       |
+| ------------------------------------------ | ---------------------------------------------------------- | -------------------------------------------------------------------- |
+| Rust code, features, lints, tests, or Wasm | `./check_rust.sh`                                          | The complete offline Cargo and Rust gate.                            |
+| TypeScript, browser lint, format, or tests | `./check_codebase.sh`                                      | The vendored TypeScript and Node gate.                               |
+| Repository documentation and hygiene       | `source source_me.sh && python3 -m pytest tests/`          | Fast Python hygiene and repository-rule checks.                      |
+| Connected current acceptance               | `source source_me.sh && python3 local_stack.py acceptance` | Current database/object service receipts under the typed controller. |
+| Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                             | The named disposable whole-system oracle.                            |
+| Local stack diagnosis and lifecycle        | `source source_me.sh && python3 local_stack.py <command>`  | The scoped controller contract.                                      |
 
 `tests/playwright/` is browser-driven testing and `tests/e2e/` is non-browser whole-system
 orchestration. Both are intentionally excluded from `pytest tests/`; see
@@ -144,12 +144,12 @@ contracts without claiming browser or screenshot acceptance.
 
 Permanent offline gates are the deterministic behavior, contract, security, hygiene, Rust, and
 Node checks owned by `./check_rust.sh`, `./check_codebase.sh`, and
-`source source_me.sh && .venv/bin/python -m pytest tests/`. They run without PostgreSQL, MinIO, the
+`source source_me.sh && python3 -m pytest tests/`. They run without PostgreSQL, MinIO, the
 renderer, or a browser and do not prove those external boundaries.
 
 Connected and one-time evidence is opt-in and remains separate from the permanent fast lane:
 
-- `source source_me.sh && .venv/bin/python local_stack.py acceptance` runs the complete connected acceptance
+- `source source_me.sh && python3 local_stack.py acceptance` runs the complete connected acceptance
   lane and its current browser-free service oracles.
 - Named `tests/e2e/` runners, migration probes, rendered captures, manual inspections, and load or
   query-plan observations prove only their stated disposable or one-time claim.
@@ -168,7 +168,7 @@ Run the complete Playwright Validation test suite explicitly when the active pla
 browser claims:
 
 ```bash
-source source_me.sh && .venv/bin/python local_stack.py acceptance
+source source_me.sh && python3 local_stack.py acceptance
 ```
 
 The command invokes the canonical browser lane once with its documented private
@@ -239,8 +239,9 @@ command or collecting diagnostics.
 
 `source_me.sh` is a shell precondition: it requires Bash and loads the repository's shell setup.
 `run_live_demo.sh` and direct controller diagnostics use that shell environment and `python3`.
-`devel/setup_python.sh`, pytest, and aggregate-validation workflows retain their own documented
-interpreter setup and invocation.
+Install the declared Python dependencies explicitly with
+`source source_me.sh && python3 -m pip install --requirement pip_requirements-dev.txt`. Pytest,
+controller, and aggregate-validation commands use the same selected `python3` interpreter.
 
 ### Validation classes
 

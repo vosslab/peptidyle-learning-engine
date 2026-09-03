@@ -186,7 +186,7 @@ Live acceptance is intentionally separate:
 ```bash
 cargo test -p adapter_webwork --all-targets
 cargo clippy -p adapter_webwork --all-targets -- -D warnings
-source source_me.sh && .venv/bin/python local_stack.py validate
+source source_me.sh && python3 local_stack.py validate
 ./run_playwright_tests.sh --build
 ```
 

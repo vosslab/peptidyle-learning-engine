@@ -10,15 +10,15 @@ use crate::{
 };
 
 pub use crate::question_search::{
-    QuestionSearchAuthorFacet, QuestionSearchAuthorship, QuestionSearchBackendFacet,
-    QuestionSearchCapabilityFacet, QuestionSearchCourseUse, QuestionSearchCourseUseFacet,
-    QuestionSearchFacets, QuestionSearchFilter, QuestionSearchQuestionLicenseFacet,
-    QuestionSearchRequest, QuestionSearchRequestError, QuestionSearchTagFacet,
-    QuestionStatisticsAvailability, QuestionStatisticsAvailabilityFacet, QuestionTypeFacet,
     MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS, MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS,
     MAX_QUESTION_SEARCH_BACKEND_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
     MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS, MAX_QUESTION_SEARCH_TAG_FACETS,
-    MAX_QUESTION_SEARCH_TAG_FILTERS,
+    MAX_QUESTION_SEARCH_TAG_FILTERS, QuestionSearchAuthorFacet, QuestionSearchAuthorship,
+    QuestionSearchBackendFacet, QuestionSearchCapabilityFacet, QuestionSearchCourseUse,
+    QuestionSearchCourseUseFacet, QuestionSearchFacets, QuestionSearchFilter,
+    QuestionSearchQuestionLicenseFacet, QuestionSearchRequest, QuestionSearchRequestError,
+    QuestionSearchTagFacet, QuestionStatisticsAvailability, QuestionStatisticsAvailabilityFacet,
+    QuestionTypeFacet,
 };
 pub use crate::response::QuestionType;
 
@@ -529,12 +529,14 @@ mod tests {
         assert_eq!(query.question_types, vec![QuestionType::MultipleChoice]);
         assert_eq!(query.capabilities, vec![Capability::Hints]);
         assert_eq!(query.question_licenses, vec![QuestionLicense::CcBy4_0]);
-        assert!(QuestionSearchRequest {
-            text: Some("x".repeat(257)),
-            ..QuestionSearchRequest::default()
-        }
-        .normalized()
-        .is_err());
+        assert!(
+            QuestionSearchRequest {
+                text: Some("x".repeat(257)),
+                ..QuestionSearchRequest::default()
+            }
+            .normalized()
+            .is_err()
+        );
     }
 
     #[test]

@@ -46,7 +46,6 @@ const query = {
   backend: null,
   tag: null,
   questionType: null,
-  classification: null,
   capability: null,
   questionLicense: null,
   evidence: null,

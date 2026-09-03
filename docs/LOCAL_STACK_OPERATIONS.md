@@ -230,7 +230,7 @@ The default `containers` project has a separate explicit destructive reset for
 retained local data:
 
 ```bash
-source source_me.sh && .venv/bin/python local_stack.py reset \
+source source_me.sh && python3 local_stack.py reset \
   --confirm-project containers
 ```
 
@@ -243,7 +243,7 @@ not imply this reset.
 The connected acceptance owner is:
 
 ```bash
-source source_me.sh && .venv/bin/python local_stack.py acceptance
+source source_me.sh && python3 local_stack.py acceptance
 ```
 
 It refuses an existing default or fixed live-demo stack, runs the canonical

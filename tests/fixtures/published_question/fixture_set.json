@@ -18,13 +18,6 @@
       "title": "Peptide bond resonance and planarity",
       "questionDescription": "Instructor-facing discovery summary for peptide-bond resonance and planarity.",
       "tags": ["biochemistry", "protein-structure"],
-      "classifications": [
-        {
-          "system": "Peptidyle",
-          "code": "BIOCHEM.PEPTIDE_BOND",
-          "name": "Peptide bond structure"
-        }
-      ],
       "questionLicense": "CC-BY-4.0",
       "questionCitation": null,
       "language": "en-US"
@@ -121,13 +114,6 @@
       "title": "Peptide bond resonance and planarity",
       "questionDescription": "Instructor-facing discovery summary for peptide-bond resonance and planarity.",
       "tags": ["biochemistry", "protein-structure"],
-      "classifications": [
-        {
-          "system": "Peptidyle",
-          "code": "BIOCHEM.PEPTIDE_BOND",
-          "name": "Peptide bond structure"
-        }
-      ],
       "questionLicense": "CC-BY-4.0",
       "questionCitation": null,
       "language": "en-US"
@@ -216,13 +202,6 @@
       "title": "Draft: peptide resonance wording revision",
       "questionDescription": "Instructor-facing discovery summary for a peptide-resonance wording revision.",
       "tags": ["biochemistry", "protein-structure"],
-      "classifications": [
-        {
-          "system": "Peptidyle",
-          "code": "BIOCHEM.PEPTIDE_BOND",
-          "name": "Peptide bond structure"
-        }
-      ],
       "questionLicense": "CC-BY-4.0",
       "questionCitation": null,
       "language": "en-US"

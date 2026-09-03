@@ -91,7 +91,7 @@ identity.
 Question Library is the shared authoritative set of Published Questions.
 My Questions filters it to Published Questions owned by the current Account,
 and My Question Drafts filters private Draft Questions the current Account may
-edit. Tags and Question Classifications guide search within the Question Library; they do not
+edit. Question Tags guide search within the Question Library; they do not
 partition questions by subject, author, course, or audience. Every assignment item
 resolves a Question ID already present in the Question Library. A draft must
 validate and publish before an Instructor can place it in an assignment, so an
@@ -262,7 +262,7 @@ reviewed table covering all eight capabilities and the return-all behavior.
 | `questionAttemptTimeLimit`      | `QuestionAttemptTimeLimit`              | Time limits, with grace                                                                                        |
 | `questionVariationRule`         | `QuestionVariationRule`                 | Static or seeded rule for how this Question varies                                                             |
 | `grading`                       | `QuestionGradingRule`                   | How a response is judged                                                                                       |
-| `metadata`                      | `QuestionMetadata`                      | Title, tags, Question Classifications, Question License, language                                              |
+| `metadata`                      | `QuestionMetadata`                      | Title, tags, Question License, language                                                                        |
 
 ### Response shapes
 
@@ -464,13 +464,15 @@ requires.
 The exact sampling and parity rules are documented in
 `docs/DETERMINISM_CONTRACT.md`.
 
-### Classification and licensing
+### Licensing and future classification
 
-Question Tags are free-form search labels. A Question Classification maps one
-Question Revision to a real external or institutional system through its
-Classification System, Classification Code, and Classification Name. Question
-Bloom Classification is PLE's dedicated two-dimensional classification and
-therefore has its own closed fields instead of using that generic mapping.
+Question Tags are free-form search labels. Question Classification remains a
+future mapping to one real supported external or institutional system through
+its Classification System, Classification Code, and Classification Name. It has
+no current Question Model field, PLE Question JSON member, search facet, or
+browser control. Question Bloom Classification is PLE's dedicated
+two-dimensional future classification and therefore has its own closed fields
+instead of using a generic mapping.
 
 Question License is the exact versioned SPDX expression governing one Question
 Revision. Publication accepts a license compatible with Question Library

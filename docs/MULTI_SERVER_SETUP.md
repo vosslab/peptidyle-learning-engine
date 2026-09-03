@@ -270,7 +270,7 @@ deployment evidence. This document does not claim those runs occurred.
 
 ## Evidence boundary
 
-`source source_me.sh && .venv/bin/python local_stack.py acceptance` owns the
+`source source_me.sh && python3 local_stack.py acceptance` owns the
 canonical connected browser invocation and its disposable stack. The named
 renderer and replica commands are browser-free service oracles. The complete
 Validation order and the distinction between permanent tests, one-time

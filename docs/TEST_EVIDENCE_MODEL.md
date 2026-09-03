@@ -25,8 +25,8 @@ these four gates, in this order:
 ```bash
 ./check_rust.sh
 ./check_codebase.sh
-source source_me.sh && .venv/bin/python -m pytest tests/
-source source_me.sh && .venv/bin/python local_stack.py acceptance
+source source_me.sh && python3 -m pytest tests/
+source source_me.sh && python3 local_stack.py acceptance
 ```
 
 The Rust gate precedes the codebase gate because it owns generated TypeScript

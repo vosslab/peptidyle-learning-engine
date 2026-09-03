@@ -6,9 +6,11 @@ This companion to [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) keeps implementatio
 
 **Decision.** Registry dependencies use an open reviewed minimum; exceptions are documented and lockfiles record reviewed resolutions.
 
-### Local controller dependency is reproducible
+### Repository Python has one selected interpreter
 
-**Decision.** `devel/setup_python.sh` owns the repo-local Python environment and its receipt over the interpreter and requirements manifests.
+**Decision.** Repository Python commands source `source_me.sh` and invoke `python3` directly.
+`pip_requirements.txt` and `pip_requirements-dev.txt` declare runtime and developer dependencies;
+installation targets the selected Python 3.12 environment.
 
 ### Generated output has tracked authority
 

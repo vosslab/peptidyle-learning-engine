@@ -1,15 +1,15 @@
 use std::collections::BTreeMap;
 
-use domain::draft_preview::{DraftPreviewRequest, DraftPreviewResult, preview_ple_draft};
+use domain::draft_preview::{preview_ple_draft, DraftPreviewRequest, DraftPreviewResult};
 use domain::generator::QuestionVariationParameters;
-use domain::student_feedback_release::{StudentFeedbackReleaseDecision, project_student_feedback};
+use domain::student_feedback_release::{project_student_feedback, StudentFeedbackReleaseDecision};
 use grading::{AnswerKey, GradingError};
 use question_model::answer::NumericResponseTolerance;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::{Capability, QuestionBackendCapabilities};
-use question_model::QuestionLicense;
 use question_model::generation::{QuestionGeneratorReference, QuestionSeed, QuestionVariationRule};
 use question_model::response::{QuestionResponseFormat, ResponseItemReference};
+use question_model::QuestionLicense;
 use question_model::{
     DraftQuestionContent, QuestionAnswer, QuestionAnswerExplanation, QuestionAssetId,
     QuestionBackend, QuestionFeedback, QuestionFormat, QuestionGradingRule, QuestionId,
@@ -631,12 +631,10 @@ fn a_second_implementation_plugs_into_the_registry_without_engine_changes() {
         )
         .expect("registered Question Implementation should issue through the generic adapter");
 
-    assert!(
-        adapter
-            .capabilities(&question)
-            .expect("registered source should expose capabilities")
-            .supports(Capability::ServerGrading)
-    );
+    assert!(adapter
+        .capabilities(&question)
+        .expect("registered source should expose capabilities")
+        .supports(Capability::ServerGrading));
     assert!(matches!(
         adapter.grade(
             &question,

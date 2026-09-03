@@ -480,11 +480,13 @@ contract pass. The next ordinary Rust lane remains the permanent behavior eviden
 arguments and generated-output boundary. Shell syntax passes; the debug Wasm build produced both
 web and Node bindgen flavors, and the Node consumer verified format, timer, capability, and
 presentation results.
-`WN1-OPS6-python-setup` is accepted on 2026-08-29. `devel/setup_python.sh` uses lowercase
-`repo_root`, `venv_directory`, `venv_python`, `receipt_path`, and `python_312`. Repository discovery
-now comes from the script's physical path, so first-launch setup has no repository-metadata
-dependency. Shell syntax passes; the current receipt was reused and the installed PyYAML import
-verified without rebuilding the environment.
+`WN1-OPS6-python-setup` reflects the owner correction accepted on 2026-09-02. Repository Python
+commands source `source_me.sh` and invoke `python3` directly. The requirements manifests declare
+dependencies for the selected Python 3.12 interpreter. `run_live_demo.sh`, `all_test.sh`, the
+Podman reset wrapper, controller help, and current operator documentation use that one path.
+Dependency installation is the explicit
+`python3 -m pip install --requirement pip_requirements-dev.txt` command. Shell syntax, focused
+Python tests, documentation links, formatting, and exact current-source searches pass.
 `WN1-OPS7-wasm-runner-setup` is accepted on 2026-08-29. `devel/setup_wasm_tests.sh` uses lowercase
 `repo_root`, `runner_package_id`, `runner_version`, `runner_root`, `runner`, and `actual_version`.
 Repository discovery comes from the script's physical path. Shell syntax passes; a fresh pinned

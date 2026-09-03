@@ -26,8 +26,6 @@ pub mod blueprint_course;
 /// Exact Blueprint operations, immutable evidence, and target-term schedule resolution.
 pub mod blueprint_operations;
 pub mod capability;
-pub mod question_license;
-pub mod question_tag;
 /// Course and assignment browser projections.
 pub mod course;
 /// Closed, browser-safe course appearance and banner presentation contracts.
@@ -61,7 +59,9 @@ pub mod question_citation;
 pub mod question_content;
 /// Shared Question Library metadata, visibility, lineage, and browse projections.
 pub mod question_library;
+pub mod question_license;
 mod question_search;
+pub mod question_tag;
 mod question_variation;
 pub mod response;
 /// Browser-safe anonymous-statistics projections and disclosure policy.
@@ -211,8 +211,6 @@ pub use crate::question_backend_fields::{
     MAX_IMATHAS_IDENTIFIER_BYTES, QuestionBackendFieldsError,
 };
 pub use crate::question_citation::{QuestionCitation, QuestionCitationError};
-pub use crate::question_license::QuestionLicense;
-pub use crate::question_tag::Tag;
 pub use crate::question_content::{
     DraftQuestionContent, DraftQuestionSummary, MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS,
     MAX_QUESTION_TITLE_UNICODE_SCALARS, QuestionAssetReference, QuestionContentBlock,
@@ -222,19 +220,21 @@ pub use crate::question_content::{
 pub use crate::question_library::{
     CourseQuestionUse, MAX_QUESTION_ID_COUNT, MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS,
     MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS, MAX_QUESTION_SEARCH_BACKEND_FACETS,
-    MAX_QUESTION_SEARCH_OWN_COURSE_USAGES,
-    MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS,
-    MAX_QUESTION_SEARCH_TAG_FACETS, MAX_QUESTION_SEARCH_TAG_FILTERS, QUESTION_ID_ALPHABET,
-    QUESTION_ID_COMPACT_LENGTH, QUESTION_ID_IDENTIFIER_LENGTH, QuestionBackend, QuestionDetails,
-    QuestionDetailsPromptView, QuestionId, QuestionRevisionAvailability, QuestionRevisionReference,
-    QuestionSearchAuthorFacet, QuestionSearchAuthorship, QuestionSearchBackendFacet,
-    QuestionSearchCapabilityFacet, QuestionSearchCourseUse, QuestionSearchCourseUseFacet,
-    QuestionSearchFacets, QuestionSearchFilter, QuestionSearchPage,
-    QuestionSearchQuestionLicenseFacet, QuestionSearchRequest, QuestionSearchRequestError,
-    QuestionSearchResult, QuestionSearchTagFacet, QuestionStatistics,
-    QuestionStatisticsAvailability, QuestionStatisticsAvailabilityFacet, QuestionSummary,
-    QuestionTypeFacet, QuestionUseDetails, QuestionUseSummary,
+    MAX_QUESTION_SEARCH_OWN_COURSE_USAGES, MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
+    MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS, MAX_QUESTION_SEARCH_TAG_FACETS,
+    MAX_QUESTION_SEARCH_TAG_FILTERS, QUESTION_ID_ALPHABET, QUESTION_ID_COMPACT_LENGTH,
+    QUESTION_ID_IDENTIFIER_LENGTH, QuestionBackend, QuestionDetails, QuestionDetailsPromptView,
+    QuestionId, QuestionRevisionAvailability, QuestionRevisionReference, QuestionSearchAuthorFacet,
+    QuestionSearchAuthorship, QuestionSearchBackendFacet, QuestionSearchCapabilityFacet,
+    QuestionSearchCourseUse, QuestionSearchCourseUseFacet, QuestionSearchFacets,
+    QuestionSearchFilter, QuestionSearchPage, QuestionSearchQuestionLicenseFacet,
+    QuestionSearchRequest, QuestionSearchRequestError, QuestionSearchResult,
+    QuestionSearchTagFacet, QuestionStatistics, QuestionStatisticsAvailability,
+    QuestionStatisticsAvailabilityFacet, QuestionSummary, QuestionTypeFacet, QuestionUseDetails,
+    QuestionUseSummary,
 };
+pub use crate::question_license::QuestionLicense;
+pub use crate::question_tag::Tag;
 pub use crate::question_variation::{QuestionVariation, QuestionVariationPresentation};
 pub use crate::response::{
     QuestionResponseControl, QuestionResponseFormat, QuestionType, StudentResponse,

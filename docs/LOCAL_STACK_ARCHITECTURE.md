@@ -7,7 +7,7 @@ fixed developer stack exist? The owner uses
 The base defines common services, networks, hardening, and one-shot setup; the
 owner overlay selects seeded production authentication and the TLS gateway. The
 normal path is `./run_live_demo.sh`. Direct controller operations use
-`source source_me.sh && .venv/bin/python local_stack.py`.
+`source source_me.sh && python3 local_stack.py`.
 Focused private `local_stack_control` modules and the canonical browser owner
 hold the lease through bootstrap, startup, migration, seed, Question Renderer Version,
 polling, readiness, and exact cleanup.
@@ -165,7 +165,7 @@ behavior tests; installation occurs through the same live-demo lifecycle rather
 than a separate stack owner.
 
 The aggregate live browser command is
-`source source_me.sh && .venv/bin/python local_stack.py acceptance`. The canonical owner
+`source source_me.sh && python3 local_stack.py acceptance`. The canonical owner
 lease serializes it with developer sessions and exact cleanup. The active plan
 names the full Validation test suite; [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite)
 defines why permanent offline checks and opt-in live acceptance remain separate.

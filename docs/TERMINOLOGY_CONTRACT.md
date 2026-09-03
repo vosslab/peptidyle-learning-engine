@@ -603,10 +603,11 @@ Question Search, Question Star, Question Watch, and Question Change Proposal.
 **Question Metadata** is the structured, answer-free discovery and credit
 information stored with every Question Revision. Publication requires a
 Question Title, Question Description, Question Authorship, Question License,
-language, and at least one Question Subject. Question Bloom Classification begins unassigned and is
-filled automatically after publication. Question Subsubjects, Question Tags, other Question
-Classifications, and a Question Citation are optional. Question Type, Question Format, and Question
-Backend remain exact searchable Question Revision facts rather than free-form metadata.
+language, Question Tags, and a Question Citation. Question Subject, Question
+Subsubject, Question Classification, and Question Bloom Classification remain
+future packages and add no current generic field, default, facet, fixture,
+route, or browser control. Question Type, Question Format, and Question Backend
+remain exact searchable Question Revision facts rather than free-form metadata.
 Question Metadata is a bounded grouping. Each contained fact keeps its exact
 canonical name, validation, and Question Revision ownership. Question Revision
 continues to supply identity, authority, and lifecycle.
@@ -679,32 +680,31 @@ Classification describes intended cognitive demand. Neither value substitutes fo
 
 The Published Question discovery, credit, and control facts are closed:
 
-| Canonical term                | Publication requirement    | Owning scope      | Question Search use                       |
-| ----------------------------- | -------------------------- | ----------------- | ----------------------------------------- |
-| Question Title                | Required                   | Question Revision | Text search and visible result name       |
-| Question Description          | Required                   | Question Revision | Text search and visible discovery summary |
-| Question Authorship           | Required                   | Question Revision | Author text, facet, and Authored by Me    |
-| Question Owner                | Required                   | Question lineage  | My Questions relationship filter          |
-| Question License              | Required                   | Question Revision | Exact license facet                       |
-| Question Citation             | Optional                   | Question Revision | Citation text and URL search              |
-| Language                      | Required                   | Question Revision | Exact language facet                      |
-| Question Subject              | One or more required       | Question Revision | Subject text and facet                    |
-| Question Subsubject           | Optional                   | Question Revision | Subsubject text and facet                 |
-| Question Tag                  | Optional                   | Question Revision | Tag text and facet                        |
-| Question Bloom Classification | Assigned after publication | Question Revision | Both Bloom dimension facets               |
-| Question Classification       | Optional                   | Question Revision | Exact system/code filter and name text    |
-| Question Type                 | Required, derived          | Question Revision | Exact Question Type facet                 |
-| Question Format               | Required, derived          | Question Revision | Exact Question Format facet               |
-| Question Backend              | Required, derived          | Question Revision | Exact Question Backend facet              |
+| Canonical term                | Publication requirement      | Owning scope      | Question Search use                           |
+| ----------------------------- | ---------------------------- | ----------------- | --------------------------------------------- |
+| Question Title                | Required                     | Question Revision | Text search and visible result name           |
+| Question Description          | Required                     | Question Revision | Text search and visible discovery summary     |
+| Question Authorship           | Required                     | Question Revision | Author text, facet, and Authored by Me        |
+| Question Owner                | Required                     | Question lineage  | My Questions relationship filter              |
+| Question License              | Required                     | Question Revision | Exact license facet                           |
+| Question Citation             | Optional                     | Question Revision | Citation text and URL search                  |
+| Language                      | Required                     | Question Revision | Exact language facet                          |
+| Question Subject              | One or more required         | Question Revision | Subject text and facet                        |
+| Question Subsubject           | Optional                     | Question Revision | Subsubject text and facet                     |
+| Question Tag                  | Optional                     | Question Revision | Tag text and facet                            |
+| Question Bloom Classification | Assigned after publication   | Question Revision | Both Bloom dimension facets                   |
+| Question Classification       | Future supported system only | Question Revision | Future exact system/code filter and name text |
+| Question Type                 | Required, derived            | Question Revision | Exact Question Type facet                     |
+| Question Format               | Required, derived            | Question Revision | Exact Question Format facet                   |
+| Question Backend              | Required, derived            | Question Revision | Exact Question Backend facet                  |
 
 **Question Search** applies normalized criteria to the current Question
 Library. Its text search covers the Question ID, Question Title, Question
-Description, Question Author names, Question Tags, Question Subjects and
-Subsubjects, Question Classification names and codes, and Question Citation.
+Description, Question Author names, Question Tags, and Question Citation.
 Structured filters and facets use the exact Question Type, Question Format,
-Question Backend, Question Author, Question Subject, Question Subsubject,
-Question Tag, both Question Bloom Classification fields, Question
-Classification, and Question License values. A
+Question Backend, Question Author, Question Tag, and Question License values.
+Future Question Subject, Question Subsubject, Question Bloom Classification,
+and Question Classification packages define their own search behavior. A
 **Question Summary** is one answer-free listing of a stable Published Question
 and carries the exact Question Revision Reference for its Latest Question
 Revision. A **Question Search Result** combines that summary with permitted
@@ -852,7 +852,8 @@ Entry** selects Questions from ordered **Question Pool Items**. Each **Question
 Pool Item** represents one Question as configured within that Pool. It pins one
 exact Question Revision and owns its availability. It is distinct from a top-level
 Assignment Entry. Question Library organization instead uses Question Folders,
-Question Tags, Question Classifications, and Saved Question Searches.
+Question Tags and Saved Question Searches. Future Question Classification
+support does not supply a current Question Library organization surface.
 
 A **Question Pool Selection Rule** contains the **Question Pool Selection Count**
 and **Selected Question Order**. Question Pool Order retains item order; Random

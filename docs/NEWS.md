@@ -17,5 +17,5 @@ PLE remains pre-production; these notes describe the current development snapsho
 
 ### Upgrade notes
 
-- Use the repository-owned Python 3.12 `.venv` for live-demo controller and test commands after
-  sourcing repository settings; the canonical entry remains `./run_live_demo.sh`.
+- Use `source source_me.sh && python3 ...` for repository Python commands. The canonical live-demo
+  entry remains `./run_live_demo.sh`.

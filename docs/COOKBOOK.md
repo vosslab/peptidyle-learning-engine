@@ -170,9 +170,9 @@ boundary. Screenshots are one-time visual evidence, not a substitute for the liv
 Run read-only checks before changing state:
 
 ```bash
-source source_me.sh && .venv/bin/python local_stack.py validate
-source source_me.sh && .venv/bin/python local_stack.py status
-source source_me.sh && .venv/bin/python local_stack.py logs --tail 100
+source source_me.sh && python3 local_stack.py validate
+source source_me.sh && python3 local_stack.py status
+source source_me.sh && python3 local_stack.py logs --tail 100
 ```
 
 When a service needs a bounded restart, name that service explicitly. Preserve the private owner
@@ -192,7 +192,7 @@ Use the connected acceptance command when validating the live system. It runs th
 production browser lane followed by browser-free renderer and service oracles:
 
 ```bash
-source source_me.sh && .venv/bin/python local_stack.py acceptance
+source source_me.sh && python3 local_stack.py acceptance
 ```
 
 For the complete final-material Validation suite, use:

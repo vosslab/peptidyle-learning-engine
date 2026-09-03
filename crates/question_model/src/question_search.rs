@@ -2,10 +2,10 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::Capability;
 use crate::question_library::{QuestionBackend, QuestionId};
 use crate::question_license::QuestionLicense;
 use crate::response::QuestionType;
-use crate::Capability;
 
 /// Maximum Question Author name selections accepted in one Question Search query.
 pub const MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS: usize = 16;

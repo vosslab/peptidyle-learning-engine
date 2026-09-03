@@ -175,10 +175,12 @@ browser session:
 ```bash
 git clone https://github.com/vosslab/peptidyle-learning-engine.git
 cd peptidyle-learning-engine
+source source_me.sh && python3 -m pip install --requirement pip_requirements-dev.txt
 ./run_live_demo.sh
 ```
 
-On a fresh clone, `run_live_demo.sh` sources the repository shell environment through its fixed
+The explicit Python command installs the declared dependencies into the selected Python 3.12
+environment. `run_live_demo.sh` then sources the repository shell environment through its fixed
 `source_me.sh` path, invokes `python3 local_stack.py`, and runs `devel/setup_typescript.sh` when
 `node_modules` is absent before delegating to the canonical local-stack owner. It builds the
 production `dist/` bundle, creates a fresh disposable

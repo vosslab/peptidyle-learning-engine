@@ -14,14 +14,14 @@
 use serde::{Deserialize, Serialize};
 
 use crate::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
-use crate::question_license::QuestionLicense;
-use crate::question_tag::Tag;
 use crate::generation::QuestionVariationRule;
 use crate::identity::{QuestionAssetId, WorkspaceId, WorkspaceImportId};
 use crate::question_backend_fields::{
     QuestionBackendFieldPresence, validate_question_backend_field_matrix,
 };
 use crate::question_citation::QuestionCitation;
+use crate::question_license::QuestionLicense;
+use crate::question_tag::Tag;
 use crate::response::{QuestionResponseFormat, QuestionType};
 use crate::{
     DraftImathasQuestionBackendBinding, ImathasProfile, ImathasQuestionBackendBinding,

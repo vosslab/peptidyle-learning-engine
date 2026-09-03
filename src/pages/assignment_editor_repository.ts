@@ -42,12 +42,7 @@ export interface BlueprintAssignment {
 function retainedQueryMatches(row: QuestionSearchResult, query: QuestionSearchQuery): boolean {
   const search = query.search.trim().toLocaleLowerCase();
   if (search !== "") {
-    const haystack = [
-      row.title,
-      row.displayId,
-      row.summary,
-      ...row.authorNames,
-    ]
+    const haystack = [row.title, row.displayId, row.summary, ...row.authorNames]
       .join(" ")
       .toLocaleLowerCase();
     if (!haystack.includes(search)) return false;

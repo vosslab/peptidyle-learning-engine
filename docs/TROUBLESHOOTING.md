@@ -38,10 +38,11 @@ the project scope.
 
 ## Read-only diagnostics
 
-Prepare the repository Python environment when a separate developer workflow requires it:
+Install the declared dependencies into the selected Python 3.12 environment when an import is
+missing:
 
 ```bash
-./devel/setup_python.sh
+source source_me.sh && python3 -m pip install --requirement pip_requirements-dev.txt
 ```
 
 Run these commands from the repository root before changing the stack:
@@ -157,7 +158,7 @@ migrations`:** preserve the retained resource and private owner receipt.
   [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
 
   ```bash
-  source source_me.sh && .venv/bin/python local_stack.py reset --confirm-project containers
+  source source_me.sh && python3 local_stack.py reset --confirm-project containers
   ./run_live_demo.sh
   ```
 
@@ -180,8 +181,8 @@ preserve the owner receipt before stopping. The ordinary `containers` project
 has a separate, explicitly confirmed reset path; preview it before any reset:
 
 ```bash
-source source_me.sh && .venv/bin/python local_stack.py reset --dry-run
-source source_me.sh && .venv/bin/python local_stack.py reset --confirm-project containers
+source source_me.sh && python3 local_stack.py reset --dry-run
+source source_me.sh && python3 local_stack.py reset --confirm-project containers
 ```
 
 The owner verifies containers, volumes, networks, workspace, and private
@@ -189,7 +190,7 @@ receipts. For no-skip connected acceptance, use the fixed interpreter after
 the stack is available:
 
 ```bash
-source source_me.sh && .venv/bin/python local_stack.py acceptance
+source source_me.sh && python3 local_stack.py acceptance
 ```
 
 Browser and Podman acceptance are explicit evidence; permanent offline tests

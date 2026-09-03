@@ -1,6 +1,6 @@
 // question_json_metadata_fields.tsx - bounded metadata controls for a ple-question-json draft.
 
-import { For, Show, type JSX } from "solid-js";
+import { type JSX } from "solid-js";
 
 import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionCitation } from "../../../generated/api/QuestionCitation";
