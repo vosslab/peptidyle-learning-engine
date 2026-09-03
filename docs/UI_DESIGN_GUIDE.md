@@ -95,7 +95,7 @@ Question Library has five ordered Ribbon Tasks in two Ribbon Task Areas:
 - **Question Relationships**: **Starred**, **Watched**.
 
 Library means discoverable, My means ownership, Draft means publication state, Starred means
-endorsement, and Watched means a private subscription. Question Folders, tags, classifications,
+endorsement, and Watched means a private subscription. Question Folders, Question Tags,
 Saved Question Searches, and search facets organize or find Questions inside these views.
 
 Course Setup has the ordered Ribbon Tasks **Grade Settings** and **Appearance**. Create Assignment is

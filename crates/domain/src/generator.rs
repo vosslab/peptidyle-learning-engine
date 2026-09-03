@@ -12,8 +12,8 @@ use std::fmt::Write as _;
 use question_model::generation::{
     QuestionGeneratorParameter, QuestionGeneratorReference, QuestionSeed, QuestionVariationRule,
 };
-use rand_chacha::rand_core::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
+use rand_chacha::rand_core::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 

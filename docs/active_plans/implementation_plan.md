@@ -29,6 +29,13 @@ and the `violations` shape. Focused evidence, an independent audit with repaired
 aggregate acceptance passed. Mounting the planned key-free server fallback route remains a separate
 future server-boundary allocation.
 
+`WP-SD1-A-TERM-01-PI2` is allocated for the direct Assignment Question Analysis domain, fresh-schema
+`2026082923`, and typed Job vocabulary cutover. It preserves the course-local aggregate boundary and
+adds no Store, route, browser surface, generated contract, or worker. Its narrow order is repair and
+focused evidence, independent least-privilege PostgreSQL review, current-documentation correction,
+and independent final inventory review; `WP-SD1-A` independent architecture/privacy `ACCEPT` remains
+the final SD1 gate.
+
 [customer-spec.md](customer-spec.md) describes a
 backend-agnostic assignment platform built around repeated attempts, algorithmic questions, and
 question-level timing. The foundational M0 and M1 platform slices and the main M2 through M4
@@ -610,7 +617,7 @@ cluster; the distinction is ownership and policy, not physical separation.
 | Immutable problem versions                       | Assignments                                                      |
 | QTI, H5P, WeBWorK, and iMathAS source references | Instructor workspaces                                            |
 | Shared media assets                              | Draft problems                                                   |
-| Tags, Question Classifications, licensing        | Enrollments, Assignment Attempts, Question Attempts, submissions |
+| Question Tags and exact Question Licenses        | Enrollments, Assignment Attempts, Question Attempts, submissions |
 | Backend capability definitions                   | Grades, summaries, timers                                        |
 | Anonymous question statistics                    | Per-student analytics and audit logs                             |
 | Public and community libraries                   | Student-specific exports and annotated exams                     |
@@ -716,7 +723,7 @@ composition boundaries are permanent only where the architecture requires them, 
 
 | Crate                                   | Owns                                                                                                                          | Depends only on                                  |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `crates/question_model`                 | Question types, capabilities, identity, Question Classifications, `ts-rs` derives                                             | External crates                                  |
+| `crates/question_model`                 | Question types, capabilities, identity, Question Tags, exact Question Licenses, `ts-rs` derives                               | External crates                                  |
 | `crates/domain`                         | Assignment Attempt state machine and completion rules, timing verdict, seeded generation, capability validation, audit events | `question_model`                                 |
 | `crates/grading`                        | **Answer keys, checkers, correctness decisions**                                                                              | `question_model`, `domain`                       |
 | `crates/objects`                        | `ObjectStore` trait, S3 and MinIO backends, key construction, checksums                                                       | `question_model`                                 |
@@ -801,7 +808,7 @@ What each stage touches:
 | Deleted with student records                        | Retained indefinitely                                    |
 | --------------------------------------------------- | -------------------------------------------------------- |
 | Enrollments                                         | Published Questions and immutable Question Revisions     |
-| Assignment Attempts, Question Attempts, submissions | Question Library, Question Classifications, licensing    |
+| Assignment Attempts, Question Attempts, submissions | Question Library, Question Tags, exact Question Licenses |
 | Grades and summary rows                             | Instructor question drafts and workspaces                |
 | Timer events and render traces                      | Assignment Content (Instructor's choice at archive time) |
 | Per-student analytics                               | Backend capability metadata                              |
@@ -1165,10 +1172,10 @@ capacity review records the observed payload distribution and configured hot/col
 The illustrative arithmetic below explains the proposed split without granting permanent authority
 to row, byte, or index counts:
 
-| Table                       | Contents                                                                    | Size at 10 M              | Access                       |
-| --------------------------- | --------------------------------------------------------------------------- | ------------------------- | ---------------------------- |
-| `question_revision`         | Identity, lifecycle, capability and Question Classification refs, checksums | ~2 GB                     | Hot; browse, search, resolve |
-| `question_revision_payload` | Normalized Question Revision public model                                   | ~100 GB, hash-partitioned | Cold; read on attempt issue  |
+| Table                       | Contents                                                             | Size at 10 M              | Access                       |
+| --------------------------- | -------------------------------------------------------------------- | ------------------------- | ---------------------------- |
+| `question_revision`         | Identity, lifecycle, capability and current metadata refs, checksums | ~2 GB                     | Hot; browse, search, resolve |
+| `question_revision_payload` | Normalized Question Revision public model                            | ~100 GB, hash-partitioned | Cold; read on attempt issue  |
 
 Browse and search run against the configured metadata projection. A one-time query-plan and workload
 review decides whether the current PostgreSQL faceting remains suitable; immutable versions make a
@@ -1450,7 +1457,7 @@ table above.
 The instructor side is the larger build and its hard problem is scale, not styling.
 
 **Problem browser over ten million rows.** A virtualized list backed by cursor-paged queries, with
-facets over Question Classification, capability, license, and statistics. Facet counts come from the Question Library's own
+facets over Question Tag, capability, exact Question License, and statistics. Facet counts come from the Question Library's own
 aggregates so the UI never triggers a full scan. Search is a single input over full-text and trigram
 matching, and the component boundary keeps the query behind a repository call so a dedicated search
 service can replace it without a UI change.
@@ -1514,7 +1521,7 @@ substitution for a required production path.
 
 | ID                         | Module                                                                   | Exposes                                                                                                                               | Consumes                                                                                | Reference/test implementation       | Independent verification                                                                                                                                                                                                                    |
 | -------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| MOD-QM                     | `question_model`                                                         | Types, capabilities, identity, Question Classifications                                                                               | none                                                                                    | n/a (root contract)                 | `cargo test`; `ts-rs` output compiles                                                                                                                                                                                                       |
+| MOD-QM                     | `question_model`                                                         | Types, capabilities, identity, Question Tags, exact Question Licenses                                                                 | none                                                                                    | n/a (root contract)                 | `cargo test`; `ts-rs` output compiles                                                                                                                                                                                                       |
 | MOD-ID                     | Identity and lifecycle                                                   | Draft workspace identity, published `QuestionId`/`QuestionRevisionNumber`, lifecycle                                                  | MOD-QM                                                                                  | n/a                                 | Lifecycle tests; no published identity construction outside publish                                                                                                                                                                         |
 | MOD-ACTIVITY               | Assignment Activity Rules                                                | Assignment Attempt lifecycle and independent policy rules                                                                             | MOD-QM                                                                                  | n/a                                 | Representative repeat-practice history preserves issued Assignment Attempts and summary behavior across policy combinations                                                                                                                 |
 | MOD-STATE                  | Attempt state machine                                                    | `apply(state, event)`, completion within an Assignment Attempt                                                                        | MOD-QM, MOD-ACTIVITY                                                                    | n/a                                 | Every legal transition plus a rejected illegal one                                                                                                                                                                                          |
@@ -1534,7 +1541,7 @@ substitution for a required production path.
 | MOD-EXPORT                 | Print model and writers                                                  | DOCX and PDF                                                                                                                          | MOD-QM                                                                                  | Fixture version                     | Each supported export path produces a valid document from one representative input; unexportable content is flagged before build                                                                                                            |
 | MOD-WASM                   | WASM bridge                                                              | Typed exports                                                                                                                         | MOD-QM, MOD-STATE, MOD-TIME, MOD-GEN, MOD-CAP                                           | n/a                                 | Export allowlist; no `grading` in closure                                                                                                                                                                                                   |
 | MOD-API-AUTH               | Auth and sessions                                                        | `/auth`                                                                                                                               | MOD-STO                                                                                 | `MemoryStore`                       | Login on one replica, proceed on another                                                                                                                                                                                                    |
-| MOD-API-QUESTION-LIBRARY   | Question Library routes                                                  | `/questions`, Question Search, Question Classifications, Question Revision publication                                                | MOD-STO, MOD-ID, MOD-CAP                                                                | `MemoryStore`                       | Publish refuses on violations; drafts hold no Question ID; cursor paging                                                                                                                                                                    |
+| MOD-API-QUESTION-LIBRARY   | Question Library routes                                                  | `/questions`, Question Search, Question Revision publication                                                                          | MOD-STO, MOD-ID, MOD-CAP                                                                | `MemoryStore`                       | Publish refuses on violations; drafts hold no Question ID; cursor paging                                                                                                                                                                    |
 | MOD-API-COURSE             | Course routes                                                            | `/courses`, `/assignments`                                                                                                            | MOD-STO                                                                                 | `MemoryStore`                       | Assignments store exact `(question_id, revision_number)` pins                                                                                                                                                                               |
 | MOD-API-ASSIGNMENT-ATTEMPT | Assignment Attempt, Question Attempt, submission, and grading routes     | `/assignment-attempts`, `/question-attempts`, `/submissions`, `/grading`                                                              | MOD-STO, MOD-ACTIVITY, MOD-STATE, MOD-TIME, MOD-GRD                                     | `MemoryStore`                       | DB timestamps; idempotent replay; summary updated transactionally; no key in any response                                                                                                                                                   |
 | MOD-API-ASSET              | Asset delivery                                                           | `POST /api/assets/{id}`                                                                                                               | MOD-OBJ, MOD-STO                                                                        | `MemoryObjectStore`                 | Authorizes and logs before a bounded signed URL; only activated public Question Library assets bypass to CDN                                                                                                                                |
@@ -1797,13 +1804,13 @@ M6 composes the already-gated capabilities in one smallest-useful live narrative
 Elena Instructor and the seeded Mary Student record for student delivery and inspection. Elena
 and Morgan passkey enrollment, sign-out, and sign-in remain independent suite-owned scenarios; this
 journey starts from their ordinary authenticated sessions. Assisted tagging participates only when
-`WP-INST-D3` has shipped; the core journey remains complete with human Question Classification and Question Folder actions.
+`WP-INST-D3` has shipped; the core journey remains complete with human Question Tag and Question Folder actions.
 
 1. **Discover.** Elena searches the Question Library by concept, filters to safe evidence, and
    opens Question Details.
 2. **Organize.** Elena Stars the selected Questions and places them in a named Question Folder. The
    same live selection is available to the assignment picker. If `WP-INST-D3` is accepted, she may
-   review and confirm a proposed tag with recorded classification evidence; otherwise human Question Classification is the
+   review and confirm a proposed tag with recorded proposal evidence; otherwise human Question Tags are the
    demonstrated path.
 3. **Reuse.** Elena creates or revises a Blueprint Course with one fixed question and one pool
    definition. The fixed member remains selected; the pool records its draw rule and delivery order
@@ -1821,7 +1828,7 @@ journey starts from their ordinary authenticated sessions. Assisted tagging part
 7. **Recover and recalculate.** A deterministic grader exception for one issued item routes to
    Elena's operation view. After the bounded correction, she requests the generation-fenced
    recalculation and observes the refreshed course total without changing the original receipt.
-8. **Analyze and improve.** Elena opens course-local item analysis, inspects the affected student
+8. **Analyze and improve.** Elena opens course-local Assignment Question Analysis, inspects the affected student
    evidence and usage context, and publishes either a linked immutable successor or a validated fork
    according to the change class. She records the controlled-update decision; future teaching can use
    the selected improvement while the issued Assignment Attempt remains pinned to its original evidence.
@@ -1834,7 +1841,7 @@ journey starts from their ordinary authenticated sessions. Assisted tagging part
 
 Each step asserts the semantic transition and its visible result; it does not require a fixed
 collection size, source_object_reference total, screenshot match, or timing target. The named student state is the
-smallest live state that demonstrates the transition, while aggregate/item-analysis evidence uses
+smallest live state that demonstrates the transition, while Assignment Analysis and Assignment Question Analysis evidence use
 the configured privacy threshold and existing seeded contributions where required.
 
 ## Work packages
@@ -1857,13 +1864,13 @@ or implementer-authored specification is required.
 
 ### M1 contract-freeze packages
 
-#### Work package: WP-C1 define the Question Model and Question Classification
+#### Work package: WP-C1 define the Question Model
 
 - Owner: `architect`. Module: MOD-QM. Depends on: WP-F1.
 - Touch points: `crates/question_model/src/`, `docs/QUESTION_MODEL.md`.
 - Acceptance criteria: covers the spec's `QuestionRevision` fields; `QuestionBackendCapabilities` carries all
-  eight flags; response and grading shapes are enums whose invalid combinations do not compile; tags,
-  Question Classification, and licensing types included as shared-content data; **no answer-bearing type defined
+  eight flags; response and grading shapes are enums whose invalid combinations do not compile; Question Tags
+  and exact Question License types included as shared-content data; **no answer-bearing type defined
   here**; every public item documented per `docs/RUST_STYLE.md` section 13; `ts-rs` derives on every
   boundary type; the public Question ID follows `docs/QUESTION_ID_SPEC.md`, is random rather than
   sequential, and internal UUIDs never become browser-facing question identities.
@@ -2171,7 +2178,7 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 - Patch 2: WP-F3 (Solid app, build pipeline, template defect fixes).
 - Patch 3: WP-F4, WP-F5 (containers and extended gate).
 - Patch 4: WP-F6 (foundation documentation).
-- Patch 5: WP-C1 (Question Model and Question Classification).
+- Patch 5: WP-C1 (Question Model).
 - Patch 6: WP-C2 (identity and lifecycle).
 - Patch 7: WP-C3 (Assignment Attempt, policy, and summary model with compact policy-history behavior tests).
 - Patch 8: WP-C4 (store and object contracts with reference backends and conformance suites).

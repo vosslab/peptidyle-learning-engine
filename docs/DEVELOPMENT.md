@@ -30,7 +30,7 @@ build and validation interface. The TypeScript and Playwright installers are pro
 helpers; the root build and validation scripts are repository-owned front doors:
 
 ```bash
-source source_me.sh && python3 -m pip install --requirement pip_requirements-dev.txt
+source source_me.sh && python3 -m pip install --requirement pip_requirements.txt --requirement pip_requirements-dev.txt
 ./devel/setup_typescript.sh
 ./devel/setup_playwright.sh       # once, before browser tests
 ./devel/setup_wasm_tests.sh       # only when running wasm-bindgen tests
@@ -239,9 +239,11 @@ command or collecting diagnostics.
 
 `source_me.sh` is a shell precondition: it requires Bash and loads the repository's shell setup.
 `run_live_demo.sh` and direct controller diagnostics use that shell environment and `python3`.
-Install the declared Python dependencies explicitly with
-`source source_me.sh && python3 -m pip install --requirement pip_requirements-dev.txt`. Pytest,
-controller, and aggregate-validation commands use the same selected `python3` interpreter.
+Install the live-demo runtime dependency with
+`source source_me.sh && python3 -m pip install --requirement pip_requirements.txt`.
+For pytest and aggregate-validation commands, install both declared requirement files with
+`source source_me.sh && python3 -m pip install --requirement pip_requirements.txt --requirement pip_requirements-dev.txt`.
+All commands use the same selected `python3` interpreter.
 
 ### Validation classes
 

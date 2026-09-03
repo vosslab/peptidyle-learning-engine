@@ -4,17 +4,66 @@
 
 ### Fixes and Maintenance
 
-- `run_live_demo.sh` now sources the fixed repository shell setup and directly invokes
-  `python3 local_stack.py` for start, headless start, and owner-scoped stop. Node dependency setup
-  and fixed-owner lifecycle behavior remain unchanged.
+- Closed the checked Student-file terminology migration detector lifecycle. A final contextual
+  audit found no Student Upload, Student Artifact, Student Feedback Attachment, or `WP-FU1`--`WP-FU6`
+  owner in implementation, schema, API, generated contracts, tests, fixtures, or active plans; the
+  exact `2026080912` implementation-status row remains the sole broad historical match. Retired the
+  three temporary row-213 searches together and removed their now-unused active-plan helper. This is
+  a documentation/detector-only closure supported by one-time searches; it adds no permanent test.
+
+- Closed the retired repository-owned fixed `.venv` launcher/developer-interpreter terminology.
+  The Local Stack launcher, controller, aggregate validation, reset helpers, and documented developer
+  command paths source `source_me.sh` before invoking selected Python 3.12 `python3`; the
+  `local_stack.py` controller then runs under that selected interpreter. Runtime and developer/test
+  dependencies remain independently declared in `pip_requirements.txt` and `pip_requirements-dev.txt`.
+  The vocabulary detector was retired after contextual review confirmed its eight current matches are
+  exact dependency-directory cleanup/exclusion names in maintenance and tooling boundaries. This
+  documentation-and-detector closure adds no permanent test.
+
+- Accepted `WP-SD1-A-TERM-01-PI2`, the direct Assignment Question Analysis domain/schema/typed-Job
+  cutover in fresh migration `2026082923`. `AssignmentQuestionAnalysis` and
+  `assignment_question_analysis` own the Course Instance-and-Assignment-scoped, Scoring
+  Generation-bound analysis for one source Assignment Entry and exact Question Revision; the
+  four-category Question Outcome Distribution remains separate from Unscored Attempt Count. The
+  production repair constrains the typed Job target; two fixture/oracle composition repairs complete
+  existing evidence. `assignment_analysis_course_assignment_matches` proves the composite Course
+  Instance-plus-Assignment relationship and rejects a cross-Course Assignment. Focused model/schema
+  evidence, independent inventory, and the live SD1 least-privilege PostgreSQL lane pass. No Store,
+  route, browser, generated contract, worker, new test file, or fixture suite was added; one compact
+  reciprocal case was added to the existing durable SD1 oracle. This package precedes but does not
+  accept the existing `WP-SD1-A` architecture/privacy final SD1 gate.
+
+- Recorded TX1 as a direct pre-production removal of the unsupported generic Question
+  Classification surface. Current PLE Question JSON, Question Metadata/Search, strict browser
+  decoders, Instructor metadata, the client-only classification route, and the QTI empty default
+  no longer promise arbitrary System/Code/Name mappings. This is not a substitute taxonomy
+  feature: Question Classification remains future-only until one real Classification System exists;
+  Question Subject, Question Subsubject, and Question Bloom Classification stay independently
+  open, and QTI vendor classification data remains source-format vocabulary. Focused Question
+  Model/PLE/QTI adapter tests, workspace check, 76 focused Node tests, Markdown/source-line tests
+  (1,126 passed), focused Prettier, and diff checks passed. Normal generated API regeneration
+  removed the stale generic declarations; the generated API now has no generic classification
+  declaration and `npx tsc --noEmit` passes.
+
+- Unified repository Python execution on `source source_me.sh && python3 ...` across the live-demo,
+  aggregate validation, Podman reset, controller help, installation, development, operations,
+  troubleshooting, security, test-evidence, and release documentation. `pip_requirements.txt`
+  supplies the live-demo and controller runtime dependency, while full developer and test setup
+  installs it together with `pip_requirements-dev.txt` into the selected Python 3.12 interpreter.
+  Shell syntax, controller help, 320 focused controller tests, 196 documentation and vendored-header
+  tests, formatting, current-source searches, and the diff check pass.
 
 - Completed the Tier 2 terminology closure for Entitlement, Material, Materialization,
-  Disposition, and Ledger. Current boundaries use Assignment Access and Active Student Course
+  Disposition, Ledger, and Question Presentation terminology. Current boundaries use Assignment Access and Active Student Course
   Membership; exact operation records and Receipts; Answer Key, Question Grading Input, Question
   Feedback, Question Answer Explanation, Question Hint, and format-specific records; Migration
   Check Result; precise Object Cleanup Receipt outcomes; registered HTTP headers; and SQLx's
   platform migration ledger. Workspace Import Item Result Store/service projection (row 508),
-  Course Retention rows 585--593 and Envelope review remain open.
+  Course Retention rows 585--593 remain open. The Question Presentation closure replaces its six
+  current PLE-owned documentation and active-plan uses with Question Variation Presentation,
+  Question Presentation, exact private record names, and closed Blueprint-operation browser
+  contract wording. The row's retained `presentationEnvelope` test literal is strict retired-wire
+  rejection evidence; no product, schema, API, generated artifact, test, or fixture changed.
 
 - Completed the Tier 2 Witness and Locator terminology closures. Question Statistics Observation
   Receipt now has an atomic accepted-grade recording path that derives correctness from the stored

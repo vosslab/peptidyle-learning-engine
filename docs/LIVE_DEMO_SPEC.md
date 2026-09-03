@@ -57,8 +57,9 @@ browser workflow.
 
 Five deterministic live Student observations are distributed across meaningful ordinary Chapter 1 assignments titled
 `Molecular Foundations: Charged Functional Groups` in the Genetics and Biochemistry teaching courses. They use
-ordinary active memberships and Student work, so the existing item-analysis and discovery surfaces can show useful
-evidence in context. The observations are presented through those ordinary course and evidence surfaces.
+ordinary active memberships and Student work. They provide representative course context for the protected
+Assignment Question Analysis records, but the current tree mounts no Instructor Assignment Analysis or Assignment
+Question Analysis UI or API surface.
 
 Course navigation presents the recognizable teaching courses through active server-owned relationships, including the
 ASVS 8.2.2 and 8.3.1 authorization boundary. An Instructor sees courses where an active teaching membership grants

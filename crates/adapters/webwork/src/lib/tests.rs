@@ -7,10 +7,10 @@ use objects::ObjectAddress;
 use objects::Sha256Checksum;
 use objects::memory::MemoryObjectStore;
 use question_model::QuestionContentBlock;
+use question_model::QuestionLicense;
 use question_model::answer::ResponseSelectionRule;
 use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::capability::Capability;
-use question_model::QuestionLicense;
 use question_model::generation::{QuestionSeed, QuestionVariationRule};
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use question_model::{

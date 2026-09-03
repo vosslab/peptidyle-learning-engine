@@ -22,11 +22,17 @@ does not add a content-management service or expose source bytes to the browser.
 
 ## Long-running services
 
+The currently mounted local stack has the services listed below. A Worker is a
+planned architecture component for durable background jobs; it is not a
+current Compose service, container, health dependency, or network member.
+When it is mounted, its scope includes retention, exports, imports, score
+maintenance, Assignment Analysis, and Assignment Question Analysis, with its
+leases and job state in PostgreSQL.
+
 | Service            | Necessary role                                                                                                                                                         | Durable state                                                              | Network boundary                                                                 |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | `gateway`          | Serves the built browser client and forwards same-origin `/api` and `/health` requests to the API. It is the only PLE browser entry point.                             | None. The built `dist/` directory is mounted read-only.                    | Publishes one loopback port; joins only `gateway_api`.                           |
 | `api`              | Authenticates sessions, authorizes course actions, coordinates attempts, and translates private backend results into browser-safe PLE responses.                       | None in the container. Authoritative records live in PostgreSQL and MinIO. | Joins the data network, `gateway_api`, and `renderer_private`.                   |
-| `worker`           | Claims durable background jobs for retention, exports, imports, score maintenance, and item analysis.                                                                  | None in the container. Its leases and job state live in PostgreSQL.        | Joins only the data network.                                                     |
 | `postgres`         | Stores relational platform authority: identities, courses, memberships, assignments, attempts, submissions, scores, jobs, and audit records.                           | `ple_pgdata`, a named volume mounted at PostgreSQL's data directory.       | Publishes a loopback development port and joins the data network.                |
 | `minio`            | Stores typed objects too large or inappropriate for relational rows: content packages, Student-specific exports and annotated exams, and temporary processing objects. | `ple_miniodata`, a named volume mounted at `/data`.                        | Publishes loopback development API and console ports and joins the data network. |
 | `webwork-renderer` | Runs the external `webwork-pg-renderer` image to execute PG/PGML render and grade requests. It is an engine, not a second assignment platform.                         | None. It has no volume and no SQL database.                                | Joins only `renderer_private`; it has no host-published port.                    |
@@ -60,16 +66,15 @@ permissions.
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `local-data-volume-permissions` | Assigns the PostgreSQL volume root and retained MinIO tree to the fixed daemon UIDs.                                                       | Rootless, networkless, one-shot, read-only-root task with only `CAP_CHOWN`; it changes ownership metadata and does not remain running. |
 | `postgres-major-guard`          | Reads an existing `PG_VERSION` before PostgreSQL starts.                                                                                   | Read-only volume, no network, and refusal when the retained volume is not PostgreSQL 17. It never migrates or deletes data.            |
-| `createbuckets`                 | Creates the four required MinIO buckets idempotently.                                                                                      | It exits after setup; API and worker do not need bucket-administration behavior.                                                       |
-| `identity-secret-init`          | Copies the host-owned invitation issuer and Question ID capabilities into an API-only runtime volume with the fixed API UID and mode 0600. | Networkless with a minimal capability set; raw host paths are not mounted into the API, and the worker does not receive this volume.   |
+| `createbuckets`                 | Creates the four required MinIO buckets idempotently.                                                                                      | It exits after setup; the API does not need bucket-administration behavior.                                                            |
+| `identity-secret-init`          | Copies the host-owned invitation issuer and Question ID capabilities into an API-only runtime volume with the fixed API UID and mode 0600. | Networkless with a minimal capability set; raw host paths are not mounted into the API.                                                |
 
 Stopped successful one-shot containers may appear in `podman ps -a`. They are
 not failed daemons and consume no running CPU after completion.
 
 The fixed owner reports success only after each required one-shot exits zero and
-every required daemon is healthy (the worker is supervised without an HTTP health
-check). It refuses duplicate owner-labelled service instances rather than choosing
-one.
+every currently mounted daemon is healthy. It refuses duplicate owner-labelled
+service instances rather than choosing one.
 
 ## Volumes
 
@@ -100,11 +105,11 @@ projects or volumes with global Podman commands.
 
 ## Networks
 
-| Network              | Members                                          | Purpose                                                                                              |
-| -------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| default data network | `postgres`, `minio`, `api`, `worker`, setup jobs | Relational and object-storage communication.                                                         |
-| `gateway_api`        | `gateway`, `api`                                 | Same-origin browser delivery without publishing the API directly.                                    |
-| `renderer_private`   | `api`, `webwork-renderer`                        | Private PG render/grade traffic. The browser, gateway, worker, PostgreSQL, and MinIO do not join it. |
+| Network              | Members                                | Purpose                                                                                      |
+| -------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------- |
+| default data network | `postgres`, `minio`, `api`, setup jobs | Relational and object-storage communication.                                                 |
+| `gateway_api`        | `gateway`, `api`                       | Same-origin browser delivery without publishing the API directly.                            |
+| `renderer_private`   | `api`, `webwork-renderer`              | Private PG render/grade traffic. The browser, gateway, PostgreSQL, and MinIO do not join it. |
 
 There is no `webwork_db_private` network because PLE does not run WeBWorK2 or
 MariaDB. WebWork2 remains reference material for application behavior; the
@@ -139,7 +144,8 @@ whether the PLE lifecycle may manage a container.
 - A supported full start reattaches PostgreSQL and MinIO to their named volumes.
 - The owner cleans and recreates its complete disposable stack rather than
   exposing individual developer-project restart controls.
-- Worker failure leaves durable jobs available for a later worker lease.
+- When the planned Worker is mounted, a Worker failure leaves durable jobs
+  available for a later Worker lease.
 - Gateway failure removes browser reachability but does not mutate records.
 
 ## Verification tiers

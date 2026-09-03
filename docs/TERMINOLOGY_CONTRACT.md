@@ -674,9 +674,27 @@ Question content and creates no Question Revision. The exact rubric, automatic a
 search behavior, and color associations live in
 [QUESTION_MODEL.md](QUESTION_MODEL.md#bloom-classification).
 
-**Question Difficulty** is the mean normalized Question score for a stated cohort. A larger value
-means that cohort found the Question easier. It is measured from graded work; Question Bloom
-Classification describes intended cognitive demand. Neither value substitutes for the other.
+**Assignment Question Analysis** is the radioactive, course-local analysis for one Course
+Instance and Assignment at one exact Scoring Generation. Each row binds one source Assignment
+Entry and one exact Question Revision. It contains only bounded aggregate facts; it carries no
+Student identity, raw response, answer choice, Answer Key, or Question Grading Input. An
+Assignment Analysis is the Course Instance-and-Assignment calculation that owns those rows.
+
+**Question Outcome Category** is one closed scored-or-unanswered result in an Assignment
+Question Analysis: Correct, Partial Credit, Incorrect, or Unanswered. A **Question Outcome
+Distribution** is the identity-free count of those four categories for one Assignment Question
+Analysis. **Unscored Attempt Count** is separate: it counts submitted attempts whose automated
+evaluation has not produced a coherent score, so it is neither a Question Outcome Category nor a
+member of its distribution.
+
+**Question Difficulty** is a cohort-scoped Question performance measure whose calculation and
+cohort must be stated; a larger value means that cohort found the Question easier. **Question
+Discrimination** is the correlation of Question credit with the other Question credit in the same
+Assignment Attempt for a cohort with sufficient variation. In Assignment Question Analysis, both
+measures apply only to the graded attempts for that exact Course Instance, Assignment, source
+Assignment Entry, Question Revision, and Scoring Generation. They are not global Question
+Statistics, and Question Bloom Classification remains the separate description of intended
+cognitive demand.
 
 The Published Question discovery, credit, and control facts are closed:
 
@@ -711,8 +729,11 @@ Revision. A **Question Search Result** combines that summary with permitted
 Question Statistics for that exact Question Revision. **Question Details** is
 the expanded answer-free View of one exact Question Revision. These terms name
 read shapes; Published Question and Question Revision retain identity and
-lifecycle. **Question Statistics** is the privacy-safe, revision-specific
-aggregate released from accepted graded Question Attempts. A
+lifecycle. **Question Statistics** is the privacy-safe, revision-specific global aggregate
+released from accepted graded Question Attempts. It is not an Assignment Question Analysis,
+Question Outcome Distribution, Unscored Attempt Count, Question Difficulty, or Question
+Discrimination: those are course-and-Assignment-scoped analysis facts when they occur in an
+Assignment Question Analysis. A
 **Question Picker** is the shared Instructor control that uses Question Search
 to select Published Questions for an Assignment or Blueprint Course; selection
 supplies no Question ownership or editing authority.

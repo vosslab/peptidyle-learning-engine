@@ -39,7 +39,7 @@ immutable Blueprint parent and applied revision are server-owned.
 | /sign-in                                                               | Deployment-gated seeded Live Demo Account selector | Authenticated Session contract                                                                |
 | /courses/:courseId                                                     | CourseInstance assignments                         | Current course relationship                                                                   |
 | /courses/:courseId/assignments/:assignmentId                           | Assignment overview                                | Exact CourseId and assignment relationship                                                    |
-| `/assignment-attempts/:assignmentAttemptId` (target)                   | Assignment Attempt                                 | Issued Assignment Attempt and Assignment Access                                                |
+| `/assignment-attempts/:assignmentAttemptId` (target)                   | Assignment Attempt                                 | Issued Assignment Attempt and Assignment Access                                               |
 | `/assignment-attempts/:assignmentAttemptId/summary` (target)           | Assignment Attempt summary and practice entry      | Disclosed Assignment Attempt Summary                                                          |
 | /library                                                               | Question Library                                   | Vetted Instructor Question Library authority                                                  |
 | /blueprint-courses                                                     | BlueprintCourse workspace                          | Blueprint Course Owner/Blueprint Collaborator drafts and shared `BlueprintCourseView` results |
@@ -165,7 +165,8 @@ adapters, strict decoding, and presentation models.
 
 The Assignment Attempt page keeps one editable response and one idempotency key for the
 current Assignment Attempt. It may use answer-free Wasm for format hints and timing
-display. It never stores keys, private envelopes, unreleased Student Feedback, or
+display. It never stores Answer Keys, Question Grading Input, private Response Item Bindings,
+Question Presentation Bindings, unreleased Student Feedback, or
 provider state, and never derives correctness or completion.
 
 After accepted submission, the browser clears the response and polls an

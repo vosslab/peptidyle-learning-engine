@@ -108,6 +108,9 @@ pub struct AssignmentQuestionAnalysisMetricInput {
 #[derive(Debug, Clone, PartialEq)]
 pub struct AssignmentQuestionAnalysisMetrics {
     pub graded_attempt_count: u32,
+    /// Submitted attempts awaiting a coherent automated score. This remains
+    /// outside the closed Question Outcome Distribution.
+    pub unscored_attempt_count: u32,
     pub question_difficulty: Option<f64>,
     pub average_credit: Option<f64>,
     pub credit_standard_deviation: Option<f64>,
@@ -214,6 +217,7 @@ pub fn calculate_assignment_question_analysis_metrics(
     .unwrap_or(u32::MAX);
     Ok(AssignmentQuestionAnalysisMetrics {
         graded_attempt_count,
+        unscored_attempt_count: input.unscored_attempt_count,
         question_difficulty,
         average_credit,
         credit_standard_deviation,
@@ -296,12 +300,20 @@ mod tests {
         )
         .expect("valid metrics");
         assert_eq!(metrics.graded_attempt_count, 3);
+        assert_eq!(metrics.unscored_attempt_count, 1);
         assert_eq!(metrics.question_difficulty, Some(1.0 / 3.0));
         assert_eq!(metrics.average_credit, Some(0.5));
         assert_eq!(metrics.question_outcome_distribution.correct, 1);
         assert_eq!(metrics.question_outcome_distribution.partial_credit, 1);
         assert_eq!(metrics.question_outcome_distribution.incorrect, 1);
         assert_eq!(metrics.question_outcome_distribution.unanswered, 2);
+        assert_eq!(
+            metrics.question_outcome_distribution.correct
+                + metrics.question_outcome_distribution.partial_credit
+                + metrics.question_outcome_distribution.incorrect
+                + metrics.question_outcome_distribution.unanswered,
+            metrics.graded_attempt_count + metrics.question_outcome_distribution.unanswered
+        );
         assert_eq!(metrics.average_completion_time_millis, Some(1_500));
         assert_eq!(metrics.question_discrimination, Some(1.0));
     }

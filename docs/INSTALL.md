@@ -24,12 +24,12 @@ Clone the repository and run its one supported developer front door:
 ```bash
 git clone https://github.com/vosslab/peptidyle-learning-engine.git
 cd peptidyle-learning-engine
-source source_me.sh && python3 -m pip install --requirement pip_requirements-dev.txt
+source source_me.sh && python3 -m pip install --requirement pip_requirements.txt
 ./run_live_demo.sh
 ```
 
-The explicit Python command installs the declared runtime and developer dependencies into the
-selected Python 3.12 environment. `./run_live_demo.sh` is the supported live-demo front door. It
+The explicit Python command installs the declared live-demo runtime dependency into the selected
+Python 3.12 environment. `./run_live_demo.sh` is the supported live-demo front door. It
 sources the repository shell environment through its fixed `source_me.sh` path and invokes
 `python3 local_stack.py`. When `node_modules` is absent, it also visibly runs
 `devel/setup_typescript.sh`; it then builds the
@@ -58,10 +58,11 @@ finish:
 
 ## Developer tools
 
-Install or refresh the declared Python dependencies for the selected Python 3.12 interpreter:
+Install or refresh the declared runtime and developer dependencies for the selected Python 3.12
+interpreter before running developer tools or tests:
 
 ```bash
-source source_me.sh && python3 -m pip install --requirement pip_requirements-dev.txt
+source source_me.sh && python3 -m pip install --requirement pip_requirements.txt --requirement pip_requirements-dev.txt
 ```
 
 The repository toolchain and Cargo lockfile provide the Rust dependencies. Keep the developer live

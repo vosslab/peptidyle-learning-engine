@@ -172,6 +172,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Blueprint Courses are the shared reusable course definitions.
 - Every approved **Instructor** has the same product capabilities; course membership determines which
   course records each **Instructor** may use.
+- students might use a iphone, chrome laptop, and windows desktop, so they could need multiple. If a student loses there login the instructor should be able to reset and send a new signup code
 
 ## Student philosophy
 

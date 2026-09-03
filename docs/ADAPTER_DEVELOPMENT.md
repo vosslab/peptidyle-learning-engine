@@ -130,7 +130,8 @@ not generalize its reviewed Chapter 1 profile into broad OPL or generic PG suppo
 
 An adapter change is complete only when each applicable layer passes.
 
-- Unit and contract tests cover source validation, capability declarations, key-free envelopes,
+- Unit and contract tests cover source validation, capability declarations, answer-free Question
+  Variation Presentations and Question Presentations,
   deterministic issue/replay, Question Attempt Reproduction Details tampering, refusal behavior, and grading
   outcome semantics.
 - Store conformance tests cover both in-memory and PostgreSQL implementations when the adapter

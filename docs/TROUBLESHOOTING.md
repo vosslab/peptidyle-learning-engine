@@ -42,7 +42,7 @@ Install the declared dependencies into the selected Python 3.12 environment when
 missing:
 
 ```bash
-source source_me.sh && python3 -m pip install --requirement pip_requirements-dev.txt
+source source_me.sh && python3 -m pip install --requirement pip_requirements.txt
 ```
 
 Run these commands from the repository root before changing the stack:

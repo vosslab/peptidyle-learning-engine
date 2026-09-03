@@ -33,7 +33,7 @@ renderer image through its published API.
 
 The accepted live release path is four licensed, user-authored immutable PGML sources: one
 `RadioButtons` and one matching question for each of Genetics and Biochemistry Chapter 1. PLE
-projects them into answer-free multiple-choice or matching envelopes, grades correct, incorrect,
+projects them into answer-free multiple-choice or matching Question Variation Presentations, grades correct, incorrect,
 and partial-credit responses as appropriate, and keeps all upstream controls and values private.
 Matching partial credit is admitted only for the reviewed path-and-source-digest pairs.
 

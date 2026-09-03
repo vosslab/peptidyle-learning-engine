@@ -519,8 +519,8 @@ fn normalize_choices(choices: Vec<H5pChoice>) -> Result<Vec<QuestionChoice>, H5p
 mod tests {
     use super::*;
     use question_model::QuestionContentBlock;
-    use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
     use question_model::QuestionLicense;
+    use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
     use question_model::question_content::QuestionGradingRule;
     use uuid::Uuid;
 

@@ -50,7 +50,9 @@ CREATE TABLE ple_private.job (
         REFERENCES ple_data.question_revision (question_id, revision_number),
     CONSTRAINT job_kind_matches_target CHECK (
         (job_kind = 'grade_accepted_submission' AND job_target_kind = 'question_submission')
-        OR (job_kind <> 'grade_accepted_submission' AND job_target_kind <> 'question_submission')
+        OR (job_kind = 'recalculate_assignment_question_analysis' AND job_target_kind = 'course_assignment')
+        OR (job_kind NOT IN ('grade_accepted_submission', 'recalculate_assignment_question_analysis')
+            AND job_target_kind NOT IN ('course_assignment', 'question_submission'))
     ),
     CONSTRAINT job_target_shape_is_exact CHECK (
         (job_target_kind = 'course_assignment' AND course_id IS NOT NULL AND assignment_id IS NOT NULL

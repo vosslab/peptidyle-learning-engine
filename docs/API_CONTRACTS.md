@@ -148,9 +148,10 @@ threshold, a safe rollup may expose accepted-attempt, graded-attempt, and
 correct counts plus eligible-choice selection counts for supported choice
 Question Types. Below the threshold the counts remain unavailable. The rollup never
 includes raw responses, small cells, linkable cohorts, Student identities,
-preview traffic, or the Instructor Student view. Course-local item analysis is
-a separate exact-course result. The evidence is keyed to the immutable
-version that generated it, not to a mutable latest pointer.
+preview traffic, or the Instructor Student view. Assignment Question Analysis
+is a separate Course Instance-and-Assignment-scoped result. Each row is keyed
+to its source Assignment Entry and immutable Question Revision, rather than a
+mutable latest pointer.
 
 `ForcedQuestionCorrection` is a Sysadmin-approved security operation. It
 accepts only `security_flaw` or `critical_correctness_flaw`. It atomically

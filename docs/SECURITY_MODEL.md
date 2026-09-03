@@ -347,7 +347,7 @@ audited, closed exact-course support capability. The closed registry in
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md#sysadmin-support-capability-registry)
 binds every support capability to one course, purpose, operation set, expiry,
 and audit trail. A Sysadmin platform role alone never grants course access,
-Gradebook access, item analysis, responses, or Assignment Attempts.
+Gradebook access, Assignment Analysis, responses, or Assignment Attempts.
 
 Only the scheduler creates a closed retention job binding. The retention Job
 prepare and commit functions require the exact course, stage, generation, job,

@@ -855,8 +855,8 @@ Watched are exact Account relationships to Questions.
 endorsement, and notification subscription remain distinct views of Questions instead of becoming
 competing top-level repositories.
 
-**Consequence.** Question Folders, tags, classifications, Saved Question Searches, and search
-facets organize or find Questions within those views. Star means visible endorsement, and Watch
+**Consequence.** Question Folders, Question Tags, Saved Question Searches, and search facets
+organize or find Questions within those views. Star means visible endorsement, and Watch
 means private notification subscription.
 
 ### Instructor course navigation has one spatial owner

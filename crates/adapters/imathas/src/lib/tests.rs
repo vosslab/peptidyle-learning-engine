@@ -2,8 +2,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use objects::memory::MemoryObjectStore;
-use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::QuestionLicense;
+use question_model::assignment_activity_rules::{QuestionAttemptLimit, QuestionAttemptTimeLimit};
 use question_model::generation::QuestionVariationRule;
 use question_model::{
     QuestionBackend as ModelQuestionBackend, QuestionFormat, QuestionGradingRule, QuestionMetadata,

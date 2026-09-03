@@ -356,7 +356,7 @@ The rules are:
 - A Sysadmin may help an Instructor through the closed roster list, invitation,
   policy, revoke, preview, and commit operations. The Store records
   authenticated account/course/action/time for each Sysadmin support access; this capability
-  does not include grade export, responses, Assignment Attempts, item analysis, or general
+  does not include grade export, responses, Assignment Attempts, Assignment Analysis, or general
   course access.
 - A student member may view the course but cannot enumerate or mutate the
   roster.
@@ -398,7 +398,7 @@ The following describes the intended operations:
 | Claim invitation                                                    | Consume the invitation, resolve the authenticated account, bind the roster identifier, and create the membership episode and profile |
 | Create assignment                                                   | Store the assignment; create no student activity rows                                                                                |
 | Read pre-activity summary authorized by Assignment Access           | Return a key-free `no_activity` result without creating an enrollment or summary                                                     |
-| Start Assignment Attempt, grade-bearing action, or instructor issue | Re-evaluate Assignment Access and, at the planned creation boundary, atomically create or reuse the enrollment and summary receipt |
+| Start Assignment Attempt, grade-bearing action, or instructor issue | Re-evaluate Assignment Access and, at the planned creation boundary, atomically create or reuse the enrollment and summary receipt   |
 | Remove student access                                               | Remove current membership; retain existing educational records for authorized grade, audit, and retention workflows                  |
 | Re-add former student                                               | Reuse the stable Student Record and existing activity while deriving current access from the new membership episode                  |
 
@@ -634,7 +634,7 @@ PLE intentionally improves several implementation details:
 | `student_id` is stored on the global ADAPT user.                                                             | Store an institution-provided roster identifier only on the protected course roster/export mapping.                                     |
 | Domain whitelist validation uses substring matching.                                                         | Compare a parsed, normalized complete domain or an explicitly configured subdomain boundary.                                            |
 | Access codes are visible, reusable course/invitation values.                                                 | Use random, expiring, single-purpose invitation secrets stored only as hashes.                                                          |
-| Course enrollment and assignment distribution are coupled procedurally.                                      | Keep Active Student Course Membership and Assignment Access separate from lazily created assignment activity.                         |
+| Course enrollment and assignment distribution are coupled procedurally.                                      | Keep Active Student Course Membership and Assignment Access separate from lazily created assignment activity.                           |
 | Unenrollment can permanently remove submissions and scores.                                                  | Revoke access while retaining educational records until the explicit retention workflow acts.                                           |
 | Section is a second course subdivision.                                                                      | Treat a PLE `CourseId` as the current course or section boundary; add another hierarchy only from demonstrated need.                    |
 

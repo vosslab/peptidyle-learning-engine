@@ -810,6 +810,15 @@ BEGIN
        OR has_table_privilege('ple_app', 'ple_data.assignment_question_analysis', 'SELECT') THEN
         RAISE EXCEPTION 'Assignment Analysis must remain protected course-local aggregate evidence';
     END IF;
+    IF (SELECT count(*)
+        FROM pg_class AS relation
+        JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+        WHERE namespace.nspname = 'ple_data'
+          AND relation.relname IN ('assignment_analysis', 'assignment_question_analysis')
+          AND relation.relrowsecurity
+          AND relation.relforcerowsecurity) <> 2 THEN
+        RAISE EXCEPTION 'Assignment Analysis tables must enforce row-level security';
+    END IF;
 END
 $$;
 
@@ -833,6 +842,27 @@ INSERT INTO ple_data.assignment_question_analysis (
     '00000000-0000-0000-0000-000000000110',
     '00000000-0000-0000-0000-000000000112', 'ABC-DEF0', 1, 5, '{}'::jsonb
 );
+-- This is a real Course Instance, but the known Assignment belongs to a
+-- different Course Instance. The composite header boundary must reject it.
+BEGIN;
+INSERT INTO ple_data.course_instance (
+    course_id, blueprint_id, blueprint_revision_id, assigned_instructor_account_id,
+    assigned_instructor_role, created_at
+) VALUES (
+    '00000000-0000-0000-0000-000000002000',
+    '00000000-0000-0000-0000-000000000103',
+    '00000000-0000-0000-0000-000000000104',
+    '00000000-0000-0000-0000-000000000102', 'instructor', '2026-01-01 00:00:00+00'
+);
+INSERT INTO ple_data.course_membership (
+    membership_id, course_id, account_id, role, joined_at, student_record_id
+) VALUES (
+    '00000000-0000-0000-0000-000000002010',
+    '00000000-0000-0000-0000-000000002000',
+    '00000000-0000-0000-0000-000000000102',
+    'instructor', '2026-01-01 00:00:00+00', NULL
+);
+COMMIT;
 DO $$
 BEGIN
     BEGIN
@@ -850,19 +880,57 @@ BEGIN
     EXCEPTION WHEN unique_violation THEN NULL;
     END;
     BEGIN
+        INSERT INTO ple_data.assignment_analysis (
+            assignment_analysis_id, course_id, assignment_id, scoring_generation, completed_at,
+            completed_assignment_attempt_count, in_progress_assignment_attempt_count,
+            minimum_cohort_size, aggregate
+        ) VALUES (
+            '00000000-0000-0000-0000-000000002001',
+            '00000000-0000-0000-0000-000000002000',
+            '00000000-0000-0000-0000-000000000110',
+            1, '2026-01-01 00:00:00+00', 5, 0, 5, '{}'::jsonb
+        );
+        RAISE EXCEPTION 'Assignment Analysis accepted a Course Instance and Assignment mismatch';
+    EXCEPTION WHEN foreign_key_violation THEN NULL;
+    END;
+    BEGIN
         INSERT INTO ple_data.assignment_question_analysis (
             assignment_question_analysis_id, assignment_analysis_id, course_id, assignment_id,
             assignment_entry_id, question_id, revision_number, graded_attempt_count, aggregate
         ) VALUES (
             '00000000-0000-0000-0000-000000000823',
             '00000000-0000-0000-0000-000000000820',
-            '00000000-0000-0000-0000-000000000106',
+            '00000000-0000-0000-0000-000000002000',
             '00000000-0000-0000-0000-000000000110',
-            '00000000-0000-0000-0000-000000000112', 'ABC-DEF0', 1, 5, '{}'::jsonb
+            '00000000-0000-0000-0000-000000000112', 'SRC-0001', 1, 5, '{}'::jsonb
         );
         RAISE EXCEPTION 'Assignment Question Analysis accepted a mismatched parent Course Instance';
     EXCEPTION WHEN foreign_key_violation THEN NULL;
     END;
+    BEGIN
+        INSERT INTO ple_data.assignment_question_analysis (
+            assignment_question_analysis_id, assignment_analysis_id, course_id, assignment_id,
+            assignment_entry_id, question_id, revision_number, graded_attempt_count, aggregate
+        ) VALUES (
+            '00000000-0000-0000-0000-000000002002',
+            '00000000-0000-0000-0000-000000000820',
+            '00000000-0000-0000-0000-000000000105',
+            '00000000-0000-0000-0000-000000000110',
+            '00000000-0000-0000-0000-000000000112', 'ABC-DEF0', 2, 5, '{}'::jsonb
+        );
+        RAISE EXCEPTION 'Assignment Question Analysis accepted an unknown exact Question Revision';
+    EXCEPTION WHEN foreign_key_violation THEN NULL;
+    END;
+    INSERT INTO ple_data.assignment_question_analysis (
+        assignment_question_analysis_id, assignment_analysis_id, course_id, assignment_id,
+        assignment_entry_id, question_id, revision_number, graded_attempt_count, aggregate
+    ) VALUES (
+        '00000000-0000-0000-0000-000000002003',
+        '00000000-0000-0000-0000-000000000820',
+        '00000000-0000-0000-0000-000000000105',
+        '00000000-0000-0000-0000-000000000110',
+        '00000000-0000-0000-0000-000000000112', 'SRC-0001', 1, 5, '{}'::jsonb
+    );
     BEGIN
         INSERT INTO ple_data.assignment_question_analysis (
             assignment_question_analysis_id, assignment_analysis_id, course_id, assignment_id,
@@ -876,6 +944,56 @@ BEGIN
         );
         RAISE EXCEPTION 'Assignment Question Analysis accepted a duplicate source Question Revision';
     EXCEPTION WHEN unique_violation THEN NULL;
+    END;
+END
+$$;
+
+-- No other Job Kind may target a Course Assignment.
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO ple_private.job (
+            job_id, job_kind, job_target_kind, course_id, assignment_id, generation,
+            payload, state, available_at, max_attempts, created_at
+        ) VALUES (
+            '00000000-0000-0000-0000-000000002007',
+            'recalculate_assignment', 'course_assignment',
+            '00000000-0000-0000-0000-000000000105',
+            '00000000-0000-0000-0000-000000000110', 1,
+            '{}'::jsonb, 'ready', '2026-01-01 00:00:00+00', 1, '2026-01-01 00:00:00+00'
+        );
+        RAISE EXCEPTION 'a non-analysis Job Kind accepted a Course Assignment target';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+END
+$$;
+
+-- Recalculation is a Course Assignment Job. The accepted row has precisely
+-- that target shape; a Question Submission target is rejected for this kind.
+INSERT INTO ple_private.job (
+    job_id, job_kind, job_target_kind, course_id, assignment_id, generation,
+    payload, state, available_at, max_attempts, created_at
+) VALUES (
+    '00000000-0000-0000-0000-000000002004',
+    'recalculate_assignment_question_analysis', 'course_assignment',
+    '00000000-0000-0000-0000-000000000105',
+    '00000000-0000-0000-0000-000000000110', 1,
+    '{}'::jsonb, 'ready', '2026-01-01 00:00:00+00', 1, '2026-01-01 00:00:00+00'
+);
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO ple_private.job (
+            job_id, job_kind, job_target_kind, question_submission_id, generation,
+            payload, state, available_at, max_attempts, created_at
+        ) VALUES (
+            '00000000-0000-0000-0000-000000002005',
+            'recalculate_assignment_question_analysis', 'question_submission',
+            '00000000-0000-0000-0000-000000002006', 1,
+            '{}'::jsonb, 'ready', '2026-01-01 00:00:00+00', 1, '2026-01-01 00:00:00+00'
+        );
+        RAISE EXCEPTION 'Assignment Question Analysis recalculation accepted a Question Submission target';
+    EXCEPTION WHEN check_violation THEN NULL;
     END;
 END
 $$;

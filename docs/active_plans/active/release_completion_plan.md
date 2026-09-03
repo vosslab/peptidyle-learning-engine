@@ -31,6 +31,19 @@ independent audit with repaired findings, and complete aggregate acceptance pass
 key-free server format-validation fallback remains a separately allocated future server-boundary
 correction; the current server does not mount that route.
 
+`WP-SD1-A-TERM-01-PI2` is accepted as the direct Assignment Question Analysis domain/schema/typed-Job
+cutover in fresh migration `2026082923`. `AssignmentQuestionAnalysis` and
+`assignment_question_analysis` own the Course Instance-and-Assignment-scoped, Scoring
+Generation-bound analysis for one source Assignment Entry and exact Question Revision; its four
+Question Outcome Categories remain separate from Unscored Attempt Count. The production repair
+constrains the typed Job target, while two fixture/oracle composition repairs complete the existing
+durable SD1 evidence. `assignment_analysis_course_assignment_matches` proves the composite Course
+Instance-plus-Assignment relationship and rejects a cross-Course Assignment. Focused model/schema
+gates, independent inventory, and the live SD1 least-privilege PostgreSQL lane pass. No Store,
+route, browser, generated contract, worker, new test file, or fixture suite was added; one compact
+reciprocal case was added to the existing durable SD1 oracle. This package precedes but does not
+accept the existing `WP-SD1-A` independent architecture/privacy final SD1 gate.
+
 This is the binding release authority for decisions, objectives, architecture, dependency order, acceptance/evidence, migration policy, risks, rollout, and closeout. The [Current Package Registry](../implementation_status.md) records current package status. Update both documents when a release decision, dependency, status, or acceptance condition changes.
 
 ### Evidence classification

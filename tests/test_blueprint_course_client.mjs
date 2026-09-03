@@ -129,6 +129,9 @@ function noStoreJson(value, etag, status = 200) {
 
 test("B1 Blueprint Course decoder keeps views answer-free and rejects hostile fields", () => {
   assert.equal(decodeBlueprintCourseView(blueprint()).reference, "BP-7");
+  const activeInstructor = structuredClone(blueprint());
+  activeInstructor.read_access = "active_instructor";
+  assert.equal(decodeBlueprintCourseView(activeInstructor).read_access, "active_instructor");
   const hostile = structuredClone(blueprint());
   hostile.modules[0].assignments[0].content.entries[0].question.answerKey = "secret";
   assert.throws(() => decodeBlueprintCourseView(hostile), DecodeError);

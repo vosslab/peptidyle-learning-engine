@@ -84,7 +84,6 @@ test("authentication and authorization: sessions and course boundaries", async (
       await expect(teachingTeam.getByRole("status")).toHaveText(
         "An invitation was created for Avery Singh.",
       );
-
     });
 
     await test.step("Avery accepts and observes a fresh authorized teaching session", async () => {

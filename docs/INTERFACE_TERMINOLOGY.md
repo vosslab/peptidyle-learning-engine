@@ -88,7 +88,7 @@ Canonical Question Library view names are **All Questions**, **My Questions**,
 **My Question Drafts**, **Starred**, and **Watched**. All Questions means every
 Published Question available through the Question Library. My means ownership,
 Draft means publication state, Starred means a Question Star relationship, and
-Watched means a Question Watch relationship. Folders, tags, classifications,
+Watched means a Question Watch relationship. Question Folders, Question Tags,
 Saved Question Searches, and search facets are organizational mechanisms within
 these views.
 

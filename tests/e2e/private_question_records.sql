@@ -3,6 +3,7 @@ DO $$
 DECLARE
     table_name text;
     trigger_name text;
+    checksum_column_name text;
     expected_tables text[] := ARRAY[
         'question_source',
         'draft_question_answer_key',
@@ -38,13 +39,59 @@ BEGIN
         ) THEN
             RAISE EXCEPTION 'private Question record % does not enforce RLS', table_name;
         END IF;
+    END LOOP;
+
+    -- Each private record owns exact checksum fields.  Check their stable
+    -- column and CHECK-constraint contracts rather than inferring integrity
+    -- from a historical spelling in arbitrary constraint-definition text.
+    FOR table_name, checksum_column_name IN
+        SELECT expected_integrity.table_name, expected_integrity.column_name
+        FROM (VALUES
+            ('question_source', 'source_object_checksum'),
+            ('question_source', 'public_content_checksum'),
+            ('draft_question_answer_key', 'public_content_checksum'),
+            ('draft_question_answer_key', 'answer_key_sha256'),
+            ('draft_question_feedback', 'question_feedback_sha256'),
+            ('draft_question_answer_explanation', 'answer_explanation_sha256'),
+            ('draft_question_grading_input', 'grading_input_sha256'),
+            ('question_revision_answer_key', 'answer_key_sha256'),
+            ('question_revision_feedback', 'question_feedback_sha256'),
+            ('question_revision_answer_explanation', 'answer_explanation_sha256'),
+            ('question_revision_grading_input', 'grading_input_sha256'),
+            ('workspace_import', 'format_import_data_sha256'),
+            ('workspace_import', 'item_registry_sha256'),
+            ('workspace_import', 'grading_input_sha256'),
+            ('workspace_import_item_result', 'format_item_data_sha256'),
+            ('workspace_import_grading_input', 'grading_input_sha256')
+        ) AS expected_integrity(table_name, column_name)
+    LOOP
         IF NOT EXISTS (
             SELECT 1
-            FROM pg_constraint AS table_constraint
-            WHERE table_constraint.conrelid = format('ple_private.%I', table_name)::regclass
-              AND pg_get_constraintdef(table_constraint.oid) LIKE '%sha256%'
+            FROM pg_attribute AS checksum_column
+            WHERE checksum_column.attrelid = format('ple_private.%I', table_name)::regclass
+              AND checksum_column.attname = checksum_column_name
+              AND checksum_column.atttypid = 'text'::regtype
+              AND checksum_column.attnotnull
+              AND NOT checksum_column.attisdropped
+        ) OR NOT EXISTS (
+            SELECT 1
+            FROM pg_constraint AS checksum_constraint
+            WHERE checksum_constraint.conrelid = format('ple_private.%I', table_name)::regclass
+              AND checksum_constraint.contype = 'c'
+              AND checksum_constraint.convalidated
+              AND checksum_constraint.conkey = ARRAY[
+                  (
+                      SELECT checksum_column.attnum
+                      FROM pg_attribute AS checksum_column
+                      WHERE checksum_column.attrelid = format('ple_private.%I', table_name)::regclass
+                        AND checksum_column.attname = checksum_column_name
+                        AND NOT checksum_column.attisdropped
+                  )
+              ]
         ) THEN
-            RAISE EXCEPTION 'private Question record % lacks a checksum constraint', table_name;
+            RAISE EXCEPTION
+                'private Question record %.% lacks its required checksum integrity contract',
+                table_name, checksum_column_name;
         END IF;
     END LOOP;
 

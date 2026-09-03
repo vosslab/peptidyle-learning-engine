@@ -86,8 +86,9 @@ The design answers both:
   server rules on whether an answer arrived before expiry.
 - Capability validation before publication, so the platform can answer whether a question backend
   supports an assignment policy while the instructor is still editing.
-- Deterministic server-owned grading for supported Question Types, followed by separate
-  course-local item analysis that never delays a learner-visible grade.
+- Deterministic server-owned grading for supported Question Types, followed by
+  Assignment Analysis and its Assignment Question Analysis rows, neither of which delays a
+  learner-visible grade.
 - Exam export to DOCX and PDF, with separate student and answer-key artifacts.
 
 ## Two guarantees the structure enforces
@@ -168,18 +169,18 @@ for the ownership map.
 
 ## Quick start
 
-For the first complete developer result, install the system prerequisites in
+For the first live-demo result, install the system prerequisites in
 [docs/INSTALL.md](docs/INSTALL.md), then clone the repository and start the fixed production-auth
 browser session:
 
 ```bash
 git clone https://github.com/vosslab/peptidyle-learning-engine.git
 cd peptidyle-learning-engine
-source source_me.sh && python3 -m pip install --requirement pip_requirements-dev.txt
+source source_me.sh && python3 -m pip install --requirement pip_requirements.txt
 ./run_live_demo.sh
 ```
 
-The explicit Python command installs the declared dependencies into the selected Python 3.12
+The explicit Python command installs the live-demo runtime dependency into the selected Python 3.12
 environment. `run_live_demo.sh` then sources the repository shell environment through its fixed
 `source_me.sh` path, invokes `python3 local_stack.py`, and runs `devel/setup_typescript.sh` when
 `node_modules` is absent before delegating to the canonical local-stack owner. It builds the
@@ -189,6 +190,9 @@ the canonical browser origin. For a headless alternative, run
 `./run_live_demo.sh --headless`; it keeps the same stack and prints the origin
 without opening a browser. Use `./run_live_demo.sh stop` for owner-scoped cleanup.
 Follow the visible seeded production-auth flow.
+
+For developer and test tooling, install both declared requirement files with
+`source source_me.sh && python3 -m pip install --requirement pip_requirements.txt --requirement pip_requirements-dev.txt`.
 
 Stop the session through its authenticated owner:
 
@@ -239,13 +243,14 @@ author draft
   -> issue a fresh server-seeded Question Attempt
   -> accept a Question Submission and Automated Grading Receipt
   -> publish the current Assignment Scoring State atomically
-  -> rebuild current Course item analysis in a Job
+  -> recalculate Assignment Analysis and its Assignment Question Analysis rows in a Job
 ```
 
-The final analysis is Course-owned and Instructor-only. It reports aggregate difficulty,
-discrimination, credit distribution, unanswered counts, and completion time. It contains no Student
-identity, raw response, Answer Key, or grading implementation. A stale analysis generation is
-discarded without delaying or rolling back the current Assignment Grade.
+Assignment Analysis is Course Instance-and-Assignment-scoped and Instructor-only. Its Assignment
+Question Analysis rows report aggregate difficulty, discrimination, credit distribution,
+unanswered counts, and completion time for one source Assignment Entry and exact Question Revision.
+They contain no Student identity, raw response, Answer Key, or grading implementation. A stale
+Scoring Generation is discarded without delaying or rolling back the current Assignment Grade.
 
 Automated-grading recovery contracts retain the accepted server-private Student Response, metadata,
 and Receipts without exposing Answer Keys. The Instructor-facing route is not mounted yet, so this

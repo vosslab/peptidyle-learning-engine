@@ -202,10 +202,12 @@ ownership is recorded in [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
 
 Some workers calculate replaceable projections. A lease says _which worker may
 act_; a generation says _which logical input remains current_. Timing,
-assignment scoring, and course item analysis each carry a positive generation.
-The worker locks the current owner row and publishes only when the requested
-generation still equals that row's generation. A superseded job completes as
-superseded rather than overwriting a newer projection.
+Assignment Scoring, and Assignment Analysis each carry a positive generation.
+Assignment Question Analysis rows belong to their Assignment Analysis for that
+same Scoring Generation. The worker locks the current owner row and publishes
+only when the requested generation still equals that row's generation. A
+superseded job completes as superseded rather than overwriting a newer
+projection.
 
 This dual fence prevents an old calculation from becoming current after an
 Assignment Content change, accepted-submission completion, authorized

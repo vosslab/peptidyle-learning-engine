@@ -33,9 +33,6 @@
   "questionAttemptLimit": { "maxAttempts": null },
   "questionAttemptTimeLimit": { "kind": "unlimited" },
   "tags": ["genetics", "genetic-disorders", "chapter-1", "matching"],
-  "classifications": [
-    { "system": "Peptidyle", "code": "GENETICS.CHAPTER_1", "name": "Genetics Chapter 1" }
-  ],
   "questionLicense": "CC-BY-4.0",
   "questionCitation": null,
   "language": "en-US"

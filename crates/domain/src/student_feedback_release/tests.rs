@@ -8,9 +8,8 @@ use question_model::{
 };
 
 use super::{
-    evaluate_student_feedback_release, project_student_feedback,
+    StudentFeedbackReleaseDecision, evaluate_student_feedback_release, project_student_feedback,
     project_student_response_inspection_feedback, score_current_student_feedback_release,
-    StudentFeedbackReleaseDecision,
 };
 use crate::effective_assignment_policy::{
     AssignmentAccessDecision, AssignmentPolicySource, AssignmentStartDecision,

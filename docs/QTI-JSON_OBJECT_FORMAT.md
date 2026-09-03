@@ -108,7 +108,7 @@ Version 2 keeps the same top-level metadata and policies but places response-spe
 inside one closed `response` object. The common top-level members are
 `format`, `version`, `title`, `prompt`, `response`, optional `feedback`,
 `points`, `questionAttemptLimit`, `questionAttemptTimeLimit`, optional `tags`, optional
-`classifications`, `license`, and `language`. Unknown and duplicate members are
+`questionLicense`, and `language`. Unknown and duplicate members are
 refused at every level.
 
 `questionAttemptLimit` is closed and contains only `maxAttempts`, which controls the
@@ -168,7 +168,6 @@ For example, a matching question is:
   },
   "questionAttemptTimeLimit": { "kind": "unlimited" },
   "tags": ["nucleic-acids"],
-  "classifications": [],
   "questionLicense": "CC-BY-SA-4.0",
   "language": "en-US"
 }
@@ -211,7 +210,7 @@ model            answer key + three feedback forms
 | ---------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Authoring source             | Private workspace source; authenticated author-source route and server-side compiler only | The complete PLE document, including accepted answers, pairings, regions, order, and feedback                     |
 | Published source             | Immutable private Question Source object                                                  | The canonical PLE JSON promoted at publication for source recovery and exact re-import                            |
-| Public compiled model        | Checksummed public Question Revision model                                                | Prompt, choices, policies, points, Question Classifications, license, and language; no answer or private feedback |
+| Public compiled model        | Checksummed public Question Revision model                                                | Prompt, choices, policies, points, Question Tags, exact Question License, and language; no answer or private feedback |
 | Private compiled records     | Checksummed grader-only `answer_key` JSONB                                                | Answer Key, Choice Feedback, Correct Feedback, Incorrect Feedback, schema version, and exact public-model binding |
 | Search and identity metadata | Normal relational columns                                                                 | IDs, title, lifecycle, visibility, and indexed browse fields                                                      |
 
@@ -249,12 +248,11 @@ The native codec currently enforces these bounds:
 - the complete source is at most 256 KiB;
 - the exact format and schema version are required;
 - unknown and duplicate members are rejected, including nested policies,
-  Question Classifications, and Question Licenses;
+  Question Tags, and the exact Question License;
 - a choice question has 2 through 100 choices; `singleChoice` has exactly one correct choice;
 - choice IDs start with a lowercase ASCII letter, use only lowercase letters,
   digits, `_`, or `-`, are unique, and are at most 64 bytes;
-- prompt, choice, title, tag, classification system, classification code, classification name, language, and
-  license text is nonblank and bounded;
+- prompt, choice, title, tag, language, and Question License text is nonblank and bounded;
 - Choice, Correct, and Incorrect Feedback is optional; when present, it is nonblank and bounded;
 - points are finite and nonnegative, using the shared `f64` score model; and
 - `maxAttempts` is positive or `null` for unlimited attempts.
@@ -287,6 +285,12 @@ adapter may map the supported PLE Question JSON-supported subset into the same p
 outputs, retain the original package as a Question Source with its QTI Import Package Checksum, and record unsupported
 features. Vendor-specific XML is not copied into the PLE Question JSON schema
 merely because one exporter emits it.
+
+Vendor classification data remains QTI source-format vocabulary at the adapter
+boundary and in the retained QTI Question Source. PLE Question JSON version 2
+does not flatten it into a generic `classifications` member or imply a mapping.
+A future Question Classification package may define a mapping only after it
+supports one real Classification System end to end.
 
 The native parser/compiler facade is
 `crates/adapters/ple/src/question_json.rs`; schema-version-2 shapes and

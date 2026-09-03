@@ -24,7 +24,6 @@ import {
   setQuestionHint,
   setOutcomeFeedback,
   setTags,
-  setClassifications,
   setQuestionAttemptTimeLimit,
   validatePleQuestionJsonSource,
 } from "../src/features/ple_question_json_authoring/question_json_editor_model.ts";
@@ -134,18 +133,15 @@ test("policy and metadata helpers are immutable and validation gives safe author
   const base = source();
   const edited = setLanguage(
     setQuestionLicense(
-      setClassifications(
-        setTags(
-          setQuestionAttemptTimeLimit(
-            setQuestionAttemptLimit(
-              setOutcomeFeedback(base, { correct: "Good", incorrect: "Try again" }),
-              { maxAttempts: 3 },
-            ),
-            { kind: "limited", seconds: 60, graceSeconds: 5 },
+      setTags(
+        setQuestionAttemptTimeLimit(
+          setQuestionAttemptLimit(
+            setOutcomeFeedback(base, { correct: "Good", incorrect: "Try again" }),
+            { maxAttempts: 3 },
           ),
-          ["biology", "assessment"],
+          { kind: "limited", seconds: 60, graceSeconds: 5 },
         ),
-        [{ system: "Bloom", code: "apply", name: "Apply" }],
+        ["biology", "assessment"],
       ),
       "CC-BY-4.0",
     ),

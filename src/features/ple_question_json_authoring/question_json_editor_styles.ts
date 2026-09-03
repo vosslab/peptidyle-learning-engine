@@ -10,8 +10,8 @@ export const PLE_QUESTION_JSON_EDITOR_STYLES = `
 .ple-question-json-authoring__field textarea { min-height:5.5rem; resize:vertical; }
 .ple-question-json-authoring__help { margin:.25rem 0; color:var(--ple-muted); font-size:.92rem; font-weight:500; }
 .ple-question-json-authoring__error { margin:.35rem 0; padding:.6rem .7rem; border-left:4px solid var(--ple-danger); background:color-mix(in srgb, var(--ple-danger) 7%, white); color:var(--ple-ink); font-weight:650; }
-.ple-question-json-authoring__choice-list, .ple-question-json-authoring__classification-list { display:grid; gap:.35rem; margin:0; padding:0; list-style:none; }
-.ple-question-json-authoring__choice, .ple-question-json-authoring__classification-row { min-width:0; padding:.45rem .55rem; border:0; border-inline-start:3px solid var(--ple-border); border-radius:0; background:var(--ple-surface-soft); }
+.ple-question-json-authoring__choice-list { display:grid; gap:.35rem; margin:0; padding:0; list-style:none; }
+.ple-question-json-authoring__choice { min-width:0; padding:.45rem .55rem; border:0; border-inline-start:3px solid var(--ple-border); border-radius:0; background:var(--ple-surface-soft); }
 .ple-question-json-authoring__choice-header, .ple-question-json-authoring__row-actions, .ple-question-json-authoring__actions { display:flex; flex-wrap:wrap; gap:.25rem; align-items:center; }
 .ple-question-json-authoring__choice-header { justify-content:space-between; }
 .ple-question-json-authoring__choice-title { margin:0; font-size:1rem; }

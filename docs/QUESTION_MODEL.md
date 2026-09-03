@@ -170,7 +170,7 @@ expose accepted-attempt count, graded-attempt count, correct count, and
 eligible-choice selection counts for supported choice Question Types. Below the
 threshold it exposes availability only; it never exposes raw responses,
 small-cell counts, linkable cohorts, or Student identities. Course-local
-item-analysis metrics remain separately authorized and never become global
+Assignment Question Analysis metrics remain separately authorized and never become global
 Question Statistics.
 
 ### ForcedQuestionCorrection
