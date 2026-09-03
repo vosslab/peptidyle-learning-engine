@@ -70,12 +70,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 	start = subparsers.add_parser(
 		"start",
-		help="replace and start the fixed production-browser developer session",
+		help="clear and start the fixed production-browser Developer Browser Suite",
 	)
 	start.add_argument("--headless", action="store_true")
 	start.set_defaults(handler=local_stack_control.commands.start)
 
-	stop = subparsers.add_parser("stop", help="clean up the fixed production-browser developer session")
+	stop = subparsers.add_parser("stop", help="clear the fixed production-browser Developer Browser Suite")
 	stop.set_defaults(handler=local_stack_control.commands.stop)
 
 	restart = subparsers.add_parser("restart", help="restart api, gateway, or webwork-renderer")

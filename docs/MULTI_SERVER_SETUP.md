@@ -211,10 +211,11 @@ source source_me.sh && python3 local_stack.py logs api worker
 source source_me.sh && python3 local_stack.py validate
 ```
 
-The normal developer session is not stopped with a global Podman command. The
-fixed owner authenticates stop over its private control socket and then proves
-cleanup. See [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for the
-default-stack reset contract and PostgreSQL/MinIO inspection details.
+The normal Developer Browser Suite is stopped through its fixed lifecycle, not
+a global Podman command. Its fixed owner authenticates the stop over a private
+control socket and then proves cleanup. See
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for the default-stack
+reset contract and PostgreSQL/MinIO inspection details.
 
 ## Future replica evidence
 

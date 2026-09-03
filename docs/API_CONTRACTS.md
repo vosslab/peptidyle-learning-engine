@@ -53,13 +53,13 @@ The route can use an identity in its path only after the session-derived Account
 context and exact relationship constrain the lookup. A caller never supplies
 an account, membership, or database Object Address as an authorization input.
 
-| Scope               | Authority                                                                                                                                                                       | Normal concealed result                                                                                                                                                                                                                                                        |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Question Library    | **Current QS1 raw PostgreSQL View:** authenticated Instructor session only. Question Revision Availability is a separate product fact, not this View's authorization criterion. | The unmounted `published_question_summary` View derives Latest Question Revision from the greatest accepted Question Revision Number. It does not define the mounted Store/route or full DTO availability behavior.                                                            |
-| Course              | Persisted direct `course_member` relationship                                                                                                                                   | Foreign/nonmember course looks absent where disclosure is unsafe; Sysadmin alone is not course authority.                                                                                                                                                                      |
+| Scope               | Authority                                                                                                                                                                       | Normal concealed result                                                                                                                                                                                                                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Question Library    | **Current QS1 raw PostgreSQL View:** authenticated Instructor session only. Question Revision Availability is a separate product fact, not this View's authorization criterion. | The unmounted `published_question_summary` View derives Latest Question Revision from the greatest accepted Question Revision Number. It does not define the mounted Store/route or full DTO availability behavior.                                                                                        |
+| Course              | Persisted direct `course_member` relationship                                                                                                                                   | Foreign/nonmember course looks absent where disclosure is unsafe; Sysadmin alone is not course authority.                                                                                                                                                                                                  |
 | Assignment activity | Exact Course, Assignment, Student Record, Assignment Attempt, Issued Question, and session-derived role                                                                         | Student-facing Store reads and mutations require an allowed Assignment Access decision for that Student and Assignment in the same authority boundary as the record lookup. A revoked Student cannot retain access through an ended Course Membership, Assignment Attempt, or Question Attempt identifier. |
-| Workspace           | Exact workspace owner/collaborator relationship                                                                                                                                 | Student, foreign, and unshared workspaces share an absent result.                                                                                                                                                                                                              |
-| Protected asset     | Typed delivery record plus current persisted authorization pointer                                                                                                              | Unknown or unauthorized delivery ID is not an object-storage lookup.                                                                                                                                                                                                           |
+| Workspace           | Exact workspace owner/collaborator relationship                                                                                                                                 | Student, foreign, and unshared workspaces share an absent result.                                                                                                                                                                                                                                          |
+| Protected asset     | Typed delivery record plus current persisted authorization pointer                                                                                                              | Unknown or unauthorized delivery ID is not an object-storage lookup.                                                                                                                                                                                                                                       |
 
 The fuller authorization and forced account-and-relationship-scoped RLS evidence is in
 [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security)
@@ -81,13 +81,21 @@ and HTTP status behavior remain in the linked owner.
 
 The following product capabilities remain authoritative design targets, not
 mounted routes: Question Library and lifecycle; private authoring and
-QTI import; Blueprint Course and Course Instance creation; Course Roster and
-Course Enrollment; assignment authoring, direct Student Accommodations, and
+QTI import; Blueprint Course and Course Instance creation; Course Roster,
+Course Roster Import, invitation claim, and Course Enrollment; assignment authoring, direct Student Accommodations, and
 Student delivery; automated grading, Gradebook, Student-work inspection, and
 exports; object delivery; Course Retention; and iMathAS Question Backend boundaries. Their
 future route composition must be Store-backed, relationship-authorized, and
 tested against the disposable PostgreSQL stack before this document can list
 their paths as available.
+
+Current authentication ceremonies authenticate existing Accounts only. The
+current Sysadmin Create Instructor Account operation creates the fixed
+Instructor Account from private normalized and delivery Instructor
+Authentication Email. `WP-RC8` owns the future Course Roster Import Store,
+route, invitation, and Student Account resolve-or-create transaction. Student
+Authentication Email is immutable; a later verified Instructor Authentication
+Email replacement preserves the existing Instructor Account relationships.
 
 iMathAS Result Tokens and iMathAS Results remain server-to-server
 adapter/LDA evidence, not route requests or responses. The Result's first profile is a

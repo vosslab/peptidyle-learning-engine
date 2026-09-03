@@ -172,7 +172,7 @@ than a separate stack owner.
 
 The aggregate live browser command is
 `source source_me.sh && python3 local_stack.py acceptance`. The canonical owner
-lease serializes it with developer sessions and exact cleanup. The active plan
+lease serializes it with the Developer Browser Suite lifecycle and exact cleanup. The active plan
 names the full Validation test suite; [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite)
 defines why permanent offline checks and opt-in live acceptance remain separate.
 

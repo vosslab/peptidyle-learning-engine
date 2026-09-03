@@ -145,7 +145,7 @@ def _read_private_file(repository_root: pathlib.Path, name: str) -> bytes:
 			metadata = os.stat(name, dir_fd=root_descriptor, follow_symlinks=False)
 			file_descriptor = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=root_descriptor)
 		except OSError as error:
-			raise DeveloperBrowserSuiteError("developer browser session is not running") from error
+			raise DeveloperBrowserSuiteError("Developer Browser Suite is not running") from error
 		try:
 			opened = os.fstat(file_descriptor)
 			if (
@@ -392,11 +392,11 @@ def _validate_stop_request(content: bytes, receipt: DeveloperControlReceipt) -> 
 
 
 #============================================
-def request_stop(
+def request_developer_browser_suite_stop(
 	repository_root: pathlib.Path,
 	timeout_seconds: float = DEVELOPER_STOP_WAIT_SECONDS,
 ) -> DeveloperStartReceipt:
-	"""Request a bounded authenticated shutdown and wait for owner-validated cleanup."""
+	"""Request a bounded authenticated Browser Suite stop and await cleanup."""
 	if timeout_seconds <= 0:
 		raise DeveloperBrowserSuiteError("developer browser stop timeout is invalid")
 	receipt = read_control_receipt(repository_root)
@@ -422,7 +422,7 @@ def request_stop(
 		try:
 			completion = _read_completion_receipt(repository_root)
 		except DeveloperBrowserSuiteError as error:
-			if str(error) != "developer browser session is not running":
+			if str(error) != "Developer Browser Suite is not running":
 				time.sleep(0.05)
 				continue
 		else:
@@ -657,11 +657,11 @@ def _terminate_child(child: object, timeout_seconds: float) -> None:
 
 
 #============================================
-def purge_orphaned_session(
+def purge_orphaned_developer_browser_suite(
 	repository_root: pathlib.Path,
 	runner: local_stack_control.process.CommandRunner,
 ) -> str:
-	"""Reacquire the fixed lease and purge one interrupted browser owner.
+	"""Reacquire the fixed lease and purge one interrupted Developer Browser Suite.
 
 	The caller reaches this path only after its authenticated supervisor protocol
 	is unavailable.  The lease proves no live owner remains; the reset then uses
@@ -694,31 +694,31 @@ def purge_orphaned_session(
 
 
 #============================================
-def reconcile_developer_session(
+def clear_developer_browser_suite(
 	repository_root: pathlib.Path,
 	runner: local_stack_control.process.CommandRunner,
 ) -> str:
-	"""Stop an active owner or purge one lease-proven orphan before replacement.
+	"""Leave the fixed Developer Browser Suite empty before a stop or start.
 
 	ASVS 2.3.1 and 15.4.3: the fixed owner completes cleanup before the next
 	owner may acquire the same lease. ASVS 8.2.2: orphan recovery remains bound
 	to the immutable live-demo project and its verified resource labels.
 	"""
 	try:
-		result = request_stop(repository_root)
+		result = request_developer_browser_suite_stop(repository_root)
 		project = result.project
 	except DeveloperBrowserSuiteError:
 		# Any unavailable or incomplete control protocol can fall back only after
 		# reacquiring the same exclusive lease. A live owner keeps the lease and
 		# this path therefore fails before engine or Podman work.
-		project = purge_orphaned_session(repository_root, runner)
+		project = purge_orphaned_developer_browser_suite(repository_root, runner)
 	return project
 
 
 #============================================
 def _recover_failed_start(repository_root: pathlib.Path) -> None:
 	"""Reacquire the browser-suite lease and prove the fixed live-demo project is empty."""
-	purge_orphaned_session(
+	purge_orphaned_developer_browser_suite(
 		repository_root,
 		local_stack_control.process.SubprocessRunner(),
 	)
@@ -732,7 +732,7 @@ def _child_exited_before_ready(child: object) -> bool:
 
 
 #============================================
-def start_developer_session(
+def start_developer_browser_suite(
 	repository_root: pathlib.Path,
 	timeout_seconds: float = DEVELOPER_START_WAIT_SECONDS,
 	spawn: Callable[[pathlib.Path, local_stack_control.browser_suite_lease.BrowserSuiteLease], object] | None = None,

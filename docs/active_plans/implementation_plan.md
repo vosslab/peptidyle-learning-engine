@@ -36,6 +36,13 @@ focused evidence, independent least-privilege PostgreSQL review, current-documen
 and independent final inventory review; `WP-SD1-A` independent architecture/privacy `ACCEPT` remains
 the final SD1 gate.
 
+`WP-SD1-A-TERM-01-IAA1` is allocated after the accepted global Account/Authenticated Session baseline
+and before `WP-RC8`. It directly replaces the generic executable PostgreSQL account creator with the
+exact Sysadmin Create Instructor Account operation and gives the shared private Authentication Email
+relation role-qualified integrity rules. It owns no roster route, Store, DTO, invitation claim, or
+Instructor email-replacement implementation; `WP-RC8` remains the sole future Course Roster Import
+transaction owner for Student Account resolution and creation.
+
 [customer-spec.md](customer-spec.md) describes a
 backend-agnostic assignment platform built around repeated attempts, algorithmic questions, and
 question-level timing. The foundational M0 and M1 platform slices and the main M2 through M4

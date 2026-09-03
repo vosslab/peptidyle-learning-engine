@@ -169,6 +169,7 @@ psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/assignment_revision_entry_snapshot_catalog.sql"
 echo "SD1 staged database E2E: exact principal, schema, ACL, and membership catalog"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/sd1_staged_database_catalog.sql"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/sd1_instructor_account_creation.sql"
 assert_restricted_logins
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/imathas_question_backend_session_postgres_oracle.sql"
 assert_imathas_question_backend_service_logins

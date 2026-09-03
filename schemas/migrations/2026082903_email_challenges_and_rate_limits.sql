@@ -1,4 +1,4 @@
--- SD1 passwordless email challenge and authentication-rate-limit roots.
+-- SD1 role-qualified Authentication Email, passwordless challenge, and rate-limit roots.
 
 DO $$
 BEGIN
@@ -25,9 +25,10 @@ $$;
 
 SET LOCAL ROLE ple_private_owner;
 
--- An Authentication Email is private mutable credential data.  It identifies
--- the Account that a completed email ceremony may authenticate, but it is not
--- an Account identity, role grant, course relationship, or browser DTO.
+-- An Authentication Email is private credential data for one Account. Student
+-- bindings are immutable, Instructor replacement requires a later verified
+-- operation, and Sysadmin binding has no current writer; it is never an
+-- Account identity, role grant, course relationship, or browser DTO.
 CREATE TABLE ple_private.account_authentication_email (
     account_id uuid PRIMARY KEY REFERENCES ple_private.account (account_id),
     normalized_email text NOT NULL UNIQUE,
@@ -45,6 +46,52 @@ CREATE TABLE ple_private.account_authentication_email (
         updated_at >= verified_at
     )
 );
+
+-- An Authentication Email has role-derived integrity rules. Student bindings
+-- are immutable after creation, Instructor replacement awaits its dedicated
+-- verified operation, and Sysadmin bindings have no current write path.
+CREATE FUNCTION ple_private.enforce_account_authentication_email_role()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_private
+AS $$
+DECLARE
+    v_new_role text;
+    v_old_role text;
+BEGIN
+    SELECT account.role INTO v_new_role
+      FROM ple_private.account AS account
+     WHERE account.account_id = NEW.account_id;
+    IF v_new_role IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '23503',
+            MESSAGE = 'Authentication Email requires an existing Account';
+    END IF;
+    IF v_new_role NOT IN ('student', 'instructor') THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Authentication Email requires a supported Account role';
+    END IF;
+    IF TG_OP = 'UPDATE' THEN
+        IF NEW.account_id IS DISTINCT FROM OLD.account_id THEN
+            RAISE EXCEPTION USING ERRCODE = '23514',
+                MESSAGE = 'Authentication Email Account binding is immutable';
+        END IF;
+        SELECT account.role INTO v_old_role
+          FROM ple_private.account AS account
+         WHERE account.account_id = OLD.account_id;
+        IF v_old_role IS DISTINCT FROM 'instructor'
+           OR v_new_role IS DISTINCT FROM 'instructor' THEN
+            RAISE EXCEPTION USING ERRCODE = '23514',
+                MESSAGE = 'Student Authentication Email is immutable';
+        END IF;
+    END IF;
+    RETURN NEW;
+END
+$$;
+
+CREATE TRIGGER account_authentication_email_role_is_enforced
+BEFORE INSERT OR UPDATE ON ple_private.account_authentication_email
+FOR EACH ROW
+EXECUTE FUNCTION ple_private.enforce_account_authentication_email_role();
 
 -- Only non-reversible server-derived quota keys are retained.  The mutable
 -- counter is scoped to an explicit fixed window and never identifies a person.
@@ -66,8 +113,8 @@ CREATE TABLE ple_private.authentication_rate_limit (
 );
 
 -- Email is private ceremony state, never a Question Library, course, or browser DTO.
--- Every challenge authenticates one existing Account. Account Creation is
--- a distinct Sysadmin-owned workflow. A completed challenge remains as a
+-- Every challenge authenticates one existing Account. Create Instructor Account
+-- is a distinct Active Sysadmin-owned workflow. A completed challenge remains as a
 -- minimal single-use receipt until the future retention owner deletes it;
 -- neither raw code nor password is stored.
 CREATE TABLE ple_private.email_authentication_challenge (
@@ -113,9 +160,11 @@ ALTER TABLE ple_private.email_authentication_challenge FORCE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE ple_private.authentication_rate_limit FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE ple_private.account_authentication_email FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE ple_private.email_authentication_challenge FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION ple_private.enforce_account_authentication_email_role()
+    FROM PUBLIC;
 
 COMMENT ON TABLE ple_private.account_authentication_email IS
-    'Private verified mutable email credential for one existing global Account; never an authorization grant or browser DTO.';
+    'Private role-qualified Authentication Email for one existing global Account; never an authorization grant or browser DTO.';
 COMMENT ON TABLE ple_private.email_authentication_challenge IS
     'Private, browser-bound, single-use passwordless email ceremony state; raw code is never stored.';
 COMMENT ON TABLE ple_private.authentication_rate_limit IS

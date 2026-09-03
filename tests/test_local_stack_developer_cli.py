@@ -67,14 +67,14 @@ def test_start_uses_the_fixed_owner_and_opens_its_safe_origin(
 	"""Start delegates build, seed, and origin selection to the fixed owner."""
 	events: list[str] = []
 
-	def reconcile(
+	def clear_browser_suite(
 		root: pathlib.Path,
 		runner: local_stack_control.process.CommandRunner,
 	) -> str:
 		"""Record the mandatory fixed-owner cleanup before replacement."""
 		assert root == tmp_path
 		assert isinstance(runner, RecordingRunner)
-		events.append("reconcile")
+		events.append("clear")
 		return receipt().project
 
 	def start_owner(
@@ -87,12 +87,12 @@ def test_start_uses_the_fixed_owner_and_opens_its_safe_origin(
 
 	monkeypatch.setattr(
 		local_stack_control.browser_suite_developer,
-		"reconcile_developer_session",
-		reconcile,
+		"clear_developer_browser_suite",
+		clear_browser_suite,
 	)
 	monkeypatch.setattr(
 		local_stack_control.browser_suite_developer,
-		"start_developer_session",
+		"start_developer_browser_suite",
 		start_owner,
 	)
 	monkeypatch.setattr(
@@ -104,18 +104,18 @@ def test_start_uses_the_fixed_owner_and_opens_its_safe_origin(
 	result = local_stack_control.cli.run(["start"], runner, tmp_path)
 	output = capsys.readouterr().out
 	assert result == 0
-	assert events == ["reconcile", "start"]
+	assert events == ["clear", "start"]
 	assert runner.argvs == [["open", receipt().origin]]
 	assert "Stop with: ./run_live_demo.sh stop" in output
 
 
 #============================================
-def test_start_headless_preserves_the_same_canonical_session(
+def test_start_headless_preserves_the_same_developer_browser_suite(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-	"""Headless mode changes only local presentation, never the production session."""
-	def reconcile(
+	"""Headless mode changes only local presentation, never the Browser Suite."""
+	def clear_browser_suite(
 		root: pathlib.Path,
 		runner: local_stack_control.process.CommandRunner,
 	) -> str:
@@ -130,12 +130,12 @@ def test_start_headless_preserves_the_same_canonical_session(
 
 	monkeypatch.setattr(
 		local_stack_control.browser_suite_developer,
-		"reconcile_developer_session",
-		reconcile,
+		"clear_developer_browser_suite",
+		clear_browser_suite,
 	)
 	monkeypatch.setattr(
 		local_stack_control.browser_suite_developer,
-		"start_developer_session",
+		"start_developer_browser_suite",
 		start_owner,
 	)
 	runner = RecordingRunner()
@@ -145,19 +145,19 @@ def test_start_headless_preserves_the_same_canonical_session(
 
 
 #============================================
-def test_start_replaces_an_existing_owner_before_launching_the_fresh_session(
+def test_start_clears_the_existing_owner_before_starting_the_browser_suite(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
 ) -> None:
 	"""Start completes owner-scoped cleanup before acquiring the fresh lease."""
 	events: list[str] = []
 
-	def reconcile(
+	def clear_browser_suite(
 		root: pathlib.Path,
 		runner: local_stack_control.process.CommandRunner,
 	) -> str:
 		"""Record the owner-scoped cleanup boundary."""
-		events.append("reconcile")
+		events.append("clear")
 		return receipt().project
 
 	def start_owner(
@@ -169,17 +169,17 @@ def test_start_replaces_an_existing_owner_before_launching_the_fresh_session(
 
 	monkeypatch.setattr(
 		local_stack_control.browser_suite_developer,
-		"reconcile_developer_session",
-		reconcile,
+		"clear_developer_browser_suite",
+		clear_browser_suite,
 	)
 	monkeypatch.setattr(
 		local_stack_control.browser_suite_developer,
-		"start_developer_session",
+		"start_developer_browser_suite",
 		start_owner,
 	)
 	result = local_stack_control.cli.run(["start", "--headless"], RecordingRunner(), tmp_path)
 	assert result == 0
-	assert events == ["reconcile", "start"]
+	assert events == ["clear", "start"]
 
 
 #============================================
@@ -196,7 +196,7 @@ def test_stop_uses_authenticated_owner_cleanup(
 		stopped.append(root)
 		return receipt()
 
-	monkeypatch.setattr(local_stack_control.browser_suite_developer, "request_stop", stop_owner)
+	monkeypatch.setattr(local_stack_control.browser_suite_developer, "request_developer_browser_suite_stop", stop_owner)
 	monkeypatch.setattr(
 		local_stack_control.cleanup,
 		"stop_plan",
@@ -214,20 +214,20 @@ def test_stop_purges_an_interrupted_fixed_owner(
 	monkeypatch: pytest.MonkeyPatch,
 	capsys: pytest.CaptureFixture[str],
 ) -> None:
-	"""Stop reconciles an orphan only through the lease-bound fixed reset owner."""
+	"""Stop clears an orphan only through the lease-bound fixed reset owner."""
 	events: list[str] = []
 
 	def unavailable_owner(root: pathlib.Path) -> local_stack_control.browser_suite_developer.DeveloperStartReceipt:
 		"""Represent an interrupted supervisor whose containers can remain."""
 		assert root == tmp_path
 		raise local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError(
-			"developer browser session is not running"
+			"Developer Browser Suite is not running"
 		)
 
-	monkeypatch.setattr(local_stack_control.browser_suite_developer, "request_stop", unavailable_owner)
+	monkeypatch.setattr(local_stack_control.browser_suite_developer, "request_developer_browser_suite_stop", unavailable_owner)
 	monkeypatch.setattr(
 		local_stack_control.browser_suite_developer,
-		"purge_orphaned_session",
+		"purge_orphaned_developer_browser_suite",
 		lambda root, runner: (
 			events.append("purge"),
 			local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
@@ -240,7 +240,7 @@ def test_stop_purges_an_interrupted_fixed_owner(
 
 
 #============================================
-def test_stop_lease_reconciles_owner_protocol_failures(
+def test_stop_lease_clears_owner_protocol_failures(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
 	capsys: pytest.CaptureFixture[str],
@@ -254,10 +254,10 @@ def test_stop_lease_reconciles_owner_protocol_failures(
 			"developer browser supervisor cleanup failed"
 		)
 
-	monkeypatch.setattr(local_stack_control.browser_suite_developer, "request_stop", failed_stop)
+	monkeypatch.setattr(local_stack_control.browser_suite_developer, "request_developer_browser_suite_stop", failed_stop)
 	monkeypatch.setattr(
 		local_stack_control.browser_suite_developer,
-		"purge_orphaned_session",
+		"purge_orphaned_developer_browser_suite",
 		lambda root, runner: (
 			events.append("purge"),
 			local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,

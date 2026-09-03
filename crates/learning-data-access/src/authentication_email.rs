@@ -1,8 +1,11 @@
 //! Private Authentication Email value objects.
 //!
-//! An Authentication Email is a verified, mutable credential for one Account.
-//! It is deliberately separate from account identity, role, session, and
-//! course-record authorization.
+//! AuthenticationEmail is a validated, redacted private
+//! normalized-and-delivery credential value. Account Product Role owns its
+//! lifecycle and mutability: a Student Authentication Email is immutable, and
+//! a future verified Instructor Authentication Email replacement owns
+//! Instructor changes. It is deliberately separate from account identity,
+//! session, and course-record authorization.
 
 /// Maximum accepted Authentication Email length after trimming whitespace.
 pub const MAX_AUTHENTICATION_EMAIL_BYTES: usize = 320;

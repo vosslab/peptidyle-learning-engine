@@ -44,6 +44,13 @@ route, browser, generated contract, worker, new test file, or fixture suite was 
 reciprocal case was added to the existing durable SD1 oracle. This package precedes but does not
 accept the existing `WP-SD1-A` independent architecture/privacy final SD1 gate.
 
+`WP-SD1-A-TERM-01-IAA1` is allocated after the accepted global Account/Authenticated Session baseline
+and before `WP-RC8`. It directly replaces the generic executable PostgreSQL account creator with the
+exact Sysadmin Create Instructor Account operation and gives the shared private Authentication Email
+relation role-qualified integrity rules. It owns no roster route, Store, DTO, invitation claim, or
+Instructor email-replacement implementation; `WP-RC8` remains the sole future Course Roster Import
+transaction owner for Student Account resolution and creation.
+
 This is the binding release authority for decisions, objectives, architecture, dependency order, acceptance/evidence, migration policy, risks, rollout, and closeout. The [Current Package Registry](../implementation_status.md) records current package status. Update both documents when a release decision, dependency, status, or acceptance condition changes.
 
 ### Evidence classification
@@ -132,13 +139,13 @@ WP-SD1-A independent ACCEPT
   -> WP-SD1-B -> WP-SD1-C -> WP-SD1-D/E -> WP-SD1-F -> WP-SD1-G
   -> WP-RC4 -> WP-P1..WP-P6 -> WP-RC5 -> WP-RC6
   -> WP-P2 -> WP-RC7
-  -> WP-RC8 -> WP-RC9 -> WP-RC10 -> WP-RC11 -> WP-RC12
+  -> WP-SD1-A-TERM-01-IAA1 -> WP-RC8 -> WP-RC9 -> WP-RC10 -> WP-RC11 -> WP-RC12
 
 Accepted foundations: WP-RC1 -> WP-RC2 -> WP-RC3 -> WP-ARCH1 -> WP-RC3R.
 Accepted orchestration: WP-R1 -> WP-PY-L1. Accepted stewardship: WP-R2.
 ```
 
-WP-SD1 is the release prerequisite. `WP-SD1-A-decisions-and-impact-contract` stays pending until its independent architecture/privacy review accepts it. B--G proceed in order without an Alpha bridge or parallel product path. WP-P1 may progress beside RC4 closeout, but all WP-P1--WP-P6 requirements accept before RC5. WP-P2 preserves migration allocation and transitions legacy consumers before RC7 schema work.
+WP-SD1 is the release prerequisite. `WP-SD1-A-decisions-and-impact-contract` stays pending until its independent architecture/privacy review accepts it. B--G proceed in order without an Alpha bridge or parallel product path. WP-P1 may progress beside RC4 closeout, but all WP-P1--WP-P6 requirements accept before RC5. WP-P2 preserves migration allocation and transitions legacy consumers before RC7 schema work. `WP-SD1-A-TERM-01-IAA1` supplies exact current-baseline Instructor creation and role-qualified private-email integrity before the complete `WP-RC8` roster/import delivery transaction.
 
 ## Release acceptance criteria
 

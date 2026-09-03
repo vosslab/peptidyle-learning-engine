@@ -106,7 +106,7 @@ def test_start_waits_for_private_ready_receipt(tmp_path: pathlib.Path) -> None:
 			os.close(descriptor)
 		return object()
 
-	result = local_stack_control.browser_suite_developer.start_developer_session(
+	result = local_stack_control.browser_suite_developer.start_developer_browser_suite(
 		tmp_path, 0.5, spawn
 	)
 	assert result == local_stack_control.browser_suite_developer.DeveloperStartReceipt(
@@ -148,7 +148,7 @@ def test_orphan_purge_removes_owned_resources_workspace_and_control_state(
 		"reset_live_demo_browser",
 		lambda lease, runner, root: (events.append("reset"), empty)[1],
 	)
-	project = local_stack_control.browser_suite_developer.purge_orphaned_session(
+	project = local_stack_control.browser_suite_developer.purge_orphaned_developer_browser_suite(
 		tmp_path,
 		local_stack_control.process.SubprocessRunner(),
 	)
@@ -162,7 +162,7 @@ def test_orphan_purge_removes_owned_resources_workspace_and_control_state(
 	assert tuple(workspace.iterdir()) == ()
 	with pytest.raises(
 		local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError,
-		match="session is not running",
+		match="Developer Browser Suite is not running",
 	):
 		local_stack_control.browser_suite_developer.read_control_receipt(tmp_path)
 
@@ -194,7 +194,7 @@ def test_start_early_supervisor_exit_terminates_child_then_exact_resets_fixed_ow
 
 	child = ExitedChild()
 	with pytest.raises(local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError):
-		local_stack_control.browser_suite_developer.start_developer_session(
+		local_stack_control.browser_suite_developer.start_developer_browser_suite(
 			tmp_path,
 			0.5,
 			lambda _root, _lease: child,

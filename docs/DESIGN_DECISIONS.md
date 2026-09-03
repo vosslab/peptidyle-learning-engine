@@ -567,12 +567,10 @@ Course Roster Import matching. Course-scoped authorization, Student ownership, a
 disclosure through separate Student Records and Student Course Memberships. Passkeys are optional
 convenience credentials for that Account.
 
-**Consequence.** Course Roster Import uses each institutional email to resolve an existing Student
-Account or create one when none exists, then creates a pending Course Invitation bound to that
-Account and the exact Course Instance. The Instructor shares its one-time copy link through an
-existing trusted LMS or uses configured SMTP. After the Student authenticates and accepts the
-invitation, Course Enrollment creates or reuses the Course Instance's Student Record and creates
-the exact Student Course Membership binding atomically. An authorized pre-activity Assignment read returns
+**Consequence.** The planned, unmounted `WP-RC8` Course Roster Import transaction will use each
+institutional email to resolve an existing Student Account or create one when none exists, then
+complete its Store, route, invitation, and Course Enrollment transaction atomically. Current
+authentication ceremonies authenticate existing Accounts only. An authorized pre-activity Assignment read returns
 an empty `AssignmentProgress` result. Starting an Assignment Attempt creates the direct Student
 Record-to-Assignment activity relationship transactionally; calculating a Grade creates its exact
 grade record. New Assignments add definitions, while Student rows appear with actual Student work.
@@ -583,19 +581,19 @@ Record, and invitation claim.
 [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md), and the course capabilities in
 `crates/learning-data-access` and `crates/server/src/course/`.
 
-**Planned closure.** The HTTP roster, invitation claim, bulk preview/commit, and passwordless
-account boundary are implemented. Acceptance remains open for the canonical operator-configured
-email-provider journey, optional-passkey and multi-replica evidence, and independent security/HCI
-closeout.
+**Planned closure.** `WP-RC8` must mount the Course Roster Import, invitation claim, and
+passwordless enrollment delivery with its Store, route, and transaction proof. The current
+baseline does not mount those paths. Operator-configured email-provider, optional-passkey,
+multi-replica, security, and HCI evidence remain open.
 
 ### Current personas are Student, Instructor, and Sysadmin
 
 **Decision.** Each PLE account has exactly one immutable current Student, Instructor, or Sysadmin
 role. A person needing multiple roles uses separate accounts; Dr. Voss may use separate Instructor
-and Sysadmin accounts. Instructor Vetting is real-person validation before Account Creation, and teaching requires
+and Sysadmin accounts. Instructor Vetting is real-person validation before the Sysadmin Create Instructor Account operation, and teaching requires
 direct Instructor membership. A Sysadmin creates a Course Instance only for an explicitly assigned
 active Instructor account, which receives the initial membership; the Sysadmin receives none.
-An Instructor may replace the Instructor Authentication Email after verifying the new address; the
+The later verified Instructor Authentication Email replacement operation may replace that email; the
 same Instructor Account retains its Product Role, Question authorship and ownership, Authoring
 Workspace relationships, Course Memberships, authored content, and teaching history.
 Course help uses an explicit, audited, time-bounded support capability with a stated purpose.

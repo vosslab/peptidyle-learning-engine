@@ -168,17 +168,17 @@ SD1-C creates the single-installation schema only on freshly cleaned disposable 
 not preserve an installation-scope compatibility layer. The Migration Allocation Registry allocates the exact next available
 number in these ranges:
 
-| Range                                                | Allocated capability scope                                                                                                                                 |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `2026082901`                                         | Principal baseline, schemas, capability roles, and default ACLs                                                                                            |
-| `2026082902`-`2026082906`, `2026082933`-`2026082934` | Accounts, passwordless credentials, Instructor vetting, authenticated-session resolution, atomic credential completion, and Sysadmin Account Creation      |
-| `2026082907`-`2026082909`                            | Global immutable Question Library, publication, discovery, and stewardship                                                                                 |
-| `2026082910`-`2026082912`                            | Private authoring, Blueprints, Question Folders, and Saved Question Searches                                                                               |
-| `2026082913`-`2026082916`                            | Courses, equal Teaching Team Members, Students, invitations, curricula                                                                                     |
-| `2026082917`-`2026082920`                            | Assignment Attempts, schedules, Issued Questions, submissions, artifacts                                                                                   |
-| `2026082921`-`2026082924`                            | Automated grading, Gradebook, analysis, improvement threads                                                                                                |
-| `2026082925`-`2026082928`                            | Typed jobs, exports, objects, retention, iMathAS Question Backend state                                                                                    |
-| `2026082929`-`2026082936`                            | Authorization Checks, forced RLS, grants, schema acceptance helpers, Account Creation, Draft Blueprint Revision, and Question Revision Statistics evidence |
+| Range                                                | Allocated capability scope                                                                                                                                          |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `2026082901`                                         | Principal baseline, schemas, capability roles, and default ACLs                                                                                                     |
+| `2026082902`-`2026082906`, `2026082933`-`2026082934` | Accounts, passwordless credentials, Instructor vetting, authenticated-session resolution, atomic credential completion, and Sysadmin Create Instructor Account      |
+| `2026082907`-`2026082909`                            | Global immutable Question Library, publication, discovery, and stewardship                                                                                          |
+| `2026082910`-`2026082912`                            | Private authoring, Blueprints, Question Folders, and Saved Question Searches                                                                                        |
+| `2026082913`-`2026082916`                            | Courses, equal Teaching Team Members, Students, invitations, curricula                                                                                              |
+| `2026082917`-`2026082920`                            | Assignment Attempts, schedules, Issued Questions, submissions, artifacts                                                                                            |
+| `2026082921`-`2026082924`                            | Automated grading, Gradebook, analysis, improvement threads                                                                                                         |
+| `2026082925`-`2026082928`                            | Typed jobs, exports, objects, retention, iMathAS Question Backend state                                                                                             |
+| `2026082929`-`2026082936`                            | Authorization Checks, forced RLS, grants, schema acceptance helpers, Create Instructor Account, Draft Blueprint Revision, and Question Revision Statistics evidence |
 
 Each migration owns its local relations, keys, constraints, indexes, functions, policies, grants,
 and comments. It uses global content keys and exact user, workspace, course, membership, Student,

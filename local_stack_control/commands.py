@@ -279,14 +279,14 @@ def start(
 	runner: local_stack_control.process.CommandRunner,
 	repo_root: pathlib.Path,
 ) -> int:
-	"""Replace and start the fixed production-browser developer session."""
-	print("Preparing a fresh developer browser session...")
-	project = local_stack_control.browser_suite_developer.reconcile_developer_session(
+	"""Clear and start the fixed production-browser Developer Browser Suite."""
+	print("Preparing the fixed Developer Browser Suite...")
+	project = local_stack_control.browser_suite_developer.clear_developer_browser_suite(
 		repo_root,
 		runner,
 	)
-	print(f"Previous developer browser session cleared: {project}")
-	result = local_stack_control.browser_suite_developer.start_developer_session(repo_root)
+	print(f"Developer Browser Suite cleared: {project}")
+	result = local_stack_control.browser_suite_developer.start_developer_browser_suite(repo_root)
 	if not args.headless:
 		open_developer_origin(runner, repo_root, result.origin)
 	print(f"Developer browser ready: {result.origin}")
@@ -350,8 +350,8 @@ def stop(
 	runner: local_stack_control.process.CommandRunner,
 	repo_root: pathlib.Path,
 ) -> int:
-	"""Request authenticated cleanup from the fixed developer browser owner."""
-	project = local_stack_control.browser_suite_developer.reconcile_developer_session(
+	"""Clear the fixed Developer Browser Suite through its authenticated owner."""
+	project = local_stack_control.browser_suite_developer.clear_developer_browser_suite(
 		repo_root,
 		runner,
 	)

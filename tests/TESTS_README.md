@@ -59,7 +59,7 @@ then enforces a closed owner policy:
   browser scenario serially against a
   freshly regenerated stack. Its successor selects registered
   `tests/playwright/e2e/*.spec.ts` scenarios and performs typed cleanup.
-  Developer sessions use the same fixed owner and lease.
+  Developer Browser Suite operations use the same fixed owner and lease.
 
 The shared adapter controls provider selection, environment sanitization,
 label discovery, scoped diagnostics, and cleanup. It also allocates and later

@@ -194,15 +194,15 @@ Follow the visible seeded production-auth flow.
 For developer and test tooling, install both declared requirement files with
 `source source_me.sh && python3 -m pip install --requirement pip_requirements.txt --requirement pip_requirements-dev.txt`.
 
-Stop the session through its authenticated owner:
+Clear the Developer Browser Suite through its authenticated owner:
 
 ```bash
 ./run_live_demo.sh stop
 ```
 
-`stop` authenticates to the active owner, cleans its containers, volumes, networks,
-workspace, and private receipts, and refuses an unrelated or already-finished
-session. Developer and browser tests serialize through the same owner lease. See
+`stop` authenticates to the active owner and clears its containers, volumes,
+networks, workspace, and private receipts. Developer and browser tests serialize
+through the same owner lease. See
 [docs/LOCAL_STACK_OPERATIONS.md](docs/LOCAL_STACK_OPERATIONS.md) for the controller contract and
 [docs/USAGE.md](docs/USAGE.md) for detailed everyday workflows.
 

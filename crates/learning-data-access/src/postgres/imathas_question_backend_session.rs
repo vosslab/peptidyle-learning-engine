@@ -78,7 +78,7 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
         let (mut transaction, resolved_account) = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
-        ensure_resolved_create_account(resolved_account, parts.account)?;
+        ensure_resolved_session_account(resolved_account, parts.account)?;
         let cipher = ImathasQuestionBackendStateCipher::seal(
             &self.key_ring,
             &session,
@@ -564,11 +564,11 @@ fn random_uuid() -> Result<uuid::Uuid, StoreError> {
     })
 }
 
-fn ensure_resolved_create_account(
+fn ensure_resolved_session_account(
     resolved_account: AccountId,
-    create_account: AccountId,
+    session_account: AccountId,
 ) -> Result<(), StoreError> {
-    if resolved_account == create_account {
+    if resolved_account == session_account {
         Ok(())
     } else {
         Err(StoreError::Forbidden)
@@ -596,14 +596,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn create_refuses_an_account_other_than_the_resolved_session_account() {
+    fn session_creation_refuses_an_account_other_than_the_resolved_session_account() {
         let resolved = AccountId::from_uuid(uuid::Uuid::from_u128(1));
-        let different_create_account = AccountId::from_uuid(uuid::Uuid::from_u128(2));
+        let different_session_account = AccountId::from_uuid(uuid::Uuid::from_u128(2));
 
         assert_eq!(
-            ensure_resolved_create_account(resolved, different_create_account),
+            ensure_resolved_session_account(resolved, different_session_account),
             Err(StoreError::Forbidden)
         );
-        assert_eq!(ensure_resolved_create_account(resolved, resolved), Ok(()));
+        assert_eq!(ensure_resolved_session_account(resolved, resolved), Ok(()));
     }
 }

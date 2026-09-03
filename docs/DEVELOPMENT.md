@@ -220,9 +220,9 @@ source source_me.sh && python3 local_stack.py start --headless
 source source_me.sh && python3 local_stack.py stop
 ```
 
-`start` first authenticates to and cleans the previous developer owner, then builds production
-`dist/`, regenerates the fixed `ple-live-demo-browser` disposable stack, and opens (or prints with
-`--headless`) its HTTPS origin. `stop` performs the same exact owner cleanup without launching a
+`start` clears the previous Developer Browser Suite through its authenticated owner, then builds
+production `dist/`, regenerates the fixed `ple-live-demo-browser` disposable stack, and opens (or
+prints with `--headless`) its HTTPS origin. `stop` clears that same suite without starting a
 replacement. Developer and browser tests serialize through the same owner lease; do not add project,
 environment, identity, SMTP, or build selectors.
 

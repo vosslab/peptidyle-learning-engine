@@ -4,6 +4,15 @@
 
 ### Fixes and Maintenance
 
+- Completed the Local Stack Controller Developer Browser Suite lifecycle cutover. The direct
+  operations are `request_developer_browser_suite_stop`,
+  `purge_orphaned_developer_browser_suite`, `clear_developer_browser_suite`, and
+  `start_developer_browser_suite`. `clear_developer_browser_suite` leaves the fixed suite empty
+  through authenticated stop or held-lease orphan purge; the control socket, capability, expiry,
+  one-use completion, and lease checks remain unchanged. Controller, CLI, focused tests, and
+  operator copy now use the exact lifecycle names. This changes no Account Authenticated Session
+  terminology, persistence, API, schema, compatibility layer, or test inventory.
+
 - Closed the checked Student-file terminology migration detector lifecycle. A final contextual
   audit found no Student Upload, Student Artifact, Student Feedback Attachment, or `WP-FU1`--`WP-FU6`
   owner in implementation, schema, API, generated contracts, tests, fixtures, or active plans; the
@@ -134,7 +143,7 @@
 
 - Completed `WP-SD1-A-TERM-01-PV3`: removed the unowned browser sanitized-markup override and duplicate WeBWorK raw-HTML delivery/cache branch. The browser renders closed Question Content Blocks directly. Bounded strict parsing, protected-value and hostile/malformed-input refusal, source binding, renderer identity, Question Asset routes, private replay/grading, and typed delivery remain. `CACHE_SCHEMA_VERSION` and the deterministic render-key namespace now use v2; retained `ObjectAddress::QuestionRender`, immutable put/`AlreadyExists` recovery, and current decode/validation semantics preserve an immutable rebuild boundary. A one-time cache probe proved separate v1/v2 keys, v1-byte preservation, and v2 rebuild, then was removed. Normal TypeScript generation, focused adapter/renderer/type/format/documentation/diff gates, and independent review passed. No replacement markup record, wire field, compatibility reader, fixture, or permanent test was added. Broader View/read-shape terminology remains open.
 
-- Completed `WP-SD1-A-TERM-01-RQ-CLOSE`: closed the retired generic Reconciliation checklist rows after fresh Graphify-assisted independent classification confirmed no current PLE-owned Reconciliation in source, schema, routes, generated contracts, browser controls, fixtures, test contracts, product documentation, or active plans. The 14 exact queue matches are frozen history/status/audit material, so the temporary current-work queue omits `reconciliation`. The separate Local Stack `reconcile_developer_session` precision rename remains unimplemented and does not describe or block a product Reconciliation boundary. No code, schema, API, behavior, fixture, test, or feature changed.
+- Completed `WP-SD1-A-TERM-01-RQ-CLOSE`: closed the retired generic Reconciliation checklist rows after fresh Graphify-assisted independent classification confirmed no current PLE-owned Reconciliation in source, schema, routes, generated contracts, browser controls, fixtures, test contracts, product documentation, or active plans. The 14 exact queue matches are frozen history/status/audit material, so the temporary current-work queue omits `reconciliation`. The separately scheduled Local Stack Developer Browser Suite lifecycle correction did not describe or block a product Reconciliation boundary. No code, schema, API, behavior, fixture, test, or feature changed.
 
 - Completed `WP-SD1-A-TERM-01-SU1`: removed the unsupported Student Upload/file-response product path without a replacement. Student Response remains the closed values accepted by a supported Question Response Format; Student Feedback remains authorized result data and optional Question-authored content. Current stored-object examples are Question Submission, Student-specific exports, and annotated exams. Course Banner Upload remains separate; adapter-owned Question Asset import remains separate; PLE Question JSON browser file authoring was separately open under row 278 at this record. Independent implementation review and re-review, existing response/negative-shape tests, normal TypeScript generation (466 declarations), TypeScript, Rust formatting, focused SU1-owner Markdown Prettier, 1,246 documentation checks, contextual current-match classification, registry-cap, and diff gates passed. No schema, route, Store, capability, response format, Object behavior, fixture, test, or feature was added.
 
