@@ -163,15 +163,15 @@ if the data is genuinely large, treat the round trip as an end-to-end check unde
 Use this as the default test command:
 
 ```bash
-source source_me.sh && python3 -m pytest tests/
+source source_me.sh && pytest tests/
 ```
 
 For targeted runs:
 
 ```bash
-source source_me.sh && python3 -m pytest tests/test_example.py
-source source_me.sh && python3 -m pytest tests/ -k name
-source source_me.sh && python3 -m pytest tests/ -x
+source source_me.sh && pytest tests/test_example.py
+source source_me.sh && pytest tests/ -k name
+source source_me.sh && pytest tests/ -x
 ```
 
 `tests/conftest.py` handles the pytest environment setup. Do not duplicate that setup in the

@@ -117,12 +117,12 @@ def write_package_json(path: str, data: dict) -> None:
 
 #============================================
 
-def collect_sorted_dependency_package_names(targets: list[str]) -> list[str]:
-	"""Return sorted dependency package names from every target.
+def collect_dep_keys(targets: list[str]) -> list[str]:
+	"""Return the union of dependency keys across every target.
 
 	Both ``dependencies`` and ``devDependencies`` sections are scanned.
-	The union becomes the sorted dependency package list for this run,
-	which provides deterministic ``npm view`` ordering.
+	The union is the canonical package list for this run. Sorted for
+	deterministic ``npm view`` ordering.
 	"""
 	keys: set[str] = set()
 	for path in targets:
@@ -164,7 +164,7 @@ def fetch_latest_version(pkg: str) -> str | None:
 
 #============================================
 
-def fetch_latest_versions(sorted_dependency_package_names: list[str]) -> dict[str, str]:
+def fetch_latest_versions(packages: list[str]) -> dict[str, str]:
 	"""Return a ``{pkg: latest_version}`` map for every published package.
 
 	Packages the registry does not know (npm ``E404`` -- private or
@@ -172,8 +172,8 @@ def fetch_latest_versions(sorted_dependency_package_names: list[str]) -> dict[st
 	key as an unmanaged consumer-extra and leaves its pin untouched.
 	"""
 	versions: dict[str, str] = {}
-	total = len(sorted_dependency_package_names)
-	for index, pkg in enumerate(sorted_dependency_package_names, start=1):
+	total = len(packages)
+	for index, pkg in enumerate(packages, start=1):
 		# live progress: each npm view is a round-trip, so print as we go
 		counter = f"[{index}/{total}]"
 		latest = fetch_latest_version(pkg)
@@ -263,13 +263,13 @@ def main() -> None:
 		return
 	print(f"found {len(targets)} package.json file(s)")
 
-	sorted_dependency_package_names = collect_sorted_dependency_package_names(targets)
-	if not sorted_dependency_package_names:
+	packages = collect_dep_keys(targets)
+	if not packages:
 		print("targets have no dependencies or devDependencies; nothing to bump.")
 		return
-	print(f"querying npm for {len(sorted_dependency_package_names)} package version(s)...")
+	print(f"querying npm for {len(packages)} package version(s)...")
 	# fetch_latest_versions prints live per-package progress as it queries
-	latest = fetch_latest_versions(sorted_dependency_package_names)
+	latest = fetch_latest_versions(packages)
 
 	# compute changes per target without writing
 	any_changes = False

@@ -5,7 +5,7 @@ Rewrite broken markdown links in a chosen set of markdown files.
 For each broken local link:
   1. If the URL's basename matches exactly one tracked file in the repo,
      rewrite the URL to the correct relative path from source to that file.
-     Prefer current (non-archive) matches over archive matches.
+     Prefer canonical (non-archive) matches over archive matches.
   2. Otherwise, convert to backticked basename (delink).
 
 Also: normalize path-like link text to URL basename when text != URL.
@@ -29,7 +29,7 @@ Scope selection:
 Only *.md matches are processed, and the final file list is de-duplicated, so
 a file reachable through two overlapping patterns is processed exactly once.
 
-Replacements for retired preset flags (historic spellings):
+Replacements for the retired preset flags:
   --include-changelog     ->  --glob 'docs/CHANGELOG*.md'
   --include-active-plans  ->  --glob 'docs/active_plans/**/*.md'
   --include-experiments   ->  --glob 'experiments/**/*.md'
@@ -188,20 +188,20 @@ def build_tracked_set(repo_root: pathlib.Path) -> set:
 
 #============================================
 def build_basename_index(tracked: set, archive_prefix: str) -> tuple:
-	"""Return (current_index, archive_index): basename -> [relpath, ...].
+	"""Return (canonical_index, archive_index): basename -> [relpath, ...].
 
-	Current = tracked files NOT under archive_prefix.
+	Canonical = tracked files NOT under archive_prefix.
 	Archive = tracked files under archive_prefix.
 	"""
-	current = {}
+	canonical = {}
 	archive = {}
 	for rel in tracked:
 		basename = pathlib.PurePosixPath(rel).name
 		if rel.startswith(archive_prefix):
 			archive.setdefault(basename, []).append(rel)
 		else:
-			current.setdefault(basename, []).append(rel)
-	return current, archive
+			canonical.setdefault(basename, []).append(rel)
+	return canonical, archive
 
 
 #============================================
@@ -241,15 +241,15 @@ def link_target_tracked(source_file: pathlib.Path, link_url: str,
 
 
 #============================================
-def find_basename_match(basename: str, current: dict, archive: dict) -> str:
-	"""Lookup basename, prefer current documentation. Return rel path or None.
+def find_basename_match(basename: str, canonical: dict, archive: dict) -> str:
+	"""Lookup basename, prefer canonical. Return rel path or None.
 
 	None if 0 matches or ambiguous.
 	"""
-	current_hits = current.get(basename, [])
-	if len(current_hits) == 1:
-		return current_hits[0]
-	if len(current_hits) > 1:
+	can_hits = canonical.get(basename, [])
+	if len(can_hits) == 1:
+		return can_hits[0]
+	if len(can_hits) > 1:
 		return None
 	arch_hits = archive.get(basename, [])
 	if len(arch_hits) == 1:
@@ -259,7 +259,7 @@ def find_basename_match(basename: str, current: dict, archive: dict) -> str:
 
 #============================================
 def process_file(source_file: pathlib.Path, apply_changes: bool,
-		tracked: set, current: dict, archive: dict,
+		tracked: set, canonical: dict, archive: dict,
 		repo_root: pathlib.Path) -> dict:
 	"""Walk one md file. Rewrite broken or path-mismatched links.
 
@@ -292,7 +292,7 @@ def process_file(source_file: pathlib.Path, apply_changes: bool,
 		if not url_basename:
 			counts['unresolved'] += 1
 			continue
-		target_rel = find_basename_match(url_basename, current, archive)
+		target_rel = find_basename_match(url_basename, canonical, archive)
 		if target_rel is None:
 			# no match or ambiguous: delink to backticked basename
 			old_link = '[' + link_text + '](' + link_url + ')'
@@ -349,7 +349,7 @@ def parse_args() -> argparse.Namespace:
 
 #============================================
 def run_files(source_files: list, apply_changes: bool, tracked: set,
-		current: dict, archive: dict, repo_root: pathlib.Path,
+		canonical: dict, archive: dict, repo_root: pathlib.Path,
 		verbose: bool) -> None:
 	"""Process every source file, tally totals, print summary."""
 	totals = {'scanned': 0, 'broken': 0, 'rewritten': 0,
@@ -358,7 +358,7 @@ def run_files(source_files: list, apply_changes: bool, tracked: set,
 
 	for source_file in sorted(source_files):
 		counts = process_file(source_file, apply_changes,
-			tracked, current, archive, repo_root)
+			tracked, canonical, archive, repo_root)
 		totals['scanned'] += counts['scanned']
 		totals['broken'] += counts['broken']
 		totals['rewritten'] += counts['rewritten']
@@ -396,7 +396,7 @@ def main() -> None:
 	repo_root = get_repo_root()
 
 	tracked = build_tracked_set(repo_root)
-	current, archive = build_basename_index(tracked, 'docs/archive/')
+	canonical, archive = build_basename_index(tracked, 'docs/archive/')
 
 	# Single-file/glob mode: apply by default, --dry-run to preview.
 	if args.input_files:
@@ -410,7 +410,7 @@ def main() -> None:
 			for match in matches:
 				source_files.append(pathlib.Path(match).resolve())
 		apply_changes = not args.dry_run
-		run_files(source_files, apply_changes, tracked, current, archive,
+		run_files(source_files, apply_changes, tracked, canonical, archive,
 			repo_root, args.verbose)
 		return
 
@@ -432,7 +432,7 @@ def main() -> None:
 		print("Pass -g/--glob PATTERN to choose a scope, "
 			"for example: --glob 'docs/**/*.md'")
 
-	run_files(source_files, apply_changes, tracked, current, archive,
+	run_files(source_files, apply_changes, tracked, canonical, archive,
 		repo_root, args.verbose)
 
 

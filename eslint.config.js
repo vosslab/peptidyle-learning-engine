@@ -73,7 +73,7 @@ export default tseslint.config(
     // a floating-promise bug. Tests also log progress freely. Relax these two
     // rules for the TypeScript test tree so node:test TS tests lint as tests,
     // not as production async code. Source under src/ and tools/ stays strict.
-    // The established .mjs test path already skips typed rules via the
+    // The canonical .mjs test path already skips typed rules via the
     // disableTypeChecked block above; this block gives the .ts test variant the
     // same treatment.
     files: ["tests/**/*.{ts,mts}"],
@@ -117,6 +117,6 @@ export default tseslint.config(
       "**/_temp*",
     ],
   },
-  // Consumer-owned overrides last so they can refine or override the base configuration.
+  // Consumer-owned overrides last so they can refine or override the canonical config.
   ...localConfig,
 );

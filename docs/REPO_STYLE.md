@@ -116,10 +116,9 @@ Preferred structure:
 - Markdown beneath any `docs/active_plans/` or `docs/archive/` tree is planning or historical
   material and stays outside this source-code line budget. Other source types in those trees remain
   covered.
-- Managers may exempt individually approved canonical or external sources in
-  `tests/source_file_line_limit_overrides.txt`, using one exact repo-relative path per line. Encode
-  universal folder-category exclusions in the gate and reserve the repo-owned override list for
-  exceptional single-document ownership.
+- Managers may exempt tracked external sources in `tests/source_file_line_limit_overrides.txt`,
+  using one exact repo-relative path per line. Encode universal folder-category exclusions in the
+  gate and reserve the repo-owned override list for individually approved files.
 
 ## Changelog rotation
 - Rotate `docs/CHANGELOG.md` once it exceeds 800 physical lines (`wc -l docs/CHANGELOG.md`).
@@ -192,9 +191,9 @@ Preferred structure:
 - A large support command may delegate to a native helper package. Follow the repository-structure
   rule: one named package stays at the root, while `packages/` groups multiple native packages.
 - For repo-local Python commands, use:
-  - `source source_me.sh && python3 ...`
+  - `source source_me.sh && python ...`
 - For pytest commands, use:
-  - `source source_me.sh && python3 -m pytest tests/`
+  - `source source_me.sh && pytest tests/`
 - Avoid hard-coded interpreter paths in routine command examples.
 - Document shared helpers and modules in `docs/USAGE.md` when used across scripts.
 - Use `tests/test_pyflakes_code_lint.py` and `tests/test_ascii_compliance.py` for repo-wide lint checks, with `tests/check_ascii_compliance.py` for single-file ASCII/ISO-8859-1 checks and `tests/fix_ascii_compliance.py` for single-file fixes. `tests/test_markdown_links.py` is the repo-wide check that every local Markdown link is GitHub-browsable and well formed.

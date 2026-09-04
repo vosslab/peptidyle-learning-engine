@@ -17,7 +17,7 @@
   [CHANGELOG-2026-09c.md](CHANGELOG-2026-09c.md). Historical screenshots remain managed design
   reference because no live Compose project was running and the local Podman machine reported a
   lockfile-permission warning; no unsupported browser acceptance claim was added.
-
+- Synchronized shared style guides, tests, and repository support files from the starter template.
 ## 2026-09-03
 
 ### Additions and New Features

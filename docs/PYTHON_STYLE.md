@@ -24,7 +24,7 @@ AI agents frequently get these wrong. Read the full sections below for details.
 
 * I like using one of the latest versions of python, but not the latest, of python3, currently **3.12**.
 * In this repo, run python commands through the bootstrap pattern:
-* `source source_me.sh && python3 ...`
+* `source source_me.sh && python ...`
 
 ## FILENAMES
 * Prefer snake_case for Python filenames and module names.
@@ -176,7 +176,7 @@ volume_text = f"<span style='font-family: monospace;'>{vol1:.1f} mL</span>"
 - For pytest-specific style, test design, and command usage, see [PYTEST_STYLE.md](PYTEST_STYLE.md).
 - For slow end-to-end tests run outside pytest, see [E2E_TESTS.md](E2E_TESTS.md).
 ```bash
-source source_me.sh && python3 -m pytest tests/test_pyflakes_code_lint.py
+source source_me.sh && pytest tests/test_pyflakes_code_lint.py
 ```
 
 ## DO NOT USE HEREDOCS

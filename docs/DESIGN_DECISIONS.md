@@ -1,11 +1,10 @@
 # Design decisions
 
 <!-- VENDORED HEADER: START -->
-
 Record each durable decision about how this code and repository are shaped, once it is settled, with
 the reasoning a later reader needs. Guidance Neil Voss states belongs in
-[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), dated history in `docs/CHANGELOG.md`, and unresolved
-discussion in execution-only work records. [PROPAGATED HEADER - ENTRIES BELOW ARE YOURS]
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), dated history in `docs/CHANGELOG.md`, open discussion in
+`docs/active_plans/decisions/`. [PROPAGATED HEADER - ENTRIES BELOW ARE YOURS]
 <!-- VENDORED HEADER: END -->
 
 This is PLE's conceptual entrypoint for settled product and architecture decisions. It answers
