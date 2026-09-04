@@ -132,7 +132,9 @@ function assetIdsForPresentation(presentation: QuestionPresentation): ReadonlyAr
   }
   return [
     ...new Set(
-      blocks.filter((block) => block.kind === "image").map((block) => block.questionAsset.questionAsset),
+      blocks
+        .filter((block) => block.kind === "image")
+        .map((block) => block.questionAsset.questionAsset),
     ),
   ].slice(0, MAX_PREFETCH_ASSETS);
 }
@@ -569,7 +571,10 @@ function AttemptExperience(props: {
                           : undefined
                       }
                       assetUrl={(asset) =>
-                        new URL(runtime.client.assetUrl(asset.questionAsset), window.location.origin)
+                        new URL(
+                          runtime.client.assetUrl(asset.questionAsset),
+                          window.location.origin,
+                        )
                       }
                     />
                   )}
@@ -782,7 +787,10 @@ function AttemptExperience(props: {
                         disclosure={studentFeedbackPresentation(feedback())}
                         studentResponse={currentStudentResponse(feedback().response)}
                         assetUrl={(asset) =>
-                          new URL(runtime.client.assetUrl(asset.questionAsset), window.location.origin)
+                          new URL(
+                            runtime.client.assetUrl(asset.questionAsset),
+                            window.location.origin,
+                          )
                         }
                         onAdvance={() => void continueAttempt()}
                         advanceLabel={submissionAdvanceLabel(feedback().acknowledgement)}

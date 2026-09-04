@@ -2,6 +2,8 @@
 
 ## Status
 
+**Vocabulary-ledger synchronization (2026-09-04).** [Vocabulary Replacements](../../VOCABULARY_REPLACEMENTS.md) has no unchecked rows. Historical package receipts below may retain the row state that applied when that package was recorded; they do not allocate current vocabulary work. Product capabilities described as still open remain with their named package or plan, not with the vocabulary ledger.
+
 **Current prerequisite: WP-SD1-A is pending independent ACCEPT.** PLE is one installation with global accounts, one Instructor-visible Question Library of Published Questions, private drafts, equal active Instructors, equal Teaching Team Members, and exact CourseInstance/Student authorization. Available Question Revisions are ordinarily selectable; Archived Question Revisions remain resolvable for history and evidence. The current SD1 registry owns the pre-production cutover before release work resumes.
 
 The authoritative current-package and migration-allocation state is [implementation_status.md](../implementation_status.md). WP-RC1, WP-RC2, WP-RC3, WP-RC3R, WP-ARCH1, WP-UI1, WP-HG1, WP-R0, WP-R1, WP-R2, and WP-PY-L1 remain accepted where their recorded evidence says so. WP-RC4 through WP-RC12 stay open until their named gates and independent review pass.

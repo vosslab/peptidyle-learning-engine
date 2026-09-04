@@ -2,6 +2,8 @@
 
 Last updated: 2026-09-03. This is the sole mutable registry for the global current-package handoff and shared migration allocations. The [implementation plan](implementation_plan.md) and active [release completion plan](active/release_completion_plan.md) own architecture, scope, dependency order, validation, and acceptance. SD1 cutover authority is recorded in this registry and its current plan. Durable product decisions remain in [Human Guidance](../HUMAN_GUIDANCE.md); package history and detailed receipts remain in the [changelog](../CHANGELOG.md). Closed package receipts remain in the changelog and retained package reports. Work-package labels such as `WP-INST-G2` are temporary plan coordinates. They identify the current handoff while the plan is active and retire with the planning layer; product contracts and durable data use domain identifiers.
 
+**Vocabulary-ledger synchronization (2026-09-04).** [Vocabulary Replacements](../VOCABULARY_REPLACEMENTS.md) has no unchecked rows. Historical package receipts below may retain their then-current row status; those statements do not allocate current vocabulary work. Any remaining product capability remains with its named package or plan rather than with the vocabulary ledger.
+
 ## Current handoff
 
 - **Implemented, acceptance-open `WP-SD1-A-TERM-01-BMOD1` (Blueprint Module direct vocabulary cutover).** Current Question Model, regenerated contracts, strict decoder, Blueprint Course editor, and focused browser/model tests use `BlueprintModuleView`, `BlueprintModuleReference`, `blueprint_module_reference`, `BlueprintModuleEditChoice`, and `BlueprintAssignmentEditChoice`.

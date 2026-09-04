@@ -31,7 +31,11 @@ test("asset URLs must be the resolver-derived logical asset route", () => {
     for (const resolver of [
       () => new URL("https://bucket.example.test/object"),
       () => new URL("/api/assets/another-asset", globalThis.location.origin),
-      () => new URL(`/api/assets/${questionAsset.questionAsset}?raw-key=object`, globalThis.location.origin),
+      () =>
+        new URL(
+          `/api/assets/${questionAsset.questionAsset}?raw-key=object`,
+          globalThis.location.origin,
+        ),
     ]) {
       assert.throws(() => resolveSameOriginAssetUrl(questionAsset, resolver), QuestionContentError);
     }

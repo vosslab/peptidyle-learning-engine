@@ -75,7 +75,10 @@ export function QuestionDetailPage(): JSX.Element {
                 <QuestionPromptRenderer
                   blocks={record().prompt.blocks}
                   assetUrl={(asset) =>
-                    new URL(applicationApi.client.assetUrl(asset.questionAsset), window.location.origin)
+                    new URL(
+                      applicationApi.client.assetUrl(asset.questionAsset),
+                      window.location.origin,
+                    )
                   }
                 />
               </section>

@@ -2,6 +2,8 @@
 
 ## Status
 
+**Vocabulary-ledger synchronization (2026-09-04).** [Vocabulary Replacements](../VOCABULARY_REPLACEMENTS.md) has no unchecked rows. Historical package receipts below may retain the row state that applied when that package was recorded; they do not allocate current vocabulary work. Product capabilities described as still open remain with their named package or plan, not with the vocabulary ledger.
+
 **Binding single-installation architecture (2026-08-29).** PLE operates as one installation with
 global accounts, an Instructor-visible Question Library for every Published Question,
 private drafts, equal active Instructors, multiple equal Teaching Team Members per course, and exact

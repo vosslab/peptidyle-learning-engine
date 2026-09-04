@@ -138,10 +138,7 @@ function questionAssetReference(value: unknown, path: string): QuestionAssetRefe
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["questionAsset", "checksum"]);
   return {
-    questionAsset: decodeIdentifier(
-      field(record, "questionAsset", path),
-      `${path}.questionAsset`,
-    ),
+    questionAsset: decodeIdentifier(field(record, "questionAsset", path), `${path}.questionAsset`),
     checksum: decodeSha256(field(record, "checksum", path), `${path}.checksum`),
   };
 }
@@ -259,7 +256,12 @@ function issuedQuestionResponseFormat(
       requireOnlyFields(record, path, ["kind", "surface", "minimum", "maximum"]);
       const surfacePath = `${path}.surface`;
       const surfaceRecord = decodeRecord(field(record, "surface", path), surfacePath);
-      requireOnlyFields(surfaceRecord, surfacePath, ["id", "questionAsset", "description", "regions"]);
+      requireOnlyFields(surfaceRecord, surfacePath, [
+        "id",
+        "questionAsset",
+        "description",
+        "regions",
+      ]);
       const regions = decodeBoundedArray(
         field(surfaceRecord, "regions", surfacePath),
         `${surfacePath}.regions`,
