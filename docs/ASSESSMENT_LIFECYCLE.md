@@ -366,5 +366,4 @@ Use this lifecycle document to find the right detailed contract:
   rules.
 - [RETENTION_POLICY.md](RETENTION_POLICY.md): privacy lifecycle and anonymous
   aggregate preservation.
-- [active_plans/implementation_plan.md](active_plans/implementation_plan.md):
-  milestone dependency order and acceptance criteria.
+- [ROADMAP.md](ROADMAP.md): durable release direction and acceptance criteria.

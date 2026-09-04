@@ -6,9 +6,9 @@ PLE is one installation. Global accounts use `AccountId`; there is no institutio
 identity, leading scope key, or client-selected database context. This reference is the sole durable
 PostgreSQL authorization authority and the database authorization target for the fresh
 pre-production migration epoch. [SECURITY_MODEL.md](SECURITY_MODEL.md) provides the cross-cutting security model and points
-here for all durable PostgreSQL authorization detail. The
-[implementation status](active_plans/implementation_status.md) allocates its implementation;
-existing pre-epoch schema documents are migration input, not an alternate model.
+here for all durable PostgreSQL authorization detail. [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md)
+records the checked-in migration sequence; existing pre-epoch schema documents are migration input,
+not an alternate model.
 
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) supersedes this document for
 the meaning of PLE-owned terms. This document owns PostgreSQL authorization

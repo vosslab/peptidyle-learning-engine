@@ -18,7 +18,7 @@ spelling.
 +- containers/             Podman Compose and service images
 +- deploy/opentofu/        AWS infrastructure and policy tests
 +- tests/                  Offline, Node, Playwright, and disposable E2E checks
-+- docs/                   Durable references and active plans
++- docs/                   Durable references, history, and bounded active work
 +- local_stack_control/    Typed local-stack and acceptance lifecycle
 +- devel/                  Developer-maintenance commands
 +- tools/                  Focused repository utilities
@@ -74,10 +74,8 @@ The current paired legacy files and SQL table families are terminology-migration
 inputs only. The immutable
 schemas/migrations/2026081837_blueprint_alpha_curriculum.sql and accepted
 successors remain historical evidence and are not renamed or edited to hide
-their origin. The fresh pre-production migration epoch is tracked in
-[active_plans/implementation_status.md](active_plans/implementation_status.md);
-its course/curriculum range is planned at 2026082913-2026082916, with
-protected authorization-function/RLS/grant helpers at 2026082929-2026082932.
+their origin. The checked-in pre-production migration sequence and forward allocation rule are
+documented in [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
 
 ## Learning data access
 
@@ -226,7 +224,8 @@ publisher are absent; a restored browser owner will own fresh visual evidence.
   durable API, security, and database rules.
 - [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md) and
   [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md): local production-shaped stack.
-- [active_plans/](active_plans/): active scope, dependency order, audits, and status.
+- Execution-only working plans, audits, and reports: not durable authority.
+- [archive/](archive/): retired plans, dated reviews, and historical status evidence.
 - [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md): evidence classes and required gates.
 
 ## Where to add work
@@ -234,8 +233,8 @@ publisher are absent; a restored browser owner will own fresh visual evidence.
 - Add a reusable content rule to `crates/question_model/src/blueprint_course.rs`.
 - Add Blueprint-operation persistence with a typed preview, command,
   authorization, request-retry binding, and immutable receipt.
-- Add schema only through the status-owned allocation in
-  active_plans/implementation_status.md; preserve applied migrations.
+- Add schema only through the forward allocation rule in
+  [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md); preserve applied migrations.
 - Add routes in the owning server module and register method policy in
   route_policy.rs.
 - Regenerate generated/api/, then update strict decoders and typed clients.

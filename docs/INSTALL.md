@@ -1,9 +1,9 @@
 # Install
 
-For a developer checkout, installation means starting the real, disposable PLE live demo. The
-primary command prepares missing JavaScript dependencies, builds the production browser artifact,
-and starts the production-shaped HTTPS stack with real PostgreSQL, MinIO, API, worker, gateway,
-and private WebWork renderer services.
+For a developer checkout, installation means starting the real, disposable PLE session-entry demo.
+The primary command prepares missing JavaScript dependencies, builds the production browser artifact,
+and starts the production-shaped HTTPS stack with real PostgreSQL, MinIO, API, worker, gateway, and
+private WebWork renderer services.
 
 ## Requirements
 
@@ -35,8 +35,8 @@ sources the repository shell environment through its fixed `source_me.sh` path a
 `devel/setup_typescript.sh`; it then builds the
 production `dist/` bundle, creates the disposable
 `ple-live-demo-browser` HTTPS session, waits for readiness, and opens the printed origin.
-Select a seeded role in the visible PLE sign-in flow; its account, course membership, and
-authorization come from ordinary seeded PLE state.
+Select a seeded persona in the visible PLE sign-in flow. The server derives its Account and ordinary
+Authenticated Session from disposable seeded state; teaching routes are not currently available.
 
 Each launch first completes owner-scoped cleanup of the previous `ple-live-demo-browser` session,
 then creates a fresh seeded installation. Relaunching therefore discards records created in the
@@ -85,11 +85,11 @@ headless live-demo start and for offline Rust, TypeScript, and Python checks.
 
 After the browser opens, use the visible **Explore this live demo** panel on the PLE sign-in page:
 
-- Choose the seeded Instructor, Student, or Sysadmin account, then choose one of that account's
-  authorized courses. Current acceptance personas include Elena (Instructor), Mary, Jack, and
-  Avery (Students), and Morgan (Sysadmin).
-- Role selection only replaces the identity-verification ceremony. The server still resolves the
-  ordinary account, session, course membership, role, and authorization state.
+- Choose the seeded Instructor, Student, or Sysadmin persona. Current personas are Elena
+  (Instructor), Mary, Jack, and Avery (Students), and Morgan (Sysadmin).
+- Persona selection only replaces the identity-verification ceremony. The server still resolves the
+  ordinary Account and session; later course and authorization decisions remain server-derived when
+  their routes are implemented.
 - The seeded data belongs to this disposable installation. Relaunching the demo restores the
   baseline and discards changes from the prior session.
 - No email-code or passkey Server Routes exist in this build. Their private schema and
@@ -125,12 +125,9 @@ has read-only diagnostics; [USAGE.md](USAGE.md) lists the supported commands.
 
 ## Known gaps
 
-- The automated-grading operation boundary is accepted. Its forward closeout migrations `2026081866` through `2026081869`
-  provide the clean-volume receipt preflight, receipt writers, commit-v2 authority, and retry V2
-  retirement boundary. Final material-tree Validation passed with the affected 99-migration live
-  database, RLS, worker, browser, WebWork, and replica evidence. Audited
-  student-work inspection and grade-scheme-aware calculated Gradebook work remain open. Release
-  acceptance remains open; this disposable live demo is not release evidence by itself. See the
-  [implementation status registry](active_plans/implementation_status.md) for current scheduling evidence.
+- The local demo proves its named deployment and session boundaries only. It does not provide a
+  visible Course, Question Library, authoring, delivery, grading, Gradebook, or administration
+  journey, and it is not release evidence. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and
+  [ROADMAP.md](ROADMAP.md).
 - TODO: Verify PG/PGML compatibility beyond the reviewed Chapter 1 MC/MATCH sources with separate
   source and live evidence.

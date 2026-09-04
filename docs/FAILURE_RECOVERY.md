@@ -10,8 +10,8 @@ and [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md).
 
 It describes implemented code-bound behavior and labels planned operational work. It does not
 claim automatic failover, a recovery objective, managed point-in-time recovery, or production high
-availability. Those require the release evidence in
-[release_completion_plan.md](active_plans/active/release_completion_plan.md).
+availability. Those require the release evidence defined by
+[ROADMAP.md](ROADMAP.md) and [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
 
 The canonical live-demo browser path uses these same ordinary application contracts. Its seeded
 people and records are fictional live data, and regeneration is a disposable reset; it is not a
@@ -109,8 +109,8 @@ The accepted payload redesign in
 Checksum and Presentation Response Item References. Its planned mismatch response is a fail-closed `409`: PLE does not
 grade or mutate the attempt, preserves the editable draft only in memory, reloads the same
 presentation, and restores the draft only when its schema and Presentation Response Item References still match. Until that
-work package lands, current clients must use the implemented Question Attempt and Question Submission boundary and
-must not treat current Question Attempt Reproduction Details as client authority.
+work item lands, no current browser client exposes a Question Attempt or Question Submission route. The retained
+contract must not treat Question Attempt Reproduction Details as client authority.
 
 ## Replica and cache recovery
 

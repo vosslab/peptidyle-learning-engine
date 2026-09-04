@@ -55,7 +55,7 @@ operation final.
 | Background work ownership                      | PostgreSQL Job row plus opaque lease token                                            | Planned     | Future Store-backed Job composition                                                                                                                   |
 | Current analytic projection                    | Assignment/timing generation plus an active lease                                     | Planned     | Future Store-backed scoring and analysis composition                                                                                                  |
 | Published Question Revision                    | Independent immutable source Binding created from an exact Draft Question Edit Number | Planned     | Future Store-backed publication using accepted parallel draft/published metadata and separate Source Bindings                                         |
-| Cross-system object inventory Check and Repair | Object Storage Check and Repair job                                                   | Planned     | [release completion plan](active_plans/active/release_completion_plan.md)                                                                             |
+| Cross-system object inventory Check and Repair | Object Storage Check and Repair job                                                   | Planned     | [ROADMAP.md](ROADMAP.md)                                                                                                                              |
 
 ## Account-scoped transactions and retries
 
@@ -311,6 +311,5 @@ verify all applicable points:
 - [ ] Memory behavior remains a conformance model; PostgreSQL remains the
       production authority and receives a focused live/RLS oracle where needed.
 
-The package-level acceptance authority remains
-[implementation_plan.md](active_plans/implementation_plan.md) and
-[release_completion_plan.md](active_plans/active/release_completion_plan.md).
+The durable acceptance authorities are [ROADMAP.md](ROADMAP.md) and
+[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).

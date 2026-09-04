@@ -1,10 +1,10 @@
 # Peptidyle Learning Engine project status report
 
 Report date: 2026-08-10
-Plan authority: [implementation_plan.md](../implementation_plan.md)
-Release completion: [release_completion_plan.md](../active/release_completion_plan.md)
-Owner decisions: [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md)
-Execution handoff: [implementation_status.md](../implementation_status.md)
+Plan authority: [implementation_plan.md](implementation_plan.md)
+Release completion: [release_completion_plan.md](release_completion_plan.md)
+Owner decisions: [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md)
+Execution handoff: [implementation_status.md](implementation_status.md)
 Previous snapshot: retired 2026-08-09 report
 
 ## Status language
@@ -364,5 +364,5 @@ external activation evidence, not unfinished source code substitutes.
 
 Create a new dated report when package acceptance, the executive assessment, a release blocker, or
 dependency order changes. Keep the Aug. 9 report as historical context. Detailed transcripts remain
-in package workstreams and [implementation_status.md](../implementation_status.md); this report
+in package workstreams and [implementation_status.md](implementation_status.md); this report
 records conclusions and current evidence, not every command log.

@@ -5,10 +5,9 @@ means, who controls it, where it may appear, how long it survives, and which
 document owns the detailed contract. It does not replace schemas, Rust types,
 routes, migrations, or the active implementation plan.
 
-Read [CONTRACTS.md](CONTRACTS.md) for the contract register and
-[DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) for the durable rationale. The
-[active implementation plan](active_plans/implementation_plan.md) remains the
-authority for scope, ordering, and acceptance.
+Read [CONTRACTS.md](CONTRACTS.md) for the contract register,
+[DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) for the durable rationale, and
+[ROADMAP.md](ROADMAP.md) for release direction and acceptance.
 
 ## Status and authority
 

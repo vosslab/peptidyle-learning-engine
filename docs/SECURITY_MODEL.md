@@ -4,7 +4,7 @@
 
 PLE uses global accounts, exact course membership and Student ownership for FERPA authority,
 Instructor-owned private workspaces, and one shared Question Library. The current
-[implementation status](active_plans/implementation_status.md) allocates account-and-relationship-scoped
+[ROADMAP.md](ROADMAP.md) routes account-and-relationship-scoped
 RLS and capability correction across the product stack; durable PostgreSQL
 authorization detail is owned solely by [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md).
 

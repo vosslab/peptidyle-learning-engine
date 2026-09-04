@@ -11,18 +11,18 @@ WP-RC8 package acceptance.
 - The route map matches the accepted Rust split: production has the
   provider-free passwordless/account/session graph and no legacy login route;
   the exact local-development mode supplies the legacy route
-  ([API_CONTRACTS.md](../../API_CONTRACTS.md):76).
+  ([API_CONTRACTS.md](../API_CONTRACTS.md):76).
 - The release plan and implementation status preserve the existing package
   order, leave the WP-RC8 checklist unchecked, and keep SMTP-provider,
   optional-passkey, multi-replica, and independent security/HCI gates open
-  ([release_completion_plan.md](../active/release_completion_plan.md):421;
-  [implementation_status.md](../implementation_status.md):378).
+  ([release_completion_plan.md](release_completion_plan.md):421;
+  [implementation_status.md](implementation_status.md):378).
 - Usage correctly distinguishes the explicit local-file launcher from
   production composition and does not claim an external SMTP send or browser
-  acceptance ([USAGE.md](../../USAGE.md):74).
+  acceptance ([USAGE.md](../USAGE.md):74).
 - The changelog gives the composition result once as a concise scoped entry
   and names the remaining acceptance gates
-  ([CHANGELOG.md](../../CHANGELOG.md):126).
+  ([CHANGELOG.md](../CHANGELOG.md):126).
 
 ## Validation
 

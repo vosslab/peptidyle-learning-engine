@@ -5,9 +5,7 @@ code terminology. It turns the owner glossary in
 [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) into implementation boundaries; it does not supersede that owner guidance.
 
 Use [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) after selecting the correct
-domain term. Use [VOCABULARY_REPLACEMENTS.md](VOCABULARY_REPLACEMENTS.md) to
-complete an in-progress correction: the checklist identifies the wording to
-replace, its canonical target, and the required structural change.
+domain term.
 
 ## Authority order
 
@@ -16,9 +14,6 @@ replace, its canonical target, and the required structural change.
    relationship paths.
 3. [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) defines identifier spelling.
 4. A focused contract or schema document defines its physical representation.
-5. [VOCABULARY_REPLACEMENTS.md](VOCABULARY_REPLACEMENTS.md) tracks convergence
-   work as a retained checklist. Checked rows remain through its final audit,
-   then the completed checklist retires as one document.
 
 When a term has a narrower meaning at one boundary, name the narrower record or
 relationship. A broad context object never substitutes for a stored authority

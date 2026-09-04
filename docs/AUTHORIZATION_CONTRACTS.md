@@ -15,8 +15,8 @@ authority.
 This document is the binding authorization contract. It defines the authority
 that routes, Store methods, PostgreSQL policies and protected authorization functions, workers, object
 delivery, browser DTOs, and audits must use. Product scope and dependency order
-remain in [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) and the
-[implementation status](active_plans/implementation_status.md).
+remain in [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) and
+[ROADMAP.md](ROADMAP.md).
 
 Authorization is distinct from authentication, structural validation, revision
 and lifecycle checks, and grading. An identifier, a request field, a browser

@@ -2,11 +2,11 @@
 
 ## Status
 
-**Vocabulary-ledger synchronization (2026-09-04).** [Vocabulary Replacements](../../VOCABULARY_REPLACEMENTS.md) has no unchecked rows. Historical package receipts below may retain the row state that applied when that package was recorded; they do not allocate current vocabulary work. Product capabilities described as still open remain with their named package or plan, not with the vocabulary ledger.
+**Vocabulary-ledger synchronization (2026-09-04).** `VOCABULARY_REPLACEMENTS.md` has no unchecked rows. Historical package receipts below may retain the row state that applied when that package was recorded; they do not allocate current vocabulary work. Product capabilities described as still open remain with their named package or plan, not with the vocabulary ledger.
 
 **Current prerequisite: WP-SD1-A is pending independent ACCEPT.** PLE is one installation with global accounts, one Instructor-visible Question Library of Published Questions, private drafts, equal active Instructors, equal Teaching Team Members, and exact CourseInstance/Student authorization. Available Question Revisions are ordinarily selectable; Archived Question Revisions remain resolvable for history and evidence. The current SD1 registry owns the pre-production cutover before release work resumes.
 
-The authoritative current-package and migration-allocation state is [implementation_status.md](../implementation_status.md). WP-RC1, WP-RC2, WP-RC3, WP-RC3R, WP-ARCH1, WP-UI1, WP-HG1, WP-R0, WP-R1, WP-R2, and WP-PY-L1 remain accepted where their recorded evidence says so. WP-RC4 through WP-RC12 stay open until their named gates and independent review pass.
+The authoritative current-package and migration-allocation state is [implementation_status.md](implementation_status.md). WP-RC1, WP-RC2, WP-RC3, WP-RC3R, WP-ARCH1, WP-UI1, WP-HG1, WP-R0, WP-R1, WP-R2, and WP-PY-L1 remain accepted where their recorded evidence says so. WP-RC4 through WP-RC12 stay open until their named gates and independent review pass.
 
 `WP-SD1-A-TERM-01-RQB1` is accepted historical evidence. Its prior server-boundary terminology is
 superseded by RQB2's exact iMathAS ownership while its least-privilege, PostgreSQL, and aggregate
@@ -78,7 +78,7 @@ transaction owner for Student Account resolution and creation.
 named current-service documentation inventory before any export feature is admitted. That
 inventory covers the security, identity, database-authorization, multi-server, object-storage,
 data-classification, authorization-contract, component-consumer, implementation-plan, release-
-plan, and customer-spec claims recorded in [implementation_status.md](../implementation_status.md). No
+plan, and customer-spec claims recorded in [implementation_status.md](implementation_status.md). No
 current Assignment Export persistence, Job kind or target, Store, route, worker, delivery path, browser
 contract, or service remains.
 Its residual audit retains ordinary export wording, Course Grade CSV export, QTI interchange, and
@@ -91,7 +91,7 @@ Assignment Entries plus their immutable Assignment Revision Entry snapshots own
 QuestionAttemptLimit and QuestionAttemptTimeLimit; BaseAssignmentPolicy attempt/time controls remain
 assignment-wide. The later S2B source-model cut removes the retired generic content and grading
 records rather than retaining them as current QSOM1 work. The current-package status and migration
-allocation remain solely in [implementation_status.md](../implementation_status.md).
+allocation remain solely in [implementation_status.md](implementation_status.md).
 
 `WP-SD1-A-QSOM1-S2B1A` is accepted and completed. Server-only, non-Serde
 `QuestionEvaluation { correct, normalized_credit }` is Question Backend evaluation while
@@ -116,7 +116,7 @@ format/check/all-feature strict Clippy/tests/doctests/Wasm, 286 Node tests, 4,83
 PostgreSQL 17 fresh/no-op/catalog/restricted plus 3 iMathAS tests, Course Appearance
 PostgreSQL-plus-MinIO, and `PASS: complete live acceptance is green.` Parent QSOM1 remains open only
 for separately owned publication, persistence, and cleanup work. Published Question Title and
-Description remain mutable lineage facts. [implementation_status.md](../implementation_status.md)
+Description remain mutable lineage facts. [implementation_status.md](implementation_status.md)
 remains the sole allocation registry.
 
 `WP-SD1-A-QSOM1-P1` is implemented and acceptance-open after M1. Its server-only new-lineage
@@ -180,10 +180,10 @@ documentation, PostgreSQL, aggregate, residual, and diff gates pass; vocabulary 
 the generated Question Model limits and enforces a required, non-whitespace Question Title of at
 most 512 Unicode scalars and Question Description of at most 4,000. A permanent browser test rejects oversized values in a real
 Published Question page contract. Focused frontend, Question Model, PLE adapter,
-documentation/source, formatting, and diff gates pass. Vocabulary row 301 remains open: the Question
-Publication Validation Service and post-publication metadata-editing Server Route must still exist and prove that Question
-Title and Question Description are mutable Published Question lineage facts without creating a
-Question Revision.
+documentation/source, formatting, and diff gates pass. The vocabulary boundary is complete. The
+separately open product capability is a Question Publication Validation Service and
+post-publication metadata-editing Server Route proving that Question Title and Question Description
+are mutable Published Question lineage facts without creating a Question Revision.
 
 `WP-SD1-A-TERM-01-BRR1` is completed as a prerequisite. The strict Blueprint operations HTTP
 decoder reconstructs all six exact generated completion-result variants and rejects unknown nested
@@ -191,9 +191,9 @@ fields, including a separate `replay` product state. The valid browser fixture m
 contract; operation-specific server-held Receipts remain non-Serde. Focused Blueprint Question Model,
 frontend, TypeScript, formatting, and documentation/source gates pass. Final aggregate acceptance
 generated 422 contracts, validated 3 fixtures, and passed Rust/Wasm, 288 Node, 4,850 Python,
-PostgreSQL 17, and PostgreSQL-plus-MinIO gates. Vocabulary row 596 remains open until an implemented
-durable Blueprint operation Store and Server Route return the same accepted exact Receipt for the
-same Account, Request Checksum, source/target, and revision facts.
+PostgreSQL 17, and PostgreSQL-plus-MinIO gates. The vocabulary boundary is complete. The separately
+open product capability is a durable Blueprint operation Store and Server Route returning the same
+accepted exact Receipt for the same Account, Request Checksum, source/target, and revision facts.
 
 `WP-SD1-A-TERM-01-BRI1` is completed. The fresh PostgreSQL baseline directly removes the redundant
 Blueprint Revision UUID and identifies every Blueprint Revision by the exact Blueprint Course
@@ -267,11 +267,11 @@ Question Answer, Question Answer Explanation, Answer Key, and Question Grading I
 row 285 is checked after focused and full aggregate acceptance; no fixture, schema, Server Route,
 Browser Surface, or feature was added.
 
-This is the binding release authority for decisions, objectives, architecture, dependency order, acceptance/evidence, migration policy, risks, rollout, and closeout. The [Current Package Registry](../implementation_status.md) records current package status. Update both documents when a release decision, dependency, status, or acceptance condition changes.
+This is the binding release authority for decisions, objectives, architecture, dependency order, acceptance/evidence, migration policy, risks, rollout, and closeout. The [Current Package Registry](implementation_status.md) records current package status. Update both documents when a release decision, dependency, status, or acceptance condition changes.
 
 ### Evidence classification
 
-Apply [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md) and the permanent-test checklist to every package. Permanent tests prove stable behavior and security boundaries. Disposable service, cloud, browser, screenshot, migration, timing, and reconstruction checks prove their distinct environmental claims. One-time inventories and probes record a decision, then leave the permanent suite. Fixtures exist only for stable serialized contracts; otherwise use inline builders.
+Apply [TEST_EVIDENCE_MODEL.md](../TEST_EVIDENCE_MODEL.md) and the permanent-test checklist to every package. Permanent tests prove stable behavior and security boundaries. Disposable service, cloud, browser, screenshot, migration, timing, and reconstruction checks prove their distinct environmental claims. One-time inventories and probes record a decision, then leave the permanent suite. Fixtures exist only for stable serialized contracts; otherwise use inline builders.
 
 ## Decisions
 
@@ -301,7 +301,7 @@ Version 1 focuses H5P Package content on ungraded practice. Content-addressed by
 
 Deliver one coherent automated-grading platform and the required production-stack journey. Grading, answer keys, correctness decisions, object authorization, and course selection remain server-owned. Browser contracts remain answer-free. Issued work and grading evidence are immutable, and Instructor inspection is audited.
 
-The release scope is the dependency-ordered [Current Package Registry](../implementation_status.md): WP-RC1--WP-RC12, WP-ARCH1, and their current-package prerequisites. It includes live delivery convergence, variation, discovery, sharing, reusable curricula, Blueprint updates, automated grading operations, PLE Question implementations, adapters, QTI interchange, DOCX/PDF print rendering, Object Storage Check and Repair, identity/enrollment, LTI, artifacts, deployment, cost controls, and final closure.
+The release scope is the dependency-ordered [Current Package Registry](implementation_status.md): WP-RC1--WP-RC12, WP-ARCH1, and their current-package prerequisites. It includes live delivery convergence, variation, discovery, sharing, reusable curricula, Blueprint updates, automated grading operations, PLE Question implementations, adapters, QTI interchange, DOCX/PDF print rendering, Object Storage Check and Repair, identity/enrollment, LTI, artifacts, deployment, cost controls, and final closure.
 
 No package may turn an unresolved product decision into an implicit compatibility path. If evidence invalidates a decision, update the In-scope Decision Register, every affected package entry, and acceptance evidence in one reviewed planning change before code continues.
 
@@ -322,7 +322,7 @@ account-transaction installer. The Blueprint operation boundary has exactly six 
 blank CourseInstance. An apply receives scope only from session-derived `AuthenticatedSession`; adapters
 and protected database operations receive no client-supplied installation scope.
 
-No current product type, route, Store capability, PostgreSQL table/function/policy, generated contract, live-demo resource, or screenshot may use Alpha as a Peptidyle product concept. Historical migrations, changelogs, and ADAPT comparison material remain evidence rather than compatibility contracts. Fresh SD1-C allocations belong only in [implementation_status.md](../implementation_status.md).
+No current product type, route, Store capability, PostgreSQL table/function/policy, generated contract, live-demo resource, or screenshot may use Alpha as a Peptidyle product concept. Historical migrations, changelogs, and ADAPT comparison material remain evidence rather than compatibility contracts. Fresh SD1-C allocations belong only in [implementation_status.md](implementation_status.md).
 
 ### Cutover evidence boundary
 
@@ -338,7 +338,7 @@ No current product type, route, Store capability, PostgreSQL table/function/poli
 
 | Boundary                  | Owner                                                  | Rule                                                                                                                                               |
 | ------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Product decisions         | `docs/HUMAN_GUIDANCE.md` and this plan                 | Human Guidance remains terse owner intent; settled engineering interpretation belongs here or in [DESIGN_DECISIONS.md](../../DESIGN_DECISIONS.md). |
+| Product decisions         | `docs/HUMAN_GUIDANCE.md` and this plan                 | Human Guidance remains terse owner intent; settled engineering interpretation belongs here or in [DESIGN_DECISIONS.md](../DESIGN_DECISIONS.md). |
 | Public question contracts | `crates/question_model`                                | Generate answer-free TypeScript contracts.                                                                                                         |
 | Source adapters           | `crates/adapters/{ple,qti,webwork,h5p,imathas}`        | One strict versioned adapter per format.                                                                                                           |
 | Grading                   | `crates/grading` plus server-only adapter capabilities | No browser, generated TypeScript, or Wasm grading authority.                                                                                       |
@@ -396,7 +396,7 @@ The final handoff records command, date, material-tree state, environment, recei
 
 ## Migration policy
 
-The shared [Migration Allocation Registry](../implementation_status.md#migration-allocation-registry) is the only allocation registry. New schema packages receive an allocation before implementation; accepted migrations are never inserted or renamed. PLE Question JSON identity stays in its versioned source payload and immutable object/checksum binding; no generic catchall table is added. Current source and disposable test data use PLE Question JSON version 3 only. `QuestionPresentationBinding`, QTI profile v1, and `AAA-BBBB` Question IDs are current contracts, not compatibility shims.
+The shared [Migration Allocation Registry](implementation_status.md#migration-allocation-registry) is the only allocation registry. New schema packages receive an allocation before implementation; accepted migrations are never inserted or renamed. PLE Question JSON identity stays in its versioned source payload and immutable object/checksum binding; no generic catchall table is added. Current source and disposable test data use PLE Question JSON version 3 only. `QuestionPresentationBinding`, QTI profile v1, and `AAA-BBBB` Question IDs are current contracts, not compatibility shims.
 
 ## Risk register
 
@@ -417,6 +417,6 @@ The shared [Migration Allocation Registry](../implementation_status.md#migration
 
 Working-codebase release proves reproducible repository-owned artifacts without institutional secrets. Production activation supplies operator credentials, applies deployment, runs named live gates, completes legal review, and enrolls the pilot. Neither milestone substitutes for the other.
 
-WP-RC12 closes only after every package in [implementation_status.md](../implementation_status.md) has required PASS evidence and independent review. It updates release evidence, documentation, implementation status, changelog, and release notes with exact receipts. Source inventories, scratch probes, and temporary diagnostics remain documented one-time evidence rather than fragile permanent tests.
+WP-RC12 closes only after every package in [implementation_status.md](implementation_status.md) has required PASS evidence and independent review. It updates release evidence, documentation, implementation status, changelog, and release notes with exact receipts. Source inventories, scratch probes, and temporary diagnostics remain documented one-time evidence rather than fragile permanent tests.
 
 Each package handoff records package ID, owner, changed files, visible/security behavior, focused/package/release checks, evidence paths, governing decisions, and independent findings.

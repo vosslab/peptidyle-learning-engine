@@ -14,8 +14,8 @@ second browser application or a source of seeded student records.
 The exact codec and cutover requirements are owned by this contract and its
 focused tests. The single-installation ownership and authorization target is
 normative in [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md).
-The [release_completion_plan.md](active_plans/active/release_completion_plan.md) owns dependency
-order. This durable guide explains why those decisions exist and how the boundaries fit together.
+[ROADMAP.md](ROADMAP.md) owns durable release direction. This guide explains why those decisions
+exist and how the boundaries fit together.
 
 ## Design summary
 

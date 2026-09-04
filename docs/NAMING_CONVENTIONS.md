@@ -240,7 +240,7 @@ learning outcomes.
 ## Files and operations
 
 - Durable Markdown reference files directly under `docs/` use `SCREAMING_SNAKE_CASE.md`.
-- Working documents under `docs/active_plans/` use lowercase `snake_case.md`.
+- Execution-only working-plan documents use lowercase `snake_case.md`.
 - Authored non-Markdown filenames use lowercase ASCII `snake_case`. Generated TypeScript type files
   under `generated/api/` retain generator-owned `UpperCamelCase.ts` names. Generated TypeScript
   constant modules retain generator-owned `SCREAMING_SNAKE_CASE.ts` names that match their Rust

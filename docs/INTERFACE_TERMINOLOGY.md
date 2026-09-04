@@ -5,6 +5,11 @@ canonical interface-surface names and their semantic ownership.
 [UI_DESIGN_GUIDE.md](UI_DESIGN_GUIDE.md) owns placement, geometry, rendering,
 and interaction behavior.
 
+These are retained interface contracts. The current Live Demo stops at seeded
+Account session entry and does not render the Ribbon, Course, Assignment, or
+Student surfaces described below. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md)
+for the executable boundary.
+
 **Application Shell** is the persistent frame around the current PLE content
 region. It owns the **Ribbon**, presentation settings, and the content origin.
 Route content renders inside that frame.

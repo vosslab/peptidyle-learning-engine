@@ -1,8 +1,9 @@
 # Input and exchange formats
 
-This page is the file-I/O index for PLE. It names only formats implemented by the current source
-or explicitly reserved in the release plan. It does not replace the linked schema, adapter, or API
-contract.
+This page is the file-I/O index for PLE. It distinguishes source-level adapter formats and
+retained future contracts from interfaces exposed by the current server. The currently executable
+server exposes only health and session-entry routes; it does not expose authoring, import, roster,
+or export routes. This page does not replace the linked schema, adapter, or API contract.
 
 ## Browser and server boundary
 
@@ -30,7 +31,7 @@ The lower-level lifecycle receives a private ASCII `NAME=value` owner manifest c
 owner. The referenced files are current-user-owned regular files with mode `0600`. The generated
 `runtime.yaml` record is operational evidence, not an authoring or browser-submitted format.
 
-## Implemented authoring and import
+## Source-level authoring and import formats
 
 | Format                 | Surface and media type                                                      | Implemented boundary                                                                                                                                                                     | Owner                                                                                                                                           |
 | ---------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -43,8 +44,7 @@ QTI conversion produces one complete PLE Question JSON Draft Question through
 the shared authoring contract. Workspace Import separately retains the original
 archive, private mapping evidence, choice maps, and QTI Import Checksums. The
 ordinary PLE Question Backend later produces the answer-free Question Presentation. See
-[implementation_plan.md](active_plans/implementation_plan.md) and
-[QUESTION_MODEL.md](QUESTION_MODEL.md).
+[CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md) and [QUESTION_MODEL.md](QUESTION_MODEL.md).
 
 ## Private server source
 
@@ -58,10 +58,12 @@ iMathAS is a PLE-managed Question Backend, not a file format. Its iMathAS Questi
 and Result Verification tokens remain server-private; no unverified hosted MyOpenMath import is
 accepted.
 
-## Roster CSV import
+## Retained roster CSV import contract
 
-An authorized course Instructor, or an audited Sysadmin support session, may preview and explicitly
-commit UTF-8 CSV at `/api/courses/{course}/roster-imports/preview`. The exact current grammar is:
+The retained design permits an authorized course Instructor, or an audited Sysadmin support session,
+to preview and explicitly commit UTF-8 CSV at
+`/api/courses/{course}/roster-imports/preview`. No current server route exposes this operation.
+Its exact grammar is:
 
 ```csv
 email,roster_id
@@ -74,25 +76,26 @@ student@example.edu,900123456
   and the exact Course Roster Import/revision boundary. Raw CSV bytes are not retained after normalized staging.
 - `roster_id` is course-scoped matching data, not an account key or authentication credential.
 
-The deferred route follows the ownership rules in
+When the route is restored, it must follow the ownership rules in
 [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
 
-## Implemented CSV exports
+## Retained CSV export contract
 
 ### Course totals
 
-`POST /api/courses/{course}/grade-export.csv` also requires an empty body and returns synchronous,
-no-store `text/csv; charset=utf-8` attachment data, bounded to 500 active students. It begins with
-`metadata` and `student` records and declares `totalPoints` or `weightedCategories` plus the fixed
-four-decimal half-away-from-zero rule. Unavailable rows carry a status instead of a score. Durable
-audit metadata is PII-free; email and display name exist only in the response.
+The retained `POST /api/courses/{course}/grade-export.csv` contract requires an empty body and
+returns synchronous, no-store `text/csv; charset=utf-8` attachment data, bounded to 500 active
+students. No current server route exposes this CSV. The response begins with `metadata` and
+`student` records and declares `totalPoints` or `weightedCategories` plus the fixed four-decimal
+half-away-from-zero rule. Unavailable rows carry a status instead of a score. Durable audit
+metadata is PII-free; email and display name exist only in the response.
 
 Route authorization, response headers, and retention are defined in
 [API_CONTRACTS.md](API_CONTRACTS.md) and [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
 
 ## Planned formats and routes
 
-These are explicit release-plan work, not current interfaces:
+These are retained future-contract work, not current interfaces:
 
 - Canvas and Blackboard QTI profile export as background jobs with queued status and protected
   downloads. No profile exporter has shipped.
@@ -105,6 +108,5 @@ YAML is not an input or output interface. A future human-editing format may comp
 PLE Question JSON, but no YAML schema is accepted today. Generic PG, PGML, WebWork2, Open Problem Library,
 LMS roster synchronization, and Canvas/Blackboard export are not current file interfaces.
 
-The release scope and dependency order are maintained in
-[release_completion_plan.md](active_plans/active/release_completion_plan.md); current package status is in
-[implementation_status.md](active_plans/implementation_status.md).
+Durable release direction and unfinished-work routing are maintained in
+[ROADMAP.md](ROADMAP.md) and [TODO.md](TODO.md).

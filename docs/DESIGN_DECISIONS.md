@@ -4,22 +4,23 @@
 
 Record each durable decision about how this code and repository are shaped, once it is settled, with
 the reasoning a later reader needs. Guidance Neil Voss states belongs in
-[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), dated history in `docs/CHANGELOG.md`, open discussion in
-`docs/active_plans/decisions/`. [PROPAGATED HEADER - ENTRIES BELOW ARE YOURS]
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), dated history in `docs/CHANGELOG.md`, and unresolved
+discussion in execution-only work records. [PROPAGATED HEADER - ENTRIES BELOW ARE YOURS]
 <!-- VENDORED HEADER: END -->
 
 This is PLE's conceptual entrypoint for settled product and architecture decisions. It answers
 "why is this boundary here?" and points to the contract that answers "how does it work?" It does
-not replace the dependency order, implementation steps, acceptance gates, or named code owner in the
-[implementation_plan.md](active_plans/implementation_plan.md) and
-[release_completion_plan.md](active_plans/active/release_completion_plan.md).
+not replace the release direction in [ROADMAP.md](ROADMAP.md), unfinished-work routing in
+[TODO.md](TODO.md), acceptance rules in [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md), or the
+named code owner.
 
 ## How to use the documentation
 
 PLE documentation has three deliberately different layers:
 
-1. **Source authorities** decide what is allowed now: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), the
-   active plans, [CONTRACTS.md](CONTRACTS.md), migrations and schemas, and the named code owner.
+1. **Source authorities** decide what is allowed now: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
+   [CONTRACTS.md](CONTRACTS.md), migrations and schemas, and the named code owner. Execution-only
+   notes may narrow a work item but never replace those authorities.
 2. **Decision and contract maps** explain why a boundary exists and how its parts connect. Start
    here, then use the focused maps named under each decision.
 3. **Operating and reference documents** explain a local workflow, input format, deployment shape,
@@ -453,7 +454,6 @@ preview record. It reuses the shared answer-free student landing presentation an
 delivery facts. Only an ordinary enrolled Student entry creates student work; that server-owned
 grading path remains the source of scores and Instructor gradebook evidence.
 **Owner.**
-[implementation_status.md](active_plans/implementation_status.md),
 [question workspace](../crates/question_model/src/assignment_workspace.rs),
 and [API_CONTRACTS.md](API_CONTRACTS.md#instructor-assignment-workspace).
 
@@ -500,7 +500,6 @@ Course Reference number and positive Blueprint Revision Number. No Blueprint Rev
 parallel Blueprint Course UUID plus revision identity exists.
 
 **Owner.**
-[implementation_status.md](active_plans/implementation_status.md),
 [CONTRACTS.md](CONTRACTS.md#blueprint-and-instance-courses),
 [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md#blueprint-and-instance-courses), and
 `crates/question_model/src/blueprint_course.rs`.
@@ -614,10 +613,9 @@ capability is the five-input account-bound
 V2, V1 execute is revoked, and the four-input V1 is dropped with `RESTRICT`.
 Truthful append-only evidence, forced RLS, and the existing lease- and
 generation-fenced score publisher remain the authority boundaries.
-**Owner.** The [implementation status](active_plans/implementation_status.md),
-[implementation status](active_plans/implementation_status.md), and
-[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) own allocation, dependency
-order, and acceptance evidence.
+**Owner.** [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md), [ROADMAP.md](ROADMAP.md), and
+[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) own migration sequence, release direction, and
+acceptance evidence.
 **Planned closure.** Fresh disposable PostgreSQL evidence must prove one
 successful migration pass, a no-op second pass, compatibility, checksum
 mutation detection, and explicit refusal against a nonempty receipt fixture.
@@ -809,8 +807,8 @@ relationship lands with its visible workflow, revocation, audit, and privacy con
 
 **Owner.** [USER_ROLES.md](USER_ROLES.md),
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md), and
-[DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md). The accountable-course-assignment evidence is
-the binding [implementation_status.md](active_plans/implementation_status.md).
+[DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md). Accepted accountable-course-assignment evidence
+is recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ### Course accountability is assigned and transferable
 
@@ -829,9 +827,8 @@ Instructor's first ordinary membership in the same transaction. Authorization co
 the same predicate for every current Teaching Team Member; only accountability and audit identify the
 assigned Instructor.
 
-**Owner.** The binding
-[implementation_status.md](active_plans/implementation_status.md),
-course-membership schema, and teaching-authority Store contract.
+**Owner.** [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md), the course-membership schema, and the
+teaching-authority Store contract.
 
 ### APIs are stateless; durable state is shared
 

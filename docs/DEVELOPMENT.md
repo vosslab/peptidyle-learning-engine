@@ -1,8 +1,9 @@
 # Development guide
 
-This guide gives contributors the repository's supported edit, build, and verification paths. The
-active implementation order, architecture, and acceptance gates remain in
-[active_plans/implementation_plan.md](active_plans/implementation_plan.md).
+This guide gives contributors the repository's supported edit, build, and verification paths.
+[CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md), [ROADMAP.md](ROADMAP.md), and
+[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) own architecture, durable release direction, and
+acceptance rules.
 
 ## Start an edit
 
@@ -94,7 +95,7 @@ Cargo features are capability boundaries, not a convention to enable globally. T
 the production PostgreSQL, S3, and adapter capabilities in its manifest, while memory-oriented
 crates keep those dependencies optional. `./check_rust.sh` checks both the default production graph
 and the all-feature, all-target graph. For a change to an optional capability, also read the owning
-`Cargo.toml` and run the focused package command required by the active work package.
+`Cargo.toml` and run the focused package command required by the bounded work item.
 
 ## Generated outputs
 
@@ -121,7 +122,7 @@ instructor-visible UI, URLs, copyable links, or public fixtures.
 ## Choose the right gate
 
 Run the narrowest gate that proves the changed behavior, then the broader gate required by the
-active work package.
+bounded work item.
 
 | Change or concern                          | Command                                                    | What it proves                                                       |
 | ------------------------------------------ | ---------------------------------------------------------- | -------------------------------------------------------------------- |
@@ -164,7 +165,7 @@ The fresh Store-backed browser owner will build production `dist/`, serve it thr
 gateway, and create product state through visible PLE controls. Until that owner and the available
 course-delivery routes exist together, browser evidence remains unclaimed.
 
-Run the complete Playwright Validation test suite explicitly when the active plan requires all
+Run the complete Playwright Validation test suite explicitly when the bounded work item requires
 browser claims:
 
 ```bash
@@ -254,7 +255,7 @@ commands. A focused probe while rebuilding a workflow
 is useful evidence, but does not become a permanent test unless it satisfies
 the repository checklist in [PYTEST_STYLE.md](PYTEST_STYLE.md#is-this-a-good-pytest).
 
-Every goal must finish the active plan's full Validation test suite on the
+Every goal must finish its bounded scope's full Validation test suite on the
 final material tree. The suite includes all required permanent gates, named
 service/browser acceptance, and independent reviews; an unrun or required
 skipped live gate is not green. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite)
@@ -270,7 +271,7 @@ Run it on the final material tree after the package's focused and connected gate
 
 ## Prepare a handoff
 
-- Review the diff and run the gates appropriate to the changed owner and active plan.
+- Review the diff and run the gates appropriate to the changed owner and bounded work item.
 - Update frozen contracts and their consumers together; contract-only changes are incomplete.
 - Preserve an existing mixed staged/unstaged worktree; do not stage unrelated changes. Only humans
   run `git commit` in this repository.

@@ -2,7 +2,7 @@
 
 ## Status
 
-**Vocabulary-ledger synchronization (2026-09-04).** [Vocabulary Replacements](../VOCABULARY_REPLACEMENTS.md) has no unchecked rows. Historical package receipts below may retain the row state that applied when that package was recorded; they do not allocate current vocabulary work. Product capabilities described as still open remain with their named package or plan, not with the vocabulary ledger.
+**Vocabulary-ledger synchronization (2026-09-04).** `VOCABULARY_REPLACEMENTS.md` has no unchecked rows. Historical package receipts below may retain the row state that applied when that package was recorded; they do not allocate current vocabulary work. Product capabilities described as still open remain with their named package or plan, not with the vocabulary ledger.
 
 **Binding single-installation architecture (2026-08-29).** PLE operates as one installation with
 global accounts, an Instructor-visible Question Library for every Published Question,
@@ -182,14 +182,13 @@ Validation ownership. The PostgreSQL 17 catalog oracle requires the canonical co
 rejects the predecessor. Focused schema, documentation, PostgreSQL, aggregate, residual, and diff
 gates pass; vocabulary row 339 is checked.
 
-`WP-SD1-A-TERM-01-QD1` is completed as a prerequisite, not as closure of the Question Description
-ledger item. The shared strict browser decoder now enforces the generated Question Model's required,
+`WP-SD1-A-TERM-01-QD1` is completed as a prerequisite. The shared strict browser decoder now enforces the generated Question Model's required,
 non-whitespace, 512-scalar Question Title and 4,000-scalar Question Description boundaries, with a
 permanent oversized-value test over a real Published Question page contract. Focused frontend, Question Model, PLE adapter,
-documentation/source, formatting, and diff gates pass. Vocabulary row 301 remains open until the
-Question Publication Validation Service and post-publication metadata-editing Server Route exist and prove that Question Title and
-Question Description are mutable Published Question lineage facts without creating a Question
-Revision.
+documentation/source, formatting, and diff gates pass. The vocabulary boundary is complete. The
+separately open product capability is a Question Publication Validation Service and
+post-publication metadata-editing Server Route proving that Question Title and Question Description
+are mutable Published Question lineage facts without creating a Question Revision.
 
 `WP-SD1-A-TERM-01-BRR1` is completed as a Blueprint result/Receipt-boundary prerequisite, not as
 closure of the replay-status ledger item. The strict Blueprint operations HTTP decoder reconstructs
@@ -199,8 +198,9 @@ fixture now agrees with the generated Rust contract, while operation-specific se
 remain non-Serde. Focused Blueprint Question Model (20), frontend (288 Node), TypeScript, formatting,
 and documentation/source gates pass. Final aggregate acceptance generated 422 contracts, validated 3
 fixtures, and passed Rust/Wasm, 288 Node, 4,850 Python, PostgreSQL 17, and PostgreSQL-plus-MinIO
-gates. Vocabulary row 596 remains open until an implemented durable Blueprint operation Store and
-Server Route prove same-Receipt behavior for the same Account, Request Checksum, source/target, and revision facts.
+gates. The vocabulary boundary is complete. The separately open product capability is a durable
+Blueprint operation Store and Server Route proving same-Receipt behavior for the same Account,
+Request Checksum, source/target, and revision facts.
 
 `WP-SD1-A-TERM-01-BRI1` is completed as the direct Blueprint Revision identity cutover. The private
 Blueprint Course UUID remains only on the stable Blueprint Course record, which also owns its
@@ -305,7 +305,7 @@ feature is deferred and incomplete after the pre-production schema reset. The se
 terminology closure. The authoritative
 remaining package sequence, binary scope register, owners, files, behavior, success conditions, and
 validation are in
-[release_completion_plan.md](active/release_completion_plan.md). The release plan owns release scope
+[release_completion_plan.md](release_completion_plan.md). The release plan owns release scope
 and dependency order, while [implementation_status.md](implementation_status.md) owns the sole global
 current-package handoff; this foundation plan does not duplicate that changing handoff.
 
@@ -323,7 +323,7 @@ Current browser evidence is tracked through the sole current-package handoff in
 [implementation_status.md](implementation_status.md). Production email and email-code onboarding
 remain separate release work.
 
-**Current live-demo capability.** [WP-INST-LD3](active/live_delivery_convergence_plan.md) established
+**Current live-demo capability.** [WP-INST-LD3](live_delivery_convergence_plan.md) established
 ordinary live assignments, Assignment Attempts, deterministic server-owned grading, immutable issued
 evidence, receipt replay, and audited Instructor inspection as the current live-demo product path.
 WP-INST-T5 is accepted after extending that model with visible item-pool authoring, policy-correct
@@ -334,7 +334,7 @@ Assignment Source Record history, and controlled updates. WP-INST-T6 is accepted
 pages, and a live answer-free Student view. WP-INST-G1 persists one immutable accepted student
 input before grading and adds assignment-local exception recovery,
 bounded retry, generation-fenced recalculation, and immutable receipts. `WP-INST-WN1` is the current
-repository-wide corrective prerequisite under the [wire naming contract migration plan](active/wire_naming_contract_migration_plan.md).
+repository-wide corrective prerequisite under the [wire naming contract migration plan](wire_naming_contract_migration_plan.md).
 Current pre-WN1 transport remains lower camel where source still does so; the approved direct
 Serde-to-TypeScript snake data-object boundary lands through WN1-A/B/C1-C6/QM/WA/D/F before G2 resumes.
 `WP-INST-G2` is implemented and acceptance-open behind WN1 and its remaining visual/documentation close-out.

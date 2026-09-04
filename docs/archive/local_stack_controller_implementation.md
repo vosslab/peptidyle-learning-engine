@@ -4,9 +4,9 @@
 > WP-PY-L1 controller evidence and acceptance. Its browser evidence record, including the `202` ordinary
 > mock-preview tests and seven legacy lanes, is historical evidence only and does not define the
 > supported browser architecture, catalog, commands, or lane ownership. For current truth, follow
-> the [release_completion_plan.md](../active/release_completion_plan.md),
-> [implementation status](../implementation_status.md), and
-> [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md).
+> the [release_completion_plan.md](release_completion_plan.md),
+> [implementation status](implementation_status.md), and
+> [TEST_EVIDENCE_MODEL.md](../TEST_EVIDENCE_MODEL.md).
 
 ## Status
 
@@ -132,11 +132,11 @@ if it merely wraps an earlier implementation while retaining a second lifecycle 
 script or test runner.
 
 1. **Contract, placement, and source-of-truth update.** Record the owner decisions here, in
-   [../../HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md), and in the foundation plan. Confirm the
-   root command/package placement against [../../REPO_STYLE.md](../../REPO_STYLE.md),
-   [../../PYTHON_STYLE.md](../../PYTHON_STYLE.md),
-   [../../PYTEST_STYLE.md](../../PYTEST_STYLE.md), [../../../tests/TESTS_README.md](../../../tests/TESTS_README.md),
-   and [../../../devel/DEVEL_README.md](../../../devel/DEVEL_README.md). This package lands before
+   [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md), and in the foundation plan. Confirm the
+   root command/package placement against [REPO_STYLE.md](../REPO_STYLE.md),
+   [PYTHON_STYLE.md](../PYTHON_STYLE.md),
+   [PYTEST_STYLE.md](../PYTEST_STYLE.md), [TESTS_README.md](../../tests/TESTS_README.md),
+   and [DEVEL_README.md](../../devel/DEVEL_README.md). This package lands before
    code or permanent tests.
 2. **Typed controller foundation.** Own `local_stack_control/` with focused modules for models,
    process execution, environment parsing, Compose target and disposable-owner construction,
@@ -144,10 +144,10 @@ script or test runner.
    every authored source below the repository line limit. This package depends only on package 1
    and the standard library; it must not depend on a test runner.
 3. **Developer lifecycle and operator guidance.** Implement and document the public command surface in
-   [../../LOCAL_STACK_OPERATIONS.md](../../LOCAL_STACK_OPERATIONS.md), [../../USAGE.md](../../USAGE.md),
-   [../../DEVELOPMENT.md](../../DEVELOPMENT.md), [../../TROUBLESHOOTING.md](../../TROUBLESHOOTING.md),
-   [../../CODE_ARCHITECTURE.md](../../CODE_ARCHITECTURE.md), and
-   [../../FILE_STRUCTURE.md](../../FILE_STRUCTURE.md). Direct Compose commands remain narrowly
+   [LOCAL_STACK_OPERATIONS.md](../LOCAL_STACK_OPERATIONS.md), [USAGE.md](../USAGE.md),
+   [DEVELOPMENT.md](../DEVELOPMENT.md), [TROUBLESHOOTING.md](../TROUBLESHOOTING.md),
+   [CODE_ARCHITECTURE.md](../CODE_ARCHITECTURE.md), and
+   [FILE_STRUCTURE.md](../FILE_STRUCTURE.md). Direct Compose commands remain narrowly
    documented recovery evidence, not a competing normal path. This package depends on package 2.
    A non-default lifecycle invocation additionally requires the runner-held capability matching the
    private environment commitment; an asserted project name or environment path is not authority.
@@ -169,11 +169,11 @@ script or test runner.
    `tests/e2e/` documentation when ownership changes. This
    package depends on packages 2 and 4 and is not deferred to a later cleanup project.
 6. **Durable proof, live evidence, and release handoff.** Add only permanent pure behavior tests to
-   [../../../tests/test_local_stack_control.py](../../../tests/test_local_stack_control.py). Run the
+   [test_local_stack_control.py](../../tests/test_local_stack_control.py). Run the
    real Podman stop-retain, confirmed reset-rebuild, stateless restart, disposable walkthrough, and
    full no-skip acceptance checks as one-time/opt-in evidence, not regular networked pytest. Record
    evidence and unresolved findings here, complete independent safety and repository-rule reviews,
-   and update [../../CHANGELOG.md](../../CHANGELOG.md). This package depends on all prior packages
+   and update [CHANGELOG.md](../CHANGELOG.md). This package depends on all prior packages
    and is the completion gate.
 
 ## Test classification
@@ -207,7 +207,7 @@ regular test with a network or subprocess dependency.
 
 The final material tree must pass every applicable command below. A required skip, unavailable
 service, or later material change leaves this workstream incomplete under
-[../../TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md#validation-test-suite).
+[TEST_EVIDENCE_MODEL.md](../TEST_EVIDENCE_MODEL.md#validation-test-suite).
 
 ### Permanent and repository gates
 

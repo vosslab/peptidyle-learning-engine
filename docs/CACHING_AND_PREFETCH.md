@@ -13,8 +13,7 @@ permission or grading decision.
 The related contracts are [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md),
 [DETERMINISM_CONTRACT.md](DETERMINISM_CONTRACT.md), and
 [SECURITY_MODEL.md](SECURITY_MODEL.md). The delivery order and open work remain
-in [implementation_plan.md](active_plans/implementation_plan.md) and
-[release_completion_plan.md](active_plans/active/release_completion_plan.md).
+in [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md) and [ROADMAP.md](ROADMAP.md).
 
 ## Cache ownership
 

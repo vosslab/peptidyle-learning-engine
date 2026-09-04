@@ -1,8 +1,6 @@
 # Contract register
 
-This register turns the module catalog in the
-[active implementation plan](active_plans/implementation_plan.md) into an
-ownership and change-control boundary. It records all 36 catalog modules. It
+This register is the durable module ownership and change-control boundary. It records all 36 catalog modules. It
 does not mark later milestone behavior as implemented.
 
 ## How to read the register

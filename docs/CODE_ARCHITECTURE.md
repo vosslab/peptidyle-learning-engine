@@ -134,12 +134,8 @@ Dates. It must use each exact operation identity and request checksum,
 preserve immutable receipts separately from repairable current read results,
 and keep Assignment Import Repair bounded to derived state.
 
-The fresh pre-production migration epoch is allocated in
-[implementation_status.md](active_plans/implementation_status.md). The
-course/curriculum capability range is planned within `2026082913` through
-`2026082916`; protected authorization functions, forced RLS, grants, and acceptance helpers are within
-`2026082929` through `2026082932`. The exact active Migration Allocation Registry remains
-status-owned. The immutable
+The checked-in pre-production migration sequence and forward allocation rule are documented in
+[DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md). The immutable
 `2026081837_blueprint_alpha_curriculum.sql` and accepted successor migrations
 are historical implementation evidence and are not edited to disguise the old
 split.
@@ -266,8 +262,8 @@ screenshot, and human-review evidence follows the coherent implementation.
   symbols and routes. Their removal spans Question Model, Store, SQL, server,
   generated output, and browser boundaries.
 - The fresh pre-production migration epoch and its exact per-file Migration
-  Allocation Registry remain owned by `implementation_status.md`; this
-  document does not allocate migrations.
+  Allocation Registry remain owned by [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md);
+  this document does not allocate migrations.
 - Production AWS activation, SMTP delivery attestation, institutional
   FERPA/legal sign-off, and human pilot acceptance remain separate release
   evidence classes.

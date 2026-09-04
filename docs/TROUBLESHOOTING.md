@@ -78,6 +78,12 @@ the renderer identity, and the available engine without mutating the stack.
   the machine is exhausted. These are diagnostics; do not use global Compose
   cleanup.
 
+- **`podman machine` reports that its VM lockfile cannot be created or opened:**
+  the current invocation cannot inspect the machine. Preserve the exact `doctor`
+  warning, resolve the host permission or concurrent-machine condition with the
+  machine owner, then rerun `doctor`. Do not remove or edit a VM lockfile to
+  force the stack to start.
+
 - **`local port ... is already listening`:** identify the owning process with
   the reported port, stop only that process if you own it, then retry
   `./run_live_demo.sh`. The fixed owner chooses a free loopback gateway port

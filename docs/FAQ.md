@@ -4,6 +4,11 @@ This page answers common orientation questions about PLE's learning model, reusa
 Courses, private Course Instances, security boundaries, and local services. It links to the
 authoritative contracts for implementation detail.
 
+The only current browser capability is the disposable Live Demo's seeded Account session entry.
+Unless an answer explicitly identifies that boundary, its course, authoring, delivery, grading,
+and administration details describe the retained product contract rather than a current Server
+Route. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the executable boundary.
+
 ## What is a Blueprint Course?
 
 A **Blueprint Course** is the one reusable course-level aggregate. It holds ordered modules,
@@ -19,13 +24,14 @@ Course. Its parent and applied Blueprint revision are immutable. It is private t
 Teaching Team Members and enrolled Students, and owns enrollment, deadlines, releases, accommodations,
 grades, and delivery settings. It is the only course type that receives student work.
 
-## How do I create a course?
+## How will I create a course?
 
-Course creation chooses an existing published Blueprint Course or first creates a minimal new
-Blueprint Course. The UI then creates the Course Instance with its own teaching title, term, and
-IANA time zone. The instance receives reusable Blueprint Revision Content and reviewed relative schedule offsets,
-then resolves live dates against its term. Students, invitations, grades, and other delivery state
-are never copied from another instance.
+The retained course-creation design chooses an existing published Blueprint Course or first creates
+a minimal new Blueprint Course. Its future UI creates the Course Instance with its own teaching
+title, term, and IANA time zone. The instance receives reusable Blueprint Revision Content and
+reviewed relative schedule offsets, then resolves live dates against its term. Students, invitations,
+grades, and other delivery state are never copied from another instance. No course-creation route
+exists in the current demo.
 
 ## How do Blueprint updates reach a Course Instance?
 
@@ -98,8 +104,8 @@ No. PLE Question JSON is the small, versioned, answer-bearing authoring format f
 static Questions. The PLE Question Backend interprets the complete source to produce an answer-free
 Question Presentation and evaluate Student Responses on the server. QTI is a bounded import/export adapter and archival interchange
 format, so vendor XML and QTI expression trees do not become PLE's internal schema. See
-[QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and the current
-[implementation_plan.md](active_plans/implementation_plan.md).
+[QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and
+[QUESTION_MODEL.md](QUESTION_MODEL.md).
 
 ## Can a Student browser contact WeBWorK?
 
@@ -128,24 +134,22 @@ are optional additional credentials for that same Account. The ordinary email-co
 adapters are being reconstructed on the canonical Authenticated Session foundation. The current
 Live Demo uses its visible seeded Account selector. An Instructor can create a one-time Course
 Invitation link for an existing Account through a trusted course channel or configured SMTP. The
-implementation-status registry is the source for what has been verified in a deployment. See
-[ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) and
-[implementation status](active_plans/implementation_status.md).
+[CHANGELOG.md](CHANGELOG.md) records accepted implementation evidence. See
+[ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) and [ROADMAP.md](ROADMAP.md).
 
 ## Is PLE ready for production?
 
 Not yet. PLE is still pre-production. The live demo is a functional, disposable installation, but
 it is not release acceptance. The automated-grading operation boundary is accepted; student-work inspection and grade-scheme-aware Gradebook work remain acceptance-open behind
 the current naming and visual/documentation close-out. Provider, mailbox, passkey, multi-replica, security, HCI, and release gates also remain open. See
-[implementation_status.md](active_plans/implementation_status.md) and [release completion plan](active_plans/active/release_completion_plan.md).
+[ROADMAP.md](ROADMAP.md) and [TODO.md](TODO.md).
 
 ## Is the live demo read-only?
 
-No. The live demo uses the ordinary PLE application, authorization, database, and storage paths.
-Visitors can create or change Course Instances, assignments, roster membership, submissions, grades,
-and other permitted records. Those changes remain in the current disposable installation until it
-is regenerated; regeneration restores the seeded baseline and discards disposable state. See
-[LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
+The current demo can establish a server-owned session, but it exposes no Course, authoring,
+roster, delivery, submission, grading, Gradebook, or administration route. It therefore cannot
+currently demonstrate a mutating teaching workflow. Its database and object storage are disposable:
+regeneration restores seeded state. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
 
 ## Are live-demo roles isolated from one another?
 
@@ -186,7 +190,7 @@ response needs instructor attention**, an authorized Instructor reviews **Gradin
 chooses the currently enabled retry action when the operation is eligible. After **Your completed Assignment Attempt
 is recorded.**, confirm the current result in **Gradebook**. The browser never receives an answer,
 grading internals, or a hidden key. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md),
-[FAILURE_RECOVERY.md](FAILURE_RECOVERY.md), and [implementation_status.md](active_plans/implementation_status.md).
+[FAILURE_RECOVERY.md](FAILURE_RECOVERY.md), and [CHANGELOG.md](CHANGELOG.md).
 
 ## Can the browser or another Student see answer keys?
 
@@ -214,6 +218,6 @@ authentication or grading proof. See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_P
 
 Use [CONTRACTS.md](CONTRACTS.md) for frozen module and service boundaries, and the focused durable
 document for the subject, such as [OBJECT_STORAGE.md](OBJECT_STORAGE.md), [RETENTION_POLICY.md](RETENTION_POLICY.md),
-or [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md). Use active plans for
-dependency order and unfinished work. The current implementation handoff distinguishes accepted
-behavior from planned behavior in [implementation_status.md](active_plans/implementation_status.md).
+or [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md). Use
+[TODO.md](TODO.md) for unfinished-work routing and [CHANGELOG.md](CHANGELOG.md) for accepted
+implementation evidence. A bounded work item may refine only its explicitly assigned scope.

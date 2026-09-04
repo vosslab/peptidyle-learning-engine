@@ -3,8 +3,8 @@
 > **Historical review notice - superseded for current acceptance (2026-08-19).** This review records
 > the 2026-08-18 tree `bfdbdd7...` and remains a dated historical record. Current source repairs
 > centralize route-role policy and reject student catalog reads, while the current screenshot corpus
-> has refreshed ownership and expanded to 36 artifacts. Use [implementation status](../implementation_status.md),
-> the [changelog](../../CHANGELOG.md), and the [test evidence model](../../TEST_EVIDENCE_MODEL.md)
+> has refreshed ownership and expanded to 36 artifacts. Use [implementation status](implementation_status.md),
+> the [changelog](../CHANGELOG.md), and the [test evidence model](../TEST_EVIDENCE_MODEL.md)
 > for current route, corpus, and acceptance evidence. Preserve the historical findings below; do not
 > treat this dated tree as current acceptance input.
 
@@ -13,7 +13,7 @@ committed screenshot corpus, with `OTHER_REPOS/adapt` as comparison evidence.
 
 Review date: 2026-08-18. Tree identity: `bfdbdd7f5d597adf0aa5c2108785ca9a22cfb7b3`.
 Every finding, citation, and disposition is in
-[implementation_status.md](../implementation_status.md); this document carries the historical
+[implementation_status.md](implementation_status.md); this document carries the historical
 decisions.
 
 This review recommends. It accepts no work package and completes none of the work it proposes.

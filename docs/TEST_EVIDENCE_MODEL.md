@@ -3,9 +3,8 @@
 PLE uses evidence that matches the claim being made. Fast checks protect narrow
 logic; a restored canonical browser suite will prove visible product behavior;
 service oracles prove the service boundaries that a browser cannot distinguish.
-This document classifies that evidence. The active
-[release_completion_plan.md](active_plans/active/release_completion_plan.md)
-owns each work package's exact acceptance scope and command list.
+This document classifies that evidence. Each bounded work item owns its exact command list;
+[ROADMAP.md](ROADMAP.md) owns durable release acceptance.
 
 Read [PYTEST_STYLE.md](PYTEST_STYLE.md) before adding a Python test and
 [PLAYWRIGHT_TEST_STYLE.md](PLAYWRIGHT_TEST_STYLE.md) before changing a browser

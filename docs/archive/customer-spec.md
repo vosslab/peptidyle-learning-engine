@@ -1,6 +1,6 @@
 > **Historical discovery input, not current instructions.** Current authority is
 > [implementation_plan.md](implementation_plan.md),
-> [release_completion_plan.md](active/release_completion_plan.md), and
+> [release_completion_plan.md](release_completion_plan.md), and
 > [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md). The M0 result is concluded evidence.
 
 # Peptidyle Learning Engine

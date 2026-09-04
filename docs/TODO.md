@@ -2,27 +2,23 @@
 
 ## Current work
 
-- [ ] Complete the approved
-      [wire naming contract migration plan](active_plans/active/wire_naming_contract_migration_plan.md);
-      see [implementation_status.md](active_plans/implementation_status.md) for the current schedule,
-      G2 acceptance-open dependency, and any evidence-backed migration allocation.
-- [ ] Apply the dependency-ordered Student role-vocabulary convergence in
-      [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) as each affected subsystem becomes current work.
+- [ ] Select one dependency-ready bounded work item from this roadmap and its durable contracts,
+      pass its named gates, and transfer accepted evidence to [CHANGELOG.md](CHANGELOG.md).
+- [ ] Keep execution-only coordinates outside permanent documentation. Record durable outcomes in
+      [CONTRACTS.md](CONTRACTS.md), [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md), or the focused guide.
 
 ## Before first production deployment
 
-- Follow the dependency-ordered release packages and external activation checks in the
-  [release completion plan](active_plans/active/release_completion_plan.md). The disposable
-  [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) is product evidence, not production activation.
+- Follow the release stages and external activation checks in [ROADMAP.md](ROADMAP.md). The
+  disposable [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) is product evidence, not production activation.
 - Use [ROADMAP.md](ROADMAP.md) for the final schema-freeze procedure, release gates, and recovery
   rules; do not duplicate that sequenced work here.
 
 ## Work routing
 
-- Product and release work remains owned by the
-  [release completion plan](active_plans/active/release_completion_plan.md).
-- Current architecture and storage boundaries remain owned by the
-  [implementation plan](active_plans/implementation_plan.md).
+- Durable product boundaries remain in [CONTRACTS.md](CONTRACTS.md) and the focused contract guides.
+- Architecture and storage boundaries remain in [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md) and
+  [OBJECT_STORAGE.md](OBJECT_STORAGE.md).
 - Schema ownership and current migration inventory remain in
   [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
 - The future baseline procedure, gates, and recovery rules are in
@@ -30,11 +26,10 @@
 
 ## Future allocation and evidence gates
 
-- Keep accepted migration history stable during active feature acceptance; allocate any future
-  repair or schema delta forward under the current rule in
-  [implementation_status.md](active_plans/implementation_status.md).
+- Keep accepted migration history stable during bounded feature acceptance; allocate any future
+  repair or schema delta forward under [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
 - Focus pre-production work on the current live PLE; route data-adoption, compatibility, or
-  legacy-reader work to an active plan only when durable user-data evidence establishes that need.
+  legacy-reader work to a bounded work item only when durable user-data evidence establishes that need.
 - [ ] Evaluate complementary container-query adoption as evidence-driven responsive maintenance;
       use [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) as the authority and record an implementation claim
       only after evidence from a representative surface test supports it.

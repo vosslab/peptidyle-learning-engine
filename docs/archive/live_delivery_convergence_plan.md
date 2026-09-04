@@ -4,10 +4,10 @@
 
 WP-INST-LD3 was accepted on 2026-08-24. It established the live demo product-validation journey and
 production HTTPS browser suite for ordinary assignments, Assignment Attempts, grading, evidence, and Instructor
-inspection. WP-INST-T5 item pools are accepted. [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md) leads
+inspection. WP-INST-T5 item pools are accepted. [LIVE_DEMO_SPEC.md](../LIVE_DEMO_SPEC.md) leads
 product behavior,
-[HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) records durable owner decisions, and
-[implementation_status.md](../implementation_status.md) owns the current handoff and migration
+[HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md) records durable owner decisions, and
+[implementation_status.md](implementation_status.md) owns the current handoff and migration
 allocation.
 
 ## Outcome
@@ -77,7 +77,7 @@ foundations. It is a convergence package, so discovery, collections, curricula, 
 operations continue to use their existing package identities and dependency order.
 
 WP-INST-T5 accepted its item-pool productization through the live-demo product-validation journey. The active Instructor
-handoff is recorded only in [implementation_status.md](../implementation_status.md).
+handoff is recorded only in [implementation_status.md](implementation_status.md).
 
 ## Validation
 
@@ -107,5 +107,5 @@ Focused implementation evidence:
 
 ## Acceptance
 
-WP-INST-LD3 is accepted under [TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md). The active
+WP-INST-LD3 is accepted under [TEST_EVIDENCE_MODEL.md](../TEST_EVIDENCE_MODEL.md). The active
 status and changelog record its final evidence, and the current package handoff has advanced.

@@ -22,9 +22,8 @@ This document maps identities and their scopes. It supplements
 [USER_ROLES.md](USER_ROLES.md), [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
 [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md),
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md), and
-[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md). The
-[implementation status](active_plans/implementation_status.md) owns the migration from the
-former installation-scope model to these identities.
+[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md). [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md)
+records the checked-in migration from the former installation-scope model to these identities.
 
 ## Rules that apply everywhere
 

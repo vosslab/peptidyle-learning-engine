@@ -2,6 +2,17 @@
 
 PLE remains pre-production; these notes describe the current development snapshot.
 
+## v26.09 - 2026-09-04
+
+### Highlights
+
+- PLE now uses direct Question, Blueprint Course, Assignment, and publication terminology across
+  its current contracts, without compatibility aliases.
+- Server-only Question Publication now creates immutable new-lineage evidence while keeping the
+  browser surface answer-free and unchanged.
+- Durable documentation now routes readers to the architecture, contracts, roadmap, database,
+  evidence, TODO, and changelog records; historical plans live in `docs/archive/`.
+
 ## v26.08 - 2026-08-28
 
 ### Highlights

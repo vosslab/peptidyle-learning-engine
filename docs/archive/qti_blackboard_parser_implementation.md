@@ -1,8 +1,8 @@
 # QTI Blackboard parser implementation
 
 > **Historical accepted package.** WP-QTI-1 through WP-QTI-12 are accepted history. Current
-> dependency order and remaining QTI scope are in the [release completion plan](../active/release_completion_plan.md)
-> and [implementation status](../implementation_status.md).
+> dependency order and remaining QTI scope are in the [release completion plan](release_completion_plan.md)
+> and [implementation status](implementation_status.md).
 
 ## Status
 
@@ -65,11 +65,11 @@ separate capability owners.
 ## Historical successor
 
 The immediate successor was the Q3 pure PLE Question JSON bridge in
-[implementation_status.md](../implementation_status.md). It translated only trusted
+[implementation_status.md](implementation_status.md). It translated only trusted
 mapped items through PLE-owned PLE Question JSON validation and proved canonical public/private
 equivalence with hand-authored source, without Store or HTTP mutation.
 
 WP-QTI-1 through WP-QTI-12 are now accepted history. Current authority is
-[release_completion_plan.md](../active/release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
+[release_completion_plan.md](release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
 is current, WP-ARCH1 follows it, then WP-RC4 owns the QTI-JSONL contract, WP-RC5 owns families and
 Chapter 1 content, and WP-RC6 closes QTI export and H5P claims.

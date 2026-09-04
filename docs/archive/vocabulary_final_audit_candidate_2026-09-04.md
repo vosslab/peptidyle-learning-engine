@@ -1,12 +1,10 @@
-# Vocabulary final-audit candidate - 2026-09-04
+# Vocabulary final audit - 2026-09-04
 
 ## Scope and review boundary
 
-This is the code-cleaning manager's final-audit evidence for
-[Vocabulary Replacements](../../VOCABULARY_REPLACEMENTS.md). It is not an
-independent completion review and does not declare final acceptance. The
-reviewer must inspect this candidate on the resulting stable tree and supply
-the final conclusion.
+This record combines the code-cleaning manager's candidate evidence for
+`VOCABULARY_REPLACEMENTS.md` with the terminology
+reviewer's independent conclusion on the resulting repository tree.
 
 `HUMAN_GUIDANCE.md`, `TERMINOLOGY_CONTRACT.md`, and `DESIGN_DECISIONS.md` were
 read-only authorities throughout this pass.
@@ -19,10 +17,11 @@ read-only authorities throughout this pass.
   source already keeps accepted-response facts in Answer Key/Question Answer
   roles. Implementing QTI semantic mapping or a new authored Explanation field
   is a separately owned product capability, not an outstanding rename.
-- `implementation_plan.md`, `release_completion_plan.md`, and
-  `implementation_status.md` now state that their historical row-status
-  receipts do not allocate current vocabulary work. Open product capabilities
-  remain with their owning package or plan.
+- Operative current-handoff and active-plan statements now distinguish a
+  completed vocabulary boundary from the separately open product capability.
+  Historical row-status receipts remain historical and do not allocate current
+  vocabulary work. Open product capabilities remain with their owning package
+  or plan.
 
 ## Current-state search evidence
 
@@ -63,13 +62,16 @@ connector review.
 
 | Gate                                         | Result                                                                                                                                                                                                                                                                                  |
 | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `source source_me.sh && ./all_test.sh`       | Passed 2026-09-04; exit status 0. The aggregate regenerated 416 contracts, validated 3 tracked fixtures, passed Rust checks/strict Clippy/tests/doctests/Wasm, TypeScript/lint/Prettier, 4,874 Python tests, and both disposable PostgreSQL and PostgreSQL-plus-MinIO acceptance lanes. |
+| `source source_me.sh && ./all_test.sh`       | Passed independently on the final material tree; exit status 0. The aggregate regenerated 416 contracts, validated 3 tracked fixtures, passed Rust checks/strict Clippy/tests/doctests/Wasm, all 5 frontend checks including 290 Node tests, 4,878 Python tests, and both disposable PostgreSQL and PostgreSQL-plus-MinIO acceptance lanes. |
 | Documentation/source-line and Markdown links | Passed within the final aggregate.                                                                                                                                                                                                                                                      |
 | `git diff --check`                           | Passed after the final-tree aggregate.                                                                                                                                                                                                                                                  |
-| Independent completion review                | **Pending reviewer conclusion**                                                                                                                                                                                                                                                         |
+| Independent completion review                | **PASS.** The reviewer repeated the contextual inventory, inspected the operative plan corrections, and ran the complete final-tree gate.                                                                                                                                               |
 
 ## Conclusion
 
-**Pending independent reviewer conclusion.** The manager's final-audit
-checklist is complete and the final-tree aggregate passed, but this file
-records candidate evidence only. It must not be treated as final acceptance.
+**PASS.** All 417 vocabulary replacement rows are complete. Current contextual
+matches are registered/platform vocabulary, exact technical qualifiers, or
+historical evidence. Operative plans distinguish completed vocabulary boundaries
+from separately open product capabilities. Remaining Store, Server Route,
+Browser Surface, QSOM1, and other feature work does not reopen these terminology
+boundaries.

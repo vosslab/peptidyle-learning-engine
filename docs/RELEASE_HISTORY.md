@@ -1,7 +1,42 @@
 # Release history
 
 PLE remains pre-production. This page records development snapshots; production release acceptance
-remains owned by the active release plan and `WP-RC12`.
+remains governed by [ROADMAP.md](ROADMAP.md) and [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
+
+## v26.09 - 2026-09-04
+
+### Highlights
+
+- Completed a direct PLE terminology convergence across Question Source, Question Asset Reference,
+  Question Revision, Blueprint Course, Assignment, and publication contracts without retaining
+  compatibility readers or duplicate product concepts.
+- Added the server-only new-lineage Question Publication Store and coordinator. It verifies the
+  authorized current Draft Question source, creates immutable publication evidence, and keeps the
+  executable browser surface unchanged.
+- Replaced permanent links to retired planning artifacts with durable architecture, contract,
+  roadmap, database, evidence, TODO, and changelog authorities. Historical plans and reviews now
+  live under `docs/archive/`.
+
+### Notable fixes
+
+- Corrected source, object, retry, variation, receipt, and availability language so each contract
+  names its exact owner rather than a generic operation or lifecycle term.
+- Rotated the 2026-09-02 changelog block into
+  [CHANGELOG-2026-09c.md](CHANGELOG-2026-09c.md), retaining the two newest date blocks in the active
+  changelog.
+
+### Compatibility notes
+
+- The direct terminology cutovers intentionally add no PLE compatibility aliases, readers, or
+  fixtures. Historical migrations and changelog entries remain evidence, not runtime contracts.
+- This is a development snapshot. The local demo and browser entry remain pre-production and do not
+  establish deployment or release acceptance.
+
+### Validation
+
+- The recorded work includes focused Rust, browser-contract, TypeScript, PostgreSQL, and aggregate
+  evidence for the affected contracts. The final documentation repair passes the Markdown-link gate
+  across 196 documents.
 
 ## v26.08 - 2026-08-28
 

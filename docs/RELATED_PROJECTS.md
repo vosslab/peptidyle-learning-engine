@@ -4,8 +4,7 @@ Peptidyle Learning Engine (PLE) helps biology instructors deliver reusable, vari
 server-owned automated grading. The projects and resources below serve the same instructors,
 assessment authors, or learning-platform operators through the same workflow or a closely adjacent
 one. Current PLE adapter scope remains in [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md), and
-current acceptance status remains in
-[active_plans/implementation_status.md](active_plans/implementation_status.md).
+durable release direction remains in [ROADMAP.md](ROADMAP.md).
 
 ## Confirmed related projects
 
@@ -31,12 +30,12 @@ current acceptance status remains in
   [Instructor page map](INSTRUCTOR_PAGE_VISUALS.md): an assignment title opens an assignment-local
   Instructor home, Questions owns question and pool authoring, Policies (the PLE name for delivery
   properties) owns delivery rules, and Student view exposes the current student landing.
-- Boundary and advantage: PLE's [live-demo specification](LIVE_DEMO_SPEC.md) exercises the ordinary
-  live Student workflow, including real submissions, deterministic server grading, receipts, and
-  gradebook evidence. PLE's [adapter contract](ADAPTER_DEVELOPMENT.md) keeps answer keys and grading
-  decisions server-only and delivers an answer-free browser contract; its
-  [test-evidence model](TEST_EVIDENCE_MODEL.md) makes the production-shaped stack the browser
-  acceptance boundary. These are PLE guarantees, not claims about ADAPT parity.
+- Boundary and advantage: PLE's [live-demo specification](LIVE_DEMO_SPEC.md) currently exposes
+  only seeded Account session entry, not a live Student workflow. Its retained
+  [adapter contract](ADAPTER_DEVELOPMENT.md) keeps answer keys and grading decisions server-only
+  and defines an answer-free browser contract; its
+  [test-evidence model](TEST_EVIDENCE_MODEL.md) requires restored browser evidence before teaching
+  workflows can be claimed. These are PLE design boundaries, not claims about ADAPT parity.
 - Provenance: Confirmed by the explicit PLE prior-art records and the authoritative ADAPT guides
   checked on 2026-08-28. The ignored `OTHER_REPOS/adapt` checkout is read-only corroboration for
   route-level structure, not a PLE dependency or current-upstream compatibility claim.
@@ -174,11 +173,11 @@ current acceptance status remains in
 - Link: https://www.numbas.org.uk/
 - Why visitors may care: instructors can create randomized, automatically marked assessments, reuse
   openly licensed questions, and deliver work through an LMS or standalone player.
-- Evidence: Numbas' [official site](https://www.numbas.org.uk/) documents interactive questions,
-  customizable marking, and current documentation. Its [question reference](https://docs.numbas.org.uk/en/latest/question/reference.html)
-  documents generated variables and fresh values for each attempt, while its [marking algorithm
-  guide](https://docs.numbas.org.uk/en/heads/queues/marking-algorithm.html) documents automatic
-  credit and feedback.
+- Evidence: Numbas' [official site](https://www.numbas.org.uk/) documents randomized questions,
+  automatic marking, feedback, and LMS or standalone delivery. Its
+  [current documentation](https://docs.numbas.org.uk/en/latest/) documents authoring Questions and
+  exams, while its [marking guide](https://www.numbas.org.uk/behind-the-design/marking.html)
+  explains the interpretation, marking, and feedback boundary.
 - Confidence: likely
 
 ### Moodle question banks
@@ -199,8 +198,8 @@ current acceptance status remains in
   Assignment and Grade Services contracts used to connect assessment tools with an LMS.
 - Evidence: 1EdTech's official LTI documentation defines secure platform-to-tool integration and
   links the final Assignment and Grade Services specification; PLE assigns its future verified
-  launch and grade-passback implementation to the future LTI capability in the
-  [active release plan](active_plans/active/release_completion_plan.md).
+  launch and grade-passback implementation to the future LTI capability in
+  [ROADMAP.md](ROADMAP.md).
 - Confidence: likely
 - Notes: this is a planned registered-protocol reference, not a current PLE Question Backend capability.
 
@@ -208,11 +207,9 @@ current acceptance status remains in
 
 The confirmed set requires repository evidence of a current adapter, explicit lineage, named prior
 art, a same-author companion relationship, or a standard already present in PLE's contracts. The
-possible set comes from two bounded discovery rounds on 2026-08-28 (seed queries about varied biology
-practice, server grading, and QTI; widening queries about open assessment systems and question banks)
-and
-official project documentation showing a shared instructor, assessment-authoring, question-reuse,
-automatic-grading, or LMS-integration workflow.
+possible set comes from bounded seed and widening discovery reviewed on 2026-09-04. Official
+WeBWorK, Numbas, and 1EdTech QTI sources confirm the shared assessment-authoring, question-reuse,
+automatic-grading, or LMS-integration workflows; retained entries preserve their own evidence links.
 
 The distinctions between WeBWorK2, PG, and `webwork-pg-renderer` are intentional: WeBWorK2 is the
 full application and prior art, PG is the upstream question engine, and the standalone renderer is

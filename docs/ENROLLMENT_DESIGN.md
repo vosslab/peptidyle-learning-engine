@@ -8,21 +8,19 @@ Teaching Team Members, and every Student Record belongs to one exact Student Acc
 durable schema and authorization contract.
 
 This document defines the durable identity, authorization, Store, HTTP, privacy,
-and user-experience contract for that boundary. Delivery status, implementation
-packages, acceptance gates, and maintainer checklist live in the current
-[implementation status](active_plans/implementation_status.md).
+and user-experience contract for that boundary. [ROADMAP.md](ROADMAP.md) and
+[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) own release direction and acceptance gates.
 
 The primary audience is a contributor implementing course membership, Student
 Records, Assignment delivery, roster management, identity resolution, or the
-instructor and student enrollment journeys. The release plan remains in
-[release_completion_plan.md](active_plans/active/release_completion_plan.md).
+instructor and student enrollment journeys. Unfinished release work is routed through
+[TODO.md](TODO.md).
 
 ## Status and authority
 
 This document is the durable enrollment contract. Current route truth remains in
-[API_CONTRACTS.md](API_CONTRACTS.md).
-Current delivery status and implementation evidence for those routes remain in
-[implementation status](active_plans/implementation_status.md).
+[API_CONTRACTS.md](API_CONTRACTS.md). Accepted implementation evidence for those routes remains in
+[CHANGELOG.md](CHANGELOG.md).
 
 ## Product decision
 

@@ -5,8 +5,7 @@ files under [schemas/migrations/](../schemas/migrations/) are the physical
 schema authority. [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) owns product
 decisions; [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns product
 meaning; [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) owns database
-authorization; and [implementation_status.md](active_plans/implementation_status.md)
-owns migration allocation and package acceptance.
+authorization; and this document owns the checked-in migration sequence and forward allocation rule.
 
 ## Baseline and migration rules
 

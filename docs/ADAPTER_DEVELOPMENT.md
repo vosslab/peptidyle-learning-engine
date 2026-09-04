@@ -3,8 +3,8 @@
 This guide explains how a Question Backend joins Peptidyle without changing
 the shared attempt loop, gradebook, or browser trust boundary. It is for contributors adding an
 adapter, not for defining a new student Question Type. The shared public contract is
-[QUESTION_MODEL.md](QUESTION_MODEL.md); authoritative release scope and acceptance state are in
-[release_completion_plan.md](active_plans/active/release_completion_plan.md).
+[QUESTION_MODEL.md](QUESTION_MODEL.md); durable release direction and acceptance rules are in
+[ROADMAP.md](ROADMAP.md) and [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
 
 ## Non-negotiable boundaries
 
@@ -82,7 +82,7 @@ and produces the answer-free Question Presentation and server-owned evaluation b
 the shared pipeline. Its supported Question Types are MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and
 HOTSPOT. See
 [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and
-[implementation_plan.md](active_plans/implementation_plan.md).
+[QUESTION_MODEL.md](QUESTION_MODEL.md).
 
 ## Determinism and caching
 

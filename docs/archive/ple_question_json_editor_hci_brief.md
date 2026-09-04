@@ -1,8 +1,8 @@
 # PLE Question JSON editor HCI and UI brief
 
 > **Historical design input.** This brief is retained as evidence, not current task direction.
-> Current authority is the [release completion plan](../active/release_completion_plan.md),
-> [implementation status](../implementation_status.md), and [human guidance](../../HUMAN_GUIDANCE.md).
+> Current authority is the [release completion plan](release_completion_plan.md),
+> [implementation status](implementation_status.md), and [human guidance](../HUMAN_GUIDANCE.md).
 
 Status: **DONE_WITH_CONCERNS**
 

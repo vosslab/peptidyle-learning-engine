@@ -1,8 +1,8 @@
 # QTI Profile Fixture Corpus Implementation
 
 > **Historical accepted package.** WP-QTI-1 through WP-QTI-12 are accepted history. Current
-> dependency order and remaining QTI scope are in the [release completion plan](../active/release_completion_plan.md)
-> and [implementation status](../implementation_status.md).
+> dependency order and remaining QTI scope are in the [release completion plan](release_completion_plan.md)
+> and [implementation status](implementation_status.md).
 
 ## Status
 
@@ -65,6 +65,6 @@ package success without widening the generic archive-safety grammar or persistin
 source.
 
 WP-QTI-1 through WP-QTI-12 are now accepted history. Current authority is
-[release_completion_plan.md](../active/release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
+[release_completion_plan.md](release_completion_plan.md): WP-RC3 shipped upstream WeBWorK
 is current, WP-ARCH1 follows it, then WP-RC4 owns the QTI-JSONL contract, WP-RC5 owns families and
 Chapter 1 content, and WP-RC6 closes QTI export and H5P claims.

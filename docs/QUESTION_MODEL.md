@@ -639,8 +639,7 @@ produces TypeScript a client cannot switch on cleanly.
 
 ## Related documents
 
-- [active_plans/implementation_plan.md](active_plans/implementation_plan.md):
-  the milestone plan and the module catalog.
+- [CONTRACTS.md](CONTRACTS.md): the durable module catalog and ownership register.
 - [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md): crate boundaries and the two
   guarantees the structure enforces.
 - [RUST_STYLE.md](RUST_STYLE.md): section 9 on encoding invalid states out of

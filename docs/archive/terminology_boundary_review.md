@@ -4,9 +4,9 @@
 
 This review classifies a focused set of recurring words by the boundary where
 each one is meaningful. It uses
-[HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) as its authority and records
+[HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md) as its authority and records
 migration work in
-[VOCABULARY_REPLACEMENTS.md](../../VOCABULARY_REPLACEMENTS.md).
+`VOCABULARY_REPLACEMENTS.md`.
 
 The target is to replace PLE-owned meaning with exact canonical terms. Raw word
 counts remain useful for finding entries, while sentence and identifier
@@ -93,5 +93,5 @@ maps to a canonical owner.
 
 Assignments, Quizzes, and Exams share delivery mechanics but communicate
 different teaching intent. The open design is recorded in
-[assessment_type_terminology.md](../decisions/assessment_type_terminology.md).
+[assessment_type_terminology.md](../active_plans/decisions/assessment_type_terminology.md).
 The terminology contract remains unchanged until that decision is accepted.

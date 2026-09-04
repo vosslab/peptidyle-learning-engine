@@ -1,13 +1,11 @@
 # Roadmap: pre-production database and release readiness
 
-Status: foundational pre-production database work is accepted, while data-separation,
-release, and production-readiness gates remain open. This is a forward roadmap, not an
-implementation authorization or a production-release claim. The active plans own current
-scope, dependency order, contracts, validation, and acceptance:
-
-- [implementation plan](active_plans/implementation_plan.md)
-- [release completion plan](active_plans/active/release_completion_plan.md)
-- [implementation status registry](active_plans/implementation_status.md)
+Status: foundational pre-production database work is accepted, while browser restoration,
+data-separation, release, and production-readiness gates remain open. This is the durable forward
+roadmap, not an implementation authorization or a production-release claim. [CONTRACTS.md](CONTRACTS.md)
+owns durable boundaries, [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) owns validation rules,
+and [TODO.md](TODO.md) routes unfinished work. Bounded execution notes do not replace these
+permanent authorities.
 
 ## Evidence boundary
 
@@ -15,17 +13,15 @@ The current pre-production reset is the 36-file foundational migration baseline
 (`2026082901` through `2026082936`). A clean PostgreSQL 17 volume applies that exact
 domain-ordered baseline, accepts a second no-op run, and passes the restricted-login
 Question Library probes. Earlier migration epochs are historical evidence only; they are not part of
-the material schema contract. The status registry is the authority for package allocation
-and its recorded evidence.
+the material schema contract. [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) owns the checked-in
+migration sequence and forward allocation rule.
 
 The automated-grading operation boundary is accepted. Its seven predecessor migrations and four-file
 `2026081866`-`2026081869` closeout sequence are present, and final material-tree Validation passed on
-the 99-migration tree. The wire-naming contract migration is current under the
-[wire naming contract migration plan](active_plans/active/wire_naming_contract_migration_plan.md).
-Student-work inspection and grade-scheme-aware calculated Gradebook work are implemented and
-acceptance-open behind the wire migration plus their remaining visual/documentation close-out; current
-package and migration allocation details remain solely in the
-[implementation status registry](active_plans/implementation_status.md).
+the 99-migration tree. The completed wire-naming and terminology cutovers are recorded in
+[CHANGELOG.md](CHANGELOG.md) and governed by [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) and
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md). Student-work inspection and grade-scheme-aware
+calculated Gradebook work remain acceptance-open for their remaining visual and documentation gates.
 Provider/mailbox, unrelated passkey, multi-replica, security, HCI, and release work remain acceptance-open.
 Instructor live-demo acceptance does not imply production onboarding,
 deployment, or release acceptance.
@@ -35,20 +31,20 @@ deployment, or release acceptance.
 ### Accepted
 
 - The foundational clean-cluster baseline and its explicit migration administration boundary.
-- The forward-only migration allocation policy and the accepted feature migrations recorded in
-  [implementation status](active_plans/implementation_status.md#migration-allocation-registry).
-- The real live-demo product boundary: ordinary Student, Instructor, and Sysadmin workflows,
-  server-owned authorization, answer-free browser contracts, and deterministic automated grading
-  as specified in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
-- The automated-grading HCI closeout review, which accepted the current student status, Instructor retry, and
-  Gradebook workflow with no P0/P1/P2 findings.
-- Existing normalized operational models only where the active plans and current evidence mark
-  their owning package accepted. This roadmap does not broaden those claims.
+- The forward-only migration allocation policy and accepted feature migrations recorded in
+  [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
+- The real live-demo deployment and session boundary: a seeded Account selector, ordinary
+  server-owned Authenticated Session resolution, and the explicitly absent teaching routes
+  specified in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
+- Historical automated-grading HCI evidence as contextual evidence only. It does not establish a
+  current Student, Instructor, or Gradebook browser workflow.
+- Existing normalized operational models only where [CHANGELOG.md](CHANGELOG.md) records accepted
+  evidence. This roadmap does not broaden those claims.
 
 ### Current and acceptance-open
 
-- Complete the approved [wire naming contract migration plan](active_plans/active/wire_naming_contract_migration_plan.md),
-  then resume visual/documentation close-out for the accepted automated-grading boundary in declared dependency order.
+- Restore the Course, authoring, delivery, grading, Gradebook, and administration route surface,
+  then establish separate browser, visual, accessibility, and task-completion evidence.
 - Rerun the complete named Validation suite on each final material tree. Focused or historical
   migration counts do not establish release acceptance.
 - Keep documentation links GitHub-browsable through the material-tree Markdown-link gate.
@@ -58,14 +54,14 @@ deployment, or release acceptance.
   baseline installer currently still accepts `--apply-migrations` and therefore retains a
   duplicate schema authority. The target is a compatible pre-migrated database followed by a
   data-only installer for fictional, disposable teaching data.
-- Complete the remaining QSOM1 product capability under its active-plan owner: same-lineage
+- Complete the remaining QSOM1 product capability under one bounded owner: same-lineage
   publication, Draft Question expiration, orphan cleanup, Question Search isolation, Server
   Routes, Browser Surfaces, and connected acceptance. This is feature delivery, not a vocabulary
   replacement gate; settle and allocate the operation contract before implementation.
 - Complete clean-volume real-stack, browser, backup/restore, and independent security/operations
   review gates before any production deployment decision.
-- Continue the broader version 1 platform goal through the release plan; this roadmap records the
-  database and release-readiness boundary only.
+- Continue the broader version 1 platform goal through bounded work items; this roadmap records the
+  durable database and release-readiness boundary.
 
 ### Future
 
@@ -74,14 +70,14 @@ deployment, or release acceptance.
   Question Backend selector, Course Banner upload/persistence, durable Blueprint-operation replay,
   and Job Kind registration/readiness. Their reserved names do not create implementation work in
   the Vocabulary Replacement Checklist.
-- Treat further database normalization as future design work, owned by a later active package
+- Treat further database normalization as future design work, owned by a later bounded work item
   after evidence demonstrates a real need. Do not add speculative tables, bridges, down
   migrations, legacy readers, or data-adoption paths to close current release gaps.
 - Choose production backup retention, restore cadence, capacity thresholds, and operational
-  tuning from measured deployment evidence under the release plan; do not encode those choices
+  tuning from measured deployment evidence; do not encode those choices
   in the pre-production baseline.
 - Production deployment and durable user-data migration remain outside this roadmap until human
-  release approval and all required active-plan gates are complete.
+  release approval and all required durable acceptance gates are complete.
 
 ## Architecture and ownership
 
@@ -103,7 +99,7 @@ determinism, ordinary teaching workflows, and demo identity boundaries.
 
 | Stage | Work                                                                                 | Exit evidence                                                                      |
 | ----- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| D1    | Finish the current Instructor package and its authority proofs                       | Owning plan's focused gates and final Validation pass                              |
+| D1    | Finish the current Instructor work item and its authority proofs                     | Focused gates and final Validation pass                                            |
 | D2    | Migration Check of the final migration inventory and clean-cluster baseline evidence | Fresh/no-op/status/verify and role/RLS evidence on disposable clusters             |
 | D3    | Remove migration authority from the live-demo data installer                         | Incompatible or absent baseline is refused without DDL; data-only install succeeds |
 | D4    | Exercise release operations                                                          | Clean-volume lifecycle, real-stack browser, restore, and independent review pass   |
@@ -118,7 +114,7 @@ implementation; non-schema work receives no implicit migration number.
 Before v1 ships, disposable databases may be recreated from the reviewed baseline and current
 forward chain. There is no user-data downgrade or hypothetical legacy-data adoption. After v1
 ships, never edit a migration filename, version, SQL, or checksum. Every schema change uses one
-later forward migration owned by an active package, with fresh/no-op migration evidence, role and
+later forward migration owned by a bounded work item, with fresh/no-op migration evidence, role and
 RLS evidence, and behavior tests justified by [PYTEST_STYLE.md](PYTEST_STYLE.md).
 
 Keep fast pytest deterministic, offline, and behavioral. Do not add brittle assertions over dates,
@@ -134,11 +130,11 @@ explicit E2E, Playwright, or operational gates rather than hidden fast tests.
 | Installer still applies DDL                     | Keep release acceptance open; remove the flag and migration application path.  |
 | Current source changes during evidence capture  | Refresh the inventory and rerun the affected gates on the final material tree. |
 | Recovery procedure is untested                  | Block release until a disposable restore exercise passes.                      |
-| Normalization is proposed without measured need | Defer it to a future package with an explicit owner and allocation.            |
+| Normalization is proposed without measured need | Defer it to a future work item with an explicit owner and allocation.           |
 
-Release is not ready until the active plans record accepted package predecessors, complete
-Validation, data-only live-demo installation, clean-stack/browser evidence, recovery evidence,
-and independent review. This roadmap does not authorize deployment.
+Release is not ready until [CHANGELOG.md](CHANGELOG.md) records accepted predecessors, complete
+Validation, data-only live-demo installation, clean-stack/browser evidence, recovery evidence, and
+independent review. This roadmap does not authorize deployment.
 
 ## Related documentation
 
