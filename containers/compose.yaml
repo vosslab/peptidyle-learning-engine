@@ -260,9 +260,6 @@ services:
       PLE_STUDENT_RECORDS_BUCKET: student-records
       PLE_TEMP_PROCESSING_BUCKET: temp-processing
       PLE_PUBLIC_ASSET_BASE_URL: ${PLE_PUBLIC_ASSET_BASE_URL:?set PLE_PUBLIC_ASSET_BASE_URL in the env file}
-      PLE_WEBAUTHN_RP_ID: ${PLE_WEBAUTHN_RP_ID:?set PLE_WEBAUTHN_RP_ID in the env file}
-      PLE_WEBAUTHN_ORIGIN: ${PLE_WEBAUTHN_ORIGIN:?set PLE_WEBAUTHN_ORIGIN in the env file}
-      PLE_WEBAUTHN_RP_NAME: ${PLE_WEBAUTHN_RP_NAME:?set PLE_WEBAUTHN_RP_NAME in the env file}
       PLE_INVITATION_TOKEN_SECRET_FILE: /run/ple-secrets/invitation_token_secret
       PLE_QUESTION_ID_SECRET_FILE: /run/ple-secrets/question_id_secret
       PLE_WEBWORK_RENDERER_BASE_URL: http://webwork-renderer:3000/

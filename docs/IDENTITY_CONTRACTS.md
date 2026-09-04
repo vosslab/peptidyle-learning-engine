@@ -105,10 +105,11 @@ revision, an explicitly assigned active Instructor account, and a
 server-reserved CourseInstance identity. One transaction creates the
 CourseInstance, that account's first ordinary Instructor membership, and an
 append-only audit event; it gives the Sysadmin account no membership. Every
-current Teaching Team Member has the same teaching and FERPA-read predicates. A
-current course Instructor may invite an active Instructor account, and
-acceptance rechecks role agreement, approval, invitation state, and roster
-revision atomically.
+current Teaching Team Member has the same teaching and FERPA-read predicates.
+The future course-invitation design permits an authorized course Instructor to
+invite an active Instructor Account; its planned acceptance transaction will
+recheck role agreement, approval, invitation state, and roster revision
+atomically. No course-invitation route exists today.
 
 Student work is authorized by the authenticated `AccountId` owning the active
 Student membership and enrollment for the exact course. Direct current
@@ -171,8 +172,8 @@ signed URLs, and workspace identifiers.
 
 ## Current and future course relationships
 
-Current `course_member` relationships provide the closed Student and
-Instructor membership model. Future least-authority relationships are separate
+Current Course Membership relationships provide the closed Student and
+Instructor Course Membership model. Future least-authority relationships are separate
 records; each carries subject `AccountId`, exact `CourseId`, relationship kind,
 explicit capability set, issuer and issue time, lifecycle/revision, audit ID,
 and its required disclosure policy.
@@ -228,8 +229,8 @@ student authority to select another variant or browser input to define grading.
 | Value                                                        | Holder and use                         | Storage and disclosure boundary                                                                                          |
 | ------------------------------------------------------------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Raw session cookie                                           | Browser and authentication endpoint    | Database stores only `SessionTokenHash`; raw token never enters DTOs, logs, or analytics.                                |
-| Email authentication secret                                  | Initiating browser and email recipient | Short-lived, single-use, browser-bound; database stores only a hash.                                                     |
-| Passkey credential state                                     | Account boundary                       | Protected account data, not a course membership or Instructor result.                                                    |
+| Future email authentication secret                           | Future email-code ceremony             | Deferred design only: if implemented, it must be short-lived, single-use, browser-bound, and persist only a hash.        |
+| Future passkey credential state                              | Account boundary                       | Deferred passkey design only; it is not a current credential, route, Store, or Browser Surface.                          |
 | `JobLeaseToken` and iMathAS Result Tokens                    | Exact worker/Result Exchange           | Opaque bounded capabilities, redacted from diagnostics and never serialized into generic question or submission records. |
 | Signed object URL                                            | Authorized delivery result             | Short-lived storage result, not an object identity or reusable browser capability.                                       |
 | Answer keys, scoring rules, private rubrics, grader payloads | Restricted server grading boundary     | Never appear in the Question Library, ordinary browser, Wasm, observer, or student-response DTOs.                        |
@@ -263,14 +264,17 @@ internal UUIDs may remain in hidden server and transport boundaries.
 **Why.** People need identifiers they can recognize and communicate. A public reference is a
 Reference, not authorization, and persistence identity should not leak into the interface.
 
-### Invitations and recovery use verified email
+### Future invitations and recovery may use verified email
 
-**Decision.** PLE accounts are global within the installation and use passwordless verified email as
-the registration, invitation, sign-in, and passkey-recovery path. SMTP delivery is optional;
-an Instructor may share a one-time invitation link through a trusted LMS.
+**Decision.** PLE accounts are global within the installation. A future, separately accepted
+passwordless verified-email design may provide registration, invitation, sign-in, and passkey
+recovery. If adopted, SMTP delivery may be optional and an Instructor may share a one-time
+invitation link through a trusted LMS. Neither email-code authentication, invitation links, SMTP
+delivery, nor passkey recovery is a current route, Store, or Browser Surface.
 
-**Why.** Email provides one comprehensible account authority while keeping a configured mail
-provider optional for independent use.
+**Why.** This retains a comprehensible future account-recovery direction without representing an
+unimplemented credential pathway as current authentication. The current seeded Live Demo selector
+is a demo-only identity-verification substitute that issues the ordinary Authenticated Session.
 
 ### Authentication storage is strictly necessary
 

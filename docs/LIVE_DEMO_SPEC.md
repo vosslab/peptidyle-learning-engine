@@ -3,10 +3,18 @@
 ## Current executable boundary
 
 The Live Demo is a disposable HTTPS deployment of the current PLE application.
-Its current browser entry is a deployment-gated, visible selector for five
-seeded personas: Elena Instructor; Mary, Jack, and Avery Student; and Morgan
+Its current browser entry is a deployment-gated, visible selector for the closed
+five-persona set: Elena Instructor; Mary, Jack, and Avery Student; and Morgan
 Sysadmin. Selecting one persona replaces only identity verification. The server
 resolves the configured Account and issues the ordinary Authenticated Session.
+Configuration is evaluated per persona: an absent, malformed, or ambiguously
+duplicated mapping is omitted rather than coerced. When at least one valid
+mapping remains, seeded entry stays usable for those personas and reports only
+the bounded count of unavailable demo Accounts. A stored Account whose Product
+Role does not match its fixed persona yields a bounded unavailable result after
+the unexposed session is revoked. When no configuration mapping remains, only
+seeded entry is absent; health and ordinary session/logout routes remain
+available.
 
 The selector does not grant a Product Role, Course Membership, Student record,
 course authority, or object access. Every future authorization decision remains
@@ -84,8 +92,9 @@ The closed seeded persona set replaces only the normal identity-verification
 ceremony. It has no password, first-claim, or setup-code step. The server
 creates a host-only, Secure, HttpOnly, first-party session cookie and resolves
 the session from durable server storage. Passkey and email-code adapters remain
-future authentication acceptance work; this selector is the current local-demo
-entry path.
+future authentication acceptance work. The passkey capability is deferred and
+supplies no route, setup credential, or Browser Surface; this selector is the
+current local-demo entry path.
 
 ## Browser restoration requirement
 

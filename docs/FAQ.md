@@ -127,15 +127,18 @@ assignment, roster, and Gradebook system. See [DATABASE_STRUCTURE.md](DATABASE_S
 
 ## How do students sign in?
 
-PLE Accounts use stable opaque Account IDs and one immutable Product Role. A Sysadmin uses
-Create Instructor Account with a normalized email address to create one active Account with the
-fixed Instructor Product Role; email-code authentication restores an existing Account, and passkeys
-are optional additional credentials for that same Account. The ordinary email-code and passkey browser
-adapters are being reconstructed on the canonical Authenticated Session foundation. The current
-Live Demo uses its visible seeded Account selector. An Instructor can create a one-time Course
-Invitation link for an existing Account through a trusted course channel or configured SMTP. The
-[CHANGELOG.md](CHANGELOG.md) records accepted implementation evidence. See
-[ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) and [ROADMAP.md](ROADMAP.md).
+PLE Accounts use stable opaque Account IDs and one immutable Product Role. The only current
+browser sign-in path is the disposable Live Demo's visible seeded Account selector. It issues the
+ordinary server-owned Authenticated Session for the selected configured Account; it does not grant
+a Product Role or course authority. A Sysadmin can use Create Instructor Account to create an
+Active Instructor Account with its server-assigned Account ID and fixed Instructor Product Role,
+but that operation has no browser route.
+
+Email-code authentication, passkey authentication and management, Course Invitation links, and
+SMTP delivery are retained future designs, not current browser routes, Stores, or services. The
+deferred passkey capability supplies no configuration, setup credential, command, or Browser
+Surface. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md), [SECURITY_MODEL.md](SECURITY_MODEL.md), and
+[ROADMAP.md](ROADMAP.md).
 
 ## Is PLE ready for production?
 

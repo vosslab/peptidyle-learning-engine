@@ -20,19 +20,21 @@ endpoint.
 
 ## Implemented Server Routes
 
-| Surface                | Route                               | Current boundary                                                                                | Owner                                                  |
-| ---------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| Health                 | `GET /health`                       | HTTPS readiness response                                                                        | [composition.rs](../crates/server/src/composition.rs)  |
-| Session                | `GET /api/auth/session`             | Resolves the presented opaque session cookie into a browser-safe Authenticated Session response | [auth.rs](../crates/server/src/auth.rs)                |
-| Session                | `POST /api/auth/logout`             | Revokes the presented session and clears its cookie                                             | [auth.rs](../crates/server/src/auth.rs)                |
-| Seeded Live Demo entry | `GET /api/auth/live-demo/accounts`  | Lists the deployment's closed seeded-persona set, with no Account ID or authorization claim     | [live_demo.rs](../crates/server/src/auth/live_demo.rs) |
-| Seeded Live Demo entry | `POST /api/auth/live-demo/accounts` | Resolves one closed seeded persona and issues the ordinary Authenticated Session                | [live_demo.rs](../crates/server/src/auth/live_demo.rs) |
+| Surface                | Route                               | Current boundary                                                                                                                                                              | Owner                                                  |
+| ---------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Health                 | `GET /health`                       | HTTPS readiness response                                                                                                                                                      | [composition.rs](../crates/server/src/composition.rs)  |
+| Session                | `GET /api/auth/session`             | Resolves the presented opaque session cookie into a browser-safe Authenticated Session response                                                                               | [auth.rs](../crates/server/src/auth.rs)                |
+| Session                | `POST /api/auth/logout`             | Revokes the presented session and clears its cookie                                                                                                                           | [auth.rs](../crates/server/src/auth.rs)                |
+| Seeded Live Demo entry | `GET /api/auth/live-demo/accounts`  | Lists surviving members of the deployment's closed seeded-persona set and a bounded unavailable count, with no Account ID, unavailable-persona detail, or authorization claim | [live_demo.rs](../crates/server/src/auth/live_demo.rs) |
+| Seeded Live Demo entry | `POST /api/auth/live-demo/accounts` | Resolves one closed seeded persona and issues the ordinary Authenticated Session                                                                                              | [live_demo.rs](../crates/server/src/auth/live_demo.rs) |
 
-The seeded routes are present only when their complete deployment configuration
-is supplied. The selector replaces identity verification for the five known
-demo personas. It supplies no Product Role, Course Membership, Student record,
-or authority; the server derives those facts from stored PLE records whenever a
-future route needs them.
+The seeded routes are present when at least one valid, unambiguous deployment
+mapping survives. The five-persona set remains closed, but a configured demo
+Account can be unavailable without removing the surviving entries; the bounded
+unavailable count discloses no Account or mapping detail. The selector replaces
+identity verification for the known demo personas. It supplies no Product Role,
+Course Membership, Student record, or authority; the server derives those facts
+from stored PLE records whenever a future route needs them.
 
 ## Implemented Server Route protocol rules
 

@@ -1,6 +1,9 @@
 # Development dependencies
 bandit  # security linting for Python code
+lxml  # XML parsing for Graphify SVG and documentation utilities
 packaging  # version parsing/comparison helpers used by tooling/tests
 pyflakes  # static analysis lint checks
 pytest  # automated test runner
 rich  # formatted terminal output in developer tools
+tree-sitter  # syntax parsing for Graphify Rust test pruning
+tree-sitter-rust  # Rust grammar for Graphify test pruning

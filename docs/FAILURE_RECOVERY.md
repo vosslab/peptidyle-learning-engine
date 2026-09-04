@@ -49,6 +49,25 @@ The application must never turn an indeterminate result into a new attempt, seed
 worker effect, object identity, or user-visible grade. Nor may it replace an integrity failure with
 best-effort data. PLE either reconstructs the exact durable state or fails closed.
 
+## Imperfect-data recovery
+
+The four outcomes above remain the classification for every state-changing path. The following
+rules determine how PLE keeps unaffected work available when a specific item is imperfect:
+
+- **Salvageable:** Normalize or reconstruct only from authoritative facts. Preserve original
+  evidence when needed, and never guess identity, Product Role, authority, credential state, or a
+  committed outcome.
+- **Clean retry:** Discard only ephemeral attempt state and repeat the same logical operation.
+  Preserve durable operation identity where an earlier commit may exist.
+- **Irrecoverable item:** Quarantine, revoke, or omit that exact item and continue the batch,
+  page, demo, or unrelated capability.
+- **Security-sensitive loss:** Fail the affected credential or operation closed while keeping
+  unrelated Accounts, personas, routes, and services available.
+- **Disposable Live Demo data:** Its owner may perform one clean, owner-scoped regeneration when
+  corrupt disposable state could explain the result. A repeated deterministic failure becomes a
+  reported defect or deferred capability rather than an endless reset loop.
+- **Persistent or production-like data:** Never delete or recreate it merely to make a gate pass.
+
 ## Error and HTTP boundary
 
 `StoreError` is deliberately backend-neutral. It classifies a persistence

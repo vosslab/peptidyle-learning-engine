@@ -4,6 +4,38 @@
 
 ### Fixes and Maintenance
 
+- Adopted the authority-aligned Account Creation Security Hardening active plan and removed its
+  ignored superseded root drafts. `TERMINOLOGY_CONTRACT.md` and `USER_ROLES.md` are read-and-follow,
+  read-only authority documents for this work.
+- Completed M1 of Account Creation Security Hardening: Human Guidance now records the approved
+  robustness rule, and Failure Recovery defines salvage, clean retry, irrecoverable-item handling,
+  affected-boundary refusal, and data-retention limits. The committed, rejected, retryable, and
+  indeterminate outcome model remains unchanged.
+- Completed M2 of Account Creation Security Hardening: Create Instructor Account now writes
+  immutable, role-qualified Active Sysadmin actor evidence in the same transaction as the Account,
+  Authentication Email, and initial Account State. Forced RLS, revoked runtime table access, a
+  narrow writer, and update/delete refusal protect the event; connected PostgreSQL acceptance and
+  independent security review passed.
+- Deferred M3 of Account Creation Security Hardening after two clean disposable `webauthn-rs`
+  start/finish attempts reached the same persistent Store-contract blocker: PLE cannot durably
+  create, retrieve, or atomically consume discoverable-ceremony and validated credential state.
+  No passkey route, Browser Surface, setup credential, installation command, session issuance, or
+  completion claim was retained. Seeded demo entry, health, ordinary session handling, and logout
+  remain independent of this deferred capability.
+- Completed M4 of Account Creation Security Hardening for the deferred-passkey outcome. Seeded
+  entry now retains each unambiguous configured persona, reports a bounded unavailable count for
+  omitted records, and isolates zero-valid-persona configuration to seeded entry while health,
+  ordinary sessions, and logout remain available. The Browser Surface retains valid choices and the
+  focused retained-persona journey proves ordinary session resolution. The browser registry now
+  selects the baseline seeded-entry/session/logout/course-boundary scenario; this is not a claim of
+  complete real-stack browser acceptance, which remains M5 evidence.
+- Removed dormant passkey configuration requirements and virtual-WebAuthn-only test scaffolding
+  after M3 deferral. Current local-stack, Compose, and deployment configuration no longer requests
+  WebAuthn secrets, while durable checks preserve the absence of that unavailable capability.
+- Post-audit remediation removed unused deferred-WebAuthn Cargo dependencies and dormant passkey
+  CSS, pruned brittle source-snapshot tests while retaining generated-environment and fail-closed
+  registry coverage, and corrected current Live Demo documentation and comment wording. Passkeys
+  remain deferred; this does not claim passkey implementation or acceptance.
 - Removed permanent-document dependencies on archived implementation, release, status, and
   wire-naming plans. Durable architecture, contract, roadmap, database, evidence, TODO, and
   changelog documents now own those references; dated reports and audits link to `docs/archive/`.
@@ -18,6 +50,19 @@
   reference because no live Compose project was running and the local Podman machine reported a
   lockfile-permission warning; no unsupported browser acceptance claim was added.
 - Synchronized shared style guides, tests, and repository support files from the starter template.
+
+### Developer Tests and Notes
+
+- Completed M5 implementation and verification for Account Creation Security Hardening. The final
+  aggregate `source source_me.sh && ./all_test.sh` passed Rust, 292 JavaScript checks, 4,930 Python
+  tests, connected PostgreSQL acceptance, and PostgreSQL-plus-MinIO Live Demo acceptance. Required
+  account-creation hardening is complete; the isolated passkey capability remains plan-authorized
+  deferred with no passkey route, setup credential, installation command, or completion claim. The
+  plan was archived with the required history-preserving `git mv` to
+  `docs/archive/account_creation_security_hardening.md`.
+- Declared the existing Graphify XML and tree-sitter development-tool requirements so the complete
+  Python suite can exercise its tracked utilities without an undeclared-import failure.
+
 ## 2026-09-03
 
 ### Additions and New Features

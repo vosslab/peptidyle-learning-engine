@@ -4,7 +4,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { ApiRequestError } from "../src/api/http_client/error.ts";
-import { isLiveDemoUnavailable, seededDemoDescription } from "../src/pages/live_demo_auth_model.ts";
+import {
+  isLiveDemoUnavailable,
+  seededDemoAvailabilityStatus,
+  seededDemoDescription,
+} from "../src/pages/live_demo_auth_model.ts";
 import { routeContractForPathname } from "../src/route_contract.ts";
 
 test("the public sign-in route remains available while the special setup route is retired", () => {
@@ -23,4 +27,15 @@ test("live-demo account absence remains a deployment absence and persona copy is
   );
   assert.match(seededDemoDescription("morganSysadmin"), /seeded Sysadmin account/u);
   assert.match(seededDemoDescription("morganSysadmin"), /administrator tools/u);
+});
+
+test("degraded seeded entry names only availability and retains usable choices", () => {
+  assert.equal(
+    seededDemoAvailabilityStatus(1),
+    "One demo Account is unavailable. The available choices remain usable.",
+  );
+  assert.equal(
+    seededDemoAvailabilityStatus(3),
+    "3 demo Accounts are unavailable. The available choices remain usable.",
+  );
 });

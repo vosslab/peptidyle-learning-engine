@@ -1,6 +1,7 @@
 # Human guidance
 
 <!-- VENDORED HEADER: START -->
+
 Record the durable guidance Neil Voss states, or approves for preservation here, in his own words:
 first person or close paraphrase, one to three lines per bullet. Material he supplies as a source
 may inform [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) once it is settled, and an entry of uncertain
@@ -24,6 +25,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Prioritize positive prompting. Small LMs often mishandle negative prompting and may flip negative instructions into positive actions, producing poor code and egregious results. Phrase instructions as "Do X" or "Use Y" whenever possible, rather than "Do not do W" or "You are not allowed to do Z." Things like 'leave git to the manager' is a negative prompt in disguise, it is better to not mention git, but just encourages small LMs. Avoid naming unwanted tools unless needed. Positive prompting plus omission is often stronger than a negative boundary.
 - Classify one-time checks separately from permanent tests. Several checks are useful for proving the rebuild during implementation but may not deserve permanent residence in the suite. Use the checklist in docs/PYTEST_STYLE.md of what makes a permanent test, use it. Temporary tests are fine, but should not become permanent. When in doubt, remove the test.
 - Finish the obvious. Continue while the next safe step is defined by the plan, implied by the current task, or required to verify the work. Stop at a real blocker: missing information that cannot be inferred from the repo or plan, a risky or irreversible action, or work that changes the user's requested outcome. When one option is clearly best, take it, document the assumption, and continue.
+- Robust behavior keeps unaffected work available when data is imperfect: salvage an exact trustworthy item when possible, retry the same logical work from a clean run when that can improve the outcome, and skip or quarantine only the irrecoverable item while continuing. Security and integrity violations still fail closed at their affected boundary.
 
 ## Glossary
 

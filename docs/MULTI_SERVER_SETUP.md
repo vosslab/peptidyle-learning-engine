@@ -19,7 +19,7 @@ not a new authorization claim.
 
 | Record or capability                                            | Exact owner or scope                                                  | Authorization                                                   |
 | --------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Account, email, passkey, session                                | Global `AccountId` and Authenticated Session                          | Account/session contract                                        |
+| Account, Authentication Email, future passkey, session           | Global `AccountId` and Authenticated Session                          | Account/session contract; passkeys are deferred                |
 | Published question and presentation asset                       | Stable `QuestionId` lineage and immutable Question Revision Reference | Every active Instructor                                         |
 | Draft Question or private curriculum workspace                  | `WorkspaceId` and Authoring Workspace relationship                    | Authoring Workspace Owner or Workspace Collaborator             |
 | Draft Blueprint Revision                                        | Exact Blueprint Course and revision                                   | Blueprint Course Owner or Blueprint Collaborator                |
@@ -46,8 +46,9 @@ authority even when an optional OIDC or SAML identity integration is enabled.
 
 The supported local topology has one Caddy gateway, one stateless API, one
 worker, one PostgreSQL 17 instance, one MinIO instance, and one private
-stateless PG renderer. The normal developer/browser owner uses production
-authentication and the seeded live-demo workflow. It does not select a caller
+stateless PG renderer. The normal developer/browser owner uses the seeded
+Live Demo workflow, which is the current local identity-verification substitute
+and issues the ordinary server-owned session. It does not select a caller
 project, alternate local credential file, or alternate identity source.
 
 The `replica_restart` profile is the only supported two-API topology. It uses
@@ -136,10 +137,14 @@ API replicas share all correctness state:
 - Grading and provider credentials stay server-side. The browser receives no
   answer key, private payload, or provider secret.
 
-A replica with a different database, bucket set, authentication secret,
-WebAuthn relying-party identity, or renderer identity is a split-brain
-deployment, not scale-out. Provider and institutional fields remain metadata;
-they do not replace PLE account/session or course relationships.
+A replica with a different database, bucket set, session configuration, or
+renderer identity is a split-brain deployment, not scale-out. If the future
+passkey capability is separately accepted and enabled, every participating
+replica must also use the same WebAuthn relying-party identity and its reviewed
+credential configuration. Passkeys are currently deferred, so no WebAuthn
+configuration is required for the supported topology. Provider and institutional
+fields remain metadata; they do not replace PLE account/session or course
+relationships.
 
 ## Typed worker recovery
 
@@ -173,9 +178,12 @@ relaunch until the owning recovery policy resolves them. Local defaults are
 ## Configuration equality
 
 Every API replica uses the same database, object-store endpoint and bucket
-names, PLE account/session settings, WebAuthn relying-party settings, and
-renderer identity. Worker replicas share the PostgreSQL queue and object store
-but use the worker-only database capability. Deployment tasks use separate
+names, PLE account/session settings, and renderer identity. The deferred
+passkey capability has no current WebAuthn relying-party setting. If a future
+accepted passkey deployment enables that capability, its participating API
+replicas must use the same reviewed WebAuthn relying-party identity and
+credential configuration. Worker replicas share the PostgreSQL queue and object
+store but use the worker-only database capability. Deployment tasks use separate
 API, worker, recovery, fast-path, and publisher secret sets where the owning
 OpenTofu task requires them; secret values do not belong in source, browser
 state, or OpenTofu variables.

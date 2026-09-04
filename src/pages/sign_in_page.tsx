@@ -3,31 +3,42 @@
 import { useNavigate } from "@solidjs/router";
 import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 
-import type { SeededDemoAccount } from "../api/live_demo";
+import type { SeededDemoAccount, SeededDemoAccounts } from "../api/live_demo";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
-import { isLiveDemoUnavailable, seededDemoDescription } from "./live_demo_auth_model";
+import {
+  isLiveDemoUnavailable,
+  seededDemoAvailabilityStatus,
+  seededDemoDescription,
+} from "./live_demo_auth_model";
 import "./live_demo_auth.css";
 
 type SeededDemoState =
   | { readonly kind: "loading" }
-  | { readonly kind: "ready"; readonly accounts: ReadonlyArray<SeededDemoAccount> }
-  | { readonly kind: "opening"; readonly displayName: string }
+  | { readonly kind: "ready"; readonly response: SeededDemoAccounts }
+  | {
+      readonly kind: "opening";
+      readonly response: SeededDemoAccounts;
+      readonly displayName: string;
+    }
   | { readonly kind: "unavailable" }
   | { readonly kind: "error" };
 
 function seededAccounts(state: SeededDemoState): ReadonlyArray<SeededDemoAccount> {
-  return state.kind === "ready" ? state.accounts : [];
+  return state.kind === "ready" || state.kind === "opening" ? state.response.accounts : [];
+}
+
+function unavailableAccountCount(state: SeededDemoState): number {
+  return state.kind === "ready" || state.kind === "opening"
+    ? state.response.unavailableAccountCount
+    : 0;
 }
 
 function seededDemoOpeningName(state: SeededDemoState): string {
   return state.kind === "opening" ? state.displayName : "";
 }
 
-/**
- * Provides the only currently available sign-in entry. Email-code and passkey
- * authentication will return here once their Account session adapters exist.
- */
+/** Renders deployment-gated seeded-demo entry for the ordinary session boundary. */
 export function SignInPage(): JSX.Element {
   const runtime = useApplicationApi();
   const session = useSessionBootstrap();
@@ -39,7 +50,7 @@ export function SignInPage(): JSX.Element {
     setSeededDemo({ kind: "loading" });
     try {
       const response = await runtime.client.listSeededDemoAccounts();
-      setSeededDemo({ kind: "ready", accounts: response.accounts });
+      setSeededDemo({ kind: "ready", response });
     } catch (error: unknown) {
       if (isLiveDemoUnavailable(error)) {
         setSeededDemo({ kind: "unavailable" });
@@ -51,14 +62,16 @@ export function SignInPage(): JSX.Element {
   }
 
   async function selectSeededDemoAccount(account: SeededDemoAccount): Promise<void> {
-    const accounts = seededAccounts(seededDemo());
-    setSeededDemo({ kind: "opening", displayName: account.displayName });
+    const current = seededDemo();
+    if (current.kind !== "ready") return;
+    const response = current.response;
+    setSeededDemo({ kind: "opening", response, displayName: account.displayName });
     try {
       await runtime.client.selectSeededDemoAccount(account.persona);
       await session.retry();
       navigate("/");
     } catch {
-      setSeededDemo({ kind: "ready", accounts });
+      setSeededDemo({ kind: "ready", response });
     }
   }
 
@@ -77,7 +90,7 @@ export function SignInPage(): JSX.Element {
         fallback={
           <section class="auth-panel" role="status">
             <h2>Demo entry is unavailable</h2>
-            <p>This installation has no complete seeded-demo configuration.</p>
+            <p>No available seeded-demo mapping remains for this installation.</p>
           </section>
         }
       >
@@ -90,6 +103,11 @@ export function SignInPage(): JSX.Element {
             </p>
           </Show>
           <Show when={seededDemo().kind === "ready" || seededDemo().kind === "opening"}>
+            <Show when={unavailableAccountCount(seededDemo()) > 0}>
+              <p class="calm-status live-demo-status" role="status" aria-live="polite">
+                {seededDemoAvailabilityStatus(unavailableAccountCount(seededDemo()))}
+              </p>
+            </Show>
             <div class="live-demo-persona-list">
               <For each={seededAccounts(seededDemo())}>
                 {(account) => (

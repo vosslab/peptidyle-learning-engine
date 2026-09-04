@@ -33,6 +33,81 @@ BEGIN
        OR has_table_privilege('ple_app', 'ple_private.account_authentication_email', 'SELECT, INSERT, UPDATE, DELETE') THEN
         RAISE EXCEPTION 'Create Instructor Account function ownership or ACL split is not exact';
     END IF;
+    IF (SELECT count(*) FROM pg_proc AS proc
+        JOIN pg_namespace AS namespace ON namespace.oid = proc.pronamespace
+        JOIN pg_roles AS owner_role ON owner_role.oid = proc.proowner
+        WHERE namespace.nspname = 'ple_audit'
+          AND proc.proname = 'record_instructor_account_creation_event'
+          AND pg_get_function_identity_arguments(proc.oid) =
+              'p_created_instructor_account_id uuid, p_created_by_sysadmin_account_id uuid'
+          AND owner_role.rolname = 'ple_audit_owner'
+          AND proc.prosecdef
+          AND has_function_privilege('ple_private_owner', proc.oid, 'EXECUTE')
+          AND NOT has_function_privilege('ple_app', proc.oid, 'EXECUTE')
+          AND NOT has_function_privilege('public', proc.oid, 'EXECUTE')) <> 1
+       OR to_regclass('ple_audit.instructor_account_creation_event') IS NULL
+       OR NOT (SELECT relation.relrowsecurity AND relation.relforcerowsecurity
+                 FROM pg_class AS relation
+                 WHERE relation.oid = 'ple_audit.instructor_account_creation_event'::regclass)
+       OR (SELECT count(*)
+             FROM pg_constraint AS foreign_key
+            WHERE foreign_key.conrelid = 'ple_audit.instructor_account_creation_event'::regclass
+              AND foreign_key.contype = 'f'
+              AND foreign_key.confrelid = 'ple_private.account'::regclass) < 2
+       OR NOT EXISTS (
+           SELECT 1
+             FROM pg_constraint AS foreign_key
+            WHERE foreign_key.conrelid = 'ple_audit.instructor_account_creation_event'::regclass
+              AND foreign_key.contype = 'f'
+              AND foreign_key.confrelid = 'ple_private.account'::regclass
+              AND foreign_key.conkey::smallint[] = ARRAY[
+                  (SELECT attnum FROM pg_attribute
+                    WHERE attrelid = foreign_key.conrelid
+                      AND attname = 'created_instructor_account_id'),
+                  (SELECT attnum FROM pg_attribute
+                    WHERE attrelid = foreign_key.conrelid
+                      AND attname = 'created_instructor_product_role')
+              ]::smallint[]
+              AND foreign_key.confkey::smallint[] = ARRAY[
+                  (SELECT attnum FROM pg_attribute
+                    WHERE attrelid = foreign_key.confrelid AND attname = 'account_id'),
+                  (SELECT attnum FROM pg_attribute
+                    WHERE attrelid = foreign_key.confrelid AND attname = 'product_role')
+              ]::smallint[]
+       )
+       OR NOT EXISTS (
+           SELECT 1
+             FROM pg_constraint AS foreign_key
+            WHERE foreign_key.conrelid = 'ple_audit.instructor_account_creation_event'::regclass
+              AND foreign_key.contype = 'f'
+              AND foreign_key.confrelid = 'ple_private.account'::regclass
+              AND foreign_key.conkey::smallint[] = ARRAY[
+                  (SELECT attnum FROM pg_attribute
+                    WHERE attrelid = foreign_key.conrelid
+                      AND attname = 'created_by_sysadmin_account_id'),
+                  (SELECT attnum FROM pg_attribute
+                    WHERE attrelid = foreign_key.conrelid
+                      AND attname = 'created_by_sysadmin_product_role')
+              ]::smallint[]
+              AND foreign_key.confkey::smallint[] = ARRAY[
+                  (SELECT attnum FROM pg_attribute
+                    WHERE attrelid = foreign_key.confrelid AND attname = 'account_id'),
+                  (SELECT attnum FROM pg_attribute
+                    WHERE attrelid = foreign_key.confrelid AND attname = 'product_role')
+              ]::smallint[]
+       )
+       OR has_table_privilege('ple_app', 'ple_audit.instructor_account_creation_event',
+                              'SELECT, INSERT, UPDATE, DELETE')
+       OR has_table_privilege('ple_private_owner', 'ple_audit.instructor_account_creation_event',
+                              'SELECT, INSERT, UPDATE, DELETE')
+       OR EXISTS (
+           SELECT 1
+             FROM pg_policy
+            WHERE polrelid = 'ple_audit.instructor_account_creation_event'::regclass
+              AND polcmd IN ('w', 'd')
+       ) THEN
+        RAISE EXCEPTION 'Create Instructor Account audit writer, forced-RLS, or least-privilege boundary is not exact';
+    END IF;
     IF (SELECT count(*) FROM pg_class AS relation
         JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
         WHERE namespace.nspname = 'ple_private'
@@ -118,6 +193,7 @@ DO $$
 DECLARE
     v_created_account_id uuid;
     v_created_at timestamp with time zone;
+    v_event_count integer;
 BEGIN
     SET LOCAL ROLE ple_app;
     PERFORM pg_catalog.set_config(
@@ -141,6 +217,14 @@ BEGIN
              AND email.verified_at = v_created_at AND email.updated_at = v_created_at) <> 1 THEN
         RAISE EXCEPTION 'Create Instructor Account receipt does not bind the exact atomic records';
     END IF;
+    SELECT count(*)::integer INTO v_event_count
+      FROM ple_audit.instructor_account_creation_event AS event
+     WHERE event.created_instructor_account_id = v_created_account_id
+       AND event.created_by_sysadmin_account_id = '00000000-0000-0000-0000-00000000d101'
+       AND event.occurred_at = v_created_at;
+    IF v_event_count <> 1 THEN
+        RAISE EXCEPTION 'successful Create Instructor Account must record exactly one Active Sysadmin audit event';
+    END IF;
 END
 $$;
 COMMIT;
@@ -149,6 +233,10 @@ DO $$
 DECLARE
     v_before_count integer;
     v_after_count integer;
+    v_before_email_count integer;
+    v_after_email_count integer;
+    v_before_event_count integer;
+    v_after_event_count integer;
     v_email text;
     v_delivery text;
     v_expected_sqlstate text;
@@ -162,6 +250,10 @@ BEGIN
         ('iaa1-invalid-delivery@example.test', ' ', '22023')
     LOOP
         SELECT count(*)::integer INTO v_before_count FROM ple_private.account;
+        SELECT count(*)::integer INTO v_before_email_count
+          FROM ple_private.account_authentication_email;
+        SELECT count(*)::integer INTO v_before_event_count
+          FROM ple_audit.instructor_account_creation_event;
         BEGIN
             SET LOCAL ROLE ple_app;
             PERFORM pg_catalog.set_config(
@@ -179,13 +271,98 @@ BEGIN
             END IF;
         END;
         SELECT count(*)::integer INTO v_after_count FROM ple_private.account;
-        IF v_after_count <> v_before_count
-           OR (v_email IS NOT NULL AND v_email <> 'iaa1-success@example.test'
-               AND EXISTS (SELECT 1 FROM ple_private.account_authentication_email
-                           WHERE normalized_email = v_email)) THEN
-            RAISE EXCEPTION 'failed Create Instructor Account left an orphan record';
+        SELECT count(*)::integer INTO v_after_email_count
+          FROM ple_private.account_authentication_email;
+        SELECT count(*)::integer INTO v_after_event_count
+          FROM ple_audit.instructor_account_creation_event;
+        IF v_after_count <> v_before_count OR v_after_email_count <> v_before_email_count
+           OR v_after_event_count <> v_before_event_count THEN
+            RAISE EXCEPTION 'failed Create Instructor Account left account, Authentication Email, or audit residue';
         END IF;
     END LOOP;
+END
+$$;
+
+-- An audit-write failure is induced after the Account and Authentication Email
+-- writes.  The rejected call must still leave no part of the operation committed.
+CREATE FUNCTION public.iaa1_reject_instructor_account_audit_event()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION USING ERRCODE = 'P0001',
+        MESSAGE = 'induced Create Instructor Account audit failure';
+END
+$$;
+CREATE TRIGGER iaa1_reject_instructor_account_audit_event
+AFTER INSERT ON ple_audit.instructor_account_creation_event
+FOR EACH ROW EXECUTE FUNCTION public.iaa1_reject_instructor_account_audit_event();
+
+DO $$
+DECLARE
+    v_before_account_count integer;
+    v_before_email_count integer;
+    v_before_event_count integer;
+BEGIN
+    SELECT count(*)::integer INTO v_before_account_count FROM ple_private.account;
+    SELECT count(*)::integer INTO v_before_email_count
+      FROM ple_private.account_authentication_email;
+    SELECT count(*)::integer INTO v_before_event_count
+      FROM ple_audit.instructor_account_creation_event;
+    BEGIN
+        SET LOCAL ROLE ple_app;
+        PERFORM pg_catalog.set_config(
+            'ple.session_account_id', '00000000-0000-0000-0000-00000000d101', true
+        );
+        PERFORM ple_api.create_instructor_account(
+            'iaa1-induced-audit-failure@example.test',
+            'iaa1-induced-audit-failure@example.test'
+        );
+        RAISE EXCEPTION 'induced Create Instructor Account audit failure unexpectedly succeeded';
+    EXCEPTION WHEN OTHERS THEN
+        IF SQLSTATE <> 'P0001' THEN
+            RAISE;
+        END IF;
+    END;
+    IF (SELECT count(*) FROM ple_private.account) <> v_before_account_count
+       OR (SELECT count(*) FROM ple_private.account_authentication_email) <> v_before_email_count
+       OR (SELECT count(*) FROM ple_audit.instructor_account_creation_event) <> v_before_event_count THEN
+        RAISE EXCEPTION 'induced Create Instructor Account failure was not atomic';
+    END IF;
+END
+$$;
+DROP TRIGGER iaa1_reject_instructor_account_audit_event
+    ON ple_audit.instructor_account_creation_event;
+DROP FUNCTION public.iaa1_reject_instructor_account_audit_event();
+
+DO $$
+DECLARE
+    v_event_id uuid;
+BEGIN
+    SELECT event_id INTO v_event_id
+      FROM ple_audit.instructor_account_creation_event
+     WHERE created_instructor_account_id = (
+         SELECT account_id
+           FROM ple_private.account_authentication_email
+          WHERE normalized_email = 'iaa1-success@example.test'
+     );
+    BEGIN
+        SET LOCAL ROLE ple_private_owner;
+        UPDATE ple_audit.instructor_account_creation_event
+           SET occurred_at = occurred_at + interval '1 second'
+         WHERE event_id = v_event_id;
+        RAISE EXCEPTION 'private Create Instructor Account writer changed immutable audit evidence';
+    EXCEPTION WHEN OTHERS THEN
+        IF SQLSTATE <> '42501' THEN RAISE; END IF;
+    END;
+    BEGIN
+        SET LOCAL ROLE ple_private_owner;
+        DELETE FROM ple_audit.instructor_account_creation_event
+         WHERE event_id = v_event_id;
+        RAISE EXCEPTION 'private Create Instructor Account writer deleted immutable audit evidence';
+    EXCEPTION WHEN OTHERS THEN
+        IF SQLSTATE <> '42501' THEN RAISE; END IF;
+    END;
 END
 $$;
 

@@ -69,12 +69,15 @@ it does not create an executable artifact list.
 
 ## Evidence boundaries
 
-Live evidence uses local-development credentials or invitations because email is unavailable. It may
-describe a local credential or invitation, but must not claim email delivery. Keep student and access
-artifacts under `docs/screenshots/student/` and `docs/screenshots/student/access/`; keep public
-evidence free of Answer Keys, Question Grader code, private source, real email, real identifying
-records, UUIDs, and FERPA records. Deterministic fictional fixture addresses in the reserved
-`example.invalid` domain are permitted and are not real identifying records.
+Current evidence can exercise seeded Account session entry only. Credentials,
+invitations, passkeys, and their capture flows remain future work and require
+their own accepted Server Route and fresh capture before they can be evidence.
+Keep student and access artifacts under `docs/screenshots/student/` and
+`docs/screenshots/student/access/`; keep public evidence free of Answer Keys,
+Question Grader code, private source, real email, real identifying records,
+UUIDs, and FERPA records. Deterministic fictional fixture addresses in the
+reserved `example.invalid` domain are permitted and are not real identifying
+records.
 
 Screenshots become acceptance evidence only after a fresh capture at the required viewport, visual
 inspection of the captured files, and passing behavior and no-transport assertions. Retained images

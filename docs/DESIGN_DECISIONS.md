@@ -717,10 +717,12 @@ activity states are derived from Active Student Course Membership, Assignment St
 effective access rules.
 
 **Why.** A Student retains one global PLE Account across courses and semesters. The Account UUID
-is the stable identity, and its immutable institutional email supplies passwordless sign-in and
-Course Roster Import matching. Course-scoped authorization, Student ownership, and RLS control
-disclosure through separate Student Records and Student Course Memberships. Passkeys are optional
-convenience credentials for that Account.
+is the stable identity, and its immutable institutional email is the planned Course Roster Import
+matching value. The current system does not implement email authentication; future passwordless
+sign-in must use the same Account rather than make email an Account key. Course-scoped
+authorization, Student ownership, and RLS control disclosure through separate Student Records and
+Student Course Memberships. Passkeys remain a deferred optional-convenience design for that
+Account.
 
 **Consequence.** The planned Course Roster Import transaction will use each
 institutional email to resolve an existing Student Account or create one when none exists, then
@@ -1176,8 +1178,9 @@ rather than synthetic infrastructure records.
 ### Direct demo entry replaces verification only
 
 **Decision.** Public demo entry may select a seeded Student, Instructor, or Sysadmin identity, but
-the server still resolves the ordinary account, session, role, membership, and authorization.
-Elena Instructor and Morgan Sysadmin exercise ordinary passkey enrollment, sign-out, and sign-in.
+the server still resolves the ordinary Account, session, Product Role, membership, and
+authorization. It does not exercise email authentication or passkey enrollment/sign-in: both are
+future capabilities, and the passkey capability is currently deferred.
 
 **Why.** SMTP is not configured for current acceptance. Bypassing only email verification keeps the
 demo accessible without replacing authorization or claiming unverified email delivery.

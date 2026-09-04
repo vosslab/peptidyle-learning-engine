@@ -42,8 +42,6 @@ libc = "*"
 tracing = "*"
 tracing-subscriber = "*"
 url.workspace = true
-webauthn-rs.workspace = true
-webauthn-rs-proto.workspace = true
 
 # `generate` turns on identifier minting, which happens on the publish
 # transition and nowhere else. The WASM bridge deliberately does not enable it.

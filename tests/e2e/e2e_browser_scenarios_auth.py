@@ -4,16 +4,8 @@ from e2e_browser_scenario_contract import ScenarioContract
 
 
 def contracts() -> tuple[ScenarioContract, ...]:
-	"""Return A1 journeys in transition-first scenario-registry order."""
+	"""Return the required seeded-entry authorization journey."""
 	return (
-		ScenarioContract(
-			scenario_id="direct_role_entry",
-			spec_path="tests/playwright/e2e/direct_role_entry.spec.ts",
-			personas=("morgan_sysadmin",),
-			baseline_reads=("genetics_practice_course",),
-			ui_creates=("passkey",),
-			visible_observation="direct_sysadmin_passkey_reauthentication",
-		),
 		ScenarioContract(
 			scenario_id="auth_authorization",
 			spec_path="tests/playwright/e2e/auth_authorization.spec.ts",
@@ -24,9 +16,7 @@ def contracts() -> tuple[ScenarioContract, ...]:
 				"morgan_sysadmin",
 			),
 			baseline_reads=("base_course", "genetics_practice_course"),
-			ui_creates=("passkey", "teaching_invitation"),
-			visible_observation=(
-				"instructor_passkey_reauthentication_and_seeded_sessions_and_course_boundaries"
-			),
+			ui_creates=("teaching_invitation",),
+			visible_observation="seeded_entry_session_logout_and_course_boundaries",
 		),
 	)

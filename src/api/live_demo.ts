@@ -6,6 +6,7 @@ import {
   decodeField,
   decodeNonemptyString,
   decodeRecord,
+  decodeSafeInteger,
   decodeStringEnum,
   decodeTrue,
 } from "./decoder";
@@ -30,6 +31,7 @@ export interface SeededDemoAccount {
 
 export interface SeededDemoAccounts {
   readonly accounts: ReadonlyArray<SeededDemoAccount>;
+  readonly unavailableAccountCount: number;
 }
 
 export interface LiveDemoSelectedAccount {
@@ -76,16 +78,29 @@ function decodeSeededDemoAccount(value: unknown, path: string): SeededDemoAccoun
 }
 
 export function decodeSeededDemoAccounts(value: unknown, path = "response"): SeededDemoAccounts {
-  const record = closedRecord(value, path, ["accounts"]);
+  const record = closedRecord(value, path, ["accounts", "unavailableAccountCount"]);
   const accounts = decodeArray(record.accounts, `${path}.accounts`, decodeSeededDemoAccount);
   if (accounts.length > MAX_SEEDED_DEMO_ACCOUNTS) {
     throw new DecodeError(`${path}.accounts`, "an array with at most five entries");
+  }
+  const unavailableAccountCount = decodeSafeInteger(
+    record.unavailableAccountCount,
+    `${path}.unavailableAccountCount`,
+  );
+  if (unavailableAccountCount < 0 || unavailableAccountCount > MAX_SEEDED_DEMO_ACCOUNTS) {
+    throw new DecodeError(`${path}.unavailableAccountCount`, "a safe integer from 0 through 5");
+  }
+  if (accounts.length + unavailableAccountCount !== MAX_SEEDED_DEMO_ACCOUNTS) {
+    throw new DecodeError(
+      path,
+      "accounts and unavailableAccountCount that account for exactly five personas",
+    );
   }
   const personas = accounts.map((account) => account.persona);
   if (new Set(personas).size !== personas.length) {
     throw new DecodeError(`${path}.accounts`, "accounts with unique personas");
   }
-  return { accounts };
+  return { accounts, unavailableAccountCount };
 }
 
 function decodeAuthenticated(value: unknown, path: string): LiveDemoSelectedAccount {

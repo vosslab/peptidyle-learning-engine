@@ -125,10 +125,7 @@ def configure_default_environment(
 		"PLE_QUESTION_ID_SECRET_HOST_FILE": str(secret_directory / "question_id_secret"),
 		"PLE_WEBWORK_RENDERER_VERSION_FILE": str(secret_directory / "question-renderer-version"),
 		"PLE_PUBLIC_ASSET_BASE_URL": "http://127.0.0.1:9000/public-assets",
-		"PLE_WEBAUTHN_RP_ID": "localhost",
-		"PLE_WEBAUTHN_RP_NAME": "Peptidyle Learning Engine",
 		"PLE_GATEWAY_HOST_PORT": "8080",
-		"PLE_WEBAUTHN_ORIGIN": "http://localhost:8080",
 		"PLE_WEBWORK_RENDERER_BASE_URL": "http://webwork-renderer:3000/",
 		"PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS": "15",
 		"PLE_WEBWORK_MAX_RESPONSE_BYTES": "1048576",
@@ -153,10 +150,6 @@ def configure_default_environment(
 		gateway_port = choose_default_gateway_port(target, values, runner)
 		if values.get("PLE_GATEWAY_HOST_PORT") != gateway_port:
 			values["PLE_GATEWAY_HOST_PORT"] = gateway_port
-			changed = True
-		origin = f"http://localhost:{gateway_port}"
-		if values.get("PLE_WEBAUTHN_ORIGIN", "") in ("", "http://localhost:8080"):
-			values["PLE_WEBAUTHN_ORIGIN"] = origin
 			changed = True
 	if changed:
 		content = "".join(f"{name}={value}\n" for name, value in values.items()).encode("utf-8")

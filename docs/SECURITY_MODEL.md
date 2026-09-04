@@ -181,16 +181,29 @@ is an explicit non-browser E2E because it builds the Rust target and runs bindge
 
 ## Authentication and authorization derivation
 
-The required production authentication design is PLE-owned and provider-free: a
-short-lived, single-use email ceremony restores the created opaque PLE Account, and
-WebAuthn passkeys are optional additional credentials for that same account.
-PLE stores no password verifier. Email remains the recovery authority: loss or
-revocation of a passkey returns the student to email sign-in, while a signed-in
-email change requires control of the current account. The ordinary visible
-email-code and passkey adapters are pending reconstruction. The current Live
-Demo provides its visible seeded-role entry through the same server-owned
-session contract; it is verification data for the demo, not a second credential
-transport.
+Each global Account has exactly one Product Role; many Accounts may share the
+same Product Role. Account creation fixes that Product Role permanently; Account
+State is derived from immutable Account State Events
+(`Active`, `Deactivated`, or `Closed`). An Authenticated Session belongs only to
+an Active Account and retains that Account-derived Product Role through its
+role-pinned foreign key. A session is not course, workspace, FERPA, or support
+authority: each protected operation derives its exact additional authority from
+durable relationships in its transaction. Deactivation or closure prevents new
+sessions and revokes existing ones.
+
+After Instructor Vetting, an Active Sysadmin Account calls the private Create
+Instructor Account operation. The server generates the Account ID and, in one
+transaction, creates the fixed Instructor Product Role, initial Active Account
+State, and private Instructor Authentication Email. That same transaction writes
+immutable qualified audit evidence naming the acting Sysadmin Account. The audit
+event stores Account identifiers, role qualification, and database-authoritative
+time only; it stores no email, credential, passkey label, or browser data.
+
+PLE stores no password verifier. Email-code adapters are not an accepted current
+credential capability, and no email-replacement or credential-recovery operation
+is implemented. The Live Demo's seeded-persona entry is the currently available,
+demo-only identity-verification substitute; it uses the same server-owned session
+contract and is not a second credential transport.
 
 Authentication uses one `__Host-` opaque session cookie. The raw 256-bit
 credential is generated from the operating-system random source, marked
@@ -213,23 +226,19 @@ rejected. The API does not grant credentialed cross-origin CORS. These checks
 supplement, rather than replace, `SameSite=Lax`. No iMathAS Question Backend browser
 cookie or cross-origin exception exists.
 
-Passwordless email and passkey ceremonies persist only hashed/serialized
-server state. Email challenges are atomic, browser-bound, short-lived, and
-single-use. Quotas consume keyed, non-reversible composite identities (for
-the normalized email or credential flow and a coarse client network) before
-ceremony persistence. The server trusts `X-Forwarded-For` only from an
-explicit CIDR allowlist; it accepts one bounded canonical chain and otherwise
-uses the transport peer or a fail-closed shared bucket. IPv4 /24 and IPv6 /56
-aggregation bounds abuse without turning a campus NAT into per-device
-tracking.
+The schema and typed contracts retain private WebAuthn/passkey foundations, but
+the passkey capability is deferred. There is no passkey configuration,
+installation setup credential or command, HTTP route, Browser Surface, session
+issuance path, or completed WebAuthn ceremony. Passkey absence therefore does
+not affect health, ordinary session resolution/logout, or seeded-demo entry.
 
 Session resolution constructs one server-owned
-`AuthenticatedSession { account_id, session_id }` for the single installation. It selects
-no course, workspace, role, or capability. Request paths, headers, and JSON can
-name a resource to be considered, but cannot add authority to the authenticated
-global account. Each protected operation derives its exact course membership,
-Student ownership, workspace relationship, or narrowly audited service
-capability from durable records in the same transaction.
+Authenticated Session from trusted Account and session identity; its persisted
+Account-derived Product Role is immutable and FK-pinned to that Account. Request
+paths, headers, and JSON cannot select a role, course, workspace, or capability.
+Each protected operation derives its exact course membership, Student ownership,
+workspace relationship, or narrowly audited service capability from durable
+records in the same transaction.
 
 ## Encryption and secret boundary
 
@@ -368,7 +377,7 @@ ordinary session contract and requires explicit user choice plus a
 jurisdiction-specific compliance review before implementation.
 
 Before authentication, the PostgreSQL `ple_auth` role can see only the
-`auth_session` row matching the presented one-way hash. Resolving that row is
+`authenticated_session` row matching the presented one-way hash. Resolving that row is
 the only production path that constructs `AuthenticatedSession`; account values from
 URLs, headers, or JSON never establish RLS context. Missing, malformed,
 unknown, expired, and revoked credentials all return the same unauthenticated
@@ -468,7 +477,7 @@ active Instructor may create a course; Sysadmin status alone does not satisfy
 that predicate. A Sysadmin creates an Instructor Account after Instructor Vetting;
 a person who needs both roles uses separate Accounts. Creation atomically establishes the first
 ordinary Instructor membership. Access to an existing course requires an
-exact current `course_member` row. Every current Teaching Team Member has the same
+exact current `course_membership` row. Every current Teaching Team Member has the same
 teaching authority; course creation does not create an owner or elevated
 creator capability. `Sysadmin` is not a course membership variant. Its
 `SysadminSupportCapability` is resolved through the closed registry in

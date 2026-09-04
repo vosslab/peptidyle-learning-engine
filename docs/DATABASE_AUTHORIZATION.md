@@ -32,8 +32,12 @@ row-level-security policy. The principal-baseline migration and PostgreSQL
 catalog acceptance checks are the executable authority for the exact role and
 privilege set.
 
-The server derives `AuthenticatedSession { account_id, session_id }` from a valid global Authenticated Session. Each
-protected database transaction sets only the trusted, transaction-local `ple.session_account_id` value.
+The server derives an Authenticated Session from a valid global Authenticated
+Session. Session issuance resolves Product Role from the Account, and the
+persisted session keeps that immutable, role-pinned Account fact. Account State
+is checked by database authority; deactivation or closure blocks new sessions
+and revokes existing ones. Each protected database transaction sets only the
+trusted, transaction-local `ple.session_account_id` value.
 Forced RLS accepts the resolved authenticated Account value for the operation.
 Routes, browser fields, queue payloads, Object Addresses, and Question Backend responses are evidence or input;
 they establish only their exact membership, workspace, course, or worker authority.
@@ -51,6 +55,14 @@ The `sysadmin` Product Role does not satisfy the Instructor Account predicate. A
 creates an Instructor Account after Instructor Vetting; a person who needs both roles uses
 separate Accounts. Course creation then atomically creates the first ordinary
 Instructor membership; Sysadmin status does not add creator authority.
+
+Create Instructor Account captures the current session Account once and accepts
+only an Active Sysadmin Account. In the same transaction it creates the
+server-generated Instructor Account, immutable Product Role, initial Account
+State, Authentication Email, and immutable qualified evidence naming that
+Sysadmin. The audit relation has forced RLS, no runtime table access, no update
+or delete path, and a narrow internal writer. Its evidence is not a credential
+or browser-data store and does not create a new application authority.
 
 `current_course_instructor(account_id, course_id)` requires a current Instructor Course Membership
 for that exact course. The membership foreign key requires an Instructor Account. Course creation atomically creates
@@ -199,24 +211,24 @@ The fresh pre-production migration epoch creates the single-installation schema 
 not preserve an installation-scope compatibility layer. The Migration Allocation Registry allocates the exact next available
 number in these ranges:
 
-| Range                                                              | Allocated capability scope                                                                                                                                          |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `2026082901`                                                       | Principal baseline, schemas, capability roles, and default ACLs                                                                                                     |
-| `2026082902`-`2026082904`, `2026082906`, `2026082933`-`2026082934` | Accounts, passwordless credentials, Instructor vetting, authenticated-session resolution, atomic credential completion, and Sysadmin Create Instructor Account      |
-| `2026082907`-`2026082909`                                          | Global Published Question lineages, immutable Question Revisions, publication, discovery, and stewardship                                                           |
-| `2026082910`-`2026082912`                                          | Private authoring, Blueprints, Question Folders, and Saved Question Searches                                                                                        |
-| `2026082913`-`2026082916`                                          | Courses, equal Teaching Team Members, Students, invitations, curricula                                                                                              |
-| `2026082917`-`2026082920`                                          | Assignment Attempts, schedules, Issued Questions, submissions, artifacts                                                                                            |
-| `2026082921`-`2026082924`                                          | Automated grading, Gradebook, analysis, improvement threads                                                                                                         |
-| `2026082925`-`2026082926`, `2026082928`                            | Typed Jobs and leases; Course Retention schema foundation; Object Delivery, storage checks, cleanup manifests, and cleanup receipts                                 |
-| `2026082929`-`2026082936`                                          | Authorization Checks, forced RLS, grants, schema acceptance helpers, Create Instructor Account, Draft Blueprint Revision, and Question Revision Statistics evidence |
-| `2026082937`-`2026082940`                                          | Assignment pool and released-entry snapshots, authenticated Assignment Attempt start, and Object Record/source-object authority in the fresh baseline               |
-| `2026082942`                                                       | Session-authorized Bind Question Source operation                                                                                                                   |
-| `2026082943`                                                       | Question credit and stewardship                                                                                                                                     |
-| `2026082944`                                                       | Question Revision Source Binding publication completeness predicate                                                                                                 |
-| `2026082945`                                                       | Question fork source                                                                                                                                                |
-| `2026090101`                                                       | Latest Question Revision summary                                                                                                                                    |
-| `2026090102`                                                       | iMathAS Question Backend Session                                                                                                                                    |
+| Range                                                                            | Allocated capability scope                                                                                                                                          |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `2026082901`                                                                     | Principal baseline, schemas, capability roles, and default ACLs                                                                                                     |
+| `2026082902`-`2026082904`, `2026082906`, `2026082933`-`2026082934`, `2026090401` | Accounts, credential foundations, Instructor vetting, authenticated-session resolution, Create Instructor Account, and its qualified immutable audit evidence       |
+| `2026082907`-`2026082909`                                                        | Global Published Question lineages, immutable Question Revisions, publication, discovery, and stewardship                                                           |
+| `2026082910`-`2026082912`                                                        | Private authoring, Blueprints, Question Folders, and Saved Question Searches                                                                                        |
+| `2026082913`-`2026082916`                                                        | Courses, equal Teaching Team Members, Students, invitations, curricula                                                                                              |
+| `2026082917`-`2026082920`                                                        | Assignment Attempts, schedules, Issued Questions, submissions, artifacts                                                                                            |
+| `2026082921`-`2026082924`                                                        | Automated grading, Gradebook, analysis, improvement threads                                                                                                         |
+| `2026082925`-`2026082926`, `2026082928`                                          | Typed Jobs and leases; Course Retention schema foundation; Object Delivery, storage checks, cleanup manifests, and cleanup receipts                                 |
+| `2026082929`-`2026082936`                                                        | Authorization Checks, forced RLS, grants, schema acceptance helpers, Create Instructor Account, Draft Blueprint Revision, and Question Revision Statistics evidence |
+| `2026082937`-`2026082940`                                                        | Assignment pool and released-entry snapshots, authenticated Assignment Attempt start, and Object Record/source-object authority in the fresh baseline               |
+| `2026082942`                                                                     | Session-authorized Bind Question Source operation                                                                                                                   |
+| `2026082943`                                                                     | Question credit and stewardship                                                                                                                                     |
+| `2026082944`                                                                     | Question Revision Source Binding publication completeness predicate                                                                                                 |
+| `2026082945`                                                                     | Question fork source                                                                                                                                                |
+| `2026090101`                                                                     | Latest Question Revision summary                                                                                                                                    |
+| `2026090102`                                                                     | iMathAS Question Backend Session                                                                                                                                    |
 
 Each migration owns its local relations, keys, constraints, indexes, functions, policies, grants,
 and comments. It uses global content keys and exact Account, Authoring Workspace,

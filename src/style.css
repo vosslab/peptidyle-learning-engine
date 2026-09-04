@@ -772,27 +772,23 @@ textarea:hover {
 }
 
 .auth-panel h2,
-.roster-section h2,
-.passkey-card h2 {
+.roster-section h2 {
   margin-top: 0;
 }
 
-.account-course-list,
-.passkey-list {
+.account-course-list {
   display: grid;
   gap: var(--ple-space-2);
 }
 
-.account-course-action,
-.passkey-card {
+.account-course-action {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
 }
 
-.account-course-action small,
-.passkey-card p {
+.account-course-action small {
   color: var(--ple-muted);
 }
 

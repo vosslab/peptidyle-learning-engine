@@ -11,31 +11,14 @@ sys.path.insert(0, str(E2E_DIRECTORY))
 import e2e_browser_scenario_contract as browser_scenario_contract
 
 
-def test_scenario_registry_preserves_direct_role_security_journeys() -> None:
-	"""Morgan and Elena retain their independent live-demo passkey journeys."""
-	registry = browser_scenario_contract.scenario_contracts()
-	browser_scenario_contract.validate_registry(registry)
-	direct = browser_scenario_contract.require_contract("direct_role_entry", registry)
-	assert direct.personas == ("morgan_sysadmin",)
-	assert direct.ui_creates == ("passkey",)
-	assert direct.seed_state_transitions == ()
-	auth = browser_scenario_contract.require_contract("auth_authorization", registry)
-	assert "elena_instructor" in auth.personas
-	assert "passkey" in auth.ui_creates
-	assert auth.visible_observation.startswith("instructor_passkey_reauthentication")
-	pool = browser_scenario_contract.require_contract("item_pool_delivery", registry)
-	assert pool.personas == ("elena_instructor", "mary_student")
-
-
-@pytest.mark.parametrize("scenario_id", ["direct_role_entry", "auth_authorization"])
-def test_scenario_registry_requires_both_named_role_security_journeys(scenario_id: str) -> None:
-	"""Elena and Morgan remain independent mandatory live-demo acceptance children."""
+def test_scenario_registry_requires_seeded_authorization_journey() -> None:
+	"""Removing the real seeded authorization scenario fails closed."""
 	registry = tuple(
 		contract
 		for contract in browser_scenario_contract.scenario_contracts()
-		if contract.scenario_id != scenario_id
+		if contract.scenario_id != "auth_authorization"
 	)
-	with pytest.raises(browser_scenario_contract.ScenarioContractError, match="role-security"):
+	with pytest.raises(browser_scenario_contract.ScenarioContractError, match="seeded authorization"):
 		browser_scenario_contract.validate_registry(registry)
 
 
@@ -46,7 +29,7 @@ def test_contract_rejects_unknown_closed_values_before_lifecycle_allocation() ->
 		spec_path="tests/playwright/e2e/direct.spec.ts",
 		personas=("morgan_sysadmin",),
 		baseline_reads=("genetics_practice_course",),
-		ui_creates=("passkey",),
+		ui_creates=("teaching_invitation",),
 		visible_observation="direct_entry",
 		service_receipt="unknown",
 	)

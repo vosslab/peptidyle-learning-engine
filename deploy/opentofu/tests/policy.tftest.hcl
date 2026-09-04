@@ -171,4 +171,8 @@ run "security_baseline_plan" {
     condition     = strcontains(aws_iam_role_policy.publisher_execution_secrets.policy, var.publisher_application_secrets_arn) && strcontains(aws_iam_role_policy.publisher_execution_secrets.policy, var.publisher_application_secrets_kms_key_arn) && !strcontains(aws_iam_role_policy.publisher_execution_secrets.policy, var.api_application_secrets_arn) && !strcontains(aws_iam_role_policy.publisher_execution_secrets.policy, var.worker_application_secrets_arn) && !strcontains(aws_iam_role_policy.publisher_execution_secrets.policy, var.recovery_application_secrets_arn) && !strcontains(aws_iam_role_policy.publisher_execution_secrets.policy, var.fast_path_application_secrets_arn) && !strcontains(aws_iam_role_policy.publisher_execution_secrets.policy, var.api_application_secrets_kms_key_arn) && !strcontains(aws_iam_role_policy.publisher_execution_secrets.policy, var.worker_application_secrets_kms_key_arn) && !strcontains(aws_iam_role_policy.publisher_execution_secrets.policy, var.recovery_application_secrets_kms_key_arn) && !strcontains(aws_iam_role_policy.publisher_execution_secrets.policy, var.fast_path_application_secrets_kms_key_arn)
     error_message = "Publisher execution identity must be bound only to the publisher secret ARN and CMK."
   }
+  assert {
+    condition     = alltrue([for key in ["PLE_WEBAUTHN_ORIGIN", "PLE_WEBAUTHN_RP_ID", "PLE_WEBAUTHN_RP_NAME"] : !strcontains(aws_ecs_task_definition.api.container_definitions, key)])
+    error_message = "Deferred passkey configuration must not be required or distributed to the API task."
+  }
 }

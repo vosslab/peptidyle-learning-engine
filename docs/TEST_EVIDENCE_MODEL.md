@@ -66,6 +66,26 @@ gate is red.
 A report identifies its class, exact claim, and environment. One evidence class
 does not gain the scope of another because it uses similar data or code.
 
+## Account hardening and optional passkey evidence
+
+Create Instructor Account has permanent behavior coverage for Active Sysadmin
+actor binding, denial and rollback without partial Account, Authentication Email,
+or audit state, immutable Product Role, session-role derivation, and Account
+State revocation. The connected PostgreSQL migration acceptance is separate
+one-time mechanism evidence for the fresh schema, forced RLS, grants, narrow
+audit writer, and immutable qualified event relation. Neither category proves a
+browser teaching workflow.
+
+The passkey lane is explicitly deferred. Its schema and typed-contract
+foundations are not accepted passkey behavior, and passkey setup, ceremony,
+management, real-stack, browser, and manual-passkey evidence do not join a
+baseline-green claim. The deferred lane cannot invalidate ordinary health,
+session/logout, or seeded-demo evidence.
+
+Seeded-demo transport and UI conformance tests permanently protect the closed
+persona response shape and bounded degraded status. They do not replace a
+real-stack or visible-browser acceptance claim.
+
 ### Permanent-test admission
 
 Before a check becomes part of a permanent test lane, it must protect a behavior

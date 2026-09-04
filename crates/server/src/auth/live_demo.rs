@@ -81,27 +81,28 @@ impl SeededDemoAccount {
 /// Closed deployment configuration for the disposable direct-entry surface.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeededDemoConfig {
-    accounts: [SeededDemoAccount; 5],
+    accounts: Vec<SeededDemoAccount>,
 }
 
 impl SeededDemoConfig {
-    /// Validates the complete five-persona configuration before route assembly.
+    /// Validates a unique nonempty subset of the fixed persona configuration.
     ///
     /// ASVS 2.2.1: configuration is positively validated against the closed
     /// persona set and unique Account identities before it reaches a route.
-    pub fn new(accounts: [SeededDemoAccount; 5]) -> Result<Self, String> {
+    pub fn new(accounts: Vec<SeededDemoAccount>) -> Result<Self, String> {
+        if accounts.is_empty() {
+            return Err("seeded demo configuration must contain at least one persona".to_string());
+        }
         let personas = accounts
             .iter()
             .map(|account| account.persona)
             .collect::<BTreeSet<_>>();
-        if personas.len() != SeededDemoPersona::ALL.len()
-            || !SeededDemoPersona::ALL
+        if personas.len() != accounts.len()
+            || !personas
                 .iter()
-                .all(|persona| personas.contains(persona))
+                .all(|persona| SeededDemoPersona::ALL.contains(persona))
         {
-            return Err(
-                "seeded demo configuration must contain each persona exactly once".to_string(),
-            );
+            return Err("seeded demo configuration must contain unique known personas".to_string());
         }
         let identities = accounts
             .iter()
@@ -111,6 +112,10 @@ impl SeededDemoConfig {
             return Err("seeded demo accounts must have distinct AccountIds".to_string());
         }
         Ok(Self { accounts })
+    }
+
+    pub(crate) fn unavailable_account_count(&self) -> usize {
+        SeededDemoPersona::ALL.len() - self.accounts.len()
     }
 
     fn account(&self, persona: SeededDemoPersona) -> Option<&SeededDemoAccount> {
@@ -178,8 +183,10 @@ struct SeededDemoAccountResponse {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct SeededDemoAccountsResponse {
     accounts: Vec<SeededDemoAccountResponse>,
+    unavailable_account_count: usize,
 }
 
 #[derive(Debug, Deserialize)]
@@ -200,6 +207,7 @@ where
     no_store(
         Json(SeededDemoAccountsResponse {
             accounts: state.config.public_accounts(),
+            unavailable_account_count: state.config.unavailable_account_count(),
         })
         .into_response(),
     )
@@ -238,6 +246,13 @@ where
         }
     };
     if issued.record.product_role != selected.persona.required_product_role() {
+        // ASVS 2.3.3 and 8.3.1: a store-derived role mismatch invalidates the
+        // whole operation.  The just-issued credential was never exposed, and
+        // is revoked before this bounded failure response.
+        let _ = state
+            .sessions
+            .revoke_session(issued.record.token_hash)
+            .await;
         return no_store(
             (StatusCode::SERVICE_UNAVAILABLE, "demo entry unavailable").into_response(),
         );
@@ -258,6 +273,17 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_trait::async_trait;
+    use axum::{
+        body::{Body, to_bytes},
+        http::Request,
+    };
+    use learning_data_access::{
+        SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash, StoreError,
+    };
+    use question_model::Timestamp;
+    use std::{collections::BTreeMap, sync::Mutex};
+    use tower::ServiceExt;
     use uuid::Uuid;
 
     fn account(value: u128) -> AccountId {
@@ -270,14 +296,198 @@ mod tests {
     }
 
     #[test]
-    fn configuration_requires_unique_personas_and_accounts() {
-        let entries = [
+    fn configuration_accepts_a_unique_nonempty_subset() {
+        let entries = vec![
             entry(SeededDemoPersona::ElenaInstructor, 1),
             entry(SeededDemoPersona::MaryStudent, 2),
-            entry(SeededDemoPersona::JackStudent, 3),
-            entry(SeededDemoPersona::AveryStudent, 4),
-            entry(SeededDemoPersona::MorganSysadmin, 5),
         ];
         assert!(SeededDemoConfig::new(entries).is_ok());
+    }
+
+    #[test]
+    fn configuration_rejects_empty_or_duplicate_identity_subsets() {
+        assert!(SeededDemoConfig::new(vec![]).is_err());
+        assert!(
+            SeededDemoConfig::new(vec![
+                entry(SeededDemoPersona::ElenaInstructor, 1),
+                entry(SeededDemoPersona::MaryStudent, 1),
+            ])
+            .is_err()
+        );
+    }
+
+    #[derive(Clone)]
+    struct RoleMismatchStore(Arc<Mutex<BTreeMap<SessionTokenHash, SessionRecord>>>);
+
+    #[async_trait]
+    impl SessionStore for RoleMismatchStore {
+        async fn create_session(
+            &self,
+            token_hash: SessionTokenHash,
+            account: AccountId,
+            lifetime: SessionLifetime,
+        ) -> Result<SessionRecord, StoreError> {
+            let record = SessionRecord {
+                id: SessionId::generate()?,
+                token_hash,
+                account,
+                product_role: ProductRole::Student,
+                created_at: Timestamp::from_unix_millis(0),
+                expires_at: Timestamp::from_unix_millis(i64::from(lifetime.as_seconds()) * 1_000),
+            };
+            self.0
+                .lock()
+                .expect("test store lock")
+                .insert(token_hash, record.clone());
+            Ok(record)
+        }
+
+        async fn resolve_session(
+            &self,
+            token_hash: SessionTokenHash,
+        ) -> Result<Option<SessionRecord>, StoreError> {
+            Ok(self
+                .0
+                .lock()
+                .expect("test store lock")
+                .get(&token_hash)
+                .cloned())
+        }
+
+        async fn revoke_session(&self, token_hash: SessionTokenHash) -> Result<(), StoreError> {
+            self.0.lock().expect("test store lock").remove(&token_hash);
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn list_reports_only_retained_personas_and_unavailable_count() {
+        let store = Arc::new(RoleMismatchStore(Arc::new(Mutex::new(BTreeMap::new()))));
+        let router = live_demo_router(
+            store,
+            Some(
+                SeededDemoConfig::new(vec![entry(SeededDemoPersona::MaryStudent, 2)])
+                    .expect("valid subset"),
+            ),
+            SessionConfig::new(
+                SessionLifetime::from_seconds(60).expect("positive lifetime"),
+                super::super::CookieTransport::FirstPartyHttps,
+            ),
+        );
+        let response = router
+            .oneshot(
+                Request::get("/api/auth/live-demo/accounts")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        assert_eq!(
+            body,
+            r#"{"accounts":[{"persona":"maryStudent","displayName":"MaryStudent"}],"unavailableAccountCount":4}"#
+        );
+    }
+
+    #[tokio::test]
+    async fn wrong_role_selection_revokes_the_unexposed_session() {
+        let records = Arc::new(Mutex::new(BTreeMap::new()));
+        let store = Arc::new(RoleMismatchStore(Arc::clone(&records)));
+        let router = live_demo_router(
+            store,
+            Some(
+                SeededDemoConfig::new(vec![entry(SeededDemoPersona::ElenaInstructor, 2)])
+                    .expect("valid subset"),
+            ),
+            SessionConfig::new(
+                SessionLifetime::from_seconds(60).expect("positive lifetime"),
+                super::super::CookieTransport::FirstPartyHttps,
+            ),
+        );
+        let response = router
+            .oneshot(
+                Request::post("/api/auth/live-demo/accounts")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"persona":"elenaInstructor"}"#))
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert!(records.lock().expect("test store lock").is_empty());
+    }
+
+    #[tokio::test]
+    async fn surviving_persona_issues_an_ordinary_session_with_its_account_role() {
+        let records = Arc::new(Mutex::new(BTreeMap::new()));
+        let store = Arc::new(RoleMismatchStore(Arc::clone(&records)));
+        let session_config = SessionConfig::new(
+            SessionLifetime::from_seconds(60).expect("positive lifetime"),
+            super::super::CookieTransport::FirstPartyHttps,
+        );
+        let router = super::super::session_router(Arc::clone(&store), session_config).merge(
+            live_demo_router(
+                store,
+                Some(
+                    SeededDemoConfig::new(vec![entry(SeededDemoPersona::MaryStudent, 2)])
+                        .expect("valid subset"),
+                ),
+                session_config,
+            ),
+        );
+
+        let unavailable = router
+            .clone()
+            .oneshot(
+                Request::post("/api/auth/live-demo/accounts")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"persona":"elenaInstructor"}"#))
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(unavailable.status(), StatusCode::NOT_FOUND);
+
+        let selection = router
+            .clone()
+            .oneshot(
+                Request::post("/api/auth/live-demo/accounts")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"persona":"maryStudent"}"#))
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(selection.status(), StatusCode::OK);
+        let cookie = selection
+            .headers()
+            .get(SET_COOKIE)
+            .expect("successful demo selection issues the ordinary session cookie")
+            .to_str()
+            .expect("cookie is ASCII")
+            .split(';')
+            .next()
+            .expect("cookie has a name and value")
+            .to_owned();
+
+        let current_session = router
+            .oneshot(
+                Request::get("/api/auth/session")
+                    .header("cookie", cookie)
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(current_session.status(), StatusCode::OK);
+        let body = to_bytes(current_session.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        assert_eq!(
+            body,
+            r#"{"authenticated":true,"account":{"id":"00000000-0000-0000-0000-000000000002","productRole":"student"}}"#
+        );
     }
 }

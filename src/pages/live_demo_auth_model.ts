@@ -23,3 +23,11 @@ export function seededDemoDescription(persona: SeededDemoPersona): string {
       return "Explore a seeded Sysadmin account with administrator tools.";
   }
 }
+
+/** Public status names availability without exposing a missing Account's identity or state. */
+export function seededDemoAvailabilityStatus(unavailableAccountCount: number): string {
+  if (unavailableAccountCount === 1) {
+    return "One demo Account is unavailable. The available choices remain usable.";
+  }
+  return `${unavailableAccountCount} demo Accounts are unavailable. The available choices remain usable.`;
+}

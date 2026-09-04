@@ -43,16 +43,11 @@ RESOURCE_KINDS = frozenset(
 SEED_STATE_TRANSITIONS = frozenset()
 SERVICE_RECEIPTS = frozenset({"renderer_delivery"})
 FAULT_TRANSITIONS = frozenset({"gateway_submit_outage"})
-REQUIRED_ROLE_SECURITY_SCENARIOS = {
-	"direct_role_entry": (
-		"tests/playwright/e2e/direct_role_entry.spec.ts",
-		"morgan_sysadmin",
-		"direct_sysadmin_passkey_reauthentication",
-	),
+REQUIRED_BASELINE_AUTHORIZATION_SCENARIOS = {
 	"auth_authorization": (
 		"tests/playwright/e2e/auth_authorization.spec.ts",
 		"elena_instructor",
-		"instructor_passkey_reauthentication_and_seeded_sessions_and_course_boundaries",
+		"seeded_entry_session_logout_and_course_boundaries",
 	),
 }
 
@@ -132,7 +127,7 @@ def validate_contract(contract: ScenarioContract) -> None:
 def validate_registry(
 	contracts: Iterable[ScenarioContract] | None = None,
 ) -> None:
-	"""Validate the executable scenario registry and its role-security journeys."""
+	"""Validate the executable scenario registry and required baseline journey."""
 	registry = tuple(scenario_contracts() if contracts is None else contracts)
 	if not registry:
 		raise ScenarioContractError("browser scenario registry is empty")
@@ -140,7 +135,7 @@ def validate_registry(
 	seen_specs: set[str] = set()
 	for contract in registry:
 		_validate_registry_entry(contract, seen_ids, seen_specs)
-	_validate_required_role_security_scenarios(registry)
+	_validate_required_baseline_authorization_scenarios(registry)
 
 
 def namespace_for(scenario_id: str, entropy: str) -> str:
@@ -183,23 +178,22 @@ def _validate_spec_path(spec_path: str) -> None:
 		raise ScenarioContractError("browser scenario spec path is invalid")
 
 
-def _validate_required_role_security_scenarios(
+def _validate_required_baseline_authorization_scenarios(
 	registry: Sequence[ScenarioContract],
 ) -> None:
-	"""Keep both named live-demo passkey journeys in every executable scenario registry."""
+	"""Keep the real seeded-entry authorization evidence in every registry."""
 	by_id = {contract.scenario_id: contract for contract in registry}
-	for scenario_id, requirement in REQUIRED_ROLE_SECURITY_SCENARIOS.items():
+	for scenario_id, requirement in REQUIRED_BASELINE_AUTHORIZATION_SCENARIOS.items():
 		contract = by_id.get(scenario_id)
 		spec_path, persona, visible_observation = requirement
 		if (
 			contract is None
 			or contract.spec_path != spec_path
 			or persona not in contract.personas
-			or "passkey" not in contract.ui_creates
 			or contract.visible_observation != visible_observation
 		):
 			raise ScenarioContractError(
-				"browser scenario registry requires both named role-security journeys"
+				"browser scenario registry requires the seeded authorization journey"
 			)
 
 

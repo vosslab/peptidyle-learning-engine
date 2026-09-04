@@ -154,7 +154,7 @@ def test_writer_emits_fixed_production_auth_manifest(
 		"https://localhost:55001/",
 	)
 	assert values["PLE_E2E_OWNER"] == "live-demo-browser"
-	assert values["PLE_WEBAUTHN_ORIGIN"] == "https://localhost:55001"
+	assert not any(name.startswith("PLE_WEBAUTHN_") for name in values)
 	assert {
 		name: values[name]
 		for name in (
