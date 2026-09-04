@@ -322,7 +322,7 @@ pub struct CourseAppearanceView {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum CourseBannerMutation {
+pub enum CourseAppearanceUpdateAction {
     /// Keep the current bytes and save the supplied accessibility treatment.
     Keep {
         /// Explicit decorative or informative treatment for the current banner.
@@ -348,8 +348,8 @@ pub enum CourseBannerMutation {
 pub struct CourseAppearanceUpdate {
     /// Complete desired theme.
     pub theme: CourseTheme,
-    /// Complete desired banner action.
-    pub banner: CourseBannerMutation,
+    /// Banner action owned by this complete Course Appearance Update.
+    pub banner: CourseAppearanceUpdateAction,
 }
 
 #[cfg(test)]
@@ -470,7 +470,7 @@ mod tests {
         let upload = CourseBannerUploadReference::from_uuid(Uuid::from_u128(9));
         let update = CourseAppearanceUpdate {
             theme: CourseTheme::Forest,
-            banner: CourseBannerMutation::Replace {
+            banner: CourseAppearanceUpdateAction::Replace {
                 upload,
                 alternative_text: CourseBannerAlternativeText::Informative {
                     text: CourseBannerInformativeText::try_from("Forest canopy".to_string())

@@ -6,52 +6,57 @@ RESET ROLE;
 
 SET LOCAL ROLE ple_data_owner;
 
-ALTER TABLE ple_data.blueprint_course_revision
-    ADD CONSTRAINT blueprint_course_revision_identity_is_unique
-    UNIQUE (blueprint_revision_id, blueprint_id);
-
 CREATE TABLE ple_data.blueprint_publication_event (
     blueprint_publication_event_id uuid PRIMARY KEY,
-    blueprint_revision_id uuid NOT NULL,
-    blueprint_id uuid NOT NULL,
+    blueprint_course_reference_number bigint NOT NULL,
+    blueprint_revision_number bigint NOT NULL,
     published_by_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     occurred_at timestamp with time zone NOT NULL,
     CONSTRAINT blueprint_publication_event_revision_is_unique
-        UNIQUE (blueprint_revision_id),
-    CONSTRAINT blueprint_publication_event_revision_matches_blueprint
-        FOREIGN KEY (blueprint_revision_id, blueprint_id)
-        REFERENCES ple_data.blueprint_course_revision (blueprint_revision_id, blueprint_id)
+        UNIQUE (blueprint_course_reference_number, blueprint_revision_number),
+    CONSTRAINT blueprint_publication_event_revision_reference_is_valid FOREIGN KEY (
+        blueprint_course_reference_number, blueprint_revision_number
+    ) REFERENCES ple_data.blueprint_course_revision (
+        blueprint_course_reference_number, blueprint_revision_number
+    )
 );
 
 CREATE TABLE ple_data.blueprint_collaborator_event (
     blueprint_collaborator_event_id uuid PRIMARY KEY,
-    blueprint_revision_id uuid NOT NULL,
-    blueprint_id uuid NOT NULL,
+    blueprint_course_reference_number bigint NOT NULL,
+    blueprint_revision_number bigint NOT NULL,
     collaborator_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     recorded_by_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     event_kind text NOT NULL CHECK (event_kind IN ('granted', 'ended')),
     occurred_at timestamp with time zone NOT NULL,
     CONSTRAINT blueprint_collaborator_event_kind_is_unique
-        UNIQUE (blueprint_revision_id, collaborator_account_id, event_kind),
-    CONSTRAINT blueprint_collaborator_event_revision_matches_blueprint
-        FOREIGN KEY (blueprint_revision_id, blueprint_id)
-        REFERENCES ple_data.blueprint_course_revision (blueprint_revision_id, blueprint_id),
+        UNIQUE (
+            blueprint_course_reference_number, blueprint_revision_number,
+            collaborator_account_id, event_kind
+        ),
+    CONSTRAINT blueprint_collaborator_event_revision_reference_is_valid FOREIGN KEY (
+        blueprint_course_reference_number, blueprint_revision_number
+    ) REFERENCES ple_data.blueprint_course_revision (
+        blueprint_course_reference_number, blueprint_revision_number
+    ),
     CONSTRAINT blueprint_collaborator_event_grant_has_distinct_accounts
         CHECK (event_kind <> 'granted' OR collaborator_account_id <> recorded_by_account_id)
 );
 
 CREATE TABLE ple_data.blueprint_revision_availability_event (
     blueprint_revision_availability_event_id uuid PRIMARY KEY,
-    blueprint_revision_id uuid NOT NULL,
-    blueprint_id uuid NOT NULL,
+    blueprint_course_reference_number bigint NOT NULL,
+    blueprint_revision_number bigint NOT NULL,
     recorded_by_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     event_kind text NOT NULL CHECK (event_kind IN ('available', 'archived')),
     occurred_at timestamp with time zone NOT NULL,
     CONSTRAINT blueprint_revision_availability_event_kind_is_unique
-        UNIQUE (blueprint_revision_id, event_kind),
-    CONSTRAINT blueprint_revision_availability_event_revision_matches_blueprint
-        FOREIGN KEY (blueprint_revision_id, blueprint_id)
-        REFERENCES ple_data.blueprint_course_revision (blueprint_revision_id, blueprint_id)
+        UNIQUE (blueprint_course_reference_number, blueprint_revision_number, event_kind),
+    CONSTRAINT blueprint_revision_availability_event_revision_reference_is_valid FOREIGN KEY (
+        blueprint_course_reference_number, blueprint_revision_number
+    ) REFERENCES ple_data.blueprint_course_revision (
+        blueprint_course_reference_number, blueprint_revision_number
+    )
 );
 
 CREATE FUNCTION ple_data.validate_blueprint_publication_event()
@@ -63,11 +68,11 @@ BEGIN
           JOIN ple_private.account AS account
             ON account.account_id = NEW.published_by_account_id
            AND account.product_role = 'instructor'
-         WHERE blueprint.blueprint_id = NEW.blueprint_id
+         WHERE blueprint.reference_number = NEW.blueprint_course_reference_number
            AND blueprint.blueprint_course_owner_account_id = NEW.published_by_account_id
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'only the Approved Blueprint Course Owner may publish an exact Blueprint Revision';
+            MESSAGE = 'only the Blueprint Course Owner may publish an exact Blueprint Revision';
     END IF;
     RETURN NEW;
 END
@@ -93,20 +98,25 @@ DECLARE
     blueprint_course_owner_account_id uuid;
 BEGIN
     PERFORM pg_catalog.pg_advisory_xact_lock(
-        pg_catalog.hashtextextended(NEW.blueprint_revision_id::text, 0)
+        pg_catalog.hashtextextended(
+            NEW.blueprint_course_reference_number::text || ':' || NEW.blueprint_revision_number::text,
+            0
+        )
     );
     SELECT blueprint.blueprint_course_owner_account_id
       INTO blueprint_course_owner_account_id
       FROM ple_data.blueprint_course AS blueprint
-     WHERE blueprint.blueprint_id = NEW.blueprint_id;
+     WHERE blueprint.reference_number = NEW.blueprint_course_reference_number;
     IF NEW.recorded_by_account_id <> blueprint_course_owner_account_id
        OR NOT EXISTS (
            SELECT 1 FROM ple_data.blueprint_publication_event AS publication
-            WHERE publication.blueprint_revision_id = NEW.blueprint_revision_id
+            WHERE publication.blueprint_course_reference_number = NEW.blueprint_course_reference_number
+              AND publication.blueprint_revision_number = NEW.blueprint_revision_number
        )
        OR (NEW.event_kind = 'archived' AND NOT EXISTS (
            SELECT 1 FROM ple_data.blueprint_revision_availability_event AS available_event
-            WHERE available_event.blueprint_revision_id = NEW.blueprint_revision_id
+            WHERE available_event.blueprint_course_reference_number = NEW.blueprint_course_reference_number
+              AND available_event.blueprint_revision_number = NEW.blueprint_revision_number
               AND available_event.event_kind = 'available'
               AND available_event.occurred_at <= NEW.occurred_at
        )) THEN
@@ -137,20 +147,23 @@ DECLARE
 BEGIN
     PERFORM pg_catalog.pg_advisory_xact_lock(
         pg_catalog.hashtextextended(
-            NEW.blueprint_revision_id::text || ':' || NEW.collaborator_account_id::text,
+            NEW.blueprint_course_reference_number::text || ':' ||
+                NEW.blueprint_revision_number::text || ':' ||
+                NEW.collaborator_account_id::text,
             0
         )
     );
     SELECT blueprint.blueprint_course_owner_account_id
       INTO blueprint_course_owner_account_id
       FROM ple_data.blueprint_course AS blueprint
-     WHERE blueprint.blueprint_id = NEW.blueprint_id;
+     WHERE blueprint.reference_number = NEW.blueprint_course_reference_number;
 
     IF blueprint_course_owner_account_id IS NULL
        OR EXISTS (
            SELECT 1
              FROM ple_data.blueprint_publication_event AS publication
-            WHERE publication.blueprint_revision_id = NEW.blueprint_revision_id
+            WHERE publication.blueprint_course_reference_number = NEW.blueprint_course_reference_number
+              AND publication.blueprint_revision_number = NEW.blueprint_revision_number
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Blueprint Collaborator Events apply only to an exact Draft Blueprint Revision';
@@ -171,7 +184,8 @@ BEGIN
     ELSIF NOT EXISTS (
         SELECT 1
           FROM ple_data.blueprint_collaborator_event AS grant_event
-         WHERE grant_event.blueprint_revision_id = NEW.blueprint_revision_id
+         WHERE grant_event.blueprint_course_reference_number = NEW.blueprint_course_reference_number
+           AND grant_event.blueprint_revision_number = NEW.blueprint_revision_number
            AND grant_event.collaborator_account_id = NEW.collaborator_account_id
            AND grant_event.event_kind = 'granted'
            AND grant_event.occurred_at <= NEW.occurred_at

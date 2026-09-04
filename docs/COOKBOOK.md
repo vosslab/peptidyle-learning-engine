@@ -75,7 +75,7 @@ creates a new revision and does not silently mutate existing Course Instances.
 1. Start the disposable stack and select the seeded **Sysadmin** persona.
 2. Use the ordinary course-operation surfaces when the seeded state exposes them.
 
-The fresh email-code and passkey adapters are not mounted in this build. The visible seeded
+No email-code or passkey Server Routes exist in this build. The visible seeded
 Sysadmin selector provides the current disposable-demo entry while those ordinary authentication
 paths are reconstructed on the single Authenticated Session foundation.
 

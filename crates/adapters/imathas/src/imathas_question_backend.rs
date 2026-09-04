@@ -224,7 +224,7 @@ pub struct RenderTransportRequest<'a> {
     pub(crate) snapshot: &'a [u8],
     pub(crate) deployment_reference: &'a str,
     pub(crate) question_revision: question_model::QuestionRevisionReference,
-    pub(crate) seed: QuestionSeed,
+    pub(crate) question_seed: QuestionSeed,
 }
 impl<'a> RenderTransportRequest<'a> {
     pub fn snapshot(&self) -> &'a [u8] {
@@ -236,8 +236,8 @@ impl<'a> RenderTransportRequest<'a> {
     pub fn question_revision(&self) -> &question_model::QuestionRevisionReference {
         &self.question_revision
     }
-    pub fn seed(&self) -> QuestionSeed {
-        self.seed
+    pub fn question_seed(&self) -> QuestionSeed {
+        self.question_seed
     }
 }
 
@@ -625,7 +625,7 @@ impl<T: ImathasQuestionBackendTransport> QuestionBackend for ImathasQuestionBack
                 snapshot: request.snapshot,
                 deployment_reference: self.config.profile.deployment_reference(),
                 question_revision: request.question_revision,
-                seed: request.seed,
+                question_seed: request.question_seed,
             })
             .await
             .map_err(ImathasQuestionBackendFailure::from)

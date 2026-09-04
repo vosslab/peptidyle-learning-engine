@@ -17,7 +17,8 @@ use tracing::Instrument;
 
 /// A bounded drain lets an orchestrator replace an unhealthy instance without
 /// allowing a wedged keep-alive or streaming request to hold the process
-/// indefinitely. Submission handlers are already idempotency-fenced; the API
+/// indefinitely. Submission handlers are already bound to one accepted Question
+/// Submission per Question Attempt; the API
 /// intentionally has no blanket per-request cancellation timeout because a
 /// timeout after a durable commit would make a completed submission look
 /// ambiguous to a student.

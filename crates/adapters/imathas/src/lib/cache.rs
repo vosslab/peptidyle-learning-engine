@@ -32,7 +32,7 @@ pub(super) fn decode_cache(bytes: &[u8]) -> Result<CachedRender, ImathasAdapterE
 pub(super) fn validate_cache(
     cached: &CachedRender,
     question_revision: &QuestionRevisionReference,
-    seed: QuestionSeed,
+    question_seed: QuestionSeed,
     source: &ResolvedImathasQuestionSource,
 ) -> Result<(), ImathasAdapterError> {
     if cached.schema != 1
@@ -40,8 +40,8 @@ pub(super) fn validate_cache(
         || cached.source_object_checksum != *source.source_object_checksum()
         || cached.binding != source.binding
         || cached.presentation.variation.question_revision != *question_revision
-        || cached.presentation.variation.question_seed != seed
-        || question_model::validate_question_title(&cached.presentation.title).is_err()
+        || cached.presentation.variation.question_seed != question_seed
+        || question_model::validate_question_title(&cached.presentation.question_title).is_err()
         || !matches!(
             cached.presentation.response,
             question_model::QuestionResponseFormat::ImathasQuestionBackend {}
@@ -65,31 +65,34 @@ pub(super) fn verify_binding(
 
 pub(super) fn render_key(
     question_revision: &QuestionRevisionReference,
-    seed: QuestionSeed,
+    question_seed: QuestionSeed,
 ) -> ObjectAddress {
     ObjectAddress::QuestionRender {
         question_revision: question_revision.clone(),
-        seed,
-        object: deterministic_id(question_revision, seed),
+        question_seed,
+        object: deterministic_id(question_revision, question_seed),
     }
 }
 
-fn deterministic_id(question_revision: &QuestionRevisionReference, seed: QuestionSeed) -> ObjectId {
+fn deterministic_id(
+    question_revision: &QuestionRevisionReference,
+    question_seed: QuestionSeed,
+) -> ObjectId {
     let mut hash = Sha256::new();
     hash.update(b"peptidyle:imathas:render-cache:v1");
     hash.update(question_revision.question_id.to_string().as_bytes());
     hash.update(question_revision.revision_number.get().to_be_bytes());
-    hash.update(seed.value().to_be_bytes());
+    hash.update(question_seed.value().to_be_bytes());
     let digest = hash.finalize();
     let mut bytes = [0; 16];
     bytes.copy_from_slice(&digest[..16]);
     ObjectId::from_uuid(Uuid::from_bytes(bytes))
 }
 
-pub(super) fn parameter_hash(seed: QuestionSeed) -> String {
+pub(super) fn parameter_hash(question_seed: QuestionSeed) -> String {
     let mut hash = Sha256::new();
     hash.update(b"peptidyle:imathas:parameters:v1");
-    hash.update(seed.value().to_be_bytes());
+    hash.update(question_seed.value().to_be_bytes());
     hex(hash.finalize().as_slice())
 }
 

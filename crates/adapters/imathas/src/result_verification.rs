@@ -4,7 +4,7 @@
 //! it to an exact, single-use iMathAS Question Backend Session. The iMathAS
 //! grading profile carries the signed iMathAS Session Challenge and iMathAS Launch Binding
 //! Checksum. The unextended upstream iMathAS protocol omits PLE account, attempt,
-//! version, and idempotency facts; consequently a valid JWT alone is never a
+//! Question Revision, Question Attempt, and result-identity facts; consequently a valid JWT alone is never a
 //! grade.
 
 use base64::Engine as _;
@@ -238,8 +238,8 @@ impl ImathasResultVerifier {
     /// Verifies a bounded iMathAS response after an allowlisted server proxy
     /// receives it server-to-server.  Callers must never pass browser
     /// `postMessage` content here. On success it produces a verified iMathAS
-    /// result; LDA Store consumption and durable replay/idempotency remain the
-    /// caller's Session transaction.
+    /// result; LDA Store consumption and repeat resolution remain the caller's
+    /// iMathAS Session transaction.
     pub fn verify_result(
         &self,
         validation: &learning_data_access::ImathasQuestionBackendSessionValidation,

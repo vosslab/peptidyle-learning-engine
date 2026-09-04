@@ -45,7 +45,7 @@ const weightedView = {
         dropLowest: 0,
       },
     ],
-    letterBands: [
+    letterGradeBands: [
       { label: "A", minimumBasisPoints: 9_000 },
       { label: "B", minimumBasisPoints: 8_000 },
     ],
@@ -116,7 +116,7 @@ test("course-grade decoder rejects out-of-sequence mappings, weights, and privat
           status: "available",
           score: 0.875,
           letter: "B",
-          droppedAssignmentIds: [],
+          droppedAssignmentGrades: [],
           totalEarned: 35,
           totalPossible: 40,
         },

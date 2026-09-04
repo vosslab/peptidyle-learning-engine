@@ -4,5 +4,5 @@
 //! This crate receives verified bytes only: it never receives an Object Address,
 //! a URL, account-ownership information, or an answer key.
 
-//! Export is intentionally unmounted until a format-specific print contract
+//! No Export Service is available until a format-specific print contract
 //! replaces the retired generic Question source input.

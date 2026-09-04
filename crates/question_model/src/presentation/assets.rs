@@ -48,7 +48,7 @@ pub(super) fn validate_public_assets(
             collect_presented_response_item_assets(items, &mut referenced);
         }
         QuestionPresentationResponseFormat::Hotspot { surface, .. } => {
-            referenced.insert(AssetRefKey::from(&surface.asset));
+            referenced.insert(AssetRefKey::from(&surface.question_asset));
             for region in &surface.regions {
                 collect_assets(&region.label, &mut referenced);
             }
@@ -81,7 +81,7 @@ pub(super) fn content_assets(
             bindings
                 .iter()
                 .find(|binding| {
-                    binding.question_asset.asset == reference.asset
+                    binding.question_asset.question_asset == reference.question_asset
                         && binding.question_asset.checksum == reference.checksum
                 })
                 .cloned()
@@ -99,7 +99,7 @@ pub(super) fn question_asset_rendition<'a>(
     bindings
         .iter()
         .find(|binding| {
-            binding.question_asset.asset == reference.asset
+            binding.question_asset.question_asset == reference.question_asset
                 && binding.question_asset.checksum == reference.checksum
         })
         .ok_or(PresentationBuildError::InvalidPublicContent(
@@ -114,7 +114,7 @@ fn validate_asset_refs(
     let mut by_id = BTreeMap::new();
     for binding in bindings {
         if by_id
-            .insert(binding.question_asset.asset, binding)
+            .insert(binding.question_asset.question_asset, binding)
             .is_some()
             || !is_sha256(&binding.question_asset.checksum)
             || !is_sha256(&binding.rendition_checksum)
@@ -128,35 +128,33 @@ fn validate_asset_refs(
         }
     }
     for reference in referenced {
-        let binding =
-            by_id
-                .get(&reference.asset)
-                .ok_or(PresentationBuildError::InvalidPublicContent(
-                    "presentation asset binding is missing",
-                ))?;
+        let binding = by_id.get(&reference.question_asset).ok_or(
+            PresentationBuildError::InvalidPublicContent("presentation asset binding is missing"),
+        )?;
         if binding.question_asset.checksum != reference.checksum {
             return Err(PresentationBuildError::InvalidPublicContent(
                 "presentation asset checksum does not match the question",
             ));
         }
     }
-    if by_id
-        .keys()
-        .any(|asset| !referenced.iter().any(|value| value.asset == *asset))
-    {
+    if by_id.keys().any(|asset| {
+        !referenced
+            .iter()
+            .any(|value| value.question_asset == *asset)
+    }) {
         return Err(PresentationBuildError::InvalidPublicContent(
             "presentation contains an unreferenced asset binding",
         ));
     }
     let mut values = bindings.to_vec();
-    values.sort_by_key(|binding| binding.question_asset.asset);
+    values.sort_by_key(|binding| binding.question_asset.question_asset);
     Ok(values)
 }
 
 fn collect_assets(content: &[QuestionContentBlock], target: &mut BTreeSet<AssetRefKey>) {
     for block in content {
-        if let QuestionContentBlock::Image { asset, .. } = block {
-            target.insert(AssetRefKey::from(asset));
+        if let QuestionContentBlock::Image { question_asset, .. } = block {
+            target.insert(AssetRefKey::from(question_asset));
         }
     }
 }
@@ -202,14 +200,14 @@ fn collect_response_assets(response: &QuestionResponseFormat, target: &mut BTree
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct AssetRefKey {
-    asset: crate::QuestionAssetId,
+    question_asset: crate::QuestionAssetId,
     checksum: String,
 }
 
 impl From<&QuestionAssetReference> for AssetRefKey {
     fn from(value: &QuestionAssetReference) -> Self {
         Self {
-            asset: value.asset,
+            question_asset: value.question_asset,
             checksum: value.checksum.clone(),
         }
     }

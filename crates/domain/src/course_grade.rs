@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use question_model::{
     AssignmentId, AssignmentPointValue, AssignmentScoringState, CourseGradeMode,
     CourseGradeRoundingRule, CourseGradeScheme, CourseGradeSchemeError, GradeCategory,
-    GradeCategoryId,
+    GradeCategoryReference,
 };
 
 /// One assignment's already-selected current score and grading configuration.
@@ -14,7 +14,7 @@ pub struct CourseGradeAssignment {
     pub assignment: AssignmentId,
     pub position: u32,
     pub included: bool,
-    pub category: Option<GradeCategoryId>,
+    pub category: Option<GradeCategoryReference>,
     pub selected_current_score: Option<f64>,
     pub points_possible: AssignmentPointValue,
     pub assignment_scoring_state: AssignmentScoringState,
@@ -38,7 +38,8 @@ pub struct CourseGradeOutcome {
     pub total_earned: Option<f64>,
     pub total_possible: Option<f64>,
     pub letter: Option<String>,
-    pub dropped_assignment_ids: Vec<AssignmentId>,
+    /// Exact Assignment Grades omitted by a Drop Lowest calculation.
+    pub dropped_assignment_grades: Vec<AssignmentId>,
     pub unavailable_reason: Option<CourseGradeUnavailableReason>,
 }
 
@@ -58,7 +59,7 @@ pub enum CourseGradeError {
     },
     UnknownCategory {
         assignment: AssignmentId,
-        category: GradeCategoryId,
+        category: GradeCategoryReference,
     },
 }
 
@@ -250,11 +251,11 @@ fn finish(
     score: f64,
     earned: Option<f64>,
     possible: Option<f64>,
-    dropped_assignment_ids: Vec<AssignmentId>,
+    dropped_assignment_grades: Vec<AssignmentId>,
 ) -> CourseGradeOutcome {
-    let rounded_score = round_score(score);
+    let rounded_score = round_score(scheme.rounding, score);
     let letter = scheme
-        .letter_bands
+        .letter_grade_bands
         .iter()
         .find(|band| rounded_score >= f64::from(band.minimum_basis_points) / 10_000.0)
         .map(|band| band.label.as_str().to_owned());
@@ -264,7 +265,7 @@ fn finish(
         total_earned: earned,
         total_possible: possible,
         letter,
-        dropped_assignment_ids,
+        dropped_assignment_grades,
         unavailable_reason: None,
     }
 }
@@ -279,13 +280,13 @@ fn unavailable(
         total_earned: None,
         total_possible: None,
         letter: None,
-        dropped_assignment_ids: Vec::new(),
+        dropped_assignment_grades: Vec::new(),
         unavailable_reason: Some(reason),
     }
 }
 
-fn round_score(value: f64) -> f64 {
-    match CourseGradeRoundingRule::FourDecimalPlacesHalfAwayFromZero {
+fn round_score(rule: CourseGradeRoundingRule, value: f64) -> f64 {
+    match rule {
         CourseGradeRoundingRule::FourDecimalPlacesHalfAwayFromZero => {
             let scaled = value * 10_000.0;
             let rounded = if scaled.is_sign_negative() {
@@ -301,7 +302,7 @@ fn round_score(value: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use question_model::{GradeCategoryTitle, LetterBand, LetterBandLabel};
+    use question_model::{GradeCategoryTitle, LetterGradeBand, LetterGradeBandLabel};
     use uuid::Uuid;
 
     fn assignment(
@@ -322,7 +323,7 @@ mod tests {
     }
     fn category(id: u128, position: u32, drop_lowest: u32) -> GradeCategory {
         GradeCategory {
-            id: GradeCategoryId::from_uuid(Uuid::from_u128(id)),
+            id: GradeCategoryReference::from_uuid(Uuid::from_u128(id)),
             title: GradeCategoryTitle::new("Lab").expect("title"),
             position,
             weight_basis_points: 10_000,
@@ -334,8 +335,8 @@ mod tests {
             mode: CourseGradeMode::TotalPoints,
             rounding: CourseGradeRoundingRule::default(),
             categories: Vec::new(),
-            letter_bands: vec![LetterBand {
-                label: LetterBandLabel::new("A").expect("label"),
+            letter_grade_bands: vec![LetterGradeBand {
+                label: LetterGradeBandLabel::new("A").expect("label"),
                 minimum_basis_points: 9000,
             }],
         }
@@ -345,12 +346,12 @@ mod tests {
             mode: CourseGradeMode::WeightedCategories,
             rounding: CourseGradeRoundingRule::default(),
             categories: vec![category(11, 0, drop_lowest)],
-            letter_bands: Vec::new(),
+            letter_grade_bands: Vec::new(),
         }
     }
     fn lab(id: u128, position: u32, points: u32, score: Option<f64>) -> CourseGradeAssignment {
         let mut item = assignment(id, position, points, score);
-        item.category = Some(GradeCategoryId::from_uuid(Uuid::from_u128(11)));
+        item.category = Some(GradeCategoryReference::from_uuid(Uuid::from_u128(11)));
         item
     }
 
@@ -430,7 +431,7 @@ mod tests {
         )
         .expect("grade");
         assert_eq!(
-            later.dropped_assignment_ids,
+            later.dropped_assignment_grades,
             vec![AssignmentId::from_uuid(Uuid::from_u128(1))]
         );
         let id = calculate_course_grade(
@@ -439,7 +440,7 @@ mod tests {
         )
         .expect("grade");
         assert_eq!(
-            id.dropped_assignment_ids,
+            id.dropped_assignment_grades,
             vec![AssignmentId::from_uuid(Uuid::from_u128(1))]
         );
     }
@@ -467,7 +468,7 @@ mod tests {
     #[test]
     fn unknown_category_is_an_observable_error() {
         let mut item = assignment(1, 0, 1, Some(1.0));
-        item.category = Some(GradeCategoryId::from_uuid(Uuid::from_u128(12)));
+        item.category = Some(GradeCategoryReference::from_uuid(Uuid::from_u128(12)));
         assert!(matches!(
             calculate_course_grade(&weighted(0), &[item]),
             Err(CourseGradeError::UnknownCategory { .. })
@@ -487,14 +488,14 @@ mod tests {
         let mut scheme = weighted(1);
         scheme.categories[0].weight_basis_points = 5_000;
         scheme.categories.push(GradeCategory {
-            id: GradeCategoryId::from_uuid(Uuid::from_u128(12)),
+            id: GradeCategoryReference::from_uuid(Uuid::from_u128(12)),
             title: GradeCategoryTitle::new("Exam").expect("title"),
             position: 1,
             weight_basis_points: 5_000,
             drop_lowest: 0,
         });
         let mut exam = assignment(1, 0, 100, Some(1.0));
-        exam.category = Some(GradeCategoryId::from_uuid(Uuid::from_u128(12)));
+        exam.category = Some(GradeCategoryReference::from_uuid(Uuid::from_u128(12)));
 
         let result = calculate_course_grade(&scheme, &[exam]).expect("outcome");
         assert_eq!(
@@ -505,7 +506,7 @@ mod tests {
     #[test]
     fn rounding_is_final_only_and_bands_use_rounded_score() {
         let mut scheme = total();
-        scheme.letter_bands[0].minimum_basis_points = 3334;
+        scheme.letter_grade_bands[0].minimum_basis_points = 3334;
         let result =
             calculate_course_grade(&scheme, &[assignment(1, 0, 3, Some(0.33335))]).expect("grade");
         assert_eq!(

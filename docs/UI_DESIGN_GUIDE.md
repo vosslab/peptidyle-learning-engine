@@ -17,7 +17,7 @@ Use four typographic levels:
 
 1. Compact page title: identifies the current place without consuming the workspace.
 2. Section title: names one decision or data group.
-3. Row or question title: supports scanning inside that group.
+3. Row label or Question Title: supports scanning inside that group.
 4. Label, value, help, and metadata: ordinary text with weight used sparingly.
 
 Page titles should generally occupy one line. Prefer normal or medium weight for ordinary labels and

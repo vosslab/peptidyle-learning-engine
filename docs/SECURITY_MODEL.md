@@ -211,7 +211,7 @@ Every unsafe cookie-authenticated request must present the exact canonical
 HTTPS `Host` and same `Origin`; duplicate or malformed cookie inputs are
 rejected. The API does not grant credentialed cross-origin CORS. These checks
 supplement, rather than replace, `SameSite=Lax`. No iMathAS Question Backend browser
-cookie or cross-origin exception is mounted.
+cookie or cross-origin exception exists.
 
 Passwordless email and passkey ceremonies persist only hashed/serialized
 server state. Email challenges are atomic, browser-bound, short-lived, and
@@ -353,7 +353,7 @@ prepare and commit functions require the exact course, stage, generation, job,
 and active typed lease. They persist a typed StudentRecord object manifest
 before delivery revocation. The worker refuses a key outside the lease's typed
 CourseRecord scope or a non-StudentRecord key and treats an already absent
-object as idempotent success. Permanent deletion then removes only
+object as an already-complete deletion. Permanent deletion then removes only
 relationally course-owned Student rows and changes the lifecycle to deleted
 after residual checks pass. Shared published content, drafts, and anonymous
 aggregates are outside that delete authority.
@@ -421,6 +421,16 @@ Revision-owned Source Object Reference rather than reusing the draft object
 path. Draft retention is a separate recovery and expiration policy; published
 reads never join through the Draft Question.
 
+For a new lineage, the server-only coordinator asks PostgreSQL to authorize the active Instructor
+session and resolve only the exact current Draft Question Edit Number's Source Object Record. It
+then requires complete agreement between that database record and the object-store read before
+copying the bytes to a fresh Question Revision address. The database transaction rechecks the draft
+and both source records, closing the authorization/state race before publication commits. Question
+IDs use six OS-CSPRNG Crockford Base32 characters and one HMAC-SHA-256 validation character under a
+redacted 256-bit installation secret. The public identifier is not an authentication credential and
+grants no authority. P2 exposes neither the secret nor draft source bytes to generated or browser
+contracts, and no Publication Server Route is exposed.
+
 Publication requires an Active Instructor Account and any installation-wide review
 gate. `Sysadmin` status alone does not publish or provide Question Library access.
 Post-publication transitions require an Active Instructor Account and the recorded
@@ -464,7 +474,7 @@ creator capability. `Sysadmin` is not a course membership variant. Its
 `SysadminSupportCapability` is resolved through the closed registry in
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md#sysadmin-support-capability-registry),
 which records the authenticated account, purpose, course, operation, expiry, and time and exposes
-only the approved `minimum_projection`-bounded response data. Direct Instructor membership remains the
+only the approved `minimum_projection`-bounded response data. Current Instructor Course Membership remains the
 normal authority for general teaching records.
 
 Course and membership tables use forced account-and-relationship-scoped RLS. Nonmembers receive
@@ -546,7 +556,7 @@ All success and error responses are `no-store`.
 
 PLE has no current Assignment Export service. No Assignment Export route, Store,
 worker, persistence record, delivery path, browser DTO, or authorization boundary
-is mounted. The implemented `export_crate` is an answer-key-free pure DOCX/PDF
+is implemented. The implemented `export_crate` is an answer-key-free pure DOCX/PDF
 renderer; it has no request, account, course, object-delivery, or worker authority.
 QTI remains an interchange format, and Course Grade CSV export remains a separate
 implemented boundary.
@@ -564,8 +574,8 @@ the current student HTTP route still accepts the broader tagged
 `StudentResponse` body, including the browser-supplied response `kind`. The
 current route rederives and validates the expected Question Response Format from the attempt;
 `kind` is therefore not submission authority. The current grading-payload
-contract owns a future atomic wire cutover to authenticated attempt ID, idempotency
-key, Question Presentation Checksum, and a format-minimal answer. That target
+contract owns a future atomic wire cutover to authenticated Question Attempt ID,
+the one-Submission-per-Question-Attempt boundary, Question Presentation Checksum, and a format-minimal answer. That target
 also introduces CRC16 Presentation Response Item References and a SHA-256-backed Question Presentation Checksum
 to detect inconsistent presentation state. Neither target value
 authenticates the student or grades an answer. All component scoring and
@@ -592,8 +602,8 @@ summaries, but only the Account that owns the Student Record through an active
 Student Course Membership may start or submit that Student Record's Assignment
 Attempt. Other Accounts receive not found so record existence is not disclosed.
 
-Each newly issued attempt receives an operating-system-random seed. Resuming
-an unresolved attempt returns its stored seed and Question Attempt Reproduction Details, and the store
+Each newly issued attempt receives an operating-system-random Question Seed. Resuming
+an unresolved attempt returns its stored Question Seed and Question Attempt Reproduction Details, and the Store
 locks the Assignment Attempt so only one unresolved question exists at a time. Server-owned
 database timestamps determine issue time, deadline, response arrival, and Assignment Attempt
 completion.
@@ -602,7 +612,7 @@ Next-question prefetch stores a course-scoped, server-only reservation without
 an attempt ID, timer, response, grade, or public answer. Its browser result
 is answer-free, while the reservation retains checksummed private grading
 authority for the exact issued question so first grade never reconstructs from
-current Question Revision or renderer state. The Store binds it to the active
+Latest Question Revision or renderer state. The Store binds it to the active
 predecessor for that Student Record and its first unattempted assignment position. Only submission
 promotion creates the successor attempt and records either its immutable
 `nextIssued` descriptor or durable `nextPending` state in the predecessor's
@@ -614,7 +624,7 @@ heal the sole committed-but-unlinked predecessor after a process failure.
 The prefetch response contains only the safe Question Presentation and an exact descriptor.
 Its rendered hash remains backend-owned because a backend such as WeBWorK may
 cover the shared Question Presentation. The route still
-requires exact Question Attempt Reproduction Details, version, and seed reproduction.
+requires exact Question Attempt Reproduction Details, Question Revision Reference, and Question Seed reproduction.
 The browser caches this result in memory only, aborts it on route teardown,
 warms at most 12 deduplicated same-origin logical asset routes, and advances
 from it only after an exact `nextIssued` receipt match. No prefetched Question Presentation or
@@ -625,12 +635,12 @@ against the checksummed issued public snapshot, then translates those references
 validates the result against the server-only Question Grading Input before calling
 the injected grader. Native and WeBWorK first grading additionally require
 their matching issued private grading contracts, so neither path reloads a
-current Question Revision or grader view. The idempotency table retains the
-original public student response; the translated private response is grade-only. Submission persistence
-rejects malformed point values and atomically commits the response, grade
-event, Assignment Attempt and enrollment transitions, and summary. The idempotency table is
-insert-only for the application role; an exact retry returns its first
-committed receipt, while a changed key or response conflicts.
+Latest Question Revision or grader view. The immutable Question Submission retains the
+original public Student Response; the translated private response is grade-only. Submission persistence
+rejects malformed point values and atomically commits the Question Submission, grade
+event, Assignment Attempt and enrollment transitions, summary, and Question Submission Receipt. The one-Submission-per-Question-Attempt
+constraint is enforced for the application role; an exact repeat returns its existing
+Receipt, while a changed response conflicts.
 
 The current attempt DTO is answer-free but broader than the student needs: it
 still carries version, seed, Question Attempt Reproduction Details, implementation IDs,

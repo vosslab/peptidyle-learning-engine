@@ -374,10 +374,16 @@ export function replacementContentFromBlueprintCourse(
   return {
     title: view.title,
     modules: view.modules.map((module) => ({
-      handle: { kind: "retained", module_id: module.module_id },
+      choice: {
+        kind: "retained",
+        blueprint_module_reference: module.blueprint_module_reference,
+      },
       label: module.label,
       assignments: module.assignments.map((assignment) => ({
-        handle: { kind: "retained", assignment_id: assignment.assignment_id },
+        choice: {
+          kind: "retained",
+          blueprint_assignment_reference: assignment.blueprint_assignment_reference,
+        },
         content: reusableContentInputFromView(assignment.content),
       })),
     })),

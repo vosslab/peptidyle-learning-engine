@@ -38,7 +38,7 @@ fn public_mapping() -> QtiPublicMappingChecksumInput {
     QtiPublicMappingChecksumInput {
         source_location: "canvas_qti12_questions/one.xml".to_string(),
         source_identifier: "question-1".to_string(),
-        title: "Favorite color".to_string(),
+        question_title: "Favorite color".to_string(),
         prompt_markdown: "What is your favorite color?".to_string(),
         choices: vec![QtiPublicChoiceChecksumInput {
             ple_choice_id: "blue".to_string(),
@@ -120,7 +120,7 @@ fn checksum_contract_refuses_import_results_and_private_binding_contradictions()
 fn checksum_contract_is_sensitive_to_one_field_and_choice_order() {
     let first = public_mapping();
     let mut changed = public_mapping();
-    changed.title = "Other color".to_string();
+    changed.question_title = "Other color".to_string();
     assert_ne!(
         first.checksum().expect("checksum"),
         changed.checksum().expect("checksum")
@@ -145,11 +145,11 @@ fn public_mapping_deterministic_encoding_and_checksum_are_golden() {
     .expect("deterministic checksum encoding");
     assert_eq!(
         std::str::from_utf8(&bytes).expect("deterministic JSON is UTF-8"),
-        "{\"schema\":\"public-mapping\",\"value\":{\"source_location\":\"canvas_qti12_questions/one.xml\",\"source_identifier\":\"question-1\",\"title\":\"Favorite color\",\"prompt_markdown\":\"What is your favorite color?\",\"choices\":[{\"ple_choice_id\":\"blue\",\"text_markdown\":\"Blue\"}],\"vendor_points\":\"1\",\"defaults\":[],\"warnings\":[]}}"
+        "{\"schema\":\"public-mapping\",\"value\":{\"source_location\":\"canvas_qti12_questions/one.xml\",\"source_identifier\":\"question-1\",\"question_title\":\"Favorite color\",\"prompt_markdown\":\"What is your favorite color?\",\"choices\":[{\"ple_choice_id\":\"blue\",\"text_markdown\":\"Blue\"}],\"vendor_points\":\"1\",\"defaults\":[],\"warnings\":[]}}"
     );
     assert_eq!(
         public_mapping.checksum().expect("checksum").to_string(),
-        "ae8585888bd9bc97b80dac5269c05f45b2759bbd264fe7acbab60ab600aff247"
+        "e8703e5a2ce8b8e895221654cf0e12f10167b1f364403f34eabf4bce15016716"
     );
 }
 

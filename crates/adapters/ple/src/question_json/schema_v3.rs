@@ -36,7 +36,7 @@ const MAX_TEXT_RESPONSE_CHARS: u32 = 16_384;
 pub(super) struct PleQuestionJsonDocumentBody {
     format: String,
     version: u32,
-    title: String,
+    question_title: String,
     question_description: String,
     prompt: String,
     response: PleQuestionJsonResponse,
@@ -212,7 +212,7 @@ struct PleQuestionJsonMatch {
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct PleQuestionJsonHotspotSurface {
-    asset: String,
+    question_asset: String,
     checksum: String,
     description: String,
 }
@@ -231,19 +231,20 @@ struct PleQuestionJsonHotspotRegion {
 impl PleQuestionJsonDocumentBody {
     pub(super) fn with_hotspot_surface_asset(
         &self,
-        asset: QuestionAssetId,
+        question_asset: QuestionAssetReference,
     ) -> Result<Self, PleQuestionJsonError> {
         let mut published = self.clone();
         let PleQuestionJsonResponse::Hotspot { surface, .. } = &mut published.response else {
             return invalid("PLE Question JSON source has no hotspot surface to retarget");
         };
-        surface.asset = asset.to_string();
+        surface.question_asset = question_asset.question_asset.to_string();
+        surface.checksum = question_asset.checksum;
         published.validate()?;
         Ok(published)
     }
 
     pub(super) fn imported_single_choice(
-        title: String,
+        question_title: String,
         question_description: String,
         prompt: String,
         choices: Vec<PleQuestionJsonChoice>,
@@ -252,7 +253,7 @@ impl PleQuestionJsonDocumentBody {
         Self {
             format: PLE_QUESTION_JSON_FORMAT_NAME.to_string(),
             version: PLE_QUESTION_JSON_SCHEMA_VERSION,
-            title,
+            question_title,
             question_description,
             prompt,
             response: PleQuestionJsonResponse::SingleChoice {
@@ -275,8 +276,8 @@ impl PleQuestionJsonDocumentBody {
         if self.version != PLE_QUESTION_JSON_SCHEMA_VERSION {
             return Err(PleQuestionJsonError::UnsupportedVersion(self.version));
         }
-        question_model::validate_question_title(&self.title)
-            .map_err(PleQuestionJsonError::InvalidTitle)?;
+        question_model::validate_question_title(&self.question_title)
+            .map_err(PleQuestionJsonError::InvalidQuestionTitle)?;
         if let Err(error) =
             question_model::validate_question_description(&self.question_description)
         {
@@ -358,7 +359,7 @@ impl PleQuestionJsonDocumentBody {
             .and_then(QuestionHint::new);
         Ok(CompiledPleQuestionJson {
             presentation: PleQuestionJsonPresentation {
-                title: self.title.clone(),
+                question_title: self.question_title.clone(),
                 prompt,
                 response,
                 question_type,
@@ -498,19 +499,19 @@ fn compile_response(
             regions,
             correct_regions,
         } => {
-            let asset = QuestionAssetReference {
-                asset: QuestionAssetId::from_uuid(Uuid::parse_str(&surface.asset).map_err(
-                    |_| {
+            let question_asset = QuestionAssetReference {
+                question_asset: QuestionAssetId::from_uuid(
+                    Uuid::parse_str(&surface.question_asset).map_err(|_| {
                         PleQuestionJsonError::InvalidDocument(
-                            "hotspot asset must be a UUID".to_string(),
+                            "hotspot question asset must be a UUID".to_string(),
                         )
-                    },
-                )?),
+                    })?,
+                ),
                 checksum: surface.checksum.clone(),
             };
             (
                 QuestionResponseFormat::Hotspot {
-                    surface: asset.clone(),
+                    surface: question_asset.clone(),
                     description: surface.description.clone(),
                     regions: regions.iter().map(compile_region).collect(),
                     // Correct-region cardinality is private Answer Key data.
@@ -526,7 +527,7 @@ fn compile_response(
                 },
                 Vec::new(),
                 vec![QuestionContentBlock::Image {
-                    asset,
+                    question_asset,
                     description: surface.description.clone(),
                 }],
             )
@@ -760,8 +761,8 @@ fn validate_hotspot(
     regions: &[PleQuestionJsonHotspotRegion],
     correct: &[String],
 ) -> Result<(), PleQuestionJsonError> {
-    Uuid::parse_str(&surface.asset).map_err(|_| {
-        PleQuestionJsonError::InvalidDocument("hotspot asset must be a UUID".to_string())
+    Uuid::parse_str(&surface.question_asset).map_err(|_| {
+        PleQuestionJsonError::InvalidDocument("hotspot question asset must be a UUID".to_string())
     })?;
     if surface.checksum.len() != 64
         || !surface

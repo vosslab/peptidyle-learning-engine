@@ -150,7 +150,7 @@ function issueFeedback(issue: AssignmentPoliciesValidationIssue): AssignmentPoli
       };
     case "capability": {
       const variationTarget = issue.capability === "algorithmicGeneration";
-      const detail = `${issue.title} needs ${capabilityLabel(issue)}.`;
+      const detail = `${issue.questionTitle} needs ${capabilityLabel(issue)}.`;
       return {
         kind: "error",
         message: variationTarget

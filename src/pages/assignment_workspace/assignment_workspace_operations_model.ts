@@ -1,7 +1,6 @@
 // assignment_workspace_operations_model.ts - pure Instructor recovery-page state and safe wording.
 
 import type {
-  InstructorGradingOperationRetryToken,
   GradingOperationFocus,
   GradingOperationStrongEtag,
   InstructorGradingOperationRow,
@@ -14,12 +13,10 @@ export type GradingOperationsActionIntent =
       readonly kind: "retry";
       readonly operation: InstructorGradingOperationReference;
       readonly expectedRevision: GradingOperationStrongEtag;
-      readonly instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken;
     }
   | {
       readonly kind: "recalculate";
       readonly expectedRevision: GradingOperationStrongEtag;
-      readonly instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken;
     };
 
 export type GradingOperationsActionFailure =
@@ -38,7 +35,7 @@ export function gradingOperationsPositionForFocus(
   return { focus, cursor: undefined };
 }
 
-/** The same accepted intent is deliberately replayed after an ambiguous transport outcome. */
+/** Reissues the same operation and revision after an ambiguous transport outcome. */
 export function retryGradingOperationsAction(
   intent: GradingOperationsActionIntent,
 ): GradingOperationsActionIntent {
@@ -48,21 +45,18 @@ export function retryGradingOperationsAction(
 export function retryOperationIntent(
   operation: InstructorGradingOperationReference,
   revision: number,
-  instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken,
 ): GradingOperationsActionIntent {
   return {
     kind: "retry",
     operation,
     expectedRevision: `"${revision}"`,
-    instructorGradingOperationRetryToken,
   };
 }
 
 export function recalculationIntent(
   expectedRevision: GradingOperationStrongEtag,
-  instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken,
 ): GradingOperationsActionIntent {
-  return { kind: "recalculate", expectedRevision, instructorGradingOperationRetryToken };
+  return { kind: "recalculate", expectedRevision };
 }
 
 /** Conflict responses require an explicit fresh assignment read before another request. */
@@ -84,7 +78,7 @@ export function gradingOperationsActionFailure(error: unknown): GradingOperation
 export function gradingOperationsSubjectLabel(row: InstructorGradingOperationRow): string {
   switch (row.subject.kind) {
     case "question":
-      return `Question: ${row.subject.title}`;
+      return `Question: ${row.subject.questionTitle}`;
     case "student":
       return `Student: ${row.subject.displayName}`;
     case "assignment":
@@ -140,7 +134,7 @@ export function gradingOperationsTrustGenerationLabel(row: InstructorGradingOper
 export function gradingOperationsRetryLabel(row: InstructorGradingOperationRow): string {
   switch (row.subject.kind) {
     case "question":
-      return `Retry automated grading for ${row.subject.title} (${row.subject.questionId})`;
+      return `Retry automated grading for ${row.subject.questionTitle} (${row.subject.questionId})`;
     case "student":
       return `Retry automated grading for ${row.subject.displayName}`;
     case "assignment":

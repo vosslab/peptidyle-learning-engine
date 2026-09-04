@@ -22,7 +22,7 @@ const mountPoint = document.getElementById("root");
 if (mountPoint === null) {
   // Failing loudly beats rendering into a detached node and showing a blank
   // page with no console output.
-  throw new Error("mount point #root missing from index.html");
+  throw new Error("application root #root missing from index.html");
 }
 
 log.info("peptidyle client booting");

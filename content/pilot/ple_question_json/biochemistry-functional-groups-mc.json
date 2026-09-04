@@ -1,7 +1,7 @@
 {
   "format": "pleQuestionJson",
   "version": 3,
-  "title": "Biochemistry Chapter 1: Charged functional groups",
+  "questionTitle": "Biochemistry Chapter 1: Charged functional groups",
   "questionDescription": "Instructor-facing discovery summary for charged functional-group practice.",
   "prompt": "Which biochemical functional group can carry a positive charge under biological conditions?",
   "response": {

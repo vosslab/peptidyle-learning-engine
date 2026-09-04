@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     BlueprintRevisionReference, CourseInstanceCreationReservation,
     CourseInstanceScheduleCorrection, QuestionRevisionSubstitutions, RequestChecksum,
-    RequestRetryToken, UnavailableQuestionRevisionRecovery,
+    UnavailableQuestionRevisionRecovery,
 };
 use crate::{
     AccountId, BlueprintCourseReference, BlueprintRevision, CourseInstanceReference, CourseTerm,
@@ -21,7 +21,6 @@ pub struct BlueprintForkReservation {
     source: BlueprintRevisionReference,
     authorized_account: AccountId,
     request_checksum: RequestChecksum,
-    retry_token: RequestRetryToken,
     reserved_blueprint: BlueprintCourseReference,
 }
 
@@ -31,14 +30,12 @@ impl BlueprintForkReservation {
         source: BlueprintRevisionReference,
         authorized_account: AccountId,
         request_checksum: RequestChecksum,
-        retry_token: RequestRetryToken,
         reserved_blueprint: BlueprintCourseReference,
     ) -> Self {
         Self {
             source,
             authorized_account,
             request_checksum,
-            retry_token,
             reserved_blueprint,
         }
     }
@@ -53,14 +50,9 @@ impl BlueprintForkReservation {
         self.authorized_account
     }
 
-    /// Returns the server-held request binding used for idempotent receipt persistence.
+    /// Returns the server-held request binding for receipt persistence.
     pub fn request_checksum(&self) -> RequestChecksum {
         self.request_checksum
-    }
-
-    /// Returns the browser retry key bound to this server-created reservation.
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        &self.retry_token
     }
 
     /// Returns the server-reserved identity that the successful transaction creates.
@@ -169,7 +161,6 @@ pub struct ForkBlueprintCourseCommand {
     source: BlueprintRevisionReference,
     replacements: QuestionRevisionSubstitutions,
     creation: BlueprintForkReservation,
-    retry_token: RequestRetryToken,
 }
 
 /// Apply command derived only from a completed Create Course from Blueprint preview.
@@ -179,18 +170,15 @@ pub struct CreateCourseFromBlueprintCommand {
     target_term: CourseTerm,
     replacements: QuestionRevisionSubstitutions,
     creation: CourseInstanceCreationReservation,
-    retry_token: RequestRetryToken,
 }
 
 impl ForkBlueprintCourseCommand {
     /// Consumes one server-held reservation; browser JSON is never apply authority.
     pub fn from_server_record(record: super::ForkBlueprintCourseApplyRecord) -> Self {
-        let retry_token = record.creation().retry_token().clone();
         Self {
             source: *record.source(),
             replacements: record.replacements().clone(),
             creation: record.creation().clone(),
-            retry_token,
         }
     }
     pub fn source(&self) -> &BlueprintRevisionReference {
@@ -202,21 +190,16 @@ impl ForkBlueprintCourseCommand {
     pub fn creation(&self) -> &BlueprintForkReservation {
         &self.creation
     }
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        &self.retry_token
-    }
 }
 
 impl CreateCourseFromBlueprintCommand {
     /// Consumes one server-held creation record; browser JSON is never apply authority.
     pub fn from_server_record(record: super::CreateCourseFromBlueprintApplyRecord) -> Self {
-        let retry_token = record.creation().retry_token().clone();
         Self {
             source: *record.source(),
             target_term: record.target_term().clone(),
             replacements: record.replacements().clone(),
             creation: record.creation().clone(),
-            retry_token,
         }
     }
     pub fn source(&self) -> &BlueprintRevisionReference {
@@ -231,10 +214,6 @@ impl CreateCourseFromBlueprintCommand {
 
     pub fn creation(&self) -> &CourseInstanceCreationReservation {
         &self.creation
-    }
-
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        &self.retry_token
     }
 }
 
@@ -321,9 +300,6 @@ impl ForkBlueprintCourseReceipt {
     pub fn creation(&self) -> &BlueprintForkReservation {
         &self.creation
     }
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        self.creation.retry_token()
-    }
     pub fn request_checksum(&self) -> RequestChecksum {
         self.creation.request_checksum()
     }
@@ -386,7 +362,7 @@ pub struct CreateCourseFromBlueprintCompleted {
 mod tests {
     use super::*;
     use crate::{
-        AccountId, BlueprintAssignmentId, BlueprintAssignmentRevisionReference,
+        AccountId, BlueprintAssignmentReference, BlueprintAssignmentRevisionReference,
         BlueprintCourseReference, BlueprintRevision, CourseOrigin, QuestionId,
         QuestionRevisionNumber, QuestionRevisionReference,
     };
@@ -399,12 +375,12 @@ mod tests {
         }
     }
 
-    fn assignment_id() -> BlueprintAssignmentId {
-        BlueprintAssignmentId::from_uuid(Uuid::from_u128(9))
+    fn blueprint_assignment_reference() -> BlueprintAssignmentReference {
+        BlueprintAssignmentReference::from_uuid(Uuid::from_u128(9))
     }
 
-    fn other_assignment_id() -> BlueprintAssignmentId {
-        BlueprintAssignmentId::from_uuid(Uuid::from_u128(10))
+    fn other_blueprint_assignment_reference() -> BlueprintAssignmentReference {
+        BlueprintAssignmentReference::from_uuid(Uuid::from_u128(10))
     }
 
     #[test]
@@ -424,7 +400,10 @@ mod tests {
 
     fn unavailable_recovery() -> UnavailableQuestionRevisionRecovery {
         UnavailableQuestionRevisionRecovery {
-            source: BlueprintAssignmentRevisionReference::new(source(), assignment_id()),
+            source: BlueprintAssignmentRevisionReference::new(
+                source(),
+                blueprint_assignment_reference(),
+            ),
             position: super::super::BlueprintQuestionPosition::new(None, 0, 0, None)
                 .expect("position"),
             unavailable: QuestionRevisionReference {
@@ -443,7 +422,6 @@ mod tests {
 
     #[test]
     fn operations_are_closed_snake_case_and_preview_bound() {
-        let key = RequestRetryToken::parse("blueprint-apply").expect("key");
         let source = source();
         let fork = ForkBlueprintCoursePreviewView {
             source,
@@ -458,7 +436,6 @@ mod tests {
                     source,
                     authorized_account(),
                     RequestChecksum::from_bytes([4; 32]),
-                    key.clone(),
                     BlueprintCourseReference::new(8).expect("reserved blueprint"),
                 ),
                 fork.readiness.clone(),
@@ -466,16 +443,14 @@ mod tests {
             .expect("server-held record"),
         );
         assert_eq!(command.source(), &source);
-        assert_eq!(command.retry_token(), &key);
         let wire = serde_json::to_value(&fork).expect("preview serializes");
         assert!(wire.get("readiness").is_some());
         assert!(serde_json::from_value::<ForkBlueprintCoursePreviewView>(wire).is_ok());
     }
 
     #[test]
-    fn course_creation_binds_exact_source_location_and_request_retry_token() {
+    fn course_creation_binds_exact_source_location_and_request_checksum() {
         let source = source();
-        let key = RequestRetryToken::parse("create-course-1").expect("key");
         let term =
             CourseTerm::from_parts("2026-08-24", "2026-12-12", "America/Chicago").expect("term");
         let course_creation = CreateCourseFromBlueprintPreviewView {
@@ -494,7 +469,6 @@ mod tests {
                     term.clone(),
                     authorized_account(),
                     RequestChecksum::from_bytes([5; 32]),
-                    key.clone(),
                     CourseInstanceReference::new(4).expect("reserved course"),
                 ),
                 course_creation.readiness,
@@ -523,15 +497,19 @@ mod tests {
         let mut forged = wire;
         forged["authority"] = serde_json::json!("instructor");
         assert!(serde_json::from_value::<ForkBlueprintCoursePreviewView>(forged).is_err());
-        let source = BlueprintAssignmentRevisionReference::new(source, assignment_id());
+        let source =
+            BlueprintAssignmentRevisionReference::new(source, blueprint_assignment_reference());
         let mut source_wire = serde_json::to_value(source).expect("source serializes");
         source_wire["module_index"] = serde_json::json!(0);
         assert!(
             serde_json::from_value::<BlueprintAssignmentRevisionReference>(source_wire).is_err()
         );
         assert!(
-            !BlueprintAssignmentRevisionReference::new(source.source(), other_assignment_id())
-                .same_assignment_lineage(source)
+            !BlueprintAssignmentRevisionReference::new(
+                source.source(),
+                other_blueprint_assignment_reference(),
+            )
+            .same_assignment_lineage(source)
         );
 
         let blocker =
@@ -547,7 +525,6 @@ mod tests {
 
     #[test]
     fn operation_specific_blockers_prevent_their_own_command_construction() {
-        let key = RequestRetryToken::parse("refused-blueprint").expect("key");
         let fork_blocker = ForkBlueprintCourseBlocker::UnavailableQuestionRevision {
             recovery: unavailable_recovery(),
         };
@@ -559,7 +536,6 @@ mod tests {
                     source(),
                     authorized_account(),
                     RequestChecksum::from_bytes([9; 32]),
-                    key.clone(),
                     BlueprintCourseReference::new(9).expect("reserved blueprint"),
                 ),
                 ForkBlueprintCourseReadiness::Blocked {
@@ -588,7 +564,6 @@ mod tests {
                     term,
                     authorized_account(),
                     RequestChecksum::from_bytes([9; 32]),
-                    key,
                     CourseInstanceReference::new(9).expect("reserved course"),
                 ),
                 CreateCourseFromBlueprintReadiness::Blocked {
@@ -603,7 +578,6 @@ mod tests {
 
     #[test]
     fn creation_reservations_bind_commands_without_a_browser_serde_path() {
-        let key = RequestRetryToken::parse("creation-binding").expect("key");
         let fork = ForkBlueprintCoursePreviewView {
             source: source(),
             replacements: QuestionRevisionSubstitutions::default(),
@@ -613,7 +587,6 @@ mod tests {
             source(),
             authorized_account(),
             RequestChecksum::from_bytes([6; 32]),
-            key.clone(),
             BlueprintCourseReference::new(10).expect("reserved blueprint"),
         );
         let command = ForkBlueprintCourseCommand::from_server_record(
@@ -635,7 +608,6 @@ mod tests {
             },
             authorized_account(),
             RequestChecksum::from_bytes([7; 32]),
-            key.clone(),
             BlueprintCourseReference::new(12).expect("reserved blueprint"),
         );
         assert_eq!(
@@ -656,13 +628,11 @@ mod tests {
             replacements: QuestionRevisionSubstitutions::default(),
             readiness: CreateCourseFromBlueprintReadiness::Ready,
         };
-        let instance_key = RequestRetryToken::parse("instance-binding").expect("key");
         let instance_creation = CourseInstanceCreationReservation::for_blueprint(
             source(),
             term.clone(),
             authorized_account(),
             RequestChecksum::from_bytes([8; 32]),
-            instance_key.clone(),
             CourseInstanceReference::new(13).expect("reserved course"),
         );
         let instance_command = CreateCourseFromBlueprintCommand::from_server_record(
@@ -680,13 +650,11 @@ mod tests {
 
     #[test]
     fn server_record_authority_survives_preview_mutation_and_fork_receipt_binds_creation() {
-        let key = RequestRetryToken::parse("server-record").expect("key");
         let request_checksum = RequestChecksum::from_bytes([3; 32]);
         let creation = BlueprintForkReservation::new(
             source(),
             authorized_account(),
             request_checksum,
-            key,
             BlueprintCourseReference::new(14).expect("reserved BlueprintCourse"),
         );
         let record = super::super::ForkBlueprintCourseApplyRecord::new(

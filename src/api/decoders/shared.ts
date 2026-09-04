@@ -1,6 +1,7 @@
 // Shared strict primitives for browser-visible API DTOs.
 
 import { MAX_QUESTION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_QUESTION_TITLE_UNICODE_SCALARS";
+import { MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS } from "../../../generated/api/MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS";
 import type { QuestionBackendCapabilities } from "../../../generated/api/QuestionBackendCapabilities";
 import type { Capability } from "../../../generated/api/Capability";
 import type { QuestionRevisionAvailability } from "../../../generated/api/QuestionRevisionAvailability";
@@ -10,6 +11,14 @@ import type { QuestionRevisionReference } from "../../../generated/api/QuestionR
 import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionMetadata } from "../../../generated/api/QuestionMetadata";
+import type {
+  AssignmentRouteReference,
+  CourseInstanceRouteReference,
+} from "../../navigation/public_route";
+import {
+  parseAssignmentReference,
+  parseCourseInstanceReference,
+} from "../../navigation/public_route";
 import type { CursorPage } from "../contracts";
 import {
   DecodeError,
@@ -56,18 +65,58 @@ export const STATISTICS_DURATION_ESTIMATES_SECONDS = [
 export const MAX_PUBLICATION_SEMANTIC_ENTRIES = 100;
 const MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS = 200;
 
-export function decodeQuestionTitle(value: unknown, path: string): string {
-  const title = decodeNonemptyString(value, path);
-  if (title.trim().length === 0) {
-    throw new DecodeError(path, "a title containing non-whitespace content");
+export function decodeCourseInstanceReference(
+  value: unknown,
+  path: string,
+): CourseInstanceRouteReference {
+  if (typeof value !== "string") throw new DecodeError(path, "a C- reference");
+  const reference = parseCourseInstanceReference(value);
+  if (reference === null) throw new DecodeError(path, "a C- reference");
+  return reference;
+}
+
+export function decodeAssignmentReference(value: unknown, path: string): AssignmentRouteReference {
+  if (typeof value !== "string") throw new DecodeError(path, "an A- reference");
+  const reference = parseAssignmentReference(value);
+  if (reference === null) throw new DecodeError(path, "an A- reference");
+  return reference;
+}
+
+/** Course Titles are durable Course Instance labels, not Question Titles. */
+export function decodeCourseTitle(value: unknown, path: string): string {
+  const courseTitle = decodeNonemptyString(value, path);
+  if (courseTitle.trim().length === 0) {
+    throw new DecodeError(path, "a Course Title containing non-whitespace content");
   }
-  if (Array.from(title).length > MAX_QUESTION_TITLE_UNICODE_SCALARS) {
+  return courseTitle;
+}
+
+export function decodeQuestionTitle(value: unknown, path: string): string {
+  const questionTitle = decodeNonemptyString(value, path);
+  if (questionTitle.trim().length === 0) {
+    throw new DecodeError(path, "a Question Title containing non-whitespace content");
+  }
+  if (Array.from(questionTitle).length > MAX_QUESTION_TITLE_UNICODE_SCALARS) {
     throw new DecodeError(
       path,
-      `a title no longer than ${MAX_QUESTION_TITLE_UNICODE_SCALARS} Unicode scalar values`,
+      `a Question Title no longer than ${MAX_QUESTION_TITLE_UNICODE_SCALARS} Unicode scalar values`,
     );
   }
-  return title;
+  return questionTitle;
+}
+
+export function decodeQuestionDescription(value: unknown, path: string): string {
+  const questionDescription = decodeNonemptyString(value, path);
+  if (questionDescription.trim().length === 0) {
+    throw new DecodeError(path, "a Question Description containing non-whitespace content");
+  }
+  if (Array.from(questionDescription).length > MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS) {
+    throw new DecodeError(
+      path,
+      `a Question Description no longer than ${MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS} Unicode scalar values`,
+    );
+  }
+  return questionDescription;
 }
 
 export function decodeAssignmentTitle(value: unknown, path: string): string {
@@ -261,7 +310,7 @@ export function decodeQuestionMetadata(
   const record = decodeRecord(value, path);
   if (strict) {
     requireOnlyFields(record, path, [
-      "title",
+      "questionTitle",
       "questionDescription",
       "tags",
       "questionLicense",
@@ -270,8 +319,11 @@ export function decodeQuestionMetadata(
     ]);
   }
   const decoded = {
-    title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
-    questionDescription: decodeNonemptyString(
+    questionTitle: decodeQuestionTitle(
+      field(record, "questionTitle", path),
+      `${path}.questionTitle`,
+    ),
+    questionDescription: decodeQuestionDescription(
       field(record, "questionDescription", path),
       `${path}.questionDescription`,
     ),

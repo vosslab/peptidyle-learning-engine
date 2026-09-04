@@ -227,8 +227,8 @@ pub enum AssignmentQuestionOrderRule {
 /// Stable server-owned inputs for one Question Pool Selection.
 ///
 /// The basis contains only server-owned durable identities. It chooses
-/// Question Pool Item references; question issuance separately creates the fresh
-/// private server seed for every selected question.
+/// Question Pool Item references; Question issuance separately creates a fresh
+/// Question Seed for every selected Question.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuestionPoolSelectionInputs {
     /// Repeat selections for one Student Record retain the same Question Pool Items.

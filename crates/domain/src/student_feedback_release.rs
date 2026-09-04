@@ -83,7 +83,7 @@ pub fn project_student_feedback(
         .then_some(disclosed)
 }
 
-/// Projects feedback for an Instructor inspecting one Student's submitted work.
+/// Projects permitted correctness and score fields for one Student Response Inspection.
 ///
 /// Inspection can show only the current score and correctness permitted by
 /// assignment disclosure. Question Hint, Question Answer, and Question Answer
@@ -94,17 +94,17 @@ pub fn project_student_response_inspection_feedback(
     result: Option<GradingResult>,
 ) -> StudentResponseInspectionFeedback {
     let decision = score_current_student_feedback_release(decision, assignment_scoring_state);
-    let mut feedback = StudentResponseInspectionFeedback::empty();
+    let mut inspection_feedback = StudentResponseInspectionFeedback::empty();
     if let Some(result) = result {
         if decision.per_item_correctness {
-            feedback.correctness = Some(result.correct);
+            inspection_feedback.correctness = Some(result.correct);
         }
         if decision.score {
-            feedback.points_earned = Some(result.points_earned);
-            feedback.points_possible = Some(result.points_possible);
+            inspection_feedback.points_earned = Some(result.points_earned);
+            inspection_feedback.points_possible = Some(result.points_possible);
         }
     }
-    feedback
+    inspection_feedback
 }
 
 /// Evaluates Student Feedback Release from one already-resolved assignment policy verdict.

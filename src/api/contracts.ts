@@ -84,7 +84,7 @@ export type { NavigationResolution };
 /** One safe Question Library display fact returned from a server-owned Question Pool Preview. */
 export interface QuestionPoolPreviewItem {
   readonly questionId: string;
-  readonly title: string;
+  readonly questionTitle: string;
 }
 
 /** Strict browser request for one saved Question Pool by its Assignment Entry reference. */
@@ -142,7 +142,7 @@ export interface CourseCreateInput {
 
 /** One server-derived capability conflict for a selected immutable version. */
 export interface AssignmentCapabilityViolation {
-  readonly title: string;
+  readonly questionTitle: string;
   readonly questionId: string;
   readonly capability: Capability;
 }
@@ -194,10 +194,10 @@ export interface StudentIssuedQuestion {
   readonly assignmentContentEntryIndex: number;
   readonly issuedPosition: number;
   readonly reference: QuestionRevisionReference;
-  readonly statisticsEligible: boolean;
+  readonly questionStatisticsEligibility: boolean;
 }
 
-/** Explicit acknowledgement of an idempotent response submission. */
+/** Explicit receipt for the one accepted Question Submission on one Question Attempt. */
 export interface QuestionSubmissionReceipt {
   readonly accepted: true;
   readonly attemptId: QuestionAttemptId;
@@ -303,6 +303,3 @@ export interface AssignmentAttemptScreenData {
   /** Server-regenerated, key-free delivery bound to this issued attempt. */
   readonly issuedQuestion: QuestionPresentation;
 }
-
-/** Assignment Attempt identity alias used where a return value is clearer than a full DTO. */
-export type StartedAssignmentAttemptId = AssignmentAttemptId;

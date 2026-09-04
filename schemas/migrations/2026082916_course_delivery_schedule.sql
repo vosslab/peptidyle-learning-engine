@@ -20,7 +20,8 @@ CREATE TABLE ple_data.course_schedule_revision (
 CREATE TABLE ple_data.assignment (
     assignment_id uuid PRIMARY KEY,
     course_id uuid NOT NULL REFERENCES ple_data.course_instance (course_id),
-    source_blueprint_revision_id uuid NOT NULL REFERENCES ple_data.blueprint_course_revision (blueprint_revision_id),
+    source_blueprint_course_reference_number bigint NOT NULL,
+    source_blueprint_revision_number bigint NOT NULL,
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone NOT NULL,
     assignment_edit_number bigint NOT NULL CHECK (assignment_edit_number > 0),
@@ -63,7 +64,12 @@ CREATE TABLE ple_data.assignment (
         (available_at IS NULL OR due_at IS NULL OR available_at <= due_at)
         AND (due_at IS NULL OR closes_at IS NULL OR due_at <= closes_at)
     ),
-    CONSTRAINT assignment_update_is_ordered CHECK (updated_at >= created_at)
+    CONSTRAINT assignment_update_is_ordered CHECK (updated_at >= created_at),
+    CONSTRAINT assignment_source_blueprint_revision_reference_is_valid FOREIGN KEY (
+        source_blueprint_course_reference_number, source_blueprint_revision_number
+    ) REFERENCES ple_data.blueprint_course_revision (
+        blueprint_course_reference_number, blueprint_revision_number
+    )
 );
 -- ASVS 8.2.2: an Assignment Release creates one immutable Assignment Revision snapshot
 -- that Student work can pin exactly.
@@ -138,7 +144,8 @@ RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data AS $$
 BEGIN
     IF NEW.assignment_id <> OLD.assignment_id
        OR NEW.course_id <> OLD.course_id
-       OR NEW.source_blueprint_revision_id <> OLD.source_blueprint_revision_id
+       OR NEW.source_blueprint_course_reference_number <> OLD.source_blueprint_course_reference_number
+       OR NEW.source_blueprint_revision_number <> OLD.source_blueprint_revision_number
        OR NEW.created_at <> OLD.created_at
        OR NEW.updated_at < OLD.updated_at THEN
         RAISE EXCEPTION USING

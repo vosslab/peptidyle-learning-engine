@@ -21,7 +21,7 @@
 - Treat retained images under `docs/screenshots/` as historical reference, organized by instructor,
   student, and the student/access boundary; access images use `docs/screenshots/student/access/`.
 - Use no-transport assertions and direct route probes to prove authorization. The route boundary is
-  centrally derived and fails closed before instructor components or transport mount, including roster
+  centrally derived and fails closed before Instructor components render or transport begins, including roster
   and gradebook.
 - Email is unavailable. Use local-development credentials or invitations for live evidence without
   claiming email delivery. Fictional deterministic `example.invalid` fixture addresses are allowed,

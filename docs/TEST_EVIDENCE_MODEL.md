@@ -109,7 +109,7 @@ ends unless it independently meets the permanent-test standard.
 
 PLE retains one intended production `dist/` browser artifact and fixed
 disposable real-stack browser path. The prior Playwright owner configuration
-and `./run_playwright_tests.sh --build` invocation are currently unmounted;
+and `./run_playwright_tests.sh --build` invocation currently have no executable owner;
 they are not current aggregate evidence. Restoring that canonical owner is
 required before release acceptance.
 

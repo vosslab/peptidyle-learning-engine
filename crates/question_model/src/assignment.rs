@@ -222,7 +222,7 @@ impl ScoringGeneration {
 pub enum AssignmentScoringState {
     /// Current score rows match the assignment generation.
     Current,
-    /// Stale rows are hidden while one idempotent recalculation runs.
+    /// Stale rows are hidden while one exact current-generation recalculation runs.
     Recalculating,
     /// Recalculation failed and remains visibly retryable.
     Failed,

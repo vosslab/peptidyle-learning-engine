@@ -62,14 +62,14 @@ fn response_item_body(text: &str) -> Vec<QuestionContentBlock> {
 
 fn fixture() -> QuestionVariationPresentation {
     QuestionVariationPresentation {
-        variation: crate::QuestionVariation::from_question_revision_and_seed(
+        variation: crate::QuestionVariation::from_question_revision_and_question_seed(
             QuestionRevisionReference {
                 question_id: "123-4567".parse().expect("valid Question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
             },
             QuestionSeed::new(42),
         ),
-        title: "Peptide bond".to_owned(),
+        question_title: "Peptide bond".to_owned(),
         prompt: vec![QuestionContentBlock::Text {
             markdown: "Which group forms the peptide bond?".to_owned(),
         }],
@@ -168,7 +168,7 @@ fn descriptor_is_stable_answer_free_and_bound_to_every_visible_field() {
     );
 
     let mut changed = fixture();
-    changed.title.push('!');
+    changed.question_title.push('!');
     let mut changed_source = Nonces::new([[0x11; 16]]);
     let changed = build_question_presentation_with_nonce_source(&changed, &[], &mut changed_source)
         .expect("changed presentation");
@@ -288,7 +288,7 @@ fn persisted_binding_is_strict_and_round_trips_full_checksum() {
     assert_eq!(reproduced, presentation);
 
     let mut changed = fixture();
-    changed.title.push('!');
+    changed.question_title.push('!');
     assert!(reproduce_question_presentation(&changed, &[], binding).is_err());
 }
 
@@ -301,13 +301,13 @@ fn presentation_for(response: QuestionResponseFormat) -> super::IssuedQuestionPr
 }
 
 fn hotspot_presentation() -> super::IssuedQuestionPresentation {
-    let asset = QuestionAssetReference {
-        asset: crate::QuestionAssetId::from_uuid(uuid::Uuid::from_u128(1)),
+    let question_asset = QuestionAssetReference {
+        question_asset: crate::QuestionAssetId::from_uuid(uuid::Uuid::from_u128(1)),
         checksum: "a".repeat(64),
     };
     let mut variation_presentation = fixture();
     variation_presentation.response = QuestionResponseFormat::Hotspot {
-        surface: asset.clone(),
+        surface: question_asset.clone(),
         description: "Cell diagram".to_owned(),
         regions: vec![HotspotRegion {
             id: ResponseItemReference::new("nucleus"),
@@ -322,8 +322,8 @@ fn hotspot_presentation() -> super::IssuedQuestionPresentation {
         selection: ResponseSelectionRule::ExactlyOne,
     };
     let bindings = [super::QuestionAssetRendition {
-        question_asset: asset.clone(),
-        rendition_checksum: asset.checksum,
+        question_asset: question_asset.clone(),
+        rendition_checksum: question_asset.checksum,
         intrinsic_width: Some(800),
         intrinsic_height: Some(600),
     }];

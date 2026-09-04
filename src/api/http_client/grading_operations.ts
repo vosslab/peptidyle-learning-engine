@@ -4,12 +4,10 @@ import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { ApiClient } from "../client";
 import {
-  decodeInstructorGradingOperationRetryToken,
   decodeGradingOperationActionReceipt,
   decodeInstructorGradingOperationReference,
   decodeGradingOperationStrongEtag,
   decodeInstructorGradingOperationsPage,
-  type InstructorGradingOperationRetryToken,
   type GradingOperationActionReceipt,
   type GradingOperationFocus,
   type GradingOperationStrongEtag,
@@ -93,13 +91,7 @@ function verifyReceipt(
   response: Response,
   path: string,
   operation: string | undefined,
-  instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken,
 ): GradingOperationActionReceipt {
-  if (receipt.retry_token !== instructorGradingOperationRetryToken) {
-    throw new ApiProtocolError(
-      `API response ${path} Retry Token must match the request Instructor Grading Operation Retry Token`,
-    );
-  }
   if (operation !== undefined && receipt.operation !== operation) {
     throw new ApiProtocolError(`API response ${path} operation must match the requested operation`);
   }
@@ -148,43 +140,33 @@ export function createGradingOperationsClient(
       assignmentId,
       operation,
       expectedRevision: GradingOperationStrongEtag,
-      instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken,
     ): Promise<GradingOperationActionReceipt> => {
       const path = retryPath(courseId, assignmentId, operation);
-      const retry_token = decodeInstructorGradingOperationRetryToken(
-        instructorGradingOperationRetryToken,
-        "instructorGradingOperationRetryToken",
-      );
       const revision = decodeGradingOperationStrongEtag(expectedRevision, "expectedRevision");
       const result = await operationJson(
         fetchImplementation,
         basePath,
         path,
         decodeGradingOperationActionReceipt,
-        { method: "POST", headers: { "if-match": revision, "idempotency-key": retry_token } },
+        { method: "POST", headers: { "if-match": revision } },
       );
-      return verifyReceipt(result.body, result.response, path, operation, retry_token);
+      return verifyReceipt(result.body, result.response, path, operation);
     },
     recalculateInstructorAssignment: async (
       courseId,
       assignmentId,
       expectedRevision: GradingOperationStrongEtag,
-      instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken,
     ): Promise<GradingOperationActionReceipt> => {
       const path = recalculatePath(courseId, assignmentId);
-      const retry_token = decodeInstructorGradingOperationRetryToken(
-        instructorGradingOperationRetryToken,
-        "instructorGradingOperationRetryToken",
-      );
       const revision = decodeGradingOperationStrongEtag(expectedRevision, "expectedRevision");
       const result = await operationJson(
         fetchImplementation,
         basePath,
         path,
         decodeGradingOperationActionReceipt,
-        { method: "POST", headers: { "if-match": revision, "idempotency-key": retry_token } },
+        { method: "POST", headers: { "if-match": revision } },
       );
-      return verifyReceipt(result.body, result.response, path, undefined, retry_token);
+      return verifyReceipt(result.body, result.response, path, undefined);
     },
   };
 }

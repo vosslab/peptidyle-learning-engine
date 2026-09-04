@@ -43,7 +43,7 @@ fn allowed(due_at: Option<Timestamp>, closes_at: Option<Timestamp>) -> Assignmen
             assignment_deadline_rule: resolved(AssignmentDeadlineRule::AutoSubmit),
         }),
         start_decision: AssignmentStartDecision::MayStart {
-            late_work_status: StudentLateWorkStatus::OnTime,
+            student_late_work_status: StudentLateWorkStatus::OnTime,
         },
     }
 }
@@ -172,7 +172,7 @@ fn question_feedback() -> QuestionFeedback {
 
 fn question_answer() -> QuestionAnswer {
     QuestionAnswer::new(vec![QuestionContentBlock::Text {
-        markdown: "Correct response".to_string(),
+        markdown: "Display-ready answer".to_string(),
     }])
     .expect("one answer block is non-empty")
 }
@@ -283,7 +283,7 @@ fn independently_derived_answer_explanation_releases_without_an_answer_wrapper()
 }
 
 #[test]
-fn inspection_projects_only_score_fields_and_hides_stale_values() {
+fn student_response_inspection_projects_only_permitted_correctness_and_score() {
     let decision = StudentFeedbackReleaseDecision {
         score: true,
         per_item_correctness: true,

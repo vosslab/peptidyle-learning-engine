@@ -95,7 +95,7 @@ export interface PleDraftPreviewRequest {
   readonly questionBackend: QuestionBackend;
   readonly webworkPgPath: string | null;
   readonly draftImathasQuestionBackendBinding: DraftImathasQuestionBackendBinding | null;
-  readonly title: string;
+  readonly questionTitle: string;
   readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
 }
@@ -103,7 +103,7 @@ export interface PleDraftPreviewRequest {
 /** Identity-free Question Prompt and Question Response Format returned for a local PLE draft preview. */
 export interface PleDraftPreview {
   readonly workspace: string;
-  readonly title: string;
+  readonly questionTitle: string;
   readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
 }
@@ -218,7 +218,7 @@ export function decodePleDraftPreviewResult(json: string): PleDraftPreviewResult
   const preview = value["preview"];
   rejectUnknownFields(
     preview,
-    new Set(["workspace", "title", "prompt", "response"]),
+    new Set(["workspace", "questionTitle", "prompt", "response"]),
     "WASM preview",
   );
   for (const forbidden of ["problem", "version", "answer", "key", "grading", "correct", "score"]) {

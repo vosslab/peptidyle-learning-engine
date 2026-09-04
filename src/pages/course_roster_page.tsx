@@ -12,7 +12,7 @@ import type {
   RosterImportDelivery,
   RosterImportPreview,
 } from "../api/enrollment";
-import { newIdempotencyKey, readyRosterRows } from "../api/http_client/enrollment";
+import { readyRosterRows } from "../api/http_client/enrollment";
 import { useApplicationApi } from "../api/application_api";
 import { rosterImportTemplateCsv } from "./roster_import_template";
 import {
@@ -132,9 +132,6 @@ export function CourseRosterPage(): JSX.Element {
   const [latestInvitationLink, setLatestInvitationLink] = createSignal<LatestInvitationLink | null>(
     null,
   );
-  const [inviteKey, setInviteKey] = createSignal(newIdempotencyKey());
-  const [previewKey, setPreviewKey] = createSignal(newIdempotencyKey());
-  const [commitKey, setCommitKey] = createSignal(newIdempotencyKey());
   const [pendingConfirmation, setPendingConfirmation] =
     createSignal<PendingRosterConfirmation | null>(null);
   let rosterHeading: HTMLHeadingElement | undefined;
@@ -175,7 +172,6 @@ export function CourseRosterPage(): JSX.Element {
         courseId,
         invitedEmail,
         rosterId(),
-        inviteKey(),
       );
       setLatestInvitationLink(
         accepted.emailDelivery === "cancelled"
@@ -188,7 +184,6 @@ export function CourseRosterPage(): JSX.Element {
       );
       setEmail("");
       setRosterId("");
-      setInviteKey(newIdempotencyKey());
       setAnnouncement(invitationDeliveryAnnouncement(accepted.emailDelivery));
       await load();
     } catch {
@@ -321,13 +316,10 @@ export function CourseRosterPage(): JSX.Element {
         courseId,
         file,
         current.roster.rosterChangeNumber,
-        previewKey(),
       );
       setPreview(report);
       setLastBulkDelivery([]);
       setSelectedRows(new Set(readyRosterRows(report)));
-      setPreviewKey(newIdempotencyKey());
-      setCommitKey(newIdempotencyKey());
       setAnnouncement(
         `Roster preview ready. ${readyRosterRows(report).length} row${readyRosterRows(report).length === 1 ? " is" : "s are"} ready to invite.`,
       );
@@ -376,12 +368,10 @@ export function CourseRosterPage(): JSX.Element {
         courseId,
         report,
         [...selectedRows()].sort((left, right) => left - right),
-        commitKey(),
       );
       setPreview(null);
       setLastBulkDelivery(committed.delivery);
       setSelectedFile(null);
-      setCommitKey(newIdempotencyKey());
       setAnnouncement(bulkDeliveryAnnouncement(committed.delivery));
       await load();
     } catch {

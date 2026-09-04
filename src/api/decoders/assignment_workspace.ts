@@ -8,7 +8,8 @@ import {
   decodeInstructorAssignmentAvailabilityView,
   decodeInstructorAssignmentAuthoredContentLocal,
 } from "./assignment_teaching_delivery";
-import { decodeAssignmentReference, decodeAssignmentSummary } from "./question_library";
+import { decodeAssignmentSummary } from "./question_library";
+import { decodeAssignmentReference } from "./shared";
 import {
   decodeCapability,
   decodeQuestionTitle,
@@ -162,9 +163,12 @@ export function decodeAssignmentCapabilityViolations(
     `${path}.violations`,
     (entry, entryPath) => {
       const violation = decodeRecord(entry, entryPath);
-      requireOnlyFields(violation, entryPath, ["title", "questionId", "capability"]);
+      requireOnlyFields(violation, entryPath, ["questionTitle", "questionId", "capability"]);
       const decoded = {
-        title: decodeQuestionTitle(field(violation, "title", entryPath), `${entryPath}.title`),
+        questionTitle: decodeQuestionTitle(
+          field(violation, "questionTitle", entryPath),
+          `${entryPath}.questionTitle`,
+        ),
         questionId: decodeQuestionId(
           field(violation, "questionId", entryPath),
           `${entryPath}.questionId`,

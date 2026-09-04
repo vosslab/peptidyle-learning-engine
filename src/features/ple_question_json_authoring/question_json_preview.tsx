@@ -183,7 +183,7 @@ export function PleQuestionJsonPreview(props: PleQuestionJsonPreviewProps): JSX.
         or send a request.
       </p>
       <article aria-labelledby="ple-question-json-preview-title">
-        <h4 id="ple-question-json-preview-title">{props.preview.title}</h4>
+        <h4 id="ple-question-json-preview-title">{props.preview.questionTitle}</h4>
         <p>{props.preview.prompt}</p>
         <QuestionResponseControl
           attemptId="ple-question-json-author-preview"

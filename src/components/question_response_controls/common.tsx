@@ -109,7 +109,7 @@ export function textFromBlocks(blocks: ReadonlyArray<QuestionContentBlock>): str
     .join(" ");
 }
 
-function issueMessage(issue: StudentResponseFormatIssue): string {
+function responseFormatMessageForIssue(issue: StudentResponseFormatIssue): string {
   switch (issue.kind) {
     case "selectionCount":
       return "Choose the requested number of responses.";
@@ -140,9 +140,11 @@ function issueMessage(issue: StudentResponseFormatIssue): string {
   }
 }
 
-function checkMessage(check: StudentResponseFormatCheck): string {
+function responseFormatMessage(check: StudentResponseFormatCheck): string {
   const first = check.issues[0];
-  return first === undefined ? "Student Response Format is ready to submit." : issueMessage(first);
+  return first === undefined
+    ? "Student Response Format is ready to submit."
+    : responseFormatMessageForIssue(first);
 }
 
 /** Browser-only format check: deliberately has no submit or grading dependency. */
@@ -208,7 +210,7 @@ export function createSubmissionController(
       setPhase(
         check.issues.length === 0
           ? { kind: "ready" }
-          : { kind: "invalid", message: checkMessage(check) },
+          : { kind: "invalid", message: responseFormatMessage(check) },
       );
     } catch (error: unknown) {
       if (request !== validationRequest || phase().kind === "submitting") return;
@@ -275,7 +277,7 @@ export function createSubmissionController(
       setPhase(
         check.issues.length === 0
           ? { kind: "restored" }
-          : { kind: "invalid", message: checkMessage(check) },
+          : { kind: "invalid", message: responseFormatMessage(check) },
       );
     } catch (error: unknown) {
       if (request !== validationRequest || phase().kind === "submitting") return;

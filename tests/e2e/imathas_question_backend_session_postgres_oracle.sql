@@ -23,12 +23,12 @@ INSERT INTO ple_private.question_revision_source_binding (
     question_id, revision_number, backend, question_format,
     webwork_pg_path,
     imathas_deployment_reference, imathas_item_reference, imathas_profile,
-    source_object_id, source_object_checksum, created_at, updated_at
+    source_object_id, source_object_checksum, created_at
 ) VALUES (
     'ABC-DEF0', 1, 'ple',
     'pleQuestionJson', NULL, NULL, NULL, NULL,
     '00000000-0000-0000-0000-00000000f202', repeat('aa', 32),
-    pg_catalog.clock_timestamp(), pg_catalog.clock_timestamp()
+    pg_catalog.clock_timestamp()
 );
 INSERT INTO ple_private.question_attempt (
     question_attempt_id, issued_question_id, question_seed, generated_parameter_sha256,
@@ -56,7 +56,7 @@ FROM ple_private.assignment_attempt
 WHERE assignment_attempt_id = '00000000-0000-0000-0000-000000000114';
 INSERT INTO ple_private.issued_question (
     issued_question_id, assignment_attempt_id, assignment_entry_id, question_id,
-    revision_number, issued_position, point_value, scoring_rule, statistics_eligible,
+    revision_number, issued_position, point_value, scoring_rule, question_statistics_eligibility,
     question_pool_selection_id, question_pool_item_id
 )
 SELECT
@@ -88,7 +88,7 @@ FROM ple_private.assignment_attempt
 WHERE assignment_attempt_id = '00000000-0000-0000-0000-000000000114';
 INSERT INTO ple_private.issued_question (
     issued_question_id, assignment_attempt_id, assignment_entry_id, question_id,
-    revision_number, issued_position, point_value, scoring_rule, statistics_eligible,
+    revision_number, issued_position, point_value, scoring_rule, question_statistics_eligibility,
     question_pool_selection_id, question_pool_item_id
 )
 SELECT
@@ -174,7 +174,7 @@ SELECT
         JOIN ple_private.issued_question AS issued_question
           ON issued_question.issued_question_id = question_attempt.issued_question_id
         WHERE question_attempt.question_attempt_id = '00000000-0000-0000-0000-00000000f208'
-          AND NOT issued_question.statistics_eligible
+          AND NOT issued_question.question_statistics_eligibility
     ) AS has_ineligible_question_attempt,
     EXISTS (SELECT 1 FROM ple_private.issued_question WHERE issued_question_id = '00000000-0000-5000-8000-000000000115') AS has_issued_question,
     EXISTS (SELECT 1 FROM ple_private.question_revision_source_binding WHERE question_id = 'ABC-DEF0' AND revision_number = 1 AND source_object_id = '00000000-0000-0000-0000-00000000f202') AS has_question_source_binding,

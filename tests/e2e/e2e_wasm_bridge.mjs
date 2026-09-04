@@ -148,7 +148,7 @@ const draftPreview = JSON.parse(
       questionBackend: "ple",
       webworkPgPath: null,
       draftImathasQuestionBackendBinding: null,
-      title: "Fixture",
+      questionTitle: "Fixture",
       prompt: [{ kind: "text", markdown: "Static value" }],
       response: { kind: "shortText", matchMode: "normalized", maxLength: 20 },
     }),
@@ -158,7 +158,7 @@ assert.deepEqual(draftPreview, {
   kind: "ready",
   preview: {
     workspace: "00000000-0000-0000-0000-000000000001",
-    title: "Fixture",
+    questionTitle: "Fixture",
     prompt: [{ kind: "text", markdown: "Static value" }],
     response: { kind: "shortText", matchMode: "normalized", maxLength: 20 },
   },
@@ -168,7 +168,7 @@ const presentation = {
   questionRevision: { questionId: "ABC-DEFG", revisionNumber: 1 },
   question_seed: 42,
   presentationNonce: "11111111111111111111111111111111",
-  title: "Peptide bond",
+  questionTitle: "Peptide bond",
   prompt: [{ kind: "text", markdown: "Which group forms the peptide bond?" }],
   response: {
     kind: "singleChoice",
@@ -190,7 +190,7 @@ assert.equal(
 );
 assert.equal(
   bridge.verify_presentation_descriptor(
-    JSON.stringify({ ...presentation, title: "Changed title" }),
+    JSON.stringify({ ...presentation, questionTitle: "Changed Question Title" }),
     JSON.stringify([]),
     presentationToken,
   ),

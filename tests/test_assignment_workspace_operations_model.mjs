@@ -18,12 +18,9 @@ test("grading-operation focus starts with no cursor", () => {
   });
 });
 
-test("grading-operation retry preserves the original Instructor Grading Operation Retry Token", () => {
-  const intent = retryOperationIntent("GO-12", 7, "00000000-0000-0000-0000-000000000012");
-  assert.equal(
-    retryGradingOperationsAction(intent).instructorGradingOperationRetryToken,
-    intent.instructorGradingOperationRetryToken,
-  );
+test("grading-operation retry preserves the original operation and revision", () => {
+  const intent = retryOperationIntent("GO-12", 7);
+  assert.equal(retryGradingOperationsAction(intent).operation, intent.operation);
   assert.equal(retryGradingOperationsAction(intent).expectedRevision, '"7"');
 });
 
@@ -40,7 +37,7 @@ test("grading-operation retry control names its exact recovery target", () => {
     subject: {
       kind: "question",
       questionId: "PEP-7B4D",
-      title: "Peptide bond resonance",
+      questionTitle: "Peptide bond resonance",
     },
   };
 

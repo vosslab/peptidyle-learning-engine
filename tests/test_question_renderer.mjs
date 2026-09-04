@@ -9,8 +9,8 @@ import {
   resolveSameOriginAssetUrl,
 } from "../src/components/question_renderer.tsx";
 
-const asset = {
-  asset: "00000000-0000-0000-0000-000000000001",
+const questionAsset = {
+  questionAsset: "00000000-0000-0000-0000-000000000001",
   checksum: "a".repeat(64),
 };
 
@@ -23,17 +23,17 @@ test("asset URLs must be the resolver-derived logical asset route", () => {
   try {
     assert.equal(
       resolveSameOriginAssetUrl(
-        asset,
-        () => new URL(`/api/assets/${asset.asset}`, globalThis.location.origin),
+        questionAsset,
+        () => new URL(`/api/assets/${questionAsset.questionAsset}`, globalThis.location.origin),
       ),
-      `https://ple.example.test/api/assets/${asset.asset}`,
+      `https://ple.example.test/api/assets/${questionAsset.questionAsset}`,
     );
     for (const resolver of [
       () => new URL("https://bucket.example.test/object"),
       () => new URL("/api/assets/another-asset", globalThis.location.origin),
-      () => new URL(`/api/assets/${asset.asset}?raw-key=object`, globalThis.location.origin),
+      () => new URL(`/api/assets/${questionAsset.questionAsset}?raw-key=object`, globalThis.location.origin),
     ]) {
-      assert.throws(() => resolveSameOriginAssetUrl(asset, resolver), QuestionContentError);
+      assert.throws(() => resolveSameOriginAssetUrl(questionAsset, resolver), QuestionContentError);
     }
   } finally {
     Object.defineProperty(globalThis, "location", { configurable: true, value: priorLocation });

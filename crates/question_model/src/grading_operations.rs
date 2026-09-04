@@ -3,8 +3,6 @@
 //! These values describe state and safe next actions. They carry neither a
 //! Student response nor a grade, answer, iMathAS Question Backend diagnostic, or private source.
 
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
 
 use crate::{InstructorGradingOperationReference, Timestamp};
@@ -21,52 +19,6 @@ impl InstructorGradingOperationRequestChecksum {
         Self(bytes)
     }
 }
-
-/// Opaque UUID supplied for one Instructor Grading Operation decision.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct InstructorGradingOperationRetryToken(uuid::Uuid);
-
-impl InstructorGradingOperationRetryToken {
-    /// Parses the canonical UUID transport value without granting authority.
-    pub fn parse(value: &str) -> Result<Self, InstructorGradingOperationRetryTokenError> {
-        uuid::Uuid::parse_str(value)
-            .map(Self)
-            .map_err(|_| InstructorGradingOperationRetryTokenError)
-    }
-}
-
-impl TryFrom<String> for InstructorGradingOperationRetryToken {
-    type Error = InstructorGradingOperationRetryTokenError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::parse(&value)
-    }
-}
-
-impl From<InstructorGradingOperationRetryToken> for String {
-    fn from(value: InstructorGradingOperationRetryToken) -> Self {
-        value.0.hyphenated().to_string()
-    }
-}
-
-impl std::fmt::Debug for InstructorGradingOperationRetryToken {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("InstructorGradingOperationRetryToken([opaque])")
-    }
-}
-
-/// A supplied Instructor Grading Operation Retry Token was not a UUID.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct InstructorGradingOperationRetryTokenError;
-
-impl std::fmt::Display for InstructorGradingOperationRetryTokenError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("Instructor Grading Operation Retry Token must be a UUID")
-    }
-}
-
-impl std::error::Error for InstructorGradingOperationRetryTokenError {}
 
 /// Current state of one accepted Question Submission.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -138,22 +90,19 @@ pub struct InstructorGradingOperationActionRequest {
     operation: InstructorGradingOperationReference,
     action: GradingOperationAction,
     request_checksum: InstructorGradingOperationRequestChecksum,
-    retry_token: InstructorGradingOperationRetryToken,
 }
 
 impl InstructorGradingOperationActionRequest {
-    /// Binds the exact controlled operation, action, Request Checksum, and Retry Token.
+    /// Binds the exact controlled operation, action, and Request Checksum.
     pub fn new(
         operation: InstructorGradingOperationReference,
         action: GradingOperationAction,
         request_checksum: InstructorGradingOperationRequestChecksum,
-        retry_token: InstructorGradingOperationRetryToken,
     ) -> Self {
         Self {
             operation,
             action,
             request_checksum,
-            retry_token,
         }
     }
 
@@ -167,10 +116,6 @@ impl InstructorGradingOperationActionRequest {
 
     pub fn request_checksum(&self) -> InstructorGradingOperationRequestChecksum {
         self.request_checksum
-    }
-
-    pub fn retry_token(&self) -> &InstructorGradingOperationRetryToken {
-        &self.retry_token
     }
 }
 
@@ -205,53 +150,6 @@ impl InstructorGradingOperationReceipt {
     pub fn request(&self) -> &InstructorGradingOperationActionRequest {
         &self.request
     }
-}
-
-/// In-memory conformance model for the Store's durable retry-token uniqueness rule.
-///
-/// Production persistence must apply the same comparison in its transaction; this
-/// value deliberately makes no durability claim.
-#[derive(Debug, Default)]
-pub struct InstructorGradingOperationReplayRegistry {
-    receipts: BTreeMap<InstructorGradingOperationRetryToken, InstructorGradingOperationReceipt>,
-}
-
-impl InstructorGradingOperationReplayRegistry {
-    /// Returns the first accepted Receipt for an equal request without rerunning its effect.
-    pub fn accept_or_replay(
-        &mut self,
-        request: InstructorGradingOperationActionRequest,
-        accept: impl FnOnce(
-            InstructorGradingOperationActionRequest,
-        ) -> InstructorGradingOperationReceipt,
-    ) -> Result<InstructorGradingOperationReplay, InstructorGradingOperationReplayError> {
-        if let Some(receipt) = self.receipts.get(request.retry_token()) {
-            return (receipt.request == request)
-                .then(|| InstructorGradingOperationReplay::Replayed(receipt.clone()))
-                .ok_or(InstructorGradingOperationReplayError::BindingMismatch);
-        }
-        let receipt = accept(request.clone());
-        if receipt.request != request {
-            return Err(InstructorGradingOperationReplayError::ReceiptBindingMismatch);
-        }
-        self.receipts
-            .insert(request.retry_token.clone(), receipt.clone());
-        Ok(InstructorGradingOperationReplay::Accepted(receipt))
-    }
-}
-
-/// Whether a Store accepted a new grading action or replayed its accepted Receipt.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum InstructorGradingOperationReplay {
-    Accepted(InstructorGradingOperationReceipt),
-    Replayed(InstructorGradingOperationReceipt),
-}
-
-/// A Retry Token was reused for a different request, or a producer forged its Receipt binding.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InstructorGradingOperationReplayError {
-    BindingMismatch,
-    ReceiptBindingMismatch,
 }
 
 /// Metadata-only Grading Operation Visible State.
@@ -365,58 +263,6 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&GradingOperationAction::Recalculate).expect("serializes"),
             "\"recalculate\""
-        );
-    }
-
-    #[test]
-    fn retry_token_replays_only_the_exact_accepted_request() {
-        let token =
-            InstructorGradingOperationRetryToken::parse("00000000-0000-0000-0000-000000000001")
-                .expect("token");
-        let request = InstructorGradingOperationActionRequest::new(
-            InstructorGradingOperationReference::new(7).expect("operation"),
-            GradingOperationAction::Retry,
-            InstructorGradingOperationRequestChecksum::from_bytes([1; 32]),
-            token.clone(),
-        );
-        let mut replay_registry = InstructorGradingOperationReplayRegistry::default();
-        let mut effects = 0;
-        let first = replay_registry
-            .accept_or_replay(request.clone(), |accepted_request| {
-                effects += 1;
-                InstructorGradingOperationReceipt::new(
-                    accepted_request,
-                    4,
-                    None,
-                    None,
-                    Timestamp::from_unix_millis(1),
-                )
-            })
-            .expect("first acceptance");
-        let replay = replay_registry
-            .accept_or_replay(request.clone(), |_| {
-                panic!("replay must not repeat the effect")
-            })
-            .expect("replay");
-
-        assert_eq!(effects, 1);
-        assert_eq!(
-            first,
-            InstructorGradingOperationReplay::Accepted(match replay {
-                InstructorGradingOperationReplay::Replayed(receipt) => receipt,
-                InstructorGradingOperationReplay::Accepted(_) => panic!("must replay"),
-            })
-        );
-
-        let changed_action = InstructorGradingOperationActionRequest::new(
-            request.operation(),
-            GradingOperationAction::Recalculate,
-            request.request_checksum(),
-            token,
-        );
-        assert_eq!(
-            replay_registry.accept_or_replay(changed_action, |_| panic!("must refuse mismatch")),
-            Err(InstructorGradingOperationReplayError::BindingMismatch)
         );
     }
 }

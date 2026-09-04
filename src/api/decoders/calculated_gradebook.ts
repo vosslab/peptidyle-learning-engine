@@ -148,8 +148,8 @@ export interface InspectedStudentSubmission {
   readonly submittedAt: number;
   readonly evidence: InspectedSubmissionEvidence;
   readonly scoringGeneration: number;
-  readonly feedback: StudentResponseInspectionFeedback;
-  readonly response: StudentResponseInspection;
+  readonly studentResponseInspectionFeedback: StudentResponseInspectionFeedback;
+  readonly studentResponseInspection: StudentResponseInspection;
   readonly assignmentScoringState: AssignmentScoringState;
 }
 
@@ -430,7 +430,7 @@ function inspectedText(value: unknown, path: string): string {
   return decodeString(value, path);
 }
 
-function decodeInspectedResponse(value: unknown, path: string): StudentResponseInspection {
+function decodeStudentResponseInspection(value: unknown, path: string): StudentResponseInspection {
   const record = decodeRecord(value, path);
   const responseKind = decodeString(field(record, "kind", path), `${path}.kind`);
   switch (responseKind) {
@@ -597,7 +597,10 @@ function decodeEvidence(value: unknown, path: string): InspectedSubmissionEviden
   };
 }
 
-function decodeScoreFeedback(value: unknown, path: string): StudentResponseInspectionFeedback {
+function decodeStudentResponseInspectionFeedback(
+  value: unknown,
+  path: string,
+): StudentResponseInspectionFeedback {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["correctness", "pointsEarned", "pointsPossible"]);
   const correctness = optionalField(record, "correctness");
@@ -621,8 +624,8 @@ function decodeSubmission(value: unknown, path: string): InspectedStudentSubmiss
     "submittedAt",
     "evidence",
     "scoringGeneration",
-    "feedback",
-    "response",
+    "studentResponseInspectionFeedback",
+    "studentResponseInspection",
     "assignmentScoringState",
   ]);
   return {
@@ -632,8 +635,14 @@ function decodeSubmission(value: unknown, path: string): InspectedStudentSubmiss
       field(record, "scoringGeneration", path),
       `${path}.scoringGeneration`,
     ),
-    feedback: decodeScoreFeedback(field(record, "feedback", path), `${path}.feedback`),
-    response: decodeInspectedResponse(field(record, "response", path), `${path}.response`),
+    studentResponseInspectionFeedback: decodeStudentResponseInspectionFeedback(
+      field(record, "studentResponseInspectionFeedback", path),
+      `${path}.studentResponseInspectionFeedback`,
+    ),
+    studentResponseInspection: decodeStudentResponseInspection(
+      field(record, "studentResponseInspection", path),
+      `${path}.studentResponseInspection`,
+    ),
     assignmentScoringState: decodeStringEnum(
       field(record, "assignmentScoringState", path),
       `${path}.assignmentScoringState`,

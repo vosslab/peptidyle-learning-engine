@@ -59,7 +59,7 @@ export function AssignmentEditorContentList(props: AssignmentEditorContentListPr
     }
     return (
       <li class="assignment-editor-row">
-        <h3>{entry.title}</h3>
+        <h3>{entry.questionTitle}</h3>
         <p>
           <CopyableQuestionId displayId={assignmentQuestionLabel(entry)} />{" "}
           {questionBackendLabel(entry.backend)}
@@ -69,7 +69,7 @@ export function AssignmentEditorContentList(props: AssignmentEditorContentListPr
             class="quiet-action"
             type="button"
             disabled={entryIndex === 0}
-            aria-label={`Move ${entry.title} earlier`}
+            aria-label={`Move ${entry.questionTitle} earlier`}
             onClick={() => props.onMove(entryIndex, -1)}
           >
             &uarr;
@@ -78,7 +78,7 @@ export function AssignmentEditorContentList(props: AssignmentEditorContentListPr
             class="quiet-action"
             type="button"
             disabled={entryIndex === props.entries.length - 1}
-            aria-label={`Move ${entry.title} later`}
+            aria-label={`Move ${entry.questionTitle} later`}
             onClick={() => props.onMove(entryIndex, 1)}
           >
             &darr;

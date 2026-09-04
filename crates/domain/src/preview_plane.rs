@@ -556,7 +556,7 @@ mod tests {
         let effective = AssignmentAccessDecision::Allowed {
             policy: Box::new(policy),
             start_decision: AssignmentStartDecision::MayStart {
-                late_work_status: StudentLateWorkStatus::OnTime,
+                student_late_work_status: StudentLateWorkStatus::OnTime,
             },
         };
         let disclosure = StudentFeedbackReleaseRule {

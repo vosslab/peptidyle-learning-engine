@@ -23,7 +23,7 @@ const previewResponse = {
 
 const completedResponse = {
   operation: "fork_blueprint_course",
-  completed: { blueprint: "BP-4", revision: "1", replay: "applied" },
+  completed: { blueprint: "BP-4", revision: "1" },
 };
 
 function noStoreJson(value) {
@@ -47,7 +47,6 @@ test("B2 client uses the one closed Blueprint-operation record", async () => {
   const preview = await client.previewBlueprintOperation(previewRequest);
   const completed = await client.applyBlueprintOperation({
     request: previewRequest,
-    retry_token: "fork-2026",
   });
 
   assert.equal(preview.operation, "fork_blueprint_course");
@@ -56,10 +55,7 @@ test("B2 client uses the one closed Blueprint-operation record", async () => {
   assert.equal(requests[1].request.url, "https://ple.example/api/blueprint-operations/apply");
   assert.equal(requests[1].request.cache, "no-store");
   assert.equal(requests[1].request.credentials, "same-origin");
-  assert.deepEqual(JSON.parse(requests[1].body), {
-    request: previewRequest,
-    retry_token: "fork-2026",
-  });
+  assert.deepEqual(JSON.parse(requests[1].body), { request: previewRequest });
 });
 
 test("B2 client rejects retired operations and malformed apply intents before transport", async () => {
@@ -106,7 +102,24 @@ test("B2 client rejects retired operations and malformed apply intents before tr
     ApiProtocolError,
   );
   assert.throws(
-    () => client.applyBlueprintOperation({ request: previewRequest, retry_token: "invalid key" }),
+    () => client.applyBlueprintOperation({ request: previewRequest, retry_token: "retired" }),
     ApiProtocolError,
+  );
+});
+
+test("B2 client rejects a separate replay status in a Blueprint operation result", async () => {
+  const client = createHttpApiClient({
+    fetch: () =>
+      Promise.resolve(
+        noStoreJson({
+          operation: "fork_blueprint_course",
+          completed: { blueprint: "BP-4", revision: "1", replay: "applied" },
+        }),
+      ),
+  });
+
+  await assert.rejects(
+    () => client.applyBlueprintOperation({ request: previewRequest }),
+    /response\.completed\.replay must be a field allowed by this response contract/u,
   );
 });

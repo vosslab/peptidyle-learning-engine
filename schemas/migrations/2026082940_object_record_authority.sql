@@ -39,64 +39,80 @@ REVOKE ALL PRIVILEGES ON TABLE ple_private.object_record FROM PUBLIC;
 CREATE POLICY object_record_private_owner_access ON ple_private.object_record
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
-ALTER TABLE ple_private.question_source_registration
-    ADD CONSTRAINT question_source_registration_object_record_exists
+ALTER TABLE ple_private.draft_question_source_binding
+    ADD CONSTRAINT draft_question_source_binding_object_record_exists
+    FOREIGN KEY (source_object_id)
+    REFERENCES ple_private.object_record (object_id);
+ALTER TABLE ple_private.question_revision_source_binding
+    ADD CONSTRAINT question_revision_source_binding_object_record_exists
     FOREIGN KEY (source_object_id)
     REFERENCES ple_private.object_record (object_id);
 
-CREATE FUNCTION ple_private.validate_question_source_registration_object_record()
+CREATE FUNCTION ple_private.validate_draft_question_source_binding_object_record()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 DECLARE
     owner_workspace_id uuid;
     expected_address jsonb;
-    expected_data_class text;
 BEGIN
-    IF NEW.source_object_id IS NULL THEN
-        RETURN NEW;
-    END IF;
-
-    IF NEW.draft_question_uuid IS NOT NULL THEN
-        SELECT question.workspace_id
-          INTO owner_workspace_id
-          FROM ple_private.draft_question AS question
-         WHERE question.draft_question_uuid = NEW.draft_question_uuid;
-        expected_address := jsonb_build_object(
-            'kind', 'workspaceQuestionSource',
-            'workspace', owner_workspace_id,
-            'object', NEW.source_object_id
-        );
-        expected_data_class := 'authoring-content';
-    ELSE
-        expected_address := jsonb_build_object(
-            'kind', 'questionSource',
-            'questionRevision', jsonb_build_object(
-                'questionId', NEW.question_id,
-                'revisionNumber', NEW.revision_number
-            ),
-            'object', NEW.source_object_id
-        );
-        expected_data_class := 'question-source';
-    END IF;
+    SELECT question.workspace_id INTO owner_workspace_id
+      FROM ple_private.draft_question AS question
+     WHERE question.draft_question_uuid = NEW.draft_question_uuid;
+    expected_address := jsonb_build_object(
+        'kind', 'workspaceQuestionSource',
+        'workspace', owner_workspace_id,
+        'object', NEW.source_object_id
+    );
 
     IF NOT EXISTS (
         SELECT 1
           FROM ple_private.object_record AS record
          WHERE record.object_id = NEW.source_object_id
            AND record.object_storage_area = 'private-content'
-           AND record.object_data_class = expected_data_class
+           AND record.object_data_class = 'authoring-content'
            AND encode(record.sha256, 'hex') = NEW.source_object_checksum
-           AND record.object_address @> expected_address
+           AND record.object_address = expected_address
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Question Source Object Reference must name matching private Question Source Object Record bytes';
+            MESSAGE = 'Draft Question Source Binding requires its exact private Object Address';
     END IF;
     RETURN NEW;
 END
 $$;
 
-CREATE TRIGGER question_source_registration_object_record_matches_owner
-BEFORE INSERT OR UPDATE ON ple_private.question_source_registration
-FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_source_registration_object_record();
+CREATE FUNCTION ple_private.validate_question_revision_source_binding_object_record()
+RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
+DECLARE
+    expected_address jsonb;
+BEGIN
+    expected_address := jsonb_build_object(
+        'kind', 'questionSource',
+        'questionRevision', jsonb_build_object(
+            'questionId', NEW.question_id,
+            'revisionNumber', NEW.revision_number
+        ),
+        'object', NEW.source_object_id
+    );
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_private.object_record AS record
+         WHERE record.object_id = NEW.source_object_id
+           AND record.object_storage_area = 'private-content'
+           AND record.object_data_class = 'question-source'
+           AND encode(record.sha256, 'hex') = NEW.source_object_checksum
+           AND record.object_address = expected_address
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Question Revision Source Binding requires its exact private Object Address';
+    END IF;
+    RETURN NEW;
+END
+$$;
+
+CREATE TRIGGER draft_question_source_binding_object_record_matches_owner
+BEFORE INSERT OR UPDATE ON ple_private.draft_question_source_binding
+FOR EACH ROW EXECUTE FUNCTION ple_private.validate_draft_question_source_binding_object_record();
+CREATE TRIGGER question_revision_source_binding_object_record_matches_owner
+BEFORE INSERT ON ple_private.question_revision_source_binding
+FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_revision_source_binding_object_record();
 
 -- ASVS 2.1.1, 2.2.1, 2.3.1, 8.1.1, 8.2.1, and 8.3.1: this is the sole
 -- session-authorized registration capability for a private workspace Question
@@ -122,9 +138,9 @@ DECLARE
     expected_created_at timestamp with time zone :=
         pg_catalog.to_timestamp(p_created_at_millis::double precision / 1000.0);
 BEGIN
-    IF NOT ple_api.current_session_account_can_access_workspace(p_workspace_id) THEN
+    IF NOT ple_api.current_session_account_can_access_authoring_workspace(p_workspace_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Workspace Question Source Object registration requires current workspace access';
+            MESSAGE = 'Workspace Question Source Object registration requires current Authoring Workspace access';
     END IF;
     IF jsonb_typeof(p_object_address) <> 'object'
        OR p_object_address <> expected_address THEN
@@ -203,10 +219,16 @@ SET LOCAL ROLE ple_private_owner;
 
 COMMENT ON TABLE ple_private.object_record IS
     'Immutable database-authoritative Object Record for one typed Object Address and exact stored bytes.';
-COMMENT ON CONSTRAINT question_source_registration_object_record_exists ON ple_private.question_source_registration IS
-    'A Source Object Reference must identify an existing immutable Object Record.';
-COMMENT ON FUNCTION ple_private.validate_question_source_registration_object_record() IS
-    'Requires a Source Object Reference to use an exact private Object Address, Object Data Class, and Object Checksum.';
+COMMENT ON CONSTRAINT draft_question_source_binding_object_record_exists
+    ON ple_private.draft_question_source_binding IS
+    'A Draft Question Source Object Reference must identify an existing immutable Object Record.';
+COMMENT ON CONSTRAINT question_revision_source_binding_object_record_exists
+    ON ple_private.question_revision_source_binding IS
+    'A Question Revision Source Object Reference must identify an existing immutable Object Record.';
+COMMENT ON FUNCTION ple_private.validate_draft_question_source_binding_object_record() IS
+    'Requires a Draft Question Source Binding to use its exact private Object Address and Checksum.';
+COMMENT ON FUNCTION ple_private.validate_question_revision_source_binding_object_record() IS
+    'Requires a Question Revision Source Binding to use its exact private Object Address and Checksum.';
 
 RESET ROLE;
 
@@ -215,6 +237,6 @@ SET LOCAL ROLE ple_api_owner;
 COMMENT ON FUNCTION ple_api.register_workspace_question_source_object(
     uuid, uuid, jsonb, bytea, bigint, text, bigint
 ) IS
-    'Registers one exact private Workspace Question Source Object Record after bytes-first storage and current workspace authorization.';
+    'Registers one exact private Workspace Question Source Object Record after bytes-first storage and current Authoring Workspace authorization.';
 
 RESET ROLE;

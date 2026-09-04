@@ -13,7 +13,7 @@ use crate::question_tag::Tag;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionAssetReference {
-    pub asset: QuestionAssetId,
+    pub question_asset: QuestionAssetId,
     pub checksum: String,
 }
 
@@ -32,7 +32,7 @@ pub enum QuestionContentBlock {
         description: String,
     },
     Image {
-        asset: QuestionAssetReference,
+        question_asset: QuestionAssetReference,
         description: String,
     },
     Code {
@@ -75,11 +75,11 @@ impl std::fmt::Display for QuestionTitleError {
     }
 }
 impl std::error::Error for QuestionTitleError {}
-pub fn validate_question_title(title: &str) -> Result<(), QuestionTitleError> {
-    if title.trim().is_empty() {
+pub fn validate_question_title(question_title: &str) -> Result<(), QuestionTitleError> {
+    if question_title.trim().is_empty() {
         return Err(QuestionTitleError::Blank);
     }
-    if title.chars().count() > MAX_QUESTION_TITLE_UNICODE_SCALARS {
+    if question_title.chars().count() > MAX_QUESTION_TITLE_UNICODE_SCALARS {
         return Err(QuestionTitleError::TooLong);
     }
     Ok(())
@@ -115,7 +115,7 @@ pub fn validate_question_description(value: &str) -> Result<(), QuestionDescript
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionMetadata {
-    pub title: String,
+    pub question_title: String,
     pub question_description: String,
     pub tags: Vec<Tag>,
     pub question_license: Option<QuestionLicense>,
@@ -123,8 +123,8 @@ pub struct QuestionMetadata {
     pub language: String,
 }
 impl QuestionMetadata {
-    pub fn validate_title(&self) -> Result<(), QuestionTitleError> {
-        validate_question_title(&self.title)
+    pub fn validate_question_title(&self) -> Result<(), QuestionTitleError> {
+        validate_question_title(&self.question_title)
     }
     pub fn validate_question_description(&self) -> Result<(), QuestionDescriptionError> {
         validate_question_description(&self.question_description)
@@ -137,6 +137,6 @@ pub struct DraftQuestionSummary {
     pub draft_question: crate::DraftQuestionReference,
     pub workspace: WorkspaceId,
     pub authoring_workspace: crate::AuthoringWorkspaceReference,
-    pub title: String,
+    pub question_title: String,
     pub question_backend: crate::question_library::QuestionBackend,
 }

@@ -24,7 +24,8 @@ The database is authoritative for intended existence and visibility. The object 
 for whether the exact bytes exist. Neither a bucket listing nor a successfully fetched object creates
 an authorization right. Physical domain selection comes from `ObjectAddress`, not a caller's path string.
 Authorization is evaluated separately at the trusted Store/PostgreSQL boundary: a delivery needs the
-exact course/Student relationship, a current workspace owner/collaborator relationship, the approved
+exact course/Student relationship, a current Authoring Workspace Owner or Workspace Collaborator
+relationship, the approved
 Instructor Question Library capability, or another registered typed capability/lease. An object ID, bucket,
 path, or checksum never grants permission.
 

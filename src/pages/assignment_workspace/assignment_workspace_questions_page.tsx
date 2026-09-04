@@ -22,7 +22,7 @@ import {
 } from "../assignment_editor_model";
 import { AssignmentEditorQuestionPicker } from "../assignment_editor_question_picker";
 import { createAssignmentEditorPickerController } from "../assignment_editor_picker_controller";
-import { createAssignmentEditorReuseController } from "../assignment_editor_reuse_controller";
+import { createAssignmentEditorRetainedAssignmentController } from "../assignment_editor_reuse_controller";
 import { resolveAssignmentContentSaveFailure } from "../../api/http_client";
 import type { QuestionPoolPreview } from "../../api/contracts";
 
@@ -58,7 +58,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   const questionLookupController = createAssignmentEditorQuestionLookupController(
     workspace.repository,
   );
-  const reuseController = createAssignmentEditorReuseController(
+  const retainedAssignmentController = createAssignmentEditorRetainedAssignmentController(
     workspace.repository,
     workspace.courseId,
     workspace.assignmentId,
@@ -314,7 +314,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
 
   onMount(() => {
     void pickerController.loadSources();
-    void reuseController.load();
+    void retainedAssignmentController.load();
   });
 
   createEffect(() => {
@@ -523,7 +523,8 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
             <Show when={questionLookupController.selected()}>
               {(row) => (
                 <p class="success-state">
-                  Selected: {row().questionId} {row().title} ({questionBackendLabel(row().backend)})
+                  Selected: {row().questionId} {row().questionTitle} (
+                  {questionBackendLabel(row().backend)})
                 </p>
               )}
             </Show>
@@ -537,7 +538,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
 
             <details class="assignment-editor-reuse">
               <summary>Reuse questions from a saved assignment</summary>
-              <Show when={reuseController.message()}>
+              <Show when={retainedAssignmentController.message()}>
                 {(value) => (
                   <p class="inline-error" role="alert">
                     {value()}
@@ -545,7 +546,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                 )}
               </Show>
               <Show
-                when={reuseController.reuse().length > 0}
+                when={retainedAssignmentController.sources().length > 0}
                 fallback={
                   <p class="assignment-editor-note">
                     No other saved assignments are available in this course yet.
@@ -555,29 +556,32 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                 <label class="assignment-editor-field">
                   Source assignment
                   <select
-                    value={reuseController.sourceIndex() ?? ""}
+                    value={retainedAssignmentController.sourceIndex() ?? ""}
                     onChange={(event) =>
-                      reuseController.chooseSource(Number(event.currentTarget.value))
+                      retainedAssignmentController.chooseSource(Number(event.currentTarget.value))
                     }
                   >
-                    <For each={reuseController.reuse()}>
+                    <For each={retainedAssignmentController.sources()}>
                       {(assignment, index) => <option value={index()}>{assignment.title}</option>}
                     </For>
                   </select>
                 </label>
                 <div class="assignment-editor-reuse-checklist">
-                  <For each={reuseController.selectedSource()?.questions ?? []}>
+                  <For each={retainedAssignmentController.selectedSource()?.questions ?? []}>
                     {(question, index) => (
                       <label>
                         <input
                           type="checkbox"
-                          checked={reuseController.questionIndexes().has(index())}
+                          checked={retainedAssignmentController.questionIndexes().has(index())}
                           onChange={(event) =>
-                            reuseController.toggleQuestion(index(), event.currentTarget.checked)
+                            retainedAssignmentController.toggleQuestion(
+                              index(),
+                              event.currentTarget.checked,
+                            )
                           }
                         />
                         <span>
-                          <strong>{question.title}</strong>
+                          <strong>{question.questionTitle}</strong>
                           <small>{question.questionId}</small>
                         </span>
                       </label>
@@ -590,8 +594,9 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                     type="button"
                     onClick={() =>
                       addRows(
-                        (reuseController.selectedSource()?.questions ?? []).filter(
-                          (_question, index) => reuseController.questionIndexes().has(index),
+                        (retainedAssignmentController.selectedSource()?.questions ?? []).filter(
+                          (_question, index) =>
+                            retainedAssignmentController.questionIndexes().has(index),
                         ),
                         "Selected saved Assignment Questions added. Save Questions and order when ready.",
                       )
@@ -604,7 +609,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
                     type="button"
                     onClick={() =>
                       addRows(
-                        reuseController.selectedSource()?.questions ?? [],
+                        retainedAssignmentController.selectedSource()?.questions ?? [],
                         "Saved assignment questions added. Save questions and order when ready.",
                       )
                     }

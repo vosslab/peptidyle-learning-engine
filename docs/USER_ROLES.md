@@ -79,7 +79,7 @@ with their complete visible workflow, revocation behavior, audit evidence, and p
 
 `Sysadmin` is not a course-membership value. Sysadmin accounts receive no
 course membership. A person who needs teaching authority uses an approved
-Instructor account with a current direct Instructor membership.
+Instructor account with a current Instructor Course Membership.
 Support uses the closed `SysadminSupportCapability` registry in
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md). This keeps a platform credential from
 becoming ambient access to grades, responses, attempts, or other Student data.
@@ -147,7 +147,7 @@ public asset bytes before activation after the committed outbox decision.
   that capability. Route initial CourseInstance bootstrap through the separate
   pre-course Sysadmin platform authority.
 - Provide support results at the minimum useful detail and keep grades,
-  responses, Assignment Attempts, exports, and Assignment Analysis behind direct Instructor
+  responses, Assignment Attempts, exports, and Assignment Analysis behind current Instructor Course
   membership or a separately approved narrow operation.
 - Keep Student-owner and Instructor-history capabilities separate.
 - Conceal missing and unauthorized FERPA records with the same result where

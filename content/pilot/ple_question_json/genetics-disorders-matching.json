@@ -1,7 +1,7 @@
 {
   "format": "pleQuestionJson",
   "version": 3,
-  "title": "Genetics Chapter 1: Genetic disorder matching",
+  "questionTitle": "Genetics Chapter 1: Genetic disorder matching",
   "questionDescription": "Instructor-facing discovery summary for genetic-disorder matching practice.",
   "prompt": "Match each description to the genetic disorder it best describes.",
   "response": {

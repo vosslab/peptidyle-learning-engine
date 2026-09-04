@@ -216,11 +216,25 @@ BEGIN
             SELECT 1 FROM information_schema.columns
              WHERE table_schema = 'ple_api' AND table_name = 'published_question_summary'
                AND column_name = 'question_description'
-        ) THEN
+        ) OR pg_get_viewdef('ple_api.published_question_summary'::regclass, true)
+            NOT LIKE '%published_question_metadata%'
+          OR pg_get_viewdef('ple_api.published_question_summary'::regclass, true)
+            LIKE '%draft_question%' THEN
         RAISE EXCEPTION 'Published Question Metadata does not own searchable discovery fields';
     END IF;
 END;
 $$;
+
+INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES
+    ('00000000-0000-0000-0000-000000000930', 'instructor', '2026-08-31T00:00:00Z'),
+    ('00000000-0000-0000-0000-000000000931', 'instructor', '2026-08-31T00:00:00Z');
+INSERT INTO ple_private.account_state_event (
+    event_id, account_id, state, occurred_at, reason
+) VALUES (
+    '00000000-0000-0000-0000-000000000932',
+    '00000000-0000-0000-0000-000000000931',
+    'closed', '2026-09-01T00:00:00Z', 'Closed owner validation fixture'
+);
 
 DO $$
 DECLARE
@@ -372,6 +386,68 @@ BEGIN
 END;
 $$;
 
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO ple_data.question_ownership_event (
+            question_ownership_event_id, question_id, owner_account_id,
+            recorded_by_account_id, event_kind, occurred_at
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000933', 'SRC-0001',
+            '00000000-0000-0000-0000-000000000930',
+            '00000000-0000-0000-0000-000000000930', 'transferred',
+            '2026-09-01T01:00:00Z'
+        );
+        RAISE EXCEPTION 'a non-owner recorded a Question Owner transfer';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+
+    BEGIN
+        INSERT INTO ple_data.question_ownership_event (
+            question_ownership_event_id, question_id, owner_account_id,
+            recorded_by_account_id, event_kind, occurred_at
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000934', 'SRC-0001',
+            '00000000-0000-0000-0000-000000000931',
+            '00000000-0000-0000-0000-000000000901', 'transferred',
+            '2026-09-01T01:00:00Z'
+        );
+        RAISE EXCEPTION 'Question Ownership transferred to a non-active Instructor Account';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+END;
+$$;
+INSERT INTO ple_data.question_ownership_event (
+    question_ownership_event_id, question_id, owner_account_id,
+    recorded_by_account_id, event_kind, occurred_at
+) VALUES (
+    '00000000-0000-0000-0000-000000000935', 'SRC-0001',
+    '00000000-0000-0000-0000-000000000930',
+    '00000000-0000-0000-0000-000000000901', 'transferred',
+    '2026-09-01T01:00:00Z'
+);
+INSERT INTO ple_data.question_ownership_event (
+    question_ownership_event_id, question_id, owner_account_id,
+    recorded_by_account_id, event_kind, occurred_at
+) VALUES (
+    '00000000-0000-0000-0000-000000000936', 'SRC-0001',
+    '00000000-0000-0000-0000-000000000901',
+    '00000000-0000-0000-0000-000000000930', 'transferred',
+    '2026-09-01T02:00:00Z'
+);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+          FROM ple_data.question_current_owner AS owner
+         WHERE owner.question_id = 'SRC-0001'
+           AND owner.owner_account_id = '00000000-0000-0000-0000-000000000901'
+    ) THEN
+        RAISE EXCEPTION 'Question Owner did not follow the ordered accepted transfer chain';
+    END IF;
+END;
+$$;
+
 -- Latest Question Revision is derived from immutable acceptance evidence,
 -- rather than from Question Revision Availability or a mutable pointer.
 INSERT INTO ple_data.question_revision (
@@ -389,6 +465,7 @@ INSERT INTO ple_data.question_revision_acceptance (
 DO $$
 DECLARE
     latest_revision_number integer;
+    visible_question_count integer;
 BEGIN
     SET LOCAL ROLE ple_app;
     PERFORM pg_catalog.set_config(
@@ -400,6 +477,28 @@ BEGIN
      WHERE summary.question_id = 'SRC-0001';
     IF latest_revision_number IS DISTINCT FROM 2 THEN
         RAISE EXCEPTION 'Question Summary did not derive the greatest accepted Question Revision Number';
+    END IF;
+
+    PERFORM pg_catalog.set_config(
+        'ple.session_account_id', '00000000-0000-0000-0000-000000000930', true
+    );
+    SELECT count(*)
+      INTO visible_question_count
+      FROM ple_api.published_question_summary AS summary
+     WHERE summary.question_id = 'SRC-0001';
+    IF visible_question_count IS DISTINCT FROM 1 THEN
+        RAISE EXCEPTION 'Question Library visibility was restricted to the Question Owner';
+    END IF;
+
+    PERFORM pg_catalog.set_config(
+        'ple.session_account_id', '00000000-0000-0000-0000-000000000931', true
+    );
+    IF EXISTS (
+        SELECT 1
+          FROM ple_api.published_question_summary AS summary
+         WHERE summary.question_id = 'SRC-0001'
+    ) THEN
+        RAISE EXCEPTION 'Question Library visibility admitted a non-active Instructor Account';
     END IF;
 END;
 $$;
@@ -415,7 +514,7 @@ $$;
 
 -- An authorized Instructor binds a Draft Question to one exact source revision.
 -- A future authorized publication operation atomically creates its complete
--- Question Revision-owned source registration/object evidence and may record
+-- Question Revision-owned Source Binding/object evidence and may record
 -- the matching immutable Question Fork Source for a separate published lineage.
 INSERT INTO ple_private.draft_question (
     draft_question_uuid, workspace_id, draft_question_edit_number, created_at, updated_at
@@ -473,7 +572,7 @@ INSERT INTO ple_data.published_question_metadata (
 
 -- Published Question fixtures insert their immutable lineage directly. A future
 -- authorized publication operation atomically creates the complete Question
--- Revision-owned Question Source Registration, its object evidence, and bounded
+-- Revision-owned Question Revision Source Binding, its object evidence, and bounded
 -- metadata as applicable. Backend/Format-specific private artifacts are derived
 -- or stored only when that backend requires them; no universal generic private
 -- sidecar is required.

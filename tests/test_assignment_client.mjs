@@ -32,7 +32,7 @@ test("Instructor Student view accepts an empty draft and Question Pool redraw wi
   assert.equal(view.questionsPerAssignmentAttempt, 0);
   assert.equal(view.questionPoolReuseRule, "selectAgain");
   assert.equal(view.questionVariationRule, "newVariation");
-  assert.equal("lateStatus" in view.delivery, false);
+  assert.equal("studentLateWorkStatus" in view.delivery, false);
   assert.throws(() =>
     decodeInstructorStudentView({ ...view, assignmentId: "00000000-0000-0000-0000-000000000001" }),
   );

@@ -39,7 +39,7 @@ const emails = {
 } as const;
 
 async function libraryQuestionId(page: Page): Promise<string> {
-  await page.getByRole("link", { name: "Library", exact: true }).click();
+  await page.getByRole("link", { name: "Question Library", exact: true }).click();
   await page.getByLabel("Search published questions").fill(pleQuestionTitle);
   await expect(page.locator('[data-route-surface="library"] .route-error')).toHaveCount(0);
   const card = page
@@ -159,11 +159,11 @@ async function completeAssignment(page: Page, assignmentTitle: string): Promise<
   ).toBeVisible();
 }
 
-async function assertInitialInsufficientEvidence(page: Page): Promise<void> {
+async function assertInitialUnavailableQuestionStatistics(page: Page): Promise<void> {
   const evidence = page
     .getByRole("heading", { name: "Learning evidence", exact: true })
     .locator("..");
-  await expect(evidence).toContainText("More evidence is needed");
+  await expect(evidence).toContainText("Question Statistics are unavailable");
 }
 
 async function assertGeneratedQuestionLibraryPrompt(page: Page): Promise<void> {
@@ -307,7 +307,7 @@ test.describe("Question Library discovery evidence on the production PLE stack",
         await libraryQuestionId(elena);
         await openLibraryDetail(elena);
         await assertGeneratedQuestionLibraryPrompt(elena);
-        await assertInitialInsufficientEvidence(elena);
+        await assertInitialUnavailableQuestionStatistics(elena);
         await expectUsageOnlyInCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
       });
 
@@ -331,7 +331,7 @@ test.describe("Question Library discovery evidence on the production PLE stack",
         await selectVisibleCourse(morgan, geneticsCourseTitle);
         const questionId = await libraryQuestionId(morgan);
         await createReleasedGeneticsAssignment(morgan, questionId, geneticsAssignmentTitle);
-        await morgan.getByRole("link", { name: "Library", exact: true }).click();
+        await morgan.getByRole("link", { name: "Question Library", exact: true }).click();
         await morgan.getByLabel("Search published questions").fill(pleQuestionTitle);
         await openLibraryDetail(morgan);
         await expectUsageOnlyInCourse(morgan, geneticsCourseTitle);

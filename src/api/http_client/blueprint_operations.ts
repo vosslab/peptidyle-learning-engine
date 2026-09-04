@@ -6,6 +6,17 @@ import type { BlueprintOperationPreview } from "../../../generated/api/Blueprint
 import type { BlueprintOperationPreviewRequest } from "../../../generated/api/BlueprintOperationPreviewRequest";
 import type { ApiClient } from "../client";
 import type { BlueprintOperationsClient } from "../blueprint_operations";
+import { decodeRecord } from "../decoder";
+import {
+  decodeBlueprintCourseReference,
+  decodeBlueprintRevision,
+} from "../decoders/blueprint_course";
+import {
+  decodeAssignmentReference,
+  decodeCourseInstanceReference,
+  field,
+  requireOnlyFields,
+} from "../decoders/shared";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
@@ -55,18 +66,63 @@ function decodeApplyIntent(value: BlueprintOperationApplyIntent): BlueprintOpera
   }
   const record = value as Record<string, unknown>;
   const keys = Object.keys(record);
-  if (keys.length !== 2 || !keys.includes("request") || !keys.includes("retry_token")) {
-    throw new ApiProtocolError("API apply intent must contain only request and retry_token");
+  if (keys.length !== 1 || !keys.includes("request")) {
+    throw new ApiProtocolError("API apply intent must contain only request");
   }
   decodePreviewRequest(record.request as BlueprintOperationPreviewRequest);
-  if (
-    typeof record.retry_token !== "string" ||
-    !/^[A-Za-z0-9._-]+$/u.test(record.retry_token) ||
-    new TextEncoder().encode(record.retry_token).length > 128
-  ) {
-    throw new ApiProtocolError("API apply intent requires a bounded Request Retry Token");
-  }
   return value;
+}
+
+function decodeCompleted(value: unknown, path: string): BlueprintOperationCompleted {
+  const envelope = decodeOperationRecord<BlueprintOperationCompleted>(value, path, "completed");
+  const completedPath = `${path}.completed`;
+  const completed = decodeRecord(envelope.completed, completedPath);
+  switch (envelope.operation) {
+    case "fork_blueprint_course":
+      requireOnlyFields(completed, completedPath, ["blueprint", "revision"]);
+      return {
+        operation: envelope.operation,
+        completed: {
+          blueprint: decodeBlueprintCourseReference(
+            field(completed, "blueprint", completedPath),
+            `${completedPath}.blueprint`,
+          ),
+          revision: decodeBlueprintRevision(
+            field(completed, "revision", completedPath),
+            `${completedPath}.revision`,
+          ),
+        },
+      };
+    case "create_course_from_blueprint":
+    case "copy_course_for_new_term":
+    case "shift_course_dates":
+      requireOnlyFields(completed, completedPath, ["course"]);
+      return {
+        operation: envelope.operation,
+        completed: {
+          course: decodeCourseInstanceReference(
+            field(completed, "course", completedPath),
+            `${completedPath}.course`,
+          ),
+        },
+      };
+    case "apply_blueprint_update":
+    case "copy_assignment_from_blueprint":
+      requireOnlyFields(completed, completedPath, ["course", "assignment"]);
+      return {
+        operation: envelope.operation,
+        completed: {
+          course: decodeCourseInstanceReference(
+            field(completed, "course", completedPath),
+            `${completedPath}.course`,
+          ),
+          assignment: decodeAssignmentReference(
+            field(completed, "assignment", completedPath),
+            `${completedPath}.assignment`,
+          ),
+        },
+      };
+  }
 }
 
 async function post<T>(
@@ -102,8 +158,6 @@ export function createBlueprintOperationsClient(
         (value, path) => decodeOperationRecord<BlueprintOperationPreview>(value, path, "preview"),
       ),
     applyBlueprintOperation: (intent) =>
-      post(fetchImplementation, basePath, APPLY_PATH, decodeApplyIntent(intent), (value, path) =>
-        decodeOperationRecord<BlueprintOperationCompleted>(value, path, "completed"),
-      ),
+      post(fetchImplementation, basePath, APPLY_PATH, decodeApplyIntent(intent), decodeCompleted),
   };
 }

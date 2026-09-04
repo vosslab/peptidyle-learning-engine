@@ -20,13 +20,13 @@ in [implementation_plan.md](active_plans/implementation_plan.md) and
 
 PLE uses distinct caches with deliberately different contents and lifetimes.
 
-| Layer                            | May contain                                                                                                                                  | Key or binding                                                                                                               | Never contains                                                                                           |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Browser Assignment Attempt state | Current authoritative screen and one speculative Question Presentation                                                                       | Current route and active Assignment Attempt                                                                                  | Answers, grade keys, durable prefetch reservation                                                        |
-| Browser asset cache              | Delivered image and other asset bytes                                                                                                        | Delivery URL and content checksum                                                                                            | Private source or a signed protected URL retained by PLE                                                 |
-| CDN public assets                | Public immutable `QuestionAsset` renditions in `PublicAssets`                                                                                | Typed immutable public Object Address and checksum                                                                           | `PrivateContent`, `StudentRecords`, Question Source archives, restricted assets, renders, or Answer Keys |
-| Adapter render cache             | Schema version, Source Object Reference, Source Object Checksum, rendered answer-free `QuestionVariationPresentation`, and renderer identity | Immutable QuestionRevisionReference and seed                                                                                 | Answer Keys, private rubrics, credentials, raw Question Backend output                                   |
-| Attempt and prefetch rows        | Question Attempt Reproduction Details, binding, and private replay state where needed                                                        | Exact CourseId, StudentRecordId, AssignmentAttemptId, predecessor/attempt, position, and QuestionRevisionReference plus seed | A browser-writable substitute for the attempt record                                                     |
+| Layer                            | May contain                                                                                                                                  | Key or binding                                                                                                                          | Never contains                                                                                           |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Browser Assignment Attempt state | Current authoritative screen and one speculative Question Presentation                                                                       | Current route and active Assignment Attempt                                                                                             | Answers, grade keys, durable prefetch reservation                                                        |
+| Browser asset cache              | Delivered image and other asset bytes                                                                                                        | Delivery URL and content checksum                                                                                                       | Private source or a signed protected URL retained by PLE                                                 |
+| CDN public assets                | Public immutable `QuestionAsset` renditions in `PublicAssets`                                                                                | Typed immutable public Object Address and checksum                                                                                      | `PrivateContent`, `StudentRecords`, Question Source archives, restricted assets, renders, or Answer Keys |
+| Adapter render cache             | Schema version, Source Object Reference, Source Object Checksum, rendered answer-free `QuestionVariationPresentation`, and renderer identity | Immutable Question Revision Reference and Question Seed                                                                                 | Answer Keys, private rubrics, credentials, raw Question Backend output                                   |
+| Attempt and prefetch rows        | Question Attempt Reproduction Details, binding, and private replay state where needed                                                        | Exact CourseId, StudentRecordId, AssignmentAttemptId, predecessor/attempt, position, and Question Revision Reference plus Question Seed | A browser-writable substitute for the attempt record                                                     |
 
 The browser treats every API JSON response as `Cache-Control: no-store`.
 This includes Assignment Attempt screens, submissions, prefetch responses, feedback, and
@@ -50,17 +50,17 @@ image/download source, never retained as a reusable browser cache entry.
 ## Immutable render keys
 
 An adapter render is reusable only when it is a pure, safe projection of an
-immutable published version and its stored seed. Its Object Address is
-`QuestionRender { question_revision, seed, object }`; it lives in
+immutable published Question Revision and its stored Question Seed. Its Object Address is
+`QuestionRender { question_revision, question_seed, object }`; it lives in
 `PrivateContent`, and the object identity is
 deterministically derived with an adapter-specific SHA-256 domain separator.
 The typed key therefore includes the Question Revision even where the compact object ID
-is derived from version and seed. Cache identity never includes a Student, course membership, session,
+is derived from Question Revision and Question Seed. Cache identity never includes a Student, course membership, session,
 response, deadline, or browser input. The shared safe render cache is not a record cache and cannot
 authorize a Student.
 
 The deterministic cache rule relies on the exact seeded-generation contract:
-the same `(question_id, revision_number, seed)` must reproduce the same canonical output. A changed
+the same `(question_id, revision_number, question_seed)` must reproduce the same canonical output. A changed
 Question Source creates a new immutable Question Revision under the existing
 Question ID when the change remains compatible, or a new Published Question
 lineage when it is a substantive fork. Changed generation behavior or renderer
@@ -68,7 +68,7 @@ compatibility likewise creates new exact revision evidence rather than deleting
 or overwriting an existing cache entry. A lineage-metadata edit such as Question
 Title or Question Description changes no Question Revision or render key. A
 changed object is refused by its
-checksum, typed key, schema, Source Object Reference binding, version, seed, title,
+checksum, typed key, schema, Source Object Reference binding, Question Revision, Question Seed, Question Title,
 and backend-specific validation.
 
 This gives cache invalidation a simple rule:
@@ -89,7 +89,7 @@ a public asset URL by the asset route.
 The safe render cache is global immutable content. A cache hit grants no access to a Student record
 and cannot satisfy an Assignment Attempt, Question Attempt, or Assignment check. Protected Question Attempt, replay, and prefetch rows
 use forced RLS and an operation-specific predicate over the server-derived Account plus exact
-`CourseId`, `StudentRecordId`, `AssignmentAttemptId`, `QuestionAttemptId`, `QuestionRevisionReference`, and seed. A missing authenticated Account
+`CourseId`, `StudentRecordId`, `AssignmentAttemptId`, `QuestionAttemptId`, `QuestionRevisionReference`, and Question Seed. A missing authenticated Account
 context, an absent Student relationship, a revoked membership, or a mismatch in any binding returns
 no protected row. A worker obtains the same target from a locked typed lease; it never accepts a
 course, Student, attempt, or reference from queue input.
@@ -127,7 +127,7 @@ There are two different issue-time WeBWorK reuse cases without a public Question
 The second call remains necessary for each newly issued attempt because the
 shared cache deliberately excludes private Question Attempt Reproduction Details. PLE persists the
 bounded, validated mapping under the exact CourseId/StudentRecordId/AssignmentAttemptId/AttemptId and immutable
-QuestionRevisionReference plus seed, along with the exact public snapshot and server-only Question Grading Input.
+Question Revision Reference plus Question Seed, along with the exact public snapshot and server-only Question Grading Input.
 Every normal active or
 submitted attempt `GET` replays that persisted snapshot directly: it does not
 call adapter `reproduce`, consult the adapter safe-render cache, call the
@@ -141,11 +141,11 @@ mappings in the public render cache; they are server-only Question Grading Input
 
 The iMathAS adapter uses the same immutable `QuestionRender` shape for an
 answer-free iMathAS Question Backend presentation. It validates the pinned Source Object Reference,
-iMathAS Question Backend configuration, `imathas_remote_grading_v1` profile, version, seed, and response shape on every
+iMathAS Question Backend configuration, `imathas_remote_grading_v1` profile, Question Revision, Question Seed, and response shape on every
 read. A cache miss asks the configured verified backend for a safe render;
 an `AlreadyExists` write race rereads and validates the winning immutable
 object. iMathAS Result verification remains a server-to-server operation bound to exact
-CourseId/StudentRecordId/AssignmentAttemptId/AttemptId, immutable QuestionRevisionReference, seed, and server correlation. It has
+CourseId/StudentRecordId/AssignmentAttemptId/AttemptId, immutable Question Revision Reference, Question Seed, and server correlation. It has
 no process-local grade cache.
 
 Question Backend metadata is retained only as iMathAS protocol data. iMathAS Deployment Reference,
@@ -159,24 +159,24 @@ Grading Input remain server-only.
 Next-question prefetch is an issuance preparation protocol, not an early
 attempt. The browser sends an empty same-origin `POST` to
 `/api/courses/{course}/assignments/{assignment}/attempts/{predecessor}/prefetch-next`;
-the path supplies routing context only, and the browser cannot choose a seed, question position,
-version, Question Backend, Question Attempt Reproduction Details, or timer.
+the path supplies routing context only, and the browser cannot choose a Question Seed, Assignment position,
+Question Revision, Question Backend, Question Attempt Reproduction Details, or timer.
 
 The server authenticates the Student, resolves the exact Student through the
 CourseId membership, verifies ownership of the unresolved predecessor and Assignment Attempt,
-rejects a second active question, selects the first unattempted assignment
-position, chooses a fresh seed, issues the backend projection, creates a
+rejects a second active question, selects the first unattempted Assignment
+position, chooses a fresh Question Seed, issues the backend projection, creates a
 presentation binding, and persists a key-free reservation. The reservation
 binds CourseId, StudentRecordId, AssignmentAttemptId, predecessor QuestionAttemptId, position,
-immutable QuestionRevisionReference, seed, parameter hash, complete Question Attempt Reproduction Details,
+immutable QuestionRevisionReference, Question Seed, parameter hash, complete Question Attempt Reproduction Details,
 explicit presentation capability, presentation binding, exact answer-free public
-snapshot, and matching server-only Question Grading Input. An identical request is
-idempotent; a conflicting request cannot rewrite its immutable variation.
+snapshot, and matching server-only Question Grading Input. A matching request returns
+the stored reservation; a conflicting request cannot rewrite its immutable Question Variation.
 
 The reservation's server-only Question Backend grading contracts and Question Attempt Reproduction Details are not a browser capability. The Store keeps
 Question Backend-specific grading contracts and replay mappings behind the server-owned typed capability, or derives
 them from a locked worker lease whose target is the same exact `CourseId`, `StudentRecordId`, `AssignmentAttemptId`,
-predecessor `QuestionAttemptId`, `QuestionRevisionReference`, and seed. No caller-supplied scope or Question Backend
+predecessor `QuestionAttemptId`, `QuestionRevisionReference`, and Question Seed. No caller-supplied scope or Question Backend
 metadata can widen that lease.
 
 PLE Question JSON and WeBWorK reservations additionally retain their typed,
@@ -188,14 +188,14 @@ published Question, grader, or renderer to recreate it.
 No `QuestionAttemptId`, response, grade, or timer exists for a reservation.
 Only successful submission of the predecessor promotes the exact reservation
 into the next attempt and records either an immutable `nextIssued` descriptor
-or durable `nextPending` receipt state. An idempotent submission replay returns
+or durable `nextPending` receipt state. A repeat Question Submission returns
 that stored state; it must not scan later Assignment Attempt state and invent a different
 successor. Initial recovery alone may heal the one committed-but-unlinked
 predecessor caused by an interrupted process.
 
 The client accepts a speculative Question Presentation only when the committed receipt and
 prefetch descriptor exactly agree on predecessor, Assignment Attempt, assignment position,
-version, seed, and backend-owned rendered hash. On mismatch, late completion,
+Question Revision, Question Seed, and backend-owned rendered hash. On mismatch, late completion,
 network failure, route teardown, or any decode failure, it discards the
 speculative data and reloads the authoritative Assignment Attempt screen. Route teardown
 aborts the outstanding prefetch request.
@@ -226,17 +226,17 @@ Question Presentation, or persist a speculative asset list.
 
 The following outcomes are intentional safety behavior:
 
-| Condition                                                                                        | Required behavior                                                                              |
-| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| Another AccountId, another course, or a foreign attempt/predecessor                              | Return not found or conflict; do not disclose state                                            |
-| Missing or mismatched CourseId/StudentRecordId/Assignment Attempt/attempt/reference/seed binding | Refuse before cache, grading, or mutation                                                      |
-| Active predecessor already answered or Assignment Attempt completed                              | Reject prefetch; do not start a successor                                                      |
-| Conflicting duplicate reservation                                                                | Preserve the first reservation and reject rewrite                                              |
-| Cache schema, checksum, source, version, seed, title, or renderer mismatch                       | Refuse the entry; re-render only where the adapter contract permits                            |
-| WeBWorK replay state missing                                                                     | Refuse question-locally; receipt-era attempts have no rerender or self-heal compatibility path |
-| Prefetch descriptor differs from receipt                                                         | Drop browser memory and use the ordinary Assignment Attempt screen route                       |
-| Renderer or Question Backend outage                                                              | Do not substitute a new question or guess a grade; surface the backend-local failure           |
-| Protected asset delivery                                                                         | Authorize and audit every request; do not place the signed URL in a reusable cache             |
+| Condition                                                                                                                   | Required behavior                                                                              |
+| --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Another AccountId, another course, or a foreign attempt/predecessor                                                         | Return not found or conflict; do not disclose state                                            |
+| Missing or mismatched CourseId/StudentRecordId/Assignment Attempt/attempt/Question Revision Reference/Question Seed binding | Refuse before cache, grading, or mutation                                                      |
+| Active predecessor already answered or Assignment Attempt completed                                                         | Reject prefetch; do not start a successor                                                      |
+| Conflicting duplicate reservation                                                                                           | Preserve the first reservation and reject rewrite                                              |
+| Cache schema, checksum, Question Source, Question Revision, Question Seed, Question Title, or renderer mismatch             | Refuse the entry; re-render only where the adapter contract permits                            |
+| WeBWorK replay state missing                                                                                                | Refuse question-locally; receipt-era attempts have no rerender or self-heal compatibility path |
+| Prefetch descriptor differs from receipt                                                                                    | Drop browser memory and use the ordinary Assignment Attempt screen route                       |
+| Renderer or Question Backend outage                                                                                         | Do not substitute a new question or guess a grade; surface the backend-local failure           |
+| Protected asset delivery                                                                                                    | Authorize and audit every request; do not place the signed URL in a reusable cache             |
 
 ## Observability and future work
 
@@ -266,7 +266,7 @@ The next cache work should follow the payload plan in this order:
    latency, not assumed payload savings.
 
 Permanent tests should prove deterministic cache identity, validation refusal,
-no-answer disclosure, cache-hit renderer behavior, reservation idempotency,
+no-answer disclosure, cache-hit renderer behavior, matching reservation-repeat behavior,
 atomic promotion, strict receipt matching, timed-content withholding, and
 cross-user, cross-course, and foreign-attempt refusal. One-time load tests and representative timing
 measurements

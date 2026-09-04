@@ -14,6 +14,24 @@ existing pre-epoch schema documents are migration input, not an alternate model.
 the meaning of PLE-owned terms. This document owns PostgreSQL authorization
 implementation only.
 
+## PostgreSQL service identities
+
+PostgreSQL records database roles, role memberships, privileges, and object
+ownership in its system catalogs. These principals are database security
+configuration, not rows in PLE Account or application-data tables. Human access
+begins with a PLE Account; database roles never create a Student, Instructor, or
+Sysadmin Product Role.
+
+Each Database Schema Owner Role is a non-login Service Identity for one physical
+schema and its protected objects. For example, `ple_private_owner` owns the
+`ple_private` schema. The migration login temporarily assumes the appropriate
+owner through `SET LOCAL ROLE` when PostgreSQL requires the object's owner to
+perform a schema change. Runtime access instead follows the explicitly granted
+application role, the authenticated Account context, and the applicable
+row-level-security policy. The principal-baseline migration and PostgreSQL
+catalog acceptance checks are the executable authority for the exact role and
+privilege set.
+
 The server derives `AuthenticatedSession { account_id, session_id }` from a valid global Authenticated Session. Each
 protected database transaction sets only the trusted, transaction-local `ple.session_account_id` value.
 Forced RLS accepts the resolved authenticated Account value for the operation.
@@ -34,14 +52,14 @@ creates an Instructor Account after Instructor Vetting; a person who needs both 
 separate Accounts. Course creation then atomically creates the first ordinary
 Instructor membership; Sysadmin status does not add creator authority.
 
-`current_course_instructor(account_id, course_id)` requires a current direct Instructor membership
+`current_course_instructor(account_id, course_id)` requires a current Instructor Course Membership
 for that exact course. The membership foreign key requires an Instructor Account. Course creation atomically creates
 the first ordinary Instructor membership. It does not create a creator, owner, or privileged
 course-authority row. Every current Teaching Team Member receives the same teaching mutation and FERPA-read
 decision for equivalent state; audit rows identify the authenticated account without changing authority.
 
 Student work requires the exact course relationship and Student ownership of the durable child
-record. A private authoring input requires its current Authoring Workspace owner or Workspace
+record. A private authoring input requires its current Authoring Workspace Owner or Workspace
 Collaborator relationship; a Draft Blueprint Revision requires its own Blueprint Collaborator
 relationship. A published question has exactly one Instructor-visible Question Library
 state: every active Instructor can discover and reuse its safe Question Library data while its visible
@@ -193,9 +211,9 @@ number in these ranges:
 | `2026082925`-`2026082926`, `2026082928`                            | Typed Jobs and leases; Course Retention schema foundation; Object Delivery, storage checks, cleanup manifests, and cleanup receipts                                 |
 | `2026082929`-`2026082936`                                          | Authorization Checks, forced RLS, grants, schema acceptance helpers, Create Instructor Account, Draft Blueprint Revision, and Question Revision Statistics evidence |
 | `2026082937`-`2026082940`                                          | Assignment pool and released-entry snapshots, authenticated Assignment Attempt start, and Object Record/source-object authority in the fresh baseline               |
-| `2026082942`                                                       | Session-authorized Draft Question Source Registration                                                                                                               |
+| `2026082942`                                                       | Session-authorized Bind Question Source operation                                                                                                                   |
 | `2026082943`                                                       | Question credit and stewardship                                                                                                                                     |
-| `2026082944`                                                       | Question Source Registration publication completeness predicate                                                                                                     |
+| `2026082944`                                                       | Question Revision Source Binding publication completeness predicate                                                                                                 |
 | `2026082945`                                                       | Question fork source                                                                                                                                                |
 | `2026090101`                                                       | Latest Question Revision summary                                                                                                                                    |
 | `2026090102`                                                       | iMathAS Question Backend Session                                                                                                                                    |
@@ -208,7 +226,7 @@ identities rather than a legacy scope key.
 ## Validation lanes
 
 Permanent offline tests prove domain authorization, Store conformance, strict browser contracts,
-immutable evidence, grading, idempotency, revocation, and concealment. A data-driven operation
+immutable evidence, grading, repeated-operation outcomes, revocation, and concealment. A data-driven operation
 matrix proves identical creator/Teaching Team Member allow and deny decisions in Memory and Store
 conformance.
 
@@ -219,7 +237,7 @@ mutation and Gradebook read; immediate membership revocation and
 approval-withdrawal denial; narrow audited Sysadmin support; observer
 non-escalation; typed-worker confused-deputy refusal; Object Delivery;
 iMathAS Question Backend; Object Cleanup foundations; and migration
-idempotency/checksum status. A future Course Retention service requires its
+repeatability/checksum status. A future Course Retention service requires its
 own complete connected acceptance evidence; the schema foundation is not that
 service.
 

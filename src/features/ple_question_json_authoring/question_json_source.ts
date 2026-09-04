@@ -105,7 +105,7 @@ export type PleQuestionJsonNumericResponseTolerance =
 
 /** Immutable object reference and accessible description for a hotspot surface. */
 export type PleQuestionJsonHotspotSurface = {
-  readonly asset: string;
+  readonly questionAsset: string;
   readonly checksum: string;
   readonly description: string;
 };
@@ -185,7 +185,7 @@ export type PleQuestionJsonResponse =
 export type PleQuestionJsonDocument = {
   readonly format: typeof PLE_QUESTION_JSON_FORMAT;
   readonly version: typeof PLE_QUESTION_JSON_SCHEMA_VERSION;
-  readonly title: string;
+  readonly questionTitle: string;
   /** Instructor-facing discovery summary, excluded from the student preview. */
   readonly questionDescription: string;
   readonly prompt: string;

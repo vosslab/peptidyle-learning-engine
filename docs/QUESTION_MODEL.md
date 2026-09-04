@@ -54,7 +54,7 @@ behind the `generate` feature, which the server enables and the WebAssembly
 bridge leaves off, because identifiers are created server-side on the publish
 transition.
 
-`IssuedQuestionId` is the one idempotent exception: the server derives it as a
+`IssuedQuestionId` is the deterministic issued-record identity: the server derives it as a
 UUIDv5 from the opaque Assignment Attempt, exact Assignment Entry, and the
 optional frozen Question Pool Item. A resume therefore resolves the same
 Issued Question without selecting again. The value remains a durable server
@@ -69,8 +69,8 @@ Archived Assignments also refuse new access.
 
 UUIDs name durable records; they are not credentials, authorization evidence,
 or browser-facing choice codes. A submission places its `QuestionAttemptId`
-once in the route. The server resolves Student, assignment, version, seed,
-backend, and policy from that authenticated attempt instead of asking the
+once in the route. The server resolves Student, Assignment, Question Revision, Question Seed,
+Question Backend, and policy from that authenticated attempt instead of asking the
 browser to resend their UUIDs.
 
 The draft rule is carried by separate records rather than a flag: one mutable
@@ -129,7 +129,7 @@ thread without granting the fork author access to edit the source.
 
 `QuestionChangeProposal` is the lightweight improvement workflow. Any vetted
 Instructor submits one patch and rationale against one exact immutable base
-version. Publication validation and semantic/grading-impact analysis complete
+version. Question Publication Validation and semantic/grading-impact analysis complete
 before submission reaches the lineage owner, who accepts or rejects it. A
 stale base requires rebase and resubmission. An accepted `ModerateEdit` creates
 a new immutable version in the original `QuestionId` lineage, preserves
@@ -188,8 +188,8 @@ issuance resolve to the replacement. The old version is preserved solely as
 immutable historical evidence and is never edited or deleted.
 
 Replacement publication requires validated content and a closed, privacy-safe
-impact manifest. The resulting Correction Generation is handed to bounded
-idempotent, Correction-Generation-fenced workers for active-binding and remediation
+impact manifest. The resulting Correction Generation is handed to bounded,
+Correction-Generation-fenced workers for active-binding and remediation
 updates across every active Blueprint, CourseInstance, assignment,
 selection-pool, and future-issuance reference. A deterministic compatibility
 check governs reissue or excuse for in-progress work. Issued or graded evidence
@@ -203,7 +203,7 @@ advance, reissue, excuse, superseding receipt, recalculation, and publication
 event is append-only audited.
 
 `Sysadmin` is a Product Role, never a Course Membership Role; it cannot
-replace direct Instructor membership for general FERPA access or view the
+replace current Instructor Course Membership for general FERPA access or view the
 Question ID Star identity list or any private Watch state. `CourseSummary`
 and `AssignmentSummary` are Rust-owned browser results. Their Question Pool
 selection summaries carry Question IDs and safe display metadata,
@@ -304,8 +304,8 @@ grading material. Grading is deterministic and automated for every supported Que
 It projects the public rendering portion of one `QuestionVariationPresentation`
 for a specific attempt and provides a consistency binding for that presentation.
 
-`QuestionPresentation` contains the immutable version, issued seed,
-server-minted nonce, title, prompt, and an answer-free
+`QuestionPresentation` contains the immutable Question Revision, issued Question Seed,
+server-minted Question Presentation Nonce, Question Title, prompt, and an answer-free
 `QuestionPresentationResponseFormat`. It is the issued response format for the durable
 Question Response Format: it replaces durable Response Item References with
 Presentation Response Item References while preserving the exact response shape. The schema currently
@@ -337,7 +337,7 @@ For selectable and addressable objects, the builder projects durable IDs to a
 presentation-scoped Response Item Reference (`PresentationResponseItemReference` in the current
 machine contract): four lowercase hexadecimal characters produced by
 CRC-16/CCITT-FALSE. Its input is domain-separated and includes the
-presentation nonce, version, seed, role, ordinal, durable ID, and canonical
+Question Presentation Nonce, Question Revision, Question Seed, Response Item Role, ordinal, durable Response Item Reference, and canonical
 public item basis. Choices, blanks, matching sides, ordering items, and each
 Hotspot Region are separately addressable. The builder permits at most 32 addressable items, requires
 IDs to be unique across the complete presentation, and retries with a fresh
@@ -410,8 +410,9 @@ Each top-level entry also carries its Assignment Entry Scoring Rule: Normal,
 Full Credit, Extra Credit, or Excluded. An Issued Question freezes the rule and
 point value from its source entry.
 Question Pool Selection Rule combines the reviewed selection algorithm
-and output ordering for one pool. Question Variation Rule separately controls
-whether later Assignment Attempts reuse or redraw pool selections.
+and output ordering for one pool. The Assignment-owned Question Variation Rule
+separately controls whether later Assignment Attempts reuse Question Variations
+or issue new Question Variations; it never redraws a Question Pool Selection.
 
 Assignment editing is a direct, closed Assignment contract.
 `AssignmentAuthoredContent` carries validated plain-text

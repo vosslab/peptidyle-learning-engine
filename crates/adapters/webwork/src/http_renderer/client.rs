@@ -411,11 +411,11 @@ fn project_single_radio(
     }
     Ok(ParsedRender {
         presentation: QuestionVariationPresentation {
-            variation: question_model::QuestionVariation::from_question_revision_and_seed(
+            variation: question_model::QuestionVariation::from_question_revision_and_question_seed(
                 request.question_revision.clone(),
                 question_model::generation::QuestionSeed::new(request.seed),
             ),
-            title: "WeBWorK question".into(),
+            question_title: "WeBWorK question".into(),
             prompt: vec![QuestionContentBlock::Text { markdown: prompt }],
             response: QuestionResponseFormat::MultipleChoice {
                 choices,
@@ -468,11 +468,11 @@ fn project_matching(
     }
     Ok(ParsedRender {
         presentation: QuestionVariationPresentation {
-            variation: question_model::QuestionVariation::from_question_revision_and_seed(
+            variation: question_model::QuestionVariation::from_question_revision_and_question_seed(
                 request.question_revision.clone(),
                 question_model::generation::QuestionSeed::new(request.seed),
             ),
-            title: "WeBWorK question".into(),
+            question_title: "WeBWorK question".into(),
             prompt: vec![QuestionContentBlock::Text {
                 markdown: parsed_html.prompt_text,
             }],

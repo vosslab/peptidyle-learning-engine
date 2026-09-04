@@ -393,7 +393,7 @@ pub struct CourseInvitationTerminalActionRequest {
     pub action: CourseInvitationTerminalAction,
 }
 
-/// Direct Instructor course membership row.
+/// Current Instructor Course Membership row for one Teaching Team Member.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InstructorMembershipView {
@@ -402,17 +402,17 @@ pub struct InstructorMembershipView {
     pub status: TeachingMembershipStatus,
 }
 
-/// Bounded direct Instructor list.
+/// Bounded Teaching Team list.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InstructorMembershipsPage {
     pub instructors: Vec<InstructorMembershipView>,
     pub next_cursor: Option<String>,
-    /// Exact roster change number required by direct-Instructor removal `If-Match`.
+    /// Exact roster change number required by Instructor Course Membership removal `If-Match`.
     pub roster_change_number: CourseRosterChangeNumber,
 }
 
-/// Empty-body direct Instructor removal action; its roster change number is `If-Match`.
+/// Empty-body Instructor Course Membership removal action; its roster change number is `If-Match`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InstructorMembershipRemovalRequest {}

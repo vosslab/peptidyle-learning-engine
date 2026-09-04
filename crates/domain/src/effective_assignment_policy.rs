@@ -8,6 +8,7 @@
 use std::num::NonZeroU32;
 
 use chrono::{DateTime, Utc};
+pub use question_model::StudentLateWorkStatus;
 use question_model::{
     AssignmentDeadlineRule, AssignmentStatus, BaseAssignmentPolicy, CourseTerm, LateWorkRule,
     MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, StudentRecordId,
@@ -163,16 +164,9 @@ pub struct HypotheticalStudentViewScenarioModifiers {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StudentLateWorkStatus {
-    OnTime,
-    AcceptedLate,
-    MarkedLate,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AssignmentStartDecision {
     MayStart {
-        late_work_status: StudentLateWorkStatus,
+        student_late_work_status: StudentLateWorkStatus,
     },
     NotYetAvailable,
     Closed,
@@ -657,7 +651,7 @@ fn assignment_start_decision(
     {
         return AssignmentStartDecision::AttemptLimitReached;
     }
-    let late_work_status = match policy.due_at.value {
+    let student_late_work_status = match policy.due_at.value {
         Some(due) if now > due => match policy.late_work_rule.value {
             LateWorkRule::Accept => StudentLateWorkStatus::AcceptedLate,
             LateWorkRule::MarkLate => StudentLateWorkStatus::MarkedLate,
@@ -665,7 +659,9 @@ fn assignment_start_decision(
         },
         _ => StudentLateWorkStatus::OnTime,
     };
-    AssignmentStartDecision::MayStart { late_work_status }
+    AssignmentStartDecision::MayStart {
+        student_late_work_status,
+    }
 }
 
 #[cfg(test)]

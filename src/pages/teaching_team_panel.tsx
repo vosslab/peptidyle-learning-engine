@@ -356,7 +356,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
                     <article class="teaching-team-row">
                       <div>
                         <strong>{instructor.account.display}</strong>
-                        <p class="teaching-team-meta">Active direct instructor</p>
+                        <p class="teaching-team-meta">Current Teaching Team Member</p>
                       </div>
                       <button
                         class="quiet-action"
@@ -459,7 +459,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
             </h2>
             <p>
               {action().kind === "remove"
-                ? "This person immediately loses direct instructor access to this course."
+                ? "This person immediately loses their Instructor Course Membership in this course."
                 : "This person can no longer accept this pending invitation."}
             </p>
             <div class="action-row">

@@ -44,7 +44,7 @@ launcher builds the production browser bundle and starts the real PostgreSQL, Mi
 gateway, and private WebWork services behind one disposable HTTPS origin. Use
 `./run_live_demo.sh --headless` when you need the same stack without opening a browser.
 
-Use the visible seeded-role entry to verify the currently mounted authorization boundary:
+Use the visible seeded-role entry to verify the currently available authorization boundary:
 
 - Select one seeded Account. The browser receives the answer-free Account ID and immutable Product
   Role of its Authenticated Session; the role is resolved by the server rather than selected in a
@@ -233,7 +233,7 @@ client with `./build.sh`.
 
 ## Target Assignment flow
 
-The intended course-delivery path uses explicit ownership transitions; its mounted delivery service
+The intended course-delivery path uses explicit ownership transitions; its future delivery Service
 remains downstream work:
 
 ```text
@@ -253,7 +253,7 @@ They contain no Student identity, raw response, Answer Key, or grading implement
 Scoring Generation is discarded without delaying or rolling back the current Assignment Grade.
 
 Automated-grading recovery contracts retain the accepted server-private Student Response, metadata,
-and Receipts without exposing Answer Keys. The Instructor-facing route is not mounted yet, so this
+and Receipts without exposing Answer Keys. The Instructor-facing Server Route does not exist yet, so this
 is a design boundary rather than a current browser workflow.
 
 ## What exists today

@@ -67,8 +67,8 @@ test("Question Pool editor encodes public Item Question IDs in Item order", () =
       {
         kind: "questionPool",
         items: [
-          { questionId: "7K4-M9QP", title: "Item one", backend: "ple" },
-          { questionId: "7K5-M9QP", title: "Item two", backend: "ple" },
+          { questionId: "7K4-M9QP", questionTitle: "Item one", backend: "ple" },
+          { questionId: "7K5-M9QP", questionTitle: "Item two", backend: "ple" },
         ],
         availability: "available",
         scoringRule: "normal",
@@ -103,7 +103,7 @@ test("Question Pool editor encodes public Item Question IDs in Item order", () =
 test("pool validation keeps an actionable correction path", () => {
   const invalid = {
     kind: "questionPool",
-    items: [{ questionId: "7K4-M9QP", title: "Item", backend: "ple" }],
+    items: [{ questionId: "7K4-M9QP", questionTitle: "Item", backend: "ple" }],
     availability: "available",
     selectionCount: 2,
     pointsPerItem: "1",
@@ -116,7 +116,7 @@ test("pool validation keeps an actionable correction path", () => {
 });
 
 test("pool authoring reports shared cardinality recovery paths before save", () => {
-  const item = { questionId: "7K4-M9QP", title: "Item", backend: "ple" };
+  const item = { questionId: "7K4-M9QP", questionTitle: "Item", backend: "ple" };
   const overfullPool = {
     kind: "questionPool",
     items: Array.from({ length: 1025 }, (_value, index) => ({
@@ -181,7 +181,7 @@ test("shared picker caps each assignment destination before the dialog opens", (
       { ...fixed, kind: "fixedQuestion" },
       {
         kind: "questionPool",
-        items: [{ questionId: "7K4-M9QP", title: "Item", backend: "ple" }],
+        items: [{ questionId: "7K4-M9QP", questionTitle: "Item", backend: "ple" }],
         availability: "available",
         selectionCount: 1,
         pointsPerItem: "1",

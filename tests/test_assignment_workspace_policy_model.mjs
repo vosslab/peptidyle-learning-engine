@@ -115,7 +115,7 @@ test("server policy issues select the first repair while keeping concise safe de
   const feedback = assignmentPoliciesValidationFeedback([
     {
       kind: "capability",
-      title: "Peptide geometry",
+      questionTitle: "Peptide geometry",
       questionId: "7K3-M9QP",
       capability: "serverGrading",
     },

@@ -21,7 +21,7 @@ import { normalizeQuestionIdSyntax } from "../question_id";
 
 export interface AssignmentQuestionRow {
   readonly questionId: QuestionId;
-  readonly title: string;
+  readonly questionTitle: string;
   readonly backend: QuestionBackend;
 }
 
@@ -90,7 +90,7 @@ export function questionPoolAssignmentEntry(
     scoringRule: entry.scoringRule,
     items: entry.items.map((item) => ({
       questionId: item.questionId,
-      title: item.title,
+      questionTitle: item.questionTitle,
       backend: item.backend,
     })),
     selectionCount: entry.selectionCount,
@@ -143,7 +143,7 @@ export function appendFixedEntries(
       fixedQuestionEntry({
         id: `new-${row.questionId}`,
         questionId: row.questionId,
-        title: row.title,
+        questionTitle: row.questionTitle,
         backend: row.backend,
         capabilities: [],
         pointsPossible: "1",

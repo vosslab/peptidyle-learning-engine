@@ -1,4 +1,4 @@
-// question_response_control_styles.ts - styles mounted only by the Question Response Control dispatcher.
+// question_response_control_styles.ts - styles loaded only by the Question Response Control dispatcher.
 
 export const QUESTION_RESPONSE_CONTROL_STYLES = `
   .question-response-control { display: grid; gap: var(--ple-space-2, 0.5rem); }

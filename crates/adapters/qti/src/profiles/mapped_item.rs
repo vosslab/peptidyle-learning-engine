@@ -29,11 +29,11 @@ const MAX_SAFE_ITEMS: usize = 100;
 pub enum QtiMappedItemError {
     EmptySourceLocation,
     EmptySourceIdentifier,
-    EmptyTitle,
+    MissingQuestionTitle,
     EmptyPrompt,
     SourceLocationTooLong,
     SourceIdentifierTooLong,
-    TitleTooLong,
+    QuestionTitleTooLong,
     PromptTooLong,
     ChoiceCount,
     InvalidChoiceId,
@@ -55,13 +55,13 @@ impl fmt::Display for QtiMappedItemError {
         let message = match self {
             Self::EmptySourceLocation => "QTI mapped item source location is required",
             Self::EmptySourceIdentifier => "QTI mapped item source identifier is required",
-            Self::EmptyTitle => "QTI mapped item title is required",
+            Self::MissingQuestionTitle => "QTI mapped item Question Title is required",
             Self::EmptyPrompt => "QTI mapped item prompt is required",
             Self::SourceLocationTooLong => "QTI mapped item source location exceeds the safe limit",
             Self::SourceIdentifierTooLong => {
                 "QTI mapped item source identifier exceeds the safe limit"
             }
-            Self::TitleTooLong => "QTI mapped item title exceeds the safe limit",
+            Self::QuestionTitleTooLong => "QTI mapped item Question Title exceeds the safe limit",
             Self::PromptTooLong => "QTI mapped item prompt exceeds the safe limit",
             Self::ChoiceCount => "QTI mapped item requires 2 to 100 choices",
             Self::InvalidChoiceId => "QTI mapped item has an invalid PLE choice identifier",
@@ -129,7 +129,7 @@ impl QtiMappedItem {
         profile: QtiProfileId,
         source_location: String,
         source_identifier: String,
-        title: String,
+        question_title: String,
         prompt_markdown: String,
         choices: Vec<QtiPublicChoiceChecksumInput>,
         points: QtiVendorPointsEvidence,
@@ -147,9 +147,9 @@ impl QtiMappedItem {
         if char_count(&source_identifier) > MAX_SAFE_SOURCE_IDENTIFIER_CHARS {
             return Err(QtiMappedItemError::SourceIdentifierTooLong);
         }
-        validate_required(&title, QtiMappedItemError::EmptyTitle)?;
-        if char_count(&title) > MAX_SAFE_TITLE_CHARS {
-            return Err(QtiMappedItemError::TitleTooLong);
+        validate_required(&question_title, QtiMappedItemError::MissingQuestionTitle)?;
+        if char_count(&question_title) > MAX_SAFE_TITLE_CHARS {
+            return Err(QtiMappedItemError::QuestionTitleTooLong);
         }
         validate_required(&prompt_markdown, QtiMappedItemError::EmptyPrompt)?;
         if char_count(&prompt_markdown) > MAX_PROMPT_CHARS {
@@ -175,7 +175,7 @@ impl QtiMappedItem {
             normalized_qti_item_fingerprint(&NormalizedQtiItemFingerprintInput {
                 profile,
                 profile_version: profile.version(),
-                title: &title,
+                question_title: &question_title,
                 prompt_markdown: &prompt_markdown,
                 choices: &normalized_choices,
                 correct_vendor_choice_id: &correct_vendor_choice_id,
@@ -195,7 +195,7 @@ impl QtiMappedItem {
         let public_mapping = QtiPublicMappingChecksumInput {
             source_location,
             source_identifier: source_identifier.clone(),
-            title: title.clone(),
+            question_title: question_title.clone(),
             prompt_markdown,
             choices,
             vendor_points: points,
@@ -224,7 +224,7 @@ impl QtiMappedItem {
         );
         let safe_report = QtiSafeItemReport {
             source_identifier,
-            title: Some(title),
+            question_title: Some(question_title),
             status: QtiSafeItemStatus::Accepted,
             diagnostics: Vec::new(),
             defaults: safe_defaults,
@@ -255,7 +255,7 @@ impl QtiMappedItem {
             QtiMappedItemError::EmptySourceIdentifier,
         )?;
         if let Some(title) = &title {
-            validate_required(title, QtiMappedItemError::EmptyTitle)?;
+            validate_required(title, QtiMappedItemError::MissingQuestionTitle)?;
         }
         if char_count(&source_identifier) > MAX_SAFE_SOURCE_IDENTIFIER_CHARS {
             return Err(QtiMappedItemError::SourceIdentifierTooLong);
@@ -264,14 +264,14 @@ impl QtiMappedItem {
             .as_deref()
             .is_some_and(|title| char_count(title) > MAX_SAFE_TITLE_CHARS)
         {
-            return Err(QtiMappedItemError::TitleTooLong);
+            return Err(QtiMappedItemError::QuestionTitleTooLong);
         }
         if diagnostics.len() > MAX_SAFE_DIAGNOSTICS {
             return Err(QtiMappedItemError::UnsafeDiagnostic);
         }
         Ok(QtiSafeItemReport {
             source_identifier,
-            title,
+            question_title: title,
             status: QtiSafeItemStatus::Rejected,
             diagnostics,
             defaults: Vec::new(),
@@ -300,7 +300,7 @@ impl QtiMappedItem {
             .map(str::to_string);
         QtiSafeItemReport {
             source_identifier: identifier,
-            title,
+            question_title: title,
             status: QtiSafeItemStatus::Rejected,
             diagnostics: diagnostics.into_iter().take(MAX_SAFE_DIAGNOSTICS).collect(),
             defaults: Vec::new(),

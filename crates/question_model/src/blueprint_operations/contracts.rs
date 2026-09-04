@@ -30,14 +30,11 @@ pub use pins::{
     QuestionRevisionSubstitutions, QuestionRevisionSubstitutionsError,
     ReplacementQuestionRevisionChoices, ReplacementQuestionRevisionChoicesError,
 };
-pub use scalars::{
-    CurriculumImportRevision, CurriculumImportRevisionError, RequestChecksum, RequestRetryToken,
-    RequestRetryTokenError,
-};
+pub use scalars::{CurriculumImportRevision, CurriculumImportRevisionError, RequestChecksum};
 pub use server_records::{
     ApplyBlueprintUpdateApplyRecord, AssignmentImportRepairApplyRecord,
     CopyAssignmentFromBlueprintApplyRecord, CopyCourseForNewTermApplyRecord,
-    CreateCourseFromBlueprintApplyRecord, ForkBlueprintCourseApplyRecord, RequestRetryBinding,
+    CreateCourseFromBlueprintApplyRecord, ForkBlueprintCourseApplyRecord, RequestBinding,
     ShiftCourseDatesApplyRecord,
 };
 pub use source::BlueprintRevisionReference;

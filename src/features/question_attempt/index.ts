@@ -11,7 +11,6 @@ export {
   type QuestionAttemptStateMachineOptions,
   type AttemptStorage,
   type StudentFeedbackAvailability,
-  type IdempotencyKey,
   type NextAttempt,
   type PendingSubmissionAcknowledgement,
   type ResponseValidation,

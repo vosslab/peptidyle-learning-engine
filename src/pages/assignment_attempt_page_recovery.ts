@@ -9,7 +9,7 @@ export interface ReauthenticationAttemptMachine {
 
 /**
  * A successful session check restores the existing buffered response and submits it through the
- * normal state-machine path. The machine owns the existing idempotency key, so this creates no
+ * normal state-machine path. The exact Question Attempt accepts one submission, so this creates no
  * second logical submission.
  */
 export async function resumeSessionAndRetry(

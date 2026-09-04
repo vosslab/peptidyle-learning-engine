@@ -117,7 +117,7 @@ interface AssignmentWorkspacePolicyPanelProps {
   readonly onRegisterPolicyControl: (field: PolicyFocusTarget, element: HTMLElement) => void;
 }
 
-/** The workspace page owns the aggregate save; this panel only owns visible Assignment activity-rule controls. */
+/** The workspace page owns the Assignment save; this panel only owns visible Assignment activity-rule controls. */
 export function AssignmentWorkspacePolicyPanel(
   props: AssignmentWorkspacePolicyPanelProps,
 ): JSX.Element {

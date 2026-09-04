@@ -782,7 +782,9 @@ mod tests {
 
         let hotspot = QuestionResponseFormat::Hotspot {
             surface: question_model::QuestionAssetReference {
-                asset: question_model::QuestionAssetId::from_uuid(uuid::Uuid::from_u128(1)),
+                question_asset: question_model::QuestionAssetId::from_uuid(uuid::Uuid::from_u128(
+                    1,
+                )),
                 checksum: "a".repeat(64),
             },
             description: "A diagram".to_string(),

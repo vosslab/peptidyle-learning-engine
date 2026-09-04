@@ -169,7 +169,9 @@ $$;
 -- Authorized start creates one exact fixed Question; a second start resumes it.
 INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES
     ('00000000-0000-0000-0000-000000000101', 'student', '2026-01-01 00:00:00+00'),
-    ('00000000-0000-0000-0000-000000000102', 'instructor', '2026-01-01 00:00:00+00');
+    ('00000000-0000-0000-0000-000000000102', 'instructor', '2026-01-01 00:00:00+00'),
+    ('00000000-0000-0000-0000-000000000104', 'instructor', '2026-01-01 00:00:00+00'),
+    ('00000000-0000-0000-0000-000000000204', 'instructor', '2026-01-01 00:00:00+00');
 INSERT INTO ple_private.account_state_event (
     event_id, account_id, state, occurred_at
 ) VALUES (
@@ -181,44 +183,224 @@ INSERT INTO ple_private.account_state_event (
 INSERT INTO ple_data.published_question (question_id, created_at)
 VALUES ('ABC-DEF0', '2026-01-01 00:00:00+00');
 INSERT INTO ple_data.question_revision (
-    question_id, revision_number, backend, published_at, public_metadata
+    question_id, revision_number, backend, published_at
+) VALUES ('ABC-DEF0', 1, 'ple', '2026-01-01 00:00:00+00');
+INSERT INTO ple_data.published_question_metadata (
+    question_id, question_title, question_description, created_at, updated_at
 ) VALUES (
-    'ABC-DEF0', 1, 'ple', '2026-01-01 00:00:00+00',
-    jsonb_build_object('questionDescription', 'Instructor-facing Assignment Attempt fixture question.')
+    'ABC-DEF0', 'Assignment Attempt fixture question',
+    'Instructor-facing Assignment Attempt fixture question.',
+    '2026-01-01 00:00:00+00', '2026-01-01 00:00:00+00'
 );
 DO $$
 BEGIN
     BEGIN
         INSERT INTO ple_data.published_question (question_id, created_at)
         VALUES ('ABC-DEF1', '2026-01-01 00:00:00+00');
-        INSERT INTO ple_data.question_revision (
-            question_id, revision_number, backend, published_at, public_metadata
+        INSERT INTO ple_data.published_question_metadata (
+            question_id, question_title, question_description, created_at, updated_at
         ) VALUES (
-            'ABC-DEF1', 1, 'ple', '2026-01-01 00:00:00+00',
-            jsonb_build_object('questionDescription', '   ')
+            'ABC-DEF1', 'Question with blank description', '   ',
+            '2026-01-01 00:00:00+00', '2026-01-01 00:00:00+00'
         );
-        RAISE EXCEPTION 'Question Revision accepted a blank Question Description';
+        RAISE EXCEPTION 'Published Question Metadata accepted a blank Question Description';
     EXCEPTION WHEN check_violation THEN NULL;
     END;
 END
 $$;
 INSERT INTO ple_data.blueprint_course (
-    blueprint_id, blueprint_course_owner_account_id, created_at
-)
-VALUES ('00000000-0000-0000-0000-000000000103', '00000000-0000-0000-0000-000000000102', '2026-01-01 00:00:00+00');
+    blueprint_id, reference_number, blueprint_course_owner_account_id, created_at
+) OVERRIDING SYSTEM VALUE
+VALUES (
+    '00000000-0000-0000-0000-000000000103', 7,
+    '00000000-0000-0000-0000-000000000102', '2026-01-01 00:00:00+00'
+);
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO ple_data.blueprint_course (
+            blueprint_id, reference_number, blueprint_course_owner_account_id, created_at
+        ) OVERRIDING SYSTEM VALUE
+        VALUES (
+            '00000000-0000-0000-0000-000000000198', 0,
+            '00000000-0000-0000-0000-000000000102', '2026-01-01 00:00:00+00'
+        );
+        RAISE EXCEPTION 'Blueprint Course accepted an invalid Blueprint Course Reference number';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+END
+$$;
 INSERT INTO ple_data.blueprint_course_revision (
-    blueprint_revision_id, blueprint_id, revision, title, blueprint_course_content, created_at
+    blueprint_course_reference_number, blueprint_revision_number, title,
+    blueprint_course_content, created_at
+) VALUES
+    (7, 1, 'Assignment Attempt fixture', '{}'::jsonb, '2026-01-01 00:00:00+00'),
+    (7, 2, 'Draft collaboration fixture', '{}'::jsonb, '2026-01-01 00:00:00+00');
+DO $$
+DECLARE
+    identity_columns text[];
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+          FROM information_schema.columns
+         WHERE table_schema = 'ple_data'
+           AND table_name = 'blueprint_course'
+           AND column_name = 'blueprint_course_owner_account_id'
+           AND is_nullable = 'NO'
+    ) OR EXISTS (
+        SELECT 1
+          FROM information_schema.columns
+         WHERE table_schema = 'ple_data'
+           AND table_name = 'blueprint_course'
+           AND column_name = 'owner_account_id'
+    ) THEN
+        RAISE EXCEPTION 'Blueprint Course does not retain its exact Blueprint Course Owner relationship';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+          FROM information_schema.columns
+         WHERE table_schema = 'ple_data'
+           AND (
+               column_name IN ('blueprint_revision_id', 'source_blueprint_revision_id')
+               OR (
+                   table_name = 'blueprint_course_revision'
+                   AND column_name IN ('blueprint_id', 'revision')
+               )
+           )
+    ) THEN
+        RAISE EXCEPTION 'Blueprint Revision persistence retained a redundant UUID or Blueprint ID identity';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+          FROM (
+              VALUES
+                  ('blueprint_course', 'reference_number'),
+                  ('blueprint_course_revision', 'blueprint_course_reference_number'),
+                  ('blueprint_course_revision', 'blueprint_revision_number'),
+                  ('course_instance', 'blueprint_course_reference_number'),
+                  ('course_instance', 'blueprint_revision_number'),
+                  ('course_origin', 'blueprint_course_reference_number'),
+                  ('course_origin', 'blueprint_revision_number'),
+                  ('assignment', 'source_blueprint_course_reference_number'),
+                  ('assignment', 'source_blueprint_revision_number'),
+                  ('blueprint_publication_event', 'blueprint_course_reference_number'),
+                  ('blueprint_publication_event', 'blueprint_revision_number'),
+                  ('blueprint_collaborator_event', 'blueprint_course_reference_number'),
+                  ('blueprint_collaborator_event', 'blueprint_revision_number'),
+                  ('blueprint_revision_availability_event', 'blueprint_course_reference_number'),
+                  ('blueprint_revision_availability_event', 'blueprint_revision_number')
+          ) AS expected(table_name, column_name)
+         WHERE NOT EXISTS (
+             SELECT 1
+               FROM information_schema.columns AS actual
+              WHERE actual.table_schema = 'ple_data'
+                AND actual.table_name = expected.table_name
+                AND actual.column_name = expected.column_name
+         )
+    ) THEN
+        RAISE EXCEPTION 'Blueprint Revision Reference columns are incomplete';
+    END IF;
+
+    SELECT array_agg(attribute.attname ORDER BY key_column.ordinality)
+      INTO identity_columns
+      FROM pg_constraint AS constraint_record
+      CROSS JOIN LATERAL unnest(constraint_record.conkey)
+          WITH ORDINALITY AS key_column(attribute_number, ordinality)
+      JOIN pg_attribute AS attribute
+        ON attribute.attrelid = constraint_record.conrelid
+       AND attribute.attnum = key_column.attribute_number
+     WHERE constraint_record.conrelid = 'ple_data.blueprint_course_revision'::regclass
+       AND constraint_record.contype = 'p';
+    IF identity_columns IS DISTINCT FROM ARRAY[
+        'blueprint_course_reference_number', 'blueprint_revision_number'
+    ]::text[] THEN
+        RAISE EXCEPTION 'Blueprint Revision primary key is not its exact Reference pair';
+    END IF;
+END
+$$;
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO ple_data.blueprint_publication_event (
+            blueprint_publication_event_id, blueprint_course_reference_number,
+            blueprint_revision_number, published_by_account_id, occurred_at
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000190', 7, 1,
+            '00000000-0000-0000-0000-000000000104', '2026-01-02 00:00:00+00'
+        );
+        RAISE EXCEPTION 'another Instructor published as the Blueprint Course Owner';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+END
+$$;
+INSERT INTO ple_data.blueprint_publication_event (
+    blueprint_publication_event_id, blueprint_course_reference_number,
+    blueprint_revision_number, published_by_account_id, occurred_at
 ) VALUES (
-    '00000000-0000-0000-0000-000000000104', '00000000-0000-0000-0000-000000000103',
-    1, 'Assignment Attempt fixture', '{}'::jsonb, '2026-01-01 00:00:00+00'
+    '00000000-0000-0000-0000-000000000191', 7, 1,
+    '00000000-0000-0000-0000-000000000102', '2026-01-02 00:00:00+00'
+);
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO ple_data.blueprint_revision_availability_event (
+            blueprint_revision_availability_event_id, blueprint_course_reference_number,
+            blueprint_revision_number, recorded_by_account_id, event_kind, occurred_at
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000192', 7, 1,
+            '00000000-0000-0000-0000-000000000104', 'available',
+            '2026-01-03 00:00:00+00'
+        );
+        RAISE EXCEPTION 'another Instructor changed Blueprint Revision Availability as the owner';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+END
+$$;
+INSERT INTO ple_data.blueprint_revision_availability_event (
+    blueprint_revision_availability_event_id, blueprint_course_reference_number,
+    blueprint_revision_number, recorded_by_account_id, event_kind, occurred_at
+) VALUES (
+    '00000000-0000-0000-0000-000000000193', 7, 1,
+    '00000000-0000-0000-0000-000000000102', 'available',
+    '2026-01-03 00:00:00+00'
+);
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO ple_data.blueprint_collaborator_event (
+            blueprint_collaborator_event_id, blueprint_course_reference_number,
+            blueprint_revision_number, collaborator_account_id, recorded_by_account_id,
+            event_kind, occurred_at
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000194', 7, 2,
+            '00000000-0000-0000-0000-000000000204',
+            '00000000-0000-0000-0000-000000000104', 'granted',
+            '2026-01-03 00:00:00+00'
+        );
+        RAISE EXCEPTION 'another Instructor granted Blueprint collaboration as the owner';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+END
+$$;
+INSERT INTO ple_data.blueprint_collaborator_event (
+    blueprint_collaborator_event_id, blueprint_course_reference_number,
+    blueprint_revision_number, collaborator_account_id, recorded_by_account_id,
+    event_kind, occurred_at
+) VALUES (
+    '00000000-0000-0000-0000-000000000195', 7, 2,
+    '00000000-0000-0000-0000-000000000204',
+    '00000000-0000-0000-0000-000000000102', 'granted',
+    '2026-01-03 00:00:00+00'
 );
 BEGIN;
 INSERT INTO ple_data.course_instance (
-    course_id, blueprint_id, blueprint_revision_id, assigned_instructor_account_id,
-    assigned_instructor_role, created_at
+    course_id, blueprint_course_reference_number, blueprint_revision_number,
+    assigned_instructor_account_id, assigned_instructor_role, created_at
 ) VALUES (
-    '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000103',
-    '00000000-0000-0000-0000-000000000104', '00000000-0000-0000-0000-000000000102',
+    '00000000-0000-0000-0000-000000000105', 7, 1,
+    '00000000-0000-0000-0000-000000000102',
     'instructor', '2026-01-01 00:00:00+00'
 );
 INSERT INTO ple_data.student_record (
@@ -240,6 +422,22 @@ INSERT INTO ple_data.course_membership (
         '00000000-0000-0000-0000-000000000106'
     );
 COMMIT;
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO ple_data.course_instance (
+            course_id, blueprint_course_reference_number, blueprint_revision_number,
+            assigned_instructor_account_id, assigned_instructor_role, created_at
+        ) VALUES (
+            '00000000-0000-0000-0000-000000000199', 7, 3,
+            '00000000-0000-0000-0000-000000000102',
+            'instructor', '2026-01-01 00:00:00+00'
+        );
+        RAISE EXCEPTION 'Course Instance accepted a nonexistent Blueprint Revision Number';
+    EXCEPTION WHEN foreign_key_violation THEN NULL;
+    END;
+END
+$$;
 INSERT INTO ple_data.course_schedule_revision (
     course_schedule_revision_id, course_id, revision_number, term_starts_on, term_ends_on,
     course_time_zone, created_at
@@ -248,7 +446,8 @@ INSERT INTO ple_data.course_schedule_revision (
     '2026-01-01', '2026-12-31', 'America/Chicago', '2026-01-01 00:00:00+00'
 );
 INSERT INTO ple_data.assignment (
-    assignment_id, course_id, source_blueprint_revision_id, created_at, updated_at,
+    assignment_id, course_id, source_blueprint_course_reference_number,
+    source_blueprint_revision_number, created_at, updated_at,
     assignment_edit_number, assignment_title, assignment_instructions,
     available_at, due_at, closes_at, assignment_attempt_time_limit_seconds, attempt_limit,
     late_work_rule, assignment_deadline_rule, assignment_completion_rule,
@@ -259,7 +458,7 @@ INSERT INTO ple_data.assignment (
     assignment_question_order_rule, assignment_status, released_assignment_revision_id
 ) VALUES (
     '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000000105',
-    '00000000-0000-0000-0000-000000000104', '2026-01-01 00:00:00+00',
+    7, 1, '2026-01-01 00:00:00+00',
     '2026-01-01 00:00:00+00', 1, 'Assignment Attempt fixture', '',
     NULL, NULL, NULL, NULL, NULL, 'accept', 'auto_submit', 'answer_all', NULL,
     'highest', 'unlimited', NULL, 'reuse_selection', 'new_variation', 'resumable',
@@ -438,7 +637,7 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM ple_private.issued_question
         WHERE assignment_attempt_id = '00000000-0000-0000-0000-000000000114'
-          AND point_value = 1 AND scoring_rule = 'normal' AND statistics_eligible
+          AND point_value = 1 AND scoring_rule = 'normal' AND question_statistics_eligibility
     ) THEN
         RAISE EXCEPTION 'Issued Question did not derive its released scoring facts';
     END IF;

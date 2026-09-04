@@ -3,7 +3,7 @@
 Status: current PLE Question JSON version-3 source-reader contract. Version 3 is the sole reader and
 implements all eight required
 PLE Question JSON Question Types through strict parsing, answer-free compilation,
-publication validation, student rendering, response validation, and isolated
+Question Publication Validation, student rendering, response validation, and isolated
 server grading.
 
 ## Decision
@@ -107,8 +107,9 @@ relationships and retains the same checksum and accessibility requirements.
 
 Version 3 places response-specific data
 inside one closed `response` object. The common top-level members are
-`format`, `version`, `title`, `prompt`, `response`, optional `feedback`, optional `tags`, optional
-`questionLicense`, and `language`. Unknown and duplicate members are refused at every level. Points,
+`format`, `version`, `questionTitle`, `questionDescription`, `prompt`, `response`, optional
+`feedback`, optional `questionHint`, optional `tags`, optional `questionLicense`, optional
+`questionCitation`, and `language`. Unknown and duplicate members are refused at every level. Points,
 Question Attempt Limit, and Question Attempt Time Limit are not PLE Question JSON source members:
 the exact Assignment Entry owns points and those controls, and its immutable Assignment Revision Entry
 snapshot retains them. Student Feedback Release remains Assignment-owned through the independent
@@ -138,7 +139,8 @@ For example, a matching question is:
 {
   "format": "pleQuestionJson",
   "version": 3,
-  "title": "Nucleic-acid sugars",
+  "questionTitle": "Nucleic-acid sugars",
+  "questionDescription": "Match nucleic acids with their characteristic sugars.",
   "prompt": "Match each nucleic acid with its sugar.",
   "response": {
     "kind": "matching",
@@ -195,13 +197,13 @@ Question         Grading Result and optional
 Presentation     protected teaching content
 ```
 
-| Value                        | Storage and readers                                                                    | Contents                                                                                             |
-| ---------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Authoring source             | Private Draft Question source; authenticated Instructor operation and PLE backend only | The complete PLE document, including accepted answers, pairings, regions, order, and feedback        |
-| Published source             | Immutable private Question Source object                                               | The complete PLE Question JSON frozen for one exact Question Revision                                |
-| Question Presentation        | Shared answer-free issuance contract                                                   | Student-facing prompt, response controls, and presentation bindings derived for the issued variation |
-| Protected derived roles      | Server-side backend and policy-release operations                                      | Format-specific Answer Key, Question Hint, Question Feedback, Question Answer, or explanation        |
-| Search and identity metadata | Normal relational columns                                                              | Question identity, title, lifecycle, availability, attribution, and indexed discovery fields         |
+| Value                        | Storage and readers                                                                    | Contents                                                                                              |
+| ---------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Authoring source             | Private Draft Question source; authenticated Instructor operation and PLE backend only | The complete PLE document, including accepted answers, pairings, regions, order, and feedback         |
+| Published source             | Immutable private Question Source object                                               | The complete PLE Question JSON frozen for one exact Question Revision                                 |
+| Question Presentation        | Shared answer-free issuance contract                                                   | Student-facing prompt, response controls, and presentation bindings derived for the issued variation  |
+| Protected derived roles      | Server-side backend and policy-release operations                                      | Format-specific Answer Key, Question Hint, Question Feedback, Question Answer, or explanation         |
+| Search and identity metadata | Normal relational columns                                                              | Question identity, Question Title, lifecycle, availability, attribution, and indexed discovery fields |
 
 The complete Question Source stays on the trusted server boundary. Question
 Presentation supplies the answer-free Student view, while the PLE Question
@@ -237,7 +239,7 @@ The native codec currently enforces these bounds:
 - a choice question has 2 through 100 choices; `singleChoice` has exactly one correct choice;
 - choice IDs start with a lowercase ASCII letter, use only lowercase letters,
   digits, `_`, or `-`, are unique, and are at most 64 bytes;
-- prompt, choice, title, tag, language, and Question License text is nonblank and bounded;
+- Question Prompt, choice, Question Title, tag, language, and Question License text is nonblank and bounded;
 - Choice, Correct, and Incorrect Feedback is optional; when present, it is nonblank and bounded;
 - Assignment Entry validates points and attempt/time controls outside this source contract.
 
@@ -282,7 +284,7 @@ The persistence boundary is `crates/learning-data-access/src/question_json.rs`
 with focused in-memory and PostgreSQL implementations, and the server owner is
 `crates/server/src/question_json_publication.rs`. The private source saves
 atomically with its typed draft. Future authorized publication atomically
-creates the complete Question Revision-owned Question Source Registration and
+creates the complete Question Revision-owned Question Source Binding and
 aggregate; no publication service or route implements this operation yet. The runtime obtains private
 Answer Keys and Question Grading Input only through an injected grading
 capability. A future explicitly authored PLE Question JSON Accessibility Alternative relationship may serve a Question

@@ -37,13 +37,13 @@ const contextOptions = { viewport: { width: 1280, height: 800 }, ignoreHTTPSErro
 
 async function findQuestionLibraryQuestion(
   page: Page,
-  title: string,
+  questionTitle: string,
   questionId: string,
 ): Promise<void> {
-  await page.getByRole("link", { name: "Library", exact: true }).click();
-  await page.getByLabel("Search published questions").fill(title);
+  await page.getByRole("link", { name: "Question Library", exact: true }).click();
+  await page.getByLabel("Search published questions").fill(questionTitle);
   const questionLibrary = page.getByRole("region", { name: "Published questions" });
-  const card = questionLibrary.getByText(title, { exact: true }).locator("..");
+  const card = questionLibrary.getByText(questionTitle, { exact: true }).locator("..");
   await expect(card).toBeVisible();
   await expect(card.locator("code")).toHaveText(questionId);
 }
@@ -194,7 +194,7 @@ test("WebWork delivery: Elena assigns reviewed Question Library material and Mar
 
     await chooseSeededIdentity(elena, /Elena Rivera/u);
     await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
-    await findQuestionLibraryQuestion(elena, fixture.title, fixture.questionId);
+    await findQuestionLibraryQuestion(elena, fixture.questionTitle, fixture.questionId);
     const invitationUrl = await createCourseAssignmentAndInvitation(
       elena,
       courseTitle,
@@ -207,7 +207,7 @@ test("WebWork delivery: Elena assigns reviewed Question Library material and Mar
       invitationUrl,
       courseTitle,
       assignmentTitle,
-      fixture.title,
+      fixture.questionTitle,
       scenarioInput.namespace,
     );
     await signOutVisible(mary);

@@ -16,10 +16,10 @@ use super::{
     ImathasQuestionBackendSessionLease, ImathasQuestionBackendSessionReference,
     ImathasQuestionBackendSessionRestoreExpectation, ImathasQuestionBackendStateCipher,
     ImathasQuestionBackendStateKeyId, ImathasQuestionBackendStateKeyRing, ImathasResult,
-    ImathasResultChecksum, ImathasResultExchangeIdempotencyKey, ImathasResultTokenChecksum, JobId,
-    LoadedImathasQuestionBackendSession, MAX_IMATHAS_GRADING_JOB_LEASE_MILLIS,
-    QuestionSubmissionGradingId, StageVerifiedImathasResult, StagedImathasResultReceipt,
-    automated_grading_receipt_checksum_v1, derive_imathas_question_backend_evaluation,
+    ImathasResultChecksum, ImathasResultTokenChecksum, JobId, LoadedImathasQuestionBackendSession,
+    MAX_IMATHAS_GRADING_JOB_LEASE_MILLIS, QuestionSubmissionGradingId, StageVerifiedImathasResult,
+    StagedImathasResultReceipt, automated_grading_receipt_checksum_v1,
+    derive_imathas_question_backend_evaluation,
 };
 
 pub struct MemoryImathasQuestionBackendSessionStore {
@@ -506,7 +506,6 @@ impl ImathasQuestionBackendSessionStore for MemoryImathasQuestionBackendSessionS
 }
 
 struct MemoryImathasResultExchange {
-    idempotency_key: ImathasResultExchangeIdempotencyKey,
     imathas_result_token_checksum: ImathasResultTokenChecksum,
     imathas_result: ImathasResult,
     imathas_result_checksum: ImathasResultChecksum,
@@ -524,8 +523,7 @@ fn advance_memory_imathas_result_exchange_to_ready_to_commit(
     now: Timestamp,
 ) -> Result<StagedImathasResultReceipt, StoreError> {
     if let Some(existing) = exchange {
-        return if existing.idempotency_key == transition.idempotency_key
-            && existing.imathas_result_token_checksum == transition.imathas_result_token_checksum
+        return if existing.imathas_result_token_checksum == transition.imathas_result_token_checksum
             && existing.imathas_result == transition.imathas_result
         {
             Ok(StagedImathasResultReceipt {
@@ -551,7 +549,6 @@ fn advance_memory_imathas_result_exchange_to_ready_to_commit(
         job_id: transition.grading_job_id,
     };
     *exchange = Some(MemoryImathasResultExchange {
-        idempotency_key: transition.idempotency_key,
         imathas_result_token_checksum: transition.imathas_result_token_checksum,
         imathas_result_checksum: transition.imathas_result.checksum(),
         imathas_result: transition.imathas_result,

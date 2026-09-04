@@ -7,12 +7,12 @@ persona on the visible account page. The server resolves the configured Account
 and creates the ordinary Authenticated Session. The selector supplies neither
 course authority nor a browser role claim.
 
-The current mounted browser surface ends at the account/session entry. Course
+The current Browser Surface ends at the account/session entry. Course
 creation, Blueprint Course work, Course Instance management, roster and
 invitation work, assignment workspace controls, Student view, grading
 operations, and Gradebook screens are retained product workflows rather than
 current Live Demo routes. Start the local stack through [USAGE.md](USAGE.md) to
-inspect the mounted entry boundary.
+inspect the available entry boundary.
 
 ## Future Instructor teaching contract
 
@@ -45,7 +45,7 @@ retained model/generated/browser recovery contract is
 that existing Student work pins. Visible guidance calls this outcome a
 **Successor Assignment Revision**.
 
-The server-owned command that creates the successor and its mounted route are
+The server-owned command that creates the successor and its Server Route are
 future work. Until both exist, this guide does not instruct an Instructor to
 perform a structural successor operation.
 
@@ -53,5 +53,5 @@ perform a structural successor operation.
 
 The intended Instructor interface uses visible controls and the keyboard model
 in [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md). A
-restored browser acceptance owner must verify the mounted workflow before this
+restored browser acceptance owner must verify the available workflow before this
 guide presents it as an executable demonstration.

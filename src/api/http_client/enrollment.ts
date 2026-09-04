@@ -37,13 +37,6 @@ function positiveRevisionHeader(revision: number, name: string): string {
   return `"${revision}"`;
 }
 
-function idempotencyHeader(value: string): string {
-  if (value.length === 0 || value.length > 128 || /[^\x21-\x7e]/u.test(value)) {
-    throw new ApiProtocolError("idempotency key must contain 1 through 128 visible ASCII bytes");
-  }
-  return value;
-}
-
 function verifyRosterChangeNumberEtag(
   response: Response,
   expected: CourseRosterChangeNumber,
@@ -118,13 +111,11 @@ export function createCourseRosterClient(
       courseId,
       email,
       rosterId,
-      idempotencyKey,
     ): ReturnType<CourseRosterClient["inviteCourseMember"]> => {
       const path = `/api/courses/${encodedId(courseId)}/invitations`;
       return (
         await rosterMutation(fetchImplementation, basePath, path, decodeCourseInvitationAccepted, {
           method: "POST",
-          headers: { "idempotency-key": idempotencyHeader(idempotencyKey) },
           body: { email, rosterId },
         })
       ).body;
@@ -197,7 +188,6 @@ export function createCourseRosterClient(
       courseId,
       csv,
       rosterChangeNumber,
-      idempotencyKey,
     ): ReturnType<CourseRosterClient["previewRosterImport"]> => {
       if (csv.size <= 0) throw new ApiProtocolError("Roster CSV is empty");
       if (csv.size > MAX_ROSTER_CSV_BYTES) throw new ApiProtocolError("Roster CSV exceeds 1 MiB");
@@ -207,7 +197,6 @@ export function createCourseRosterClient(
         headers: {
           accept: "application/json",
           "content-type": "text/csv; charset=utf-8",
-          "idempotency-key": idempotencyHeader(idempotencyKey),
           "if-match": rosterChangeNumberHeader(rosterChangeNumber, "roster change number"),
         },
         body: csv,
@@ -224,7 +213,6 @@ export function createCourseRosterClient(
       courseId,
       preview,
       rowNumbers,
-      idempotencyKey,
     ): ReturnType<CourseRosterClient["commitRosterImport"]> => {
       const path = `/api/courses/${encodedId(courseId)}/roster-imports/${encodedId(preview.importId)}/commit`;
       const result = await rosterMutation(
@@ -235,7 +223,6 @@ export function createCourseRosterClient(
         {
           method: "POST",
           headers: {
-            "idempotency-key": idempotencyHeader(idempotencyKey),
             "if-match": positiveRevisionHeader(preview.importRevision, "roster import revision"),
           },
           body: { rowNumbers },
@@ -252,11 +239,4 @@ export function createCourseRosterClient(
 
 export function readyRosterRows(preview: RosterImportPreview): ReadonlyArray<number> {
   return preview.rows.filter((row) => row.result === "readyToInvite").map((row) => row.rowNumber);
-}
-
-export function newIdempotencyKey(): string {
-  if (!("randomUUID" in crypto)) {
-    throw new ApiProtocolError("This browser cannot create an idempotency key");
-  }
-  return crypto.randomUUID();
 }

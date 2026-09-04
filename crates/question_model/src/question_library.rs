@@ -17,8 +17,7 @@ pub use crate::question_search::{
     QuestionSearchBackendFacet, QuestionSearchCapabilityFacet, QuestionSearchCourseUse,
     QuestionSearchCourseUseFacet, QuestionSearchFacets, QuestionSearchFilter,
     QuestionSearchQuestionLicenseFacet, QuestionSearchRequest, QuestionSearchRequestError,
-    QuestionSearchTagFacet, QuestionStatisticsAvailability, QuestionStatisticsAvailabilityFacet,
-    QuestionTypeFacet,
+    QuestionSearchTagFacet, QuestionTypeFacet,
 };
 pub use crate::response::QuestionType;
 
@@ -230,7 +229,7 @@ impl QuestionBackend {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionSummary {
-    /// Sole human-facing identity of this immutable published question.
+    /// Sole human-facing identity of this stable Published Question lineage.
     pub question_id: QuestionId,
     /// Exact accepted Question Revision with the greatest revision number in
     /// this Question lineage. This is independent of selection availability.
@@ -241,7 +240,8 @@ pub struct QuestionSummary {
     pub question_type: QuestionType,
     /// Capabilities declared by the owning adapter at publication time.
     pub capabilities: QuestionBackendCapabilities,
-    /// Shared metadata used for title, Question License, and language facets.
+    /// Shared metadata used for Question Title, Question Description,
+    /// Question License, and language facets.
     pub metadata: QuestionMetadata,
     /// Immutable reviewed Question Authorship display snapshot; never Question Owner authority.
     pub authorship: crate::QuestionAuthorship,
@@ -264,10 +264,11 @@ impl QuestionSummary {
     }
 }
 
-/// Explainable, privacy-governed discovery evidence for one exact publication.
+/// Current privacy-governed Question Statistics availability for one exact
+/// Question Revision.
 ///
-/// The evidence contains only disclosed aggregate observations. It never
-/// exposes a ranking contribution, student work, or a course identity.
+/// The accepted-grade aggregate is retained privately. No Question Statistics
+/// release Store or Server Route currently establishes a safe available shape.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "state",
@@ -276,29 +277,8 @@ impl QuestionSummary {
     deny_unknown_fields
 )]
 pub enum QuestionStatistics {
-    /// The publication has no valid disclosed aggregate yet. This is neither
-    /// a favorable nor unfavorable quality judgment.
-    InsufficientEvidence,
-    /// A versioned formula produced a safely disclosed aggregate observation.
-    Available {
-        /// Server-owned version of the disclosed evidence formula.
-        formula_version: u16,
-        /// Number of anonymous courses observed by the formula.
-        observed_course_count: u64,
-        /// Independent first-valid student observations for this exact publication.
-        independent_learner_observation_count: u64,
-        /// Mean normalized score, in the inclusive range `0.0..=1.0`.
-        difficulty_index: f64,
-        /// Mean submitted attempts represented by one first-Assignment-Attempt observation.
-        attempts_mean: f64,
-        /// Fixed-histogram estimate of the median response duration in seconds.
-        time_median_seconds_estimate: u64,
-        /// Correlation of question score with rest-of-Assignment-Attempt score when valid.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        discrimination_index: Option<f64>,
-        /// Database-authoritative time at which this evidence was computed.
-        evidence_at: Timestamp,
-    },
+    /// No server-owned Question Statistics release is currently available.
+    Unavailable,
 }
 
 /// One context-free search item. Search results contain immutable Question Library
@@ -394,7 +374,7 @@ pub struct QuestionDetails {
     /// Exact immutable hot metadata for this publication.
     pub summary: QuestionSummary,
     /// Static content or one server-generated example; source, response,
-    /// Question Variation Rule, grading, keys, and preview seed are excluded.
+    /// Question Variation Rule, grading, keys, and Question Pool Preview Nonce are excluded.
     pub prompt: QuestionDetailsPromptView,
     /// Explainable anonymous evidence for this exact publication.
     pub evidence: QuestionStatistics,
@@ -550,7 +530,7 @@ mod tests {
                 question_type: QuestionType::MultipleChoice,
                 capabilities: QuestionBackendCapabilities::none(),
                 metadata: QuestionMetadata {
-                    title: "Safe detail".to_string(),
+                    question_title: "Safe detail".to_string(),
                     question_description: "Instructor-facing safe detail fixture summary."
                         .to_string(),
                     tags: Vec::new(),
@@ -569,7 +549,7 @@ mod tests {
                 published_at: Timestamp::from_unix_millis(0),
             },
             prompt: QuestionDetailsPromptView::Static { blocks: Vec::new() },
-            evidence: QuestionStatistics::InsufficientEvidence,
+            evidence: QuestionStatistics::Unavailable,
             usage: QuestionUseDetails {
                 summary: QuestionUseSummary {
                     global_course_count: 0,
@@ -593,32 +573,9 @@ mod tests {
     #[test]
     fn discovery_evidence_serializes_as_a_closed_explainable_union() {
         assert_eq!(
-            serde_json::to_value(QuestionStatistics::InsufficientEvidence)
-                .expect("insufficient evidence serializes"),
-            serde_json::json!({ "state": "insufficientEvidence" })
-        );
-        assert_eq!(
-            serde_json::to_value(QuestionStatistics::Available {
-                formula_version: 1,
-                observed_course_count: 2,
-                independent_learner_observation_count: 5,
-                difficulty_index: 0.7,
-                attempts_mean: 1.2,
-                time_median_seconds_estimate: 30,
-                discrimination_index: None,
-                evidence_at: Timestamp::from_unix_millis(0),
-            })
-            .expect("available evidence serializes"),
-            serde_json::json!({
-                "state": "available",
-                "formulaVersion": 1,
-                "observedCourseCount": 2,
-                "independentLearnerObservationCount": 5,
-                "difficultyIndex": 0.7,
-                "attemptsMean": 1.2,
-                "timeMedianSecondsEstimate": 30,
-                "evidenceAt": 0
-            })
+            serde_json::to_value(QuestionStatistics::Unavailable)
+                .expect("unavailable Question Statistics serialize"),
+            serde_json::json!({ "state": "unavailable" })
         );
     }
 }

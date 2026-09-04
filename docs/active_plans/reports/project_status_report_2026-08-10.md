@@ -131,7 +131,7 @@ pilot content remain WP-RC5 work.
 ### Payload design accepted
 
 The secure question-grading payload decision is implementation-ready. It uses the authenticated
-`AttemptId` plus the idempotency key as submission authority, removes browser-supplied facts the
+`AttemptId` as submission authority, removes browser-supplied facts the
 server can derive, assigns attempt-presentation-scoped CRC-16/CCITT-FALSE IDs to selectable rendered
 objects, and uses a separate SHA-256 presentation descriptor for whole-render consistency.
 

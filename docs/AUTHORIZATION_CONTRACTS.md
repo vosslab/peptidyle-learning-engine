@@ -79,7 +79,7 @@ Every course-teaching operation uses one canonical predicate:
 
 ```text
 current_course_instructor(account_id, course) =
-    current direct Instructor membership(account_id, course)
+    current Instructor Course Membership(account_id, course)
 ```
 
 The predicate authorizes the complete registered course-Instructor operation
@@ -128,7 +128,7 @@ currently approved assigned Instructor account, and one server-reserved
 and cannot select a different source, Instructor, or resulting course after
 the authority is evaluated.
 
-One Store transaction creates the CourseInstance, its first direct Instructor
+One Store transaction creates the CourseInstance, its first Instructor Course
 membership for the assigned account, and an append-only
 `course_instance_created` audit event. The event identifies the acting
 Sysadmin, exact Blueprint source and revision, assigned Instructor, reserved
@@ -154,7 +154,7 @@ for support requested by that course. A future Course Retention implementation
 must define its own exact issuer and lifecycle operation with its Store and
 worker. The capability
 registry begins after Course Instance Creation has committed an exact CourseInstance and
-its first direct Instructor membership.
+its first Instructor Course Membership.
 
 ### Registered operations
 
@@ -186,7 +186,7 @@ its first direct Instructor membership.
 
 #### Future Course Retention support
 
-Course Retention has no mounted Store, route, worker, or browser reader. When
+Course Retention has no Store, Server Route, worker, or Browser Surface. When
 implemented, its exact-course support authority must bind an accepted Course
 Retention Plan Revision, Course Retention Job, and committed Course Retention
 Event or Course Retention Receipt. It must not grant a browser an Object Cleanup
@@ -210,28 +210,29 @@ capability that specifies an equally narrow target and returned data.
 operation that produces privacy-safe impact and deterministic remediation; it
 does not issue a course support capability or widen course access.
 
-## Student self ownership and FERPA records
+## Student Records and FERPA
 
 Current Student membership is an explicit relationship between `AccountId` and an
 exact `CourseId`. A Student Record, Assignment Attempt, Question Attempt, response, grade, artifact,
-or Student-record asset is bound to that exact course, the current Student
-membership/owner, and its child identity. A Student may list and work only the
+or Student-record asset is bound to that exact Course, the Student Account, the current Student
+Course Membership, and its child identity. A Student may list and work only the
 assignments available to that Student in that course and may read only the
 answer-free reader result for that Student's own records.
 
-Each student-scoped Store operation rechecks current Student membership and
-owner binding inside its transaction. This makes roster revocation immediate:
+Each student-scoped Store operation rechecks the current Student Course Membership and Student
+Account binding inside its transaction. This makes roster revocation immediate:
 an inactive or removed Student cannot retain read, write, submission, asset,
 or replay access. Course Instructors may use only their Instructor projections;
 they do not obtain authority to submit or act as a Student. One Student never
 receives another Student's record. Archive, retention, and deletion state add
 their own fences to the authorization result.
 
-## Private workspace ownership
+## Authoring Workspace ownership
 
 Drafts are private authoring records. A Draft Question, Blueprint Course, Question Source,
 QTI archive import, conversion, collaborator grant, and author preview belongs to a
-typed `WorkspaceId` with an explicit owner/collaborator relationship. The
+typed `WorkspaceId` with an explicit Authoring Workspace Owner or Workspace Collaborator
+relationship. The
 stored current relationship and Draft Question Edit Number authorize draft read, save,
 edit, sharing, deletion, preview, and publication preparation.
 
@@ -249,7 +250,7 @@ Every Published Question has one stable Question ID lineage and immutable
 Question Revisions, visible to every active Instructor through exactly one shared
 Question Library state. A publication mints a new Question ID only for a new lineage,
 after the private workspace Question Source and private grading records validate. A same-lineage semantic change
-publishes a new immutable QuestionRevision under the existing Question ID. An
+publishes a new immutable Question Revision under the existing Question ID. An
 incompatible objective, task, Question Type, or educational-purpose change is
 a fork: its creator-private draft validates before publication with a new
 Question ID and visible source ancestry. Existing Assignments and issued Assignment Attempts
@@ -284,7 +285,7 @@ student-content improvement that preserves the objective, task, and Question
 Type; and a grading-semantic correction with an impact and recalculation record.
 An incompatible objective, task, Question Type, or educational-purpose change
 is a fork. `ModerateEdit` is available only to the Question Owner or original
-lineage steward; it publishes a new immutable QuestionRevision in the same
+lineage steward; it publishes a new immutable Question Revision in the same
 Question ID lineage, preserves Question Authorship, and retains the existing
 compatible Question License. `FullFork` is available to any approved (vetted)
 Instructor. It creates a creator-private Draft Question with that Instructor's
@@ -296,7 +297,7 @@ ancestry and no write access to the source.
 
 `QuestionChangeProposal` is a separate contribution path. Any approved
 (vetted) Instructor may submit a validated patch and rationale against one exact
-base QuestionRevision. The lineage owner accepts or rejects it. Acceptance
+base Question Revision. The lineage owner accepts or rejects it. Acceptance
 creates a new immutable version in the original Question ID lineage, preserves
 Question Authorship and the existing compatible Question License, and records contributor
 credit and proposal ancestry. It never moves assignment or evidence pins. A
@@ -315,7 +316,7 @@ manifest binds flawed and replacement exact versions, a permitted reason
 (`security_flaw` or `critical_correctness_flaw`), generation, affected bindings,
 and deterministic remediation. Approval atomically maps the flawed version to its
 replacement for new selection and issuance. The flawed version remains immutable
-historical evidence. Bounded, idempotent, generation-fenced workers apply the
+historical evidence. Bounded generation-fenced workers apply the
 authoritative correction mapping and remediation; issued and graded evidence retains its original pin, while
 in-progress work is reissued or excused and completed work receives superseding
 receipts and deterministic recalculation when required. There is no per-course
@@ -326,20 +327,20 @@ objects. The current Question Search request and retained filter use
 `snake_case`; the returned Question Library data objects use their explicit
 camelCase contracts and reject unknown fields:
 
-| Data object            | Browser fields                                                                                                                                                                                                                         |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `QuestionSummary`      | `questionId`, `latestQuestionRevision`, `backend`, `questionType`, `capabilities`, `metadata`, `authorship`, `availability`, `publishedAt`                                                                                             |
-| `QuestionStatistics`   | Insufficient: `state`; available: `state`, `formulaVersion`, `observedCourseCount`, `independentLearnerObservationCount`, `difficultyIndex`, `attemptsMean`, `timeMedianSecondsEstimate`, optional `discriminationIndex`, `evidenceAt` |
-| `QuestionSearchResult` | `summary`, `evidence`                                                                                                                                                                                                                  |
-| `QuestionUseSummary`   | `globalCourseCount`, `globalAssignmentCount`, `ownCourseCount`, `ownAssignmentCount`                                                                                                                                                   |
-| `QuestionUseDetails`   | `summary`, bounded `ownCourses`, `ownCoursesTruncated`                                                                                                                                                                                 |
-| `QuestionSearchPage`   | `items`, optional `nextCursor`, `facets`                                                                                                                                                                                               |
-| `QuestionDetails`      | `summary`, answer-free `prompt`, `evidence`, `usage`                                                                                                                                                                                   |
+| Data object            | Browser fields                                                                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `QuestionSummary`      | `questionId`, `latestQuestionRevision`, `backend`, `questionType`, `capabilities`, `metadata`, `authorship`, `availability`, `publishedAt`        |
+| `QuestionStatistics`   | Current release state only: `state: unavailable`; the retained exact-count aggregate has no Question Statistics release Store or Server Route yet |
+| `QuestionSearchResult` | `summary`, `evidence`                                                                                                                             |
+| `QuestionUseSummary`   | `globalCourseCount`, `globalAssignmentCount`, `ownCourseCount`, `ownAssignmentCount`                                                              |
+| `QuestionUseDetails`   | `summary`, bounded `ownCourses`, `ownCoursesTruncated`                                                                                            |
+| `QuestionSearchPage`   | `items`, optional `nextCursor`, `facets`                                                                                                          |
+| `QuestionDetails`      | `summary`, answer-free `prompt`, `evidence`, `usage`                                                                                              |
 
-Question License, Question Authorship, lifecycle, facets, and prompt blocks have
-their closed shapes defined by the single-installation plan. Evidence is
-released only after its formula-versioned disclosure threshold is satisfied.
-Facet counts are published-question metadata counts. Usage is
+Question License, Question Authorship, lifecycle, and prompt blocks have their
+closed shapes defined by the single-installation plan. Current Question
+Statistics are unavailable: no release Store or Server Route has established a
+released aggregate or a statistics facet. Usage is
 assignment-to-question reference evidence: global fields carry no course
 identity and `own_*` fields describe only courses already authorized to the
 requesting Instructor. Neither derives from Student responses, scores,
@@ -397,15 +398,15 @@ privacy/disclosure rules, and denial tests before activation.
 
 ## Deterministic grading boundary
 
-An issued attempt is the sole student grading authority. It binds the exact
-Student owner, course assignment, immutable question revision, seed, timing
-state, and grading backend. The server checks that binding, current Student
-authority, timing, idempotency, Question Type, presentation consistency, and
+An issued Question Attempt is the sole Student grading authority. It binds the exact
+Student Record, Assignment, immutable Question Revision, Question Seed, timing
+state, and Question Backend. The server checks that binding, current Student
+authority, timing, the one-Submission-per-Question-Attempt boundary, Question Type, presentation consistency, and
 lifecycle before it loads the Answer Key, Question Feedback, or format-specific Question Grading Input through a separately injected
 restricted grader capability. Correctness, partial credit, feedback, and score
 persistence are deterministic server decisions.
 
-Browser-supplied question kind, choice label, seed, checksum, Presentation Response Item
+Browser-supplied Question Type, choice label, Question Seed, checksum, Presentation Response Item
 Reference, Question Presentation Checksum, or response tag is evidence to validate, never
 authority. The normal Store, API pool, browser DTOs, Wasm closure, object
 service, and client code do not receive answer tables or grading capabilities.

@@ -49,7 +49,7 @@ export function QuestionDetailPage(): JSX.Element {
           {(record) => (
             <article>
               <p class="eyebrow">Published question</p>
-              <h1>{record().summary.metadata.title}</h1>
+              <h1>{record().summary.metadata.questionTitle}</h1>
               <section aria-label="Question Description">
                 <h2>Question Description</h2>
                 <p>{record().summary.metadata.questionDescription}</p>
@@ -75,7 +75,7 @@ export function QuestionDetailPage(): JSX.Element {
                 <QuestionPromptRenderer
                   blocks={record().prompt.blocks}
                   assetUrl={(asset) =>
-                    new URL(applicationApi.client.assetUrl(asset.asset), window.location.origin)
+                    new URL(applicationApi.client.assetUrl(asset.questionAsset), window.location.origin)
                   }
                 />
               </section>

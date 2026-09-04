@@ -55,7 +55,7 @@ pub(crate) struct Chapter {
 #[serde(deny_unknown_fields)]
 pub(crate) struct Question {
     pub(crate) slug: String,
-    pub(crate) title: String,
+    pub(crate) question_title: String,
     pub(crate) backend: Backend,
     pub(crate) question_type: PilotQuestionType,
     pub(crate) points: u32,
@@ -236,8 +236,8 @@ fn validate_question(
     question: &Question,
     identity: u128,
 ) -> Result<()> {
-    if question.title.trim().is_empty() || question.slug.trim().is_empty() {
-        bail!("pilot question title and slug must not be blank");
+    if question.question_title.trim().is_empty() || question.slug.trim().is_empty() {
+        bail!("pilot Question Title and slug must not be blank");
     }
     let expected_points = match question.question_type {
         PilotQuestionType::MultipleChoice => 1,
@@ -342,8 +342,8 @@ fn validate_flat(
         compiled.presentation().question_type(),
         compiled.presentation().response(),
     )?;
-    if compiled.presentation().title() != question.title {
-        bail!("PLE Question JSON pilot payload title differs from its manifest entry");
+    if compiled.presentation().question_title() != question.question_title {
+        bail!("PLE Question JSON pilot payload Question Title differs from its manifest entry");
     }
     if !bytes
         .windows(b"\"questionLicense\":\"CC-BY-4.0\"".len())

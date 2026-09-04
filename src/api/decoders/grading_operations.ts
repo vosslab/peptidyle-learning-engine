@@ -6,7 +6,6 @@ import type { GradingOperationAction } from "../../../generated/api/GradingOpera
 import type { GradingOperationReason } from "../../../generated/api/GradingOperationReason";
 import type { InstructorGradingOperationReference } from "../../../generated/api/InstructorGradingOperationReference";
 import type { InstructorGradingOperationActionReceipt as GeneratedInstructorGradingOperationActionReceipt } from "../../../generated/api/InstructorGradingOperationActionReceipt";
-import type { InstructorGradingOperationRetryToken as GeneratedInstructorGradingOperationRetryToken } from "../../../generated/api/InstructorGradingOperationRetryToken";
 import type { InstructorGradingOperationState } from "../../../generated/api/InstructorGradingOperationState";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import {
@@ -16,7 +15,6 @@ import {
   decodeSafeInteger,
   decodeString,
   decodeStringEnum,
-  decodeUuid,
 } from "../decoder";
 import {
   MAX_CURSOR_PAGE_ITEMS,
@@ -63,7 +61,7 @@ export interface InstructorGradingOperation {
 }
 
 export type GradingOperationSubject =
-  | { readonly kind: "question"; readonly questionId: QuestionId; readonly title: string }
+  | { readonly kind: "question"; readonly questionId: QuestionId; readonly questionTitle: string }
   | {
       readonly kind: "student";
       readonly membership: CourseMembershipReference;
@@ -87,7 +85,6 @@ export interface InstructorGradingOperationsPage {
   readonly nextCursor: string | null;
 }
 
-export type InstructorGradingOperationRetryToken = GeneratedInstructorGradingOperationRetryToken;
 export type GradingOperationActionReceipt = GeneratedInstructorGradingOperationActionReceipt;
 
 function closed(
@@ -154,11 +151,14 @@ function decodeSubject(value: unknown, path: string): GradingOperationSubject {
   const subjectKind = decodeString(field(record, "kind", path), `${path}.kind`);
   switch (subjectKind) {
     case "question":
-      requireOnlyFields(record, path, ["kind", "questionId", "title"]);
+      requireOnlyFields(record, path, ["kind", "questionId", "questionTitle"]);
       return {
         kind: subjectKind,
         questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-        title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
+        questionTitle: decodeQuestionTitle(
+          field(record, "questionTitle", path),
+          `${path}.questionTitle`,
+        ),
       };
     case "student":
       requireOnlyFields(record, path, ["kind", "membership", "displayName"]);
@@ -244,13 +244,6 @@ export function decodeInstructorGradingOperationReference(
   return routeReference(value, path, "GO");
 }
 
-export function decodeInstructorGradingOperationRetryToken(
-  value: unknown,
-  path = "retry_token",
-): InstructorGradingOperationRetryToken {
-  return decodeUuid(value, path);
-}
-
 export function decodeGradingOperationStrongEtag(
   value: unknown,
   path = "revision",
@@ -274,17 +267,12 @@ export function decodeGradingOperationActionReceipt(
   if (receiptKind === "retry") {
     requireOnlyFields(record, path, [
       "kind",
-      "retry_token",
       "operation",
       "resulting_operation_revision",
       "occurred_at",
     ]);
     return {
       kind: receiptKind,
-      retry_token: decodeInstructorGradingOperationRetryToken(
-        field(record, "retry_token", path),
-        `${path}.retry_token`,
-      ),
       operation: decodeInstructorGradingOperationReference(
         field(record, "operation", path),
         `${path}.operation`,
@@ -300,7 +288,6 @@ export function decodeGradingOperationActionReceipt(
   if (receiptKind === "recalculation") {
     requireOnlyFields(record, path, [
       "kind",
-      "retry_token",
       "operation",
       "resulting_operation_revision",
       "assignment_revision",
@@ -309,10 +296,6 @@ export function decodeGradingOperationActionReceipt(
     ]);
     return {
       kind: receiptKind,
-      retry_token: decodeInstructorGradingOperationRetryToken(
-        field(record, "retry_token", path),
-        `${path}.retry_token`,
-      ),
       operation: decodeInstructorGradingOperationReference(
         field(record, "operation", path),
         `${path}.operation`,

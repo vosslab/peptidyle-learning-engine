@@ -9,12 +9,12 @@ const MAX_LABEL_LENGTH: usize = 32;
 const MAX_CATEGORY_TITLE_LENGTH: usize = 200;
 const TOTAL_WEIGHT_BASIS_POINTS: u32 = 10_000;
 
-/// Stable category identifier within one course grade scheme.
+/// Stable reference to one Grade Category within its Course Grade Scheme.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct GradeCategoryId(Uuid);
+pub struct GradeCategoryReference(Uuid);
 
-impl GradeCategoryId {
+impl GradeCategoryReference {
     /// Wraps a UUID read from storage or an authenticated boundary.
     pub fn from_uuid(value: Uuid) -> Self {
         Self(value)
@@ -30,7 +30,7 @@ impl GradeCategoryId {
     }
 }
 
-impl std::fmt::Display for GradeCategoryId {
+impl std::fmt::Display for GradeCategoryReference {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(formatter, "{}", self.0)
     }
@@ -66,18 +66,18 @@ impl<'de> Deserialize<'de> for GradeCategoryTitle {
     }
 }
 
-/// Human-readable, trimmed letter-band label.
+/// Human-readable, trimmed Letter Grade Band label.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
-pub struct LetterBandLabel(String);
+pub struct LetterGradeBandLabel(String);
 
-impl LetterBandLabel {
+impl LetterGradeBandLabel {
     /// Builds a trimmed, bounded label.
     pub fn new(value: impl Into<String>) -> Result<Self, CourseGradeSchemeError> {
         let value = value.into();
         let trimmed = value.trim();
         if trimmed.is_empty() || trimmed.chars().count() > MAX_LABEL_LENGTH || trimmed != value {
-            return Err(CourseGradeSchemeError::InvalidLetterBandLabel);
+            return Err(CourseGradeSchemeError::InvalidLetterGradeBandLabel);
         }
         Ok(Self(value))
     }
@@ -87,7 +87,7 @@ impl LetterBandLabel {
     }
 }
 
-impl<'de> Deserialize<'de> for LetterBandLabel {
+impl<'de> Deserialize<'de> for LetterGradeBandLabel {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
     }
@@ -107,7 +107,7 @@ pub enum CourseGradeRoundingRule {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GradeCategory {
     /// Stable category identifier selected by included assignments.
-    pub id: GradeCategoryId,
+    pub id: GradeCategoryReference,
     /// Human-readable category title shown to the instructor.
     pub title: GradeCategoryTitle,
     /// Sequential zero-based display and tie-break order.
@@ -121,9 +121,9 @@ pub struct GradeCategory {
 /// A rounded-score threshold that awards a course letter.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct LetterBand {
+pub struct LetterGradeBand {
     /// Letter shown when the rounded score reaches this threshold.
-    pub label: LetterBandLabel,
+    pub label: LetterGradeBandLabel,
     /// Inclusive threshold in basis points, from 0 through 10,000.
     pub minimum_basis_points: u16,
 }
@@ -145,7 +145,7 @@ pub struct CourseGradeAssignmentSetting {
     /// Whether this assignment contributes to the total.
     pub included: bool,
     /// Weighted-category identity, when the mode uses one.
-    pub category: Option<GradeCategoryId>,
+    pub category: Option<GradeCategoryReference>,
     /// Sequential assignment order within that category.
     pub position: Option<u32>,
 }
@@ -163,7 +163,7 @@ pub struct CourseGradeAssignmentView {
     /// Whether the assignment contributes to the total.
     pub included: bool,
     /// Weighted-category identity, when the mode uses one.
-    pub category: Option<GradeCategoryId>,
+    pub category: Option<GradeCategoryReference>,
     /// Sequential assignment order within that category.
     pub position: Option<u32>,
 }
@@ -213,7 +213,8 @@ pub enum CourseGradeOutcomeView {
     Available {
         score: f64,
         letter: Option<String>,
-        dropped_assignment_ids: Vec<crate::AssignmentId>,
+        /// Exact Assignment Grades omitted by a Drop Lowest calculation.
+        dropped_assignment_grades: Vec<crate::AssignmentId>,
         total_earned: Option<f64>,
         total_possible: Option<f64>,
     },
@@ -256,8 +257,8 @@ pub struct CourseGradeScheme {
     pub rounding: CourseGradeRoundingRule,
     /// Ordered categories; required and empty only for total-points mode.
     pub categories: Vec<GradeCategory>,
-    /// Descending threshold bands applied after final rounding.
-    pub letter_bands: Vec<LetterBand>,
+    /// Descending Letter Grade Bands applied after final rounding.
+    pub letter_grade_bands: Vec<LetterGradeBand>,
 }
 
 impl CourseGradeScheme {
@@ -298,21 +299,21 @@ impl CourseGradeScheme {
         }
         let mut labels = HashSet::new();
         let mut previous = None;
-        for band in &self.letter_bands {
+        for band in &self.letter_grade_bands {
             if band.minimum_basis_points > TOTAL_WEIGHT_BASIS_POINTS as u16 {
-                return Err(CourseGradeSchemeError::LetterBandThresholdOutOfRange {
+                return Err(CourseGradeSchemeError::LetterGradeBandThresholdOutOfRange {
                     threshold: band.minimum_basis_points,
                 });
             }
             if !labels.insert(band.label.clone()) {
-                return Err(CourseGradeSchemeError::DuplicateLetterBand {
+                return Err(CourseGradeSchemeError::DuplicateLetterGradeBand {
                     label: band.label.clone(),
                 });
             }
             if let Some(previous) = previous
                 && band.minimum_basis_points >= previous
             {
-                return Err(CourseGradeSchemeError::LetterBandsMustDescend);
+                return Err(CourseGradeSchemeError::LetterGradeBandsMustDescend);
             }
             previous = Some(band.minimum_basis_points);
         }
@@ -328,14 +329,14 @@ impl<'de> Deserialize<'de> for CourseGradeScheme {
             mode: CourseGradeMode,
             rounding: CourseGradeRoundingRule,
             categories: Vec<GradeCategory>,
-            letter_bands: Vec<LetterBand>,
+            letter_grade_bands: Vec<LetterGradeBand>,
         }
         let raw = RawCourseGradeScheme::deserialize(deserializer)?;
         let scheme = Self {
             mode: raw.mode,
             rounding: raw.rounding,
             categories: raw.categories,
-            letter_bands: raw.letter_bands,
+            letter_grade_bands: raw.letter_grade_bands,
         };
         scheme.validate().map_err(serde::de::Error::custom)?;
         Ok(scheme)
@@ -346,16 +347,16 @@ impl<'de> Deserialize<'de> for CourseGradeScheme {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CourseGradeSchemeError {
     InvalidCategoryTitle,
-    InvalidLetterBandLabel,
+    InvalidLetterGradeBandLabel,
     TotalPointsRequiresEmptyCategories,
     EmptyCategories,
-    ZeroCategoryWeight { category: GradeCategoryId },
-    DuplicateCategory { category: GradeCategoryId },
+    ZeroCategoryWeight { category: GradeCategoryReference },
+    DuplicateCategory { category: GradeCategoryReference },
     NonSequentialCategoryPosition { expected: u32, actual: u32 },
     CategoryWeightsMustSumToTenThousand { total: u32 },
-    DuplicateLetterBand { label: LetterBandLabel },
-    LetterBandThresholdOutOfRange { threshold: u16 },
-    LetterBandsMustDescend,
+    DuplicateLetterGradeBand { label: LetterGradeBandLabel },
+    LetterGradeBandThresholdOutOfRange { threshold: u16 },
+    LetterGradeBandsMustDescend,
 }
 
 impl std::fmt::Display for CourseGradeSchemeError {
@@ -371,7 +372,7 @@ mod tests {
 
     fn category(id: u128, position: u32, weight_basis_points: u16) -> GradeCategory {
         GradeCategory {
-            id: GradeCategoryId::from_uuid(Uuid::from_u128(id)),
+            id: GradeCategoryReference::from_uuid(Uuid::from_u128(id)),
             title: GradeCategoryTitle::new("Labs").expect("valid title"),
             position,
             weight_basis_points,
@@ -385,7 +386,7 @@ mod tests {
             mode: CourseGradeMode::WeightedCategories,
             rounding: CourseGradeRoundingRule::default(),
             categories: vec![category(1, 0, 10_000)],
-            letter_bands: Vec::new(),
+            letter_grade_bands: Vec::new(),
         };
         let json = serde_json::to_string(&scheme).expect("serialize scheme");
         let parsed = serde_json::from_str::<CourseGradeScheme>(&json).expect("parse scheme");
@@ -394,9 +395,9 @@ mod tests {
 
     #[test]
     fn serde_rejects_completion_unknown_and_nonflat_shapes() {
-        let completion = r#"{"mode":"completionBased","rounding":"fourDecimalPlacesHalfAwayFromZero","categories":[],"letterBands":[]}"#;
-        let unknown = r#"{"mode":"totalPoints","rounding":"fourDecimalPlacesHalfAwayFromZero","categories":[],"letterBands":[],"extra":true}"#;
-        let nested = r#"{"mode":{"weightedCategories":{"categories":[]}},"rounding":"fourDecimalPlacesHalfAwayFromZero","categories":[],"letterBands":[]}"#;
+        let completion = r#"{"mode":"completionBased","rounding":"fourDecimalPlacesHalfAwayFromZero","categories":[],"letterGradeBands":[]}"#;
+        let unknown = r#"{"mode":"totalPoints","rounding":"fourDecimalPlacesHalfAwayFromZero","categories":[],"letterGradeBands":[],"extra":true}"#;
+        let nested = r#"{"mode":{"weightedCategories":{"categories":[]}},"rounding":"fourDecimalPlacesHalfAwayFromZero","categories":[],"letterGradeBands":[]}"#;
         assert!(serde_json::from_str::<CourseGradeScheme>(completion).is_err());
         assert!(serde_json::from_str::<CourseGradeScheme>(unknown).is_err());
         assert!(serde_json::from_str::<CourseGradeScheme>(nested).is_err());
@@ -408,8 +409,8 @@ mod tests {
             mode: CourseGradeMode::WeightedCategories,
             rounding: CourseGradeRoundingRule::default(),
             categories: vec![category(1, 1, 9_999)],
-            letter_bands: vec![LetterBand {
-                label: LetterBandLabel::new("A").expect("valid label"),
+            letter_grade_bands: vec![LetterGradeBand {
+                label: LetterGradeBandLabel::new("A").expect("valid label"),
                 minimum_basis_points: 10_001,
             }],
         };
@@ -425,7 +426,7 @@ mod tests {
         scheme.categories[0].weight_basis_points = 10_000;
         assert!(matches!(
             scheme.validate(),
-            Err(CourseGradeSchemeError::LetterBandThresholdOutOfRange { .. })
+            Err(CourseGradeSchemeError::LetterGradeBandThresholdOutOfRange { .. })
         ));
     }
 
@@ -434,13 +435,13 @@ mod tests {
         let view = CourseGradeOutcomeView::Available {
             score: 0.875,
             letter: Some("B+".to_string()),
-            dropped_assignment_ids: Vec::new(),
+            dropped_assignment_grades: Vec::new(),
             total_earned: Some(17.5),
             total_possible: Some(20.0),
         };
         let value = serde_json::to_value(view).expect("view serializes");
         assert_eq!(value["status"], "available");
-        assert!(value.get("droppedAssignmentIds").is_some());
+        assert!(value.get("droppedAssignmentGrades").is_some());
         assert!(value.get("totalEarned").is_some());
         assert!(value.get("totalPossible").is_some());
         let mut invalid = value;
@@ -451,7 +452,7 @@ mod tests {
     #[test]
     fn scheme_update_cannot_decode_read_only_assignment_titles() {
         let value = serde_json::json!({
-            "scheme": {"mode":"totalPoints","rounding":"fourDecimalPlacesHalfAwayFromZero","categories":[],"letterBands":[]},
+            "scheme": {"mode":"totalPoints","rounding":"fourDecimalPlacesHalfAwayFromZero","categories":[],"letterGradeBands":[]},
             "assignments": [{"assignment":"00000000-0000-0000-0000-000000000001","title":"Cannot write this","included":true,"category":null,"position":null}]
         });
         assert!(serde_json::from_value::<CourseGradeSchemeUpdateView>(value).is_err());

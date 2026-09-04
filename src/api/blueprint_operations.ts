@@ -9,7 +9,7 @@ import type { BlueprintOperationPreviewRequest } from "../../generated/api/Bluep
  * Browser capability for one complete Blueprint Course or Course Instance operation.
  *
  * The server owns current authorization, preview facts, apply records, and receipts. The browser
- * submits only a closed operation request and an idempotent apply intent.
+ * submits only a closed operation request and direct apply intent; it does not carry a Retry Token.
  */
 export interface BlueprintOperationsClient {
   readonly previewBlueprintOperation: (

@@ -1,7 +1,7 @@
 //! Browser-safe contracts for an Instructor's non-mutating Question Pool Preview.
 //!
 //! A preview describes a saved Question Pool. It deliberately contains no
-//! selected Question Pool Item identity, seed, Answer Key, student identity,
+//! selected Question Pool Item identity, Question Pool Preview Nonce, Answer Key, Student identity,
 //! or issued-work record. The server owns the temporary preview nonce and discards it after the
 //! response is produced.
 
@@ -21,13 +21,13 @@ pub struct QuestionPoolPreviewRequest {
     pub assignment_entry_id: AssignmentEntryId,
 }
 
-/// The public Question Library identity and title that are safe in an Instructor
+/// The public Question Library identity and Question Title that are safe in an Instructor
 /// preview.  A Question ID remains the sole human-facing question identity.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPoolPreviewItem {
     pub question_id: QuestionId,
-    pub title: String,
+    pub question_title: String,
 }
 
 /// One no-store preview result for a saved assignment Question Pool.
@@ -74,11 +74,11 @@ mod tests {
             },
             items: vec![QuestionPoolPreviewItem {
                 question_id: question_id.clone(),
-                title: "Question Pool Item".to_string(),
+                question_title: "Question Pool Item".to_string(),
             }],
             selected_items: vec![QuestionPoolPreviewItem {
                 question_id,
-                title: "Question Pool Item".to_string(),
+                question_title: "Question Pool Item".to_string(),
             }],
         };
         assert_eq!(
@@ -86,8 +86,8 @@ mod tests {
             serde_json::json!({
                 "assignment":"A-4", "editNumber":"3", "assignmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
                 "selectionCount":1, "selectionRule":{"selectedQuestionOrder":"randomOrder"},
-                "items":[{"questionId":"ABC-DEF1", "title":"Question Pool Item"}],
-                "selectedItems":[{"questionId":"ABC-DEF1", "title":"Question Pool Item"}]
+                "items":[{"questionId":"ABC-DEF1", "questionTitle":"Question Pool Item"}],
+                "selectedItems":[{"questionId":"ABC-DEF1", "questionTitle":"Question Pool Item"}]
             })
         );
     }

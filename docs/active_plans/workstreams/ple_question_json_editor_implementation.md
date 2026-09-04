@@ -70,7 +70,7 @@ bash run_playwright_tests.sh --build \
 ./check_codebase.sh  # all 11 stages; 167 Node tests
 ```
 
-The independent re-review passed. The fixture mounts the real component,
+The independent re-review passed. The browser harness renders the real component,
 client, and repository with same-origin protected-route responses. It proves
 the authoring contract and visible behavior, but does not claim a deployed
 authentication journey or browser walkthrough against a production server.

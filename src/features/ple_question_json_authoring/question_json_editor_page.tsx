@@ -11,7 +11,7 @@ import {
   reducePleQuestionJsonEditor,
   reorderChoices,
   setPleQuestionJsonPrompt,
-  setPleQuestionJsonTitle,
+  setPleQuestionJsonQuestionTitle,
   setLanguage,
   setQuestionDescription,
   setQuestionCitation,
@@ -42,7 +42,7 @@ export type {
 type Review = {
   readonly revision: string;
   readonly baseQuestion: "newQuestion";
-  readonly title: string;
+  readonly questionTitle: string;
   readonly changed: ReadonlyArray<string>;
 };
 
@@ -156,7 +156,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   let headingFocusDelivered = false;
 
   // The draft accessor is the sole render-time source. Each reducer transition updates this
-  // draft editor state together with workflow state, so a mounted response editor never captures a stale
+  // draft editor state together with workflow state, so a rendered response editor never captures a stale
   // Question Response Format branch.
   const [source, setSource] = createSignal<PleQuestionJsonDocument | null>(null);
   // Numeric source values are numbers. This local literal is intentionally separate so partially
@@ -358,7 +358,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     const nextReview: Review = {
       revision: latestRevision(),
       baseQuestion: "newQuestion",
-      title: currentSource().title,
+      questionTitle: currentSource().questionTitle,
       changed: ["PLE Question JSON source"],
     };
     setReview(nextReview);
@@ -464,13 +464,15 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
           <div class="editor-grid">
             <section class="editor-panel">
               <label class="ple-question-json-authoring__field">
-                <span>Question title</span>
+                <span>Question Title</span>
                 <input
-                  value={currentSource().title}
+                  value={currentSource().questionTitle}
                   disabled={isLocked()}
-                  aria-invalid={errors()["title"] !== undefined}
+                  aria-invalid={errors()["questionTitle"] !== undefined}
                   onInput={(event) =>
-                    applyEdit(setPleQuestionJsonTitle(currentSource(), event.currentTarget.value))
+                    applyEdit(
+                      setPleQuestionJsonQuestionTitle(currentSource(), event.currentTarget.value),
+                    )
                   }
                 />
               </label>
@@ -589,7 +591,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
                   {(activeReview) => (
                     <div class="ple-question-json-authoring__review">
                       <p>
-                        <strong>Question:</strong> {activeReview().title}
+                        <strong>Question:</strong> {activeReview().questionTitle}
                       </p>
                       <p>
                         This publication creates a new Question ID. Existing assignments keep their
@@ -644,7 +646,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
                 <>
                   {/* ASVS 1.2.1: server-validated Question Library fields render as Solid text, not HTML. */}
                   <p>
-                    <strong>Question:</strong> {summary.metadata.title}
+                    <strong>Question:</strong> {summary.metadata.questionTitle}
                   </p>
                   <p>
                     <strong>Question ID:</strong> <code>{summary.questionId}</code>

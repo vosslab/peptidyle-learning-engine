@@ -5,7 +5,6 @@ import { MAX_QUESTION_SEARCH_TAG_FACETS } from "../../../generated/api/MAX_QUEST
 import type { QuestionSearchBackendFacet } from "../../../generated/api/QuestionSearchBackendFacet";
 import type { QuestionSearchAuthorFacet } from "../../../generated/api/QuestionSearchAuthorFacet";
 import type { QuestionSearchCapabilityFacet } from "../../../generated/api/QuestionSearchCapabilityFacet";
-import type { QuestionStatisticsAvailabilityFacet } from "../../../generated/api/QuestionStatisticsAvailabilityFacet";
 import type { QuestionSearchQuestionLicenseFacet } from "../../../generated/api/QuestionSearchQuestionLicenseFacet";
 import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionTypeFacet } from "../../../generated/api/QuestionTypeFacet";
@@ -127,21 +126,6 @@ function decodeQuestionSearchQuestionLicenseFacet(
   };
 }
 
-function decodeQuestionStatisticsAvailabilityFacet(
-  value: unknown,
-  path: string,
-): QuestionStatisticsAvailabilityFacet {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["available", "unavailable"]);
-  return {
-    available: decodeNonnegativeInteger(field(record, "available", path), `${path}.available`),
-    unavailable: decodeNonnegativeInteger(
-      field(record, "unavailable", path),
-      `${path}.unavailable`,
-    ),
-  };
-}
-
 function decodeQuestionSearchCourseUseFacet(
   value: unknown,
   path: string,
@@ -166,7 +150,6 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
     "questionTypes",
     "capabilities",
     "questionLicenses",
-    "evidence",
     "usedInMyCourses",
   ]);
   return {
@@ -205,10 +188,6 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
       `${path}.questionLicenses`,
       MAX_QUESTION_SEARCH_QUESTION_LICENSE_FACETS,
       decodeQuestionSearchQuestionLicenseFacet,
-    ),
-    evidence: decodeQuestionStatisticsAvailabilityFacet(
-      field(record, "evidence", path),
-      `${path}.evidence`,
     ),
     usedInMyCourses: decodeQuestionSearchCourseUseFacet(
       field(record, "usedInMyCourses", path),

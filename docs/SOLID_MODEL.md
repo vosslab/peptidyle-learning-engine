@@ -10,7 +10,7 @@ complete inventory of every route-local signal.
 | State                                | Primitive                                    | Owner                                   | Update contract                                                                                                                                                                             |
 | ------------------------------------ | -------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Session identity and roles           | Context containing a signal accessor         | `SessionProvider`                       | Browser-visible state contains identity and roles only. Authentication events replace it; server authorization remains authoritative.                                                       |
-| Shared key-free Wasm facade          | Resource and context                         | `WasmRuntimeProvider`                   | One startup resource loads the facade before Question Response Controls mount. Consumers read context; fallback validation stays behind the same facade.                                    |
+| Shared key-free Wasm facade          | Resource and context                         | `WasmRuntimeProvider`                   | One startup resource loads the facade before Question Response Controls render. Consumers read context; fallback validation stays behind the same facade.                                   |
 | Course route identity and appearance | Route `createAsync` resource and context     | `CourseThemeScope`                      | One route-owned query loads the authorized `CourseRouteView` for Course, Assignment Attempt, and summary paths. Descendants consume it without a second transport request.                  |
 | Course-theme CSS variables           | JSX-derived token functions                  | `CourseThemeScope`                      | The scope applies tokens only below a course-owned route and disposes on pathname change. Global routes receive no course variables.                                                        |
 | PLE PLE Question JSON draft          | Signals, memos, effects, and `<For>`         | `PleQuestionJsonEditorPage`             | The author editor keeps private source, revision, review, status, and locks local. Reducers replace the explicit editor state; derived source/errors stay memos.                            |
@@ -46,7 +46,7 @@ function.
 
 The app owns one Wasm loader resource at startup. Route components read the shared facade from
 context; they do not instantiate modules independently. The same ownership rule applies to the API
-runtime and session bootstrap. `ImathasQuestionBackendResponseControl` installs the same-origin `message` listener at mount and removes it
+runtime and session bootstrap. `ImathasQuestionBackendResponseControl` installs the same-origin `message` listener during component initialization and removes it
 on disposal; a request counter rejects late launch results after a new attempt or disposal.
 
 ## Routing and async data
@@ -62,9 +62,9 @@ summary. The context exposes the authorized `CourseRouteView` to the course entr
 the scope is below the persistent shell and therefore cannot leak a prior
 course's CSS variables onto a global route.
 
-The workspace editor is browser authoring groundwork, not a mounted server capability. Its route
+The workspace editor is browser authoring groundwork, not an implemented server capability. Its route
 guard limits the interface to Instructors and its keyed resource models a private-draft read, but
-the current `server_core` mounts no Authoring Workspace Store or editor HTTP route. The upcoming
+the current `server_core` exposes no Authoring Workspace Store or editor HTTP route. The upcoming
 service must resolve the route-selected opaque Draft Question Reference under Authoring Workspace
 access before it returns any draft. The answer-free preview remains separate, and private author
 source does not enter Student components, URLs, browser storage, or diagnostics.
@@ -72,7 +72,7 @@ source does not enter Student components, URLs, browser storage, or diagnostics.
 QTI profile import is composed with the same browser editor model. Its future server route accepts
 opaque ZIP bytes for review and returns queued, processing, failed, unsupported-profile, or
 answer-free ready-report state. The supported conversion profiles are bounded; the browser does
-not parse ZIP/XML, choose a conversion result, or persist QTI Import Checksums. The mounted implementation
+not parse ZIP/XML, choose a conversion result, or persist QTI Import Checksums. The available implementation
 must require a reviewed accepted item and a clean visible draft before conversion and refetch.
 
 Each route has an error boundary through the app shell so a screen failure leaves navigation usable.
@@ -111,7 +111,7 @@ from that origin and that iframe. The final submission remains the ordinary PLE 
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Navigation, display, controlled input, local buffering, and answer-free previews | Authentication, authorization, authenticated Account context, private drafts, and durable revisions                                  |
 | Course-theme presentation from an authorized `CourseRouteView`                   | Course identity, appearance revision, banner-object authorization, and conflict decisions                                            |
-| Question authoring state and local QTI archive selection                         | Complete Question Source persistence, publication review, backend evaluation, and feedback disclosure                               |
+| Question authoring state and local QTI archive selection                         | Complete Question Source persistence, publication review, backend evaluation, and feedback disclosure                                |
 | QTI report display, item selection, acknowledgement, and refetch handoff         | ZIP/XML parsing, bounded profile recognition, accepted-item evidence, conversion, QTI Import Checksums, and atomic draft replacement |
 | iMathAS iframe presentation and same-origin readiness status                     | iMathAS Question Backend Launch authorization, configuration, correlation, verification, correctness, and grade recording            |
 | Countdown display reconciled from server data                                    | Deadline and late-submission verdict                                                                                                 |

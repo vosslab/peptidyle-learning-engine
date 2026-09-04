@@ -5,7 +5,7 @@ import type { CourseGradeOutcomeView } from "../../generated/api/CourseGradeOutc
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { CourseGradeSchemeUpdateView } from "../../generated/api/CourseGradeSchemeUpdateView";
 import type { CourseGradeSchemeView } from "../../generated/api/CourseGradeSchemeView";
-import type { GradeCategoryId } from "../../generated/api/GradeCategoryId";
+import type { GradeCategoryReference } from "../../generated/api/GradeCategoryReference";
 import { CourseGradeSchemeConflictError } from "../api/http_client";
 import { useApplicationApi } from "../api/application_api";
 import {
@@ -142,7 +142,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
       scheme: { ...current.scheme, categories: [...current.scheme.categories, category] },
     });
   }
-  function removeCategory(categoryId: GradeCategoryId): void {
+  function removeCategory(categoryId: GradeCategoryReference): void {
     const current = draft();
     if (current === undefined) return;
     const categories = current.scheme.categories
@@ -156,7 +156,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
       ),
     });
   }
-  function moveCategory(categoryId: GradeCategoryId, direction: -1 | 1): void {
+  function moveCategory(categoryId: GradeCategoryReference, direction: -1 | 1): void {
     const current = draft();
     if (current === undefined) return;
     const index = current.scheme.categories.findIndex((item) => item.id === categoryId);
@@ -174,7 +174,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
     });
   }
   function editCategory(
-    categoryId: GradeCategoryId,
+    categoryId: GradeCategoryReference,
     field: "title" | "weightBasisPoints" | "dropLowest",
     value: string,
   ): void {
@@ -198,7 +198,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
   function editAssignment(
     assignmentId: CourseGradeSchemeUpdateView["assignments"][number]["assignment"],
     included: boolean,
-    category: GradeCategoryId | null,
+    category: GradeCategoryReference | null,
   ): void {
     const current = draft();
     if (current === undefined) return;
@@ -216,7 +216,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
       ),
     });
   }
-  function selectedCategory(value: string): GradeCategoryId | null {
+  function selectedCategory(value: string): GradeCategoryReference | null {
     const current = draft();
     return current?.scheme.categories.find((item) => item.id === value)?.id ?? null;
   }
@@ -227,7 +227,10 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
       ...current,
       scheme: {
         ...current.scheme,
-        letterBands: [...current.scheme.letterBands, { label: "Letter", minimumBasisPoints: 0 }],
+        letterGradeBands: [
+          ...current.scheme.letterGradeBands,
+          { label: "Letter", minimumBasisPoints: 0 },
+        ],
       },
     });
   }
@@ -240,7 +243,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
       ...current,
       scheme: {
         ...current.scheme,
-        letterBands: current.scheme.letterBands.map((item, itemIndex) =>
+        letterGradeBands: current.scheme.letterGradeBands.map((item, itemIndex) =>
           itemIndex === index ? { ...item, [field]: field === "label" ? value : points! } : item,
         ),
       },
@@ -521,11 +524,11 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
                 </For>
               </section>
               <section>
-                <h2>Letter bands (optional)</h2>
-                <For each={current().scheme.letterBands}>
+                <h2>Letter Grade Bands (optional)</h2>
+                <For each={current().scheme.letterGradeBands}>
                   {(band, index) => (
                     <fieldset>
-                      <legend>Letter band {index() + 1}</legend>
+                      <legend>Letter Grade Band {index() + 1}</legend>
                       <label>
                         Label{" "}
                         <input
@@ -555,7 +558,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
                             ...current(),
                             scheme: {
                               ...current().scheme,
-                              letterBands: current().scheme.letterBands.filter(
+                              letterGradeBands: current().scheme.letterGradeBands.filter(
                                 (_item, itemIndex) => itemIndex !== index(),
                               ),
                             },
@@ -568,7 +571,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
                   )}
                 </For>
                 <button type="button" onClick={addBand}>
-                  Add letter band
+                  Add Letter Grade Band
                 </button>
               </section>
               <div>
@@ -645,7 +648,7 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
                                 </td>
                                 <td>
                                   {row.outcome.status === "available"
-                                    ? (row.outcome.letter ?? "No letter band")
+                                    ? (row.outcome.letter ?? "No Letter Grade Band")
                                     : ""}
                                 </td>
                               </Show>

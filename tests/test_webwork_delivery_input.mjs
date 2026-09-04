@@ -20,7 +20,7 @@ test("WebWork Published Question fixture input accepts only the canonical public
         questionId: "ABC-1234",
         scenarioId: "webwork_delivery",
         schemaVersion: 1,
-        title: webworkPublishedQuestionTitle,
+        questionTitle: webworkPublishedQuestionTitle,
       }),
       { encoding: "ascii", mode: 0o600 },
     );
@@ -33,7 +33,7 @@ test("WebWork Published Question fixture input accepts only the canonical public
         questionId: "ABC-1234",
         scenarioId: "webwork_delivery",
         schemaVersion: 1,
-        title: webworkPublishedQuestionTitle,
+        questionTitle: webworkPublishedQuestionTitle,
       },
     );
     writeFileSync(
@@ -43,7 +43,7 @@ test("WebWork Published Question fixture input accepts only the canonical public
         scenarioId: "webwork_delivery",
         schemaVersion: 1,
         source: "private",
-        title: webworkPublishedQuestionTitle,
+        questionTitle: webworkPublishedQuestionTitle,
       }),
       { encoding: "ascii" },
     );
@@ -69,7 +69,7 @@ test("WebWork visible issuance acknowledgement uses the owner canonical field or
         questionId: "ABC-1234",
         scenarioId: "webwork_delivery",
         schemaVersion: 1,
-        title: webworkPublishedQuestionTitle,
+        questionTitle: webworkPublishedQuestionTitle,
       },
       "bs1-0123456789ab-webwork_delivery",
     );

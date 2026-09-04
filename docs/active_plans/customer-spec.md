@@ -9,7 +9,7 @@ Peptidyle Learning Engine is a backend-agnostic assignment and assessment platfo
 
 The platform provides one common execution layer for registered Question
 Backends, including PLE Question JSON, WeBWorK, iMathAS, and supported H5P
-content. QTI supplies flat-question import, export, and archive interchange;
+content. QTI supplies import, export, and archive interchange;
 supported QTI imports become PLE Question JSON before entering the shared
 Draft Question and publication pipeline.
 

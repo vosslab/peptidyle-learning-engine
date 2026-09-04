@@ -13,5 +13,7 @@ pub mod composition;
 pub mod health;
 /// Uniform dynamic-response security headers.
 pub(crate) mod http_security;
+/// Server-only verified Question Publication coordination.
+pub mod question_publication;
 /// Process-wide safe request lifecycle handling.
 pub mod request_lifecycle;

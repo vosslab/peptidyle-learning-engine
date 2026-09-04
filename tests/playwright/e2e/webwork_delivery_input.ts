@@ -8,7 +8,7 @@ export interface WebworkPublishedQuestionFixtureInput {
   readonly schemaVersion: 1;
   readonly scenarioId: "webwork_delivery";
   readonly questionId: string;
-  readonly title: typeof webworkPublishedQuestionTitle;
+  readonly questionTitle: typeof webworkPublishedQuestionTitle;
 }
 
 export interface VisibleIssuanceAcknowledgement {
@@ -35,8 +35,8 @@ export function requireWebworkPublishedQuestionFixtureInput(
     value.scenarioId !== "webwork_delivery" ||
     typeof value.questionId !== "string" ||
     !questionId.test(value.questionId) ||
-    value.title !== webworkPublishedQuestionTitle ||
-    keyList(value) !== "questionId,scenarioId,schemaVersion,title"
+    value.questionTitle !== webworkPublishedQuestionTitle ||
+    keyList(value) !== "questionId,questionTitle,scenarioId,schemaVersion"
   ) {
     throw new Error("WebWork Published Question fixture input is invalid");
   }
@@ -44,7 +44,7 @@ export function requireWebworkPublishedQuestionFixtureInput(
     schemaVersion: 1,
     scenarioId: "webwork_delivery",
     questionId: value.questionId,
-    title: webworkPublishedQuestionTitle,
+    questionTitle: webworkPublishedQuestionTitle,
   };
   requireCanonical(contents, result);
   return result;
@@ -117,7 +117,7 @@ function requireCanonical(contents: string, value: WebworkPublishedQuestionFixtu
     questionId: value.questionId,
     scenarioId: value.scenarioId,
     schemaVersion: value.schemaVersion,
-    title: value.title,
+    questionTitle: value.questionTitle,
   });
   if (contents !== canonical) {
     throw new Error("WebWork Published Question fixture input must use canonical ASCII JSON");

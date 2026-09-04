@@ -31,8 +31,8 @@ function gradeSettingsStatus(page: Page): Locator {
   return page.locator("#grade-settings-status");
 }
 
-async function addLetterBand(page: Page, label: string): Promise<void> {
-  await page.getByRole("button", { name: "Add letter band" }).click();
+async function addLetterGradeBand(page: Page, label: string): Promise<void> {
+  await page.getByRole("button", { name: "Add Letter Grade Band" }).click();
   const labels = page.getByRole("textbox", { name: "Label" });
   await expect(labels.last()).toBeVisible();
   await labels.last().fill(label);
@@ -122,13 +122,13 @@ test.describe("instructor grade-settings conflicts on the production PLE stack",
       });
 
       await test.step("the remote instructor saves an ordinary visible change", async () => {
-        await addLetterBand(remote, remoteLabel);
+        await addLetterGradeBand(remote, remoteLabel);
         await remote.getByRole("button", { name: "Save grade settings" }).click();
         await expect(gradeSettingsStatus(remote)).toHaveText("Grade settings saved.");
       });
 
       await test.step("the stale instructor sees retained work and deliberately retries it", async () => {
-        await addLetterBand(local, localLabel);
+        await addLetterGradeBand(local, localLabel);
         await local.getByRole("button", { name: "Save grade settings" }).click();
         await expect(gradeSettingsStatus(local)).toContainText("Your draft is preserved");
         const preservedDraft = local.getByRole("textbox", { name: "Label" }).last();

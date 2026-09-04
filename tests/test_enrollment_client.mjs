@@ -207,7 +207,7 @@ test("bulk delivery keeps only row numbers and coarse outcomes", () => {
   );
 });
 
-test("roster mutations preserve change numbers idempotency and protected export headers", async () => {
+test("roster mutations use their exact change numbers and import identity", async () => {
   const requests = [];
   const client = createHttpApiClient({
     fetch: async (input, init = {}) => {
@@ -265,19 +265,18 @@ test("roster mutations preserve change numbers idempotency and protected export 
     },
   });
 
-  await client.inviteCourseMember(COURSE, "student@example.edu", "900123456", "invite-once");
+  await client.inviteCourseMember(COURSE, "student@example.edu", "900123456");
   await client.previewRosterImport(
     COURSE,
     new Blob(["email,roster_id\nstudent@example.edu,900123456\n"], { type: "text/csv" }),
     "4",
-    "preview-once",
   );
   await client.replaceCourseInvitationEmailRule(
     COURSE,
     { allowedEmailDomains: [{ domain: "example.edu", includeSubdomains: false }] },
     "4",
   );
-  assert.equal(requests[0]?.init.headers["idempotency-key"], "invite-once");
+  assert.equal(requests[0]?.init.headers["idempotency-key"], undefined);
   assert.equal(requests[1]?.init.headers["if-match"], '"4"');
   assert.equal(requests[1]?.init.headers["content-type"], "text/csv; charset=utf-8");
   assert.match(requests[2]?.path ?? "", /\/invitation-email-rule$/u);

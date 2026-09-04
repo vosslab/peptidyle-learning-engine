@@ -20,28 +20,7 @@ import type { QuestionUseSummary } from "../../../generated/api/QuestionUseSumma
 import type { AssignmentCompletionRule } from "../../../generated/api/AssignmentCompletionRule";
 import type { AssignmentAttemptContinuationRule } from "../../../generated/api/AssignmentAttemptContinuationRule";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
-import type {
-  AssignmentRouteReference,
-  CourseInstanceRouteReference,
-} from "../../navigation/public_route";
 import { decodeQuestionAuthorship } from "../question_authorship";
-import {
-  parseAssignmentReference,
-  parseCourseInstanceReference,
-} from "../../navigation/public_route";
-
-function decodeCourseInstanceReference(value: unknown, path: string): CourseInstanceRouteReference {
-  if (typeof value !== "string") throw new DecodeError(path, "a C- reference");
-  const reference = parseCourseInstanceReference(value);
-  if (reference === null) throw new DecodeError(path, "a C- reference");
-  return reference;
-}
-export function decodeAssignmentReference(value: unknown, path: string): AssignmentRouteReference {
-  if (typeof value !== "string") throw new DecodeError(path, "an A- reference");
-  const reference = parseAssignmentReference(value);
-  if (reference === null) throw new DecodeError(path, "an A- reference");
-  return reference;
-}
 import type { AssignmentPointValue } from "../../../generated/api/AssignmentPointValue";
 import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 import type { QuestionPoolSelectedQuestionOrder } from "../../../generated/api/QuestionPoolSelectedQuestionOrder";
@@ -71,15 +50,16 @@ import { MAX_ASSIGNMENT_QUESTION_POOL_ITEMS } from "../../../generated/api/MAX_A
 import { MAX_QUESTION_SEARCH_OWN_COURSE_USAGES } from "../../../generated/api/MAX_QUESTION_SEARCH_OWN_COURSE_USAGES";
 import {
   MAX_QUESTION_SEARCH_PAGE_ITEMS,
-  MINIMUM_STATISTICS_COHORT_SIZE,
-  STATISTICS_DURATION_ESTIMATES_SECONDS,
+  decodeAssignmentReference,
   decodeAssignmentTitle,
+  decodeCourseTitle,
   decodeQuestionBackendCapabilities,
   decodeBoundedArray,
   decodeQuestionRevisionReference,
   decodeQuestionRevisionAvailability,
   decodeCursor,
   decodeQuestionTitle,
+  decodeCourseInstanceReference,
   decodeIdentifier,
   decodeQuestionMetadata,
   decodeQuestionId,
@@ -180,116 +160,14 @@ export function isAvailablePleQuestionSummary(summary: QuestionSummary): boolean
   return summary.backend === "ple" && summary.availability.availability === "available";
 }
 
-function decodeUnitInterval(value: unknown, path: string): number {
-  const decoded = decodeFiniteNumber(value, path);
-  if (decoded < 0 || decoded > 1) {
-    throw new DecodeError(path, "a finite number from 0 through 1");
-  }
-  return decoded;
-}
-
-function decodeCorrelation(value: unknown, path: string): number {
-  const decoded = decodeFiniteNumber(value, path);
-  if (decoded < -1 || decoded > 1) {
-    throw new DecodeError(path, "a finite correlation from -1 through 1");
-  }
-  return decoded;
-}
-
 function decodeQuestionStatistics(value: unknown, path: string): QuestionStatistics {
   const record = decodeRecord(value, path);
-  const evidenceState = decodeStringEnum(field(record, "state", path), `${path}.state`, [
-    "insufficientEvidence",
-    "available",
-  ]);
-  if (evidenceState === "insufficientEvidence") {
-    requireOnlyFields(record, path, ["state"]);
-    return { state: evidenceState };
-  }
-  requireOnlyFields(record, path, [
-    "state",
-    "formulaVersion",
-    "observedCourseCount",
-    "independentLearnerObservationCount",
-    "difficultyIndex",
-    "attemptsMean",
-    "timeMedianSecondsEstimate",
-    "discriminationIndex",
-    "evidenceAt",
-  ]);
-  const formulaVersion = decodePositiveInteger(
-    field(record, "formulaVersion", path),
-    `${path}.formulaVersion`,
-  );
-  if (formulaVersion > 65_535) {
-    throw new DecodeError(`${path}.formulaVersion`, "a positive 16-bit formula version");
-  }
-  const observedCourseCount = decodePositiveInteger(
-    field(record, "observedCourseCount", path),
-    `${path}.observedCourseCount`,
-  );
-  if (observedCourseCount < 2) {
-    throw new DecodeError(`${path}.observedCourseCount`, "a safe integer at least 2");
-  }
-  const independentLearnerObservationCount = decodeNonnegativeInteger(
-    field(record, "independentLearnerObservationCount", path),
-    `${path}.independentLearnerObservationCount`,
-  );
-  if (independentLearnerObservationCount < MINIMUM_STATISTICS_COHORT_SIZE) {
-    throw new DecodeError(
-      `${path}.independentLearnerObservationCount`,
-      `a safe integer at least ${MINIMUM_STATISTICS_COHORT_SIZE}`,
-    );
-  }
-  if (independentLearnerObservationCount < observedCourseCount) {
-    throw new DecodeError(
-      `${path}.independentLearnerObservationCount`,
-      "a count at least as large as observedCourseCount",
-    );
-  }
-  const attemptsMean = decodeFiniteNumber(
-    field(record, "attemptsMean", path),
-    `${path}.attemptsMean`,
-  );
-  if (attemptsMean < 1) {
-    throw new DecodeError(`${path}.attemptsMean`, "a finite number at least 1");
-  }
-  const timeMedianSecondsEstimate = decodeNonnegativeInteger(
-    field(record, "timeMedianSecondsEstimate", path),
-    `${path}.timeMedianSecondsEstimate`,
-  );
-  if (
-    !STATISTICS_DURATION_ESTIMATES_SECONDS.some(
-      (estimate) => estimate === timeMedianSecondsEstimate,
-    )
-  ) {
-    throw new DecodeError(
-      `${path}.timeMedianSecondsEstimate`,
-      "a supported fixed-histogram duration estimate",
-    );
-  }
-  const discriminationIndex =
-    "discriminationIndex" in record
-      ? decodeCorrelation(field(record, "discriminationIndex", path), `${path}.discriminationIndex`)
-      : undefined;
-  const decoded = {
-    state: evidenceState,
-    formulaVersion,
-    observedCourseCount,
-    independentLearnerObservationCount,
-    difficultyIndex: decodeUnitInterval(
-      field(record, "difficultyIndex", path),
-      `${path}.difficultyIndex`,
-    ),
-    attemptsMean,
-    timeMedianSecondsEstimate,
-    ...(discriminationIndex === undefined ? {} : { discriminationIndex }),
-    evidenceAt: decodeNonnegativeInteger(field(record, "evidenceAt", path), `${path}.evidenceAt`),
-  } satisfies QuestionStatistics;
-  return decoded;
+  requireOnlyFields(record, path, ["state"]);
+  const state = decodeStringEnum(field(record, "state", path), `${path}.state`, ["unavailable"]);
+  return { state };
 }
 
-function decodeQuestionSearchResult(value: unknown, path: string): QuestionSearchResult {
+export function decodeQuestionSearchResult(value: unknown, path: string): QuestionSearchResult {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["summary", "evidence"]);
   return {
@@ -341,7 +219,7 @@ function decodeCourseQuestionUse(value: unknown, path: string): CourseQuestionUs
   requireOnlyFields(record, path, ["course", "title", "assignmentCount"]);
   return {
     course: decodeCourseInstanceReference(field(record, "course", path), `${path}.course`),
-    title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
+    title: decodeCourseTitle(field(record, "title", path), `${path}.title`),
     assignmentCount: decodePositiveInteger(
       field(record, "assignmentCount", path),
       `${path}.assignmentCount`,
@@ -570,7 +448,7 @@ export function decodeCourseSummary(value: unknown, path = "response"): CourseSu
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
-    title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
+    title: decodeCourseTitle(field(record, "title", path), `${path}.title`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
     role: decodeStringEnum(field(record, "role", path), `${path}.role`, ["student", "instructor"]),
   } satisfies CourseSummary;
@@ -581,10 +459,7 @@ export function decodeCourseSummary(value: unknown, path = "response"): CourseSu
 export function decodeCourseCreateInput(value: unknown, path = "request"): CourseCreateInput {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["title", "term"]);
-  const title = decodeNonemptyString(field(record, "title", path), `${path}.title`);
-  if (title.trim().length === 0) {
-    throw new DecodeError(`${path}.title`, "a course title containing non-whitespace content");
-  }
+  const title = decodeCourseTitle(field(record, "title", path), `${path}.title`);
   const decoded = {
     title,
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
@@ -622,7 +497,7 @@ function decodeFixedQuestionAssignmentEntry(
     "kind",
     "id",
     "questionId",
-    "title",
+    "questionTitle",
     "backend",
     "capabilities",
     "pointsPossible",
@@ -634,7 +509,10 @@ function decodeFixedQuestionAssignmentEntry(
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-    title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
+    questionTitle: decodeQuestionTitle(
+      field(record, "questionTitle", path),
+      `${path}.questionTitle`,
+    ),
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
       "ple",
       "webwork",
@@ -814,7 +692,7 @@ function decodeQuestionPoolItem(value: unknown, path: string): QuestionPoolItem 
   requireOnlyFields(record, path, [
     "id",
     "questionId",
-    "title",
+    "questionTitle",
     "backend",
     "capabilities",
     "availability",
@@ -822,7 +700,10 @@ function decodeQuestionPoolItem(value: unknown, path: string): QuestionPoolItem 
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-    title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
+    questionTitle: decodeQuestionTitle(
+      field(record, "questionTitle", path),
+      `${path}.questionTitle`,
+    ),
     backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
       "ple",
       "webwork",

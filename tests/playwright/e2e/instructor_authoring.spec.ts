@@ -71,8 +71,8 @@ test.describe("instructor authoring on the production PLE stack", () => {
         elena.getByRole("heading", { name: "Draft, preview, and publish a learning question" }),
       ).toBeVisible();
       await elena.getByRole("button", { name: "Create Question" }).click();
-      await expect(elena.getByLabel("Question title")).toBeVisible();
-      await elena.getByLabel("Question title").fill(questionTitle);
+      await expect(elena.getByLabel("Question Title")).toBeVisible();
+      await elena.getByLabel("Question Title").fill(questionTitle);
       await elena.getByLabel("Student-facing prompt").fill(prompt);
       await elena.getByLabel("Question format").selectOption("multipleAnswer");
       await elena.getByLabel("Choice text").nth(0).fill(correctChoice);
@@ -100,7 +100,7 @@ test.describe("instructor authoring on the production PLE stack", () => {
       await expect(publicationResult).toContainText("Question ID:");
       await expect(publicationResult).toContainText("By: Dr. Elena Rivera");
 
-      await elena.getByRole("link", { name: "Library", exact: true }).click();
+      await elena.getByRole("link", { name: "Question Library", exact: true }).click();
       await expect(
         elena.getByRole("heading", { name: "Question library", exact: true }),
       ).toBeVisible();

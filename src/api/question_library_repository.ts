@@ -82,10 +82,6 @@ function selectedPublicText(value: string | null): Array<string> {
   return value === null ? [] : [value];
 }
 
-function evidenceFilter(value: string | null): QuestionSearchRequest["evidence"] {
-  return value === "available" || value === "unavailable" ? value : "any";
-}
-
 function facets(
   page: Awaited<ReturnType<ApiClient["searchQuestionLibrary"]>>,
 ): ReadonlyArray<QuestionLibraryBrowseFacetAggregate> {
@@ -120,12 +116,6 @@ function facets(
       value: facet.questionLicense,
       count: facet.count,
     })),
-    { facet: "evidence" as const, value: "available", count: page.facets.evidence.available },
-    {
-      facet: "evidence" as const,
-      value: "unavailable",
-      count: page.facets.evidence.unavailable,
-    },
     { facet: "usedInMyCourses" as const, value: "used", count: page.facets.usedInMyCourses.used },
   ];
 }
@@ -144,7 +134,6 @@ export function questionSearchRequest(
     question_types: selectedQuestionType(query.questionType),
     capabilities: selectedCapability(query.capability),
     question_licenses: selectedQuestionLicense(query.questionLicense),
-    evidence: evidenceFilter(query.evidence),
     used_in_my_courses: query.usedInMyCourses === "used" ? "used" : "any",
     authorship,
     cursor,
@@ -164,22 +153,12 @@ export function createQuestionLibraryRepository(
       return {
         items: page.items.map((item) => ({
           displayId: item.summary.questionId,
-          title: item.summary.metadata.title,
+          questionTitle: item.summary.metadata.questionTitle,
           summary: item.summary.metadata.questionDescription,
           authorNames: item.summary.authorship.authors.map((author) => author.displayName),
           capabilities: item.summary.capabilities,
           questionLicense: item.summary.metadata.questionLicense,
-          evidence:
-            item.evidence.state === "available"
-              ? {
-                  state: "available" as const,
-                  observedCourseCount: item.evidence.observedCourseCount,
-                  independentLearnerObservationCount:
-                    item.evidence.independentLearnerObservationCount,
-                  difficultyIndex: item.evidence.difficultyIndex,
-                  discriminationIndex: item.evidence.discriminationIndex ?? undefined,
-                }
-              : { state: "insufficientEvidence" as const },
+          evidence: { state: "unavailable" as const },
         })),
         nextCursor: page.nextCursor,
         aggregates: facets(page),

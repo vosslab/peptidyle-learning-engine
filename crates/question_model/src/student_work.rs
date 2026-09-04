@@ -266,7 +266,7 @@ pub struct IssuedQuestion {
     ///
     /// The value is frozen when the Assignment Attempt begins so later assignment scoring
     /// changes cannot rewrite the validity of an observed student response.
-    pub statistics_eligible: bool,
+    pub question_statistics_eligibility: bool,
     /// Immutable Question Pool Selection that produced this Issued Question, if it was drawn.
     pub question_pool_selection: Option<QuestionPoolSelectionId>,
     /// Exact Question Pool Item in that Question Pool Selection, if it was drawn.
@@ -527,9 +527,9 @@ pub struct StudentAssignmentGrade {
     /// Most recently completed Assignment Attempt score when available.
     pub latest_score: Option<f64>,
     /// Current anonymous class statistics when the assignment policy permits
-    /// their disclosure. Absent means the server withholds this Question Statistics View.
+    /// their disclosure. Absent means the server withholds Class Statistics.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub class_statistics: Option<crate::StudentClassStatistics>,
+    pub class_statistics: Option<crate::ClassStatistics>,
 }
 
 /// Key-free Student Assignment activity facts.
@@ -697,7 +697,7 @@ mod tests {
             reference,
             point_value: crate::AssignmentPointValue::from_whole(1),
             scoring_rule: crate::AssignmentEntryScoringRule::Normal,
-            statistics_eligible: true,
+            question_statistics_eligibility: true,
             question_pool_selection: Some(selection_id),
             question_pool_item: Some(question_pool_item_id),
         };

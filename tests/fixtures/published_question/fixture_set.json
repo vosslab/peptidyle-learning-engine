@@ -15,7 +15,7 @@
     "questionType": "multipleChoice",
     "capabilities": ["clientRendering", "serverGrading", "hints", "questionAttemptTimeLimit"],
     "metadata": {
-      "title": "Peptide bond resonance and planarity",
+      "questionTitle": "Peptide bond resonance and planarity",
       "questionDescription": "Instructor-facing discovery summary for peptide-bond resonance and planarity.",
       "tags": ["biochemistry", "protein-structure"],
       "questionLicense": "CC-BY-4.0",
@@ -67,7 +67,7 @@
         "kind": "fixedQuestion",
         "id": "0198e000-0000-7000-8000-000000000017",
         "questionId": "7K3-M9QP",
-        "title": "Peptide bond resonance and planarity",
+        "questionTitle": "Peptide bond resonance and planarity",
         "backend": "ple",
         "capabilities": [
           "algorithmicGeneration",
@@ -199,7 +199,7 @@
       },
       "pointValue": "1",
       "scoringRule": "normal",
-      "statisticsEligible": true,
+      "questionStatisticsEligibility": true,
       "questionPoolSelection": null,
       "questionPoolItem": null
     },
@@ -215,7 +215,7 @@
       },
       "pointValue": "1",
       "scoringRule": "normal",
-      "statisticsEligible": true,
+      "questionStatisticsEligibility": true,
       "questionPoolSelection": null,
       "questionPoolItem": null
     },
@@ -231,7 +231,7 @@
       },
       "pointValue": "1",
       "scoringRule": "normal",
-      "statisticsEligible": true,
+      "questionStatisticsEligibility": true,
       "questionPoolSelection": null,
       "questionPoolItem": null
     },
@@ -247,7 +247,7 @@
       },
       "pointValue": "1",
       "scoringRule": "normal",
-      "statisticsEligible": true,
+      "questionStatisticsEligibility": true,
       "questionPoolSelection": null,
       "questionPoolItem": null
     }

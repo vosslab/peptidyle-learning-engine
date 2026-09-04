@@ -53,7 +53,7 @@ const assignmentPoliciesValidationFailure = {
   issues: [
     {
       kind: "capability",
-      title: "Peptide geometry",
+      questionTitle: "Peptide geometry",
       questionId: "7K3-M9QP",
       capability: "serverGrading",
     },

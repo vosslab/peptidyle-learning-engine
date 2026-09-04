@@ -71,10 +71,10 @@ function editNumber(value: unknown, path: string): string {
 }
 
 function previewItem(value: unknown, path: string): QuestionPoolPreviewItem {
-  const record = closed(value, path, ["questionId", "title"]);
+  const record = closed(value, path, ["questionId", "questionTitle"]);
   return {
     questionId: questionId(record.questionId, `${path}.questionId`),
-    title: label(record.title, `${path}.title`),
+    questionTitle: label(record.questionTitle, `${path}.questionTitle`),
   };
 }
 

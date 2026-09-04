@@ -2,7 +2,7 @@
 //!
 //! These types describe request intent and publication validation only. The
 //! server resolves question references, course-local times, and authority
-//! before it changes the authoritative assignment aggregate.
+//! before it changes the authoritative Assignment and its current Assignment Revision.
 
 use serde::{Deserialize, Serialize};
 
@@ -85,7 +85,7 @@ pub enum AssignmentPoliciesValidationIssue {
     },
     /// A selected question backend cannot satisfy one required capability.
     Capability {
-        title: String,
+        question_title: String,
         question_id: QuestionId,
         capability: Capability,
     },
@@ -149,7 +149,7 @@ pub enum AssignmentReleaseIssue {
 /// An empty issue list means the Assignment Content has the currently known minimum
 /// conditions for publication. This Assignment Release Validation is intentionally derived rather than
 /// a second persisted state, so future closed blockers can extend it without
-/// changing the assignment aggregate.
+/// changing the Assignment or its current Assignment Revision.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssignmentReleaseValidation {

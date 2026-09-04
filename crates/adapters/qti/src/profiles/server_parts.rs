@@ -72,7 +72,7 @@ impl QtiMappedItemServerParts {
         self,
     ) -> Result<ImportedPleQuestionJson, ImportedPleQuestionJsonError> {
         let input = ImportedSingleChoiceInput::new(
-            self.public_mapping.title,
+            self.public_mapping.question_title,
             "Imported from a supported QTI package.".to_string(),
             self.public_mapping.prompt_markdown,
             self.public_mapping

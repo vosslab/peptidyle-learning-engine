@@ -1,4 +1,6 @@
-use question_model::response::{ResponseItemReference, StudentResponse};
+use question_model::response::{QuestionResponseFormat, ResponseItemReference, StudentResponse};
+use question_model::{QuestionAssetId, QuestionAssetReference};
+use uuid::Uuid;
 
 use super::{PLE_QUESTION_JSON_MEDIA_TYPE, PleQuestionJsonDocument, PleQuestionJsonError};
 
@@ -55,4 +57,48 @@ fn unsupported_version_is_refused_without_a_legacy_reader() {
         PleQuestionJsonDocument::parse(source.as_bytes()),
         Err(PleQuestionJsonError::UnsupportedVersion(2))
     ));
+}
+
+#[test]
+fn hotspot_publication_retargets_the_complete_question_asset_reference() {
+    let source = br#"{
+        "format": "pleQuestionJson",
+        "version": 3,
+        "questionTitle": "Locate the active site",
+        "questionDescription": "A hotspot question.",
+        "prompt": "Select the active site.",
+        "response": {
+            "kind": "hotspot",
+            "surface": {
+                "questionAsset": "00000000-0000-4000-8000-000000000001",
+                "checksum": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "description": "Protein structure"
+            },
+            "regions": [{
+                "id": "active-site",
+                "label": "Active site",
+                "x": 10,
+                "y": 10,
+                "width": 20,
+                "height": 20
+            }],
+            "correctRegions": ["active-site"]
+        },
+        "language": "en"
+    }"#;
+    let replacement = QuestionAssetReference {
+        question_asset: QuestionAssetId::from_uuid(Uuid::from_u128(2)),
+        checksum: "b".repeat(64),
+    };
+
+    let document = PleQuestionJsonDocument::parse(source).expect("hotspot source parses");
+    let published = document
+        .with_hotspot_surface_asset(replacement.clone())
+        .expect("hotspot asset reference retargets");
+    let compiled = published.compile().expect("retargeted source compiles");
+
+    let QuestionResponseFormat::Hotspot { surface, .. } = compiled.presentation().response() else {
+        panic!("retargeted source remains a hotspot question");
+    };
+    assert_eq!(surface, &replacement);
 }

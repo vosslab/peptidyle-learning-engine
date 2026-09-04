@@ -52,7 +52,6 @@ impl VerifiedImathasResult {
     pub fn stage(
         self,
         lease: learning_data_access::ImathasQuestionBackendSessionLease,
-        idempotency_key: learning_data_access::ImathasResultExchangeIdempotencyKey,
         transitioned_at: question_model::Timestamp,
     ) -> Result<learning_data_access::StageVerifiedImathasResult, learning_data_access::StoreError>
     {
@@ -60,7 +59,6 @@ impl VerifiedImathasResult {
             lease,
             self.grading_context,
             self.launch_session_authentication,
-            idempotency_key,
             self.imathas_result_token_checksum,
             self.imathas_result,
             transitioned_at,
@@ -143,7 +141,7 @@ pub enum ImathasAdapterError {
     SourceDoesNotMatchQuestion,
     InvalidCache,
     InvalidImathasQuestionBackendRender,
-    InvalidTitle(QuestionTitleError),
+    InvalidQuestionTitle(QuestionTitleError),
     InvalidImathasQuestionBackendSessionAuthentication,
     VerificationRefused,
     QuestionBackend(ImathasQuestionBackendFailure),
@@ -170,7 +168,9 @@ impl std::fmt::Display for ImathasAdapterError {
             Self::InvalidImathasQuestionBackendRender => {
                 f.write_str("invalid iMathAS Question Backend render")
             }
-            Self::InvalidTitle(error) => write!(f, "invalid iMathAS question title: {error}"),
+            Self::InvalidQuestionTitle(error) => {
+                write!(f, "invalid iMathAS Question Title: {error}")
+            }
             Self::InvalidImathasQuestionBackendSessionAuthentication => {
                 f.write_str("invalid server-held iMathAS Question Backend Session authentication")
             }

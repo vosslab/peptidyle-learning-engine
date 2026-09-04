@@ -23,7 +23,7 @@ import {
   decodeStringEnum,
 } from "../decoder";
 import { decodeStudentFeedbackReleaseRule } from "./assignment_policy";
-import { decodeQuestionSummary } from "./question_library";
+import { decodeQuestionSearchResult } from "./question_library";
 import { decodeBoundedArray, decodeCursor, field, requireOnlyFields } from "./shared";
 
 const MAX_PAGE_SIZE = 100;
@@ -360,17 +360,19 @@ export function decodeCreateBlueprintCourseContentInput(
   return value as CreateBlueprintCourseContentInput;
 }
 
-function replacementHandle(value: unknown, path: string, idField: string): void {
+// ASVS 1.5.2, 2.2.1, and 2.2.2: accept only the exact retained-reference-or-New shape.
+function replacementChoice(value: unknown, path: string, referenceField: string): void {
   const record = decodeRecord(value, path);
   const kind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, ["retained", "new"]);
-  requireOnlyFields(record, path, kind === "new" ? ["kind"] : ["kind", idField]);
-  if (kind === "retained") decodeNonemptyString(field(record, idField, path), `${path}.${idField}`);
+  requireOnlyFields(record, path, kind === "new" ? ["kind"] : ["kind", referenceField]);
+  if (kind === "retained")
+    decodeNonemptyString(field(record, referenceField, path), `${path}.${referenceField}`);
 }
 
 function replacementModule(value: unknown, path: string): unknown {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["handle", "label", "assignments"]);
-  replacementHandle(field(record, "handle", path), `${path}.handle`, "module_id");
+  requireOnlyFields(record, path, ["choice", "label", "assignments"]);
+  replacementChoice(field(record, "choice", path), `${path}.choice`, "blueprint_module_reference");
   text(field(record, "label", path), `${path}.label`);
   const assignments = decodeBoundedArray(
     field(record, "assignments", path),
@@ -378,11 +380,11 @@ function replacementModule(value: unknown, path: string): unknown {
     MAX_ASSIGNMENT_ORDERED_ENTRIES,
     (contentValue, contentPath) => {
       const content = decodeRecord(contentValue, contentPath);
-      requireOnlyFields(content, contentPath, ["handle", "content"]);
-      replacementHandle(
-        field(content, "handle", contentPath),
-        `${contentPath}.handle`,
-        "assignment_id",
+      requireOnlyFields(content, contentPath, ["choice", "content"]);
+      replacementChoice(
+        field(content, "choice", contentPath),
+        `${contentPath}.choice`,
+        "blueprint_assignment_reference",
       );
       assignmentContent(field(content, "content", contentPath), `${contentPath}.content`);
       return contentValue;
@@ -413,28 +415,7 @@ export function decodeReplaceBlueprintCourseContentInput(
 function questionView(value: unknown, path: string): void {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["question_library", "selection_availability"]);
-  const questionLibrary = decodeRecord(
-    field(record, "question_library", path),
-    `${path}.question_library`,
-  );
-  requireOnlyFields(questionLibrary, `${path}.question_library`, ["summary", "evidence"]);
-  decodeQuestionSummary(
-    field(questionLibrary, "summary", `${path}.question_library`),
-    `${path}.question_library.summary`,
-    true,
-  );
-  const evidence = decodeRecord(
-    field(questionLibrary, "evidence", `${path}.question_library`),
-    `${path}.question_library.evidence`,
-  );
-  const state = decodeStringEnum(
-    field(evidence, "state", `${path}.question_library.evidence`),
-    `${path}.question_library.evidence.state`,
-    ["insufficientEvidence", "available"],
-  );
-  if (state === "insufficientEvidence") {
-    requireOnlyFields(evidence, `${path}.question_library.evidence`, ["state"]);
-  }
+  decodeQuestionSearchResult(field(record, "question_library", path), `${path}.question_library`);
   decodeStringEnum(
     field(record, "selection_availability", path),
     `${path}.selection_availability`,
@@ -511,8 +492,11 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
     MAX_ASSIGNMENT_ORDERED_ENTRIES,
     (moduleValue, modulePath) => {
       const module = decodeRecord(moduleValue, modulePath);
-      requireOnlyFields(module, modulePath, ["module_id", "label", "assignments"]);
-      decodeNonemptyString(field(module, "module_id", modulePath), `${modulePath}.module_id`);
+      requireOnlyFields(module, modulePath, ["blueprint_module_reference", "label", "assignments"]);
+      decodeNonemptyString(
+        field(module, "blueprint_module_reference", modulePath),
+        `${modulePath}.blueprint_module_reference`,
+      );
       text(field(module, "label", modulePath), `${modulePath}.label`);
       decodeBoundedArray(
         field(module, "assignments", modulePath),
@@ -520,10 +504,10 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
         MAX_ASSIGNMENT_ORDERED_ENTRIES,
         (contentValue, contentPath) => {
           const content = decodeRecord(contentValue, contentPath);
-          requireOnlyFields(content, contentPath, ["assignment_id", "content"]);
+          requireOnlyFields(content, contentPath, ["blueprint_assignment_reference", "content"]);
           decodeNonemptyString(
-            field(content, "assignment_id", contentPath),
-            `${contentPath}.assignment_id`,
+            field(content, "blueprint_assignment_reference", contentPath),
+            `${contentPath}.blueprint_assignment_reference`,
           );
           contentView(field(content, "content", contentPath), `${contentPath}.content`);
           return contentValue;
@@ -549,6 +533,10 @@ export function decodeBlueprintCourseReference(
   path = "reference",
 ): BlueprintCourseReference {
   return blueprintReference(value, path);
+}
+
+export function decodeBlueprintRevision(value: unknown, path = "revision"): string {
+  return revision(value, path);
 }
 
 export function decodeBlueprintCoursePage(

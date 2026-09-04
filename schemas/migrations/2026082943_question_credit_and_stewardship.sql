@@ -5,6 +5,10 @@
 SET LOCAL ROLE ple_private_owner;
 GRANT USAGE ON SCHEMA ple_private TO ple_data_owner;
 GRANT REFERENCES ON TABLE ple_private.account TO ple_data_owner;
+GRANT SELECT ON TABLE ple_private.account_state_event TO ple_data_owner;
+CREATE POLICY account_state_event_data_owner_question_owner_validation_read
+    ON ple_private.account_state_event
+    FOR SELECT TO ple_data_owner USING (true);
 RESET ROLE;
 
 SET LOCAL ROLE ple_data_owner;
@@ -86,9 +90,11 @@ CREATE TABLE ple_data.question_ownership_event (
     owner_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     recorded_by_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     event_kind text NOT NULL CHECK (event_kind IN ('initial', 'transferred')),
-    occurred_at timestamp with time zone NOT NULL,
-    CONSTRAINT question_ownership_event_initial_is_unique UNIQUE NULLS NOT DISTINCT (question_id, event_kind)
+    occurred_at timestamp with time zone NOT NULL
 );
+CREATE UNIQUE INDEX question_ownership_event_initial_is_unique
+    ON ple_data.question_ownership_event (question_id)
+    WHERE event_kind = 'initial';
 
 CREATE FUNCTION ple_data.reject_question_credit_and_stewardship_change()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data AS $$
@@ -100,6 +106,9 @@ $$;
 
 CREATE FUNCTION ple_data.validate_question_ownership_event()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data, ple_private AS $$
+DECLARE
+    current_owner_account_id uuid;
+    current_owner_occurred_at timestamp with time zone;
 BEGIN
     PERFORM pg_catalog.pg_advisory_xact_lock(
         pg_catalog.hashtextextended(NEW.question_id, 0)
@@ -113,18 +122,41 @@ BEGIN
             RAISE EXCEPTION USING ERRCODE = '23514',
                 MESSAGE = 'a Question Owner initial event must be the first ownership event';
         END IF;
-    ELSIF NOT EXISTS (
-        SELECT 1 FROM ple_data.question_ownership_event AS earlier
-        WHERE earlier.question_id = NEW.question_id
-          AND earlier.occurred_at <= NEW.occurred_at
-    ) THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'a Question Owner transfer requires an earlier ownership event';
+        IF NEW.recorded_by_account_id <> NEW.owner_account_id THEN
+            RAISE EXCEPTION USING ERRCODE = '23514',
+                MESSAGE = 'the initial Question Owner must record the ownership event';
+        END IF;
+    ELSE
+        SELECT earlier.owner_account_id, earlier.occurred_at
+          INTO current_owner_account_id, current_owner_occurred_at
+          FROM ple_data.question_ownership_event AS earlier
+         WHERE earlier.question_id = NEW.question_id
+         ORDER BY earlier.occurred_at DESC, earlier.question_ownership_event_id DESC
+         LIMIT 1;
+        IF current_owner_account_id IS NULL THEN
+            RAISE EXCEPTION USING ERRCODE = '23514',
+                MESSAGE = 'a Question Owner transfer requires an earlier ownership event';
+        END IF;
+        IF NEW.recorded_by_account_id <> current_owner_account_id THEN
+            RAISE EXCEPTION USING ERRCODE = '23514',
+                MESSAGE = 'only the current Question Owner may record an accepted transfer';
+        END IF;
+        IF NEW.occurred_at <= current_owner_occurred_at THEN
+            RAISE EXCEPTION USING ERRCODE = '23514',
+                MESSAGE = 'a Question Owner transfer must follow the current ownership event';
+        END IF;
     END IF;
 
     IF NOT EXISTS (
         SELECT 1
         FROM ple_private.account AS account
+        JOIN LATERAL (
+            SELECT state_event.state
+              FROM ple_private.account_state_event AS state_event
+             WHERE state_event.account_id = account.account_id
+             ORDER BY state_event.occurred_at DESC, state_event.event_id DESC
+             LIMIT 1
+        ) AS current_state ON current_state.state = 'active'
         WHERE account.account_id = NEW.owner_account_id
           AND account.product_role = 'instructor'
     ) THEN

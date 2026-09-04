@@ -14,7 +14,6 @@ import {
 } from "solid-js";
 
 import type {
-  InstructorGradingOperationRetryToken,
   GradingOperationFocus,
   InstructorGradingOperationRow,
 } from "../../api/decoders/grading_operations";
@@ -150,14 +149,12 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
           workspace.assignmentId,
           intent.operation,
           intent.expectedRevision,
-          intent.instructorGradingOperationRetryToken,
         );
       } else {
         await workspace.client.recalculateInstructorAssignment(
           workspace.courseId,
           workspace.assignmentId,
           intent.expectedRevision,
-          intent.instructorGradingOperationRetryToken,
         );
       }
       setActionIntent(undefined);
@@ -177,23 +174,11 @@ export function AssignmentWorkspaceOperationsPage(): JSX.Element {
   }
 
   function startRetry(row: InstructorGradingOperationRow): void {
-    const instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken =
-      globalThis.crypto.randomUUID();
-    void executeAction(
-      retryOperationIntent(
-        row.operation.reference,
-        row.operation.revision,
-        instructorGradingOperationRetryToken,
-      ),
-    );
+    void executeAction(retryOperationIntent(row.operation.reference, row.operation.revision));
   }
 
   function startRecalculation(): void {
-    const instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken =
-      globalThis.crypto.randomUUID();
-    void executeAction(
-      recalculationIntent(workspace.assignment().revision, instructorGradingOperationRetryToken),
-    );
+    void executeAction(recalculationIntent(workspace.assignment().revision));
   }
 
   function retryAction(): void {

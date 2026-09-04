@@ -137,7 +137,6 @@ fn transition_with_score(
         lease,
         grading_context,
         authentication,
-        ImathasResultExchangeIdempotencyKey::parse("exchange-1").expect("key"),
         ImathasResultTokenChecksum::from_verified_token(&token),
         ImathasResult::new(ImathasNormalizedScore::try_from_f64(score).expect("score")),
         Timestamp::from_unix_millis(20),
@@ -184,7 +183,6 @@ async fn stage_refuses_mixed_context_and_authentication() {
             lease.clone(),
             wrong_context,
             lease.expectation.authentication.clone(),
-            ImathasResultExchangeIdempotencyKey::parse("mixed").expect("key"),
             token_checksum,
             result.clone(),
             Timestamp::from_unix_millis(20)
@@ -202,7 +200,6 @@ async fn stage_refuses_mixed_context_and_authentication() {
             lease,
             correct_context,
             wrong_auth,
-            ImathasResultExchangeIdempotencyKey::parse("mixed").expect("key"),
             token_checksum,
             result,
             Timestamp::from_unix_millis(20)
@@ -389,7 +386,7 @@ fn automated_grading_receipt_checksum_v1_known_vector() {
 #[tokio::test]
 async fn changed_stage_replays_refuse_without_replacing_first_receipt() {
     let account = AccountId::from_uuid(Uuid::from_u128(1));
-    for changed in 0..3 {
+    for changed in 0..2 {
         let token = SessionTokenHash::compute(format!("changed-{changed}").as_bytes());
         let store =
             MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
@@ -415,19 +412,16 @@ async fn changed_stage_replays_refuse_without_replacing_first_receipt() {
         let mut changed_stage = transition(lease.clone());
         match changed {
             0 => {
-                changed_stage.idempotency_key =
-                    ImathasResultExchangeIdempotencyKey::parse("changed-key").expect("key")
-            }
-            1 => {
                 changed_stage.imathas_result_token_checksum =
                     ImathasResultTokenChecksum::from_verified_token(
                         &ImathasResultToken::from_server_adapter_bytes(vec![9]).expect("token"),
                     )
             }
-            _ => {
+            1 => {
                 changed_stage.imathas_result =
                     ImathasResult::new(ImathasNormalizedScore::try_from_f64(0.5).expect("score"))
             }
+            _ => unreachable!("only result facts distinguish an iMathAS Result Exchange replay"),
         }
         assert_eq!(
             store
@@ -533,7 +527,7 @@ fn issued_question(
         },
         point_value,
         scoring_rule,
-        statistics_eligible: true,
+        question_statistics_eligibility: true,
         question_pool_selection: None,
         question_pool_item: None,
     }

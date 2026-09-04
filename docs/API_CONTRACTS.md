@@ -1,6 +1,6 @@
 # API contract map
 
-This is PLE's durable route-level map. It identifies the presently mounted
+This is PLE's durable route-level map. It identifies the presently implemented
 same-origin HTTP surface and separates it from retained product contracts. It
 does not replace generated Rust and TypeScript shapes.
 
@@ -18,7 +18,7 @@ account selector. Route modules absent from server composition, generated DTOs, 
 schemas, and models retain product design; none establishes an available HTTP
 endpoint.
 
-## Mounted routes
+## Implemented Server Routes
 
 | Surface                | Route                               | Current boundary                                                                                | Owner                                                  |
 | ---------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
@@ -34,7 +34,7 @@ demo personas. It supplies no Product Role, Course Membership, Student record,
 or authority; the server derives those facts from stored PLE records whenever a
 future route needs them.
 
-## Mounted protocol rules
+## Implemented Server Route protocol rules
 
 | Concern         | Current contract                                                                                                                                                                                                                      |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -42,7 +42,7 @@ future route needs them.
 | Session         | The server stores only a hash of the opaque cookie token. `GET /api/auth/session` returns browser-safe `{ authenticated, account }` information, with one immutable Account Product Role and no credential, membership, or role list. |
 | Cookies         | The deployed session cookie is host-only, Secure, HttpOnly, first-party, and `SameSite=Lax`.                                                                                                                                          |
 | Unsafe requests | The production browser boundary requires canonical HTTPS host and exact same-origin `Origin`; duplicate session cookies are refused.                                                                                                  |
-| Caching         | Private mounted JSON responses use `Cache-Control: no-store`.                                                                                                                                                                         |
+| Caching         | Private Server Route JSON responses use `Cache-Control: no-store`.                                                                                                                                                                    |
 | Error detail    | A route returns only the information permitted by the current boundary and does not disclose hidden Account, course, Student, answer, source, renderer, or object state.                                                              |
 
 ## Deferred teaching routes
@@ -74,7 +74,7 @@ Structural content edits that conflict with issued Student activity use the
 typed recovery contract `SuccessorAssignmentRevisionRequired`. It carries the
 immutable `baseRevision` pinned by existing Student work. Visible guidance calls
 the outcome a **Successor Assignment Revision**. The server-owned successor
-creation command and its mounted route remain future work, so this document
+creation command and its Server Route remain future work, so this document
 does not claim a currently available edit-recovery endpoint.
 
 ### Future Student delivery and grading
@@ -91,10 +91,9 @@ source, or raw grading input.
 
 Future mutation routes accept only values the server cannot derive from
 authenticated state and stored records. Strong revisions protect concurrent
-edits. A Request Retry Token binds the exact Request Checksum and accepted
-Receipt, returns that Receipt for a repeated write request, and grants no
-authority. Browser input never creates server-owned durable identity or chooses
-storage paths.
+edits. The exact operation identity, Request Checksum, and accepted Receipt
+govern a repeated write request and grant no authority. Browser input never
+creates server-owned durable identity or chooses storage paths.
 
 ## Browser and acceptance boundary
 
@@ -112,7 +111,7 @@ separate release-blocking requirement; see
 
 ## Change control
 
-Mounting a future route requires its Rust owner, Store and authorization
+A future Server Route may exist only with its Rust owner, Store and authorization
 boundary, browser client and strict decoder, appropriate focused evidence, and
 an update to this route map. A compatibility adapter has a named removal
 condition and preserves server ownership rather than making a browser-supplied

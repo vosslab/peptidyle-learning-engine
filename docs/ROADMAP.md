@@ -58,6 +58,10 @@ deployment, or release acceptance.
   baseline installer currently still accepts `--apply-migrations` and therefore retains a
   duplicate schema authority. The target is a compatible pre-migrated database followed by a
   data-only installer for fictional, disposable teaching data.
+- Complete the remaining QSOM1 product capability under its active-plan owner: same-lineage
+  publication, Draft Question expiration, orphan cleanup, Question Search isolation, Server
+  Routes, Browser Surfaces, and connected acceptance. This is feature delivery, not a vocabulary
+  replacement gate; settle and allocate the operation contract before implementation.
 - Complete clean-volume real-stack, browser, backup/restore, and independent security/operations
   review gates before any production deployment decision.
 - Continue the broader version 1 platform goal through the release plan; this roadmap records the
@@ -65,6 +69,11 @@ deployment, or release acceptance.
 
 ### Future
 
+- Allocate currently absent vocabulary-adjacent capabilities only when their product work becomes
+  current: Watched Questions, Blueprint Updates, Course Invitation Email Delivery, a configured
+  Question Backend selector, Course Banner upload/persistence, durable Blueprint-operation replay,
+  and Job Kind registration/readiness. Their reserved names do not create implementation work in
+  the Vocabulary Replacement Checklist.
 - Treat further database normalization as future design work, owned by a later active package
   after evidence demonstrates a real need. Do not add speculative tables, bridges, down
   migrations, legacy readers, or data-adoption paths to close current release gaps.

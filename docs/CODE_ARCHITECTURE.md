@@ -104,17 +104,17 @@ assignment. Copy Course for New Term and Shift Course Dates are separate Course 
 | PostgreSQL modules   | `crates/learning-data-access/src/postgres/`             | Current connection, migration, Account Session, Assignment Attempt, Question Source, object-record, and iMathAS Question Backend Session persistence support.                                       |
 | Server               | `crates/server/src/`                                    | Current health, Account Session authentication and logout, deployment-gated seeded Live Demo selection, and their HTTP/cookie boundary.                                                             |
 | Generated contracts  | `crates/project-tools/src/tsgen.rs` -> `generated/api/` | Derivative TypeScript DTOs generated from Rust contract roots; generated files are not hand-edited.                                                                                                 |
-| Browser              | `src/`                                                  | Strict decoding, route/page state, and retained BlueprintCourse and Blueprint-operation client contracts; course and Blueprint-operation routes remain unmounted.                                   |
+| Browser              | `src/`                                                  | Strict decoding, route/page state, and retained BlueprintCourse and Blueprint-operation client contracts; no course or Blueprint-operation Server Routes exist.                                     |
 | Object storage       | `crates/objects/`                                       | Typed keys, checksums, image ingress, and the `public-assets`, `private-content`, `student-records`, and `temp-processing` domains.                                                                 |
 | Adapters             | `crates/adapters/`                                      | Bounded PLE, iMathAS, and WeBWorK Question Backends, QTI Import, and H5P Package support behind the shared Question operations.                                                                     |
 
 The current server composition is
 [`crates/server/src/composition.rs`](../crates/server/src/composition.rs).
 `production_router_from_env()` constructs the PostgreSQL Account Session Store,
-mounts health, Account Session, and deployment-gated seeded Live Demo routes,
+exposes health, Account Session, and deployment-gated seeded Live Demo routes,
 then applies the browser cookie boundary and HTTP security headers. Object
 storage, Question Backends, workers, and publishing remain separate future
-assembly responsibilities until their routes and services are mounted.
+assembly responsibilities until their Server Routes and Services are implemented.
 
 ## Persistence ownership
 
@@ -130,7 +130,7 @@ operation persistence, PostgreSQL/RLS authority, service routes, and browser
 integration remain future work. When implemented, the Store boundary must own
 Create Course from Blueprint, Fork Blueprint Course, Copy Assignment from
 Blueprint, Apply Blueprint Update, Copy Course for New Term, and Shift Course
-Dates. It must bind each exact request-retry token to its request checksum,
+Dates. It must use each exact operation identity and request checksum,
 preserve immutable receipts separately from repairable current read results,
 and keep Assignment Import Repair bounded to derived state.
 
@@ -204,7 +204,7 @@ Validation follows [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md):
 
 - Current permanent Rust and Node tests protect implemented contracts, strict
   DTO decoding, and answer-free browser reader data.
-- Current disposable PostgreSQL/RLS oracles prove the mounted schema and
+- Current disposable PostgreSQL/RLS oracles prove the applied schema and
   service authority boundaries.
 - A future Blueprint-operation implementation requires focused contract,
   PostgreSQL/RLS, generated-contract, and browser acceptance evidence for its

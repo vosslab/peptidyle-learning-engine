@@ -68,7 +68,6 @@ import type { LiveDemoClient } from "./live_demo";
 import type { BlueprintCourseClient } from "./blueprint_course";
 import type { BlueprintOperationsClient } from "./blueprint_operations";
 import type {
-  InstructorGradingOperationRetryToken,
   GradingOperationActionReceipt,
   GradingOperationFocus,
   GradingOperationStrongEtag,
@@ -102,13 +101,11 @@ export interface GradingOperationsClient {
     assignmentId: AssignmentId,
     operation: InstructorGradingOperationReference,
     expectedRevision: GradingOperationStrongEtag,
-    instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken,
   ) => Promise<GradingOperationActionReceipt>;
   readonly recalculateInstructorAssignment: (
     courseId: CourseId,
     assignmentId: AssignmentId,
     expectedRevision: GradingOperationStrongEtag,
-    instructorGradingOperationRetryToken: InstructorGradingOperationRetryToken,
   ) => Promise<GradingOperationActionReceipt>;
 }
 
@@ -334,7 +331,6 @@ export interface ApiClient
     assignmentId: AssignmentId,
     attemptId: QuestionAttemptId,
     response: StudentResponse,
-    idempotencyKey: string,
   ) => Promise<QuestionSubmissionAcknowledgement>;
   /** Reads a previously acknowledged student submission without resending an Answer Key. */
   readonly getSubmissionStatus: (

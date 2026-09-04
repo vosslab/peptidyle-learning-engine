@@ -21,12 +21,33 @@ Result Token, Result Exchange, Result, Question Backend Transport, and
 migration `2026090102` without aliases or compatibility support. It preserves the accepted
 lifecycle, relationships, procedures, browser launch flow, security invariants, and tests.
 
+`WP-SD1-A-TERM-01-ALPHA1` is completed. Blueprint Course is the sole PLE reusable source-course
+identity across Rust, schema, generated contracts, browser surfaces, fixtures, tests, and current
+plans. Alpha Course remains only as attributed LibreTexts ADAPT comparison language. Focused and
+full aggregate gates pass; vocabulary row 573 is checked without a behavior or feature change.
+
+`WP-SD1-A-TERM-01-AWO1` is completed. The fresh schema column, current-session predicates, RLS
+policies, dependent authoring operations, docs, catalog oracle, and SQL fixture name Authoring
+Workspace Owner while Workspace Collaborator remains separate. PostgreSQL 17 and aggregate gates
+pass; row 444 is checked with authorization behavior unchanged.
+
+`WP-SD1-A-TERM-01-BA1` is completed. Blueprint Assignment is the sole name for Assignment content
+inside a Blueprint Course. The Assignment Editor's separate saved-Course-Assignment projection now
+uses Retained Assignment Question Source ownership instead of a false Blueprint Assignment type.
+
+`WP-SD1-A-TERM-01-BAREF1` is completed. A Blueprint Assignment lineage now has the exact
+`BlueprintAssignmentReference` type and `blueprint_assignment_reference` wire member within its
+Blueprint Course and Blueprint Revision context. The direct cutover covers Question Model,
+Blueprint-operation records, generated contracts, strict browser decoding, editor/picker consumers,
+and focused tests; ordinary Course Assignment IDs remain separate private record identities.
+Focused and aggregate gates pass; row 565 is checked without a fixture or behavior change.
+
 `WP-SD1-A-TERM-01-SRF1` is accepted. This no-schema Student Response Format terminology correction
 uses one domain-owned answer-free Student Response Format Check with thirteen exact Student Response
 Format Issues and one strict shared browser decoder for Wasm JSON and the declared HTTP response.
 The direct cutover retires the response-format report/violation wire names, `retiredResponseReference`,
 and the `violations` shape. Focused evidence, an independent audit with repaired findings, and complete
-aggregate acceptance passed. Mounting the planned key-free server fallback route remains a separate
+aggregate acceptance passed. Making the planned key-free fallback Server Route exist remains a separate
 future server-boundary allocation.
 
 `WP-SD1-A-TERM-01-PI2` is allocated for the direct Assignment Question Analysis domain, fresh-schema
@@ -43,7 +64,7 @@ relation role-qualified integrity rules. It owns no roster route, Store, DTO, in
 Instructor email-replacement implementation; `WP-RC8` remains the sole future Course Roster Import
 transaction owner for Student Account resolution and creation.
 
-`WP-SD1-A-TERM-01-AEM1` is completed after removing the unmounted Assignment Export
+`WP-SD1-A-TERM-01-AEM1` is completed after removing the unimplemented Assignment Export
 persistence/Job stub and the named current-service inventory in `SECURITY_MODEL`, `IDENTITY_CONTRACTS`,
 `DATABASE_AUTHORIZATION`, `MULTI_SERVER_SETUP`, `OBJECT_STORAGE`, `DATA_CLASSIFICATION`,
 `AUTHORIZATION_CONTRACTS`, `CONTRACTS`, this plan, the release plan, and the customer
@@ -61,8 +82,8 @@ Format, free-standing generator and seeded-variation machinery, one-variant
 PLE execution axis, unused implementation-release hook, and their
 algorithmic-only examples, tests, fixtures, and current claims. It preserves
 static PLE Question JSON, Question Seed, Static Question Variation Rule, and
-Question Backend, Renderer, and Grader Version evidence. It does not mount or
-prepare publication, a Question Source coordinator, Store, route, schema other
+Question Backend, Renderer, and Grader Version evidence. It adds no publication Service,
+Question Source coordinator, Store, Server Route, schema other
 than the permitted-format removal, browser feature, fixture family, alias, or
 permanent test. Future source/publication rows remain separately open.
 
@@ -88,13 +109,185 @@ removal), S2B5 (QTI import mapping and minimal H5P preservation), S2B6 (unbacked
 Question editor and PLE Question JSON fallback removal), and S2B7 (final generic-root deletion) are
 accepted and completed after independent review. QTI is now import/export/archive interchange, not a
 runtime dispatch path. `/workspace` is an Instructor-gated, truthful planned **My Question Drafts**
-destination; the authoring and publication server workflow is unmounted. The final manager
+destination; no authoring or publication Server Route or Browser Surface exists. P1 now implements
+the server-only new-lineage publication Store transaction after trusted bytes-first source copying;
+new-lineage object-copy coordination is P2; same-lineage publication, cleanup, and browser delivery remain open. The final manager
 `source source_me.sh && ./all_test.sh` exits 0 with 421 generated types, 3 tracked fixtures, Rust
 format/check/all-feature strict Clippy/tests/doctests/Wasm, 286 Node tests, 4,831 pytest tests,
 PostgreSQL 17 fresh/no-op/catalog/restricted plus 3 iMathAS tests, Course Appearance
 PostgreSQL-plus-MinIO, and `PASS: complete live acceptance is green.` Parent QSOM1 remains open only
 for separately owned publication, persistence, and cleanup work. Published Question Title and
 Description remain mutable lineage facts. The status registry remains the sole allocation authority.
+
+`WP-SD1-A-QSOM1-P1` is implemented and acceptance-open after M1. It owns the server-only
+new-lineage Question Publication Store and atomic PostgreSQL transaction. It validates the exact
+current Draft Question Edit Number and Source Binding plus the trusted bytes-first target Object
+Record, then creates the complete immutable first Question Revision, separate lineage metadata,
+credit, ownership, publication, and Available evidence without a Draft Question dependency. It adds
+no Server Route or Browser Surface. Focused PostgreSQL and final-tree aggregate evidence pass;
+independent review remains required;
+same-lineage publication, cleanup, Question Search, and parent QSOM1
+acceptance remain open.
+
+`WP-SD1-A-QSOM1-P2` is implemented and acceptance-open after P1. It owns the implemented
+server-only new-lineage publication coordinator, session-authorized exact Draft Question
+publication-source resolution, verified immutable object copy, HMAC-validated Question ID issuance,
+and P1 Store composition. Focused Rust, strict Clippy, source hygiene, PostgreSQL 17
+fresh/no-op/catalog/restricted/iMathAS, and final-tree aggregate evidence pass; independent review
+remains required. P2 adds no Server Route or Browser Surface. Same-lineage publication, secret-file
+composition, orphan cleanup, Draft Question expiration, Question Search, and parent QSOM1 acceptance
+remain open. Its typed Question Revision Reason does not close vocabulary row 312 because durable
+reason history and comparison Views remain open.
+
+`WP-SD1-A-TERM-01-SAV1` is completed after corrective re-review. The review reopened vocabulary row
+707 because active plans, status receipts, contract prose, checklist evidence, and a route-contract
+comment retained application-availability jargon. Those current meanings now state directly whether
+each Server Route exists, each Service is implemented, and each Browser Surface is available. The
+final 82-match inventory contains 10 real filesystem, volume, container, or code-import operations;
+71 immutable history, audit, or archive matches; and the ledger's one required legacy phrase. Full
+aggregate, 2,488 documentation/source, contextual-residual, formatting, and diff gates pass.
+
+`WP-SD1-A-TERM-01-QSLR1` is completed. Question Summary consistently names a stable Published
+Question lineage and carries the exact Question Revision Reference for the accepted revision with
+the greatest Question Revision Number. The PostgreSQL projection, Rust model, generated TypeScript,
+strict browser decoder, fixtures, tests, and current documentation preserve that relationship while
+Question Revision Availability remains separate. Focused Rust, generated-contract, browser,
+PostgreSQL 17 migration/catalog/restricted-login, formatting, and diff gates pass. Vocabulary row
+317 is checked.
+
+`WP-SD1-A-TERM-01-QT1` is completed. PLE-owned Question boundaries use Question Title consistently:
+Rust fields are `question_title`, serialized and browser fields are `questionTitle`, and the direct
+pre-production cutover has no compatibility reader. Authored PLE Question JSON, Draft Question and
+Question Summary views, presentation and delivery contracts, adapters, generated declarations,
+strict decoders, interfaces, fixtures, tests, and current documentation agree. Question Prompt and
+external-format or other domain titles remain distinct. Final aggregate and contextual residual
+evidence pass; vocabulary row 321 is checked.
+
+`WP-SD1-A-TERM-01-QVR1` is completed. Current static PLE Question JSON expresses one complete
+Question Source and carries no redundant content-level `Static` variation-rule value. QTI's named
+static profiles remain import constraints and convert accepted items to that source without adding a
+runtime rule. The distinct Assignment-owned Question Variation Rule chooses Reuse Variation or New
+Variation for later Assignment Attempts and never redraws a Question Pool Selection. The retired
+definitions and wire field have no active implementation occurrence. Focused QTI, Question Model,
+documentation, aggregate, contextual residual, and diff gates pass; vocabulary row 296 is checked.
+
+`WP-SD1-A-TERM-01-QPV1` is completed. Question Publication Requirements remain closed conditions;
+Question Publication Validation is their calculated result at one exact Draft Question Edit Number;
+and Question Publication Issues are the complete findings. No validation lifecycle state or generic
+validation report/violation type remains. Append-only migration `2026090304` renames the last bare
+Question Change Proposal Revision schema field and its check constraint to exact Question Publication
+Validation ownership. The PostgreSQL 17 catalog oracle requires the canonical column/constraint and
+rejects the predecessor. Focused schema, documentation, PostgreSQL, aggregate, residual, and diff
+gates pass; vocabulary row 339 is checked.
+
+`WP-SD1-A-TERM-01-QD1` is completed as a prerequisite, not as closure of the Question Description
+ledger item. The shared strict browser decoder now enforces the generated Question Model's required,
+non-whitespace, 512-scalar Question Title and 4,000-scalar Question Description boundaries, with a
+permanent oversized-value test over a real Published Question page contract. Focused frontend, Question Model, PLE adapter,
+documentation/source, formatting, and diff gates pass. Vocabulary row 301 remains open until the
+Question Publication Validation Service and post-publication metadata-editing Server Route exist and prove that Question Title and
+Question Description are mutable Published Question lineage facts without creating a Question
+Revision.
+
+`WP-SD1-A-TERM-01-BRR1` is completed as a Blueprint result/Receipt-boundary prerequisite, not as
+closure of the replay-status ledger item. The strict Blueprint operations HTTP decoder reconstructs
+all six generated `BlueprintOperationCompleted` result variants with their exact public references
+and rejects unknown nested fields, including an invented `replay` product state. The valid browser
+fixture now agrees with the generated Rust contract, while operation-specific server-held Receipts
+remain non-Serde. Focused Blueprint Question Model (20), frontend (288 Node), TypeScript, formatting,
+and documentation/source gates pass. Final aggregate acceptance generated 422 contracts, validated 3
+fixtures, and passed Rust/Wasm, 288 Node, 4,850 Python, PostgreSQL 17, and PostgreSQL-plus-MinIO
+gates. Vocabulary row 596 remains open until an implemented durable Blueprint operation Store and
+Server Route prove same-Receipt behavior for the same Account, Request Checksum, source/target, and revision facts.
+
+`WP-SD1-A-TERM-01-BRI1` is completed as the direct Blueprint Revision identity cutover. The private
+Blueprint Course UUID remains only on the stable Blueprint Course record, which also owns its
+bounded `BP-` reference number. PostgreSQL now identifies each immutable Blueprint Revision only by
+its composite Blueprint Course Reference number and positive Blueprint Revision Number; Course
+Instance, Course Origin, Assignment source, publication, availability, and collaboration records use
+that same foreign-key pair. The redundant Blueprint Revision UUID and parallel Blueprint Course UUID
+plus revision identity are absent. Rust, generated TypeScript, browser decoders, fixtures, and
+interfaces already used the exact `BlueprintRevisionReference`. The final-tree aggregate generated
+422 contracts, validated 3 tracked fixtures, passed Rust formatting/checks/strict
+Clippy/tests/doctests/Wasm, 288 Node tests, 4,850 Python tests, PostgreSQL 17
+fresh/no-op/catalog/restricted-login with 3 iMathAS Store tests, and the PostgreSQL-plus-MinIO
+course-appearance oracle. Vocabulary row 567 is checked; no compatibility column, backfill, route,
+Store operation, Browser Surface, or feature was added.
+
+`WP-SD1-A-TERM-01-BCO1` is completed as the exact Blueprint Course Owner vocabulary closure. The
+sole durable owner relationship remains `blueprint_course.blueprint_course_owner_account_id`.
+Publication, availability, and Draft Blueprint Revision collaboration transitions authorize that
+exact relationship; the PostgreSQL 17 oracle proves another Instructor is refused while the owner
+succeeds. Rust, generated TypeScript, the strict decoder, and the Blueprint Course workspace share
+`BlueprintCourseReadAccess` with `blueprint_course_owner` and `active_instructor`; the hostile
+fixture rejects generic `access: "owner"`. The residual approval-era database diagnostic is removed,
+and vocabulary row 443 is checked. The final aggregate generated 422 contracts, validated 3 tracked
+fixtures, passed Rust formatting/checks/strict Clippy/tests/doctests/Wasm, 288 Node tests, 4,850
+Python tests, PostgreSQL 17 fresh/no-op/catalog/restricted-login with 3 iMathAS Store tests, and the
+PostgreSQL-plus-MinIO course-appearance oracle. No route, Store, schema relationship, compatibility
+alias, Browser Surface, fixture family, or feature was added.
+
+`WP-SD1-A-TERM-01-QO1` is completed as the direct Question Owner vocabulary and responsibility
+cutover. Every Published Question lineage has one current Question Owner derived from a repeatable,
+ordered chain of immutable Question Ownership Events. The initial owner records the initial Event;
+only the current owner records an accepted transfer, and the next owner must be an Active Instructor
+Account. Question Authorship remains separate. New-lineage publication derives ownership from the
+authenticated Account, and no browser contract exposes owner identity. The Question Library
+projection rechecks Account State and stays visible to every Active Instructor Account regardless of
+ownership. PostgreSQL 17 proves invalid-recorder and inactive-target refusal, two transfers,
+current-owner derivation, shared active-Instructor visibility, and non-active exclusion. Vocabulary
+row 442 is checked without adding a route, Store operation, Browser Surface, compatibility path, or
+feature.
+
+`WP-SD1-A-TERM-01-QSB1` is completed as the direct fresh-baseline Source Binding consolidation.
+Migration 2910 creates separate Draft Question Source Binding and Question Revision Source Binding
+tables; 2930, 2940, 2942, 2944, and 2026090102 directly own their RLS, Object Record validation,
+Bind Question Source operation, publication predicate, and iMathAS reader. Migration 2026090301 is
+now metadata-only and performs no predecessor copy/drop bridge. Retired-name-specific catalog tests
+were deleted in favor of canonical relationship behavior. Full aggregate and PostgreSQL 17 gates
+pass. Vocabulary rows 262 and 325 remain open for the remaining QSOM1 cleanup, Question Search,
+Server Route, Browser Surface, and final acceptance scope.
+
+`WP-SD1-A-TERM-01-SLWS1` is completed as the direct Student Late Work Status cutover. Question
+Model owns the sole `StudentLateWorkStatus` enum for On Time, Accepted Late, and Marked Late;
+Domain re-exports it and represents Late Work Refused separately as an Assignment Start Decision
+denial. The exact `student_late_work_status` name now crosses the Domain decision, Student
+Assignment Delivery, generated contract, strict browser decoder, and Student presentation. The
+retired and vague forms have no active residuals. Focused Rust/browser gates and the full aggregate
+pass without adding or changing a fixture, schema, route, or feature. Vocabulary row 186 is checked.
+
+`WP-SD1-A-TERM-01-QANS1` is completed as the Question Answer naming cutover. The trusted PLE
+grader's builder and display-ready content now name the Question Answer or its accepted-response
+facts, while the active authoring HCI brief correctly identifies its local Instructor preview as an
+Answer Key and Question Feedback check rather than policy-released content. Student Feedback,
+generated contracts, strict decoding, release policy, and UI headings already use Question Answer.
+QTI external vocabulary, private grading facts, correctness outcomes, and secrecy prose retain
+correct-response wording. Focused and full aggregate gates pass without a fixture, schema, route,
+or feature change. Vocabulary row 286 is checked.
+
+`WP-SD1-A-TERM-01-SAV2` is completed as the second Service availability corrective review. Row 707
+was reopened when six application-capability uses were found in operative documentation, then the
+current source, product documentation, contracts, architecture, security prose, active plans, and
+workstreams were corrected to name exact route, Service, Browser Surface, rendering, or transport
+availability. Only 12 actual filesystem, volume, or container attachment operations remain in the fresh
+current-state inventory. Focused and full aggregate gates pass; row 707 is checked again without
+adding a capability, fixture, schema, route, or feature.
+
+`WP-SD1-A-TERM-01-RFM1` is completed as the Response Format Message cutover. Browser-local
+functions now explicitly derive one visible Response Format Message from a Student Response Format
+Check and its exact Issues. The Question Response Control presents those messages from key-free
+local Wasm validation; Question Hint and Question Feedback retain their separate teaching roles.
+Focused and full aggregate gates pass without a fixture, schema, route, or feature change.
+Vocabulary row 288 is checked.
+
+`WP-SD1-A-TERM-01-SRI1` is completed as the Student Response Inspection field closure. The
+retained future inspection browser contract and strict decoder now use exact
+`studentResponseInspection` and `studentResponseInspectionFeedback` members. Domain calculation,
+Question Model documentation, tests, and visible privacy copy enumerate the Student Response,
+permitted correctness, permitted score, separately controlled Question Answer, and separately
+controlled Question Answer Explanation. No vague absence-only description remains. Focused and full
+aggregate gates pass without changing a fixture or adding a schema, Server Route, Browser Surface,
+or feature. Vocabulary row 285 is checked.
 
 [customer-spec.md](customer-spec.md) describes a
 backend-agnostic assignment platform built around repeated attempts, algorithmic questions, and
@@ -181,7 +374,7 @@ allocation remain solely in [implementation_status.md](implementation_status.md)
 account and its immutable role. Each protected operation receives the exact system, Question Library,
 workspace, course, course-membership, Student-ownership, or short-lived capability identity it
 authorizes. Published QuestionIds are
-stable lineages with immutable QuestionRevisions: moderate steward edits preserve Question Authorship
+stable lineages with immutable Question Revisions: moderate steward edits preserve Question Authorship
 and the existing compatible Question License in the lineage, while full forks give their author a private draft and, after validation,
 a separately attributed lineage with a source-compatible Question License. `QuestionChangeProposal` is the
 lightweight middle path: it pins an exact base version, carries a proposed patch and rationale,
@@ -294,9 +487,9 @@ later acceptance gates.
 **WP-R2 test and live-evidence boundary.** Offline Memory publication, replacement, and replay behavior
 requires a current registered conformance test target. The former disconnected
 `crates/learning-data-access/tests/conformance/` corpus is retired. Question-ID
-request and replacement behavior has no mounted server route or server-test
+request and replacement behavior has no Server Route or server-test
 owner yet; its future owner must name the actual Question Library or Assignment
-route boundary when that route is mounted. WP-R2 retains its historical acceptance receipt; current
+Server Route boundary when that Server Route is implemented. WP-R2 retains its historical acceptance receipt; current
 PostgreSQL Migration Acceptance Runtime service evidence is owned by
 `tests/e2e/e2e_database_baseline.sh`, which dispatches
 `tests/e2e/e2e_postgres_migration_acceptance.sh`. `WP-SD1-A-TERM-01-PMAR1` completed
@@ -432,7 +625,8 @@ Cited from [REPO_STYLE.md](../REPO_STYLE.md):
 - **Atomic task decomposition.** The module catalog gives every module one owner, one contract, one
   independent verification.
 - **Long-term over short-term.** Hidden immutable publication snapshots, random checked Question
-  IDs, exact course/Student/workspace ownership, and cursor pagination are foundational because all
+  IDs, exact course/Student relationships, Authoring Workspace Owner relationships, and cursor
+  pagination are foundational because all
   four are painful to retrofit. The snapshots preserve grading; instructors still work with one
   current Question rather than a Question Revision list.
 - **Perfect is the enemy of good.** No Kubernetes, Redis, Kafka, sharding, dedicated search index, or
@@ -550,33 +744,33 @@ Three weaknesses neither review named, each becoming a requirement here:
 
 ## Resolved decisions
 
-| Decision                     | Choice                                                                                                                                          | Reason                                                                                                                                                                                                                  |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Server runtime               | Native Rust `axum`; shared crates also built for `wasm32`                                                                                       | Owner-selected. Native is fastest and keeps direct database access                                                                                                                                                      |
-| Web server                   | No Apache, nginx, or lighttpd in the request path                                                                                               | See the LAMP mapping below; all reviews agree the load balancer replaces Apache                                                                                                                                         |
-| Database                     | **PostgreSQL on RDS**, one cluster                                                                                                              | Owner-selected. JSONB with indexing, forced row-level security, mature `FOR UPDATE SKIP LOCKED`                                                                                                                         |
-| Authorization boundary       | **One installation: global AccountId accounts, AuthenticatedSession, exact course/Student/workspace ownership, forced RLS**                     | SD1 owner decision. Shared published content, private drafts, and course records use their actual relationships; a missing authenticated session, foreign course, another AccountId, and revoked membership fail closed |
-| Grading location             | **Server only**                                                                                                                                 | Owner-selected. No answer, key, or grading code reaches the browser                                                                                                                                                     |
-| H5P grading                  | Current H5P Package content is ungraded practice; `serverGrading: false`                                                                        | Owner's observation: H5P ships answer evaluation to the browser                                                                                                                                                         |
-| WASM contents                | Parameter generation, answer-format validation, timer display, state transitions                                                                | Non-secret work only, enforced by the dependency graph                                                                                                                                                                  |
-| Sharing boundary             | **Shared published content; private workspaces and exact course/Student records**                                                               | SD1 owner decision. Assignments may be reused as teaching structures while authorization and educational records remain bound to their exact course and Student relationships                                           |
-| Student Work Records model   | `student_record` / `assignment_attempt` / `issued_question` / `question_attempt`                                                                | Owner-reported repeated-practice observation: completion is not terminal and practice continues through new Assignment Attempts with frozen Issued Questions                                                            |
-| Grade computation            | Transactionally maintained summary rows; never scan attempt history                                                                             | The declared capacity model keeps grade pages on summaries as workload grows; one-time query review records the observed plan                                                                                           |
-| Question identity            | One random checked `AAA-BBBB` Question ID; hidden UUIDs and snapshots remain internal                                                           | The Question ID is the only human-facing identity. It is non-sequential, copiable, names one stable Published Question lineage, and never carries a version suffix                                                      |
-| Partitioning                 | Monthly range partitions on the four highest-volume append-only tables only                                                                     | Capacity-model candidate for the declared planning workload; a one-time workload/query review validates it and other tables remain unpartitioned until observed need                                                    |
-| Pagination                   | Cursor only; `OFFSET` banned by lint and review                                                                                                 | Large `OFFSET` scans are unusable at Question Library and history scale                                                                                                                                                 |
-| Content storage              | Split by role with a size backstop (below)                                                                                                      | Answers the owner's direct question                                                                                                                                                                                     |
-| PLE Question JSON source     | Versioned PLE Question JSON, compiled into separate public and grader-only values                                                               | Keeps ordinary static authoring small and deterministic; QTI remains an import/export adapter instead of defining the internal model                                                                                    |
-| Question Library table split | `question_revision` metadata separate from hash-partitioned `question_revision_payload`                                                         | Planning sizing observation favors a hot metadata projection and cold payload store; configured budgets and one-time query review decide when a partition or index change is needed                                     |
-| Object storage               | S3 with four physical security domains; MinIO locally                                                                                           | `public-assets`, `private-content`, `student-records`, and `temp-processing` have distinct IAM/KMS, retention, and delivery policies                                                                                    |
-| Asset delivery               | CloudFront immutable URLs for activated public Question Library assets; authorized POST-minted short-lived URLs for private/student records     | CDN handles non-record public bytes; a protected navigation cannot mint an access grant                                                                                                                                 |
-| Rendered output              | Cached by `(question_id, revision_number, seed)` in `private-content`; no public renderer feature until externally managed renderer attestation | Rendering remains deterministic, but the renderer is outside the production baseline until its identity and isolation are independently accepted                                                                        |
-| Session storage              | Opaque session ID cookie, session row in the database                                                                                           | Works across replicas and stays revocable                                                                                                                                                                               |
-| Timer clock                  | Timestamps from PostgreSQL, never a process clock                                                                                               | Replica clock skew would otherwise change verdicts                                                                                                                                                                      |
-| Background work              | `worker` container pool on a jobs table with `FOR UPDATE SKIP LOCKED`                                                                           | Import and renderer work leave the request path                                                                                                                                                                         |
-| Autoscaling                  | Fargate target tracking: request count for `api`, queue depth for `worker`                                                                      | A class-start burst is a request spike; renderer load is a queue-depth signal                                                                                                                                           |
-| Execution shape              | Contract freeze, then parallel module lanes                                                                                                     | Owner-requested modularization; see the module catalog                                                                                                                                                                  |
-| Repo layout                  | Reduced monorepo: `src/`, `crates/`, `pipeline/`, `containers/`, `schemas/`                                                                     | No `apps/` or `packages/` split until a second app exists                                                                                                                                                               |
+| Decision                     | Choice                                                                                                                                          | Reason                                                                                                                                                                                       |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server runtime               | Native Rust `axum`; shared crates also built for `wasm32`                                                                                       | Owner-selected. Native is fastest and keeps direct database access                                                                                                                           |
+| Web server                   | No Apache, nginx, or lighttpd in the request path                                                                                               | See the LAMP mapping below; all reviews agree the load balancer replaces Apache                                                                                                              |
+| Database                     | **PostgreSQL on RDS**, one cluster                                                                                                              | Owner-selected. JSONB with indexing, forced row-level security, mature `FOR UPDATE SKIP LOCKED`                                                                                              |
+| Authorization boundary       | **One installation with exact relationships and forced RLS**                                                                                    | SD1 owner decision. Course, Student, and Authoring Workspace Owner relationships fail closed for a missing Authenticated Session, foreign resource, another Account, or revoked relationship |
+| Grading location             | **Server only**                                                                                                                                 | Owner-selected. No answer, key, or grading code reaches the browser                                                                                                                          |
+| H5P grading                  | Current H5P Package content is ungraded practice; `serverGrading: false`                                                                        | Owner's observation: H5P ships answer evaluation to the browser                                                                                                                              |
+| WASM contents                | Parameter generation, answer-format validation, timer display, state transitions                                                                | Non-secret work only, enforced by the dependency graph                                                                                                                                       |
+| Sharing boundary             | **Shared published content; private workspaces and exact course/Student records**                                                               | SD1 owner decision. Assignments may be reused as teaching structures while authorization and educational records remain bound to their exact course and Student relationships                |
+| Student Work Records model   | `student_record` / `assignment_attempt` / `issued_question` / `question_attempt`                                                                | Owner-reported repeated-practice observation: completion is not terminal and practice continues through new Assignment Attempts with frozen Issued Questions                                 |
+| Grade computation            | Transactionally maintained summary rows; never scan attempt history                                                                             | The declared capacity model keeps grade pages on summaries as workload grows; one-time query review records the observed plan                                                                |
+| Question identity            | One random checked `AAA-BBBB` Question ID; hidden UUIDs and snapshots remain internal                                                           | The Question ID is the only human-facing identity. It is non-sequential, copiable, names one stable Published Question lineage, and never carries a version suffix                           |
+| Partitioning                 | Monthly range partitions on the four highest-volume append-only tables only                                                                     | Capacity-model candidate for the declared planning workload; a one-time workload/query review validates it and other tables remain unpartitioned until observed need                         |
+| Pagination                   | Cursor only; `OFFSET` banned by lint and review                                                                                                 | Large `OFFSET` scans are unusable at Question Library and history scale                                                                                                                      |
+| Content storage              | Split by role with a size backstop (below)                                                                                                      | Answers the owner's direct question                                                                                                                                                          |
+| PLE Question JSON source     | Versioned PLE Question JSON, compiled into separate public and grader-only values                                                               | Keeps ordinary static authoring small and deterministic; QTI remains an import/export adapter instead of defining the internal model                                                         |
+| Question Library table split | `question_revision` metadata separate from hash-partitioned `question_revision_payload`                                                         | Planning sizing observation favors a hot metadata projection and cold payload store; configured budgets and one-time query review decide when a partition or index change is needed          |
+| Object storage               | S3 with four physical security domains; MinIO locally                                                                                           | `public-assets`, `private-content`, `student-records`, and `temp-processing` have distinct IAM/KMS, retention, and delivery policies                                                         |
+| Asset delivery               | CloudFront immutable URLs for activated public Question Library assets; authorized POST-minted short-lived URLs for private/student records     | CDN handles non-record public bytes; a protected navigation cannot mint an access grant                                                                                                      |
+| Rendered output              | Cached by `(question_id, revision_number, seed)` in `private-content`; no public renderer feature until externally managed renderer attestation | Rendering remains deterministic, but the renderer is outside the production baseline until its identity and isolation are independently accepted                                             |
+| Session storage              | Opaque session ID cookie, session row in the database                                                                                           | Works across replicas and stays revocable                                                                                                                                                    |
+| Timer clock                  | Timestamps from PostgreSQL, never a process clock                                                                                               | Replica clock skew would otherwise change verdicts                                                                                                                                           |
+| Background work              | `worker` container pool on a jobs table with `FOR UPDATE SKIP LOCKED`                                                                           | Import and renderer work leave the request path                                                                                                                                              |
+| Autoscaling                  | Fargate target tracking: request count for `api`, queue depth for `worker`                                                                      | A class-start burst is a request spike; renderer load is a queue-depth signal                                                                                                                |
+| Execution shape              | Contract freeze, then parallel module lanes                                                                                                     | Owner-requested modularization; see the module catalog                                                                                                                                       |
+| Repo layout                  | Reduced monorepo: `src/`, `crates/`, `pipeline/`, `containers/`, `schemas/`                                                                     | No `apps/` or `packages/` split until a second app exists                                                                                                                                    |
 
 ### Recorded disagreement with reviewer 1
 
@@ -717,7 +911,7 @@ The reusable-course model has one Blueprint Course source aggregate and one Cour
 ```text
 BlueprintCourse (workspace-owned, revisioned, answer-free)
   -> ordered BlueprintModule -> ordered BlueprintAssignment
-  -> exact published QuestionRevisionReference pins and relative schedule intent
+  -> exact published Question Revision Reference pins and relative schedule intent
 
 CourseInstance (exact CourseId, private teaching aggregate)
   -> copied Assignment Content, resolved deadlines, releases, accommodations,
@@ -741,7 +935,7 @@ module/assignment `BlueprintCourseView` of the same BlueprintCourse. Fork Bluepr
 Create Course from Blueprint are distinct operations selected by destination, with no live source tether.
 
 Question stewardship remains a shared dependency of both aggregates. Stable human-facing
-`QuestionId` lineage carries immutable `QuestionRevision` history; every BlueprintCourse and
+`QuestionId` lineage carries immutable Question Revision history; every BlueprintCourse and
 CourseInstance entry pins an exact version. Presentation/metadata, student-content, and grading-
 semantic changes use the closed semantic classes: the last class is a major change and mints a new
 QuestionId. Forks show lineage and remain creator-private drafts until complete publication
@@ -755,10 +949,10 @@ evidence. Attempts, correct counts, and eligible-choice counts are version-speci
 only under the existing privacy-threshold formula. Existing `WP-INST-D1`, `D2`, `G1`, `G2`, `G3`, and
 `G4` packages own these behaviors; SD1 introduces no package ID.
 
-The emergency QuestionRevision path is a Sysadmin-approved `ForcedQuestionCorrection`: a validated
+The emergency Question Revision path is a Sysadmin-approved `ForcedQuestionCorrection`: a validated
 replacement and closed, FERPA-safe impact manifest precede one atomic authoritative replacement
 mapping and generation. New selection and issuance resolve to the replacement immediately. Bounded
-idempotent generation-fenced workers apply the authoritative correction mapping and deterministic
+generation-fenced workers apply the authoritative correction mapping and deterministic
 remediation to affected BlueprintCourse/CourseInstance/assignment/pool/future-issuance references
 without an unbounded cross-course transaction. The flawed version and issued/graded evidence remain immutable; in-progress items are
 reissued or excused and completed work receives the manifest's deterministic remediation, with
@@ -905,30 +1099,19 @@ application, and expire from encrypted backups within the configured backup wind
 requiring a shorter total exposure must shorten its backup window, which is a deliberate
 durability-versus-privacy trade-off for that institution to make rather than one this platform makes.
 
-### Anonymous question statistics survive deletion
+### Exact Question Revision Statistics survive deletion
 
-The feature that makes deletion sustainable: the question library should keep improving after the
-records that taught it are gone. Aggregate statistics live in **shared content**, carry no course or
-Student identifiers, and survive record deletion:
+The current baseline retains identity-free accepted graded-attempt, correct, and eligible-choice
+selection counts for an exact Question Revision. The atomic Question Statistics Observation Receipt
+derives each contribution before Student Work is deleted. It does not expose a global Question
+Statistics release shape or invent global Question Difficulty, Question Discrimination, duration, or
+attempt metrics.
 
-```text
-Question 123 (Question Revision Number ...)
-  attempts_mean 2.7
-  time_median_s 58
-  difficulty_index 0.71
-  discrimination_index 0.43
-  cohort_size 214
-```
-
-Three design consequences, because this cannot be bolted on afterward:
-
-- Statistics are **aggregated incrementally or by scheduled rollup while records still exist**, never
-  computed on demand from attempt history. Deleting the attempts must not delete the knowledge.
-- Discrimination index needs per-student total scores, so it is computed before deletion and stored as
-  an aggregate. A post-deletion recomputation is impossible by design, which is the point.
-- Aggregates are suppressed below a minimum cohort size. With one student, "average attempts: 3" _is_
-  that student's record, so a k-anonymity threshold (default 5) gates publication. The reviewer did
-  not raise this; it is the difference between an anonymous statistic and a re-identifiable one.
+Any future Question Statistics release must apply its independent privacy floor to these exact counts
+through an implemented Store and Server Route. Course-local Assignment Question Analysis separately
+owns Question Difficulty and Question Discrimination for the exact Course Instance, Assignment,
+source Assignment Entry, Question Revision, and Scoring Generation; those metrics are never global
+Question Statistics.
 
 ## Question identity and lifecycle
 
@@ -948,7 +1131,7 @@ Lifecycle: `draft -> validated -> published`; published Question Revisions then 
   Number `1` only after validation passes. A later same-lineage publication advances that immutable
   version number after the same validation. Retired sequential display identifiers are not
   published-question identities.
-- Editing never mutates a historical QuestionRevision. A moderate lineage-steward edit publishes a
+- Editing never mutates a historical Question Revision. A moderate lineage-steward edit publishes a
   validated immutable successor under the same `QuestionId`, preserves Question Authorship and the
   existing compatible Question License, and records its semantic class and impact. A full fork by any
   vetted Instructor creates a private draft with fork-author Question Authorship plus source attribution and
@@ -1384,10 +1567,10 @@ Perceived speed comes from three mechanisms, in order of contribution:
 Next-question prefetch uses a durable, server-only reservation rather than creating an early attempt.
 Its browser result is answer-free, but the reservation retains the issued private grading
 authority needed to avoid later Question Library or renderer reconstruction. It binds the current unresolved
-attempt, the first unattempted assignment position, the server-owned seed, parameter hash, and
+attempt, the first unattempted Assignment position, the server-owned Question Seed, parameter hash, and
 complete Question Attempt Reproduction Details. Submitting question N promotes that reservation into the one real N+1
 attempt and timer, then records either an immutable
-`nextIssued` descriptor or durable `nextPending` state in N's idempotent receipt. Initial recovery
+`nextIssued` descriptor or durable `nextPending` state in N's Question Submission Receipt. Initial recovery
 can heal a committed-but-unlinked successor from the sole pending receipt, but replay never scans
 newer Assignment Attempt state to rewrite a receipt.
 
@@ -1402,13 +1585,13 @@ deduplicated same-origin logical asset routes.
 An assessment tool is judged on what happens when the network drops mid-question, so these are
 designed rather than discovered:
 
-| Situation                              | Behavior                                                                                                                            |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Submission request fails               | Retry with the same idempotency key, backing off; the answer stays visible and editable; the timer keeps its server-anchored expiry |
-| Repeated failure                       | A persistent banner states the answer is saved locally and will be submitted, with a manual retry control                           |
-| Session expires mid-Assignment Attempt | Re-authentication returns the Student to the same question with the Assignment Attempt intact                                       |
-| Question content fails to load         | The question shows a retry affordance and the Assignment Attempt remains resumable                                                  |
-| Renderer unavailable                   | Only WeBWorK-sourced questions show a degraded state; the rest of the Assignment Attempt proceeds                                   |
+| Situation                              | Behavior                                                                                                                                              |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Submission request fails               | Retry the same response for the same Question Attempt, backing off; the answer stays visible and editable; the timer keeps its server-anchored expiry |
+| Repeated failure                       | A persistent banner states the answer is saved locally and will be submitted, with a manual retry control                                             |
+| Session expires mid-Assignment Attempt | Re-authentication returns the Student to the same question with the Assignment Attempt intact                                                         |
+| Question content fails to load         | The question shows a retry affordance and the Assignment Attempt remains resumable                                                                    |
+| Renderer unavailable                   | Only WeBWorK-sourced questions show a degraded state; the rest of the Assignment Attempt proceeds                                                     |
 
 ### Accessibility
 
@@ -1532,7 +1715,7 @@ The preview shows the student view and the answer-key view side by side, since a
 
 **Publish flow.** Validation results identify whether an edit is a moderate same-lineage successor or
 a full fork, show the resulting Question Authorship and Question License, and offer a content diff against the selected
-source. A moderate steward edit publishes a new immutable QuestionRevision under the same QuestionId;
+source. A moderate steward edit publishes a new immutable Question Revision under the same QuestionId;
 a validated full fork publishes a new QuestionId lineage with source attribution. The interface shows
 the stable QuestionId and version history without exposing a hidden snapshot ID, and records
 controlled-update impact separately from publication.
@@ -1544,9 +1727,9 @@ every student and Instructor page inside that course; it will never recolor glob
 authored scientific content, or semantic success/danger/correctness states. The banner will appear
 only on the course entry page. Theme and banner changes will share one strong appearance revision
 so a stale instructor tab preserves its local choices rather than overwriting another instructor.
-This target is deferred: no mounted Instructor UI, durable Course Appearance Store or record,
+This target is deferred: no Instructor Browser Surface, durable Course Appearance Store or record,
 current-pointer relation, PostgreSQL schema or migration, server route, authorization oracle,
-Course Banner upload-promotion-cleanup lifecycle, or mounted editor exists. The separately scoped
+Course Banner upload-promotion-cleanup lifecycle, or available editor exists. The separately scoped
 `WN1-QM-PRESENTATION-COURSE-APPEARANCE-VIEW` package is reader-only: it provides no persistence,
 current-pointer, route, authorization, upload-lifecycle, or editor implementation. The eventual
 feature requires an approved dedicated plan that freezes its palette, object, RLS, image, API,
@@ -1588,7 +1771,7 @@ substitution for a required production path.
 | MOD-API-AUTH               | Auth and sessions                                                        | `/auth`                                                                                                                               | MOD-STO                                                                                 | `MemoryStore`                       | Login on one replica, proceed on another                                                                                                                                                                                                    |
 | MOD-API-QUESTION-LIBRARY   | Question Library routes                                                  | `/questions`, Question Search, Question Revision publication                                                                          | MOD-STO, MOD-ID, MOD-CAP                                                                | `MemoryStore`                       | Publish refuses on violations; drafts hold no Question ID; cursor paging                                                                                                                                                                    |
 | MOD-API-COURSE             | Course routes                                                            | `/courses`, `/assignments`                                                                                                            | MOD-STO                                                                                 | `MemoryStore`                       | Assignments store exact `(question_id, revision_number)` pins                                                                                                                                                                               |
-| MOD-API-ASSIGNMENT-ATTEMPT | Assignment Attempt, Question Attempt, submission, and grading routes     | `/assignment-attempts`, `/question-attempts`, `/submissions`, `/grading`                                                              | MOD-STO, MOD-ACTIVITY, MOD-STATE, MOD-TIME, MOD-GRD                                     | `MemoryStore`                       | DB timestamps; idempotent replay; summary updated transactionally; no key in any response                                                                                                                                                   |
+| MOD-API-ASSIGNMENT-ATTEMPT | Assignment Attempt, Question Attempt, submission, and grading routes     | `/assignment-attempts`, `/question-attempts`, `/submissions`, `/grading`                                                              | MOD-STO, MOD-ACTIVITY, MOD-STATE, MOD-TIME, MOD-GRD                                     | `MemoryStore`                       | DB timestamps; a matching repeat returns its Question Submission Receipt and a changed response conflicts; summary updated transactionally; no key in any response                                                                          |
 | MOD-API-ASSET              | Asset delivery                                                           | `POST /api/assets/{id}`                                                                                                               | MOD-OBJ, MOD-STO                                                                        | `MemoryObjectStore`                 | Authorizes and logs before a bounded signed URL; only activated public Question Library assets bypass to CDN                                                                                                                                |
 | MOD-WORKER                 | Jobs queue and worker pool                                               | Enqueue and drain                                                                                                                     | MOD-STO                                                                                 | `MemoryStore`                       | Two workers never claim one job; scales on queue depth                                                                                                                                                                                      |
 | MOD-STATS                  | Anonymous question statistics                                            | Incremental aggregation, k-anonymity gate                                                                                             | MOD-ACTIVITY, MOD-STO                                                                   | `MemoryStore`                       | Aggregates match a hand-computed fixture; below-threshold cohorts suppressed; aggregates survive record deletion                                                                                                                            |
@@ -1733,8 +1916,8 @@ Question Response Control exists to build against.
   with actionable errors; unsupported QTI features are recorded rather than dropped; the original
   package is re-importable; H5P declares `serverGrading: false`; an iMathAS sandbox preview remains
   unversioned and private, while publication archives a checksum-pinned snapshot and profile before
-  minting a durable version; iMathAS grades only through an authenticated, idempotent
-  server-to-server exchange; a browser message is presentation/readiness only; and an iMathAS
+  minting a durable version; iMathAS grades only through an authenticated server-to-server
+  exchange whose existing Session and result identities resolve a repeat or conflict; a browser message is presentation/readiness only; and an iMathAS
   outage affects only that attempt. Adapter conformance tests protect the behavior boundary; a
   one-time source-diff receipt records that adapters leave `crates/domain` unchanged.
 - Parallel-plan ready: yes. Three independent lanes immediately; iMathAS begins after its atomic
@@ -1752,18 +1935,17 @@ adapter may consume an intermediate form:
   Question Revisions and references require both IDs.
 - MOD-ID makes the lifecycle transition from validated draft to published content mint the full
   `QuestionRevisionReference`, stable QuestionId lineage, and immutable QuestionRevision only after all
-  publication validation succeeds. A validated moderate steward edit mints a successor version in
+  Question Publication Validation succeeds. A validated moderate steward edit mints a successor version in
   its existing lineage; a validated full fork mints a new lineage with fork authorship, source
   attribution, and a source-compatible Question License. A failed publication mints neither published
   reference nor version.
-- MOD-STO and MOD-SCHEMA update the memory and PostgreSQL Stores, migrations, and JSON boundaries.
-  Private Draft Question and Published Question Metadata use parallel tables with shared field
-  validation and separate owner keys, mutability, RLS, indexes, and retention. Draft Question Source
-  Registration and Question Revision Source Registration use separate tables. Publication copies
-  validated discovery metadata, writes a new Question Revision-owned source object, and stores no
-  published-to-draft dependency. Draft cleanup expires the private rows and objects by the configured
-  inactivity policy. Question Library and API publication paths use this transition rather than draft
-  revision history.
+- M1 has completed the schema foundation: private Draft Question and Published Question Metadata use
+  parallel tables with shared field validation and separate owner keys, mutability, RLS, indexes, and
+  retention; Draft Question Source Binding and Question Revision Source Binding use separate tables.
+  The remaining publication work copies validated discovery metadata, writes a new Question
+  Revision-owned source object and Binding, and stores no published-to-draft dependency. Draft cleanup
+  expires the private rows and objects by the configured inactivity policy. Question Library and API
+  publication paths use this transition rather than draft revision history.
 - MOD-CLIENT updates generated TypeScript and all direct browser/API consumers. MOD-QM regenerates
   the generated clients and published/draft fixtures through their owners, and conformance tests
   prove a sandbox draft is private and unversioned until successful publication.
@@ -1792,7 +1974,7 @@ After that prerequisite:
   HttpOnly session, and rechecks enrollment and attempt ownership on every route use. Browser
   messages may communicate validated presentation/readiness state only; they never grade.
 - The server alone launches and grades: it checks attempt/enrollment ownership, holds correlation and
-  idempotency keys, verifies iMathAS authentication, expiry, nonce, and attempt/version/seed
+  exact iMathAS Session/result identities, verifies iMathAS authentication, expiry, nonce, and attempt/version/seed
   correlation, then persists the first verified grade. A browser score or callback is never a
   fallback. Unsupported verification or deterministic seeding makes the requested graded feature
   unavailable rather than pretending capability.
@@ -1808,7 +1990,7 @@ Permanent behavior gates use recorded, redacted protocol fixtures and a test-loc
 sandbox
 publication refusal without a snapshot or durable IDs; immutable replay after iMathAS mutation;
 deterministic render cache; forged or stale browser/iMathAS messages leaving attempts ungraded;
-idempotent grade replay and cross-course isolation; copied launch URLs and disclosure traces free of source,
+repeat grade resolution through the existing iMathAS Session/result identities and cross-course isolation; copied launch URLs and disclosure traces free of source,
 iMathAS Session Authentication, secrets, Answer Key, and unauthorized score; outage isolation; and capability
 refusal for unsupported profiles. A dedicated
 non-production iMathAS/MyOpenMath compatibility probe is a one-time release-readiness check, never a
@@ -2054,7 +2236,7 @@ or implementer-authored specification is required.
   are retained, but the pre-production SD1 schema reset removed their durable product substrate.
 - Current state: the Course Appearance Store and retained record, revision/current-pointer schema
   relation, PostgreSQL migration, server route, authorization oracle, Course Banner Upload
-  promotion/cleanup, and mounted Instructor editor are deferred and incomplete. No historical
+  promotion/cleanup, and available Instructor editor are deferred and incomplete. No historical
   receipt authorizes an acceptance claim for those absent capabilities.
 - Separate terminology scope: `WN1-QM-PRESENTATION-COURSE-APPEARANCE-VIEW` owns only the already
   existing `CourseAppearanceView` reader and its Question Model/public facade, generated declaration, strict
@@ -2070,7 +2252,7 @@ or implementer-authored specification is required.
   semantic review of representative supported variants with palette metrics, and independent PASS
   with no P0/P1 finding.
 - Next dependency: a future durable Course Appearance package must re-establish the deferred
-  persistence, authorization, promotion/cleanup, and mounted-browser boundaries before it can run
+  persistence, authorization, promotion/cleanup, and connected-browser boundaries before it can run
   the acceptance criteria or evidence gates below. The current reader package remains separate.
 
 ### M3 PLE Question JSON type evolution package
@@ -2148,29 +2330,29 @@ contract, or scale gate blocks the milestone and triggers design review rather t
 
 ## Risk register
 
-| Risk                                                           | Impact                                                                          | Trigger                                                                                                                                      | Owner            | Mitigation                                                                                                                                                                                                                                                                                                                                                                                           |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| An answer or key reaches the browser                           | Assessment integrity lost, silent until exploited                               | A new WASM export, or grading code moved into `domain`                                                                                       | `expert_coder`   | `grading` absent from the `wasm32` closure; export allowlist gate; M3 network trace (WP-C6)                                                                                                                                                                                                                                                                                                          |
-| RLS is bypassed, unset, or outlives membership                 | Cross-course, cross-account, or revoked-Student exposure of educational records | Application connects as a bypassing role, authenticated Account context comes from client input, or a revoked student uses stale identifiers | `expert_coder`   | `FORCE ROW LEVEL SECURITY`; non-superuser role; context from authenticated session only; account-and-relationship-scoped Store reads/mutations lock and recheck active Student membership; foreign-course, another-AccountId, and revocation-race tests on every gate                                                                                                                                |
-| A frozen contract turns out incomplete                         | Parallel lanes stall or diverge                                                 | A lane finds a missing trait method mid-flight                                                                                               | `architect`      | Conformance suites ship with contracts in M1; the contract gate updates declared consumers in the same patch; one-time architecture review examines each changed contract surface                                                                                                                                                                                                                    |
-| Native and wasm32 generation diverge                           | Historical attempts not reproducible; render cache serves wrong content         | Parity mismatch                                                                                                                              | `tester`         | Ban known causes up front; measure before dependent lanes start; replace the primitive rather than special-case the platform (WP-C5)                                                                                                                                                                                                                                                                 |
-| Attempt tables outgrow the design                              | Slow gradebook, painful migrations                                              | Observed workload approaches a configured storage or query budget                                                                            | `expert_coder`   | The documented capacity model sets partition, summary, and retention parameters; grade reads use summaries; one-time query-plan and workload review validates the chosen configuration                                                                                                                                                                                                               |
-| Grade computed by scanning history                             | Course pages time out at scale                                                  | A convenient aggregate query in a page path                                                                                                  | `expert_coder`   | Summary row is the only grade source; review rejects any aggregate over `question_attempt` in a request path                                                                                                                                                                                                                                                                                         |
-| Database bloat from payloads in operational tables             | Slow backups, restores, replication                                             | A payload exceeds its documented operational-storage budget                                                                                  | `expert_coder`   | Role-based split; configured payload ceilings refuse oversized writes; archival source and binary data use typed object storage; hot and cold records remain separate                                                                                                                                                                                                                                |
-| WeBWorK renderer saturates                                     | Timed questions fail to load under burst                                        | Many students on WeBWorK questions at once                                                                                                   | `expert_coder`   | Deterministic render cache; prefetch; worker pool autoscaled on queue depth, latency, CPU, and timeout rate                                                                                                                                                                                                                                                                                          |
-| iMathAS Question Backend callback or retry accepted as a grade | Assessment integrity or cross-course isolation lost                             | Browser message, stale launch, an unverifiable backend response, or an ambiguous failed launch POST reaches grading                          | `expert_coder`   | iMathAS browser messages are presentation-only; the same-origin launch is POST-only; a lease-bound dispatch marker is committed before backend contact and blocks retry, grading, new launch, and finalization after an indeterminate outcome; server-held correlation/idempotency and authenticated server-to-server verification have forged-message, cross-course, expiry, and crash-window gates |
-| Malicious archive during QTI import                            | Remote code execution or disk exhaustion                                        | A crafted ZIP uploaded                                                                                                                       | `expert_coder`   | Import in the worker; size, expanded-size, and file-count limits; path and symlink rejection; media sniffing; never serve from an extracted path; hostile fixture-set test                                                                                                                                                                                                                           |
-| Course banner exhausts image processing                        | Availability failure or active-content exposure                                 | Oversized decoded raster, SVG, animation, malformed codec input                                                                              | `expert_coder`   | Pre-read byte cap; decoded-pixel cap; JPEG/PNG/WebP raster allowlist; metadata-stripping normalization; hostile-image tests                                                                                                                                                                                                                                                                          |
-| Course theme bleeds across route scope                         | Wrong course identity or unreadable global/status UI                            | Prior course variables remain after navigation                                                                                               | `ui-ux-engineer` | One course-subtree provider; cross-course/global cleanup tests; computed rendered-pair contrast and contact-sheet review                                                                                                                                                                                                                                                                             |
-| Orphaned objects accumulate                                    | Storage cost and retention drift                                                | Deleted records leaving objects behind                                                                                                       | `expert_coder`   | Object Storage Check compares object records to bucket inventory; evidence-backed Object Storage Repair follows only when authorized; lifecycle rules; M5 deliverable                                                                                                                                                                                                                                |
-| Small-cohort statistics re-identify a student                  | Privacy failure disguised as an anonymous aggregate                             | A question attempted by one or two students publishes its statistics                                                                         | `architect`      | k-anonymity threshold (default 5) gates publication; suppression test in M5 exit                                                                                                                                                                                                                                                                                                                     |
-| Statistics lost when records are deleted                       | The library stops learning, and deletion becomes something instructors avoid    | Statistics computed on demand from attempt history                                                                                           | `expert_coder`   | Incremental or scheduled aggregation while records exist; discrimination index computed before deletion; MOD-STATS ordered before MOD-RETENTION                                                                                                                                                                                                                                                      |
-| Retention deletes reusable content                             | Instructors lose authored work and stop trusting the system                     | A deletion path following assignment references into shared content                                                                          | `expert_coder`   | Deletion is scoped to exact course/Student records by construction; the M5 deletion test asserts Question Library content and private drafts survive                                                                                                                                                                                                                                                 |
-| Signed URL leakage                                             | Educational records exposed                                                     | A URL is shared, logged, or used after its configured expiry                                                                                 | `expert_coder`   | The signed-link configuration supplies a short-lived expiry appropriate to its storage domain; controlled-clock tests prove issue, valid use, expiry refusal, and logged access                                                                                                                                                                                                                      |
-| Draft Questions leak into shared content                       | The exact ADAPT failure this design exists to avoid                             | A code path minting `QuestionId` outside publish                                                                                             | `architect`      | Keep the `QuestionId` constructor private to the typed publish transition; durable behavior tests cover draft, publish, replay, and replacement outcomes, while a one-time source review receipts every construction path and confirms no alternate public boundary                                                                                                                                  |
-| Parallel lanes collide on a shared source_object_reference     | Merge conflicts and lost work                                                   | Two lanes editing migrations or the seed table                                                                                               | `integrator`     | One owning module per shared source_object_reference, tabulated in the catalog                                                                                                                                                                                                                                                                                                                       |
-| Scope creep toward ADAPT parity                                | Version 1 never ships                                                           | Requests for rubrics, Adaptive Question Support, discussions                                                                                 | `architect`      | Binary out-of-scope register in the release-completion plan                                                                                                                                                                                                                                                                                                                                          |
-| Plan drifts from implementation                                | Reviews check the wrong thing                                                   | Package work outpacing the tracker                                                                                                           | `architect`      | Release-completion tracker updated at every WP-RC exit                                                                                                                                                                                                                                                                                                                                               |
+| Risk                                                            | Impact                                                                          | Trigger                                                                                                                                      | Owner            | Mitigation                                                                                                                                                                                                                                                                                                                                                                                                                |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| An answer or key reaches the browser                            | Assessment integrity lost, silent until exploited                               | A new WASM export, or grading code moved into `domain`                                                                                       | `expert_coder`   | `grading` absent from the `wasm32` closure; export allowlist gate; M3 network trace (WP-C6)                                                                                                                                                                                                                                                                                                                               |
+| RLS is bypassed, unset, or outlives membership                  | Cross-course, cross-account, or revoked-Student exposure of educational records | Application connects as a bypassing role, authenticated Account context comes from client input, or a revoked student uses stale identifiers | `expert_coder`   | `FORCE ROW LEVEL SECURITY`; non-superuser role; context from authenticated session only; account-and-relationship-scoped Store reads/mutations lock and recheck active Student membership; foreign-course, another-AccountId, and revocation-race tests on every gate                                                                                                                                                     |
+| A frozen contract turns out incomplete                          | Parallel lanes stall or diverge                                                 | A lane finds a missing trait method mid-flight                                                                                               | `architect`      | Conformance suites ship with contracts in M1; the contract gate updates declared consumers in the same patch; one-time architecture review examines each changed contract surface                                                                                                                                                                                                                                         |
+| Native and wasm32 generation diverge                            | Historical attempts not reproducible; render cache serves wrong content         | Parity mismatch                                                                                                                              | `tester`         | Ban known causes up front; measure before dependent lanes start; replace the primitive rather than special-case the platform (WP-C5)                                                                                                                                                                                                                                                                                      |
+| Attempt tables outgrow the design                               | Slow gradebook, painful migrations                                              | Observed workload approaches a configured storage or query budget                                                                            | `expert_coder`   | The documented capacity model sets partition, summary, and retention parameters; grade reads use summaries; one-time query-plan and workload review validates the chosen configuration                                                                                                                                                                                                                                    |
+| Grade computed by scanning history                              | Course pages time out at scale                                                  | A convenient aggregate query in a page path                                                                                                  | `expert_coder`   | Summary row is the only grade source; review rejects any aggregate over `question_attempt` in a request path                                                                                                                                                                                                                                                                                                              |
+| Database bloat from payloads in operational tables              | Slow backups, restores, replication                                             | A payload exceeds its documented operational-storage budget                                                                                  | `expert_coder`   | Role-based split; configured payload ceilings refuse oversized writes; archival source and binary data use typed object storage; hot and cold records remain separate                                                                                                                                                                                                                                                     |
+| WeBWorK renderer saturates                                      | Timed questions fail to load under burst                                        | Many students on WeBWorK questions at once                                                                                                   | `expert_coder`   | Deterministic render cache; prefetch; worker pool autoscaled on queue depth, latency, CPU, and timeout rate                                                                                                                                                                                                                                                                                                               |
+| iMathAS Question Backend callback or repeat accepted as a grade | Assessment integrity or cross-course isolation lost                             | Browser message, stale launch, an unverifiable backend response, or an ambiguous failed launch POST reaches grading                          | `expert_coder`   | iMathAS browser messages are presentation-only; the same-origin launch is POST-only; a lease-bound dispatch marker is committed before backend contact and blocks another dispatch, grading, new launch, and finalization after an indeterminate outcome; server-held iMathAS Session/result identities and authenticated server-to-server verification have forged-message, cross-course, expiry, and crash-window gates |
+| Malicious archive during QTI import                             | Remote code execution or disk exhaustion                                        | A crafted ZIP uploaded                                                                                                                       | `expert_coder`   | Import in the worker; size, expanded-size, and file-count limits; path and symlink rejection; media sniffing; never serve from an extracted path; hostile fixture-set test                                                                                                                                                                                                                                                |
+| Course banner exhausts image processing                         | Availability failure or active-content exposure                                 | Oversized decoded raster, SVG, animation, malformed codec input                                                                              | `expert_coder`   | Pre-read byte cap; decoded-pixel cap; JPEG/PNG/WebP raster allowlist; metadata-stripping normalization; hostile-image tests                                                                                                                                                                                                                                                                                               |
+| Course theme bleeds across route scope                          | Wrong course identity or unreadable global/status UI                            | Prior course variables remain after navigation                                                                                               | `ui-ux-engineer` | One course-subtree provider; cross-course/global cleanup tests; computed rendered-pair contrast and contact-sheet review                                                                                                                                                                                                                                                                                                  |
+| Orphaned objects accumulate                                     | Storage cost and retention drift                                                | Deleted records leaving objects behind                                                                                                       | `expert_coder`   | Object Storage Check compares object records to bucket inventory; evidence-backed Object Storage Repair follows only when authorized; lifecycle rules; M5 deliverable                                                                                                                                                                                                                                                     |
+| Small-cohort statistics re-identify a student                   | Privacy failure disguised as an anonymous aggregate                             | A question attempted by one or two students publishes its statistics                                                                         | `architect`      | k-anonymity threshold (default 5) gates publication; suppression test in M5 exit                                                                                                                                                                                                                                                                                                                                          |
+| Statistics lost when records are deleted                        | The library stops learning, and deletion becomes something instructors avoid    | Statistics computed on demand from attempt history                                                                                           | `expert_coder`   | Incremental or scheduled aggregation while records exist; discrimination index computed before deletion; MOD-STATS ordered before MOD-RETENTION                                                                                                                                                                                                                                                                           |
+| Retention deletes reusable content                              | Instructors lose authored work and stop trusting the system                     | A deletion path following assignment references into shared content                                                                          | `expert_coder`   | Deletion is scoped to exact course/Student records by construction; the M5 deletion test asserts Question Library content and private drafts survive                                                                                                                                                                                                                                                                      |
+| Signed URL leakage                                              | Educational records exposed                                                     | A URL is shared, logged, or used after its configured expiry                                                                                 | `expert_coder`   | The signed-link configuration supplies a short-lived expiry appropriate to its storage domain; controlled-clock tests prove issue, valid use, expiry refusal, and logged access                                                                                                                                                                                                                                           |
+| Draft Questions leak into shared content                        | The exact ADAPT failure this design exists to avoid                             | A code path minting `QuestionId` outside publish                                                                                             | `architect`      | Keep the `QuestionId` constructor private to the typed publish transition; durable behavior tests cover draft, publish, replay, and replacement outcomes, while a one-time source review receipts every construction path and confirms no alternate public boundary                                                                                                                                                       |
+| Parallel lanes collide on a shared source_object_reference      | Merge conflicts and lost work                                                   | Two lanes editing migrations or the seed table                                                                                               | `integrator`     | One owning module per shared source_object_reference, tabulated in the catalog                                                                                                                                                                                                                                                                                                                                            |
+| Scope creep toward ADAPT parity                                 | Version 1 never ships                                                           | Requests for rubrics, Adaptive Question Support, discussions                                                                                 | `architect`      | Binary out-of-scope register in the release-completion plan                                                                                                                                                                                                                                                                                                                                                               |
+| Plan drifts from implementation                                 | Reviews check the wrong thing                                                   | Package work outpacing the tracker                                                                                                           | `architect`      | Release-completion tracker updated at every WP-RC exit                                                                                                                                                                                                                                                                                                                                                                    |
 
 ## Rollout and release checklist
 

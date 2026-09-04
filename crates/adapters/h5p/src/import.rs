@@ -515,7 +515,7 @@ mod tests {
                 stored_package_object: ObjectId::from_uuid(Uuid::from_u128(0x81)),
             },
             metadata: QuestionMetadata {
-                title: "Peptide bonds practice".to_string(),
+                question_title: "Peptide bonds practice".to_string(),
                 question_description: "Instructor-facing peptide-bond practice summary."
                     .to_string(),
                 tags: Vec::new(),

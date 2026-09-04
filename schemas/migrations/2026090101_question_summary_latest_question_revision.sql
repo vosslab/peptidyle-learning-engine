@@ -31,6 +31,13 @@ AS $$
     SELECT EXISTS (
         SELECT 1
           FROM ple_private.account AS account
+          JOIN LATERAL (
+              SELECT state_event.state
+                FROM ple_private.account_state_event AS state_event
+               WHERE state_event.account_id = account.account_id
+               ORDER BY state_event.occurred_at DESC, state_event.event_id DESC
+               LIMIT 1
+          ) AS current_state ON current_state.state = 'active'
          WHERE account.account_id = ple_api.current_session_account_id()
            AND account.product_role = 'instructor'
     )

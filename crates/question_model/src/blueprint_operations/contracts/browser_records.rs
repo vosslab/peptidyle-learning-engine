@@ -9,8 +9,8 @@ use super::{
     CopyCourseForNewTermPreview, CopyCourseForNewTermPreviewRequest,
     CreateCourseFromBlueprintCompleted, CreateCourseFromBlueprintPreviewRequest,
     CreateCourseFromBlueprintPreviewView, ForkBlueprintCourseCompleted,
-    ForkBlueprintCoursePreviewRequest, ForkBlueprintCoursePreviewView, RequestRetryToken,
-    ShiftCourseDatesCompleted, ShiftCourseDatesPreview, ShiftCourseDatesPreviewRequest,
+    ForkBlueprintCoursePreviewRequest, ForkBlueprintCoursePreviewView, ShiftCourseDatesCompleted,
+    ShiftCourseDatesPreview, ShiftCourseDatesPreviewRequest,
 };
 
 /// One closed, answer-free browser request for a Blueprint-operation preview.
@@ -94,16 +94,14 @@ pub enum BlueprintOperationCompleted {
     },
 }
 
-/// Browser apply intent for one atomic Store-owned Blueprint operation.
+/// Browser apply intent for one future Store-owned Blueprint operation.
 ///
-/// The request repeats only browser-safe intent from preview. Its Request Retry Token binds a
-/// repeated request to the Store's server-held Request Checksum; previews, commands, records,
-/// and receipts stay server-held.
+/// It carries only browser-safe request facts. A future Store and Server Route decide whether
+/// the exact operation identity, reservation, revision, and Receipt suffice for repetition.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintOperationApplyIntent {
     pub request: BlueprintOperationPreviewRequest,
-    pub retry_token: RequestRetryToken,
 }
 
 #[cfg(test)]
@@ -127,7 +125,6 @@ mod tests {
     fn apply_intent_is_strict_snake_case_and_carries_only_a_request() {
         let intent = BlueprintOperationApplyIntent {
             request: fork_request(),
-            retry_token: RequestRetryToken::parse("fork-apply").expect("retry token"),
         };
         let wire = serde_json::to_value(&intent).expect("intent serializes");
         assert_eq!(wire["request"]["operation"], "fork_blueprint_course");

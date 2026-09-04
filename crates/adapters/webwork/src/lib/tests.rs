@@ -74,11 +74,11 @@ impl WebworkRenderer for RecordedRenderer {
         }
         Ok(RenderedWebworkQuestion {
             presentation: QuestionVariationPresentation {
-                variation: QuestionVariation::from_question_revision_and_seed(
+                variation: QuestionVariation::from_question_revision_and_question_seed(
                     request.question_revision.clone(),
                     QuestionSeed::new(request.seed),
                 ),
-                title: "Untrusted renderer title".to_string(),
+                question_title: "Untrusted renderer title".to_string(),
                 prompt: vec![QuestionContentBlock::Text {
                     markdown: "Which molecule is water?".to_string(),
                 }],
@@ -222,7 +222,10 @@ async fn recorded_opl_fixture_renders_and_grades_through_the_shared_model() {
         issued.presentation.variation.question_seed,
         QuestionSeed::new(17)
     );
-    assert_eq!(issued.presentation.title, "Untrusted renderer title");
+    assert_eq!(
+        issued.presentation.question_title,
+        "Untrusted renderer title"
+    );
     assert!(
         !serde_json::to_string(&issued.presentation)
             .expect("browser Question Presentation serializes")
@@ -282,7 +285,10 @@ async fn repeated_version_and_seed_are_served_without_a_renderer_call() {
     assert!(second.cache_hit);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
     assert_eq!(first.presentation, second.presentation);
-    assert_eq!(second.presentation.title, "Untrusted renderer title");
+    assert_eq!(
+        second.presentation.question_title,
+        "Untrusted renderer title"
+    );
 }
 
 #[test]

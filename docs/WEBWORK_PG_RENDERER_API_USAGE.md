@@ -26,7 +26,7 @@ assignment, password, session store, or SQL database participates.
 
 `OTHER_REPOS/pg`, `OTHER_REPOS/webwork-pg-renderer`, and
 `OTHER_REPOS/webwork2` are read-only comparison snapshots. They are not build
-contexts, imports, mounts, or runtime sources. PLE consumes a separately built
+contexts, imports, checked-out dependencies, or runtime sources. PLE consumes a separately built
 renderer image through its published API.
 
 ## Accepted scope

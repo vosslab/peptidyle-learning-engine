@@ -40,6 +40,28 @@ boundaries. This index gives those entries their product and architectural ratio
 
 ## Learning and content
 
+### Static sources do not carry a variation rule
+
+**Decision.** Static PLE Question JSON and QTI-imported static Questions do not carry a
+Question-authored `Static` variation-rule field. Static is a characteristic of the complete
+Question Source. The Assignment-owned Question Variation Rule remains the separate choice to reuse
+or replace Question Variations in later Assignment Attempts.
+
+**Why.** A source field whose only current value is `Static` repeats what the source format and QTI
+profile already establish. It would also overload the Assignment rule that governs later-Attempt
+behavior. QTI is interchange input and converts an accepted static item to PLE Question JSON; it is
+not a runtime Question Backend or a second source-policy owner.
+
+**Consequence.** PLE Question JSON, QTI mapping, Draft Question, and Question Revision contracts add
+no `RandomizationDefinition::Static`, `QuestionVariationDefinition::Static`, or
+`questionVariationDefinition`. A future seeded Question Generator must introduce its complete
+source, publication, issuance, grading, repair, and reproduction path; it does not add a
+Question-authored variation rule. `AssignmentQuestionVariationRule` remains the separate
+Assignment-owned choice between Reuse Variation and New Variation.
+
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md), and the PLE and QTI adapters.
+
 ### Draft and published source bindings are separate
 
 **Decision.** Draft Question Source Binding and Question Revision Source Binding are
@@ -53,12 +75,19 @@ are durable shared content. One mixed table would make published source resoluti
 draft ownership, draft update behavior, and cleanup concerns. Qualified bindings preserve the
 real owner and lifecycle boundary.
 
-**Consequence.** Draft saves replace only the Draft Question Source Binding. A future
-authorized publication operation creates a new immutable source object and complete Question
-Revision Source Binding in the publication transaction. Published reads use only the latter.
-The current mixed `ple_private.question_source_registration` table requires a direct pre-production
-split; its one-owner nullable columns are implementation evidence rather than the target model.
+**Consequence.** Draft saves replace only the Draft Question Source Binding. New-lineage
+publication resolves and verifies the exact current draft source, then writes the same bytes to a
+new immutable Question Revision Object Address. The P1 Store transaction rechecks the exact Draft
+Question Edit Number and source facts before it
+creates the complete first Question Revision and Question Revision Source Binding. Published reads
+use only the latter. The private-authoring baseline directly creates the two qualified Source
+Binding tables instead of a mixed owner relationship.
 Existing RLS, grants, retry semantics, and typed addresses apply to each exact relationship.
+Because PLE is pre-production, migrations in the fresh baseline are current construction authority,
+not immutable compatibility history: the earlier baseline must create and operate on the qualified
+bindings directly, and later migrations must not translate from or drop the retired mixed table.
+P2 implements the server-only new-lineage object-copy coordination. Same-lineage publication,
+Question Search isolation, Server Routes, and cleanup remain parent QSOM1 work.
 
 **Owner.** `docs/TERMINOLOGY_CONTRACT.md` and the active fresh-schema migrations.
 
@@ -274,10 +303,10 @@ immutable. Published-question stewardship has four paths:
 1. A Question Owner may publish a validated moderate edit as an immutable
    same-lineage version.
 2. Any vetted Instructor may submit a Change Proposal against an exact
-   version after publication validation succeeds. It shows semantic and grading impact; the
+   version after Question Publication Validation succeeds. It shows semantic and grading impact; the
    Question Owner accepts or rejects it. A stale base must be rebased or resubmitted; acceptance creates a
    same-lineage version with contributor credit.
-3. Any vetted Instructor may create a full fork as a private Draft Question. Publication validation
+3. Any vetted Instructor may create a full fork as a private Draft Question. Question Publication Validation
    then creates a separate `QuestionId` lineage with the fork author's authorship, compatible
    Creative Commons licensing, source attribution, and visible ancestry.
 4. **Forced Question Correction** is an audited Sysadmin action reserved for a critical flaw.
@@ -316,6 +345,11 @@ thresholds are met.
 Instructor Student view and previews create no evidence; published-question references stay global,
 while Student records, delivery state, and private CourseInstance identity stay outside the
 Question Library.
+Question Ownership Events form an ordered, repeatable transfer chain. The initial owner records the
+initial event, only the current Question Owner records an accepted transfer, and the next owner must
+be an Active Instructor Account at transfer time. Ownership grants stewardship authority but never
+limits answer-free Question Library visibility for another Active Instructor Account. Question
+Owner identity remains server-side unless a future explicitly authorized View needs it.
 **Owner.** [QUESTION_MODEL.md](QUESTION_MODEL.md),
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
 [CONTRACTS.md](CONTRACTS.md#domain-contracts), `crates/question_model/src/question_library.rs`,
@@ -377,6 +411,10 @@ unavailable, unauthorized, or duplicate input preserves the pasted text and assi
 published version keeps its stable QuestionId lineage or starts a new fork according to the semantic
 change class; an explicit source-history link names the source, and an Instructor deliberately replaces
 or opts in to a newer version for any assignment that should use it.
+The server-only new-lineage publisher now generates the six random Crockford characters with the OS
+CSPRNG and computes the seventh character with HMAC-SHA-256 under a redacted 256-bit installation
+secret. Secret loading, rotation, the publication Server Route, lookup validation, and browser entry remain
+their owning composition and Question Library packages; the issuer creates no alternate identity.
 **Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-philosophy),
 [`QUESTION_ID_SPEC.md`](QUESTION_ID_SPEC.md), `crates/question_model/src/question_library.rs`, and
 Question Library API in
@@ -453,6 +491,14 @@ Privacy-safe Question Statistics may describe global usage and disclosed learnin
 never name a private CourseInstance. CourseInstance records, Student activity, grades, and other FERPA
 state remain under exact course authorization even when their published question references remain
 discoverable in the Question Library.
+
+The private Blueprint Course UUID identifies only the stable Blueprint Course database record. The
+Blueprint Course has a separate bounded `BP-` reference number. PostgreSQL identifies an immutable
+Blueprint Revision, and every Course Instance, Course Origin, Assignment source, publication,
+availability, and collaboration relationship that refers to it, only by the composite Blueprint
+Course Reference number and positive Blueprint Revision Number. No Blueprint Revision UUID or
+parallel Blueprint Course UUID plus revision identity exists.
+
 **Owner.**
 [implementation_status.md](active_plans/implementation_status.md),
 [CONTRACTS.md](CONTRACTS.md#blueprint-and-instance-courses),
@@ -498,7 +544,7 @@ Question Presentation is accepted.
 
 ### The attempt is the grading authority
 
-**Decision.** Question Attempt UUID, Authenticated Session, and idempotency key bind a Question Submission;
+**Decision.** Question Attempt identity and Authenticated Session bind a Question Submission;
 the server loads the complete attempt relationship and durably accepts one immutable private
 response before grading.
 
@@ -616,6 +662,29 @@ no current endpoint treats CRC16 as a bearer token.
 
 ## Data and operations
 
+### Repeated mutations use existing identity first
+
+**Decision.** Repeated-request handling belongs to each exact operation. Use its existing record
+identity, revision, Request Checksum, Receipt, signed result identity, and database constraints
+before adding a separate Retry Token. A qualified Retry Token is allowed only when an implemented
+Store and Server Route demonstrate a concrete request that those existing facts cannot identify
+safely. The HTTP `idempotency-key` header remains transport vocabulary.
+
+**Why.** A universal Retry Token model creates parallel identity and matching rules for operations
+that already have unique durable subjects. That increases implementation and validation work
+without improving correctness. The exceptional operation can add a narrow token later without
+redesigning unrelated operations.
+
+**Consequence.** The pre-production `RequestRetryToken`, `QuestionSubmissionRetryToken`,
+`CourseRosterRetryToken`, and `ImathasResultExchangeRetryToken` candidates were removed after
+operation-by-operation review found no demonstrated need. A browser-only type, future contract, or
+unaccepted persistence slice does not establish need. Add a qualified token only with its exact
+Store, Server Route, conflict behavior, and acceptance evidence; otherwise use the operation's
+existing identity and constraints.
+
+**Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md), the exact operation contract, and its
+implemented Store and Server Route.
+
 ### One installation uses exact domain ownership
 
 **Decision.** PLE is one installation with global accounts and one Question Library. Private drafts
@@ -670,9 +739,9 @@ Record, and invitation claim.
 [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md), and the course capabilities in
 `crates/learning-data-access` and `crates/server/src/course/`.
 
-**Planned closure.** Course Roster Import must mount the Course Roster Import, invitation claim, and
-passwordless enrollment delivery with its Store, route, and transaction proof. The current
-baseline does not mount those paths. Operator-configured email-provider, optional-passkey,
+**Planned closure.** Course Roster Import delivery must implement the Course Roster Import Service,
+invitation claim, and passwordless enrollment flow with their Stores, Server Routes, and transaction
+proof. The current baseline exposes none of those Server Routes. Operator-configured email-provider, optional-passkey,
 multi-replica, security, and HCI evidence remain open.
 
 ### Course Roster change numbers stay exact
@@ -1041,7 +1110,7 @@ PostgreSQL persistence, fixture, and browser feature do not exist yet.
 
 **Owner.** `crates/question_model/src/preview_plane.rs` owns the public output;
 `crates/domain/src/preview_plane.rs` owns branch evaluation; and
-[CONTRACTS.md](CONTRACTS.md) owns the browser contract and mounting status.
+[CONTRACTS.md](CONTRACTS.md) owns the browser contract and Browser Surface availability status.
 
 ### Locked job targets carry authorization ownership
 
@@ -1200,7 +1269,7 @@ or dual local/generated browser shape is permitted.
 page carries server facets, whereas the browser contract has display text,
 author names, capabilities, browser evidence, and aggregates. Calling both
 shapes Question Search makes wrong imports and wrong-shape calls plausible.
-The mounted Library, Question Picker, and Assignment Editor need the flattened
+The available Library, Question Picker, and Assignment Editor need the flattened
 presentation shape, while accepted QC2 removed the Question Curation aggregate;
 stale Graphify Curation edges are not consumer authority.
 

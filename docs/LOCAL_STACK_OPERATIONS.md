@@ -29,21 +29,21 @@ course selected by the user from current membership rows. A route course ID,
 workspace ID, Question ID, Object Address, queue payload, or client-supplied integration field
 is only a lookup/input value; it cannot establish authority.
 
-| Data                          | Exact owner                                            | Local enforcement                         |
-| ----------------------------- | ------------------------------------------------------ | ----------------------------------------- |
-| Account, session, and passkey | Global `AccountId`                                     | Server session and PostgreSQL             |
+| Data                          | Exact owner                                                            | Local enforcement                         |
+| ----------------------------- | ---------------------------------------------------------------------- | ----------------------------------------- |
+| Account, session, and passkey | Global `AccountId`                                                     | Server session and PostgreSQL             |
 | Published question            | Stable `QuestionId` lineage plus immutable `QuestionRevisionReference` | Approved-Instructor Question Library      |
-| Draft or curriculum           | `WorkspaceId` plus owner/collaborators                 | Workspace relationship                    |
-| Course and assignment         | `CourseId` and child records                           | Current direct Instructor membership      |
-| Student work and grades       | Exact course plus Student owner                        | Student self or current course Instructor |
-| Jobs and objects              | Typed target from the locked lease                     | Store/PostgreSQL capability boundary      |
+| Draft or curriculum           | `WorkspaceId` plus owner/collaborators                                 | Workspace relationship                    |
+| Course and assignment         | `CourseId` and child records                                           | Current Instructor Course Membership      |
+| Student work and grades       | Exact course plus Student owner                                        | Student self or current course Instructor |
+| Jobs and objects              | Typed target from the locked lease                                     | Store/PostgreSQL capability boundary      |
 
 Current Teaching Team Members are equal. Course creation inserts the creator's first
 ordinary Instructor membership and does not create an elevated owner. Students
 see only their own work in enrolled courses. Published questions remain in one
 shared Instructor Question Library after publication. Question Revision
 Availability is `Available` or `Archived`; only `Available` Question Revisions
-are eligible for ordinary new selection. Draft Question Source Registrations and Answer Keys remain private.
+are eligible for ordinary new selection. Draft Question Source Bindings and Answer Keys remain private.
 
 Institution names, roster IDs, display labels, provider IDs, renderer IDs, and
 similar fields are metadata for presentation, audit, provenance, or routing.
@@ -249,7 +249,7 @@ source source_me.sh && python3 local_stack.py acceptance
 It refuses an existing default or fixed live-demo stack, runs the canonical
 real-stack browser lane and current database/object service oracles, and cleans
 each disposable owner exactly. The future two-API profile returns with the
-fresh mounted course-delivery Store contract. Renderer, database, object-store,
+fresh implemented course-delivery Store contract. Renderer, database, object-store,
 and worker checks are service evidence, not substitute browser journeys.
 [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) defines the required evidence
 classes and final gate order.

@@ -75,14 +75,14 @@ impl PleQuestionBackend {
     pub fn issue_question_json(
         &self,
         source: &ResolvedPleQuestionJsonSource,
-        seed: QuestionSeed,
+        question_seed: QuestionSeed,
     ) -> Result<PleIssuedQuestion, PleQuestionBackendError> {
         let presentation = QuestionVariationPresentation {
-            variation: QuestionVariation::from_question_revision_and_seed(
+            variation: QuestionVariation::from_question_revision_and_question_seed(
                 source.question_revision().clone(),
-                seed,
+                question_seed,
             ),
-            title: source.compiled.presentation().title().to_string(),
+            question_title: source.compiled.presentation().question_title().to_string(),
             prompt: source.compiled.presentation().prompt().to_vec(),
             response: source.compiled.presentation().response().clone(),
         };

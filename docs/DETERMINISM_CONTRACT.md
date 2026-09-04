@@ -18,7 +18,7 @@ attempt uses the stored values.
 | Static PLE Question JSON render | immutable Question Revision, Question Seed                                           | Question Variation Presentation and Question Attempt Reproduction Details                                                                                                                | trusted server backend             |
 | WeBWorK safe render             | Question, immutable Question Revision, source Object Reference, seed, renderer       | safe cached Question Variation Presentation                                                                                                                                              | private adapter/renderer           |
 | Student issuance                | Question Variation Presentation, server-held Question Asset Renditions, stored nonce | Question Presentation and server-held Issued Question Presentation with Question Presentation Response Format, Presentation Response Item References, and Question Presentation Checksum | trusted server; browser may verify |
-| Submission                      | authenticated attempt, idempotency key, student response                             | one stored receipt or conflict                                                                                                                                                           | trusted server/store               |
+| Submission                      | authenticated Question Attempt, student response                                     | one stored receipt or conflict                                                                                                                                                           | trusted server/store               |
 
 The first four rows are reproducibility and consistency contracts. The final
 row is an authorization and lifecycle contract. No checksum authenticates a
@@ -29,8 +29,9 @@ student, replaces TLS, or makes a client-side grade authoritative.
 Question ID identifies the stable Published Question lineage. Question Revision
 Reference, the pair of Question ID and immutable Question Revision Number,
 identifies one exact source-bearing revision. Current static PLE Question JSON has no
-Question-authored Question Variation Rule. WeBWorK and iMathAS retain their
-backend-owned variation behavior. A future Question Generator requires
+Question-authored Question Variation Rule or `Static` rule value. QTI's named static profiles
+convert accepted items to static PLE Question JSON without inventing one. WeBWorK and iMathAS
+retain their backend-owned variation behavior. A future Question Generator requires
 immutable registered source data and a complete publication-to-reproduction
 path.
 
@@ -80,7 +81,7 @@ byte count or timing is not yet an acceptance threshold.
 Current static PLE Question JSON has no Question Generator vector fixture or
 generator-regeneration command. Its existing reproduction evidence is the
 server-owned PLE Question Backend issue/reproduce path in
-[`crates/adapters/ple/src/lib/tests.rs`](../crates/adapters/ple/src/lib/tests.rs)
+[`crates/adapters/ple/src/lib/question_json_source_tests.rs`](../crates/adapters/ple/src/lib/question_json_source_tests.rs)
 and the Question Presentation descriptor checks at the Rust/Wasm boundary. A
 future source-owned Question Generator must introduce its own reviewed,
 immutable evidence with the complete publication, issue, grading, repair, and
@@ -93,7 +94,7 @@ descriptor includes:
 
 - descriptor version, immutable question revision, and stored seed;
 - a server-minted 16-byte presentation nonce;
-- title, prompt blocks, public Question Response Format, item order, and response
+- Question Title, Question Prompt blocks, public Question Response Format, item order, and response
   constraints;
 - durable asset identity plus authored and selected-rendition checksums; and
 - the Presentation Response Item References and deterministic public basis of every addressable Response Item.
@@ -138,13 +139,13 @@ other internal identities remain server-side.
 | Question Presentation Checksum             | persisted descriptor agrees with a reconstructed public presentation                                      | authentication, transport integrity, or pixel rendering                             |
 | `pd1_` Question Presentation Token         | compact browser/server presentation-consistency comparison                                                | a durable secret or a substitute for the full stored Question Presentation Checksum |
 | Presentation Response Item Reference CRC16 | selected Response Item corresponds to one unique object in this presentation                              | collision resistance across presentations or a security boundary                    |
-| Idempotency record                         | exact retry is replayed and changed retry conflicts                                                       | question correctness                                                                |
+| Question Submission and Receipt            | exact repeat returns the existing Receipt and a changed response conflicts                                | question correctness                                                                |
 
 ## WeBWorK cache and replay
 
 The WeBWorK adapter caches only safe rendered output in content object storage.
 Its key is deterministic from `(Question Revision Reference, Question Seed)` and validates cache
-schema, immutable Source Object Reference, Question Revision Reference, Question Seed, student title, and nonempty
+schema, immutable Source Object Reference, Question Revision Reference, Question Seed, Question Title, and nonempty
 renderer identity. Cached bytes contain an answer-free shared Question Variation Presentation,
 Source Object Reference binding, and renderer identity. They never
 contain PG source, credentials, answer keys, or upstream field/value mapping.
@@ -165,7 +166,7 @@ immutable Question Revision Reference, Source Object Reference, Question Seed, Q
 Checksum, and a redacted mapping from Presentation Response Item References to
 upstream fields and values. The mapping is never serialized to the browser or
 cache. A course-owned, validated, RLS-protected durable Attempt record is
-required before a mounted WeBWorK delivery or grading route can rely on it.
+required before a WeBWorK delivery or grading Server Route can rely on it.
 
 Issued PLE Question JSON and WeBWorK attempts also retain checksummed, server-only
 first-grade contracts. A first grade validates its Question Backend-specific contract and

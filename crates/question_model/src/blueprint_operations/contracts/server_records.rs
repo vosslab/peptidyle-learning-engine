@@ -12,28 +12,22 @@ use super::{
     CourseInstanceSnapshot, CourseOrigin, CourseRolloverManifest,
     CreateCourseFromBlueprintCommandError, CreateCourseFromBlueprintReadiness,
     ForkBlueprintCourseCommandError, ForkBlueprintCourseReadiness, QuestionRevisionSubstitutions,
-    RequestChecksum, RequestRetryToken, ShiftCourseDatesReadiness,
+    RequestChecksum, ShiftCourseDatesReadiness,
 };
 use crate::{AccountId, CourseTerm, ResolvedAssignmentSchedule};
 
 /// Exact authenticated request identity observed by a server apply record.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RequestRetryBinding {
+pub struct RequestBinding {
     authorized_account: AccountId,
     request_checksum: RequestChecksum,
-    retry_token: RequestRetryToken,
 }
 
-impl RequestRetryBinding {
-    pub fn new(
-        authorized_account: AccountId,
-        request_checksum: RequestChecksum,
-        retry_token: RequestRetryToken,
-    ) -> Self {
+impl RequestBinding {
+    pub fn new(authorized_account: AccountId, request_checksum: RequestChecksum) -> Self {
         Self {
             authorized_account,
             request_checksum,
-            retry_token,
         }
     }
 
@@ -45,16 +39,8 @@ impl RequestRetryBinding {
         self.request_checksum
     }
 
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        &self.retry_token
-    }
-
-    pub(super) fn into_parts(self) -> (AccountId, RequestChecksum, RequestRetryToken) {
-        (
-            self.authorized_account,
-            self.request_checksum,
-            self.retry_token,
-        )
+    pub(super) fn into_parts(self) -> (AccountId, RequestChecksum) {
+        (self.authorized_account, self.request_checksum)
     }
 }
 
@@ -218,7 +204,7 @@ pub struct ShiftCourseDatesApplyRecord {
     course_origin: CourseOrigin,
     target_term: CourseTerm,
     schedules: BoundedResolvedScheduleSet,
-    request: RequestRetryBinding,
+    request: RequestBinding,
 }
 
 impl ShiftCourseDatesApplyRecord {
@@ -228,7 +214,7 @@ impl ShiftCourseDatesApplyRecord {
         course_origin: CourseOrigin,
         target_term: CourseTerm,
         schedules: Vec<ResolvedAssignmentSchedule>,
-        request: RequestRetryBinding,
+        request: RequestBinding,
         readiness: ShiftCourseDatesReadiness,
     ) -> Result<Self, CourseInstanceCommandError> {
         readiness.require_ready()?;
@@ -261,10 +247,6 @@ impl ShiftCourseDatesApplyRecord {
     pub fn request_checksum(&self) -> RequestChecksum {
         self.request.request_checksum()
     }
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        self.request.retry_token()
-    }
-
     pub(super) fn into_receipt_parts(
         self,
     ) -> (
@@ -274,9 +256,8 @@ impl ShiftCourseDatesApplyRecord {
         BoundedResolvedScheduleSet,
         AccountId,
         RequestChecksum,
-        RequestRetryToken,
     ) {
-        let (authorized_account, request_checksum, retry_token) = self.request.into_parts();
+        let (authorized_account, request_checksum) = self.request.into_parts();
         (
             self.destination,
             self.course_origin,
@@ -284,7 +265,6 @@ impl ShiftCourseDatesApplyRecord {
             self.schedules,
             authorized_account,
             request_checksum,
-            retry_token,
         )
     }
 }
@@ -296,7 +276,7 @@ pub struct ApplyBlueprintUpdateApplyRecord {
     import: AssignmentSourceSnapshot,
     destination: CourseInstanceSnapshot,
     course_origin: CourseOrigin,
-    request: RequestRetryBinding,
+    request: RequestBinding,
 }
 
 impl ApplyBlueprintUpdateApplyRecord {
@@ -306,7 +286,7 @@ impl ApplyBlueprintUpdateApplyRecord {
         import: AssignmentSourceSnapshot,
         destination: CourseInstanceSnapshot,
         course_origin: CourseOrigin,
-        request: RequestRetryBinding,
+        request: RequestBinding,
         readiness: ApplyBlueprintUpdateReadiness,
     ) -> Result<Self, CourseInstanceCommandError> {
         readiness.require_ready()?;
@@ -346,10 +326,6 @@ impl ApplyBlueprintUpdateApplyRecord {
     pub fn request_checksum(&self) -> RequestChecksum {
         self.request.request_checksum()
     }
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        self.request.retry_token()
-    }
-
     pub(super) fn into_receipt_parts(
         self,
     ) -> (
@@ -359,9 +335,8 @@ impl ApplyBlueprintUpdateApplyRecord {
         CourseOrigin,
         AccountId,
         RequestChecksum,
-        RequestRetryToken,
     ) {
-        let (authorized_account, request_checksum, retry_token) = self.request.into_parts();
+        let (authorized_account, request_checksum) = self.request.into_parts();
         (
             self.source,
             self.import,
@@ -369,7 +344,6 @@ impl ApplyBlueprintUpdateApplyRecord {
             self.course_origin,
             authorized_account,
             request_checksum,
-            retry_token,
         )
     }
 }
@@ -382,7 +356,7 @@ pub struct CopyAssignmentFromBlueprintApplyRecord {
     course_origin: CourseOrigin,
     schedule: ResolvedAssignmentSchedule,
     replacements: QuestionRevisionSubstitutions,
-    request: RequestRetryBinding,
+    request: RequestBinding,
 }
 
 impl CopyAssignmentFromBlueprintApplyRecord {
@@ -393,7 +367,7 @@ impl CopyAssignmentFromBlueprintApplyRecord {
         course_origin: CourseOrigin,
         schedule: ResolvedAssignmentSchedule,
         replacements: QuestionRevisionSubstitutions,
-        request: RequestRetryBinding,
+        request: RequestBinding,
         readiness: CopyAssignmentFromBlueprintReadiness,
     ) -> Result<Self, CourseInstanceCommandError> {
         readiness.require_ready()?;
@@ -428,10 +402,6 @@ impl CopyAssignmentFromBlueprintApplyRecord {
     pub fn request_checksum(&self) -> RequestChecksum {
         self.request.request_checksum()
     }
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        self.request.retry_token()
-    }
-
     pub(super) fn into_receipt_parts(
         self,
     ) -> (
@@ -442,9 +412,8 @@ impl CopyAssignmentFromBlueprintApplyRecord {
         QuestionRevisionSubstitutions,
         AccountId,
         RequestChecksum,
-        RequestRetryToken,
     ) {
-        let (authorized_account, request_checksum, retry_token) = self.request.into_parts();
+        let (authorized_account, request_checksum) = self.request.into_parts();
         (
             self.source,
             self.destination,
@@ -453,15 +422,14 @@ impl CopyAssignmentFromBlueprintApplyRecord {
             self.replacements,
             authorized_account,
             request_checksum,
-            retry_token,
         )
     }
 }
 
 /// Server-only repair authority bound to one retained Assignment import receipt.
 ///
-/// `original_import_receipt` identifies the immutable source evidence. `authorized_account`,
-/// Request Checksum, and Request Retry Token identify this new repair action, so a
+/// `original_import_receipt` identifies the immutable source evidence. `authorized_account`
+/// and Request Checksum identify this new repair action, so a
 /// repair has its own audit identity and never collides with the original
 /// completed operation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -470,7 +438,6 @@ pub struct AssignmentImportRepairApplyRecord {
     course_origin: CourseOrigin,
     authorized_account: AccountId,
     request_checksum: RequestChecksum,
-    retry_token: RequestRetryToken,
 }
 
 impl AssignmentImportRepairApplyRecord {
@@ -480,7 +447,6 @@ impl AssignmentImportRepairApplyRecord {
         course_origin: CourseOrigin,
         authorized_account: AccountId,
         request_checksum: RequestChecksum,
-        retry_token: RequestRetryToken,
         readiness: AssignmentImportRepairReadiness,
     ) -> Result<Self, CourseInstanceCommandError> {
         readiness.require_ready()?;
@@ -488,7 +454,7 @@ impl AssignmentImportRepairApplyRecord {
         if course_origin != original_import_receipt.course_origin()
             || original_import_target.course() != original_import_receipt.destination().course
             || (authorized_account == original_import_receipt.authorized_account()
-                && retry_token == *original_import_receipt.retry_token())
+                && request_checksum == original_import_receipt.request_checksum())
         {
             return Err(CourseInstanceCommandError::ReceiptBindingMismatch);
         }
@@ -497,7 +463,6 @@ impl AssignmentImportRepairApplyRecord {
             course_origin,
             authorized_account,
             request_checksum,
-            retry_token,
         })
     }
 
@@ -513,10 +478,6 @@ impl AssignmentImportRepairApplyRecord {
     pub fn request_checksum(&self) -> RequestChecksum {
         self.request_checksum
     }
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        &self.retry_token
-    }
-
     pub(super) fn into_receipt_parts(
         self,
     ) -> (
@@ -524,14 +485,12 @@ impl AssignmentImportRepairApplyRecord {
         CourseOrigin,
         AccountId,
         RequestChecksum,
-        RequestRetryToken,
     ) {
         (
             self.original_import_receipt,
             self.course_origin,
             self.authorized_account,
             self.request_checksum,
-            self.retry_token,
         )
     }
 }

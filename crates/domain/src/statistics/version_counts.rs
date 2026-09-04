@@ -51,17 +51,6 @@ impl QuestionStatisticsObservation {
     }
 }
 
-/// Retention-safe persisted state for exact Question Revision counts.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct QuestionRevisionStatisticsSnapshot {
-    /// Number of accepted graded Question Attempts for this exact version.
-    pub accepted_graded_attempt_count: u64,
-    /// Number of those accepted grades whose result was correct.
-    pub correct_count: u64,
-    /// Selection count by opaque eligible choice ID for supported choice formats.
-    pub eligible_choice_selection_counts: BTreeMap<ResponseItemReference, u64>,
-}
-
 /// Exact global counts for one immutable Question Revision.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuestionRevisionStatistics {
@@ -108,34 +97,6 @@ impl QuestionRevisionStatistics {
             eligible_choice_selection_counts,
         };
         Ok(())
-    }
-
-    /// Captures the retention-safe persistence representation.
-    pub fn snapshot(&self) -> QuestionRevisionStatisticsSnapshot {
-        QuestionRevisionStatisticsSnapshot {
-            accepted_graded_attempt_count: self.accepted_graded_attempt_count,
-            correct_count: self.correct_count,
-            eligible_choice_selection_counts: self.eligible_choice_selection_counts.clone(),
-        }
-    }
-
-    /// Restores only a count snapshot whose invariants hold for individual accepted grades.
-    pub fn restore(snapshot: QuestionRevisionStatisticsSnapshot) -> Result<Self, StatisticsError> {
-        if snapshot.correct_count > snapshot.accepted_graded_attempt_count
-            || snapshot
-                .eligible_choice_selection_counts
-                .iter()
-                .any(|(choice, count)| {
-                    choice.as_str().is_empty() || *count > snapshot.accepted_graded_attempt_count
-                })
-        {
-            return Err(StatisticsError::SnapshotInvariant);
-        }
-        Ok(Self {
-            accepted_graded_attempt_count: snapshot.accepted_graded_attempt_count,
-            correct_count: snapshot.correct_count,
-            eligible_choice_selection_counts: snapshot.eligible_choice_selection_counts,
-        })
     }
 
     /// Returns the number of accepted graded Question Attempts.

@@ -1,4 +1,4 @@
-// Browser transport contract for the mounted Authenticated Session route.
+// Browser transport contract for the implemented Authenticated Session Server Route.
 
 import assert from "node:assert/strict";
 import test from "node:test";

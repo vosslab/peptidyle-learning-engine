@@ -26,9 +26,9 @@ export function decodeQuestionAssetReference(
   strict = false,
 ): QuestionAssetReference {
   const record = decodeRecord(value, path);
-  if (strict) requireOnlyFields(record, path, ["asset", "checksum"]);
+  if (strict) requireOnlyFields(record, path, ["questionAsset", "checksum"]);
   return {
-    asset: decodeIdentifier(field(record, "asset", path), `${path}.asset`),
+    questionAsset: decodeIdentifier(field(record, "questionAsset", path), `${path}.questionAsset`),
     checksum: decodeSha256(field(record, "checksum", path), `${path}.checksum`),
   } satisfies QuestionAssetReference;
 }
@@ -58,10 +58,14 @@ export function decodeQuestionContentBlock(
         ),
       } satisfies QuestionContentBlock;
     case "image":
-      if (strict) requireOnlyFields(record, path, ["kind", "asset", "description"]);
+      if (strict) requireOnlyFields(record, path, ["kind", "questionAsset", "description"]);
       return {
         kind: block,
-        asset: decodeQuestionAssetReference(field(record, "asset", path), `${path}.asset`, strict),
+        questionAsset: decodeQuestionAssetReference(
+          field(record, "questionAsset", path),
+          `${path}.questionAsset`,
+          strict,
+        ),
         description: decodeNonemptyString(
           field(record, "description", path),
           `${path}.description`,

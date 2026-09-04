@@ -90,9 +90,9 @@ CREATE FUNCTION ple_private.register_draft_question_fork_source(
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
-    IF NOT ple_api.current_session_account_can_access_workspace(p_workspace_id) THEN
+    IF NOT ple_api.current_session_account_can_access_authoring_workspace(p_workspace_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Draft Question Fork Source registration requires current workspace access';
+            MESSAGE = 'Draft Question Fork Source recording requires current Authoring Workspace access';
     END IF;
     IF NOT EXISTS (
         SELECT 1
@@ -128,7 +128,7 @@ $$;
 -- This protected procedure records existing Draft Question Fork Source evidence
 -- on one separate Published Question lineage. A future authorized publication
 -- operation atomically creates its complete Question Revision-owned Question
--- Source Registration, object evidence, bounded metadata as applicable, and
+-- Source Binding, object evidence, bounded metadata as applicable, and
 -- this immutable fork evidence. Backend/Format-specific private artifacts are
 -- derived or stored only when that backend requires them.
 CREATE FUNCTION ple_private.publish_question_fork_source(

@@ -207,7 +207,7 @@ mod tests {
             "questionRevision":{"questionId":"ABC-DEFG","revisionNumber":1},
             "question_seed":42,
             "presentationNonce":"11111111111111111111111111111111",
-            "title":"Peptide bond",
+            "questionTitle":"Peptide bond",
             "prompt":[{"kind":"text","markdown":"Which group forms the peptide bond?"}],
             "response":{"kind":"singleChoice","choices":[
                 {"id":"cfdf","body":[{"kind":"text","markdown":"Amino group"}]},
@@ -225,7 +225,7 @@ mod tests {
         assert!(verify_presentation_descriptor(presentation, "[]", checksum.as_str()).unwrap());
         assert!(
             !verify_presentation_descriptor(
-                &presentation.replace("Peptide bond", "Changed title"),
+                &presentation.replace("Peptide bond", "Changed Question Title"),
                 "[]",
                 checksum.as_str(),
             )

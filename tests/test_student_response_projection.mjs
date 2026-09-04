@@ -10,7 +10,7 @@ const presentation = {
   },
   question_seed: 2,
   presentationNonce: "0123456789abcdef0123456789abcdef",
-  title: "Question",
+  questionTitle: "Question",
   prompt: [],
   response: {
     kind: "singleChoice",
@@ -21,7 +21,7 @@ const presentation = {
   },
 };
 
-test("Student Response Inspection Feedback uses only public choice bodies and rejects mismatches", () => {
+test("Student Response Inspection uses only public choice bodies and rejects mismatches", () => {
   assert.deepEqual(
     projectStudentResponse(presentation, { kind: "multipleChoice", selected: ["000b"] }),
     [{ kind: "text", markdown: "Visible B" }],

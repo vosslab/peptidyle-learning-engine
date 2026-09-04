@@ -128,7 +128,6 @@ CREATE TABLE ple_private.imathas_question_backend_session (
 
 CREATE TABLE ple_private.imathas_result_exchange (
     imathas_question_backend_session_id uuid PRIMARY KEY,
-    idempotency_key text NOT NULL CHECK (pg_catalog.octet_length(idempotency_key) BETWEEN 1 AND 200),
     state text NOT NULL CHECK (state IN ('verifying', 'ready_to_commit', 'committed', 'failed', 'cancelled')),
     lease_token_sha256 bytea CHECK (lease_token_sha256 IS NULL OR pg_catalog.octet_length(lease_token_sha256) = 32),
     lease_expires_at timestamp with time zone,
@@ -195,7 +194,7 @@ CREATE TABLE ple_private.imathas_result_exchange (
     )
 );
 GRANT SELECT ON TABLE ple_private.account, ple_private.assignment_attempt,
-    ple_private.question_source_registration TO ple_api_owner;
+    ple_private.question_revision_source_binding TO ple_api_owner;
 GRANT UPDATE ON TABLE ple_private.question_attempt TO ple_api_owner;
 GRANT UPDATE (issued_question_id) ON TABLE ple_private.issued_question TO ple_api_owner;
 GRANT UPDATE (assignment_attempt_id) ON TABLE ple_private.assignment_attempt TO ple_api_owner;
@@ -413,8 +412,8 @@ CREATE POLICY grading_result_api_owner_insert
     ON ple_private.grading_result FOR INSERT TO ple_api_owner WITH CHECK (true);
 CREATE POLICY assignment_attempt_api_owner_access
     ON ple_private.assignment_attempt FOR SELECT TO ple_api_owner USING (true);
-CREATE POLICY question_source_registration_api_owner_access
-    ON ple_private.question_source_registration FOR SELECT TO ple_api_owner USING (true);
+CREATE POLICY question_revision_source_binding_api_owner_access
+    ON ple_private.question_revision_source_binding FOR SELECT TO ple_api_owner USING (true);
 CREATE POLICY account_api_owner_access
     ON ple_private.account FOR SELECT TO ple_api_owner USING (true);
 RESET ROLE;
@@ -465,7 +464,7 @@ BEGIN
         JOIN ple_private.assignment_attempt aa ON aa.assignment_attempt_id = iq.assignment_attempt_id
         JOIN ple_data.student_record sr ON sr.student_record_id = aa.student_record_id
         JOIN ple_data.assignment a ON a.assignment_id = aa.assignment_id
-        JOIN ple_private.question_source_registration qs ON qs.question_id = iq.question_id
+        JOIN ple_private.question_revision_source_binding qs ON qs.question_id = iq.question_id
             AND qs.revision_number = iq.revision_number
             AND qs.source_object_id = p_source_object_id
             AND qs.source_object_checksum = pg_catalog.encode(p_source_object_checksum, 'hex')
@@ -587,8 +586,7 @@ CREATE FUNCTION ple_api.stage_verified_imathas_result(
     p_imathas_deployment_reference text, p_imathas_item_reference text, p_question_id text,
     p_revision_number integer, p_source_object_id uuid, p_source_object_checksum bytea,
     p_imathas_profile text, p_question_seed numeric, p_imathas_launch_binding_checksum text,
-    p_lease_token_sha256 bytea,
-    p_idempotency_key text, p_imathas_result_token_sha256 bytea,
+    p_lease_token_sha256 bytea, p_imathas_result_token_sha256 bytea,
     p_imathas_result_normalized_score double precision, p_imathas_result_checksum bytea,
     p_submission_id uuid, p_job_id uuid, p_question_submission_grading_id uuid,
     p_updated_at timestamp with time zone
@@ -601,7 +599,6 @@ BEGIN
     IF pg_catalog.octet_length(p_lease_token_sha256) <> 32
        OR pg_catalog.octet_length(p_imathas_result_token_sha256) <> 32
        OR pg_catalog.octet_length(p_imathas_result_checksum) <> 32
-       OR p_idempotency_key IS NULL OR pg_catalog.octet_length(p_idempotency_key) NOT BETWEEN 1 AND 200
        OR p_imathas_result_normalized_score IS NULL
        OR p_imathas_result_normalized_score IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision)
        OR p_imathas_result_normalized_score < 0 OR p_imathas_result_normalized_score > 1
@@ -628,8 +625,7 @@ BEGIN
     SELECT * INTO e FROM ple_private.imathas_result_exchange
      WHERE imathas_question_backend_session_id = p_imathas_question_backend_session_id;
     IF e.imathas_question_backend_session_id IS NOT NULL AND e.state IN ('ready_to_commit', 'committed') THEN
-        IF e.idempotency_key = p_idempotency_key
-           AND e.imathas_result_token_sha256 = p_imathas_result_token_sha256
+        IF e.imathas_result_token_sha256 = p_imathas_result_token_sha256
            AND e.imathas_result_normalized_score = p_imathas_result_normalized_score
            AND e.imathas_result_checksum = p_imathas_result_checksum THEN
             RETURN QUERY SELECT e.submission_id, e.question_submission_grading_id,
@@ -660,15 +656,14 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'iMathAS Question Backend Session cannot be consumed';
     END IF;
     INSERT INTO ple_private.imathas_result_exchange (
-        imathas_question_backend_session_id, idempotency_key, state, lease_token_sha256, lease_expires_at, created_at, updated_at
-    ) VALUES (p_imathas_question_backend_session_id, p_idempotency_key, 'verifying', p_lease_token_sha256,
+        imathas_question_backend_session_id, state, lease_token_sha256, lease_expires_at, created_at, updated_at
+    ) VALUES (p_imathas_question_backend_session_id, 'verifying', p_lease_token_sha256,
         s.activity_lease_expires_at, p_updated_at, p_updated_at)
     ON CONFLICT (imathas_question_backend_session_id) DO NOTHING;
     IF NOT FOUND THEN
         SELECT * INTO e FROM ple_private.imathas_result_exchange
          WHERE imathas_question_backend_session_id = p_imathas_question_backend_session_id;
         IF e.state IN ('ready_to_commit', 'committed')
-           AND e.idempotency_key = p_idempotency_key
            AND e.imathas_result_token_sha256 = p_imathas_result_token_sha256
            AND e.imathas_result_normalized_score = p_imathas_result_normalized_score
            AND e.imathas_result_checksum = p_imathas_result_checksum THEN
@@ -690,7 +685,6 @@ BEGIN
         SELECT * INTO e FROM ple_private.imathas_result_exchange
          WHERE imathas_question_backend_session_id = p_imathas_question_backend_session_id;
         IF e.state IN ('ready_to_commit', 'committed')
-           AND e.idempotency_key = p_idempotency_key
            AND e.imathas_result_token_sha256 = p_imathas_result_token_sha256
            AND e.imathas_result_normalized_score = p_imathas_result_normalized_score
            AND e.imathas_result_checksum = p_imathas_result_checksum THEN
@@ -915,7 +909,7 @@ REVOKE ALL PRIVILEGES ON FUNCTION
     ple_api.create_imathas_question_backend_session(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, bytea, bytea, bytea, timestamp with time zone, timestamp with time zone, text, bytea, bytea),
     ple_api.load_imathas_question_backend_session(uuid, uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text),
     ple_api.lease_imathas_question_backend_session(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, bytea, timestamp with time zone),
-    ple_api.stage_verified_imathas_result(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, bytea, text, bytea, double precision, bytea, uuid, uuid, uuid, timestamp with time zone),
+    ple_api.stage_verified_imathas_result(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, bytea, bytea, double precision, bytea, uuid, uuid, uuid, timestamp with time zone),
     ple_api.claim_imathas_result_grading_job(uuid, uuid, timestamp with time zone),
     ple_api.commit_imathas_result_grading(uuid, uuid, timestamp with time zone)
 FROM PUBLIC;
@@ -923,7 +917,7 @@ GRANT EXECUTE ON FUNCTION
     ple_api.create_imathas_question_backend_session(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, bytea, bytea, bytea, timestamp with time zone, timestamp with time zone, text, bytea, bytea),
     ple_api.load_imathas_question_backend_session(uuid, uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text),
     ple_api.lease_imathas_question_backend_session(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, bytea, timestamp with time zone),
-    ple_api.stage_verified_imathas_result(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, bytea, text, bytea, double precision, bytea, uuid, uuid, uuid, timestamp with time zone)
+    ple_api.stage_verified_imathas_result(uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text, numeric, text, bytea, bytea, double precision, bytea, uuid, uuid, uuid, timestamp with time zone)
 TO ple_app;
 GRANT EXECUTE ON FUNCTION ple_api.claim_imathas_result_grading_job(uuid, uuid, timestamp with time zone),
     ple_api.commit_imathas_result_grading(uuid, uuid, timestamp with time zone)

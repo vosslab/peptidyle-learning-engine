@@ -88,8 +88,8 @@ function responseItemLabel(question: QuestionPresentation, item: string): string
   }
 }
 
-function InspectedResponse(props: {
-  readonly response: StudentResponseInspection;
+function StudentResponseInspectionView(props: {
+  readonly inspection: StudentResponseInspection;
   readonly question?: QuestionPresentation;
 }): JSX.Element {
   const label = (item: string): string =>
@@ -98,20 +98,20 @@ function InspectedResponse(props: {
     <section class="student-work-response" aria-label="Student response">
       <h3>Student response</h3>
       <Switch>
-        <Match when={props.response.kind === "numeric" ? props.response : undefined}>
+        <Match when={props.inspection.kind === "numeric" ? props.inspection : undefined}>
           {(response) => <p>{formatScoreValue(response().value)}</p>}
         </Match>
-        <Match when={props.response.kind === "shortText" ? props.response : undefined}>
+        <Match when={props.inspection.kind === "shortText" ? props.inspection : undefined}>
           {(response) => <blockquote>{response().text}</blockquote>}
         </Match>
-        <Match when={props.response.kind === "multipleChoice" ? props.response : undefined}>
+        <Match when={props.inspection.kind === "multipleChoice" ? props.inspection : undefined}>
           {(response) => (
             <ul>
               <For each={response().selected}>{(item) => <li>{label(item)}</li>}</For>
             </ul>
           )}
         </Match>
-        <Match when={props.response.kind === "multiBlank" ? props.response : undefined}>
+        <Match when={props.inspection.kind === "multiBlank" ? props.inspection : undefined}>
           {(response) => (
             <dl>
               <For each={response().answers}>
@@ -125,7 +125,7 @@ function InspectedResponse(props: {
             </dl>
           )}
         </Match>
-        <Match when={props.response.kind === "matching" ? props.response : undefined}>
+        <Match when={props.inspection.kind === "matching" ? props.inspection : undefined}>
           {(response) => (
             <dl>
               <For each={response().matches}>
@@ -139,21 +139,23 @@ function InspectedResponse(props: {
             </dl>
           )}
         </Match>
-        <Match when={props.response.kind === "ordering" ? props.response : undefined}>
+        <Match when={props.inspection.kind === "ordering" ? props.inspection : undefined}>
           {(response) => (
             <ol>
               <For each={response().order}>{(item) => <li>{label(item)}</li>}</For>
             </ol>
           )}
         </Match>
-        <Match when={props.response.kind === "hotspot" ? props.response : undefined}>
+        <Match when={props.inspection.kind === "hotspot" ? props.inspection : undefined}>
           {(response) => (
             <ol>
               <For each={response().selectedRegions}>{() => <li>Selected image region</li>}</For>
             </ol>
           )}
         </Match>
-        <Match when={props.response.kind === "imathasQuestionBackend" ? props.response : undefined}>
+        <Match
+          when={props.inspection.kind === "imathasQuestionBackend" ? props.inspection : undefined}
+        >
           <p>iMathAS Question Backend submission recorded.</p>
         </Match>
       </Switch>
@@ -165,11 +167,16 @@ function ScoringEvidence(props: { readonly submission: InspectedStudentSubmissio
   const score = (): string | undefined => {
     if (props.submission.assignmentScoringState === "recalculating") return "Recalculating";
     if (props.submission.assignmentScoringState === "failed") return "Needs Instructor attention";
-    const feedback = props.submission.feedback;
-    if (feedback.pointsEarned !== undefined && feedback.pointsPossible !== undefined) {
-      return formatPointScore(feedback.pointsEarned, feedback.pointsPossible);
+    const inspectionFeedback = props.submission.studentResponseInspectionFeedback;
+    if (
+      inspectionFeedback.pointsEarned !== undefined &&
+      inspectionFeedback.pointsPossible !== undefined
+    ) {
+      return formatPointScore(inspectionFeedback.pointsEarned, inspectionFeedback.pointsPossible);
     }
-    if (feedback.pointsEarned !== undefined) return formatScoreValue(feedback.pointsEarned);
+    if (inspectionFeedback.pointsEarned !== undefined) {
+      return formatScoreValue(inspectionFeedback.pointsEarned);
+    }
     return undefined;
   };
   return (
@@ -178,8 +185,12 @@ function ScoringEvidence(props: { readonly submission: InspectedStudentSubmissio
       <Show when={score()} fallback={<p>No score is currently available.</p>}>
         {(value) => <p class="student-work-score">{value()}</p>}
       </Show>
-      <Show when={props.submission.feedback.correctness !== undefined}>
-        <p>{props.submission.feedback.correctness ? "Correct" : "Not correct"}</p>
+      <Show when={props.submission.studentResponseInspectionFeedback.correctness !== undefined}>
+        <p>
+          {props.submission.studentResponseInspectionFeedback.correctness
+            ? "Correct"
+            : "Not correct"}
+        </p>
       </Show>
       <p>Scoring generation {props.submission.scoringGeneration}</p>
     </section>
@@ -200,7 +211,7 @@ function SubmissionCard(props: {
       <header>
         <div>
           <p class="card-kicker">Question {props.position}</p>
-          <h2>{question()?.title ?? "Recorded submission"}</h2>
+          <h2>{question()?.questionTitle ?? "Recorded submission"}</h2>
         </div>
         <p>Submitted {formatActivity(props.submission.submittedAt)}</p>
       </header>
@@ -211,14 +222,17 @@ function SubmissionCard(props: {
             <QuestionPromptRenderer
               blocks={presentation().prompt}
               assetUrl={(asset) =>
-                new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
+                new URL(runtime.client.assetUrl(asset.questionAsset), window.location.origin)
               }
             />
           </section>
         )}
       </Show>
       <div class="student-work-result-grid">
-        <InspectedResponse response={props.submission.response} question={question()} />
+        <StudentResponseInspectionView
+          inspection={props.submission.studentResponseInspection}
+          question={question()}
+        />
         <ScoringEvidence submission={props.submission} />
       </div>
       <details class="student-work-evidence">
@@ -359,7 +373,7 @@ function StudentWorkCoursePage(props: {
           </h1>
           <p>
             Return to the current Gradebook. The Assignment Attempt may have changed, or this
-            account may not have direct Instructor access to the course.
+            account may not have current Instructor Course Membership access to the course.
           </p>
           <button class="primary-action" type="button" onClick={() => void load(route())}>
             Try again
@@ -378,8 +392,10 @@ function StudentWorkCoursePage(props: {
                 {ready.detail.assignmentAttempt}
               </p>
               <section class="student-work-boundary" aria-label="Inspection privacy boundary">
-                This view contains the Student's submitted responses, visible question content, and
-                score-only feedback. Answer Keys and Question Grading Input remain server-owned.
+                This Student Response Inspection contains the Student Response, permitted
+                correctness, permitted score, and visible Question content. Question Answer and
+                Question Answer Explanation follow their separate release controls; Answer Keys and
+                Question Grading Input remain server-owned.
               </section>
               <Show
                 when={ready.detail.submissions.length > 0}

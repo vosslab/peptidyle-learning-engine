@@ -64,8 +64,8 @@ operation.
 Student access requires current Active Student Course Membership for the exact course
 and ownership of the exact `StudentRecordId`; another Student, another course, a
 revoked membership, and an inactive retention state fail closed. Instructor
-access requires current approved-Instructor status and current direct Instructor
-membership for that exact course. All current Teaching Team Members receive the same
+access requires current approved-Instructor status and current Instructor Course
+Membership for that exact course. All current Teaching Team Members receive the same
 teaching and FERPA-read decisions for equivalent state. Sysadmin status alone is
 not FERPA authority; support and coarse retention lifecycle operations are
 narrow, audited exceptions defined by [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md).
@@ -126,7 +126,7 @@ disclosure controls whether and when a result reaches a student response.
 
 `QuestionAttemptReproductionDetails` groups the exact Question Backend, Question Renderer,
 Question Grader, and Source Object
-Reference without duplicating the seed, Question ID, or Question Revision Number carried by the owning Issued Question. Current static PLE Question JSON has no Question Generator.
+Reference without duplicating the Question Seed, Question ID, or Question Revision Number carried by the owning Issued Question. Current static PLE Question JSON has no Question Generator.
 
 Issued Question Progress and Question Attempt state remain separate. The
 server derives Issued Question Progress from its retained Question Attempts,
@@ -145,16 +145,16 @@ only the answer-free Pending, Instructor Attention, or Graded state. Neither
 technical state is the deferred Instructor exception capability or gives the
 browser authority to change a score, bypass a timer, or erase earlier evidence.
 
-Seed replay is secondary to fresh practice. The server gives every newly issued
-parameterized Generated Question a fresh seed. Resuming or re-rendering that
-same `QuestionAttempt` uses its stored seed so the question does not change
+Question Seed replay is secondary to fresh practice. The server gives every newly issued
+parameterized Generated Question a fresh Question Seed. Resuming or re-rendering that
+same `QuestionAttempt` uses its stored Question Seed so the question does not change
 mid-attempt. Seeds minted for the JSON API come directly from the operating
 system random source and are masked to 53 bits, the exact nonnegative integer
 range shared by Rust and JavaScript. The internal generator contract remains
 `u64`, so committed vectors and non-browser callers retain its full domain.
 
 The Assignment Attempt service issues at most one unresolved `QuestionAttempt` at a time. A
-resume returns that same record and seed. After its response commits, the
+resume returns that same record and Question Seed. After its response commits, the
 service advances to the first never-attempted assignment position; only after
 every position has a response may it issue an allowed retry. The store locks
 the Assignment Attempt and enforces the same invariant so concurrent requests cannot start two
@@ -168,10 +168,9 @@ transactionally maintained summary. PostgreSQL supplies Assignment Attempt numbe
 submission timestamps, deadlines, and completion timestamps. The browser does
 not submit any of those values.
 
-Every submission carries a bounded idempotency key. Repeating the exact key and
-response returns the same accepted or completed submission-status result without grading twice. Reusing
-either the attempt with a different key or the key with a different response
-is a conflict. The first transaction atomically records the accepted Question
+Each Question Attempt accepts one submission. Repeating the same response for that
+attempt returns the existing accepted or completed submission-status result without grading twice;
+a different response for the already-submitted attempt is a conflict. The first transaction atomically records the accepted Question
 Submission and its Question Submission Receipt, pending evaluation, execution,
 and ready job. The submission remains bound through its Question Attempt to the
 immutable Issued Question and private Question Attempt Reproduction Details.
@@ -210,8 +209,8 @@ Instructor exception capability must retain its own immutable record.
 The server supplies every event. Grading cannot skip `SubmissionAccepted`, policy must
 turn `Incorrect` into either `RetryAvailable` or `Exhausted`, and terminal
 states accept no later event. Starting a retry means issuing a new
-`QuestionAttempt` with a fresh server-owned seed. It never changes the
-Question Submission, Grading Result, seed, or Reproduction Details of the earlier
+`QuestionAttempt` with a fresh server-owned Question Seed. It never changes the
+Question Submission, Grading Result, Question Seed, or Reproduction Details of the earlier
 Question Attempt.
 
 ## Timer verdicts
@@ -299,8 +298,8 @@ aggregate evidence.
 
 ## Workspace surface ownership
 
-The assignment workspace is the local navigation owner. It loads one exact
-course/assignment aggregate and connects Overview, Questions, Policies, and
+The Assignment Workspace is the local navigation owner. It loads one exact
+Course and Assignment with its current Assignment Revision, then connects Overview, Questions, Policies, and
 Student view; it does not introduce another Student Work Record or a second policy
 vocabulary. The Assignment Revision is shared across the focused writes so
 each page can update its own slice without replacing a sibling page's changes.
@@ -331,7 +330,7 @@ each page can update its own slice without replacing a sibling page's changes.
   score, and Gradebook evidence described below.
 
 These are presentation and command ownership boundaries over the same
-assignment aggregate. They do not alter the historical activity invariants:
+Assignment and current Assignment Revision. They do not alter the historical activity invariants:
 completion remains a milestone, post-completion Assignment Attempts remain possible when
 policy allows, and only server-owned Student delivery creates Student work.
 
@@ -409,7 +408,7 @@ Attempts remain separate for analysis. A future persistence boundary updates
 both exact records only for the same Student Record and Assignment represented
 by the transition.
 
-Student routes, when mounted, receive the key-free `StudentAssignmentProgress`
+Student Server Routes, when implemented, receive the key-free `StudentAssignmentProgress`
 response with nested `assignment_progress` and `student_assignment_grade`
 values. `StudentAssignmentGrade.score_state` is `NoActivity`, `Withheld`, or
 `Available`. Scores are present only for `Available`; `NoActivity` means no
@@ -477,7 +476,7 @@ lease remain current.
 
 Archive first revokes ordinary Student-facing access. Permanent deletion then
 removes only the course-owned Student rows and exact artifacts after residual
-checks; an absent object is idempotent success. A passed deadline makes a stage
+checks; an absent object is already-complete deletion. A passed deadline makes a stage
 eligible but never claims that its effects completed. The detailed lifecycle and
 backup boundary are in [RETENTION_POLICY.md](RETENTION_POLICY.md).
 

@@ -23,7 +23,7 @@ not a new authorization claim.
 | Published question and presentation asset                       | Stable `QuestionId` lineage and immutable Question Revision Reference | Every active Instructor                                         |
 | Draft Question or private curriculum workspace                  | `WorkspaceId` and Authoring Workspace relationship                    | Authoring Workspace Owner or Workspace Collaborator             |
 | Draft Blueprint Revision                                        | Exact Blueprint Course and revision                                   | Blueprint Course Owner or Blueprint Collaborator                |
-| Course, roster, assignment, schedule                            | Exact `CourseId` and child identity                                   | Current direct Instructor membership                            |
+| Course, roster, assignment, schedule                            | Exact `CourseId` and child identity                                   | Current Instructor Course Membership                            |
 | Assignment Attempt, Question Attempt, response, grade, artifact | Exact `CourseId` plus Student owner                                   | Student self or current course Instructor                       |
 | Question Folder, Star, Watch, or Saved Question Search          | Account-owned reference to a Published Question                       | Exact Account relationship; Question Folder Shares are explicit |
 | Job, object, or provider state                                  | Typed course, workspace, Question Library, or system target           | Locked lease and durable target                                 |
@@ -129,8 +129,8 @@ API replicas share all correctness state:
 
 - Session tokens are opaque, HttpOnly values. PostgreSQL stores their hashes,
   expiry, and revocation, so a session and its revocation work on every replica.
-- Attempts, timing, immutable question references, submissions, idempotency,
-  grades, and audit evidence are PostgreSQL records.
+- Attempts, timing, immutable Question Revision References, Question Submissions,
+  Question Submission Receipts, grades, and audit evidence are PostgreSQL records.
 - Object identity, checksum, bucket policy, and signed delivery remain
   server-owned in the shared object store and database metadata.
 - Grading and provider credentials stay server-side. The browser receives no
@@ -220,10 +220,10 @@ reset contract and PostgreSQL/MinIO inspection details.
 ## Future replica evidence
 
 The `replica_restart` profile remains a typed disposable-stack configuration
-for the future mounted course-delivery service. Its browser-free oracle returns
+for the future course-delivery Service. Its browser-free oracle returns
 when the fresh Store and route contracts can issue and replay Student work.
 That successor will start two API replicas against one PostgreSQL and one
-MinIO, prove durable replay and idempotent submission through the peer, and
+MinIO, prove durable repeat Question Submission resolution through the peer, and
 keep observability headers within its dedicated test image.
 
 ## Production baseline

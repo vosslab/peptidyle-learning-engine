@@ -9,7 +9,8 @@ SET LOCAL ROLE ple_private_owner;
 CREATE TABLE ple_private.authoring_workspace (
     workspace_id uuid PRIMARY KEY,
     reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
-    owner_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
+    authoring_workspace_owner_account_id uuid NOT NULL
+        REFERENCES ple_private.account (account_id),
     created_at timestamp with time zone NOT NULL,
     revoked_at timestamp with time zone,
     CONSTRAINT authoring_workspace_revocation_is_ordered CHECK (revoked_at IS NULL OR revoked_at >= created_at),
@@ -32,7 +33,7 @@ CREATE TABLE ple_private.authoring_workspace_collaborator_event (
 CREATE FUNCTION ple_private.validate_authoring_workspace_collaborator_event()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 DECLARE
-    workspace_owner_account_id uuid;
+    authoring_workspace_owner_account_id uuid;
 BEGIN
     PERFORM pg_catalog.pg_advisory_xact_lock(
         pg_catalog.hashtextextended(
@@ -40,18 +41,18 @@ BEGIN
             0
         )
     );
-    SELECT workspace.owner_account_id
-      INTO workspace_owner_account_id
+    SELECT workspace.authoring_workspace_owner_account_id
+      INTO authoring_workspace_owner_account_id
       FROM ple_private.authoring_workspace AS workspace
      WHERE workspace.workspace_id = NEW.workspace_id
        AND workspace.revoked_at IS NULL;
-    IF workspace_owner_account_id IS NULL THEN
+    IF authoring_workspace_owner_account_id IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Workspace Collaborator Events require an active Authoring Workspace';
     END IF;
     IF NEW.event_kind = 'started' THEN
-        IF NEW.recorded_by_account_id <> workspace_owner_account_id
-           OR NEW.collaborator_account_id = workspace_owner_account_id
+        IF NEW.recorded_by_account_id <> authoring_workspace_owner_account_id
+           OR NEW.collaborator_account_id = authoring_workspace_owner_account_id
            OR NOT EXISTS (
                SELECT 1
                  FROM ple_private.account AS account
@@ -68,7 +69,10 @@ BEGIN
            AND start_event.collaborator_account_id = NEW.collaborator_account_id
            AND start_event.event_kind = 'started'
            AND start_event.occurred_at <= NEW.occurred_at
-    ) OR NEW.recorded_by_account_id NOT IN (workspace_owner_account_id, NEW.collaborator_account_id) THEN
+    ) OR NEW.recorded_by_account_id NOT IN (
+        authoring_workspace_owner_account_id,
+        NEW.collaborator_account_id
+    ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'a Workspace Collaborator relationship can end only after its start and by its Authoring Workspace Owner or Workspace Collaborator';
     END IF;
@@ -103,16 +107,49 @@ CREATE TABLE ple_private.draft_question (
     CONSTRAINT draft_question_timestamps_are_ordered CHECK (updated_at >= created_at),
     CONSTRAINT draft_question_workspace_identity_is_unique UNIQUE (draft_question_uuid, workspace_id)
 );
-CREATE TABLE ple_private.question_source_registration (
-    draft_question_uuid uuid UNIQUE REFERENCES ple_private.draft_question (draft_question_uuid),
-    question_id text,
-    revision_number integer,
+CREATE FUNCTION ple_private.question_source_binding_backend_fields_are_valid(
+    p_backend text,
+    p_question_format text,
+    p_webwork_pg_path text,
+    p_imathas_deployment_reference text,
+    p_imathas_item_reference text,
+    p_imathas_profile text,
+    p_requires_imathas_profile boolean
+)
+RETURNS boolean LANGUAGE sql IMMUTABLE
+SET search_path = pg_catalog AS $$
+    SELECT COALESCE(
+        (p_backend = 'ple'
+            AND p_question_format = 'pleQuestionJson'
+            AND p_webwork_pg_path IS NULL
+            AND p_imathas_deployment_reference IS NULL
+            AND p_imathas_item_reference IS NULL
+            AND p_imathas_profile IS NULL)
+        OR (p_backend = 'webwork'
+            AND p_question_format = 'webworkPg'
+            AND p_webwork_pg_path IS NOT NULL
+            AND p_imathas_deployment_reference IS NULL
+            AND p_imathas_item_reference IS NULL
+            AND p_imathas_profile IS NULL)
+        OR (p_backend = 'imathas'
+            AND p_question_format = 'imathas'
+            AND p_webwork_pg_path IS NULL
+            AND p_imathas_deployment_reference IS NOT NULL
+            AND p_imathas_item_reference IS NOT NULL
+            AND p_requires_imathas_profile = (p_imathas_profile IS NOT NULL))
+    , false)
+$$;
+GRANT EXECUTE ON FUNCTION ple_private.question_source_binding_backend_fields_are_valid(
+    text, text, text, text, text, text, boolean
+) TO ple_data_owner;
+
+CREATE TABLE ple_private.draft_question_source_binding (
+    draft_question_uuid uuid PRIMARY KEY
+        REFERENCES ple_private.draft_question (draft_question_uuid) ON DELETE CASCADE,
     backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'imathas')),
     question_format text NOT NULL CHECK (question_format IN (
         'pleQuestionJson', 'webworkPg', 'imathas'
     )),
-    -- Question Backend fields are explicit so the closed backend matrix is
-    -- enforceable without parsing an untyped JSON container.
     webwork_pg_path text,
     imathas_deployment_reference text,
     imathas_item_reference text,
@@ -121,83 +158,100 @@ CREATE TABLE ple_private.question_source_registration (
     source_object_checksum text NOT NULL CHECK (source_object_checksum ~ '^[0-9a-f]{64}$'),
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone NOT NULL,
-    CONSTRAINT question_source_registration_has_one_owner CHECK (
-        (draft_question_uuid IS NOT NULL AND question_id IS NULL AND revision_number IS NULL)
-        OR (draft_question_uuid IS NULL AND question_id IS NOT NULL AND revision_number IS NOT NULL)
-    ),
-    CONSTRAINT question_source_registration_revision_is_unique UNIQUE (question_id, revision_number),
-    CONSTRAINT question_source_registration_revision_matches FOREIGN KEY (question_id, revision_number)
-        REFERENCES ple_data.question_revision (question_id, revision_number),
-    CONSTRAINT question_source_registration_webwork_pg_path_is_bounded CHECK (
+    CONSTRAINT draft_question_source_binding_webwork_pg_path_is_bounded CHECK (
         webwork_pg_path IS NULL OR char_length(btrim(webwork_pg_path)) BETWEEN 1 AND 1000
     ),
-    CONSTRAINT question_source_registration_imathas_deployment_reference_is_bounded CHECK (
+    CONSTRAINT draft_question_source_binding_imathas_deployment_reference_is_bounded CHECK (
         imathas_deployment_reference IS NULL
         OR char_length(btrim(imathas_deployment_reference)) BETWEEN 1 AND 255
     ),
-    CONSTRAINT question_source_registration_imathas_item_reference_is_bounded CHECK (
+    CONSTRAINT draft_question_source_binding_imathas_item_reference_is_bounded CHECK (
         imathas_item_reference IS NULL
         OR char_length(btrim(imathas_item_reference)) BETWEEN 1 AND 255
     ),
-    CONSTRAINT question_source_registration_imathas_profile_is_bounded CHECK (
+    CONSTRAINT draft_question_source_binding_imathas_profile_is_bounded CHECK (
         imathas_profile IS NULL OR imathas_profile ~ '^[A-Za-z0-9._-]{1,160}$'
     ),
-    CONSTRAINT question_source_registration_backend_fields_are_closed CHECK (COALESCE(
-        (backend = 'ple'
-            AND webwork_pg_path IS NULL
-            AND imathas_deployment_reference IS NULL
-            AND imathas_item_reference IS NULL
-            AND imathas_profile IS NULL)
-        OR (backend = 'webwork'
-            AND webwork_pg_path IS NOT NULL
-            AND imathas_deployment_reference IS NULL
-            AND imathas_item_reference IS NULL
-            AND imathas_profile IS NULL)
-        OR (backend = 'imathas'
-            AND webwork_pg_path IS NULL
-            AND imathas_deployment_reference IS NOT NULL
-            AND imathas_item_reference IS NOT NULL
-            AND ((draft_question_uuid IS NOT NULL AND imathas_profile IS NULL)
-                OR (question_id IS NOT NULL AND imathas_profile IS NOT NULL)))
-    , false)),
-    CONSTRAINT question_source_registration_timestamps_are_ordered CHECK (updated_at >= created_at)
+    CONSTRAINT draft_question_source_binding_backend_fields_are_closed CHECK (
+        ple_private.question_source_binding_backend_fields_are_valid(
+            backend, question_format, webwork_pg_path, imathas_deployment_reference,
+            imathas_item_reference, imathas_profile, false
+        )
+    ),
+    CONSTRAINT draft_question_source_binding_timestamps_are_ordered CHECK (updated_at >= created_at)
 );
-CREATE FUNCTION ple_private.validate_question_source_registration_backend()
+
+CREATE TABLE ple_private.question_revision_source_binding (
+    question_id text NOT NULL,
+    revision_number integer NOT NULL CHECK (revision_number > 0),
+    backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'imathas')),
+    question_format text NOT NULL CHECK (question_format IN (
+        'pleQuestionJson', 'webworkPg', 'imathas'
+    )),
+    webwork_pg_path text,
+    imathas_deployment_reference text,
+    imathas_item_reference text,
+    imathas_profile text,
+    source_object_id uuid NOT NULL,
+    source_object_checksum text NOT NULL CHECK (source_object_checksum ~ '^[0-9a-f]{64}$'),
+    created_at timestamp with time zone NOT NULL,
+    PRIMARY KEY (question_id, revision_number),
+    CONSTRAINT question_revision_source_binding_revision_matches
+        FOREIGN KEY (question_id, revision_number)
+        REFERENCES ple_data.question_revision (question_id, revision_number),
+    CONSTRAINT question_revision_source_binding_webwork_pg_path_is_bounded CHECK (
+        webwork_pg_path IS NULL OR char_length(btrim(webwork_pg_path)) BETWEEN 1 AND 1000
+    ),
+    CONSTRAINT question_revision_source_binding_imathas_deployment_reference_is_bounded CHECK (
+        imathas_deployment_reference IS NULL
+        OR char_length(btrim(imathas_deployment_reference)) BETWEEN 1 AND 255
+    ),
+    CONSTRAINT question_revision_source_binding_imathas_item_reference_is_bounded CHECK (
+        imathas_item_reference IS NULL
+        OR char_length(btrim(imathas_item_reference)) BETWEEN 1 AND 255
+    ),
+    CONSTRAINT question_revision_source_binding_imathas_profile_is_bounded CHECK (
+        imathas_profile IS NULL OR imathas_profile ~ '^[A-Za-z0-9._-]{1,160}$'
+    ),
+    CONSTRAINT question_revision_source_binding_backend_fields_are_closed CHECK (
+        ple_private.question_source_binding_backend_fields_are_valid(
+            backend, question_format, webwork_pg_path, imathas_deployment_reference,
+            imathas_item_reference, imathas_profile, true
+        )
+    )
+);
+CREATE FUNCTION ple_private.validate_question_revision_source_binding_backend()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data, ple_private AS $$
 BEGIN
-    IF NEW.question_id IS NOT NULL
-       AND NOT EXISTS (
-           SELECT 1
-             FROM ple_data.question_revision AS revision
-            WHERE revision.question_id = NEW.question_id
-              AND revision.revision_number = NEW.revision_number
-              AND revision.backend = NEW.backend
-       ) THEN
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_data.question_revision AS revision
+         WHERE revision.question_id = NEW.question_id
+           AND revision.revision_number = NEW.revision_number
+           AND revision.backend = NEW.backend
+    ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Question Source Backend must match its Question Revision Backend';
     END IF;
     RETURN NEW;
 END
 $$;
-CREATE TRIGGER question_source_registration_backend_matches_question_revision
-BEFORE INSERT OR UPDATE ON ple_private.question_source_registration
-FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_source_registration_backend();
-CREATE FUNCTION ple_private.reject_published_question_source_registration_change()
+CREATE TRIGGER question_revision_source_binding_backend_matches_question_revision
+BEFORE INSERT OR UPDATE ON ple_private.question_revision_source_binding
+FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_revision_source_binding_backend();
+CREATE FUNCTION ple_private.reject_question_revision_source_binding_change()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 BEGIN
-    IF OLD.question_id IS NOT NULL THEN
-        RAISE EXCEPTION USING ERRCODE = '55000',
-            MESSAGE = 'Question Revision Source Registration is immutable';
-    END IF;
+    RAISE EXCEPTION USING ERRCODE = '55000',
+        MESSAGE = 'Question Revision Source Binding is immutable';
     IF TG_OP = 'DELETE' THEN
         RETURN OLD;
     END IF;
     RETURN NEW;
 END
 $$;
-CREATE TRIGGER question_source_registration_is_immutable
-BEFORE UPDATE OR DELETE ON ple_private.question_source_registration
-FOR EACH ROW EXECUTE FUNCTION ple_private.reject_published_question_source_registration_change();
+CREATE TRIGGER question_revision_source_binding_is_immutable
+BEFORE UPDATE OR DELETE ON ple_private.question_revision_source_binding
+FOR EACH ROW EXECUTE FUNCTION ple_private.reject_question_revision_source_binding_change();
 CREATE TABLE ple_private.workspace_import (
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace (workspace_id),
     import_id uuid NOT NULL,
@@ -256,22 +310,33 @@ ALTER TABLE ple_private.authoring_workspace_collaborator_event ENABLE ROW LEVEL 
 ALTER TABLE ple_private.authoring_workspace_collaborator_event FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.draft_question ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.draft_question FORCE ROW LEVEL SECURITY;
-ALTER TABLE ple_private.question_source_registration ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ple_private.question_source_registration FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.draft_question_source_binding ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.draft_question_source_binding FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.question_revision_source_binding ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.question_revision_source_binding FORCE ROW LEVEL SECURITY;
+CREATE POLICY draft_question_source_binding_private_owner_access
+    ON ple_private.draft_question_source_binding
+    FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
+CREATE POLICY question_revision_source_binding_private_owner_access
+    ON ple_private.question_revision_source_binding
+    FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 ALTER TABLE ple_private.workspace_import ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.workspace_import FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.workspace_import_item_result ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.workspace_import_item_result FORCE ROW LEVEL SECURITY;
 REVOKE ALL PRIVILEGES ON TABLE ple_private.authoring_workspace,
     ple_private.authoring_workspace_collaborator_event,
-    ple_private.draft_question, ple_private.question_source_registration,
+    ple_private.draft_question, ple_private.draft_question_source_binding,
+    ple_private.question_revision_source_binding,
     ple_private.workspace_import, ple_private.workspace_import_item_result FROM PUBLIC;
 COMMENT ON TABLE ple_private.authoring_workspace IS 'Private draft-authoring root with one Authoring Workspace Owner; no Question Library visibility.';
 COMMENT ON TABLE ple_private.authoring_workspace_collaborator_event IS
     'Immutable start or end evidence for one Instructor Account Workspace Collaborator relationship.';
 COMMENT ON TABLE ple_private.draft_question IS 'Private Draft Question lineage inside one Authoring Workspace.';
-COMMENT ON TABLE ple_private.question_source_registration IS
-    'Current Question Source Registration binding exactly one mutable Draft Question or immutable Question Revision to Source Object Reference and Source Object Checksum evidence; backend location facts remain separate.';
+COMMENT ON TABLE ple_private.draft_question_source_binding IS
+    'Current mutable Source Binding for one exact Draft Question.';
+COMMENT ON TABLE ple_private.question_revision_source_binding IS
+    'Immutable Source Binding for one exact Question Revision.';
 COMMENT ON TABLE ple_private.workspace_import IS
     'Private staged Workspace Import with an exact Question Format, format-owned data, and item registry.';
 COMMENT ON TABLE ple_private.workspace_import_item_result IS

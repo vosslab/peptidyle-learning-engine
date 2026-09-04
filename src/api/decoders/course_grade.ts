@@ -83,7 +83,10 @@ function category(value: unknown, path: string): CourseGradeScheme["categories"]
   };
 }
 
-function letterBand(value: unknown, path: string): CourseGradeScheme["letterBands"][number] {
+function letterGradeBand(
+  value: unknown,
+  path: string,
+): CourseGradeScheme["letterGradeBands"][number] {
   const record = closed(value, path, ["label", "minimumBasisPoints"]);
   const minimumBasisPoints = decodeSafeInteger(
     record.minimumBasisPoints,
@@ -95,10 +98,14 @@ function letterBand(value: unknown, path: string): CourseGradeScheme["letterBand
 }
 
 function decodeScheme(value: unknown, path: string): CourseGradeScheme {
-  const record = closed(value, path, ["mode", "rounding", "categories", "letterBands"]);
+  const record = closed(value, path, ["mode", "rounding", "categories", "letterGradeBands"]);
   const mode = decodeStringEnum(record.mode, `${path}.mode`, MODES);
   const categories = decodeArray(record.categories, `${path}.categories`, category);
-  const letterBands = decodeArray(record.letterBands, `${path}.letterBands`, letterBand);
+  const letterGradeBands = decodeArray(
+    record.letterGradeBands,
+    `${path}.letterGradeBands`,
+    letterGradeBand,
+  );
   if (
     new Set(categories.map((item) => item.id)).size !== categories.length ||
     !categories.every((item, index) => item.position === index)
@@ -115,16 +122,18 @@ function decodeScheme(value: unknown, path: string): CourseGradeScheme {
       categories.reduce((total, item) => total + item.weightBasisPoints, 0) !== 10_000)
   )
     throw new DecodeError(`${path}.categories`, "nonempty weights totaling 10000 basis points");
-  if (new Set(letterBands.map((item) => item.label)).size !== letterBands.length)
-    throw new DecodeError(`${path}.letterBands`, "unique letter labels");
-  for (let index = 1; index < letterBands.length; index += 1)
-    if (letterBands[index - 1]!.minimumBasisPoints <= letterBands[index]!.minimumBasisPoints)
-      throw new DecodeError(`${path}.letterBands`, "strictly descending thresholds");
+  if (new Set(letterGradeBands.map((item) => item.label)).size !== letterGradeBands.length)
+    throw new DecodeError(`${path}.letterGradeBands`, "unique Letter Grade Band labels");
+  for (let index = 1; index < letterGradeBands.length; index += 1)
+    if (
+      letterGradeBands[index - 1]!.minimumBasisPoints <= letterGradeBands[index]!.minimumBasisPoints
+    )
+      throw new DecodeError(`${path}.letterGradeBands`, "strictly descending thresholds");
   return {
     mode,
     rounding: decodeStringEnum(record.rounding, `${path}.rounding`, ROUNDING),
     categories,
-    letterBands,
+    letterGradeBands,
   };
 }
 
@@ -247,17 +256,17 @@ function decodeOutcome(
     "status",
     "score",
     "letter",
-    "droppedAssignmentIds",
+    "droppedAssignmentGrades",
     "totalEarned",
     "totalPossible",
   ]);
-  const droppedAssignmentIds = decodeArray(
-    available.droppedAssignmentIds,
-    `${path}.droppedAssignmentIds`,
+  const droppedAssignmentGrades = decodeArray(
+    available.droppedAssignmentGrades,
+    `${path}.droppedAssignmentGrades`,
     decodeUuid,
   );
-  if (new Set(droppedAssignmentIds).size !== droppedAssignmentIds.length)
-    throw new DecodeError(`${path}.droppedAssignmentIds`, "unique assignment IDs");
+  if (new Set(droppedAssignmentGrades).size !== droppedAssignmentGrades.length)
+    throw new DecodeError(`${path}.droppedAssignmentGrades`, "unique Assignment Grade references");
   const totalEarned = decodeNullable(
     available.totalEarned,
     `${path}.totalEarned`,
@@ -273,7 +282,7 @@ function decodeOutcome(
     (totalEarned === null ||
       totalPossible === null ||
       totalPossible <= 0 ||
-      droppedAssignmentIds.length !== 0)
+      droppedAssignmentGrades.length !== 0)
   )
     throw new DecodeError(path, "a complete total-points outcome");
   if (mode === "weightedCategories" && (totalEarned !== null || totalPossible !== null))
@@ -284,7 +293,7 @@ function decodeOutcome(
     letter: decodeNullable(available.letter, `${path}.letter`, (entry, entryPath) =>
       trimmedText(entry, entryPath, 32),
     ),
-    droppedAssignmentIds,
+    droppedAssignmentGrades,
     totalEarned,
     totalPossible,
   };

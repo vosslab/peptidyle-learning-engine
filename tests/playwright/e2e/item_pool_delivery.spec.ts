@@ -30,7 +30,7 @@ const maryEmail = "mary.okafor@live-demo.ple.example";
 
 interface PublishedQuestion {
   readonly id: string;
-  readonly title: string;
+  readonly questionTitle: string;
   readonly correctChoice: string;
 }
 
@@ -38,16 +38,16 @@ async function selectQuestionsInPicker(
   page: Page,
   triggerName: string,
   dialogName: string,
-  titles: ReadonlyArray<string>,
+  questionTitles: ReadonlyArray<string>,
   confirmName: string,
 ): Promise<void> {
   await page.getByRole("button", { name: triggerName, exact: true }).click();
   const picker = page.getByRole("dialog", { name: dialogName, exact: true });
   await expect(picker).toBeVisible();
-  for (const title of titles) {
-    await picker.getByLabel("Search questions", { exact: true }).fill(title);
+  for (const questionTitle of questionTitles) {
+    await picker.getByLabel("Search questions", { exact: true }).fill(questionTitle);
     await picker.getByRole("button", { name: "Search questions", exact: true }).click();
-    await picker.getByRole("checkbox", { name: new RegExp(title) }).check();
+    await picker.getByRole("checkbox", { name: new RegExp(questionTitle) }).check();
   }
   await picker.getByRole("button", { name: confirmName, exact: true }).click();
   await expect(picker).toHaveCount(0);
@@ -55,15 +55,17 @@ async function selectQuestionsInPicker(
 
 async function createPublishedQuestion(
   page: Page,
-  title: string,
+  questionTitle: string,
   correctChoice: string,
 ): Promise<PublishedQuestion> {
   await page.getByRole("link", { name: "Workspace", exact: true }).click();
   await page.getByRole("button", { name: "Create Question", exact: true }).click();
-  await page.getByLabel("Question title").fill(title);
-  await page.getByLabel("Student-facing prompt").fill(`Choose the supported statement: ${title}`);
+  await page.getByLabel("Question Title").fill(questionTitle);
+  await page
+    .getByLabel("Student-facing prompt")
+    .fill(`Choose the supported statement: ${questionTitle}`);
   await page.getByLabel("Choice text").nth(0).fill(correctChoice);
-  await page.getByLabel("Choice text").nth(1).fill(`Alternative statement for ${title}`);
+  await page.getByLabel("Choice text").nth(1).fill(`Alternative statement for ${questionTitle}`);
   await page
     .getByRole("radio", { name: new RegExp(`Mark choice 1 as correct: ${correctChoice}`) })
     .check();
@@ -73,16 +75,16 @@ async function createPublishedQuestion(
   await page.getByRole("button", { name: "Confirm and publish", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Published", exact: true })).toBeVisible();
 
-  await page.getByRole("link", { name: "Library", exact: true }).click();
-  await page.getByLabel("Search published questions").fill(title);
+  await page.getByRole("link", { name: "Question Library", exact: true }).click();
+  await page.getByLabel("Search published questions").fill(questionTitle);
   const card = page
     .getByRole("region", { name: "Published questions" })
-    .getByText(title, { exact: true })
+    .getByText(questionTitle, { exact: true })
     .locator("..");
   await expect(card).toBeVisible();
   const id = await card.locator("code").innerText();
   expect(id).toMatch(/^[A-Z0-9]{3}-[A-Z0-9]{4}$/u);
-  return { id, title, correctChoice };
+  return { id, questionTitle, correctChoice };
 }
 
 async function createCourseWithMixedPool(
@@ -112,10 +114,10 @@ async function createCourseWithMixedPool(
     page,
     "Search question library",
     "Choose assignment questions",
-    [fixed.title],
+    [fixed.questionTitle],
     "Add selected questions",
   );
-  await expect(page.locator(".assignment-editor-list")).toContainText(fixed.title);
+  await expect(page.locator(".assignment-editor-list")).toContainText(fixed.questionTitle);
   await page.getByRole("button", { name: "Add question pool", exact: true }).click();
 
   const pool = page.getByRole("listitem", { name: "Question pool at position 2" });
@@ -124,14 +126,18 @@ async function createCourseWithMixedPool(
   const picker = page.getByRole("dialog", { name: "Choose Questions for pool", exact: true });
   await expect(picker).toBeVisible();
   for (const questionPoolItem of questionPoolItems) {
-    await picker.getByLabel("Search questions", { exact: true }).fill(questionPoolItem.title);
+    await picker
+      .getByLabel("Search questions", { exact: true })
+      .fill(questionPoolItem.questionTitle);
     await picker.getByRole("button", { name: "Search questions", exact: true }).click();
-    await picker.getByRole("checkbox", { name: new RegExp(questionPoolItem.title) }).check();
+    await picker
+      .getByRole("checkbox", { name: new RegExp(questionPoolItem.questionTitle) })
+      .check();
   }
   await picker.getByRole("button", { name: "Add selected Questions to pool", exact: true }).click();
   await expect(picker).toHaveCount(0);
   for (const questionPoolItem of questionPoolItems)
-    await expect(pool).toContainText(questionPoolItem.title);
+    await expect(pool).toContainText(questionPoolItem.questionTitle);
   await pool.getByLabel("Selection count").fill("2");
   await pool.getByLabel("Points per selected Question").fill("2");
   await pool.getByLabel("Selected Question order").selectOption("questionPoolOrder");
@@ -208,8 +214,8 @@ async function completeDeliveredPoolRun(
   await assignmentCard.getByRole("link", { name: "Start assignment", exact: true }).click();
   await startOrContinuePractice(page);
 
-  const itemsByTitle = new Map(questionPoolItems.map((item) => [item.title, item]));
-  await expect(page.getByRole("heading", { name: fixed.title, exact: true })).toBeVisible();
+  const itemsByTitle = new Map(questionPoolItems.map((item) => [item.questionTitle, item]));
+  await expect(page.getByRole("heading", { name: fixed.questionTitle, exact: true })).toBeVisible();
   await expect(page.locator(".assignment-attempt-question-pool-selection")).toHaveCount(0);
   await page.getByRole("radio", { name: fixed.correctChoice, exact: true }).check();
   await page.getByRole("button", { name: "Submit answer", exact: true }).click();
@@ -223,10 +229,12 @@ async function completeDeliveredPoolRun(
     await expect(page.locator(".assignment-attempt-question-pool-selection")).toHaveText(
       `Server-selected Question ${position + 1} of 2 for this Assignment Attempt.`,
     );
-    const title = await questionHeading.innerText();
-    const questionPoolItem = itemsByTitle.get(title);
+    const questionTitle = await questionHeading.innerText();
+    const questionPoolItem = itemsByTitle.get(questionTitle);
     expect(questionPoolItem).toBeDefined();
-    const questionPoolItemIndex = questionPoolItems.findIndex((item) => item.title === title);
+    const questionPoolItemIndex = questionPoolItems.findIndex(
+      (item) => item.questionTitle === questionTitle,
+    );
     expect(questionPoolItemIndex).toBeGreaterThanOrEqual(0);
     deliveredQuestionPoolItemIndexes.push(questionPoolItemIndex);
     await page.getByRole("radio", { name: questionPoolItem!.correctChoice, exact: true }).check();

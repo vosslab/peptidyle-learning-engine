@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     AssignmentImportReceipt, BlueprintAssignmentRevisionReference, BlueprintQuestionPosition,
     BlueprintRevisionReference, CurriculumImportRevision, QuestionRevisionSubstitutions,
-    ReplacementQuestionRevisionChoices, RequestChecksum, RequestRetryToken,
+    ReplacementQuestionRevisionChoices, RequestChecksum,
 };
 use crate::{
     AccountId, AssignmentReference, AssignmentRevisionNumber, CourseInstanceReference,
@@ -122,7 +122,6 @@ pub struct CourseInstanceCreationReservation {
     target_term: CourseTerm,
     authorized_account: AccountId,
     request_checksum: RequestChecksum,
-    retry_token: RequestRetryToken,
     reserved_course: CourseInstanceReference,
 }
 
@@ -132,7 +131,6 @@ impl CourseInstanceCreationReservation {
         target_term: CourseTerm,
         authorized_account: AccountId,
         request_checksum: RequestChecksum,
-        retry_token: RequestRetryToken,
         reserved_course: CourseInstanceReference,
     ) -> Self {
         Self {
@@ -140,7 +138,6 @@ impl CourseInstanceCreationReservation {
             target_term,
             authorized_account,
             request_checksum,
-            retry_token,
             reserved_course,
         }
     }
@@ -150,7 +147,6 @@ impl CourseInstanceCreationReservation {
         target_term: CourseTerm,
         authorized_account: AccountId,
         request_checksum: RequestChecksum,
-        retry_token: RequestRetryToken,
         reserved_course: CourseInstanceReference,
     ) -> Self {
         Self {
@@ -158,7 +154,6 @@ impl CourseInstanceCreationReservation {
             target_term,
             authorized_account,
             request_checksum,
-            retry_token,
             reserved_course,
         }
     }
@@ -180,9 +175,6 @@ impl CourseInstanceCreationReservation {
     }
     pub fn request_checksum(&self) -> RequestChecksum {
         self.request_checksum
-    }
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        &self.retry_token
     }
     pub fn reserved_course(&self) -> CourseInstanceReference {
         self.reserved_course
@@ -254,7 +246,6 @@ pub enum ApplyBlueprintUpdateEffect {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssignmentImportReceiptTarget {
     receipt_account: AccountId,
-    retry_token: RequestRetryToken,
     course: CourseInstanceReference,
     assignment: AssignmentReference,
     import_revision: CurriculumImportRevision,
@@ -263,14 +254,12 @@ pub struct AssignmentImportReceiptTarget {
 impl AssignmentImportReceiptTarget {
     pub fn new(
         receipt_account: AccountId,
-        retry_token: RequestRetryToken,
         course: CourseInstanceReference,
         assignment: AssignmentReference,
         import_revision: CurriculumImportRevision,
     ) -> Self {
         Self {
             receipt_account,
-            retry_token,
             course,
             assignment,
             import_revision,
@@ -278,9 +267,6 @@ impl AssignmentImportReceiptTarget {
     }
     pub fn receipt_account(&self) -> AccountId {
         self.receipt_account
-    }
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        &self.retry_token
     }
     pub fn course(&self) -> CourseInstanceReference {
         self.course
@@ -522,12 +508,11 @@ pub struct CopyAssignmentFromBlueprintPreviewRequest {
 
 /// Server-only repair intent for one retained Assignment import receipt.
 ///
-/// A repair has an independent audit and retry identity. Callers reuse the
-/// key for a retry and issue a new key for a later repair action.
+/// A repair has an independent audit identity based on the retained receipt
+/// and the request checksum for this repair action.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssignmentImportRepairIntent {
     pub original_import_receipt: AssignmentImportReceipt,
-    pub retry_token: RequestRetryToken,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

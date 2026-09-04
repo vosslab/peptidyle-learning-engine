@@ -92,7 +92,7 @@ crates/learning-data-access/src/
 +- imathas_question_backend_session/     iMathAS Question Backend Session contracts and Memory support
 +- object_record.rs                      workspace Question Source object records
 +- pagination.rs                         cursor and page contracts
-+- question_source.rs                    Draft Question Source Registration Store contract
++- question_source.rs                    Draft source resolution and Question Publication Store contracts
 +- session.rs                            Account Session Store contract
 `- postgres/                             current PostgreSQL connection, migration, Account Session, Assignment Attempt, Question Source, object-record, and iMathAS Session modules
 ```
@@ -101,7 +101,7 @@ No Blueprint Course or Blueprint-operation Store implementation currently
 exists under `crates/learning-data-access/`. The future Store boundary will own
 Create Course from Blueprint, Fork Blueprint Course, Copy Assignment from
 Blueprint, Apply Blueprint Update, Copy Course for New Term, and Shift Course
-Dates; it will bind request-retry tokens to request checksums, retain receipts,
+Dates; it will use exact operation identities and request checksums, retain receipts,
 and keep Assignment Import Repair bounded to derived state. It will preserve
 the boundary between public Blueprint readers and private CourseInstances.
 
@@ -113,6 +113,7 @@ crates/server/src/
 +- composition.rs            Production database and session composition
 +- health.rs                 Readiness probe support
 +- http_security.rs          Uniform dynamic-response security headers
++- question_publication.rs  Server-only new-lineage Question Publication coordinator and Question ID issuer
 +- request_lifecycle.rs      Process-wide safe request lifecycle handling
 +- application.rs            Executable application assembly
 +- lib.rs                    Current server-core module boundary
@@ -121,8 +122,9 @@ crates/server/src/
 
 The current executable surface intentionally stops at global Account sessions and
 the deployment-gated seeded Live Demo entry. Course, Question Library, delivery,
-and worker routes remain downstream reconstruction work and are not represented
-as mounted server modules.
+publication, and worker routes remain downstream reconstruction work. The implemented server-only
+`question_publication` Service composes the authorized draft-source read, verified immutable object
+copy, Question ID issuance, and atomic P1 Store without expanding the executable route surface.
 reference, revision, query, and body decoding. CourseInstance routes require
 the exact destination course and current equal Teaching Team Member authority.
 
@@ -143,7 +145,7 @@ src/
 +- pages/
 |  +- blueprint_course_route_page.tsx          Blueprint Course list route composition
 |  +- blueprint_course_detail_route_page.tsx   Blueprint Course detail route composition
-|  `- (no Blueprint-operation page is mounted)
+|  `- (no Blueprint-operation Browser Surface exists)
 +- components/                                Shared answer-free and accessibility UI
 +`- routes.ts                                Executable route map
 ```

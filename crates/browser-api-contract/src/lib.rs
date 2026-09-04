@@ -2,7 +2,7 @@
 
 //! Pure route-only browser API contract values.
 //!
-//! The admission front door is intentionally empty until a mounted route owns
+//! The admission front door is intentionally empty until a Server Route owns
 //! its first DTO. Values introduced here remain owned, runtime-
 //! free, and fallible-behavior-free; Axum, persistence, application state, and
 //! project tooling stay outside this product boundary.

@@ -241,7 +241,7 @@ struct HandleResponse {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct RenderResponse {
-    title: String,
+    question_title: String,
     prompt: Vec<question_model::QuestionContentBlock>,
 }
 
@@ -283,7 +283,7 @@ impl ImathasQuestionBackendTransport for HttpImathasQuestionBackendTransport {
                 snapshot_base64: base64::engine::general_purpose::STANDARD
                     .encode(request.snapshot()),
                 version: request.question_revision().revision_number.to_string(),
-                seed: request.seed().value(),
+                seed: request.question_seed().value(),
             })
             .send()
             .await
@@ -292,7 +292,7 @@ impl ImathasQuestionBackendTransport for HttpImathasQuestionBackendTransport {
         let parsed: RenderResponse =
             serde_json::from_slice(&bytes).map_err(|_| ImathasTransportFailure::InvalidResponse)?;
         Ok(SafeImathasQuestionRender {
-            title: parsed.title,
+            question_title: parsed.question_title,
             prompt: parsed.prompt,
         })
     }
@@ -449,7 +449,7 @@ mod tests {
     async fn render() -> impl IntoResponse {
         (
             [(CONTENT_TYPE, HeaderValue::from_static("application/json"))],
-            r#"{"title":"Recorded","prompt":[{"kind":"text","markdown":"Hi"}]}"#,
+            r#"{"questionTitle":"Recorded","prompt":[{"kind":"text","markdown":"Hi"}]}"#,
         )
     }
     #[derive(Deserialize)]
@@ -594,11 +594,11 @@ mod tests {
                         revision_number: question_model::QuestionRevisionNumber::new(1)
                             .expect("positive version"),
                     },
-                    seed: question_model::generation::QuestionSeed::new(7)
+                    question_seed: question_model::generation::QuestionSeed::new(7)
                 })
                 .await
                 .unwrap()
-                .title,
+                .question_title,
             "Recorded"
         );
         let handle = transport

@@ -82,7 +82,7 @@ mod launch_session_bridge {
             reference: question.clone(),
             point_value: AssignmentPointValue::from_whole(1),
             scoring_rule: AssignmentEntryScoringRule::Normal,
-            statistics_eligible: true,
+            question_statistics_eligibility: true,
             question_pool_selection: None,
             question_pool_item: None,
         }
@@ -385,12 +385,7 @@ mod launch_session_bridge {
             .expect("lease");
         let staged = result
             .clone()
-            .stage(
-                lease,
-                learning_data_access::ImathasResultExchangeIdempotencyKey::parse("adapter-stage")
-                    .expect("idempotency key"),
-                Timestamp::from_unix_millis(25),
-            )
+            .stage(lease, Timestamp::from_unix_millis(25))
             .expect("verified result stages only through its exact context and authentication");
         assert!(!format!("{staged:?}").contains("recorded-proxy-session"));
 
@@ -453,14 +448,9 @@ mod launch_session_bridge {
             .await
             .expect("lease");
         assert_eq!(
-            result.clone().stage(
-                mismatched_context_lease,
-                learning_data_access::ImathasResultExchangeIdempotencyKey::parse(
-                    "wrong-context-stage"
-                )
-                .expect("idempotency key"),
-                Timestamp::from_unix_millis(25),
-            ),
+            result
+                .clone()
+                .stage(mismatched_context_lease, Timestamp::from_unix_millis(25),),
             Err(learning_data_access::StoreError::Forbidden),
             "a verified Session A result refuses Session B's different-context lease before Store staging"
         );
@@ -509,10 +499,6 @@ mod launch_session_bridge {
         assert_eq!(
             result.clone().stage(
                 mismatched_authentication_lease,
-                learning_data_access::ImathasResultExchangeIdempotencyKey::parse(
-                    "wrong-authentication-stage"
-                )
-                .expect("idempotency key"),
                 Timestamp::from_unix_millis(25),
             ),
             Err(learning_data_access::StoreError::Forbidden),

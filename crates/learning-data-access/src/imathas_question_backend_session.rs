@@ -16,9 +16,9 @@ mod storage_parts;
 pub(crate) use grading::automated_grading_receipt_checksum_v1;
 pub use grading::{
     AutomatedGradingReceipt, AutomatedGradingReceiptId, CommitStagedImathasResultGrading,
-    GradingResultId, ImathasGradingJobLease, ImathasResultExchangeIdempotencyKey, JobId,
-    LoadedImathasQuestionBackendSession, MAX_IMATHAS_GRADING_JOB_LEASE_MILLIS,
-    QuestionSubmissionGradingId, StageVerifiedImathasResult, StagedImathasResultReceipt,
+    GradingResultId, ImathasGradingJobLease, JobId, LoadedImathasQuestionBackendSession,
+    MAX_IMATHAS_GRADING_JOB_LEASE_MILLIS, QuestionSubmissionGradingId, StageVerifiedImathasResult,
+    StagedImathasResultReceipt,
 };
 pub use identifiers::{
     AutomatedGradingReceiptChecksum, ImathasGradingContext, ImathasLaunchBindingChecksum,

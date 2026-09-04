@@ -212,7 +212,7 @@ export function routeContractForPathname(pathname: string): RouteContract | unde
   return ROUTE_CONTRACT.find((route) => pathMatchesRoutePattern(pathname, route.path));
 }
 
-/** Checks the role boundary declared by a product route without mounting its surface. */
+/** Checks the role boundary declared by a product route without asserting Browser Surface availability. */
 export function productRoleMayAccessRoute(routeId: string, productRole: ProductRole): boolean {
   const route: RouteContract | undefined = ROUTE_CONTRACT.find((item) => item.id === routeId);
   if (route === undefined) {

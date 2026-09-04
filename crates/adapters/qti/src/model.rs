@@ -174,7 +174,7 @@ pub fn qti_question_asset_checksums(
         question_model::QuestionResponseFormat::Hotspot {
             surface, regions, ..
         } => {
-            assets.insert(surface.asset, surface.checksum.clone());
+            assets.insert(surface.question_asset, surface.checksum.clone());
             response_blocks.extend(regions.iter().flat_map(|region| region.label.iter()));
         }
         question_model::QuestionResponseFormat::Numeric { .. }
@@ -182,9 +182,12 @@ pub fn qti_question_asset_checksums(
         | question_model::QuestionResponseFormat::ImathasQuestionBackend {} => {}
     }
     for block in question.prompt.iter().chain(response_blocks) {
-        if let QuestionContentBlock::Image { asset, .. } = block
-            && let Some(previous) = assets.insert(asset.asset, asset.checksum.clone())
-            && previous != asset.checksum
+        if let QuestionContentBlock::Image { question_asset, .. } = block
+            && let Some(previous) = assets.insert(
+                question_asset.question_asset,
+                question_asset.checksum.clone(),
+            )
+            && previous != question_asset.checksum
         {
             return Err(QtiAssetReferenceError::ConflictingChecksum);
         }

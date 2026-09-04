@@ -14,7 +14,7 @@ import {
   reorderMatchingSide,
   setChoiceText,
   setCorrectChoice,
-  setPleQuestionJsonTitle,
+  setPleQuestionJsonQuestionTitle,
   setLanguage,
   setMatchingSideText,
   setMatchingPair,
@@ -36,7 +36,7 @@ test("editor only follows valid load, edit, save, and publish transitions", () =
   const loaded = reducePleQuestionJsonEditor(initial, { kind: "loaded", source: source() });
   assert.equal(loaded.kind, "ready");
   assert.equal(loaded.status, "clean");
-  const edited = setPleQuestionJsonTitle(source(), "Revised title");
+  const edited = setPleQuestionJsonQuestionTitle(source(), "Revised title");
   const dirty = reducePleQuestionJsonEditor(loaded, { kind: "edit", source: edited });
   assert.equal(dirty.kind, "ready");
   assert.equal(dirty.status, "dirty");
@@ -77,7 +77,7 @@ test("conflict and reload preserve local source while clearing protected preview
     kind: "instructorPreviewLoaded",
     preview: { revision: '"1"', correctChoice: "choice_a", explanation: "Instructor only" },
   });
-  const editedSource = setPleQuestionJsonTitle(source(), "Local only");
+  const editedSource = setPleQuestionJsonQuestionTitle(source(), "Local only");
   const dirty = reducePleQuestionJsonEditor(previewed, { kind: "edit", source: editedSource });
   assert.equal(dirty.kind, "ready");
   assert.equal(dirty.instructorPreview, null);
@@ -86,14 +86,14 @@ test("conflict and reload preserve local source while clearing protected preview
     { kind: "saveConflict" },
   );
   assert.equal(conflict.kind, "conflict");
-  assert.equal(conflict.localSource.title, "Local only");
+  assert.equal(conflict.localSource.questionTitle, "Local only");
   const reloading = reducePleQuestionJsonEditor(conflict, { kind: "reloadStarted" });
   const reloadFailed = reducePleQuestionJsonEditor(reloading, {
     kind: "reloadFailed",
     message: "Network unavailable",
   });
   assert.equal(reloadFailed.kind, "conflict");
-  assert.equal(reloadFailed.localSource.title, "Local only");
+  assert.equal(reloadFailed.localSource.questionTitle, "Local only");
   const reloaded = reducePleQuestionJsonEditor(reloading, {
     kind: "reloadSucceeded",
     source: source(),
@@ -142,10 +142,10 @@ test("metadata helpers are immutable and validation gives safe author guidance",
   assert.equal(base.language, "en-US");
   assert.deepEqual(edited.tags, ["biology", "assessment"]);
   assert.equal(validatePleQuestionJsonSource(edited).valid, true);
-  const invalid = setPleQuestionJsonTitle(edited, " ");
+  const invalid = setPleQuestionJsonQuestionTitle(edited, " ");
   const validation = validatePleQuestionJsonSource(invalid);
   assert.equal(validation.valid, false);
-  assert.equal(validation.issues[0].field, "title");
+  assert.equal(validation.issues[0].field, "questionTitle");
   assert.equal(validation.issues[0].message.includes("Untitled question"), false);
   assert.equal(validation.issues[0].message.includes("Instructor"), false);
 });

@@ -15,7 +15,7 @@ chapters:
     assignment_title: Genetics Chapter 1 Mastery
     questions:
       - slug: genetics-disorders-webwork-mc
-        title: "Genetic disorders: Which one?"
+        question_title: "Genetic disorders: Which one?"
         backend: webwork
         question_type: multipleChoice
         points: 1
@@ -25,7 +25,7 @@ chapters:
         changes:
           - Replaced apostrophe escapes with PG-translator-safe q literals.
       - slug: genetics-disorders-webwork-matching
-        title: "Genetic disorders: Matching"
+        question_title: "Genetic disorders: Matching"
         backend: webwork
         question_type: matching
         points: 4
@@ -37,7 +37,7 @@ chapters:
           - Removed a parserUtils macro load unavailable and unused in the shipped renderer.
           - Kept partial-credit scores numeric in the renderer JSON contract.
       - slug: genetics-disorders-ple-question-json-mc
-        title: "Genetics Chapter 1: Phenylalanine metabolism"
+        question_title: "Genetics Chapter 1: Phenylalanine metabolism"
         backend: pleQuestionJson
         question_type: multipleChoice
         points: 1
@@ -45,9 +45,9 @@ chapters:
         source_sha256: d1555789992c6249b22d34c9852546209b1fa4989465500aa46d09106c3cd9a6
         source_item: 8894_6964
         payload: ple_question_json/genetics-disorders-mc.json
-        payload_sha256: c7aa41a2cbdca18128045559a546c268c27c6a0cc8e196508bbb75520660eca6
+        payload_sha256: 7e27162d0933b75b26c3cce46fdf77047950eb15fd7cde2aeefb2cacd9c7ee63
       - slug: genetics-disorders-ple-question-json-matching
-        title: "Genetics Chapter 1: Genetic disorder matching"
+        question_title: "Genetics Chapter 1: Genetic disorder matching"
         backend: pleQuestionJson
         question_type: matching
         points: 4
@@ -55,7 +55,7 @@ chapters:
         source_sha256: 10f25986c8faa47a449a71cf299eb99d15c51ecb1986c431e6cbb6f74f1823ed
         source_item: ce62_fc20
         payload: ple_question_json/genetics-disorders-matching.json
-        payload_sha256: 1cac8f073e6053649f21134c6a130467a96302f03144051a32a1c30cc7bbe706
+        payload_sha256: e961f96bcd3b23555eba878307e58509967c8564dd21aae1e26054a1fc8ab4c7
 
   - slug: biochemistry-chapter-1
     course: Biochemistry
@@ -64,7 +64,7 @@ chapters:
     assignment_title: Biochemistry Chapter 1 Mastery
     questions:
       - slug: biochemistry-functional-groups-webwork-mc
-        title: "Biochemical functional groups: Which one?"
+        question_title: "Biochemical functional groups: Which one?"
         backend: webwork
         question_type: multipleChoice
         points: 1
@@ -76,7 +76,7 @@ chapters:
           - Reworded two descriptions for scientific and student-facing clarity.
           - Corrected the source description grammar.
       - slug: biochemistry-functional-groups-webwork-matching
-        title: "Biochemical functional groups: Matching"
+        question_title: "Biochemical functional groups: Matching"
         backend: webwork
         question_type: matching
         points: 4
@@ -90,7 +90,7 @@ chapters:
           - Removed a parserUtils macro load unavailable and unused in the shipped renderer.
           - Kept partial-credit scores numeric in the renderer JSON contract.
       - slug: biochemistry-functional-groups-ple-question-json-mc
-        title: "Biochemistry Chapter 1: Charged functional groups"
+        question_title: "Biochemistry Chapter 1: Charged functional groups"
         backend: pleQuestionJson
         question_type: multipleChoice
         points: 1
@@ -98,9 +98,9 @@ chapters:
         source_sha256: 12f176f64fb223f75ef699f51a688cd7029242a8cd61e9cf7f38e25e8ea8792c
         source_item: 1138_f177
         payload: ple_question_json/biochemistry-functional-groups-mc.json
-        payload_sha256: cf2110d81333cadc4cfd1409430338d4f8e99aa34215d4a86d452ca58e4c01bb
+        payload_sha256: 8cfa1727b9bc19568b1a2c9d26b4db53763966945f72cf9cb8704552951bbdf8
       - slug: biochemistry-functional-groups-ple-question-json-matching
-        title: "Biochemistry Chapter 1: Functional group matching"
+        question_title: "Biochemistry Chapter 1: Functional group matching"
         backend: pleQuestionJson
         question_type: matching
         points: 4
@@ -108,4 +108,4 @@ chapters:
         source_sha256: 331a5e806e4a5dd751640eaf22f8911e3870cbbf8b4019da79632ad77f391e44
         source_item: c4c1_c919
         payload: ple_question_json/biochemistry-functional-groups-matching.json
-        payload_sha256: d7036be8750d4dfe030742148952d4b4cefe59c035f8c0b891e23e8ad038f525
+        payload_sha256: 49865846ca0f0d2861e4ac191925b921dbb4744d59a86250288b4e2434050db2

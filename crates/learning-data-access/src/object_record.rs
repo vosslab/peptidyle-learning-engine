@@ -11,7 +11,7 @@ use question_model::WorkspaceId;
 use crate::{SessionTokenHash, StoreError};
 
 /// Validates the exact private Object Record shape accepted for a workspace
-/// Question Source registration.
+/// Workspace Question Source Object creation.
 pub fn validate_workspace_question_source_object_record(
     workspace: WorkspaceId,
     record: &ObjectRecord,
@@ -22,7 +22,7 @@ pub fn validate_workspace_question_source_object_record(
     } = &record.address
     else {
         return Err(StoreError::InvalidRecord(
-            "a Workspace Question Source registration requires a Workspace Question Source Object Address"
+            "Workspace Question Source Object creation requires its exact Object Address"
                 .to_string(),
         ));
     };

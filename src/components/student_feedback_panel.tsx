@@ -106,7 +106,7 @@ function StudentFeedbackBlock(props: {
         <figure>
           <img
             class="student-feedback-panel__image"
-            src={resolveSameOriginAssetUrl(props.block.asset, props.assetUrl)}
+            src={resolveSameOriginAssetUrl(props.block.questionAsset, props.assetUrl)}
             alt={props.block.description}
             onError={recoverProtectedAssetImage}
           />

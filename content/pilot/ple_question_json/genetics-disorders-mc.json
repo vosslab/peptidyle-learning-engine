@@ -1,7 +1,7 @@
 {
   "format": "pleQuestionJson",
   "version": 3,
-  "title": "Genetics Chapter 1: Phenylalanine metabolism",
+  "questionTitle": "Genetics Chapter 1: Phenylalanine metabolism",
   "questionDescription": "Instructor-facing discovery summary for phenylalanine-metabolism question practice.",
   "prompt": "Which genetic disorder is caused by impaired phenylalanine metabolism, leading to phenylalanine accumulation?",
   "response": {

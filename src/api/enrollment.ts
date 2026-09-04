@@ -130,7 +130,6 @@ export interface CourseRosterClient {
     courseId: CourseId,
     email: string,
     rosterId: string,
-    idempotencyKey: string,
   ) => Promise<CourseInvitationAccepted>;
   readonly revokeCourseInvitation: (
     courseId: CourseId,
@@ -151,13 +150,11 @@ export interface CourseRosterClient {
     courseId: CourseId,
     csv: Blob,
     rosterChangeNumber: CourseRosterChangeNumber,
-    idempotencyKey: string,
   ) => Promise<RosterImportPreview>;
   readonly commitRosterImport: (
     courseId: CourseId,
     preview: Pick<RosterImportPreview, "importId" | "importRevision">,
     rowNumbers: ReadonlyArray<number>,
-    idempotencyKey: string,
   ) => Promise<RosterImportCommitResult>;
 }
 

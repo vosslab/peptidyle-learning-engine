@@ -7,7 +7,7 @@ import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearc
 export interface QuestionLibraryBrowseRow {
   /** Copy/paste identity used by instructors and the browser deduplication key. */
   readonly displayId: string;
-  readonly title: string;
+  readonly questionTitle: string;
   readonly summary: string;
   /** Reviewed Question Author display names; never Account or Question Owner identity. */
   readonly authorNames: ReadonlyArray<string>;
@@ -20,19 +20,11 @@ export interface QuestionLibraryBrowseRow {
 /**
  * A presentation-ready, answer-free view of the server-owned discovery evidence.
  *
- * The browser intentionally receives no quality contribution. Available evidence
- * supplies only the disclosed observations instructors can interpret; an
- * insufficient state stays explicitly neutral in relevance-ranked search.
+ * The browser intentionally receives no quality contribution. Until the
+ * Question Statistics release boundary exists, availability stays explicitly
+ * unavailable and neutral in relevance-ranked search.
  */
-export type QuestionLibraryBrowseEvidence =
-  | { readonly state: "insufficientEvidence" }
-  | {
-      readonly state: "available";
-      readonly observedCourseCount: number;
-      readonly independentLearnerObservationCount: number;
-      readonly difficultyIndex: number;
-      readonly discriminationIndex: number | undefined;
-    };
+export type QuestionLibraryBrowseEvidence = { readonly state: "unavailable" };
 
 /** Server-computed count for the exact active query; never derived from loaded rows. */
 export interface QuestionLibraryBrowseFacetAggregate {
@@ -43,7 +35,6 @@ export interface QuestionLibraryBrowseFacetAggregate {
     | "questionType"
     | "capability"
     | "questionLicense"
-    | "evidence"
     | "usedInMyCourses";
   readonly value: string;
   readonly count: number;
@@ -57,7 +48,6 @@ export interface QuestionLibraryBrowseQuery {
   readonly questionType: string | null;
   readonly capability: string | null;
   readonly questionLicense: string | null;
-  readonly evidence: string | null;
   readonly usedInMyCourses: string | null;
   /** Closed server-resolved authorship scope; browser rows never carry Account identity. */
   readonly authorship: QuestionSearchAuthorship;
@@ -152,7 +142,7 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
       "displayId",
       "questionLicense",
       "summary",
-      "title",
+      "questionTitle",
       "evidence",
     ])
   ) {
@@ -165,7 +155,7 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
   const evidence = decodeBrowseEvidence(value["evidence"], `${path}.evidence`);
   return {
     displayId,
-    title: boundedText(value["title"], `${path}.title`),
+    questionTitle: boundedText(value["questionTitle"], `${path}.questionTitle`),
     summary: boundedText(value["summary"], `${path}.summary`, MAX_SUMMARY_LENGTH),
     authorNames: stringList(value["authorNames"], `${path}.authorNames`),
     capabilities: stringList(value["capabilities"], `${path}.capabilities`),
@@ -178,76 +168,11 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
 }
 
 function decodeBrowseEvidence(value: unknown, path: string): QuestionLibraryBrowseEvidence {
-  if (!isRecord(value) || typeof value["state"] !== "string") {
+  if (!isRecord(value) || value["state"] !== "unavailable") {
     throw new Error(`${path} has an unexpected shape`);
   }
-  if (value["state"] === "insufficientEvidence") {
-    if (!hasExactKeys(value, ["state"])) throw new Error(`${path} has an unexpected shape`);
-    return { state: "insufficientEvidence" };
-  }
-  if (value["state"] !== "available")
-    throw new Error(`${path}.state is not a known evidence state`);
-  if (
-    !hasExactKeys(value, [
-      "state",
-      "observedCourseCount",
-      "independentLearnerObservationCount",
-      "difficultyIndex",
-      "discriminationIndex",
-    ])
-  ) {
-    throw new Error(`${path} has an unexpected shape`);
-  }
-  const observedCourseCount = boundedEvidenceCount(
-    value["observedCourseCount"],
-    `${path}.observedCourseCount`,
-  );
-  const independentLearnerObservationCount = boundedEvidenceCount(
-    value["independentLearnerObservationCount"],
-    `${path}.independentLearnerObservationCount`,
-  );
-  if (observedCourseCount < 2 || independentLearnerObservationCount < observedCourseCount) {
-    throw new Error(`${path} must contain comparable evidence from two courses`);
-  }
-  const difficultyIndex = unitInterval(value["difficultyIndex"], `${path}.difficultyIndex`);
-  const discrimination = value["discriminationIndex"];
-  const discriminationIndex =
-    discrimination === undefined
-      ? undefined
-      : correlation(discrimination, `${path}.discriminationIndex`);
-  return {
-    state: "available",
-    observedCourseCount,
-    independentLearnerObservationCount,
-    difficultyIndex,
-    discriminationIndex,
-  };
-}
-
-function boundedEvidenceCount(value: unknown, path: string): number {
-  if (
-    typeof value !== "number" ||
-    !Number.isSafeInteger(value) ||
-    value < 1 ||
-    value > MAX_FACET_COUNT
-  ) {
-    throw new Error(`${path} must be a positive safe integer`);
-  }
-  return value;
-}
-
-function unitInterval(value: unknown, path: string): number {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
-    throw new Error(`${path} must be a finite number from 0 through 1`);
-  }
-  return value;
-}
-
-function correlation(value: unknown, path: string): number {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < -1 || value > 1) {
-    throw new Error(`${path} must be a finite correlation from -1 through 1`);
-  }
-  return value;
+  if (!hasExactKeys(value, ["state"])) throw new Error(`${path} has an unexpected shape`);
+  return { state: "unavailable" };
 }
 
 function decodeAggregate(value: unknown, path: string): QuestionLibraryBrowseFacetAggregate {
@@ -262,7 +187,6 @@ function decodeAggregate(value: unknown, path: string): QuestionLibraryBrowseFac
     facet !== "questionType" &&
     facet !== "capability" &&
     facet !== "questionLicense" &&
-    facet !== "evidence" &&
     facet !== "usedInMyCourses"
   ) {
     throw new Error(`${path}.facet is not a Question Library facet`);
@@ -318,7 +242,6 @@ export const EMPTY_QUESTION_LIBRARY_BROWSE_QUERY: QuestionLibraryBrowseQuery = {
   questionType: null,
   capability: null,
   questionLicense: null,
-  evidence: null,
   usedInMyCourses: null,
   authorship: "any",
 };
@@ -334,7 +257,6 @@ export function normalizeQuestionLibraryBrowseQuery(
     questionType: query.questionType,
     capability: query.capability,
     questionLicense: query.questionLicense,
-    evidence: query.evidence,
     usedInMyCourses: query.usedInMyCourses,
     authorship: query.authorship,
   };

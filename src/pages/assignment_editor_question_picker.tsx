@@ -26,7 +26,7 @@ function pickerConfirmLabel(
   return "Add selected questions";
 }
 
-/** Keeps the native dialog mounted only while one assignment destination is active. */
+/** Renders the native dialog only while one assignment destination is active. */
 export function AssignmentEditorQuestionPicker(
   props: AssignmentEditorQuestionPickerProps,
 ): JSX.Element {

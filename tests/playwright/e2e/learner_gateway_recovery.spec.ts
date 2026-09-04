@@ -33,15 +33,18 @@ const timeoutMs = 600_000;
 const actionTimeoutMs = 30_000;
 const contextOptions = { viewport: { width: 1280, height: 800 }, ignoreHTTPSErrors: true };
 
-async function createQuestion(page: Page, title: string, answer: string): Promise<string> {
+async function createQuestion(page: Page, questionTitle: string, answer: string): Promise<string> {
   await page.getByRole("link", { name: "Workspace" }).click();
   await page.getByRole("button", { name: "Create Question" }).click();
-  await page.getByLabel("Question title").fill(title);
+  await page.getByLabel("Question Title").fill(questionTitle);
   await page
     .getByLabel("Student-facing prompt")
-    .fill(`Choose the supported recovery response for ${title}`);
+    .fill(`Choose the supported recovery response for ${questionTitle}`);
   await page.getByLabel("Choice text").nth(0).fill(answer);
-  await page.getByLabel("Choice text").nth(1).fill(`Alternative recovery response for ${title}`);
+  await page
+    .getByLabel("Choice text")
+    .nth(1)
+    .fill(`Alternative recovery response for ${questionTitle}`);
   await page
     .getByRole("radio", { name: new RegExp(`Mark choice 1 as correct: ${answer}`) })
     .check();
@@ -49,11 +52,11 @@ async function createQuestion(page: Page, title: string, answer: string): Promis
   await page.getByRole("button", { name: "Review publication changes" }).click();
   await page.getByRole("button", { name: "Confirm and publish" }).click();
   await expect(page.getByRole("heading", { name: "Published" })).toBeVisible();
-  await page.getByRole("link", { name: "Library", exact: true }).click();
-  await page.getByLabel("Search published questions").fill(title);
+  await page.getByRole("link", { name: "Question Library", exact: true }).click();
+  await page.getByLabel("Search published questions").fill(questionTitle);
   const card = page
     .getByRole("region", { name: "Published questions" })
-    .getByText(title)
+    .getByText(questionTitle)
     .locator("..");
   await expect(card).toBeVisible();
   const identifier = await card.locator("code").innerText();

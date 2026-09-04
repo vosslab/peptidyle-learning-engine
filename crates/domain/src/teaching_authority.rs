@@ -13,13 +13,13 @@ use question_model::{
 /// Thirty calendar days expressed in the shared Unix-millisecond representation.
 pub const COURSE_INVITATION_LIFETIME_MILLIS: i64 = 30 * 24 * 60 * 60 * 1_000;
 
-/// Current direct Instructor-membership facts for one exact course.
+/// Current Instructor Course Membership facts for one exact course.
 ///
-/// The Store supplies these Direct Instructor Membership facts after locking
+/// The Store supplies these Instructor Course Membership facts after locking
 /// the durable membership record. It deliberately contains no creator distinction:
 /// the course creator and every accepted Teaching Team Member use the same exact membership relation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct DirectInstructorMembership {
+pub struct CurrentInstructorCourseMembership {
     pub course: CourseId,
     pub instructor_account: AccountId,
     pub active: bool,
@@ -29,17 +29,17 @@ pub struct DirectInstructorMembership {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InstructorAuthority {
     CurrentCourseInstructor,
-    NoDirectCourseMembership,
+    NoCurrentInstructorCourseMembership,
 }
 
 /// Returns whether an account is a current Instructor for exactly `course`.
 ///
 /// This is the shared pure predicate for all course-Instructor operations.
 /// The Store establishes the Account's immutable Instructor Product Role before
-/// it creates an Instructor membership. Neither a creator flag nor a Teaching
-/// Team Member distinction exists.
+/// it creates an Instructor Course Membership. The Assigned Instructor remains
+/// an accountability fact; it creates no authority distinction among Teaching Team Members.
 pub fn current_course_instructor(
-    membership: Option<DirectInstructorMembership>,
+    membership: Option<CurrentInstructorCourseMembership>,
     instructor_account: AccountId,
     course: CourseId,
 ) -> bool {
@@ -95,14 +95,14 @@ pub fn student_owns_course_record(
 /// Classifies the exact course-Instructor predicate for callers that need a
 /// denial reason without turning a role label into authority.
 pub fn evaluate_course_instructor_authority(
-    membership: Option<DirectInstructorMembership>,
+    membership: Option<CurrentInstructorCourseMembership>,
     course: CourseId,
     instructor_account: AccountId,
 ) -> InstructorAuthority {
     if current_course_instructor(membership, instructor_account, course) {
         InstructorAuthority::CurrentCourseInstructor
     } else {
-        InstructorAuthority::NoDirectCourseMembership
+        InstructorAuthority::NoCurrentInstructorCourseMembership
     }
 }
 
@@ -119,7 +119,7 @@ pub enum CourseInvitationError {
     WrongTarget,
 }
 
-/// The direct membership fact a Store must atomically create after acceptance.
+/// The Instructor Course Membership fact a Store must atomically create after acceptance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CourseInvitationAcceptance {
     pub course: CourseId,
@@ -272,7 +272,7 @@ mod tests {
     fn current_course_instructor_requires_exact_active_membership() {
         let instructor_account = AccountId::from_uuid(id(3));
         let course = CourseId::from_uuid(id(2));
-        let membership = DirectInstructorMembership {
+        let membership = CurrentInstructorCourseMembership {
             course,
             instructor_account,
             active: true,
@@ -295,7 +295,7 @@ mod tests {
         let instructor_account = AccountId::from_uuid(id(3));
         let course = CourseId::from_uuid(id(2));
         assert!(!current_course_instructor(
-            Some(DirectInstructorMembership {
+            Some(CurrentInstructorCourseMembership {
                 course: CourseId::from_uuid(id(4)),
                 instructor_account,
                 active: true,
@@ -310,7 +310,7 @@ mod tests {
         let instructor_account = AccountId::from_uuid(id(3));
         let course = CourseId::from_uuid(id(2));
         assert!(!current_course_instructor(
-            Some(DirectInstructorMembership {
+            Some(CurrentInstructorCourseMembership {
                 course,
                 instructor_account: AccountId::from_uuid(id(4)),
                 active: true,
@@ -325,7 +325,7 @@ mod tests {
         let instructor_account = AccountId::from_uuid(id(3));
         let course = CourseId::from_uuid(id(2));
         assert!(!current_course_instructor(
-            Some(DirectInstructorMembership {
+            Some(CurrentInstructorCourseMembership {
                 course,
                 instructor_account,
                 active: false,
@@ -541,7 +541,7 @@ mod tests {
     }
 
     #[test]
-    fn acceptance_rechecks_the_exact_target_before_direct_membership_write() {
+    fn acceptance_rechecks_the_exact_target_before_instructor_course_membership_write() {
         let invitation = invitation();
         let now = stamp(1_001);
         assert_eq!(

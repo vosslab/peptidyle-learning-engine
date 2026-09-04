@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
-import { decodeBlueprintCourseView } from "../src/api/decoders/blueprint_course.ts";
+import {
+  decodeBlueprintCourseView,
+  decodeReplaceBlueprintCourseContentInput,
+} from "../src/api/decoders/blueprint_course.ts";
 import {
   ApiProtocolError,
   BlueprintCourseConflictError,
@@ -62,11 +65,11 @@ function blueprint(revision = "7") {
     read_access: "blueprint_course_owner",
     modules: [
       {
-        module_id: "module-7",
+        blueprint_module_reference: "module-7",
         label: "Week one",
         assignments: [
           {
-            assignment_id: "assignment-7",
+            blueprint_assignment_reference: "assignment-7",
             content: {
               ...contentInput(),
               entries: [
@@ -75,7 +78,7 @@ function blueprint(revision = "7") {
                   question: {
                     question_library: {
                       summary: publishedQuestion,
-                      evidence: { state: "insufficientEvidence" },
+                      evidence: { state: "unavailable" },
                     },
                     selection_availability: "available",
                   },
@@ -88,7 +91,7 @@ function blueprint(revision = "7") {
                     {
                       question_library: {
                         summary: publishedQuestion,
-                        evidence: { state: "insufficientEvidence" },
+                        evidence: { state: "unavailable" },
                       },
                       selection_availability: "available",
                     },
@@ -119,11 +122,14 @@ function replacementInput() {
     title: "Biochemistry sequence",
     modules: [
       {
-        handle: { kind: "retained", module_id: "module-7" },
+        choice: { kind: "retained", blueprint_module_reference: "module-7" },
         label: "Week one",
         assignments: [
           {
-            handle: { kind: "retained", assignment_id: "assignment-7" },
+            choice: {
+              kind: "retained",
+              blueprint_assignment_reference: "assignment-7",
+            },
             content: contentInput(),
           },
         ],
@@ -151,6 +157,18 @@ test("B1 Blueprint Course decoder keeps views answer-free and rejects hostile fi
   const hostile = structuredClone(blueprint());
   hostile.modules[0].assignments[0].content.entries[0].question.answerKey = "secret";
   assert.throws(() => decodeBlueprintCourseView(hostile), DecodeError);
+  const retiredGlobalStatistics = structuredClone(blueprint());
+  retiredGlobalStatistics.modules[0].assignments[0].content.entries[0].question.question_library.evidence =
+    {
+      state: "available",
+      observedCourseCount: 2,
+      independentLearnerObservationCount: 5,
+      difficultyIndex: 0.7,
+      attemptsMean: 1.2,
+      timeMedianSecondsEstimate: 30,
+      evidenceAt: 0,
+    };
+  assert.throws(() => decodeBlueprintCourseView(retiredGlobalStatistics), DecodeError);
   const retiredPoolField = structuredClone(blueprint());
   const pool = retiredPoolField.modules[0].assignments[0].content.entries[1];
   pool.entries = pool.items;
@@ -159,6 +177,16 @@ test("B1 Blueprint Course decoder keeps views answer-free and rejects hostile fi
   const retiredAccess = structuredClone(blueprint());
   retiredAccess.access = "owner";
   assert.throws(() => decodeBlueprintCourseView(retiredAccess), DecodeError);
+  const retiredAssignmentId = structuredClone(blueprint());
+  const assignment = retiredAssignmentId.modules[0].assignments[0];
+  assignment.assignment_id = assignment.blueprint_assignment_reference;
+  delete assignment.blueprint_assignment_reference;
+  assert.throws(() => decodeBlueprintCourseView(retiredAssignmentId), DecodeError);
+  const retiredEditChoice = replacementInput();
+  const choice = retiredEditChoice.modules[0].assignments[0].choice;
+  choice.assignment_id = choice.blueprint_assignment_reference;
+  delete choice.blueprint_assignment_reference;
+  assert.throws(() => decodeReplaceBlueprintCourseContentInput(retiredEditChoice), DecodeError);
 });
 
 test("B1 client uses canonical Blueprint Course commands and matching ETags", async () => {

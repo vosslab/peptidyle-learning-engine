@@ -240,8 +240,8 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
         let row = sqlx::query(
             "SELECT * FROM ple_api.stage_verified_imathas_result(\
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, decode($10, 'hex'), $11, \
-                $12::numeric, $13, $14, $15, $16, $17, $18, $19, $20, \
-                $21, to_timestamp($22::double precision / 1000.0))",
+                $12::numeric, $13, $14, $15, $16, $17, $18, $19, \
+                $20, to_timestamp($21::double precision / 1000.0))",
         )
         .bind(lease.reference.as_uuid())
         .bind(context.course.as_uuid())
@@ -286,7 +286,6 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
         .bind(context.grading_context.question_seed().value().to_string())
         .bind(context.imathas_launch_binding_checksum.as_str())
         .bind(lease.capability_checksum.as_bytes().to_vec())
-        .bind(transition_parts.idempotency_key.as_str())
         .bind(
             transition_parts
                 .imathas_result_token_checksum

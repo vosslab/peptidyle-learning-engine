@@ -67,9 +67,9 @@ pub enum CourseInvitationEventKind {
 pub struct CourseInvitation {
     /// Internal storage identity, never a visible reference.
     pub id: CourseInvitationId,
-    /// Exact course that can receive one ordinary direct membership.
+    /// Exact course that can receive one ordinary Instructor Course Membership.
     pub course: CourseId,
-    /// Exact direct Instructor membership episode that initiated the invitation.
+    /// Exact Instructor Course Membership episode that initiated the invitation.
     pub invited_by: CourseMembershipId,
     /// Exact Course Membership Role granted if the target accepts this invitation.
     pub membership_role: CourseMembershipRole,

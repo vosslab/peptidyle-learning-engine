@@ -189,11 +189,11 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
                 snapshot: source.bytes(),
                 profile: source.binding.profile().as_str(),
                 question_revision: question_revision.clone(),
-                seed,
+                question_seed: seed,
             })
             .await
             .map_err(ImathasAdapterError::QuestionBackend)?;
-        if question_model::validate_question_title(&safe.title).is_err() {
+        if question_model::validate_question_title(&safe.question_title).is_err() {
             return Err(ImathasAdapterError::InvalidImathasQuestionBackendRender);
         }
         let record = CachedRender {
@@ -202,11 +202,12 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
             source_object_checksum: source.source_object_checksum().clone(),
             binding: source.binding.clone(),
             presentation: QuestionVariationPresentation {
-                variation: question_model::QuestionVariation::from_question_revision_and_seed(
-                    question_revision.clone(),
-                    seed,
-                ),
-                title: safe.title,
+                variation:
+                    question_model::QuestionVariation::from_question_revision_and_question_seed(
+                        question_revision.clone(),
+                        seed,
+                    ),
+                question_title: safe.question_title,
                 prompt: safe.prompt,
                 response: question_model::QuestionResponseFormat::ImathasQuestionBackend {},
             },

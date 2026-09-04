@@ -101,19 +101,6 @@ pub struct QuestionSearchCourseUseFacet {
     pub used: u64,
 }
 
-/// Availability filter for disclosed, validity-governed evidence.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum QuestionStatisticsAvailability {
-    /// Include results regardless of evidence availability.
-    #[default]
-    Any,
-    /// Include only publications with disclosed independent student observations.
-    Available,
-    /// Include only publications without disclosed independent student observations.
-    Unavailable,
-}
-
 /// Strict, bounded Question Search request carried across the browser boundary.
 ///
 /// The server normalizes this value before paging and aggregation. The cursor
@@ -136,8 +123,6 @@ pub struct QuestionSearchRequest {
     pub capabilities: Vec<Capability>,
     /// Accepted exact Question Licenses; any supplied value may match.
     pub question_licenses: Vec<QuestionLicense>,
-    /// Whether disclosed independent student observations must be available.
-    pub evidence: QuestionStatisticsAvailability,
     /// Whether a current Account-visible course use is required.
     ///
     /// This closed filter carries no course reference, title, or identity.
@@ -166,7 +151,6 @@ pub struct QuestionSearchFilter {
     pub question_types: Vec<QuestionType>,
     pub capabilities: Vec<Capability>,
     pub question_licenses: Vec<QuestionLicense>,
-    pub evidence: QuestionStatisticsAvailability,
     pub used_in_my_courses: QuestionSearchCourseUse,
     pub authorship: QuestionSearchAuthorship,
 }
@@ -188,7 +172,6 @@ impl QuestionSearchFilter {
             question_types: query.question_types,
             capabilities: query.capabilities,
             question_licenses: query.question_licenses,
-            evidence: query.evidence,
             used_in_my_courses: query.used_in_my_courses,
             authorship: query.authorship,
         })
@@ -210,7 +193,6 @@ impl From<QuestionSearchFilter> for QuestionSearchRequest {
             question_types: filter.question_types,
             capabilities: filter.capabilities,
             question_licenses: filter.question_licenses,
-            evidence: filter.evidence,
             used_in_my_courses: filter.used_in_my_courses,
             authorship: filter.authorship,
             cursor: None,
@@ -229,7 +211,6 @@ impl Default for QuestionSearchRequest {
             question_types: Vec::new(),
             capabilities: Vec::new(),
             question_licenses: Vec::new(),
-            evidence: QuestionStatisticsAvailability::Any,
             used_in_my_courses: QuestionSearchCourseUse::Any,
             authorship: QuestionSearchAuthorship::Any,
             cursor: None,
@@ -366,16 +347,6 @@ pub struct QuestionSearchQuestionLicenseFacet {
     pub count: u64,
 }
 
-/// Disclosure-state counts from the same immutable query snapshot.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct QuestionStatisticsAvailabilityFacet {
-    /// Publications with disclosed independent student observations.
-    pub available: u64,
-    /// Publications without disclosed independent student observations.
-    pub unavailable: u64,
-}
-
 /// Aggregates computed from one normalized query snapshot, never a page sample.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -392,8 +363,6 @@ pub struct QuestionSearchFacets {
     pub capabilities: Vec<QuestionSearchCapabilityFacet>,
     /// Exact Question License counts.
     pub question_licenses: Vec<QuestionSearchQuestionLicenseFacet>,
-    /// Validity-governed evidence availability counts.
-    pub evidence: QuestionStatisticsAvailabilityFacet,
     /// Account-specific current-course-use count.
     pub used_in_my_courses: QuestionSearchCourseUseFacet,
 }

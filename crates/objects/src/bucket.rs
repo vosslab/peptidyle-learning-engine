@@ -153,12 +153,12 @@ pub enum ObjectAddress {
         /// Physical object-record identity.
         object: ObjectId,
     },
-    /// A deterministic rendered question cached by version and seed.
+    /// A deterministic rendered Question cached by exact Question Revision and Question Seed.
     QuestionRender {
         /// Exact immutable Question Revision that owns the rendered result.
         question_revision: QuestionRevisionReference,
         /// Question Seed that fully determines the render.
-        seed: QuestionSeed,
+        question_seed: QuestionSeed,
         /// Physical object-record identity.
         object: ObjectId,
     },
@@ -292,13 +292,13 @@ impl ObjectAddress {
             }
             Self::QuestionRender {
                 question_revision,
-                seed,
+                question_seed,
                 object,
             } => format!(
                 "questions/{}/versions/{}/renders/{}/{object}",
                 question_revision.question_id,
                 question_revision.revision_number,
-                seed.value()
+                question_seed.value()
             ),
             Self::CourseBannerUpload { course, upload } => format!(
                 "courses/{course}/banners/uploads/{upload}/{}",
@@ -551,7 +551,7 @@ mod tests {
             },
             ObjectAddress::QuestionRender {
                 question_revision: question_revision.clone(),
-                seed: QuestionSeed::new(1),
+                question_seed: QuestionSeed::new(1),
                 object,
             },
             ObjectAddress::CourseBanner {

@@ -11,9 +11,8 @@ use super::{
     ImathasGradingContext, ImathasLaunchBindingChecksum, ImathasQuestionBackendSession,
     ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
     ImathasQuestionBackendSessionReference, ImathasQuestionBackendStatePlaintext,
-    ImathasResponseChecksum, ImathasResult, ImathasResultChecksum,
-    ImathasResultExchangeIdempotencyKey, ImathasResultTokenChecksum, JobId,
-    QuestionSubmissionGradingId,
+    ImathasResponseChecksum, ImathasResult, ImathasResultChecksum, ImathasResultTokenChecksum,
+    JobId, QuestionSubmissionGradingId,
 };
 
 /// Exact server-only row facts used to create and reconstruct a Session.
@@ -73,7 +72,6 @@ pub(crate) struct ImathasQuestionBackendSessionLeaseParts {
 #[allow(dead_code)] // Used by the feature-gated PostgreSQL Store.
 pub(crate) struct StageVerifiedImathasResultParts {
     pub(crate) lease: ImathasQuestionBackendSessionLeaseParts,
-    pub(crate) idempotency_key: ImathasResultExchangeIdempotencyKey,
     pub(crate) imathas_result_token_checksum: ImathasResultTokenChecksum,
     pub(crate) imathas_result: ImathasResult,
     pub(crate) imathas_result_checksum: ImathasResultChecksum,

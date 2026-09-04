@@ -183,14 +183,6 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
       questionSearchEnum(questionLicense, QUESTION_LICENSES, "Question Library Question License"),
     );
   }
-  const evidence = questionSearchEnum(
-    query.evidence,
-    ["any", "available", "unavailable"],
-    "Question Library evidence",
-  );
-  if (evidence !== "any") {
-    parameters.set("evidence", evidence);
-  }
   const usedInMyCourses = questionSearchEnum(
     query.used_in_my_courses,
     ["any", "used"],

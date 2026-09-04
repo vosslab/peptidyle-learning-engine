@@ -36,25 +36,3 @@ fn accepted_grades_preserve_exact_correct_and_choice_counts() {
         .collect()
     );
 }
-
-#[test]
-fn snapshot_refuses_counts_that_could_not_come_from_accepted_grades() {
-    assert_eq!(
-        QuestionRevisionStatistics::restore(QuestionRevisionStatisticsSnapshot {
-            accepted_graded_attempt_count: 2,
-            correct_count: 3,
-            eligible_choice_selection_counts: Default::default(),
-        }),
-        Err(StatisticsError::SnapshotInvariant)
-    );
-    assert_eq!(
-        QuestionRevisionStatistics::restore(QuestionRevisionStatisticsSnapshot {
-            accepted_graded_attempt_count: 1,
-            correct_count: 1,
-            eligible_choice_selection_counts: [(ResponseItemReference::new("a"), 2)]
-                .into_iter()
-                .collect(),
-        }),
-        Err(StatisticsError::SnapshotInvariant)
-    );
-}

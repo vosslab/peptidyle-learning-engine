@@ -45,7 +45,7 @@ fn maps_the_frozen_canvas_fixture_and_keeps_correct_choice_private() {
     );
     let report = &package.reports()[0];
     assert_eq!(report.source_identifier(), "canvas-1");
-    assert_eq!(report.title(), Some("Favorite color"));
+    assert_eq!(report.question_title(), Some("Favorite color"));
     assert!(
         serde_json::to_string(report)
             .expect("safe report")

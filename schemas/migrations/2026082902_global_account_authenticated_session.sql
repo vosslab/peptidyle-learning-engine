@@ -78,10 +78,10 @@ EXECUTE FUNCTION ple_private.reject_account_identity_change();
 CREATE TABLE ple_private.account_state_event (
     event_id uuid PRIMARY KEY,
     account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
-    state text NOT NULL CHECK (state IN ('active', 'suspended', 'closed')),
+    state text NOT NULL CHECK (state IN ('active', 'deactivated', 'closed')),
     occurred_at timestamp with time zone NOT NULL,
     reason text,
-    CONSTRAINT account_state_event_reason_is_present_for_restriction CHECK (
+    CONSTRAINT account_state_event_reason_is_present_for_nonactive_state CHECK (
         state = 'active' OR char_length(btrim(reason)) BETWEEN 1 AND 1000
     )
 );
@@ -163,10 +163,10 @@ BEFORE UPDATE ON ple_private.authenticated_session
 FOR EACH ROW
 EXECUTE FUNCTION ple_private.reject_authenticated_session_identity_change();
 
-CREATE FUNCTION ple_private.revoke_sessions_after_account_restriction()
+CREATE FUNCTION ple_private.revoke_sessions_after_account_deactivation_or_closure()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 BEGIN
-    IF NEW.state IN ('suspended', 'closed') THEN
+    IF NEW.state IN ('deactivated', 'closed') THEN
         UPDATE ple_private.authenticated_session
            SET revoked_at = NEW.occurred_at
          WHERE account_id = NEW.account_id AND revoked_at IS NULL;
@@ -174,9 +174,9 @@ BEGIN
     RETURN NEW;
 END
 $$;
-CREATE TRIGGER account_restriction_revokes_sessions
+CREATE TRIGGER account_deactivation_or_closure_revokes_sessions
 AFTER INSERT ON ple_private.account_state_event
-FOR EACH ROW EXECUTE FUNCTION ple_private.revoke_sessions_after_account_restriction();
+FOR EACH ROW EXECUTE FUNCTION ple_private.revoke_sessions_after_account_deactivation_or_closure();
 
 ALTER TABLE ple_private.account ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.account FORCE ROW LEVEL SECURITY;

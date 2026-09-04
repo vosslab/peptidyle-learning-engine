@@ -16,92 +16,24 @@ export interface QuestionUsePanelProps {
   readonly usage: QuestionUseDetails;
 }
 
-type AvailableQuestionStatistics = Extract<QuestionStatistics, { readonly state: "available" }>;
 const wholeNumber = new Intl.NumberFormat("en-US");
-const decimalNumber = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
-const percentage = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 });
-
-function formatDuration(seconds: number): string {
-  const roundedSeconds = Math.round(seconds);
-  const minutes = Math.floor(roundedSeconds / 60);
-  const remainingSeconds = roundedSeconds % 60;
-  if (minutes === 0) return `${remainingSeconds} sec`;
-  if (remainingSeconds === 0) return `${minutes} min`;
-  return `${minutes} min ${remainingSeconds} sec`;
-}
 
 function formatCount(value: number, singular: string): string {
   return `${wholeNumber.format(value)} ${value === 1 ? singular : `${singular}s`}`;
 }
 
-/** Renders the server-owned, decomposed evidence without exposing a quality score. */
-export function QuestionStatisticsPanel(props: QuestionStatisticsPanelProps): JSX.Element {
-  const available = (): AvailableQuestionStatistics | undefined =>
-    props.evidence.state === "available" ? props.evidence : undefined;
-
+/** Renders the explicit unavailable state until a release service exists. */
+export function QuestionStatisticsPanel(_props: QuestionStatisticsPanelProps): JSX.Element {
   return (
-    <Show
-      when={available()}
-      fallback={
-        <section class="question-statistics-panel" aria-labelledby="insufficient-evidence-heading">
-          <h2 id="insufficient-evidence-heading">Learning evidence</h2>
-          <p>
-            More evidence is needed before shared learning measures can be shown. This question
-            remains ranked by relevance, so you can still open it and decide whether it fits.
-          </p>
-        </section>
-      }
+    <section
+      class="question-statistics-panel"
+      aria-labelledby="question-statistics-unavailable-heading"
     >
-      {(evidence) => <AvailableEvidence evidence={evidence()} />}
-    </Show>
-  );
-}
-
-function AvailableEvidence(props: { readonly evidence: AvailableQuestionStatistics }): JSX.Element {
-  const discrimination = (): { readonly value: number } | undefined => {
-    const value = props.evidence.discriminationIndex;
-    return value === undefined ? undefined : { value };
-  };
-  return (
-    <section class="question-statistics-panel" aria-labelledby="learning-evidence-heading">
-      <h2 id="learning-evidence-heading">Learning evidence</h2>
-      <p class="question-statistics-introduction">
-        These anonymous measures use independent Student observations for this exact published
-        question. They pool observations across courses and describe association, not a cause or a
-        prediction for your class.
+      <h2 id="question-statistics-unavailable-heading">Learning evidence</h2>
+      <p>
+        Question Statistics are unavailable until shared learning measures can be shown. This
+        question remains ranked by relevance, so you can still open it and decide whether it fits.
       </p>
-      <dl class="question-statistics-measures">
-        <div>
-          <dt>Observed courses</dt>
-          <dd>{wholeNumber.format(props.evidence.observedCourseCount)} courses</dd>
-        </div>
-        <div>
-          <dt>Independent Student observations</dt>
-          <dd>
-            {wholeNumber.format(props.evidence.independentLearnerObservationCount)} observations
-          </dd>
-        </div>
-        <div>
-          <dt>Difficulty (mean score)</dt>
-          <dd>{percentage.format(props.evidence.difficultyIndex)}</dd>
-        </div>
-        <div>
-          <dt>Mean submitted attempts</dt>
-          <dd>{decimalNumber.format(props.evidence.attemptsMean)} attempts</dd>
-        </div>
-        <div>
-          <dt>Estimated median duration</dt>
-          <dd>{formatDuration(props.evidence.timeMedianSecondsEstimate)}</dd>
-        </div>
-        <Show when={discrimination()}>
-          {(entry) => (
-            <div>
-              <dt>Discrimination</dt>
-              <dd>{decimalNumber.format(entry().value)}</dd>
-            </div>
-          )}
-        </Show>
-      </dl>
     </section>
   );
 }

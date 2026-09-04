@@ -285,7 +285,7 @@ impl TryFrom<StudentViewScenarioWire> for StudentViewScenario {
 }
 
 impl StudentViewScenario {
-    /// Constructs already-resolved scenario data; a future mounted route/Store boundary owns
+    /// Constructs already-resolved scenario data; a future Server Route and Store boundary own
     /// authorization and resolution.
     pub fn new(
         origin: StudentViewScenarioOrigin,

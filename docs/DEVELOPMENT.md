@@ -136,7 +136,7 @@ active work package.
 orchestration. Both are intentionally excluded from `pytest tests/`; see
 [E2E_TESTS.md](E2E_TESTS.md) for the test-tier boundary. Install the browser binaries once with
 `./devel/setup_playwright.sh` (or `npm run setup:playwright`) before running Playwright.
-The fresh Store-backed browser owner and visual-publication path return after the mounted
+The fresh Store-backed browser owner and visual-publication path return after the implemented
 course-delivery surface is rebuilt. The current aggregate validates the active code and service
 contracts without claiming browser or screenshot acceptance.
 
@@ -161,7 +161,7 @@ it satisfies the admission rules in [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL
 ### Future browser execution
 
 The fresh Store-backed browser owner will build production `dist/`, serve it through the HTTPS PLE
-gateway, and create product state through visible PLE controls. Until that owner and the mounted
+gateway, and create product state through visible PLE controls. Until that owner and the available
 course-delivery routes exist together, browser evidence remains unclaimed.
 
 Run the complete Playwright Validation test suite explicitly when the active plan requires all

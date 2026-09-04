@@ -10,7 +10,7 @@ resolves the configured Account and issues the ordinary Authenticated Session.
 
 The selector does not grant a Product Role, Course Membership, Student record,
 course authority, or object access. Every future authorization decision remains
-derived from stored Account and relationship data. The mounted API surface is
+derived from stored Account and relationship data. The implemented API surface is
 limited to health, session resolution/logout, and the seeded account selector;
 see [API_CONTRACTS.md](API_CONTRACTS.md).
 
@@ -37,7 +37,7 @@ acceptance.
 ## Illustrative future teaching workflows
 
 The following product workflows remain retained design contracts and are not
-mounted Live Demo actions:
+implemented Live Demo actions:
 
 - Instructors author shared Question Library content and reusable Blueprint
   Course content, then create Course Instances for teaching.
@@ -60,21 +60,21 @@ not current route claims.
 
 The current demo can establish the seeded Elena Instructor's Authenticated
 Session. Course, Blueprint, assignment workspace, roster, grading-operation,
-and Gradebook routes remain unmounted. The intended Instructor workflow is
+and Gradebook Server Routes do not exist. The intended Instructor workflow is
 documented as a future contract in [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md).
 
 ## Student perspective
 
 The current demo can establish a seeded Student's Authenticated Session. Course
 delivery, Assignment Attempt, Question submission, Student Feedback, and grade
-routes remain unmounted. The intended Student workflow is documented as a
+Server Routes do not exist. The intended Student workflow is documented as a
 future contract in [STUDENT_GUIDE.md](STUDENT_GUIDE.md).
 
 ## Sysadmin perspective
 
 The current demo can establish the seeded Morgan Sysadmin's Authenticated
-Session. It does not mount academic-course administration, Question correction,
-or Instructor-vetting browser workflows. Those retained product boundaries must
+Session. Its Browser Surface does not provide academic-course administration, Question correction,
+or Instructor-vetting workflows. Those retained product boundaries must
 derive authority from their exact stored relationships when their service routes
 and browser acceptance are restored.
 
@@ -90,6 +90,6 @@ entry path.
 ## Browser restoration requirement
 
 Production browser acceptance remains a release-blocking restoration
-requirement. A restored owner must mount the intended routes, exercise a
+requirement. A restored owner must implement and expose the intended routes, exercise a
 visible browser journey against the disposable stack, and record its separate
 evidence. Passing service-only acceptance cannot substitute for that evidence.

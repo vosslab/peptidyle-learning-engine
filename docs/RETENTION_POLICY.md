@@ -23,7 +23,7 @@ Cleanup Manifest. It has no broad Assignment-content deletion permission.
 
 ## Current foundation
 
-The current database baseline is preparation, not a mounted Course Retention
+The current database baseline is preparation, not an implemented Course Retention
 service:
 
 - `ple_private.course_retention_plan_revision` records an immutable Course

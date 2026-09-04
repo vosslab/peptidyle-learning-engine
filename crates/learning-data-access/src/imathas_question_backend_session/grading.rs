@@ -1,27 +1,3 @@
-#[derive(Clone, PartialEq, Eq)]
-pub struct ImathasResultExchangeIdempotencyKey(String);
-
-impl ImathasResultExchangeIdempotencyKey {
-    pub fn parse(value: impl Into<String>) -> Result<Self, StoreError> {
-        let value = value.into();
-        if value.is_empty() || value.len() > 200 || !value.is_ascii() {
-            return Err(StoreError::InvalidRecord(
-                "iMathAS Result Exchange idempotency key is invalid".into(),
-            ));
-        }
-        Ok(Self(value))
-    }
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl std::fmt::Debug for ImathasResultExchangeIdempotencyKey {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("ImathasResultExchangeIdempotencyKey([redacted])")
-    }
-}
-
 macro_rules! imathas_grading_identity {
     ($type:ident, $label:literal) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -57,7 +33,6 @@ imathas_grading_identity!(GradingResultId, "Grading Result ID");
 #[derive(Clone, PartialEq)]
 pub struct StageVerifiedImathasResult {
     pub(super) lease: ImathasQuestionBackendSessionLease,
-    pub(super) idempotency_key: ImathasResultExchangeIdempotencyKey,
     pub(super) imathas_result_token_checksum: ImathasResultTokenChecksum,
     pub(super) imathas_result: ImathasResult,
     pub(super) question_submission_id: QuestionSubmissionId,
@@ -71,7 +46,6 @@ impl StageVerifiedImathasResult {
         lease: ImathasQuestionBackendSessionLease,
         grading_context: ImathasGradingContext,
         session_authentication: ImathasQuestionBackendSessionAuthentication,
-        idempotency_key: ImathasResultExchangeIdempotencyKey,
         imathas_result_token_checksum: ImathasResultTokenChecksum,
         imathas_result: ImathasResult,
         transitioned_at: Timestamp,
@@ -83,7 +57,6 @@ impl StageVerifiedImathasResult {
         }
         Ok(Self {
             lease,
-            idempotency_key,
             imathas_result_token_checksum,
             imathas_result,
             question_submission_id: QuestionSubmissionId::from_uuid(
@@ -115,7 +88,6 @@ impl StageVerifiedImathasResult {
     pub(crate) fn storage_parts(&self) -> StageVerifiedImathasResultParts {
         StageVerifiedImathasResultParts {
             lease: self.lease.storage_parts(),
-            idempotency_key: self.idempotency_key.clone(),
             imathas_result_token_checksum: self.imathas_result_token_checksum,
             imathas_result: self.imathas_result.clone(),
             imathas_result_checksum: self.imathas_result.checksum(),

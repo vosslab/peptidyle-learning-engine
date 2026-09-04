@@ -14,8 +14,7 @@ use learning_data_access::{
     ImathasQuestionBackendSessionRestoreExpectation, ImathasQuestionBackendSessionStore,
     ImathasQuestionBackendStateKeyId, ImathasQuestionBackendStateKeyRing,
     ImathasQuestionBackendStatePlaintext, ImathasResponseChecksum, ImathasResult,
-    ImathasResultExchangeIdempotencyKey, ImathasResultToken, ImathasResultTokenChecksum,
-    SessionTokenHash, StageVerifiedImathasResult,
+    ImathasResultToken, ImathasResultTokenChecksum, SessionTokenHash, StageVerifiedImathasResult,
 };
 use question_model::generation::QuestionSeed;
 use question_model::{
@@ -280,8 +279,6 @@ fn transition_with_score(
         lease,
         grading_context,
         authentication,
-        ImathasResultExchangeIdempotencyKey::parse("imathas-question-backend-oracle")
-            .expect("idempotency key"),
         ImathasResultTokenChecksum::from_verified_token(&imathas_result_token),
         ImathasResult::new(ImathasNormalizedScore::try_from_f64(score).expect("score")),
         transitioned_at,
@@ -293,7 +290,7 @@ fn transition_with_score(
 #[ignore = "requires the disposable PostgreSQL 17 iMathAS Question Backend Session oracle"]
 async fn postgres_store_persists_opens_and_consumes_one_exact_session() {
     let oracle = oracle().await;
-    oracle.admin.execute("UPDATE ple_private.issued_question SET point_value = 2.5, scoring_rule = 'full_credit', statistics_eligible = false WHERE issued_question_id = '00000000-0000-5000-8000-000000000115'").await.expect("set Full Credit issued scoring fixture");
+    oracle.admin.execute("UPDATE ple_private.issued_question SET point_value = 2.5, scoring_rule = 'full_credit', question_statistics_eligibility = false WHERE issued_question_id = '00000000-0000-5000-8000-000000000115'").await.expect("set Full Credit issued scoring fixture");
     let issued_at = Timestamp::from_unix_millis(now().as_unix_millis() - 5_000);
     let expires_at = Timestamp::from_unix_millis(issued_at.as_unix_millis() + 180_000);
     let (baseline_create, expectation) = create_for_attempt(
@@ -864,7 +861,7 @@ async fn postgres_store_rejects_context_lifecycle_and_authority_bypasses() {
             "ple_api_owner can write unrelated Question Revision Source Bindings".to_string(),
         );
     }
-    oracle.admin.execute("UPDATE ple_private.issued_question SET point_value = 2.5, scoring_rule = 'extra_credit', statistics_eligible = false WHERE issued_question_id = '00000000-0000-5000-8000-000000000115'").await.expect("set Extra Credit issued scoring fixture");
+    oracle.admin.execute("UPDATE ple_private.issued_question SET point_value = 2.5, scoring_rule = 'extra_credit', question_statistics_eligibility = false WHERE issued_question_id = '00000000-0000-5000-8000-000000000115'").await.expect("set Extra Credit issued scoring fixture");
     let (contention_create, contention_expectation) = create(oracle.account, issued_at, expires_at);
     let contention_reference = oracle
         .store

@@ -9,15 +9,15 @@ import {
   toggleQuestionPickerSelection,
 } from "../src/features/question_picker/question_picker_model.ts";
 
-function row(displayId, title = "Question") {
+function row(displayId, questionTitle = "Question") {
   return {
     displayId,
-    title,
+    questionTitle,
     summary: "Answer-free summary.",
     authorNames: ["Published author"],
     capabilities: [],
     questionLicense: "CC-BY-4.0",
-    evidence: { state: "insufficientEvidence" },
+    evidence: { state: "unavailable" },
   };
 }
 
@@ -39,7 +39,7 @@ test("Question Picker preserves public Question ID order and safe row metadata",
     row("2R5-X7YA", "Second"),
   ]);
   assert.deepEqual(selection.questionIds, ["7K3-M9QP", "2R5-X7YA"]);
-  assert.equal(selection.questions[1]?.row.title, "Second");
+  assert.equal(selection.questions[1]?.row.questionTitle, "Second");
 });
 
 test("single-selection mode replaces the prior result", () => {
@@ -85,12 +85,12 @@ test("picker session drops a stale source response before publishing it", async 
     },
     (state) => states.push(state),
   );
-  const first = session.reset({ kind: "library", label: "Library" }, { ...emptyQuery() });
+  const first = session.reset({ kind: "library", label: "Question Library" }, { ...emptyQuery() });
   const second = session.reset({ kind: "mine", label: "My questions" }, { ...emptyQuery() });
   resolveQuestionLibrary({ items: [row("7K3-M9QP", "Stale")], aggregates: [], nextCursor: null });
   await Promise.all([first, second]);
   assert.equal(states.at(-1)?.kind, "ready");
-  assert.equal(states.at(-1)?.rows[0]?.title, "Mine");
+  assert.equal(states.at(-1)?.rows[0]?.questionTitle, "Mine");
 });
 
 test("picker selection remains ordered while a source and query change", async () => {
@@ -108,7 +108,10 @@ test("picker selection remains ordered while a source and query change", async (
     },
     () => undefined,
   );
-  await session.reset({ kind: "library", label: "Library" }, { ...emptyQuery(), search: "first" });
+  await session.reset(
+    { kind: "library", label: "Question Library" },
+    { ...emptyQuery(), search: "first" },
+  );
   await session.reset(
     { kind: "mine", label: "My questions" },
     { ...emptyQuery(), search: "second" },
@@ -130,7 +133,7 @@ test("pagination failure retains loaded rows while external selection remains us
     },
     (state) => states.push(state),
   );
-  await session.reset({ kind: "library", label: "Library" }, emptyQuery());
+  await session.reset({ kind: "library", label: "Question Library" }, emptyQuery());
   await session.loadNext();
   assert.equal(states.at(-1)?.kind, "error");
   assert.equal(states.at(-1)?.rows[0]?.displayId, "2R5-X7YA");
@@ -146,7 +149,6 @@ function emptyQuery() {
     questionType: null,
     capability: null,
     questionLicense: null,
-    evidence: null,
     usedInMyCourses: null,
   };
 }

@@ -92,7 +92,7 @@ After the browser opens, use the visible **Explore this live demo** panel on the
   ordinary account, session, course membership, role, and authorization state.
 - The seeded data belongs to this disposable installation. Relaunching the demo restores the
   baseline and discards changes from the prior session.
-- Email-code and passkey adapters are not mounted in this build. Their private schema and
+- No email-code or passkey Server Routes exist in this build. Their private schema and
   single-session credential contracts are present; the visible selector is the current demo entry.
 
 ## Verify install

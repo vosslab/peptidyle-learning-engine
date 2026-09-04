@@ -266,7 +266,7 @@ pub struct PresentedHotspotRegion {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentedHotspotSurface {
     pub id: PresentationResponseItemReference,
-    pub asset: QuestionAssetReference,
+    pub question_asset: QuestionAssetReference,
     pub description: String,
     pub regions: Vec<PresentedHotspotRegion>,
 }
@@ -322,7 +322,7 @@ pub struct QuestionPresentation {
     #[serde(rename = "question_seed")]
     pub question_seed: QuestionSeed,
     pub presentation_nonce: QuestionPresentationNonce,
-    pub title: String,
+    pub question_title: String,
     pub prompt: Vec<QuestionContentBlock>,
     pub response: QuestionPresentationResponseFormat,
 }

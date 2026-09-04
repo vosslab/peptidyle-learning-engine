@@ -152,7 +152,7 @@ BEGIN
      WHERE receipt.automated_grading_receipt_id = p_automated_grading_receipt_id
        AND grading.grading_state = 'graded'
        AND job.state = 'completed'
-       AND issued.statistics_eligible;
+       AND issued.question_statistics_eligibility;
     IF v_question_attempt_id IS NULL THEN
         RETURN;
     END IF;

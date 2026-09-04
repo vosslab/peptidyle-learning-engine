@@ -35,7 +35,7 @@ for immediate feedback (`implementation_plan.md:1035-1037`).
 ### User flow (actual in current UI)
 
 1. **Enter route** `/workspace/:workspaceId` or `/workspace`
-   - route mount: `WorkspaceEditorLivePage`
+   - route component: `WorkspaceEditorLivePage`
    - role allow-list: instructor/publisher/administrator
    - denied surface shown if role fails.
 2. **Load** page (`loading -> empty/ready/error`)
@@ -84,7 +84,7 @@ for immediate feedback (`implementation_plan.md:1035-1037`).
 | Student preview                 | `error`           | error region with message                                                    | `editor_page.tsx:676-680`                                        |
 | Instructor preview              | `idle`            | button available unless backend capability unavailable                       | `editor_page.tsx:713-733`                                        |
 | Instructor preview              | `loading`         | `role=status` "Loading protected instructor preview..."                      | `editor_page.tsx:737-739`                                        |
-| Instructor preview              | `available`       | question card + `Correct response` + optional `Why this works`               | `editor_page.tsx:754-777`                                        |
+| Instructor preview              | `available`       | local Answer Key check plus Question Feedback                                | `question_json_preview.tsx:76-146`                               |
 | Instructor preview              | `unavailable`     | saved status notice from backend reason text                                 | `editor_page.tsx:740-746`                                        |
 | Instructor preview              | `error`           | inline retry guidance, stale/conflict messages                               | `editor_page.tsx:747-753`                                        |
 | Publish                         | `idle/error`      | "Review publication changes" action + status/error message                   | `editor_page.tsx:859-869`, `851-854`                             |
@@ -148,7 +148,7 @@ for immediate feedback (`implementation_plan.md:1035-1037`).
   - failure paths still return non-conflict error UI states.
   - tests assert student preview uses no extra network calls; instructor preview path only calls when explicitly triggered.
 - **Permission**:
-  - role-gated route denies non-author users before editor mount.
+  - role-gated route denies non-author users before the editor renders.
   - denied route preserves shell and does not call workspace/author-preview endpoints in student navigation path (`frontend_contract.spec.ts`).
 
 ## 8) Responsiveness and layout assumptions
@@ -161,7 +161,7 @@ for immediate feedback (`implementation_plan.md:1035-1037`).
 
 - Contract surface: `/workspace/:workspaceId` is "Draft editor, validation, and preview"
   (`route_contract.ts:41-46`).
-- `WorkspaceEditorLivePage` only mounts for allowed roles and injects:
+- `WorkspaceEditorLivePage` renders only for allowed roles and injects:
   - `createWorkspaceEditorRepository(client, createInstructorPreviewClient())`
   - `initialWorkspace` route param.
 - Persistence gate:
@@ -243,7 +243,7 @@ multi-choice authoring surface:
 
 - It supports title + first-text prompt editing and does not expose explicit per-choice input fields
   for first-choice Question Feedback and Question Answer Explanation creation.
-- It does provide response-widget based student preview and instructor answer feedback display
-  (`Correct response`/`Why this works`) as output, not authoring controls.
+- It does provide response-widget based Student Preview and a local Answer Key and Question Feedback
+  check as output, not authoring controls or a policy-released Question Answer.
 - If "create per-choice outcomes during initial authoring" is a hard requirement,
   that is a follow-on feature gap outside current implementation.

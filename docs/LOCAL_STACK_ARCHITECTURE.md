@@ -22,10 +22,10 @@ does not add a content-management service or expose source bytes to the browser.
 
 ## Long-running services
 
-The currently mounted local stack has the services listed below. A Worker is a
+The current local stack has the Services listed below. A Worker is a
 planned architecture component for durable background jobs; it is not a
 current Compose service, container, health dependency, or network member.
-When it is mounted, its scope includes retention, exports, imports, score
+When it is implemented, its scope includes retention, exports, imports, score
 maintenance, Assignment Analysis, and Assignment Question Analysis, with its
 leases and job state in PostgreSQL.
 
@@ -73,7 +73,7 @@ Stopped successful one-shot containers may appear in `podman ps -a`. They are
 not failed daemons and consume no running CPU after completion.
 
 The fixed owner reports success only after each required one-shot exits zero and
-every currently mounted daemon is healthy. It refuses duplicate owner-labelled
+every current daemon is healthy. It refuses duplicate owner-labelled
 service instances rather than choosing one.
 
 ## Volumes
@@ -144,7 +144,7 @@ whether the PLE lifecycle may manage a container.
 - A supported full start reattaches PostgreSQL and MinIO to their named volumes.
 - The owner cleans and recreates its complete disposable stack rather than
   exposing individual developer-project restart controls.
-- When the planned Worker is mounted, a Worker failure leaves durable jobs
+- When the planned Worker is implemented, a Worker failure leaves durable jobs
   available for a later Worker lease.
 - Gateway failure removes browser reachability but does not mutate records.
 
@@ -162,7 +162,7 @@ Live container and browser behavior belongs in the explicit E2E lane:
 ```
 
 Browser behavior is selected through `run_playwright_tests.sh`. A successor
-service oracle returns only after the fresh Store and mounted course-delivery
+service oracle returns only after the fresh Store and implemented course-delivery
 contracts exist.
 
 The browser scenario exercises visible render and non-disclosure behavior.

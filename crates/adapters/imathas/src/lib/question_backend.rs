@@ -142,8 +142,8 @@ impl std::fmt::Debug for PreparedSnapshot {
 pub struct SafeImathasQuestionRender {
     /// Plain prompt blocks, already constrained by the adapter boundary.
     pub prompt: Vec<QuestionContentBlock>,
-    /// A browser-safe Question title.
-    pub title: String,
+    /// A browser-safe Question Title.
+    pub question_title: String,
 }
 
 /// Implementation seal: external crates cannot install an iMathAS Question Backend that
@@ -184,7 +184,7 @@ pub struct ImathasRenderRequest<'a> {
     /// Exact immutable Question Revision.
     pub question_revision: QuestionRevisionReference,
     /// Deterministic Question Seed.
-    pub seed: QuestionSeed,
+    pub question_seed: QuestionSeed,
 }
 
 /// Server-held, attempt-bound iMathAS result request. Private fields prevent a

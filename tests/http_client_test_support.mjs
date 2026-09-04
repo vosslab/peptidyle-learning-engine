@@ -26,7 +26,7 @@ export function issuedQuestionWireFixture(attempt, questionSummary, questionRevi
     questionRevision,
     question_seed: attempt.question_seed,
     presentationNonce: attempt.id.replaceAll("-", "").slice(-32),
-    title: questionSummary.metadata.title,
+    questionTitle: questionSummary.metadata.questionTitle,
     prompt: [
       {
         kind: "text",

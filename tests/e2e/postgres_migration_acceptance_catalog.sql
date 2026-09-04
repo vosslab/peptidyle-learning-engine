@@ -11,19 +11,41 @@ BEGIN
 	IF current_database() <> 'ple_e2e_baseline' THEN
 		RAISE EXCEPTION 'oracle connected to an unexpected database';
 	END IF;
-	IF (SELECT count(*) FROM information_schema.columns
-		WHERE table_schema = 'ple_private' AND table_name = 'question_source_registration'
-		AND column_name IN ('source_object_id', 'source_object_checksum')
-		AND data_type IN ('uuid', 'text') AND is_nullable = 'NO') <> 2
+	IF to_regclass('ple_private.draft_question_source_binding') IS NULL
+		OR to_regclass('ple_private.question_revision_source_binding') IS NULL
+		OR (SELECT count(*) FROM information_schema.columns
+			WHERE table_schema = 'ple_private'
+			  AND table_name IN ('draft_question_source_binding', 'question_revision_source_binding')
+			  AND column_name IN ('source_object_id', 'source_object_checksum')
+			  AND data_type IN ('uuid', 'text') AND is_nullable = 'NO') <> 4
 		OR EXISTS (
 			SELECT 1 FROM information_schema.columns
-			WHERE table_schema = 'ple_private' AND table_name = 'question_source_registration'
-			AND column_name IN (
+			 WHERE table_schema = 'ple_private'
+			   AND table_name IN ('draft_question_source_binding', 'question_revision_source_binding')
+			   AND column_name IN (
 				'question_type', 'public_content_checksum', 'source_data', 'source_checksum',
 				'qti_package_item_identifier', 'workspace_import_id'
-			)
-	) THEN
-		RAISE EXCEPTION 'Question Source Registration does not have its exact object-backed authority';
+			   )
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			 WHERE conrelid = 'ple_private.draft_question_source_binding'::regclass
+			   AND confrelid = 'ple_private.draft_question'::regclass
+		) OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint
+			 WHERE conrelid = 'ple_private.question_revision_source_binding'::regclass
+			   AND confrelid = 'ple_data.question_revision'::regclass
+		) OR to_regprocedure('ple_api.bind_draft_question_source(uuid,bigint,uuid,text,text,text,text,text,text,uuid,text)') IS NULL
+	OR NOT has_function_privilege(
+			'ple_app',
+			'ple_api.bind_draft_question_source(uuid,bigint,uuid,text,text,text,text,text,text,uuid,text)',
+			'EXECUTE'
+		) OR pg_get_functiondef(
+			'ple_private.validate_draft_question_source_binding_object_record()'::regprocedure
+		) NOT LIKE '%record.object_address = expected_address%'
+		OR pg_get_functiondef(
+			'ple_private.validate_question_revision_source_binding_object_record()'::regprocedure
+		) NOT LIKE '%record.object_address = expected_address%' THEN
+		RAISE EXCEPTION 'Question Source Bindings do not have their exact owner and object-backed authority';
 	END IF;
 	IF NOT EXISTS (
 		SELECT 1 FROM information_schema.columns
@@ -260,7 +282,7 @@ BEGIN
 	) OR NOT EXISTS (
 		SELECT 1 FROM information_schema.columns
 		WHERE table_schema = 'ple_private' AND table_name = 'issued_question'
-		AND column_name = 'statistics_eligible' AND is_nullable = 'NO'
+		AND column_name = 'question_statistics_eligibility' AND is_nullable = 'NO'
 	) OR NOT EXISTS (
 		SELECT 1 FROM pg_trigger
 		WHERE tgrelid = 'ple_data.assignment_revision'::regclass
@@ -549,7 +571,7 @@ BEGIN
 		) OR NOT EXISTS (
 			SELECT 1 FROM pg_trigger
 			WHERE tgrelid = 'ple_private.account_state_event'::regclass
-			AND tgname = 'account_restriction_revokes_sessions' AND NOT tgisinternal
+			AND tgname = 'account_deactivation_or_closure_revokes_sessions' AND NOT tgisinternal
 		) THEN
 		RAISE EXCEPTION 'Account State does not govern authenticated-session access';
 	END IF;
@@ -571,6 +593,11 @@ BEGIN
 	END IF;
 	IF to_regclass('ple_private.authoring_workspace_collaborator') IS NOT NULL
 		OR to_regclass('ple_private.authoring_workspace_collaborator_event') IS NULL
+		OR (SELECT array_agg(column_name::text ORDER BY ordinal_position)
+			FROM information_schema.columns
+			WHERE table_schema = 'ple_private' AND table_name = 'authoring_workspace'
+			AND column_name LIKE '%owner_account_id'
+		) <> ARRAY['authoring_workspace_owner_account_id']
 		OR NOT EXISTS (
 			SELECT 1 FROM pg_trigger
 			WHERE tgrelid = 'ple_private.authoring_workspace_collaborator_event'::regclass
@@ -580,7 +607,7 @@ BEGIN
 			WHERE tgrelid = 'ple_private.authoring_workspace_collaborator_event'::regclass
 			AND tgname = 'authoring_workspace_collaborator_event_is_immutable' AND NOT tgisinternal
 		) THEN
-		RAISE EXCEPTION 'Workspace Collaborator does not preserve immutable start and end evidence';
+		RAISE EXCEPTION 'Authoring Workspace ownership or collaboration evidence is incomplete';
 	END IF;
 	IF to_regclass('ple_private.course_observer_relationship') IS NOT NULL
 		OR to_regclass('ple_private.course_observer_relationship_event') IS NULL
@@ -598,6 +625,27 @@ BEGIN
 	IF to_regclass('ple_data.question_stewardship_event') IS NOT NULL
 		OR to_regclass('ple_data.question_change_proposal_revision') IS NULL
 		OR to_regclass('ple_data.question_change_event') IS NULL
+		OR (
+			SELECT count(*) FROM information_schema.columns
+			WHERE table_schema = 'ple_data' AND table_name = 'question_change_proposal_revision'
+			AND column_name = 'question_publication_validation'
+			AND data_type = 'jsonb' AND is_nullable = 'NO'
+		) <> 1
+		OR EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = 'ple_data'
+			AND table_name = 'question_change_proposal_revision'
+			AND column_name = 'publication_validation'
+		)
+		OR NOT EXISTS (
+			SELECT 1 FROM pg_constraint AS constraint_record
+			JOIN pg_attribute AS checked_column
+				ON checked_column.attrelid = constraint_record.conrelid
+				AND checked_column.attnum = ANY (constraint_record.conkey)
+			WHERE constraint_record.conrelid = 'ple_data.question_change_proposal_revision'::regclass
+			AND constraint_record.conname = 'question_change_proposal_question_publication_validation_check'
+			AND checked_column.attname = 'question_publication_validation'
+		)
 		OR NOT EXISTS (
 			SELECT 1 FROM pg_constraint
 			WHERE conrelid = 'ple_data.question_change_proposal_revision'::regclass
@@ -849,12 +897,11 @@ INSERT INTO ple_data.assignment_question_analysis (
 -- different Course Instance. The composite header boundary must reject it.
 BEGIN;
 INSERT INTO ple_data.course_instance (
-    course_id, blueprint_id, blueprint_revision_id, assigned_instructor_account_id,
-    assigned_instructor_role, created_at
+    course_id, blueprint_course_reference_number, blueprint_revision_number,
+    assigned_instructor_account_id, assigned_instructor_role, created_at
 ) VALUES (
     '00000000-0000-0000-0000-000000002000',
-    '00000000-0000-0000-0000-000000000103',
-    '00000000-0000-0000-0000-000000000104',
+    7, 1,
     '00000000-0000-0000-0000-000000000102', 'instructor', '2026-01-01 00:00:00+00'
 );
 INSERT INTO ple_data.course_membership (
@@ -947,53 +994,6 @@ BEGIN
         );
         RAISE EXCEPTION 'Assignment Question Analysis accepted a duplicate source Question Revision';
     EXCEPTION WHEN unique_violation THEN NULL;
-    END;
-END
-$$;
--- No other Job Kind may target a Course Assignment.
-DO $$
-BEGIN
-    BEGIN
-        INSERT INTO ple_private.job (
-            job_id, job_kind, job_target_kind, course_id, assignment_id, generation,
-            payload, state, available_at, max_attempts, created_at
-        ) VALUES (
-            '00000000-0000-0000-0000-000000002007',
-            'recalculate_assignment', 'course_assignment',
-            '00000000-0000-0000-0000-000000000105',
-            '00000000-0000-0000-0000-000000000110', 1,
-            '{}'::jsonb, 'ready', '2026-01-01 00:00:00+00', 1, '2026-01-01 00:00:00+00'
-        );
-        RAISE EXCEPTION 'a non-analysis Job Kind accepted a Course Assignment target';
-    EXCEPTION WHEN check_violation THEN NULL;
-    END;
-END
-$$;
--- Recalculation is a Course Assignment Job; Question Submission targets must be rejected.
-INSERT INTO ple_private.job (
-    job_id, job_kind, job_target_kind, course_id, assignment_id, generation,
-    payload, state, available_at, max_attempts, created_at
-) VALUES (
-    '00000000-0000-0000-0000-000000002004',
-    'recalculate_assignment_question_analysis', 'course_assignment',
-    '00000000-0000-0000-0000-000000000105',
-    '00000000-0000-0000-0000-000000000110', 1,
-    '{}'::jsonb, 'ready', '2026-01-01 00:00:00+00', 1, '2026-01-01 00:00:00+00'
-);
-DO $$
-BEGIN
-    BEGIN
-        INSERT INTO ple_private.job (
-            job_id, job_kind, job_target_kind, question_submission_id, generation,
-            payload, state, available_at, max_attempts, created_at
-        ) VALUES (
-            '00000000-0000-0000-0000-000000002005',
-            'recalculate_assignment_question_analysis', 'question_submission',
-            '00000000-0000-0000-0000-000000002006', 1,
-            '{}'::jsonb, 'ready', '2026-01-01 00:00:00+00', 1, '2026-01-01 00:00:00+00'
-        );
-        RAISE EXCEPTION 'Assignment Question Analysis recalculation accepted a Question Submission target';
-    EXCEPTION WHEN check_violation THEN NULL;
     END;
 END
 $$;

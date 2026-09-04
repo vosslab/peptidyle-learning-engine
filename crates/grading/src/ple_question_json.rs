@@ -59,7 +59,7 @@ pub enum PleQuestionJsonError {
     UnsupportedFormat,
     UnsupportedVersion(u32),
     InvalidDocument(String),
-    InvalidTitle(QuestionTitleError),
+    InvalidQuestionTitle(QuestionTitleError),
     PublicContentChecksumMismatch,
     Grading(PleQuestionJsonGradingError),
     Encoding(String),
@@ -83,7 +83,7 @@ impl std::fmt::Display for PleQuestionJsonError {
             Self::InvalidDocument(message) => {
                 write!(formatter, "invalid PLE Question JSON document: {message}")
             }
-            Self::InvalidTitle(error) => error.fmt(formatter),
+            Self::InvalidQuestionTitle(error) => error.fmt(formatter),
             Self::PublicContentChecksumMismatch => formatter.write_str(
                 "PLE Question JSON Private Grading does not match the PLE Question JSON public content",
             ),
@@ -362,7 +362,7 @@ impl PleQuestionJsonPrivateGrading {
         response_format: &QuestionResponseFormat,
     ) -> Result<QuestionAnswer, PleQuestionJsonError> {
         let question_answer =
-            QuestionAnswer::new(correct_response_blocks(response_format, &self.answer_key)?)
+            QuestionAnswer::new(question_answer_blocks(response_format, &self.answer_key)?)
                 .ok_or(PleQuestionJsonError::PublicContentChecksumMismatch)?;
         Ok(question_answer)
     }
@@ -835,7 +835,7 @@ fn selectable_ids(response: &QuestionResponseFormat) -> BTreeSet<ResponseItemRef
     }
 }
 
-fn correct_response_blocks(
+fn question_answer_blocks(
     response: &QuestionResponseFormat,
     key: &AnswerKey,
 ) -> Result<Vec<QuestionContentBlock>, PleQuestionJsonError> {
@@ -866,7 +866,7 @@ fn correct_response_blocks(
                     .iter()
                     .map(|blank| vec![blocks_text(&blank.label), accepted[&blank.id].join("; ")])
                     .collect(),
-                description: "Correct responses for each blank".to_string(),
+                description: "Accepted responses for each blank".to_string(),
             }]
         }
         (

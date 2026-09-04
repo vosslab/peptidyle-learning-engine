@@ -7,8 +7,6 @@ import { createGradingOperationsClient } from "../src/api/http_client/grading_op
 
 const COURSE_ID = "00000000-0000-0000-0000-000000000001";
 const ASSIGNMENT_ID = "00000000-0000-0000-0000-000000000002";
-const RETRY_TOKEN = "00000000-0000-0000-0000-000000000003";
-
 function page() {
   return {
     items: [
@@ -20,7 +18,11 @@ function page() {
           revision: 3,
           nextAction: "retry",
         },
-        subject: { kind: "question", questionId: "ABC-1234", title: "Protein folding" },
+        subject: {
+          kind: "question",
+          questionId: "ABC-1234",
+          questionTitle: "Protein folding",
+        },
         affectedStudentCount: 2,
         trustGeneration: { kind: "execution", generation: 4 },
       },
@@ -63,7 +65,6 @@ test("grading operations client sends no-store list and empty guarded action req
       return jsonResponse(
         {
           kind: "retry",
-          retry_token: RETRY_TOKEN,
           operation: "GO-7",
           resulting_operation_revision: 4,
           occurred_at: 1_700_000_000_000,
@@ -74,7 +75,6 @@ test("grading operations client sends no-store list and empty guarded action req
     return jsonResponse(
       {
         kind: "recalculation",
-        retry_token: RETRY_TOKEN,
         operation: "GO-8",
         resulting_operation_revision: 1,
         assignment_revision: 9,
@@ -87,21 +87,9 @@ test("grading operations client sends no-store list and empty guarded action req
   const client = createGradingOperationsClient(fetchImplementation, "/live");
 
   await client.listInstructorGradingOperations(COURSE_ID, ASSIGNMENT_ID, "student", "next", 25);
-  await client.retryInstructorGradingOperation(
-    COURSE_ID,
-    ASSIGNMENT_ID,
-    "GO-7",
-    '"3"',
-    RETRY_TOKEN,
-  );
-  await client.retryInstructorGradingOperation(
-    COURSE_ID,
-    ASSIGNMENT_ID,
-    "GO-7",
-    '"3"',
-    RETRY_TOKEN,
-  );
-  await client.recalculateInstructorAssignment(COURSE_ID, ASSIGNMENT_ID, '"8"', RETRY_TOKEN);
+  await client.retryInstructorGradingOperation(COURSE_ID, ASSIGNMENT_ID, "GO-7", '"3"');
+  await client.retryInstructorGradingOperation(COURSE_ID, ASSIGNMENT_ID, "GO-7", '"3"');
+  await client.recalculateInstructorAssignment(COURSE_ID, ASSIGNMENT_ID, '"8"');
 
   assert.equal(
     calls[0].input,
@@ -111,19 +99,18 @@ test("grading operations client sends no-store list and empty guarded action req
   assert.equal(calls[1].init.method, "POST");
   assert.equal(calls[1].init.body, undefined);
   assert.equal(calls[1].init.headers["if-match"], '"3"');
-  assert.equal(calls[1].init.headers["idempotency-key"], RETRY_TOKEN);
-  assert.equal(calls[2].init.headers["idempotency-key"], RETRY_TOKEN);
+  assert.equal(calls[1].init.headers["idempotency-key"], undefined);
+  assert.equal(calls[2].init.headers["idempotency-key"], undefined);
   assert.equal(calls[3].init.body, undefined);
   assert.equal(calls[3].init.headers["if-match"], '"8"');
 });
 
-test("grading operations client rejects malformed and mismatched Retry Tokens", async () => {
+test("grading operations client verifies exact operation and receipt revision", async () => {
   const client = createGradingOperationsClient(
     async () =>
       jsonResponse(
         {
           kind: "retry",
-          retry_token: "00000000-0000-0000-0000-000000000004",
           operation: "GO-7",
           resulting_operation_revision: 4,
           occurred_at: 1_700_000_000_000,
@@ -133,48 +120,34 @@ test("grading operations client rejects malformed and mismatched Retry Tokens", 
     "/live",
   );
 
-  await assert.rejects(
-    client.retryInstructorGradingOperation(COURSE_ID, ASSIGNMENT_ID, "GO-7", '"3"', "not-a-token"),
-    /instructorGradingOperationRetryToken/,
-  );
-  await assert.rejects(
-    client.retryInstructorGradingOperation(COURSE_ID, ASSIGNMENT_ID, "GO-7", '"3"', RETRY_TOKEN),
-    /Retry Token must match the request Instructor Grading Operation Retry Token/,
-  );
+  await client.retryInstructorGradingOperation(COURSE_ID, ASSIGNMENT_ID, "GO-7", '"3"');
 });
 
-test("grading operation decoder rejects retired action and malformed Retry Token receipt fields", async () => {
+test("grading operation decoder rejects retired action and retry-token receipt fields", async () => {
   const receipt = {
     kind: "retry",
-    retry_token: RETRY_TOKEN,
     operation: "GO-7",
     resulting_operation_revision: 4,
     occurred_at: 1_700_000_000_000,
   };
-  const withRetiredAction = { ...receipt, action: RETRY_TOKEN };
-  const withMalformedRetryToken = { ...receipt, retry_token: "not-a-token" };
+  const withRetiredAction = { ...receipt, action: "retry" };
+  const withRetiredRetryToken = { ...receipt, retry_token: "retired" };
 
   const client = createGradingOperationsClient(
     async () => jsonResponse(withRetiredAction, { etag: '"4"' }),
     "/live",
   );
   await assert.rejects(
-    client.retryInstructorGradingOperation(COURSE_ID, ASSIGNMENT_ID, "GO-7", '"3"', RETRY_TOKEN),
+    client.retryInstructorGradingOperation(COURSE_ID, ASSIGNMENT_ID, "GO-7", '"3"'),
     DecodeError,
   );
 
   const malformedClient = createGradingOperationsClient(
-    async () => jsonResponse(withMalformedRetryToken, { etag: '"4"' }),
+    async () => jsonResponse(withRetiredRetryToken, { etag: '"4"' }),
     "/live",
   );
   await assert.rejects(
-    malformedClient.retryInstructorGradingOperation(
-      COURSE_ID,
-      ASSIGNMENT_ID,
-      "GO-7",
-      '"3"',
-      RETRY_TOKEN,
-    ),
+    malformedClient.retryInstructorGradingOperation(COURSE_ID, ASSIGNMENT_ID, "GO-7", '"3"'),
     DecodeError,
   );
 });

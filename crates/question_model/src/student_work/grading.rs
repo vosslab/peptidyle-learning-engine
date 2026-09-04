@@ -115,7 +115,7 @@ mod tests {
             },
             point_value: AssignmentPointValue::from_whole(8),
             scoring_rule,
-            statistics_eligible: true,
+            question_statistics_eligibility: true,
             question_pool_selection: None,
             question_pool_item: None,
         }

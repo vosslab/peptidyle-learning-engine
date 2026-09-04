@@ -1,5 +1,5 @@
 import type { CourseGradeSchemeUpdateView } from "../../generated/api/CourseGradeSchemeUpdateView";
-import type { GradeCategoryId } from "../../generated/api/GradeCategoryId";
+import type { GradeCategoryReference } from "../../generated/api/GradeCategoryReference";
 
 export function renumberAssignmentsByCategory(
   draft: CourseGradeSchemeUpdateView,
@@ -17,7 +17,7 @@ export function renumberAssignmentsByCategory(
 
 export function categoryAssignments(
   draft: CourseGradeSchemeUpdateView,
-  category: GradeCategoryId,
+  category: GradeCategoryReference,
 ): number {
   return draft.assignments.filter((item) => item.category === category).length;
 }
@@ -47,7 +47,7 @@ export function gradeSettingsErrors(draft: CourseGradeSchemeUpdateView): Readonl
     }
   }
   if (
-    draft.scheme.letterBands.some(
+    draft.scheme.letterGradeBands.some(
       (item) =>
         item.label.trim() !== item.label ||
         Array.from(item.label).length < 1 ||
@@ -56,14 +56,14 @@ export function gradeSettingsErrors(draft: CourseGradeSchemeUpdateView): Readonl
   )
     errors.push("Letter-band labels must be trimmed and 1 to 32 characters.");
   if (
-    new Set(draft.scheme.letterBands.map((item) => item.label)).size !==
-    draft.scheme.letterBands.length
+    new Set(draft.scheme.letterGradeBands.map((item) => item.label)).size !==
+    draft.scheme.letterGradeBands.length
   )
     errors.push("Letter-band labels must be unique.");
-  for (let index = 1; index < draft.scheme.letterBands.length; index += 1) {
+  for (let index = 1; index < draft.scheme.letterGradeBands.length; index += 1) {
     if (
-      draft.scheme.letterBands[index - 1]!.minimumBasisPoints <=
-      draft.scheme.letterBands[index]!.minimumBasisPoints
+      draft.scheme.letterGradeBands[index - 1]!.minimumBasisPoints <=
+      draft.scheme.letterGradeBands[index]!.minimumBasisPoints
     ) {
       errors.push("Letter-band thresholds must be in descending order.");
       break;

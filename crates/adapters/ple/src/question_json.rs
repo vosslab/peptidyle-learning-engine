@@ -70,15 +70,15 @@ struct PleQuestionJsonOutcomeFeedback {
 /// Public draft plus separately persisted server-only grading and pre-response teaching content.
 #[derive(Clone)]
 pub struct PleQuestionJsonPresentation {
-    title: String,
+    question_title: String,
     prompt: Vec<QuestionContentBlock>,
     response: question_model::response::QuestionResponseFormat,
     question_type: QuestionType,
 }
 
 impl PleQuestionJsonPresentation {
-    pub fn title(&self) -> &str {
-        &self.title
+    pub fn question_title(&self) -> &str {
+        &self.question_title
     }
     pub fn prompt(&self) -> &[QuestionContentBlock] {
         &self.prompt
@@ -162,17 +162,17 @@ impl PleQuestionJsonDocument {
         self.0.compile()
     }
 
-    /// Returns a publication-only HOTSPOT source with the exact Question Library asset
-    /// identity substituted for the private workspace image identity.
+    /// Returns a publication-only HOTSPOT source with the exact Question Asset
+    /// Reference substituted for the private workspace image reference.
     ///
     /// The returned source remains answer-bearing and canonical, so the
     /// published Source Object Reference, PLE Question JSON public content, and server-only key can
     /// all be derived from one immutable version-scoped source document.
     pub fn with_hotspot_surface_asset(
         &self,
-        asset: question_model::QuestionAssetId,
+        question_asset: question_model::QuestionAssetReference,
     ) -> Result<Self, PleQuestionJsonError> {
-        Ok(Self(self.0.with_hotspot_surface_asset(asset)?))
+        Ok(Self(self.0.with_hotspot_surface_asset(question_asset)?))
     }
 
     fn validate(&self) -> Result<(), PleQuestionJsonError> {

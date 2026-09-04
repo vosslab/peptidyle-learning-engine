@@ -28,7 +28,7 @@ function source() {
   return {
     format: "pleQuestionJson",
     version: 3,
-    title: "Favorite color",
+    questionTitle: "Favorite color",
     questionDescription: "Instructor-facing color-choice example.",
     prompt: "What is my favorite color?",
     response: {
@@ -56,7 +56,7 @@ function publicationSummary(backend = "ple") {
     questionType: "multipleChoice",
     capabilities: ["serverGrading"],
     metadata: {
-      title: "Favorite color",
+      questionTitle: "Favorite color",
       questionDescription: "Instructor-facing color-choice example.",
       tags: ["example"],
       questionLicense: "CC-BY-SA-4.0",
@@ -128,10 +128,15 @@ test("codec aligns Rust top-level defaults and canonicalizes them on serializati
   );
 });
 
-test("codec enforces Unicode title bounds", () => {
+test("codec enforces Unicode Question Title bounds", () => {
   const title512 = "😀".repeat(512);
-  assert.equal(decodePleQuestionJsonSource({ ...source(), title: title512 }).title, title512);
-  assert.throws(() => decodePleQuestionJsonSource({ ...source(), title: "😀".repeat(513) }));
+  assert.equal(
+    decodePleQuestionJsonSource({ ...source(), questionTitle: title512 }).questionTitle,
+    title512,
+  );
+  assert.throws(() =>
+    decodePleQuestionJsonSource({ ...source(), questionTitle: "😀".repeat(513) }),
+  );
   assert.throws(() => decodePleQuestionJsonSource({ ...source(), questionDescription: "   " }));
   assert.throws(() =>
     decodePleQuestionJsonSource({ ...source(), questionDescription: "😀".repeat(4_001) }),
@@ -334,7 +339,7 @@ test("all remaining v3 source Question Types retain semantic IDs and publish ans
       response: {
         kind: "hotspot",
         surface: {
-          asset: "00000000-0000-4000-8000-000000000042",
+          questionAsset: "00000000-0000-4000-8000-000000000042",
           checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           description: "A chromosome map",
         },
@@ -370,7 +375,7 @@ test("hotspot public preview does not disclose correct-region cardinality", () =
   const baseResponse = {
     kind: "hotspot",
     surface: {
-      asset: "00000000-0000-4000-8000-000000000042",
+      questionAsset: "00000000-0000-4000-8000-000000000042",
       checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       description: "A chromosome map",
     },
@@ -394,7 +399,7 @@ test("hotspot public preview does not disclose correct-region cardinality", () =
   assert.deepEqual(onePublic, {
     kind: "hotspot",
     surface: {
-      asset: "00000000-0000-4000-8000-000000000042",
+      questionAsset: "00000000-0000-4000-8000-000000000042",
       checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     },
     description: "A chromosome map",
@@ -482,7 +487,7 @@ test("remaining v3 source Question Types reject invalid private contracts", () =
       response: {
         kind: "hotspot",
         surface: {
-          asset: "not-an-asset",
+          asset: "00000000-0000-4000-8000-000000000042",
           checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           description: "Surface",
         },
@@ -497,7 +502,7 @@ test("remaining v3 source Question Types reject invalid private contracts", () =
       response: {
         kind: "hotspot",
         surface: {
-          asset: "00000000-0000-4000-8000-000000000042",
+          questionAsset: "00000000-0000-4000-8000-000000000042",
           checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           description: "Surface",
         },
@@ -678,7 +683,7 @@ test("client saves a strict PLE hotspot source through its exact endpoint", asyn
     response: {
       kind: "hotspot",
       surface: {
-        asset: "00000000-0000-4000-8000-000000000042",
+        questionAsset: "00000000-0000-4000-8000-000000000042",
         checksum: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         description: "A chromosome map",
       },

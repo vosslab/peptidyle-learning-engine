@@ -7,14 +7,14 @@ import { blueprintCourseQuestionPickerRepository } from "../src/features/questio
 const { scope: _retiredPublicationScope, ...publishedQuestion } =
   publishedQuestionFixture.publishedQuestion;
 
-function questionLibraryEntry(questionId, title) {
+function questionLibraryEntry(questionId, questionTitle) {
   return {
     summary: {
       ...publishedQuestion,
       questionId,
-      metadata: { ...publishedQuestion.metadata, title },
+      metadata: { ...publishedQuestion.metadata, questionTitle },
     },
-    evidence: { state: "insufficientEvidence" },
+    evidence: { state: "unavailable" },
   };
 }
 
@@ -48,7 +48,6 @@ const query = {
   questionType: null,
   capability: null,
   questionLicense: null,
-  evidence: null,
   usedInMyCourses: null,
   authorship: "any",
 };
@@ -59,21 +58,25 @@ function course(revision = "2") {
     revision,
     modules: [
       {
-        module_id: "module-7",
-        assignments: [{ assignment_id: "assignment-7", content: content() }],
+        blueprint_module_reference: "module-7",
+        assignments: [{ blueprint_assignment_reference: "assignment-7", content: content() }],
       },
     ],
   };
 }
 
-test("reusable picker preserves Fixed Question and Question Pool Assignment Entry order", async () => {
+test("Blueprint Assignment picker preserves Fixed Question and Question Pool Assignment Entry order", async () => {
   const source = blueprintCourseQuestionPickerRepository({
     getBlueprintCourse: async () => ({ blueprintCourse: course() }),
   });
   const result = await source.search({
     source: {
       kind: "blueprintCourseAssignment",
-      source: { reference: "BP-7", revision: "2", assignment_id: "assignment-7" },
+      source: {
+        reference: "BP-7",
+        revision: "2",
+        blueprint_assignment_reference: "assignment-7",
+      },
       label: "Blueprint Course assignment",
     },
     query,
@@ -86,7 +89,7 @@ test("reusable picker preserves Fixed Question and Question Pool Assignment Entr
   );
 });
 
-test("reusable picker refuses a Blueprint Course revision that changed before access", async () => {
+test("Blueprint Assignment picker refuses a Blueprint Course revision that changed before access", async () => {
   const source = blueprintCourseQuestionPickerRepository({
     getBlueprintCourse: async () => ({ blueprintCourse: course("3") }),
   });
@@ -94,7 +97,11 @@ test("reusable picker refuses a Blueprint Course revision that changed before ac
     source.search({
       source: {
         kind: "blueprintCourseAssignment",
-        source: { reference: "BP-7", revision: "2", assignment_id: "assignment-7" },
+        source: {
+          reference: "BP-7",
+          revision: "2",
+          blueprint_assignment_reference: "assignment-7",
+        },
         label: "Stale Blueprint Course assignment",
       },
       query,

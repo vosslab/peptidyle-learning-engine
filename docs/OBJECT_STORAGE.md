@@ -34,7 +34,7 @@ variant. Important mappings are:
 
 | Object class                                                        | Object Address variants                                                               | Domain and delivery authority                                                                                                                                                                                                                                                                     |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Private workspace source and imported assets                        | `WorkspaceImportSource`, `WorkspaceQuestionSource`, `WorkspaceImportAsset`            | `PrivateContent`; the creating Instructor's exact workspace ownership is required for a private workspace View. Collaboration is a future separately designed capability, not current authority.                                                                                                  |
+| Private workspace source and imported assets                        | `WorkspaceImportSource`, `WorkspaceQuestionSource`, `WorkspaceImportAsset`            | `PrivateContent`; the Authoring Workspace Owner relationship is required for a private workspace View. Collaboration is a future separately designed capability, not current authority.                                                                                                           |
 | Published answer-free presentation asset                            | `QuestionAsset`                                                                       | `PublicAssets`; approved-Instructor Question Library access or an allowed Assignment Access decision for the Student's assigned activity selects the immutable CDN rendition. This does not expose source, Answer Key, Question Feedback, Question Answer Explanation, or Question Grading Input. |
 | Published Question Source, import archive, and private render state | `QuestionSource`, `PublishedImportArchive`, `QuestionRender`                          | `PrivateContent`; only an exact server capability or the authorized private workspace Question Source operation may read it.                                                                                                                                                                      |
 | Generation/grader keys and payloads                                 | Server-only private records and any typed private object written by its owning worker | `PrivateContent`; only the exact grader, generation, worker lease, or capability may read it.                                                                                                                                                                                                     |
@@ -58,10 +58,20 @@ from that address, accepts an identical retry, and rejects a changed address or
 immutable record. A Question Source stores that Source Object Reference and
 Source Object Checksum as its only source-data representation. Published source
 registration remains part of the separate Question Publication operation.
-The Draft Question Source Registration Store binds that byte evidence only to an
+The Draft Question Source Binding Store binds that byte evidence only to an
 authorized Draft Question at its exact Edit Number and rechecks the closed Question Backend,
 Question Format, and backend-location facts. It returns the earlier Question
-Source Registration only when every immutable fact agrees.
+Source Binding only when every immutable fact agrees.
+
+The server-only new-lineage Question Publication coordinator resolves that same exact current
+Draft Question Source Object Record through an Instructor-session-authorized database operation,
+reads and verifies the complete immutable object record, and writes the same bytes under a fresh
+Question Revision-owned `QuestionSource` address. Only then does it call the atomic publication
+Store with the target record. An existing target address is accepted only when the immutable object
+record and bytes agree; collisions cause the coordinator to mint a fresh publication identity.
+Because PostgreSQL and object storage do not share a transaction, a later database refusal can leave
+an unreachable target object. Object Cleanup and Draft Question expiration own that evidence and
+removal; P2 does not claim them, and no Publication Server Route exists in that package.
 
 ## Instructional image boundary
 
@@ -88,7 +98,7 @@ object or delivery ID never supply authority by themselves:
    search and details results and the published presentation assets that they reference.
 2. An allowed Assignment Access decision delivers the answer-free
    presentation needed for that Student's assigned activity.
-3. The creating Instructor's exact workspace ownership delivers a private
+3. The exact Authoring Workspace Owner relationship delivers a private
    workspace source, asset, author preview, or authoring data. Collaboration is
    a future separately designed capability.
 4. A typed worker, active lease, or explicit capability delivers generation,

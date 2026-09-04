@@ -53,7 +53,7 @@ WP-INST-LD3 owns the accepted ordinary-course capabilities in `2026081812`,
 - Assignment and complete Assignment Content mutation with revision conflict checks;
 - Course Membership, Assignment Access, Student Accommodation, and schedule-exception source authority;
 - immutable issued-question source and private execution snapshots for normal student work;
-- session-derived course creation and co-instructor invitation mutations;
+- session-derived course creation and Instructor Course Invitation mutations;
 - grade-scheme, export-audit, scoring preparation, and scoring finalization operations; and
 - least-privilege PostgreSQL roles, forced RLS, typed conflicts, and route-bound witnesses.
 

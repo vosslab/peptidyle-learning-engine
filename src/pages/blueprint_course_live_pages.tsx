@@ -18,7 +18,7 @@ interface BlueprintCourseRouteComposition {
   readonly pickerSources: ReturnType<typeof questionLibraryPickerSources>;
 }
 
-/** Connects mounted Question Library sources for Blueprint Course Content editors. */
+/** Connects available Question Library sources for Blueprint Course Content editors. */
 function useBlueprintCourseRouteComposition(): BlueprintCourseRouteComposition {
   const runtime = useApplicationApi();
   const questionLibrary = createQuestionLibraryRepository(runtime.client);

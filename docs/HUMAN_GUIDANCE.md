@@ -1,6 +1,7 @@
 # Human guidance
 
 <!-- VENDORED HEADER: START -->
+
 Record the durable guidance Neil Voss states, or approves for preservation here, in his own words:
 first person or close paraphrase, one to three lines per bullet. Material he supplies as a source
 may inform [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) once it is settled, and an entry of uncertain
@@ -30,7 +31,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Blueprint Course**: A reusable course definition used to create **Course Instances**. It has no enrolled **Students** or deadlines.
 - **Course Instance**: A course created from a **Blueprint Course**. It contains enrolled **Students**, deadlines, releases, and other delivery-specific settings.
 - **Published Question**: A validated question that is part of the global question library and available to vetted **Instructors**.
-- **Draft Question**: A private, unpublished question being developed by an **Instructor**. It must pass publication validation before joining the global question library.
+- **Draft Question**: A private, unpublished question being developed by an **Instructor**. It must pass Question Publication Validation before joining the global question library.
 - **Question Library**: The global collection of **Published Questions** available to vetted **Instructors**. All questions used in assignments are part of the library.
 - **Sysadmin**: A god-level PLE administrator responsible for system administration, **Instructor** vetting, account creation, and helping **Instructors** manage courses.
 - **Instructor**: A vetted user who teaches courses and can browse, reuse, create, fork, and publish question content.
@@ -97,7 +98,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Published Questions** have two editing paths: moderate edits by the question owner and full forks by any **Instructor**.
 - Moderate edits update the owner's **Published Question** while maintaining the original question authorship and CC licensing.
 - Full forks create a separate **Draft Question** with its own authorship while maintaining the source question's CC licensing and attribution.
-- Editing of a full fork happens in the **Instructor's** private **Draft Question**. Publication validation is required before the fork joins the library as a **Published Question**.
+- Editing of a full fork happens in the **Instructor's** private **Draft Question**. Question Publication Validation is required before the fork joins the library as a **Published Question**.
 - Assignments and grading evidence pin an exact version. A newer version becomes an available controlled update. It never silently changes issued or graded work. Not sure if a security or major flaw override makes sense here. Maybe overrides are only approved by a **Sysadmin**?
 - Question writers may add Question Feedback when it helps. It remains optional Question-authored
   teaching content, and Student workflows remain complete whether or not Students read it.
@@ -124,7 +125,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A **Change Proposal** can be submitted by any **Instructor** against an exact version. The owner reviews the validated proposal, and acceptance creates a new version in the same lineage with contributor credit.
 - Full forks can be created by any **Instructor** as private **Draft Questions** and later published as separate lineages with source attribution.
 - Forced corrections are audited **Sysadmin** actions reserved for critical flaws.
-- **Change Proposals** must pass publication validation before submission and show their semantic and grading impact.
+- **Change Proposals** must pass Question Publication Validation before submission and show their semantic and grading impact.
 - A **Change Proposal** must be rebased or resubmitted if the question lineage advances before acceptance.
 - Question authorship, contributor credit, history, and compatible CC licensing are preserved across edits, proposals, and forks.
 - Assignments and graded work remain pinned to exact immutable versions and are never changed automatically by later revisions.

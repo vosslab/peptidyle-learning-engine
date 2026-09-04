@@ -22,11 +22,11 @@ const available = {
   },
 };
 
-const insufficientEvidence = {
+const unavailableClassStatistics = {
   ...available,
   student_assignment_grade: {
     ...available.student_assignment_grade,
-    class_statistics: { state: "insufficient_evidence" },
+    class_statistics: { state: "unavailable" },
   },
 };
 
@@ -63,8 +63,11 @@ test("Student progress is exact, key-free, and never accepts withheld totals", (
   );
 });
 
-test("Student class statistics are an exact, optional safe union", () => {
-  assert.deepEqual(decodeStudentAssignmentProgress(insufficientEvidence), insufficientEvidence);
+test("Class Statistics are an exact, optional safe union", () => {
+  assert.deepEqual(
+    decodeStudentAssignmentProgress(unavailableClassStatistics),
+    unavailableClassStatistics,
+  );
   assert.deepEqual(
     decodeStudentAssignmentProgress(classStatisticsAvailable),
     classStatisticsAvailable,

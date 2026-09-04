@@ -1,4 +1,4 @@
-// student_feedback_panel_styles.ts - styles mounted only by the server-projected Student Feedback panel.
+// student_feedback_panel_styles.ts - styles loaded only by the server-projected Student Feedback panel.
 
 export const STUDENT_FEEDBACK_PANEL_STYLES = `
   .student-feedback-panel { display: grid; gap: var(--ple-space-2, 0.5rem); padding: 0.5rem 0.625rem; border: 0; border-left: 4px solid var(--ple-success); border-radius: 0; background: color-mix(in srgb, var(--ple-success) 7%, white); }

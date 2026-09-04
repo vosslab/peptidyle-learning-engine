@@ -71,13 +71,15 @@ async function restoreViewportOrigin(page: Page): Promise<void> {
 
 async function createPublishedQuestion(
   page: Page,
-  title: string,
+  questionTitle: string,
   correctChoice: string,
 ): Promise<string> {
   await page.getByRole("link", { name: "Workspace" }).click();
   await page.getByRole("button", { name: "Create Question" }).click();
-  await page.getByLabel("Question title").fill(title);
-  await page.getByLabel("Student-facing prompt").fill(`Choose the supported statement: ${title}`);
+  await page.getByLabel("Question Title").fill(questionTitle);
+  await page
+    .getByLabel("Student-facing prompt")
+    .fill(`Choose the supported statement: ${questionTitle}`);
   await page.getByLabel("Choice text").nth(0).fill(correctChoice);
   await page
     .getByLabel("Choice text")
@@ -92,11 +94,11 @@ async function createPublishedQuestion(
   await page.getByRole("button", { name: "Confirm and publish" }).click();
   await expect(page.getByRole("heading", { name: "Published" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Library", exact: true }).click();
-  await page.getByLabel("Search published questions").fill(title);
+  await page.getByRole("link", { name: "Question Library", exact: true }).click();
+  await page.getByLabel("Search published questions").fill(questionTitle);
   const questionCard = page
     .getByRole("region", { name: "Published questions" })
-    .getByText(title)
+    .getByText(questionTitle)
     .locator("..");
   await expect(questionCard).toBeVisible();
   const questionId = await questionCard.locator("code").innerText();

@@ -67,6 +67,7 @@ REVOKE ALL PRIVILEGES ON TABLE ple_private.course_observer_relationship_event,
     ple_private.sysadmin_support_capability FROM PUBLIC;
 GRANT USAGE ON SCHEMA ple_private TO ple_api_owner;
 GRANT SELECT ON TABLE ple_private.account,
+    ple_private.account_state_event,
     ple_private.authoring_workspace,
     ple_private.authoring_workspace_collaborator_event,
     ple_private.course_observer_relationship_event,
@@ -147,22 +148,29 @@ AS $$
           AND ple_data.course_membership_is_active(membership.membership_id)
     )
 $$;
-CREATE FUNCTION ple_api.current_session_account_owns_workspace(p_workspace_id uuid)
+-- ASVS 8.2.2, 8.3.1: resolve the exact current Account-to-resource relationship
+-- in the trusted database tier for every authorization decision.
+CREATE FUNCTION ple_api.current_session_account_is_authoring_workspace_owner(
+    p_workspace_id uuid
+)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$
     SELECT EXISTS (
         SELECT 1 FROM ple_private.authoring_workspace AS workspace
         WHERE workspace.workspace_id = p_workspace_id
-          AND workspace.owner_account_id = ple_api.current_session_account_id()
+          AND workspace.authoring_workspace_owner_account_id
+              = ple_api.current_session_account_id()
           AND workspace.revoked_at IS NULL
     )
 $$;
-CREATE FUNCTION ple_api.current_session_account_can_access_workspace(p_workspace_id uuid)
+CREATE FUNCTION ple_api.current_session_account_can_access_authoring_workspace(
+    p_workspace_id uuid
+)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$
-    SELECT ple_api.current_session_account_owns_workspace(p_workspace_id)
+    SELECT ple_api.current_session_account_is_authoring_workspace_owner(p_workspace_id)
         OR EXISTS (
             SELECT 1
             FROM ple_private.authoring_workspace AS workspace
@@ -232,8 +240,8 @@ REVOKE ALL PRIVILEGES ON FUNCTION ple_api.current_session_account_is_course_inst
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.current_session_account_is_course_member(uuid) FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.current_session_account_owns_course_membership(uuid, uuid) FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.current_session_account_owns_student_record(uuid, uuid) FROM PUBLIC;
-REVOKE ALL PRIVILEGES ON FUNCTION ple_api.current_session_account_owns_workspace(uuid) FROM PUBLIC;
-REVOKE ALL PRIVILEGES ON FUNCTION ple_api.current_session_account_can_access_workspace(uuid) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION ple_api.current_session_account_is_authoring_workspace_owner(uuid) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION ple_api.current_session_account_can_access_authoring_workspace(uuid) FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.current_session_account_has_course_observer_relationship(uuid) FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.current_session_account_has_support_capability(uuid, uuid, uuid, text) FROM PUBLIC;
 GRANT USAGE ON SCHEMA ple_api TO ple_app, ple_auth, ple_student;
@@ -242,8 +250,8 @@ GRANT EXECUTE ON FUNCTION ple_api.current_session_account_id(),
     ple_api.current_session_account_is_course_member(uuid),
     ple_api.current_session_account_owns_course_membership(uuid, uuid),
     ple_api.current_session_account_owns_student_record(uuid, uuid),
-    ple_api.current_session_account_owns_workspace(uuid),
-    ple_api.current_session_account_can_access_workspace(uuid),
+    ple_api.current_session_account_is_authoring_workspace_owner(uuid),
+    ple_api.current_session_account_can_access_authoring_workspace(uuid),
     ple_api.current_session_account_has_course_observer_relationship(uuid),
     ple_api.current_session_account_has_support_capability(uuid, uuid, uuid, text)
     TO ple_app, ple_auth, ple_student;
@@ -255,8 +263,8 @@ GRANT EXECUTE ON FUNCTION ple_api.current_session_account_id(),
     ple_api.current_session_account_is_course_member(uuid),
     ple_api.current_session_account_owns_course_membership(uuid, uuid),
     ple_api.current_session_account_owns_student_record(uuid, uuid),
-    ple_api.current_session_account_owns_workspace(uuid),
-    ple_api.current_session_account_can_access_workspace(uuid),
+    ple_api.current_session_account_is_authoring_workspace_owner(uuid),
+    ple_api.current_session_account_can_access_authoring_workspace(uuid),
     ple_api.current_session_account_has_course_observer_relationship(uuid)
     TO ple_data_owner, ple_private_owner;
 RESET ROLE;

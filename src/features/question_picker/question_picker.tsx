@@ -60,7 +60,7 @@ function selectedCopy(
   if (mode === "none") return "Browse questions and open a question for its full details.";
   if (selection.questionIds.length === 0)
     return "Select question results to prepare an ordered list.";
-  if (mode === "one") return `Selected ${selection.questions[0]?.row.title ?? "question"}.`;
+  if (mode === "one") return `Selected ${selection.questions[0]?.row.questionTitle ?? "question"}.`;
   return `${selection.questionIds.length} questions selected in order.`;
 }
 
@@ -302,18 +302,6 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
           </select>
         </label>
         <label>
-          Evidence
-          <select
-            value={query().evidence ?? ""}
-            onChange={(event) => updateQuery({ evidence: event.currentTarget.value || null })}
-          >
-            <option value="">Any evidence state</option>
-            <For each={facetValues(state(), "evidence")}>
-              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
-            </For>
-          </select>
-        </label>
-        <label>
           My course use
           <select
             value={query().usedInMyCourses ?? ""}
@@ -378,7 +366,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
                     fallback={
                       <article class="question-picker-result">
                         <span>
-                          <strong>{row.title}</strong>
+                          <strong>{row.questionTitle}</strong>
                           <span>{row.summary}</span>
                           <small>{row.displayId}</small>
                         </span>
@@ -393,7 +381,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
                         onChange={(event) => toggleRow(row, event.currentTarget.checked)}
                       />
                       <span>
-                        <strong>{row.title}</strong>
+                        <strong>{row.questionTitle}</strong>
                         <span>{row.summary}</span>
                         <small>{row.displayId}</small>
                       </span>
@@ -427,14 +415,15 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
                 {(question, index) => (
                   <li>
                     <span>
-                      <strong>{question.row.title}</strong> <small>{question.questionId}</small>
+                      <strong>{question.row.questionTitle}</strong>{" "}
+                      <small>{question.questionId}</small>
                     </span>
                     <span class="question-picker-tray-actions">
                       <button
                         class="quiet-action"
                         type="button"
                         disabled={index() === 0}
-                        aria-label={`Move ${question.row.title} earlier`}
+                        aria-label={`Move ${question.row.questionTitle} earlier`}
                         onClick={() =>
                           updateSelection(
                             moveQuestionPickerSelection(
@@ -453,7 +442,7 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
                         class="quiet-action"
                         type="button"
                         disabled={index() === selection().questions.length - 1}
-                        aria-label={`Move ${question.row.title} later`}
+                        aria-label={`Move ${question.row.questionTitle} later`}
                         onClick={() =>
                           updateSelection(
                             moveQuestionPickerSelection(

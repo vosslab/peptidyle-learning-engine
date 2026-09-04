@@ -44,7 +44,7 @@ function issuedPresentationEvidence() {
         questionRevision: { questionId: "ABC-DEFG", revisionNumber: 1 },
         question_seed: 42,
         presentationNonce: "11111111111111111111111111111111",
-        title: "Peptide bond",
+        questionTitle: "Peptide bond",
         prompt: [{ kind: "text", markdown: "Which group forms the peptide bond?" }],
         response: {
           kind: "singleChoice",
@@ -57,7 +57,7 @@ function issuedPresentationEvidence() {
       questionAssetRenditions: [
         {
           questionAsset: {
-            asset: "0198e000-0000-7000-8000-000000000010",
+            questionAsset: "0198e000-0000-7000-8000-000000000010",
             checksum: "a".repeat(64),
           },
           renditionChecksum: "b".repeat(64),
@@ -104,8 +104,8 @@ function inspectedDetail(returnContext = "gradingOperation", membership = "M-1")
         submittedAt: 1_700_000_000_000,
         evidence: issuedPresentationEvidence(),
         scoringGeneration: 1,
-        feedback: {},
-        response: { kind: "multipleChoice", selected: [] },
+        studentResponseInspectionFeedback: {},
+        studentResponseInspection: { kind: "multipleChoice", selected: [] },
         assignmentScoringState: "current",
       },
     ],
@@ -218,7 +218,7 @@ test("inspection decoder keeps required presentation labels outside its return i
   assert.equal(decoded.studentDisplayLabel, "Ada Student");
   assert.equal(decoded.assignmentTitle, "Peptide Bonds: Guided Practice");
   assert.equal(
-    decoded.submissions[0].evidence.questionAssetRenditions[0].questionAsset.asset,
+    decoded.submissions[0].evidence.questionAssetRenditions[0].questionAsset.questionAsset,
     "0198e000-0000-7000-8000-000000000010",
   );
   assert.equal(

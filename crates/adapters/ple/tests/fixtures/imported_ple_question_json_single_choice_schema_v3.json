@@ -1,7 +1,7 @@
 {
   "format": "pleQuestionJson",
   "version": 3,
-  "title": "Favorite color",
+  "questionTitle": "Favorite color",
   "questionDescription": "Instructor-facing color-choice example.",
   "prompt": "What is my favorite color?",
   "response": {

@@ -67,6 +67,22 @@ remains an implementation technique rather than a PLE-owned type name. Payload
 remains transport vocabulary rather than the name of a Question, Assignment,
 or Student Work domain object.
 
+A **Service Identity** is a non-human technical principal used by a server
+component, worker, renderer, database role, or cloud task. Only Accounts receive
+Product Roles and Course Membership Roles. A Service Identity instead receives
+the exact technical privileges required by its component or operation.
+
+A **Database Schema Owner Role** is a Service Identity represented by a NOLOGIN
+PostgreSQL principal that owns one physical schema and its protected objects.
+`ple_private_owner` is the Database Schema Owner Role for `ple_private`; the
+migration process temporarily assumes it through explicit `SET LOCAL ROLE` when
+performing owner-required schema changes. Its authority is PostgreSQL ownership
+of those database objects. PostgreSQL stores this principal, its memberships,
+and its object privileges in the PostgreSQL system catalogs; it is not a row in
+a PLE Account, Product Role, or application-data table. Instructor authority
+follows an Active Instructor Account and the exact domain relationships required
+by the operation.
+
 **Timestamp** is the ordinary technical scalar for an absolute instant. A
 PLE-owned field names the fact whose time it records, such as accepted time,
 published time, issued time, or Event recorded time. The owning fact supplies
@@ -154,7 +170,27 @@ answer-free content held by one Blueprint Revision: its structure, defaults,
 relative schedules, and exact Question Revision References. A **Blueprint
 Content Checksum** is the SHA-256 integrity value for that versioned content. A
 **Blueprint Content Check** compares two complete Blueprint Revision Content
-values by their checksums. A
+values by their checksums.
+
+**Blueprint Module** is one labelled, ordered reusable section in Blueprint
+Revision Content. Its ordered Blueprint Assignments are part of that immutable
+content, not a separate Course Instance structure. A **Blueprint Module
+Reference** is the opaque stable reference retained for one Blueprint Module
+when a later complete revision edit keeps it. A **Blueprint Module Edit Choice**
+is either that retained Blueprint Module Reference or New. A **Blueprint
+Assignment Reference** is the opaque stable reference for one Blueprint
+Assignment within its Blueprint Course lineage. A Blueprint Revision supplies
+the immutable content snapshot in which that reference appears. A
+**Blueprint Assignment Edit Choice** either retains that exact Blueprint
+Assignment Reference or creates New; neither choice grants authority or
+determines authored order.
+
+**Blueprint Course Reference** is the bounded `BP-` public locator for one
+Blueprint Course. A **Blueprint Revision Number** is its positive monotonic
+PostgreSQL-bigint revision value. A **Blueprint Revision Reference** is exactly
+that Blueprint Course Reference and Blueprint Revision Number pair; it has no
+separate UUID identity.
+
 **Relative Assignment Schedule** is the reusable schedule intent for one
 Blueprint Assignment. Each Relative Assignment Schedule Moment stores a signed
 calendar-day offset from Course Term start and one local time; it does not store
@@ -215,7 +251,12 @@ Manifest, and Receipt describe only their exact qualified operation. The
 operation name remains consistent across interface, API, schema, and code
 boundaries.
 
-**Request Retry Token** is an opaque value for one repeated Instructor write request, bound by the authenticated Account, exact Request Checksum, and typed request-and-Receipt context; it grants no authority. The typed context identifies the action, never a retried Blueprint. The current Question Model and browser contract define the value; an implemented route with a durable replay boundary provides same-Receipt behavior.
+Repeated-request handling belongs to the exact operation rather than a universal
+PLE Retry Token model. Prefer the operation's existing record identity, revision,
+Receipt, and database constraints. Introduce a qualified Retry Token only when an
+implemented Store and Server Route demonstrate that those existing facts cannot
+identify a repeated request safely. The standard HTTP `idempotency-key` header
+remains transport vocabulary and does not require a parallel PLE domain object.
 
 **Course Instance** is live teaching created from an exact Blueprint Revision.
 It owns enrollment, deadlines, releases, accommodations, grades, and other
@@ -260,11 +301,11 @@ exact Course Instance. It contains the exact Course Schedule Revision Reference
 and ordered Assignment Revision References observed by the server; it grants no
 authority and is distinct from a Course Instance Creation Reservation.
 
-**Course Instance Creation Reservation** is server-held pre-creation evidence for one Course Instance. It binds the exact Blueprint or rollover source, target Course Term, authorizing Account, Request Checksum, Request Retry Token, and reserved Course Instance Reference; it creates no authority of its own.
+**Course Instance Creation Reservation** is server-held pre-creation evidence for one Course Instance. It binds the exact Blueprint or rollover source, target Course Term, authorizing Account, Request Checksum, and reserved Course Instance Reference; it creates no authority of its own.
 
 **Blueprint Fork Reservation** is server-held pre-creation evidence for one
 Blueprint Course fork. It binds the exact source Blueprint Revision, authorizing
-Account, Request Checksum, Request Retry Token, and reserved Blueprint Course Reference;
+Account, Request Checksum, and reserved Blueprint Course Reference;
 it creates no authority of its own.
 
 **Course Time Zone** is the one exact IANA time-zone name owned by a Course
@@ -292,6 +333,11 @@ Course Instance with one Course Membership Role. Its **Course Invitation State**
 is Pending, Accepted, Declined, Revoked, or Expired. One immutable Course
 Invitation Event records the accepted, declined, or revoked terminal transition;
 the absence of that event derives Pending or Expired from the exact deadline.
+
+An **Instructor Course Invitation** is the exact Course Invitation issued to an
+Active Instructor Account for the Instructor Course Membership Role. It adds
+that Account to the Teaching Team only when accepted; it is not a generic
+co-instructor relationship or an invitation to change an existing membership.
 
 **Course Invitation Email Rule** is the revisioned set of normalized email
 domains applied only when an Instructor issues a Course Invitation. It does not
@@ -523,11 +569,11 @@ MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. In MATCH, a
 possible matching response. In HOTSPOT, a **Hotspot Surface** contains authored
 **Hotspot Regions** and a **Student Hotspot Selection** identifies one selected
 region. Region geometry belongs to the Question Response Format, never the
-Student Response. A future **Question Generator** is exact deterministic source data selected within an immutable Question Source and admitted only with its complete parser, publication, issue, grading, repair, and reproduction path. Current static PLE Question JSON has no Question-authored Question Variation Rule. A **Question Variation** retains the exact Question Revision and Question Seed that bind its presentation; WeBWorK and iMathAS retain their backend-owned variation behavior.
+Student Response. A future **Question Generator** is exact deterministic source data selected within an immutable Question Source and admitted only with its complete parser, publication, issue, grading, repair, and reproduction path. Current static PLE Question JSON has no Question-authored Question Variation Rule: static is a characteristic of that complete source, not a `Static` rule value. QTI profiles admit only their named static shapes and convert them to that PLE Question JSON source without adding a runtime rule. A **Question Variation** retains the exact Question Revision and Question Seed that bind its presentation; WeBWorK and iMathAS retain their backend-owned variation behavior. The Assignment-owned **Question Variation Rule** independently chooses whether a later Assignment Attempt reuses a prior Question Variation or issues a new one.
 
 **Question Variation Presentation** is the answer-free Question Backend render
 result for one exact Question Variation before issuance. It carries the nested
-Question Variation, student-facing title and prompt, and durable Question
+Question Variation, Question Title, Question Prompt, and durable Question
 Response Format. It contains no Answer Key, Question Grading Input, issuance
 nonce, presentation-scoped Response Item References, or issuance binding. A
 Question Backend may safely cache it by immutable Question Revision and
@@ -589,7 +635,7 @@ The iMathAS adapter owns iMathAS Launch Reference, iMathAS Launch State, iMathAS
 **Question Presentation** is the answer-free Student contract issued for one
 exact Question Attempt. It carries direct Question Revision and Question Seed
 with a server-minted Question Presentation Nonce; it does not nest a Question
-Variation. Its fields are title, Question Prompt, and Question Presentation
+Variation. Its fields are Question Title, Question Prompt, and Question Presentation
 Response Format. Question Response Format defines the correctness-neutral
 shape and constraints of an accepted **Student Response**. Use Question
 Response Format consistently for the authored Question, Published Question,
@@ -654,7 +700,10 @@ Published Question has exactly one current Question Owner, derived from its
 immutable **Question Ownership Events**. A Question Ownership Event records the
 initial owner or one accepted transfer. Question Ownership supplies PLE
 stewardship and change authority; it is neither Question Authorship nor a claim
-of copyright ownership.
+of copyright ownership. Transfers form one ordered chain: the current Question
+Owner records the accepted transfer to another Active Instructor Account. The
+Question Owner relationship never restricts Question Library visibility for
+other Active Instructor Accounts.
 
 **Starred Questions** is the current Account's view of Published Questions to
 which it added a **Question Star**. A Question Star is a visible endorsement;
@@ -860,12 +909,13 @@ Published Question and Question Revision retain their existing identities and
 lifecycles. Latest Question Revision is independent of Question Revision
 Availability.
 
-Future authorized publication validates the exact Draft Question Edit Number and
+Authorized publication validates the exact Draft Question Edit Number and
 atomically creates the complete Question Revision Source Binding and
 published aggregate. It copies validated lineage metadata into Published
 Question-owned storage and records revision-specific metadata and publication
 evidence with the Question Revision. No publication service or route implements
-this operation yet. The publication transaction does
+the complete browser operation yet; the server-only new-lineage publication Service is implemented,
+but no publication Server Route exists. The publication transaction does
 not add the Draft Question to a published table or index. The Question Revision Reference owns the immutable source, its Source
 Object Reference and Source Object Checksum when object storage is used, and
 every derived or protected value needed to present and grade that source. The
@@ -884,7 +934,8 @@ whether a published revision is Available or Archived for selection.
 **Question Change Proposal** is one Instructor-owned improvement thread against
 a Published Question. A **Question Change Proposal Revision** is one complete,
 immutable, numbered proposed change with its exact base Question Revision,
-publication-validation evidence, semantic impact, and grading impact. A
+Question Publication Validation evidence, semantic impact, and grading impact. Its SQL field is
+`question_publication_validation`, not an unqualified validation property. A
 **Question Change Event** is immutable evidence that opens, merges, or closes
 one exact Proposal Revision; it derives the Proposal's Open, Merged, or Closed
 state. A merge records the new same-lineage Question Revision and succeeds only
@@ -1037,7 +1088,7 @@ Selected, while every other Assignment Attempt remains retained evidence.
 
 **Course Grade Scheme** is the Course Instance's complete, server-calculated
 grade configuration. It uses either total points or weighted Grade Categories,
-with one final rounding rule and optional letter bands. A **Grade Category**
+with one final rounding rule and optional Letter Grade Bands. A **Grade Category**
 has its title, weight, order, and Drop Lowest count in that Scheme; included
 Assignments refer to its exact Grade Category identity.
 
@@ -1155,7 +1206,7 @@ ordinary sources of PLE authority:
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Authenticate                          | Active Account -> Authenticated Session                                                                                                                                                                  |
 | Question Library                      | Authenticated Session -> Active Instructor Account -> Published Question                                                                                                                                 |
-| Private authoring                     | Authenticated Session -> Active Instructor Account -> exact Authoring Workspace ownership or Workspace Collaborator relationship                                                                         |
+| Private authoring                     | Authenticated Session -> Active Instructor Account -> exact Authoring Workspace Owner or Workspace Collaborator relationship                                                                             |
 | Draft Blueprint Revision contribution | Authenticated Session -> Active Instructor Account -> current Blueprint Collaborator relationship -> exact Draft Blueprint Revision                                                                      |
 | Teach a Course Instance               | Authenticated Session -> Active Instructor Account -> active Instructor Course Membership -> Course Instance                                                                                             |
 | Student course work                   | Authenticated Session -> Active Student Account -> active Student Course Membership -> Student Record -> Assignment Attempt -> exact Released Assignment Revision -> Issued Question -> Question Attempt |

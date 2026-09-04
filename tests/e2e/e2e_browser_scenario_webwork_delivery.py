@@ -31,7 +31,7 @@ class PublishedQuestionFixture:
 	"""One public Published Question selected for this disposable browser scenario."""
 
 	question_id: str
-	title: str
+	question_title: str
 
 
 @dataclasses.dataclass(frozen=True)
@@ -56,16 +56,16 @@ class RendererCallWitness:
 #============================================
 def decode_published_question_fixture_receipt(contents: str) -> PublishedQuestionFixture:
 	"""Decode one public Published Question receipt without provider internals."""
-	value = _decode_canonical_object(contents, {"questionId", "title"})
+	value = _decode_canonical_object(contents, {"questionId", "questionTitle"})
 	question_id = value["questionId"]
-	title = value["title"]
+	question_title = value["questionTitle"]
 	if (
 		not isinstance(question_id, str)
 		or QUESTION_ID_PATTERN.fullmatch(question_id) is None
-		or title != PUBLISHED_QUESTION_TITLE
+		or question_title != PUBLISHED_QUESTION_TITLE
 	):
 		raise WebworkDeliveryEvidenceError("WebWork Published Question fixture receipt is invalid")
-	return PublishedQuestionFixture(question_id, title)
+	return PublishedQuestionFixture(question_id, question_title)
 
 
 #============================================
@@ -75,13 +75,13 @@ def write_published_question_fixture_input(
 	"""Write the closed browser hand-off from one already validated public receipt."""
 	if not isinstance(fixture, PublishedQuestionFixture):
 		raise WebworkDeliveryEvidenceError("WebWork Published Question fixture is invalid")
-	if QUESTION_ID_PATTERN.fullmatch(fixture.question_id) is None or fixture.title != PUBLISHED_QUESTION_TITLE:
+	if QUESTION_ID_PATTERN.fullmatch(fixture.question_id) is None or fixture.question_title != PUBLISHED_QUESTION_TITLE:
 		raise WebworkDeliveryEvidenceError("WebWork Published Question fixture is invalid")
 	value = {
 		"questionId": fixture.question_id,
 		"scenarioId": SCENARIO_ID,
 		"schemaVersion": PUBLISHED_QUESTION_FIXTURE_SCHEMA_VERSION,
-		"title": fixture.title,
+		"questionTitle": fixture.question_title,
 	}
 	contents = json.dumps(value, separators=(",", ":"), ensure_ascii=True)
 	_write_private_file(path, contents)
@@ -92,13 +92,13 @@ def validate_published_question_fixture_input(path: pathlib.Path) -> PublishedQu
 	"""Require one canonical private browser input before Chromium can read it."""
 	contents = _read_private_file(path, "WebWork Published Question fixture input")
 	value = _decode_canonical_object(
-		contents, {"questionId", "scenarioId", "schemaVersion", "title"}
+		contents, {"questionId", "questionTitle", "scenarioId", "schemaVersion"}
 	)
 	if value.get("schemaVersion") != PUBLISHED_QUESTION_FIXTURE_SCHEMA_VERSION or value.get("scenarioId") != SCENARIO_ID:
 		raise WebworkDeliveryEvidenceError("WebWork Published Question fixture input is invalid")
 	fixture = decode_published_question_fixture_receipt(
 		json.dumps(
-			{"questionId": value.get("questionId"), "title": value.get("title")},
+			{"questionId": value.get("questionId"), "questionTitle": value.get("questionTitle")},
 			separators=(",", ":"),
 			ensure_ascii=True,
 		)

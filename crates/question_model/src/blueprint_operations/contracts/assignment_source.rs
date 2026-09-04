@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::BlueprintRevisionReference;
-use crate::{BlueprintAssignmentId, BlueprintCourseReference, BlueprintRevision};
+use crate::{BlueprintAssignmentReference, BlueprintCourseReference, BlueprintRevision};
 
 /// One exact Blueprint Assignment selected from a Blueprint Revision.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -11,7 +11,7 @@ use crate::{BlueprintAssignmentId, BlueprintCourseReference, BlueprintRevision};
 pub struct BlueprintAssignmentRevisionReference {
     reference: BlueprintCourseReference,
     revision: BlueprintRevision,
-    assignment_id: BlueprintAssignmentId,
+    blueprint_assignment_reference: BlueprintAssignmentReference,
 }
 
 #[derive(Deserialize)]
@@ -19,7 +19,7 @@ pub struct BlueprintAssignmentRevisionReference {
 struct BlueprintAssignmentReferenceParts {
     reference: BlueprintCourseReference,
     revision: BlueprintRevision,
-    assignment_id: BlueprintAssignmentId,
+    blueprint_assignment_reference: BlueprintAssignmentReference,
 }
 
 impl From<BlueprintAssignmentReferenceParts> for BlueprintAssignmentRevisionReference {
@@ -29,18 +29,21 @@ impl From<BlueprintAssignmentReferenceParts> for BlueprintAssignmentRevisionRefe
                 reference: value.reference,
                 revision: value.revision,
             },
-            value.assignment_id,
+            value.blueprint_assignment_reference,
         )
     }
 }
 
 impl BlueprintAssignmentRevisionReference {
     /// Binds a Blueprint Revision to one stable Blueprint Assignment lineage.
-    pub fn new(source: BlueprintRevisionReference, assignment_id: BlueprintAssignmentId) -> Self {
+    pub fn new(
+        source: BlueprintRevisionReference,
+        blueprint_assignment_reference: BlueprintAssignmentReference,
+    ) -> Self {
         Self {
             reference: source.reference,
             revision: source.revision,
-            assignment_id,
+            blueprint_assignment_reference,
         }
     }
 
@@ -52,14 +55,15 @@ impl BlueprintAssignmentRevisionReference {
         }
     }
 
-    /// Returns the stable assignment identity inside this exact Blueprint revision.
-    pub fn assignment_id(self) -> BlueprintAssignmentId {
-        self.assignment_id
+    /// Returns the stable Blueprint Assignment Reference inside this exact Blueprint Revision.
+    pub fn blueprint_assignment_reference(self) -> BlueprintAssignmentReference {
+        self.blueprint_assignment_reference
     }
 
     /// Returns whether both sources name the same retained assignment lineage.
     pub fn same_assignment_lineage(self, other: Self) -> bool {
-        self.reference == other.reference && self.assignment_id == other.assignment_id
+        self.reference == other.reference
+            && self.blueprint_assignment_reference == other.blueprint_assignment_reference
     }
 
     /// Returns whether this is a later revision of the exact same assignment lineage.

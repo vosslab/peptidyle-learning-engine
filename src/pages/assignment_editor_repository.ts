@@ -1,4 +1,4 @@
-// assignment_editor_repository.ts - Questions discovery and reuse browser adapter.
+// assignment_editor_repository.ts - Questions discovery and source-selection browser adapter.
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { CourseId } from "../../generated/api/CourseId";
@@ -29,13 +29,14 @@ export interface AssignmentEditorRepository {
     exclude?: AssignmentId,
   ) => Promise<ReadonlyArray<QuestionPickerSource>>;
   readonly questionPickerRepository: QuestionPickerSourceRepository;
-  readonly listBlueprintAssignments: (
+  readonly listRetainedAssignmentQuestionSources: (
     course: CourseId,
     exclude?: AssignmentId,
-  ) => Promise<ReadonlyArray<BlueprintAssignment>>;
+  ) => Promise<ReadonlyArray<RetainedAssignmentQuestionSource>>;
 }
 
-export interface BlueprintAssignment {
+/** Answer-free Questions projected from one retained Course Instance Assignment. */
+export interface RetainedAssignmentQuestionSource {
   readonly assignmentId: AssignmentId;
   readonly title: string;
   readonly questions: ReadonlyArray<AssignmentQuestionRow>;
@@ -47,7 +48,7 @@ function retainedQueryMatches(
 ): boolean {
   const search = query.search.trim().toLocaleLowerCase();
   if (search !== "") {
-    const haystack = [row.title, row.displayId, row.summary, ...row.authorNames]
+    const haystack = [row.questionTitle, row.displayId, row.summary, ...row.authorNames]
       .join(" ")
       .toLocaleLowerCase();
     if (!haystack.includes(search)) return false;
@@ -56,7 +57,7 @@ function retainedQueryMatches(
   if (query.backend !== null || query.questionType !== null || query.tag !== null) return false;
   if (query.capability !== null && !row.capabilities.includes(query.capability)) return false;
   if (query.questionLicense !== null && row.questionLicense !== query.questionLicense) return false;
-  if (query.evidence === "available" || query.usedInMyCourses === "used") return false;
+  if (query.usedInMyCourses === "used") return false;
   return true;
 }
 
@@ -69,10 +70,14 @@ function page(
 
 function questionRow(item: {
   readonly questionId: string;
-  readonly metadata: { readonly title: string };
+  readonly metadata: { readonly questionTitle: string };
   readonly backend: AssignmentQuestionRow["backend"];
 }): AssignmentQuestionRow {
-  return { questionId: item.questionId, title: item.metadata.title, backend: item.backend };
+  return {
+    questionId: item.questionId,
+    questionTitle: item.metadata.questionTitle,
+    backend: item.backend,
+  };
 }
 
 /** Questions reads published metadata and reusable sources through this adapter. */
@@ -100,23 +105,23 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
         )
         .map((entry) => ({
           displayId: entry.questionId,
-          title: entry.title,
+          questionTitle: entry.questionTitle,
           summary: "Active fixed question retained in this assignment.",
           authorNames: [],
           capabilities: entry.capabilities,
           questionLicense: null,
-          evidence: { state: "insufficientEvidence" as const },
+          evidence: { state: "unavailable" as const },
         }));
       const poolRows = assignment.entries.flatMap((entry) =>
         entry.kind === "questionPool"
           ? entry.items.map((item) => ({
               displayId: item.questionId,
-              title: item.title,
+              questionTitle: item.questionTitle,
               summary: "Question retained in this assignment pool.",
               authorNames: [],
               capabilities: [],
               questionLicense: null,
-              evidence: { state: "insufficientEvidence" as const },
+              evidence: { state: "unavailable" as const },
             }))
           : [],
       );
@@ -133,13 +138,17 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
       course,
       exclude,
     ): Promise<ReadonlyArray<QuestionPickerSource>> => {
-      const reusable = await listBlueprintAssignments(client, course, exclude);
+      const retainedAssignments = await listRetainedAssignmentQuestionSources(
+        client,
+        course,
+        exclude,
+      );
       const blueprintCourses = await listAllBlueprintCourses(client);
       const blueprintAssignments = await listBlueprintAssignmentSources(client, blueprintCourses);
       return [
-        { kind: "library", label: "Library" },
+        { kind: "library", label: "Question Library" },
         { kind: "mine", label: "My Questions" },
-        ...reusable.map((assignment) => ({
+        ...retainedAssignments.map((assignment) => ({
           kind: "retainedAssignment" as const,
           label: `Assignment: ${assignment.title}`,
           retainedAssignment: { course, assignment: assignment.assignmentId },
@@ -147,19 +156,19 @@ export function createAssignmentEditorRepository(client: ApiClient): AssignmentE
         ...blueprintAssignments,
       ];
     },
-    listBlueprintAssignments: async (
+    listRetainedAssignmentQuestionSources: async (
       course,
       exclude,
-    ): Promise<ReadonlyArray<BlueprintAssignment>> =>
-      await listBlueprintAssignments(client, course, exclude),
+    ): Promise<ReadonlyArray<RetainedAssignmentQuestionSource>> =>
+      await listRetainedAssignmentQuestionSources(client, course, exclude),
   };
 }
 
-async function listBlueprintAssignments(
+async function listRetainedAssignmentQuestionSources(
   client: ApiClient,
   course: CourseId,
   exclude: AssignmentId | undefined,
-): Promise<ReadonlyArray<BlueprintAssignment>> {
+): Promise<ReadonlyArray<RetainedAssignmentQuestionSource>> {
   const assignments = [];
   let cursor: string | undefined;
   const seenCursors = new Set<string>();
@@ -188,7 +197,7 @@ async function listBlueprintAssignments(
       )
       .map((entry) => ({
         questionId: entry.questionId,
-        title: entry.title,
+        questionTitle: entry.questionTitle,
         backend: entry.backend,
       })),
   }));
@@ -227,7 +236,7 @@ async function listBlueprintAssignmentSources(
         source: {
           reference: blueprintCourse.reference,
           revision: blueprintCourse.revision,
-          assignment_id: content.assignment_id,
+          blueprint_assignment_reference: content.blueprint_assignment_reference,
         },
         label: `Blueprint Course: ${blueprintCourse.title} - ${module.label} - ${content.content.title}`,
       })),

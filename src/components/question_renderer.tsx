@@ -96,7 +96,7 @@ type SafeMathMlElementNode = {
 type SanitizedMathMl = { readonly root: SafeMathMlElementNode };
 
 /** A narrow callback that must derive the documented application asset route from an QuestionAssetReference. */
-export type AssetUrlResolver = (asset: QuestionAssetReference) => URL;
+export type AssetUrlResolver = (questionAsset: QuestionAssetReference) => URL;
 
 /**
  * The identity-free Question Variation Presentation that the browser renderer needs. Published
@@ -242,11 +242,11 @@ function renderLatexToMathMl(latex: string): SanitizedMathMl {
 
 /** Refuse every route except the authorized, logical application asset endpoint. */
 export function resolveSameOriginAssetUrl(
-  asset: QuestionAssetReference,
+  questionAsset: QuestionAssetReference,
   resolver: AssetUrlResolver,
 ): string {
-  const url = resolver(asset);
-  const expectedPath = `/api/assets/${encodeURIComponent(asset.asset)}`;
+  const url = resolver(questionAsset);
+  const expectedPath = `/api/assets/${encodeURIComponent(questionAsset.questionAsset)}`;
   if (
     url.origin !== globalThis.location.origin ||
     url.pathname !== expectedPath ||
@@ -377,7 +377,7 @@ function QuestionContentBlockRenderer(props: {
         <figure class="question-renderer__figure">
           <img
             class="question-renderer__image"
-            src={resolveSameOriginAssetUrl(props.block.asset, props.assetUrl)}
+            src={resolveSameOriginAssetUrl(props.block.questionAsset, props.assetUrl)}
             alt={description}
             onError={recoverProtectedAssetImage}
           />

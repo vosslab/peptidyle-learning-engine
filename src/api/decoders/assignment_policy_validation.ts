@@ -47,10 +47,13 @@ function decodePolicyValidationIssue(
         ),
       } satisfies AssignmentPoliciesValidationIssue;
     case "capability":
-      requireOnlyFields(record, path, ["kind", "title", "questionId", "capability"]);
+      requireOnlyFields(record, path, ["kind", "questionTitle", "questionId", "capability"]);
       return {
         kind: issueKind,
-        title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
+        questionTitle: decodeQuestionTitle(
+          field(record, "questionTitle", path),
+          `${path}.questionTitle`,
+        ),
         questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
         capability: decodeCapability(field(record, "capability", path), `${path}.capability`),
       } satisfies AssignmentPoliciesValidationIssue;

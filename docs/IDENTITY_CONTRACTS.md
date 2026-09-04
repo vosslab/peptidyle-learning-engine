@@ -58,7 +58,7 @@ former installation-scope model to these identities.
 | `SessionId`               | Global, durable session record        | Names one server-tracked login session, including expiry and revocation state.                                                                                     |
 | `SessionTokenHash`        | Server-only session record            | Stores the hash of the opaque browser credential. The raw credential is never a DTO, record reference, or log value.                                               |
 | Active Instructor Account | Global Account Product Role and state | An Account with Instructor Product Role and active Account State establishes current Instructor product capabilities and is re-evaluated for protected operations. |
-| `Sysadmin` Product Role   | Implemented global Account state      | Names limited platform operations. It has no Course Membership; teaching and FERPA reads use direct Instructor Account authority or audited support.               |
+| `Sysadmin` Product Role   | Implemented global Account state      | Names limited platform operations. It has no Course Membership; teaching and FERPA reads use current Instructor Course Membership authority or audited support.    |
 
 The server resolves the opaque first-party session credential to a `SessionRecord`
 with its global account and session identity. The browser receives only its own answer-free
@@ -139,7 +139,7 @@ ancestry.
 
 Published-question stewardship has four distinct paths:
 
-- An owner moderate edit passes publication validation and creates a new
+- An owner moderate edit passes Question Publication Validation and creates a new
   immutable version in the same `QuestionId` lineage.
 - Any Instructor may submit a `QuestionChangeProposal` against one exact
   immutable base version. Validation runs before submission, semantic and
@@ -191,14 +191,14 @@ until each workflow has its complete privacy and disclosure contract.
 
 ## Typed operational identities and scopes
 
-| Identity                 | Scope                                    | Intended use                                                                                                                                                                                                      |
-| ------------------------ | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `JobId`                  | Durable queue record                     | Names one durable work unit. It does not establish a worker lease or target authorization.                                                                                                                        |
-| `JobLeaseToken`          | One worker claim                         | Opaque server/worker capability for the current lease. It is replaced on reclaim and never enters a browser contract.                                                                                             |
-| Job target scope         | Locked job manifest                      | Question Library work uses the exact `question_revision` Job Target resolved from immutable job metadata. Job Kind Registration, target type, generation, and Job claim-and-lease grant agree before work starts. |
-| `AssetDeliveryId`        | Protected delivery lookup                | Refers to an authorized `QuestionAssetId`, `ObjectId`, or course banner. It does not mint another logical object or grant raw storage access.                                                                     |
-| `AttemptSupportActionId` | One idempotent Instructor support action | Audits a sensitive action against its exact course and attempt scope.                                                                                                                                             |
-| `ScoringGeneration`      | Current-score fence                      | Positive monotonic generation that makes obsolete work harmless without deleting history.                                                                                                                         |
+| Identity                 | Scope                               | Intended use                                                                                                                                                                                                      |
+| ------------------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `JobId`                  | Durable queue record                | Names one durable work unit. It does not establish a worker lease or target authorization.                                                                                                                        |
+| `JobLeaseToken`          | One worker claim                    | Opaque server/worker capability for the current lease. It is replaced on reclaim and never enters a browser contract.                                                                                             |
+| Job target scope         | Locked job manifest                 | Question Library work uses the exact `question_revision` Job Target resolved from immutable job metadata. Job Kind Registration, target type, generation, and Job claim-and-lease grant agree before work starts. |
+| `AssetDeliveryId`        | Protected delivery lookup           | Refers to an authorized `QuestionAssetId`, `ObjectId`, or course banner. It does not mint another logical object or grant raw storage access.                                                                     |
+| `AttemptSupportActionId` | One exact Instructor support action | Audits a sensitive action against its exact course and attempt scope.                                                                                                                                             |
+| `ScoringGeneration`      | Current-score fence                 | Positive monotonic generation that makes obsolete work harmless without deleting history.                                                                                                                         |
 
 A worker derives every target from its locked current lease and immutable job
 manifest. Queue payload, retry input, provider response, object reference, and
@@ -215,7 +215,6 @@ session account and the appropriate parent relationship before returning a recor
 | `QuestionId` (`AAA-BBBB`)                                                                                     | Question Library search, display, and selection | Resolves one stable Published Question lineage after approved-Instructor authorization; not a Question Revision selector or answer authority.                      |
 | `CourseInstanceReference`, `AssignmentReference`, `AssignmentAttemptReference`, `AuthoringWorkspaceReference` | Human-readable route/display References         | Positive `C-`, `A-`, `R-`, and `W-` References resolve only inside the authenticated Account's authorized Course Instance or Authoring Workspace relationship.     |
 | `QuestionAttemptId` in a route                                                                                | Names an already issued Question Attempt        | Server additionally verifies exact active Student Record ownership or permitted current Instructor scope.                                                          |
-| `SubmissionIdempotencyKey` header                                                                             | Bounded ASCII key for one retry                 | Matches stored request/receipt hashes; identical replay is safe and changed replay conflicts.                                                                      |
 | `PresentationResponseItemReference`                                                                           | Presentation-scoped Response Item Reference     | Maps only through server-held attempt presentation state to a semantic item identity.                                                                              |
 | `QuestionPresentationNonce` and `QuestionPresentationToken`                                                   | Presentation binding values                     | The nonce participates in the complete server-held Question Presentation Checksum; the public token is its compact comparison value. Neither authorizes a request. |
 | Student Hotspot Selection                                                                                     | One selected presentation-scoped Hotspot Region | Resolves through the exact issued presentation to a durable Hotspot Region; authored geometry remains in Question Response Format.                                 |

@@ -20,10 +20,10 @@ quotas or telemetry targets.
 The future student screenshot capture set must include an allowed student surface and an access-denial state for
 instructor-only routes. Pixels show composition and the visible denial; they cannot prove
 authorization. Each access capture therefore ships with no-transport assertions that the denied
-route mounted no instructor payload, plus direct route probes for the same session.
+Server Route returned no Instructor payload, plus direct route probes for the same session.
 
 The denial boundary is one centrally derived, fail-closed route decision. It runs before instructor
-components or transport requests mount. It covers every instructor-only route, including roster and
+components render or transport requests begin. It covers every instructor-only route, including roster and
 gradebook, and does not depend on a component hiding itself after a request. A direct navigation to
 an instructor-only route must receive the same denial and no instructor transport as an in-app link.
 

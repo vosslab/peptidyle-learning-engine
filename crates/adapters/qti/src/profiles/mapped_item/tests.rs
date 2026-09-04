@@ -66,7 +66,7 @@ fn mapped_item_produces_checksum_inputs_and_server_parts_without_private_debug()
     assert_eq!(parts.profile(), QtiProfileId::BLACKBOARD);
     assert_eq!(parts.profile_version(), QtiProfileId::BLACKBOARD.version());
     assert_eq!(parts.mapping_version(), QtiMappingVersion::V1);
-    assert_eq!(parts.public_mapping().title, "Favorite color");
+    assert_eq!(parts.public_mapping().question_title, "Favorite color");
     assert_eq!(parts.server_correct_ple_choice_id(), "blue");
     assert_eq!(parts.server_ordered_choice_map().len(), 2);
     assert_eq!(
@@ -248,7 +248,7 @@ fn safe_report_constructor_refuses_values_beyond_its_visible_bounds() {
             choice_map,
             "blue".to_string(),
         ),
-        Err(QtiMappedItemError::TitleTooLong)
+        Err(QtiMappedItemError::QuestionTitleTooLong)
     ));
 }
 
@@ -352,5 +352,5 @@ fn rejected_reports_are_bounded_and_do_not_echo_source_or_vendor_identifiers() {
         ],
     )
     .expect("missing title remains reportable");
-    assert_eq!(missing_title.title(), None);
+    assert_eq!(missing_title.question_title(), None);
 }

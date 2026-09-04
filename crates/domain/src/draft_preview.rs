@@ -19,8 +19,8 @@ pub struct DraftPreviewRequest {
     pub workspace: WorkspaceId,
     /// Question Backend selected by the draft.
     pub question_backend: QuestionBackend,
-    /// Student-facing draft title.
-    pub title: String,
+    /// Student-facing Question Title.
+    pub question_title: String,
     /// Authored prompt blocks.
     pub prompt: Vec<QuestionContentBlock>,
     /// Browser-safe response shape.
@@ -33,8 +33,8 @@ pub struct DraftPreviewRequest {
 pub struct DraftQuestionPreview {
     /// Private workspace owning the draft.
     pub workspace: WorkspaceId,
-    /// Student-facing title.
-    pub title: String,
+    /// Student-facing Question Title.
+    pub question_title: String,
     /// Fully constructed prompt for the deterministic Question Variation.
     pub prompt: Vec<QuestionContentBlock>,
     /// Browser-safe response shape.
@@ -75,7 +75,7 @@ pub fn preview_ple_draft(request: &DraftPreviewRequest) -> DraftPreviewResult {
     DraftPreviewResult::Ready {
         preview: DraftQuestionPreview {
             workspace: request.workspace,
-            title: request.title.clone(),
+            question_title: request.question_title.clone(),
             prompt,
             response: request.response.clone(),
         },

@@ -13,7 +13,7 @@ acceptance condition.
 
 | Requirement                 | Evidence                                                                                                                                                    | Result |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| Local-only capability       | The local form renders only when the server response advertises `localDevelopmentRoster`; the production-style server route remains unmounted               | OK     |
+| Local-only capability       | The local form renders only when the server response advertises `localDevelopmentRoster`; the production-style Server Route does not exist                  | OK     |
 | Manager-only action         | Server roster and activation routes require manager course access; capability-off Chromium case renders no local control or request                         | OK     |
 | Alias-only request          | The browser sends exactly `{ learnerAlias }`; the configured server-side directory resolves all identity fields                                             | OK     |
 | Strict redacted decoder     | The member source is a closed browser presentation enum; accepted local responses require `localDevelopment`, active student role, and null email/roster ID | OK     |

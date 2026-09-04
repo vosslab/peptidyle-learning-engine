@@ -118,7 +118,7 @@ the domain relationship that authorizes it:
 | Private authoring   | `authoring_workspace_uuid` names an Authoring Workspace; exact owning and collaborating Instructor relationships authorize it.                                                        |
 | Draft Question      | `draft_question_uuid` is private Draft Question identity; `draft_question_edit_number` is its positive concurrency token.                                                             |
 | Question Library    | `question_id` is the stable Published Question lineage identifier; `QuestionRevisionReference { question_id, revision_number }` names one immutable revision and is its storage pair. |
-| Teaching course     | `BlueprintCourse` owns reusable structure under `blueprint_course_uuid`; `CourseInstance` owns live teaching under `course_instance_uuid` and current direct Instructor Membership.   |
+| Teaching course     | `BlueprintCourse` owns reusable structure under `blueprint_course_uuid`; `CourseInstance` owns live teaching under `course_instance_uuid` and current Instructor Course Membership.   |
 | Student records     | `student_record_uuid` names the Student Record inside its exact `course_instance_uuid`.                                                                                               |
 | Assignment          | `assignment_uuid` names an Assignment under its `course_instance_uuid`; policy and Gradebook records use that parent.                                                                 |
 | Activity            | `assignment_attempt_uuid`, `issued_question_uuid`, and `question_attempt_uuid` name the exact activity spine.                                                                         |

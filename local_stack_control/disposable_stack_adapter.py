@@ -20,12 +20,16 @@ import local_stack_control.runtime_manifest
 MANIFEST_KEYS = ("OWNER", "PROJECT", "ENV_FILE", "CAPABILITY_FILE")
 LIVE_DEMO_MANIFEST_KEYS = (*MANIFEST_KEYS, "PROFILE")
 CONTAINER_ID_PREFIX_PATTERN = re.compile(r"^[a-f0-9]{12}$")
-POSTGRESQL_COUNT_FIELDS = (
-	"question_attempt",
-	"submission",
-	"submission_idempotency",
-	"submission_evaluation",
-	"attempt_score_current",
+POSTGRESQL_ATTEMPT_COUNT_QUERIES = (
+	"SELECT count(*) FROM ple_private.question_attempt WHERE question_attempt_id = :'attempt_id'::uuid",
+	"SELECT count(*) FROM ple_private.question_submission WHERE question_attempt_id = :'attempt_id'::uuid",
+	"SELECT count(*) FROM ple_private.question_submission_grading AS grading "
+	"JOIN ple_private.question_submission AS submission ON submission.submission_id = grading.submission_id "
+	"WHERE submission.question_attempt_id = :'attempt_id'::uuid",
+	"SELECT count(*) FROM ple_private.grading_result WHERE question_attempt_id = :'attempt_id'::uuid",
+	"SELECT count(*) FROM ple_audit.automated_grading_receipt AS receipt "
+	"JOIN ple_private.grading_result AS result ON result.grading_result_id = receipt.grading_result_id "
+	"WHERE result.question_attempt_id = :'attempt_id'::uuid",
 )
 EVIDENCE_LOG_TAIL_LINES = 5_000
 EVIDENCE_LOG_MAX_CHARACTERS = 1_000_000
@@ -595,10 +599,9 @@ def postgresql_count_command(
 		raise local_stack_control.models.ControllerError(
 			"PostgreSQL count target omits its database selection"
 		)
+	# ASVS 1.2.4: the attempt identifier remains a psql parameter; SQL identifiers are fixed above.
 	sql = "SELECT " + ",".join(
-		f"(SELECT count(*) FROM {table} "
-		"WHERE attempt_id = :'attempt_id'::uuid)"
-		for table in POSTGRESQL_COUNT_FIELDS
+		f"({query})" for query in POSTGRESQL_ATTEMPT_COUNT_QUERIES
 	) + ";\n"
 	argv = local_stack_control.compose.compose_argv(
 		disposable.target,

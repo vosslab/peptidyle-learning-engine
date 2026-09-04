@@ -197,7 +197,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
               <For each={preview().items}>
                 {(item) => (
                   <li>
-                    <strong>{item.questionId}</strong> {item.title}
+                    <strong>{item.questionId}</strong> {item.questionTitle}
                   </li>
                 )}
               </For>
@@ -207,7 +207,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
               <For each={preview().selectedItems}>
                 {(sample) => (
                   <li>
-                    <strong>{sample.questionId}</strong> {sample.title}
+                    <strong>{sample.questionId}</strong> {sample.questionTitle}
                   </li>
                 )}
               </For>
@@ -231,7 +231,7 @@ export function AssignmentPoolEditor(props: AssignmentPoolEditorProps): JSX.Elem
             {(entry) => (
               <li>
                 <span>
-                  <strong>{entry.questionId}</strong> {entry.title}
+                  <strong>{entry.questionId}</strong> {entry.questionTitle}
                 </span>
                 <button
                   class="quiet-action"

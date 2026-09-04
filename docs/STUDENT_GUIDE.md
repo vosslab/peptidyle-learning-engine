@@ -9,9 +9,9 @@ membership, Student record, or authorization claim.
 
 The current browser surface ends at this account/session entry. Course lists,
 assignment pages, Question Response Controls, submissions, Student Feedback,
-grades, and Assignment Attempt history are not mounted current routes. Start
+grades, and Assignment Attempt history have no current Server Routes. Start
 the local stack using [USAGE.md](USAGE.md) and use the visible account page to
-inspect the mounted session entry.
+inspect the available session entry.
 
 ## Future Student delivery contract
 
@@ -40,5 +40,5 @@ does not infer them from its own clock or from an identifier.
 
 The future Student interface uses visible controls and the keyboard model in
 [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md). A
-restored browser acceptance owner must validate the actual mounted journey
+restored browser acceptance owner must validate the actual connected journey
 before screenshots or this guide describe the delivery interface as current.

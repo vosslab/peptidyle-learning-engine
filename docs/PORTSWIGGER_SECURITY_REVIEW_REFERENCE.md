@@ -188,7 +188,7 @@ screens. See [race conditions](https://portswigger.net/web-security/race-conditi
 
 - **Preconditions:** Login, invitation claim, publish, attempt issue/submit, quota, signed delivery,
   or retention operations use read-then-write logic or background workers.
-- **Review questions:** What invariant must be atomic? Which row/version/idempotency key is locked?
+- **Review questions:** What invariant must be atomic? Which row, version, or exact operation identity is locked?
   What happens if two requests race across a timeout, retry, worker, or second browser? Can an old
   presentation or revoked session complete a later step?
 - **Evidence:** Database constraints, transaction isolation, `FOR UPDATE`/conditional updates,

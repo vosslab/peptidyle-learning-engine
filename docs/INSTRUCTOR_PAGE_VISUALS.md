@@ -64,7 +64,7 @@ evidence before a current UI change can claim visual acceptance.
 
 Course Instance pages use the Grass palette in standard presentation. This makes the gallery useful
 for evaluating normal theme character as well as density, hierarchy, navigation, and page-level
-composition. The mounted Live Demo entry is intentionally distinct from the planned email-code and
+composition. The available Live Demo entry is intentionally distinct from the planned email-code and
 passkey authentication adapters.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->

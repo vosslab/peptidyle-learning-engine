@@ -411,9 +411,9 @@ fn pending_items(
             push_item(
                 &mut items,
                 ResponseItemRole::HotspotSurface,
-                &surface.asset.to_string(),
+                &surface.question_asset.to_string(),
                 vec![QuestionContentBlock::Image {
-                    asset: surface.clone(),
+                    question_asset: surface.clone(),
                     description: description.clone(),
                 }],
                 assets,
@@ -630,7 +630,10 @@ fn public_presentation(
                 .ok_or(PresentationBuildError::InvalidPublicContent(
                     "hotspot surface mapping is absent",
                 ))?;
-            let QuestionContentBlock::Image { asset, description } = &surface.basis.content[0]
+            let QuestionContentBlock::Image {
+                question_asset,
+                description,
+            } = &surface.basis.content[0]
             else {
                 return Err(PresentationBuildError::InvalidPublicContent(
                     "hotspot surface is not image-backed",
@@ -647,7 +650,7 @@ fn public_presentation(
             QuestionPresentationResponseFormat::Hotspot {
                 surface: PresentedHotspotSurface {
                     id: surface.presentation_response_item_reference.clone(),
-                    asset: asset.clone(),
+                    question_asset: question_asset.clone(),
                     description: description.clone(),
                     regions: regions
                         .iter()
@@ -674,7 +677,7 @@ fn public_presentation(
         question_revision: source.variation.question_revision.clone(),
         question_seed: source.variation.question_seed,
         presentation_nonce: nonce,
-        title: source.title.clone(),
+        question_title: source.question_title.clone(),
         prompt: source.prompt.clone(),
         response,
     })
@@ -760,7 +763,7 @@ fn public_item_bindings(
             maximum,
         } => {
             validate_public_bounds(*minimum, *maximum, u32::MAX)?;
-            let binding = question_asset_rendition(&surface.asset, assets)?;
+            let binding = question_asset_rendition(&surface.question_asset, assets)?;
             let dimensions = Some((
                 binding
                     .intrinsic_width
@@ -779,7 +782,7 @@ fn public_item_bindings(
                 surface.id.clone(),
                 ResponseItemRole::HotspotSurface,
                 vec![QuestionContentBlock::Image {
-                    asset: surface.asset.clone(),
+                    question_asset: surface.question_asset.clone(),
                     description: surface.description.clone(),
                 }],
                 assets,

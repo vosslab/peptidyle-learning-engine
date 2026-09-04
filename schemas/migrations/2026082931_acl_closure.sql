@@ -27,8 +27,8 @@ GRANT EXECUTE ON FUNCTION ple_api.resolve_and_install_session(bytea) TO ple_auth
 GRANT EXECUTE ON FUNCTION ple_api.current_session_account_id(),
     ple_api.current_session_account_is_course_instructor(uuid),
     ple_api.current_session_account_owns_student_record(uuid, uuid),
-    ple_api.current_session_account_owns_workspace(uuid),
-    ple_api.current_session_account_can_access_workspace(uuid),
+    ple_api.current_session_account_is_authoring_workspace_owner(uuid),
+    ple_api.current_session_account_can_access_authoring_workspace(uuid),
     ple_api.current_session_account_has_course_observer_relationship(uuid),
     ple_api.current_session_account_has_support_capability(uuid, uuid, uuid, text)
     TO ple_app, ple_auth, ple_student;

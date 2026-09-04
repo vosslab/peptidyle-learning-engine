@@ -5,7 +5,7 @@ import { Show, type JSX } from "solid-js";
 import type { InstructorStudentView } from "../../generated/api/InstructorStudentView";
 import type { StudentAssignmentDetail } from "../../generated/api/StudentAssignmentDetail";
 import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
-import type { StudentClassStatistics } from "../../generated/api/StudentClassStatistics";
+import type { ClassStatistics } from "../../generated/api/ClassStatistics";
 import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
 import type { StudentFeedbackReleaseTiming } from "../../generated/api/StudentFeedbackReleaseTiming";
 import type { StudentLateWorkStatus } from "../../generated/api/StudentLateWorkStatus";
@@ -21,7 +21,7 @@ export interface StudentAssignmentPresentationDelivery {
   readonly attemptLimit: number | null;
   readonly lateWorkRule: "accept" | "mark_late" | "reject";
   readonly assignmentDeadlineRule: "auto_submit";
-  readonly lateStatus?: StudentLateWorkStatus;
+  readonly studentLateWorkStatus?: StudentLateWorkStatus;
 }
 
 /**
@@ -89,7 +89,7 @@ export function toStudentAssignmentPresentationData(
       attemptLimit: assignment.delivery.attempt_limit,
       lateWorkRule: assignment.delivery.late_work_rule,
       assignmentDeadlineRule: assignment.delivery.assignment_deadline_rule,
-      lateStatus: assignment.delivery.late_status,
+      studentLateWorkStatus: assignment.delivery.student_late_work_status,
     },
     questionsPerAssignmentAttempt: assignment.entries.reduce(
       (count, entry) =>
@@ -148,7 +148,7 @@ export function formatLateWorkRule(value: "accept" | "mark_late" | "reject"): st
   return "Not accepted after the due time";
 }
 
-function formatLateStatus(value: StudentLateWorkStatus): string {
+function formatStudentLateWorkStatus(value: StudentLateWorkStatus): string {
   if (value === "on_time") return "On time";
   if (value === "marked_late") return "Accepted and marked late";
   return "Accepted late";
@@ -189,9 +189,9 @@ function disclosureSummary(rule: StudentFeedbackReleaseRule | undefined): string
   return `Question Feedback is shown ${feedbackTiming}; Question Answer is shown ${questionAnswerTiming}; Answer Explanation is shown ${questionAnswerExplanationTiming}.`;
 }
 
-function classStatisticsSummary(statistics: StudentClassStatistics): string {
-  if (statistics.state === "insufficient_evidence") {
-    return "Not enough evidence to show class statistics.";
+function classStatisticsSummary(statistics: ClassStatistics): string {
+  if (statistics.state === "unavailable") {
+    return "Class Statistics are unavailable.";
   }
   return `Class average: ${studentScoreValue(
     statistics.assignment_average_score,
@@ -296,11 +296,11 @@ export function StudentAssignmentPresentation(
             <dt>Deadline behavior</dt>
             <dd>The server automatically submits work at its effective deadline.</dd>
           </div>
-          <Show when={props.assignment.delivery.lateStatus}>
-            {(lateStatus) => (
+          <Show when={props.assignment.delivery.studentLateWorkStatus}>
+            {(studentLateWorkStatus) => (
               <div>
-                <dt>Late status</dt>
-                <dd>{formatLateStatus(lateStatus())}</dd>
+                <dt>Late work status</dt>
+                <dd>{formatStudentLateWorkStatus(studentLateWorkStatus())}</dd>
               </div>
             )}
           </Show>

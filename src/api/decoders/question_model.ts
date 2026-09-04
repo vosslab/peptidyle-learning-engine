@@ -36,15 +36,18 @@ export function decodeKeyFreeDraftPreview(
   path = "wasmPreview",
 ): {
   workspace: string;
-  title: string;
+  questionTitle: string;
   prompt: ReadonlyArray<QuestionContentBlock>;
   response: QuestionResponseFormat;
 } {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["workspace", "title", "prompt", "response"]);
+  requireOnlyFields(record, path, ["workspace", "questionTitle", "prompt", "response"]);
   return {
     workspace: decodeIdentifier(field(record, "workspace", path), `${path}.workspace`),
-    title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
+    questionTitle: decodeNonemptyString(
+      field(record, "questionTitle", path),
+      `${path}.questionTitle`,
+    ),
     prompt: decodeArray(field(record, "prompt", path), `${path}.prompt`, (block, blockPath) =>
       decodeQuestionContentBlock(block, blockPath, true),
     ),

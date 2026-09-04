@@ -64,6 +64,44 @@ INSERT INTO ple_private.account_authentication_email (
 ) VALUES ('00000000-0000-0000-0000-00000000d102',
     'iaa1-student@example.test', 'iaa1-student@example.test',
     '2026-09-02 00:00:00+00', '2026-09-02 00:00:00+00');
+INSERT INTO ple_private.authenticated_session (
+    session_id, account_id, product_role, token_hash, created_at, expires_at
+) VALUES (
+    '00000000-0000-0000-0000-00000000d105',
+    '00000000-0000-0000-0000-00000000d102', 'student', decode(repeat('a1', 32), 'hex'),
+    '2026-09-02 00:00:00+00', '2026-09-03 00:00:00+00'
+);
+INSERT INTO ple_private.account_state_event (event_id, account_id, state, occurred_at, reason)
+VALUES (
+    '00000000-0000-0000-0000-00000000d106',
+    '00000000-0000-0000-0000-00000000d102', 'deactivated',
+    '2026-09-02 01:00:00+00', 'canonical-state oracle'
+);
+DO $$
+BEGIN
+    IF (SELECT revoked_at FROM ple_private.authenticated_session
+        WHERE session_id = '00000000-0000-0000-0000-00000000d105')
+       IS DISTINCT FROM '2026-09-02 01:00:00+00'::timestamp with time zone THEN
+        RAISE EXCEPTION 'Deactivated Account State must revoke current Authenticated Sessions';
+    END IF;
+END
+$$;
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO ple_private.account_state_event (
+            event_id, account_id, state, occurred_at, reason
+        ) VALUES (
+            '00000000-0000-0000-0000-00000000d107',
+            '00000000-0000-0000-0000-00000000d102', 'suspended',
+            '2026-09-02 02:00:00+00', 'retired-state oracle'
+        );
+        RAISE EXCEPTION 'retired suspended Account State was accepted';
+    EXCEPTION WHEN check_violation THEN
+        NULL;
+    END;
+END
+$$;
 -- The controlled privileged oracle writer supplies the unsupported Sysadmin
 -- fixture without creating a product write path.
 BEGIN;

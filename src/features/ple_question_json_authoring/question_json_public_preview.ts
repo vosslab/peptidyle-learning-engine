@@ -3,7 +3,7 @@ import type { QuestionResponseFormat } from "../../../generated/api/QuestionResp
 
 /** The local student preview deliberately excludes correctness, Question Hint, and all feedback. */
 export type PleQuestionJsonPublicPreview = {
-  readonly title: string;
+  readonly questionTitle: string;
   readonly prompt: string;
   readonly response: QuestionResponseFormat;
   readonly tags: ReadonlyArray<string>;
@@ -17,7 +17,7 @@ export function pleQuestionJsonPublicPreview(
 ): PleQuestionJsonPublicPreview {
   const response = pleQuestionJsonResponseFormat(source);
   return {
-    title: source.title,
+    questionTitle: source.questionTitle,
     prompt: source.prompt,
     response,
     tags: source.tags,
@@ -77,7 +77,10 @@ export function pleQuestionJsonResponseFormat(
     case "hotspot":
       return {
         kind: "hotspot",
-        surface: { asset: response.surface.asset, checksum: response.surface.checksum },
+        surface: {
+          questionAsset: response.surface.questionAsset,
+          checksum: response.surface.checksum,
+        },
         description: response.surface.description,
         regions: response.regions.map((region) => ({
           id: region.id,

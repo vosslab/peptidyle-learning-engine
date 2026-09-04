@@ -16,8 +16,6 @@ import type {
 } from "../../api/contracts";
 import type { PresentationFormatValidator } from "../../wasm/index";
 
-export type IdempotencyKey = string;
-
 export interface AttemptContext {
   readonly assignmentAttemptId: AssignmentAttemptId;
   readonly attemptId: QuestionAttemptId;
@@ -26,14 +24,13 @@ export interface AttemptContext {
   /** Exact immutable Question Revision selected for this attempt. */
   readonly questionRevision: QuestionRevisionReference;
   /** Question Seed that selects the exact issued Question Variation. */
-  readonly seed: QuestionSeed;
+  readonly questionSeed: QuestionSeed;
   /** Unix milliseconds supplied by the server. A null deadline means untimed. */
   readonly deadline: number | null;
 }
 
 export interface AttemptBuffer {
   readonly response: StudentResponse;
-  readonly idempotencyKey: IdempotencyKey;
 }
 
 export interface AttemptStorage {
@@ -123,7 +120,7 @@ type RecoveryReason =
 export type QuestionAttemptExperienceState =
   | (StateBase & { readonly phase: "loading" })
   | (StateBase & { readonly phase: "answering" })
-  | (StateBase & { readonly phase: "submitting"; readonly idempotencyKey: IdempotencyKey })
+  | (StateBase & { readonly phase: "submitting" })
   | (StateBase & {
       readonly phase: "studentFeedback";
       readonly acknowledgement: SubmissionAcknowledgement;
@@ -180,11 +177,9 @@ export interface QuestionAttemptStateMachineOptions {
   readonly storage: AttemptStorage;
   readonly clock: AttemptClock;
   readonly network: AttemptNetwork;
-  readonly generateIdempotencyKey: () => IdempotencyKey;
   readonly submitResponse: (
     attemptId: QuestionAttemptId,
     response: StudentResponse,
-    idempotencyKey: IdempotencyKey,
   ) => Promise<QuestionSubmissionAcknowledgement>;
   /** Route-bound status reader injected by the owning Student page/client composition. */
   readonly getSubmissionStatus: (
@@ -239,19 +234,19 @@ function parseBuffer(value: string | null): AttemptBuffer | null {
     const candidate: unknown = JSON.parse(value);
     if (typeof candidate !== "object" || candidate === null) return null;
     if (!hasBufferFields(candidate)) return null;
-    if (typeof candidate.idempotencyKey !== "string" || !isStudentResponse(candidate.response)) {
+    if (!isStudentResponse(candidate.response)) {
       return null;
     }
-    return { response: candidate.response, idempotencyKey: candidate.idempotencyKey };
+    return {
+      response: candidate.response,
+    };
   } catch {
     return null;
   }
 }
 
-function hasBufferFields(
-  value: object,
-): value is { readonly response?: unknown; readonly idempotencyKey?: unknown } {
-  return "response" in value && "idempotencyKey" in value;
+function hasBufferFields(value: object): value is { readonly response?: unknown } {
+  return "response" in value;
 }
 
 function isStringArray(value: unknown): value is Array<string> {
@@ -320,33 +315,6 @@ function serializeBuffer(buffer: AttemptBuffer): string {
   return JSON.stringify(buffer);
 }
 
-/** Equivalent Student Response comparison keeps retries stable while giving edited answers a fresh replay key. */
-function responsesEqual(left: StudentResponse, right: StudentResponse): boolean {
-  if (left.kind !== right.kind) return false;
-  if (left.kind === "numeric" && right.kind === "numeric") return left.value === right.value;
-  if (left.kind === "multipleChoice" && right.kind === "multipleChoice") {
-    const leftSelected = [...left.selected].sort();
-    const rightSelected = [...right.selected].sort();
-    return JSON.stringify(leftSelected) === JSON.stringify(rightSelected);
-  }
-  if (left.kind === "shortText" && right.kind === "shortText") return left.text === right.text;
-  if (left.kind === "multiBlank" && right.kind === "multiBlank") {
-    return JSON.stringify(left.answers) === JSON.stringify(right.answers);
-  }
-  if (left.kind === "matching" && right.kind === "matching") {
-    return JSON.stringify(left.matches) === JSON.stringify(right.matches);
-  }
-  if (left.kind === "ordering" && right.kind === "ordering") {
-    return JSON.stringify(left.order) === JSON.stringify(right.order);
-  }
-  if (left.kind === "hotspot" && right.kind === "hotspot") {
-    return JSON.stringify(left.selections) === JSON.stringify(right.selections);
-  }
-  if (left.kind === "imathasQuestionBackend" && right.kind === "imathasQuestionBackend")
-    return true;
-  return false;
-}
-
 function feedbackFor(receipt: GradedQuestionSubmissionReceipt): StudentFeedbackAvailability {
   return receipt.feedback === null
     ? { kind: "awaiting", feedback: null }
@@ -404,7 +372,7 @@ function presentationMatchesContext(
   context: AttemptContext,
 ): boolean {
   return (
-    presentation.question_seed === context.seed &&
+    presentation.question_seed === context.questionSeed &&
     presentation.questionRevision.questionId === context.questionRevision.questionId &&
     presentation.questionRevision.revisionNumber === context.questionRevision.revisionNumber
   );
@@ -459,12 +427,7 @@ export function createQuestionAttemptStateMachine(
   }
 
   function saveBuffer(response: StudentResponse): AttemptBuffer {
-    const existing = savedBuffer();
-    const idempotencyKey =
-      existing !== null && responsesEqual(existing.response, response)
-        ? existing.idempotencyKey
-        : options.generateIdempotencyKey();
-    const buffer = { response, idempotencyKey };
+    const buffer = { response };
     memoryBuffer = buffer;
     try {
       options.storage.setItem(bufferKey(context), serializeBuffer(buffer));
@@ -599,7 +562,7 @@ export function createQuestionAttemptStateMachine(
       }
       return rejected("Response format needs attention before submission.");
     }
-    const buffer = saveBuffer(response);
+    saveBuffer(response);
     if (!options.network.isOnline()) {
       const state = {
         ...base({ response }),
@@ -615,15 +578,10 @@ export function createQuestionAttemptStateMachine(
     const submitting = {
       ...base({ response }),
       phase: "submitting" as const,
-      idempotencyKey: buffer.idempotencyKey,
     } satisfies QuestionAttemptExperienceState;
     publish(submitting);
     try {
-      const status = await options.submitResponse(
-        context.attemptId,
-        response,
-        buffer.idempotencyKey,
-      );
+      const status = await options.submitResponse(context.attemptId, response);
       if (disposed || request !== requestNumber) {
         return rejected("This response is no longer current.");
       }

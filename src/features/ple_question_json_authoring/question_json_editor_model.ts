@@ -210,11 +210,11 @@ function replaceChoice(
   return changed({ ...source, response: { ...source.response, choices } });
 }
 
-export function setPleQuestionJsonTitle(
+export function setPleQuestionJsonQuestionTitle(
   source: PleQuestionJsonDocument,
-  title: string,
+  questionTitle: string,
 ): PleQuestionJsonDocument {
-  return { ...source, title };
+  return { ...source, questionTitle };
 }
 
 export function setPleQuestionJsonPrompt(
@@ -631,7 +631,7 @@ function nextChoiceId(choices: ReadonlyArray<PleQuestionJsonChoice>): string {
 function validationMessage(field: string): string {
   if (field.startsWith("response.choices"))
     return "Check the choices and select one correct answer.";
-  if (field.startsWith("title")) return "Add a short question title.";
+  if (field.startsWith("questionTitle")) return "Add a short Question Title.";
   if (field.startsWith("prompt")) return "Add the Student-facing question prompt.";
   return "Check the question details before saving.";
 }

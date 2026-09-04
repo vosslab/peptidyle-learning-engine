@@ -6,7 +6,7 @@ use super::{
     ApplyBlueprintUpdateEffect, AssignmentImportReceiptTarget, AssignmentSourceRecord,
     AssignmentSourceSnapshot, BoundedResolvedScheduleSet, CourseInstanceCreationReservation,
     CourseInstanceSnapshot, CourseOrigin, CourseRolloverManifest, CurriculumImportRevision,
-    RequestChecksum, RequestRetryToken,
+    RequestChecksum,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,7 +26,6 @@ pub struct CourseInstanceReceiptBinding {
     outcome: CourseInstanceSnapshot,
     course_origin: CourseOrigin,
     authorized_account: AccountId,
-    retry_token: RequestRetryToken,
     request_checksum: RequestChecksum,
     server_time: Timestamp,
 }
@@ -35,7 +34,6 @@ pub struct CourseInstanceReceiptBinding {
 struct CourseInstanceReceiptAuthority {
     course_origin: CourseOrigin,
     authorized_account: AccountId,
-    retry_token: RequestRetryToken,
     request_checksum: RequestChecksum,
     server_time: Timestamp,
 }
@@ -53,7 +51,6 @@ impl CourseInstanceReceiptBinding {
             outcome,
             course_origin: authority.course_origin,
             authorized_account: authority.authorized_account,
-            retry_token: authority.retry_token,
             request_checksum: authority.request_checksum,
             server_time: authority.server_time,
         }
@@ -80,9 +77,6 @@ impl CourseInstanceReceiptBinding {
     /// Returns the authenticated account bound by the consumed server apply record.
     pub fn authorized_account(&self) -> AccountId {
         self.authorized_account
-    }
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        &self.retry_token
     }
     pub fn request_checksum(&self) -> RequestChecksum {
         self.request_checksum
@@ -213,9 +207,6 @@ impl CopyCourseForNewTermReceipt {
     pub fn manifest(&self) -> &CourseRolloverManifest {
         &self.manifest
     }
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        self.created_from.retry_token()
-    }
     pub fn request_checksum(&self) -> RequestChecksum {
         self.created_from.request_checksum()
     }
@@ -242,7 +233,6 @@ impl ShiftCourseDatesReceipt {
             schedules,
             authorized_account,
             request_checksum,
-            retry_token,
         ) = record.into_receipt_parts();
         if destination.course != outcome.course {
             return Err(ShiftCourseDatesReceiptError::CourseMismatch);
@@ -275,7 +265,6 @@ impl ShiftCourseDatesReceipt {
                 CourseInstanceReceiptAuthority {
                     course_origin,
                     authorized_account,
-                    retry_token,
                     request_checksum,
                     server_time,
                 },
@@ -305,15 +294,8 @@ impl ApplyBlueprintUpdateReceipt {
         effect: ApplyBlueprintUpdateEffect,
         server_time: Timestamp,
     ) -> Result<Self, AssignmentReceiptError> {
-        let (
-            source,
-            import,
-            destination,
-            course_origin,
-            authorized_account,
-            request_checksum,
-            retry_token,
-        ) = record.into_receipt_parts();
+        let (source, import, destination, course_origin, authorized_account, request_checksum) =
+            record.into_receipt_parts();
         if source != applied.source()
             || import.destination.assignment != applied.assignment().assignment
         {
@@ -363,7 +345,6 @@ impl ApplyBlueprintUpdateReceipt {
                 CourseInstanceReceiptAuthority {
                     course_origin,
                     authorized_account,
-                    retry_token,
                     request_checksum,
                     server_time,
                 },
@@ -404,7 +385,6 @@ impl CopyAssignmentFromBlueprintReceipt {
             replacements,
             authorized_account,
             request_checksum,
-            retry_token,
         ) = record.into_receipt_parts();
         if source != applied.source() {
             return Err(AssignmentReceiptError::SourceMismatch);
@@ -438,7 +418,6 @@ impl CopyAssignmentFromBlueprintReceipt {
                 CourseInstanceReceiptAuthority {
                     course_origin,
                     authorized_account,
-                    retry_token,
                     request_checksum,
                     server_time,
                 },
@@ -508,13 +487,8 @@ impl AssignmentImportRepairReceipt {
         record: super::AssignmentImportRepairApplyRecord,
         server_time: Timestamp,
     ) -> Result<Self, AssignmentReceiptError> {
-        let (
-            original_import_receipt,
-            course_origin,
-            authorized_account,
-            request_checksum,
-            retry_token,
-        ) = record.into_receipt_parts();
+        let (original_import_receipt, course_origin, authorized_account, request_checksum) =
+            record.into_receipt_parts();
         let original_import_target = original_import_receipt.target();
         Ok(Self {
             binding: CourseInstanceReceiptBinding::new(
@@ -524,7 +498,6 @@ impl AssignmentImportRepairReceipt {
                 CourseInstanceReceiptAuthority {
                     course_origin,
                     authorized_account,
-                    retry_token,
                     request_checksum,
                     server_time,
                 },
@@ -569,11 +542,11 @@ impl AssignmentImportReceipt {
         }
     }
 
-    /// Returns the original import request's exact retry identity.
-    pub fn retry_token(&self) -> &RequestRetryToken {
+    /// Returns the request checksum retained with the original import receipt.
+    pub fn request_checksum(&self) -> RequestChecksum {
         match self {
-            Self::ApplyBlueprintUpdate(receipt) => receipt.binding().retry_token(),
-            Self::CopyAssignmentFromBlueprint(receipt) => receipt.binding().retry_token(),
+            Self::ApplyBlueprintUpdate(receipt) => receipt.binding().request_checksum(),
+            Self::CopyAssignmentFromBlueprint(receipt) => receipt.binding().request_checksum(),
         }
     }
 
@@ -590,14 +563,12 @@ impl AssignmentImportReceipt {
         match self {
             Self::ApplyBlueprintUpdate(receipt) => AssignmentImportReceiptTarget::new(
                 receipt.binding().authorized_account(),
-                receipt.binding().retry_token().clone(),
                 receipt.binding().outcome().course,
                 receipt.applied().assignment().assignment,
                 receipt.applied().import_revision(),
             ),
             Self::CopyAssignmentFromBlueprint(receipt) => AssignmentImportReceiptTarget::new(
                 receipt.binding().authorized_account(),
-                receipt.binding().retry_token().clone(),
                 receipt.binding().outcome().course,
                 receipt.applied().assignment().assignment,
                 receipt.applied().import_revision(),

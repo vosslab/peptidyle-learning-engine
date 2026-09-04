@@ -33,7 +33,7 @@ impl std::fmt::Display for NormalizedQtiItemFingerprint {
 pub(super) struct NormalizedQtiItemFingerprintInput<'a> {
     pub(super) profile: QtiProfileId,
     pub(super) profile_version: QtiProfileVersion,
-    pub(super) title: &'a str,
+    pub(super) question_title: &'a str,
     pub(super) prompt_markdown: &'a str,
     pub(super) choices: &'a [(&'a str, &'a str)],
     pub(super) correct_vendor_choice_id: &'a str,
@@ -61,7 +61,7 @@ pub(super) fn normalized_qti_item_fingerprint(
         "value": {
             "profile": input.profile.as_str(),
             "profile_version": input.profile_version.as_str(),
-            "title": input.title,
+            "question_title": input.question_title,
             "prompt_markdown": input.prompt_markdown,
             "choices": choices,
             "correct_vendor_choice_id": input.correct_vendor_choice_id,
@@ -88,7 +88,7 @@ mod tests {
         normalized_qti_item_fingerprint(&NormalizedQtiItemFingerprintInput {
             profile,
             profile_version: profile.version(),
-            title,
+            question_title: title,
             prompt_markdown: prompt,
             choices,
             correct_vendor_choice_id: correct,
@@ -121,7 +121,7 @@ mod tests {
         assert_eq!(first, second);
         assert_eq!(
             first.to_string(),
-            "a55eb724152f79f0ec1c40c0515820a229a16072ac7db33b6ecab3b423e23888"
+            "3bb431238cb30f16527cdb0c1cbae57c29905d7265bb1523e0ab7946e4c4b4e4"
         );
     }
 

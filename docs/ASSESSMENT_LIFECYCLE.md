@@ -36,7 +36,7 @@ private draft
 
 The arrow is an ownership change, not merely a screen change. A browser can
 read an answer-free Question Presentation and propose a Student Response; it cannot choose an
-installation, published version, seed, deadline, grading backend, score, or deletion
+installation, published Question Revision, Question Seed, deadline, Question Backend, score, or deletion
 scope. The server derives those facts from authenticated course-owned records.
 
 ## Ownership and identities
@@ -97,7 +97,7 @@ complete Question Source, and required publication metadata. The publication tra
 fresh Question ID for a new lineage or the next Question Revision Number for an accepted same-lineage
 change. It copies validated discovery values from the private Draft Question Metadata table into the
 separate Published Question Metadata table, writes the complete source to a new immutable Question
-Revision-owned object path, creates the Question Revision Source Registration, and records the
+Revision-owned object path, creates the Question Revision Source Binding, and records the
 Question Library publication event.
 
 Published storage has no Draft Question foreign key, draft object path, or draft metadata row. Draft
@@ -161,8 +161,8 @@ the retain-Questions-with-fresh-Seeds rule, and five Assignment disclosure field
 
 The Assignment Attempt service issues at most one unresolved Question Attempt at a time. The Question Attempt
 binds the authenticated Student and Course through its enrollment and Assignment Attempt, the
-assignment position, immutable version, seed, policy, timing state, grader
-backend, and Question Attempt Reproduction Details. Resume returns the stored attempt and stored seed; it
+Assignment position, immutable Question Revision, Question Seed, policy, timing state, Question Grader
+Version, and Question Attempt Reproduction Details. Resume returns the stored attempt and stored Question Seed; it
 does not generate a different Question Revision mid-attempt.
 
 Question Attempt issuance is a transactional storage operation. PostgreSQL locks the Assignment Attempt
@@ -176,7 +176,7 @@ display and submission aid, never the timing authority.
 The student receives a public Question Presentation and the smallest state needed to
 use it. Rich render data includes typed prompt blocks, accessible
 asset references, Question Response Format, item order, and public constraints. It may
-also include seed and version to identify the public render. It excludes correct
+also include Question Seed and Question Revision to identify the public render. It excludes correct
 answers, expected values, private rubrics, raw sources, provider credentials,
 upstream fields, storage locations, and grader state.
 
@@ -200,7 +200,7 @@ Question Presentation until the predecessor commits. The current bodyless prefet
 not yet enforced this timing-policy distinction. Only an exact graded Question
 Submission Receipt
 promotes a reservation to an issued attempt. A reload, mismatch, cancellation,
-or route exit discards the browser cache; it does not invent another seed or
+or route exit discards the browser cache; it does not invent another Question Seed or
 advance an Assignment Attempt.
 
 ## Submit, grade, and project
@@ -208,17 +208,17 @@ advance an Assignment Attempt.
 ### 9. Submit the minimal response
 
 At the secure-payload target boundary, the route identifies the attempt once.
-The request supplies only the Question Presentation Checksum and a Question-Type-minimal answer;
-a bounded idempotency key is in the request header. The server loads the
+The request supplies only the Question Presentation Checksum and a Question-Type-minimal answer.
+The server loads the
 authoritative attempt and therefore derives response shape, question revision,
-seed, assignment, backend, deadline, and student ownership rather than
+Question Seed, Assignment, Question Backend, deadline, and Student Record rather than
 accepting browser copies.
 
 The server rejects a Question Presentation Checksum mismatch before grading and keeps the attempt
 unchanged. The browser reloads the same attempt, retains compatible unsent work
-in memory, and asks the student to review it. Repeating the same idempotency
-key and same response returns the first Question Submission Receipt. Reusing a key or
-attempt with a changed response conflicts before a second grade or state
+in memory, and asks the student to review it. Repeating the same response for the
+Question Attempt returns the first Question Submission Receipt. A changed response for an already-submitted
+Attempt conflicts before a second grade or state
 transition occurs.
 
 ### 10. Grade under server authority
@@ -239,7 +239,7 @@ Details. The student receives `202 Accepted` and may read the route-bound
 submission status while the sealed worker owns grading. A successful worker
 transaction then commits the grading result, score event, Question Attempt
 transition, Assignment Attempt completion, enrollment pointers, Assignment
-Attempt Summary, successor binding, and immutable idempotency evidence together.
+Attempt Summary, successor binding, and immutable Question Submission evidence together.
 The graded Question Submission Receipt copies the issued, answer-free `QuestionPresentation` and
 exact public Presented Question Asset snapshot.
 Replay and status reads therefore use durable accepted or completed evidence,
@@ -300,7 +300,7 @@ Question. Its profile and conversion contract is registered in
 [CONTRACTS.md](CONTRACTS.md).
 
 WeBWorK is a private service integration. PLE sends the trusted source, fixed
-seed, and renderer credentials only from the server, turns the approved radio
+Question Seed, and renderer credentials only from the server, turns the approved radio
 control into PLE opaque choices, and keeps upstream names, values, source,
 cookies, and raw response bodies out of attempts and browsers. The exact
 bounded RC3 contract and its release scope are in
@@ -318,9 +318,9 @@ with their own authorization and retention handling.
 | Draft validation or publication fails        | Keep the private draft; do not mint public identity or create a partial immutable version.                                          |
 | Capability check fails                       | Return the complete missing-capability report before publication or assignment persistence.                                         |
 | Concurrent issue/resume                      | Lock and return the sole unresolved Question Attempt.                                                                               |
-| Public render or asset fails                 | Keep the Assignment Attempt resumable; offer retry without changing seed or Question Attempt.                                       |
+| Public render or asset fails                 | Keep the Assignment Attempt resumable; offer retry without changing Question Seed or Question Attempt.                              |
 | Presentation mismatch                        | Return stable conflict, persist bounded diagnostic evidence, reload the same attempt, and never grade stale state.                  |
-| Network loss after submit                    | Retry with the same idempotency key and response to receive the Question Submission Receipt.                                        |
+| Network loss after submit                    | Retry the same response against the same Question Attempt to receive its existing Question Submission Receipt.                      |
 | Changed submission replay                    | Conflict before grading or state mutation.                                                                                          |
 | Renderer/backend outage                      | Preserve the active attempt; expose a bounded degraded state only for the affected question.                                        |
 | Commit interruption after prefetch promotion | Heal only the sole owned, committed-but-unlinked successor; never derive a different successor from later Assignment Attempt state. |
@@ -336,7 +336,7 @@ and [CONTRACTS.md](CONTRACTS.md).
 Student records are course-owned and privacy-sensitive. Course policy first
 notifies, then archives and fences student access, then permanently deletes the
 complete student graph and typed student-record objects. The deletion path uses
-a frozen manifest, idempotent object deletion, lease and generation fencing,
+a frozen manifest, already-complete object deletion, lease and generation fencing,
 and one verified relational purge transaction. It never follows an assignment
 reference into shared published content.
 
@@ -355,7 +355,7 @@ Use this lifecycle document to find the right detailed contract:
 - [QUESTION_MODEL.md](QUESTION_MODEL.md): public model, durable identities,
   response shapes, generation, and browser-safe type boundary.
 - [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md): policy composition, attempt states,
-  timing, idempotency, completion, and Assignment Attempt Summary.
+  timing, Question Submission and Receipt outcomes, completion, and Assignment Attempt Summary.
 - [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md): student render,
   Presentation Response Item References, Question Presentation Checksum, minimal response, receipt, and prefetch.
 - [SECURITY_MODEL.md](SECURITY_MODEL.md): authorization, grading secrecy,

@@ -33,7 +33,7 @@ test("Student detail adapts available entries and Question Pool selections witho
       attempt_limit: 2,
       late_work_rule: "accept",
       assignment_deadline_rule: "auto_submit",
-      late_status: "on_time",
+      student_late_work_status: "on_time",
     },
     entries: [
       { kind: "fixedQuestion", availability: "available" },
@@ -45,7 +45,7 @@ test("Student detail adapts available entries and Question Pool selections witho
   });
 
   assert.equal(presentation.questionsPerAssignmentAttempt, 5);
-  assert.equal(presentation.delivery.lateStatus, "on_time");
+  assert.equal(presentation.delivery.studentLateWorkStatus, "on_time");
   assert.equal("id" in presentation, false);
 });
 
@@ -72,7 +72,7 @@ test("Instructor Student view keeps its explicit Question Variation Rule and dis
   assert.equal(presentation.questionPoolReuseRule, "selectAgain");
   assert.equal(presentation.questionVariationRule, "newVariation");
   assert.equal(presentation.studentFeedbackReleaseRule?.question_feedback, "after_due");
-  assert.equal("lateStatus" in presentation.delivery, false);
+  assert.equal("studentLateWorkStatus" in presentation.delivery, false);
 });
 
 test("attempt-time copy stays readable across minute, hour, and second limits", () => {

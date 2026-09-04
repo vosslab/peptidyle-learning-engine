@@ -27,7 +27,7 @@ CREATE TABLE ple_private.issued_question (
     issued_position integer NOT NULL CHECK (issued_position >= 0),
     point_value numeric NOT NULL CHECK (point_value >= 0),
     scoring_rule text NOT NULL CHECK (scoring_rule IN ('normal', 'full_credit', 'extra_credit', 'excluded')),
-    statistics_eligible boolean NOT NULL,
+    question_statistics_eligibility boolean NOT NULL,
     CONSTRAINT issued_question_revision_matches FOREIGN KEY (question_id, revision_number)
         REFERENCES ple_data.question_revision (question_id, revision_number),
     CONSTRAINT issued_question_delivery_order_is_unique UNIQUE (assignment_attempt_id, issued_position)

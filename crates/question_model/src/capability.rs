@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Capability {
-    /// Generates fresh parameters per seed, so each student sees a variant.
+    /// Generates fresh parameters per Question Seed, so each Student sees a Question Variation.
     AlgorithmicGeneration,
     /// Renders in the browser without a server round trip.
     ClientRendering,

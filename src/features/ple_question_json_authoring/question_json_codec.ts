@@ -321,17 +321,17 @@ function decodeChoiceResponse(
 
 function decodeHotspotSurface(value: unknown, path: string): PleQuestionJsonHotspotSurface {
   const record = decodeRecord(value, path);
-  onlyFields(record, path, ["asset", "checksum", "description"]);
-  const asset = string(field(record, "asset", path), `${path}.asset`);
-  if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu.test(asset)) {
-    throw new DecodeError(`${path}.asset`, "a UUID");
+  onlyFields(record, path, ["questionAsset", "checksum", "description"]);
+  const questionAsset = string(field(record, "questionAsset", path), `${path}.questionAsset`);
+  if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu.test(questionAsset)) {
+    throw new DecodeError(`${path}.questionAsset`, "a UUID");
   }
   const checksum = string(field(record, "checksum", path), `${path}.checksum`);
   if (!/^[0-9a-f]{64}$/u.test(checksum)) {
     throw new DecodeError(`${path}.checksum`, "a lowercase SHA-256 checksum");
   }
   return {
-    asset,
+    questionAsset,
     checksum,
     description: boundedText(
       field(record, "description", path),
@@ -559,7 +559,7 @@ export function decodePleQuestionJsonSource(
   onlyFields(record, path, [
     "format",
     "version",
-    "title",
+    "questionTitle",
     "questionDescription",
     "prompt",
     "response",
@@ -677,7 +677,11 @@ export function decodePleQuestionJsonSource(
   return {
     format: PLE_QUESTION_JSON_FORMAT,
     version: PLE_QUESTION_JSON_SCHEMA_VERSION,
-    title: boundedText(field(record, "title", path), `${path}.title`, MAX_TITLE_CHARS),
+    questionTitle: boundedText(
+      field(record, "questionTitle", path),
+      `${path}.questionTitle`,
+      MAX_TITLE_CHARS,
+    ),
     questionDescription: boundedText(
       field(record, "questionDescription", path),
       `${path}.questionDescription`,

@@ -1,4 +1,4 @@
-//! Question Variation seed values.
+//! Question Variation Question Seed values.
 //!
 //! A [`QuestionSeed`] records one server-selected input used alongside an exact
 //! Question Revision by Question Backends and reproduction evidence.
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 pub struct QuestionSeed(u64);
 
 impl QuestionSeed {
-    /// Wraps a raw seed value.
+    /// Wraps a raw Question Seed value.
     pub fn new(value: u64) -> Self {
         QuestionSeed(value)
     }

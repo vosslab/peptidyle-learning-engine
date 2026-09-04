@@ -6,6 +6,8 @@ RESET ROLE;
 
 SET LOCAL ROLE ple_private_owner;
 CREATE POLICY private_lookup_api_owner ON ple_private.account FOR SELECT TO ple_api_owner USING (true);
+CREATE POLICY account_state_event_lookup_api_owner ON ple_private.account_state_event
+    FOR SELECT TO ple_api_owner USING (true);
 CREATE POLICY account_authenticated_session_private_owner_lookup ON ple_private.account
     FOR SELECT TO ple_private_owner USING (true);
 CREATE POLICY authenticated_session_private_owner_read ON ple_private.authenticated_session
@@ -20,43 +22,45 @@ CREATE POLICY workspace_lookup_api_owner ON ple_private.authoring_workspace FOR 
 CREATE POLICY course_observer_relationship_event_lookup_api_owner ON ple_private.course_observer_relationship_event FOR SELECT TO ple_api_owner USING (true);
 CREATE POLICY support_lookup_api_owner ON ple_private.sysadmin_support_capability FOR SELECT TO ple_api_owner USING (true);
 CREATE POLICY job_lookup_api_owner ON ple_private.job FOR SELECT TO ple_api_owner USING (true);
-CREATE POLICY workspace_owner_access ON ple_private.authoring_workspace
+CREATE POLICY authoring_workspace_owner_access ON ple_private.authoring_workspace
     FOR ALL TO ple_app
-    USING (ple_api.current_session_account_owns_workspace(workspace_id))
+    USING (ple_api.current_session_account_is_authoring_workspace_owner(workspace_id))
     WITH CHECK (
-        owner_account_id = ple_api.current_session_account_id()
+        authoring_workspace_owner_account_id = ple_api.current_session_account_id()
         AND revoked_at IS NULL
     );
-CREATE POLICY workspace_collaborator_owner_access ON ple_private.authoring_workspace_collaborator_event
+CREATE POLICY authoring_workspace_collaborator_event_owner_access
+    ON ple_private.authoring_workspace_collaborator_event
     FOR ALL TO ple_app
-    USING (ple_api.current_session_account_owns_workspace(workspace_id))
-    WITH CHECK (ple_api.current_session_account_owns_workspace(workspace_id));
+    USING (ple_api.current_session_account_is_authoring_workspace_owner(workspace_id))
+    WITH CHECK (ple_api.current_session_account_is_authoring_workspace_owner(workspace_id));
 CREATE POLICY draft_question_workspace_access ON ple_private.draft_question
     FOR ALL TO ple_app
-    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
-    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
-CREATE POLICY question_source_registration_draft_workspace_access ON ple_private.question_source_registration
+    USING (ple_api.current_session_account_can_access_authoring_workspace(workspace_id))
+    WITH CHECK (ple_api.current_session_account_can_access_authoring_workspace(workspace_id));
+CREATE POLICY draft_question_source_binding_workspace_access
+    ON ple_private.draft_question_source_binding
     FOR ALL TO ple_app
     USING (EXISTS (
         SELECT 1
           FROM ple_private.draft_question AS question
-         WHERE question.draft_question_uuid = question_source_registration.draft_question_uuid
-           AND ple_api.current_session_account_can_access_workspace(question.workspace_id)
+         WHERE question.draft_question_uuid = draft_question_source_binding.draft_question_uuid
+           AND ple_api.current_session_account_can_access_authoring_workspace(question.workspace_id)
     ))
     WITH CHECK (EXISTS (
         SELECT 1
           FROM ple_private.draft_question AS question
-         WHERE question.draft_question_uuid = question_source_registration.draft_question_uuid
-           AND ple_api.current_session_account_can_access_workspace(question.workspace_id)
+         WHERE question.draft_question_uuid = draft_question_source_binding.draft_question_uuid
+           AND ple_api.current_session_account_can_access_authoring_workspace(question.workspace_id)
     ));
 CREATE POLICY workspace_import_access ON ple_private.workspace_import
     FOR ALL TO ple_app
-    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
-    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
+    USING (ple_api.current_session_account_can_access_authoring_workspace(workspace_id))
+    WITH CHECK (ple_api.current_session_account_can_access_authoring_workspace(workspace_id));
 CREATE POLICY workspace_import_item_result_access ON ple_private.workspace_import_item_result
     FOR ALL TO ple_app
-    USING (ple_api.current_session_account_can_access_workspace(workspace_id))
-    WITH CHECK (ple_api.current_session_account_can_access_workspace(workspace_id));
+    USING (ple_api.current_session_account_can_access_authoring_workspace(workspace_id))
+    WITH CHECK (ple_api.current_session_account_can_access_authoring_workspace(workspace_id));
 RESET ROLE;
 
 SET LOCAL ROLE ple_data_owner;

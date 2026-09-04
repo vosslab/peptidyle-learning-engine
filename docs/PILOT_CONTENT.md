@@ -43,7 +43,7 @@ cargo tools pilot-content
 ```
 
 It proves the durable eight-question matrix, unique human slugs, source and payload checksums,
-manifest-to-PLE-Question-JSON-payload title agreement, supported point values,
+manifest-to-PLE-Question-JSON-payload Question Title agreement, supported point values,
 selected MC/MATCH Blackboard record shape, strict PLE Question JSON version 3 compilation, CC BY metadata,
 answer-free Question Content, private-key binding, and correct-versus-wrong server grading for
 all four static questions.

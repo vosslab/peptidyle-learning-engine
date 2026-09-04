@@ -26,7 +26,7 @@ function createContext(overrides = {}) {
     assignmentAttemptId: "assignment-attempt-a",
     attemptId: "attempt-a",
     questionRevision: versionReference(1),
-    seed: 2,
+    questionSeed: 2,
     deadline: null,
     ...overrides,
   };
@@ -69,20 +69,14 @@ function createMachine(overrides = {}) {
   let online = true;
   let now = 1_000;
   const storage = createStorage();
-  const keys = [];
   const submissionCalls = [];
   const options = {
     context: createContext(),
     storage,
     clock: { now: () => now },
     network: { isOnline: () => online },
-    generateIdempotencyKey: () => {
-      const key = `key-${keys.length + 1}`;
-      keys.push(key);
-      return key;
-    },
-    submitResponse: async (attemptId, response, key) => {
-      submissionCalls.push({ attemptId, response, key });
+    submitResponse: async (attemptId, response) => {
+      submissionCalls.push({ attemptId, response });
       return receipt();
     },
     getSubmissionStatus: async () => receipt(),
@@ -94,7 +88,6 @@ function createMachine(overrides = {}) {
   return {
     machine,
     storage,
-    keys,
     submissionCalls,
     setOnline: (value) => {
       online = value;
@@ -110,12 +103,12 @@ function ready(machine, response = numericResponse()) {
   machine.setResponse(response, { valid: true, message: null });
 }
 
-test("a retry reuses one idempotency key for the logical response", async () => {
+test("a retry repeats one Question Attempt submission with its exact saved response", async () => {
   let calls = 0;
   const fixture = createMachine({
-    submitResponse: async (attemptId, response, key) => {
+    submitResponse: async (attemptId, response) => {
       calls += 1;
-      fixture.submissionCalls.push({ attemptId, response, key });
+      fixture.submissionCalls.push({ attemptId, response });
       if (calls === 1) throw new TypeError("temporary outage");
       return receipt();
     },
@@ -127,8 +120,8 @@ test("a retry reuses one idempotency key for the logical response", async () => 
   await fixture.machine.retry();
 
   assert.equal(fixture.submissionCalls.length, 2);
-  assert.equal(fixture.submissionCalls[0].key, fixture.submissionCalls[1].key);
-  assert.deepEqual(fixture.keys, ["key-1"]);
+  assert.equal(fixture.submissionCalls[0].attemptId, fixture.submissionCalls[1].attemptId);
+  assert.deepEqual(fixture.submissionCalls[0].response, fixture.submissionCalls[1].response);
 });
 
 test("an in-flight submit cannot create a duplicate grading request", async () => {
@@ -137,8 +130,8 @@ test("an in-flight submit cannot create a duplicate grading request", async () =
     resolveSubmission = resolve;
   });
   const fixture = createMachine({
-    submitResponse: async (attemptId, response, key) => {
-      fixture.submissionCalls.push({ attemptId, response, key });
+    submitResponse: async (attemptId, response) => {
+      fixture.submissionCalls.push({ attemptId, response });
       await pending;
       return receipt();
     },
@@ -156,8 +149,8 @@ test("an in-flight submit cannot create a duplicate grading request", async () =
 
 test("a receipt with a pending successor preserves feedback without resubmitting", async () => {
   const fixture = createMachine({
-    submitResponse: async (attemptId, response, key) => {
-      fixture.submissionCalls.push({ attemptId, response, key });
+    submitResponse: async (attemptId, response) => {
+      fixture.submissionCalls.push({ attemptId, response });
       return { ...receipt(), receipt: { ...receipt().receipt, nextPending: true } };
     },
   });
@@ -209,8 +202,8 @@ test("a completed recalculation exposes status and refreshes without resubmittin
 test("an acknowledged pending submission clears its replay and checks status without another post", async () => {
   let statusReads = 0;
   const fixture = createMachine({
-    submitResponse: async (attemptId, response, key) => {
-      fixture.submissionCalls.push({ attemptId, response, key });
+    submitResponse: async (attemptId, response) => {
+      fixture.submissionCalls.push({ attemptId, response });
       return {
         receipt: { accepted: true, attemptId },
         gradingState: "pending",
@@ -339,7 +332,7 @@ test("a submission receipt protocol failure keeps its correction message instead
   assert.equal(calls, 1);
 });
 
-test("reload restores the saved response and its existing replay key", async () => {
+test("reload restores the saved response for its existing Question Attempt", async () => {
   const storage = createStorage();
   const first = createMachine({ storage });
   ready(first.machine, numericResponse(12));
@@ -352,7 +345,7 @@ test("reload restores the saved response and its existing replay key", async () 
   second.machine.setResponse(numericResponse(12), { valid: true, message: null });
   second.setOnline(true);
   await second.machine.submit();
-  assert.equal(second.submissionCalls[0].key, "key-1");
+  assert.equal(second.submissionCalls[0].attemptId, "attempt-a");
 });
 
 test("Assignment Attempt exit clears only the active Question Attempt buffer", () => {
@@ -375,7 +368,6 @@ test("a hostile saved multiple-choice response is discarded before it reaches an
     "ple:attempt:assignment-attempt-a:attempt-a",
     JSON.stringify({
       response: { kind: "multipleChoice", selected: ["known", "forged", "known"] },
-      idempotencyKey: "hostile-key",
     }),
   );
   const fixture = createMachine({ storage, validateSavedResponse });
@@ -394,7 +386,18 @@ test("a hostile saved multiple-choice response is discarded before it reaches an
   assert.equal(storage.getItem("ple:attempt:assignment-attempt-a:attempt-a"), null);
 });
 
-test("a hostile saved ordering is discarded and a valid saved permutation retains its replay key", async () => {
+test("a local buffer keeps its valid response without a dedicated retry field", () => {
+  const storage = createStorage();
+  storage.setItem(
+    "ple:attempt:assignment-attempt-a:attempt-a",
+    JSON.stringify({ response: numericResponse() }),
+  );
+  const fixture = createMachine({ storage });
+  fixture.machine.start();
+  assert.deepEqual(fixture.machine.state().response, numericResponse());
+});
+
+test("a hostile saved ordering is discarded and a valid saved permutation restores", async () => {
   const orderingResponseFormat = {
     kind: "ordering",
     items: [
@@ -407,7 +410,6 @@ test("a hostile saved ordering is discarded and a valid saved permutation retain
     "ple:attempt:assignment-attempt-a:attempt-a",
     JSON.stringify({
       response: { kind: "ordering", order: ["first", "forged"] },
-      idempotencyKey: "hostile-order-key",
     }),
   );
   const hostile = createMachine({
@@ -423,7 +425,6 @@ test("a hostile saved ordering is discarded and a valid saved permutation retain
     "ple:attempt:assignment-attempt-a:attempt-a",
     JSON.stringify({
       response: { kind: "ordering", order: ["second", "first"] },
-      idempotencyKey: "saved-order-key",
     }),
   );
   const valid = createMachine({
@@ -441,7 +442,7 @@ test("a hostile saved ordering is discarded and a valid saved permutation retain
     { valid: true, message: null },
   );
   await valid.machine.submit();
-  assert.equal(valid.submissionCalls[0].key, "saved-order-key");
+  assert.equal(valid.submissionCalls[0].attemptId, "attempt-a");
 });
 
 test("session expiry requests reauthentication without losing the response", async () => {
@@ -497,7 +498,7 @@ test("server deadline submits the last valid response exactly once", async () =>
   fixture.machine.tick();
   await Promise.resolve();
   assert.equal(fixture.submissionCalls.length, 1);
-  assert.equal(fixture.submissionCalls[0].key, "key-1");
+  assert.equal(fixture.submissionCalls[0].attemptId, "attempt-a");
   assert.equal(fixture.machine.state().phase, "studentFeedback");
 });
 
@@ -505,9 +506,9 @@ test("a failed deadline delivery is retried only by an explicit recovery action"
   let calls = 0;
   const fixture = createMachine({
     context: createContext({ deadline: 1_200 }),
-    submitResponse: async (attemptId, response, key) => {
+    submitResponse: async (attemptId, response) => {
       calls += 1;
-      fixture.submissionCalls.push({ attemptId, response, key });
+      fixture.submissionCalls.push({ attemptId, response });
       if (calls === 1) throw new TypeError("temporary outage");
       return receipt();
     },
@@ -524,7 +525,7 @@ test("a failed deadline delivery is retried only by an explicit recovery action"
 
   await fixture.machine.retry();
   assert.equal(fixture.submissionCalls.length, 2);
-  assert.equal(fixture.submissionCalls[0].key, fixture.submissionCalls[1].key);
+  assert.equal(fixture.submissionCalls[0].attemptId, fixture.submissionCalls[1].attemptId);
   assert.equal(fixture.machine.state().phase, "studentFeedback");
 });
 
@@ -541,8 +542,8 @@ test("deadline ticks do not reissue an offline or reauthentication-blocked deliv
 
   const sessionFixture = createMachine({
     context: createContext({ deadline: 1_200 }),
-    submitResponse: async (attemptId, response, key) => {
-      sessionFixture.submissionCalls.push({ attemptId, response, key });
+    submitResponse: async (attemptId, response) => {
+      sessionFixture.submissionCalls.push({ attemptId, response });
       throw new Error("session expired");
     },
   });
@@ -568,7 +569,7 @@ test("timer expiry names an unsent invalid response without grading it", () => {
   assert.equal(fixture.submissionCalls.length, 0);
 });
 
-test("editing an offline response creates a new logical submission key", async () => {
+test("editing an offline response replaces the saved response for its Question Attempt", async () => {
   const fixture = createMachine();
   ready(fixture.machine, numericResponse(7));
   fixture.setOnline(false);
@@ -578,18 +579,17 @@ test("editing an offline response creates a new logical submission key", async (
   fixture.setOnline(true);
   await fixture.machine.retry();
 
-  assert.deepEqual(fixture.keys, ["key-1", "key-2"]);
   assert.equal(fixture.submissionCalls.length, 1);
-  assert.equal(fixture.submissionCalls[0].key, "key-2");
+  assert.equal(fixture.submissionCalls[0].attemptId, "attempt-a");
   assert.deepEqual(fixture.submissionCalls[0].response, numericResponse(8));
 });
 
-test("editing after a failed request does not reuse that request's key", async () => {
+test("editing after a failed request retries the changed response for its Question Attempt", async () => {
   let calls = 0;
   const fixture = createMachine({
-    submitResponse: async (attemptId, response, key) => {
+    submitResponse: async (attemptId, response) => {
       calls += 1;
-      fixture.submissionCalls.push({ attemptId, response, key });
+      fixture.submissionCalls.push({ attemptId, response });
       if (calls === 1) throw new TypeError("temporary outage");
       return receipt();
     },
@@ -601,8 +601,8 @@ test("editing after a failed request does not reuse that request's key", async (
   await fixture.machine.retry();
 
   assert.equal(fixture.submissionCalls.length, 2);
-  assert.notEqual(fixture.submissionCalls[0].key, fixture.submissionCalls[1].key);
-  assert.deepEqual(fixture.keys, ["key-1", "key-2"]);
+  assert.equal(fixture.submissionCalls[0].attemptId, fixture.submissionCalls[1].attemptId);
+  assert.deepEqual(fixture.submissionCalls[1].response, numericResponse(8));
 });
 
 test("advance retry reloads the retained Question Presentation without resubmitting a committed response", async () => {
@@ -614,13 +614,13 @@ test("advance retry reloads the retained Question Presentation without resubmitt
     context: createContext({
       attemptId: "attempt-b",
       questionRevision: versionReference(2),
-      seed: 3,
+      questionSeed: 3,
     }),
     presentation: {
       questionRevision: versionReference(2),
       question_seed: 3,
       presentationNonce: "11111111111111111111111111111111",
-      title: "Question",
+      questionTitle: "Question",
       prompt: [],
       response: { kind: "numerical", maxCharacters: 32, displayedUnit: null },
     },
@@ -649,7 +649,7 @@ test("a mismatched next Question Presentation preserves feedback and exposes a r
       questionRevision: versionReference(3),
       question_seed: 3,
       presentationNonce: "11111111111111111111111111111111",
-      title: "Question",
+      questionTitle: "Question",
       prompt: [],
       response: { kind: "numerical", maxCharacters: 32, displayedUnit: null },
     },
@@ -657,7 +657,7 @@ test("a mismatched next Question Presentation preserves feedback and exposes a r
       questionRevision: versionReference(2),
       question_seed: 4,
       presentationNonce: "22222222222222222222222222222222",
-      title: "Question",
+      questionTitle: "Question",
       prompt: [],
       response: { kind: "numerical", maxCharacters: 32, displayedUnit: null },
     },
@@ -671,7 +671,7 @@ test("a mismatched next Question Presentation preserves feedback and exposes a r
       context: createContext({
         attemptId: "attempt-b",
         questionRevision: versionReference(2),
-        seed: 3,
+        questionSeed: 3,
       }),
       presentation,
     };
@@ -747,7 +747,6 @@ test("an injected iMathAS Question Backend local buffer with backend secrets is 
     "ple:attempt:assignment-attempt-a:attempt-a",
     JSON.stringify({
       response: { kind: "imathasQuestionBackend", score: 100, token: "forged" },
-      idempotencyKey: "key-forged",
     }),
   );
   const fixture = createMachine({ storage });
@@ -759,7 +758,9 @@ test("a marker-only iMathAS Question Backend local buffer restores unchanged", (
   const storage = createStorage();
   storage.setItem(
     "ple:attempt:assignment-attempt-a:attempt-a",
-    JSON.stringify({ response: { kind: "imathasQuestionBackend" }, idempotencyKey: "key-imathas" }),
+    JSON.stringify({
+      response: { kind: "imathasQuestionBackend" },
+    }),
   );
   const fixture = createMachine({ storage });
   fixture.machine.start();

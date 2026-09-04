@@ -116,7 +116,7 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
         self.render_calls.fetch_add(1, Ordering::SeqCst);
         mode_result(self.mode)?;
         Ok(SafeImathasQuestionRender {
-            title: "Recorded iMathAS question".into(),
+            question_title: "Recorded iMathAS question".into(),
             prompt: vec![QuestionContentBlock::Text {
                 markdown: "Complete the recorded iMathAS Question Backend activity.".into(),
             }],
@@ -349,7 +349,7 @@ impl ImathasQuestionBackendTransport for RecordedImathasQuestionBackendTransport
         _request: crate::imathas_question_backend::RenderTransportRequest<'_>,
     ) -> Result<SafeImathasQuestionRender, ImathasTransportFailure> {
         Ok(SafeImathasQuestionRender {
-            title: "Recorded iMathAS Question Backend question".into(),
+            question_title: "Recorded iMathAS Question Backend question".into(),
             prompt: vec![QuestionContentBlock::Text {
                 markdown: "Complete the protected activity.".into(),
             }],

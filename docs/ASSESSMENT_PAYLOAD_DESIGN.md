@@ -35,7 +35,6 @@ Browser                                      PLE
    |<-----------------------------------------|
    |                                          |
    | POST .../attempts/{attempt}/submissions  |
-   | Idempotency-Key: ...                     |
    | {presentationToken, answer}             |
    |----------------------------------------->|
    | compact policy-permitted receipt         |
@@ -44,7 +43,7 @@ Browser                                      PLE
 
 The authenticated `QuestionAttemptId` in the route is the primary student-response binding. The
 server resolves it to one exact `CourseId`, `StudentRecordId`, `AssignmentAttemptId`, and immutable
-`QuestionRevisionReference` plus seed before reading or mutating anything. The submitted Question
+`QuestionRevisionReference` plus Question Seed before reading or mutating anything. The submitted Question
 Presentation Token is compared with the complete server-held Question Presentation Checksum to check that
 the browser answered the same render state PLE issued. Compact
 CRC16 Presentation Response Item References identify choices, blanks, matching sides, Ordering Items, Hotspot Surfaces,
@@ -57,12 +56,12 @@ An issued attempt is an educational record with one closed server-side identity 
 
 ```text
 (CourseId, StudentRecordId, AssignmentAttemptId, QuestionAttemptId,
- QuestionRevisionReference { question_id, revision_number }, seed)
+ QuestionRevisionReference { question_id, revision_number }, Question Seed)
 ```
 
 `CourseId` and `StudentRecordId` are checked against the authenticated Account's exact Course Membership
 and Student ownership. `AssignmentAttemptId` and `QuestionAttemptId` must resolve through that same relationship;
-the immutable `QuestionRevisionReference` and seed must match the Issued Question. A route parameter,
+the immutable `QuestionRevisionReference` and Question Seed must match the Issued Question. A route parameter,
 browser field, cache key, provider identifier, or queue payload cannot widen or replace this tuple.
 The protected read or write performs the relationship check and data operation in one forced-RLS
 transaction.
@@ -81,14 +80,14 @@ authorization selector.
 ### Current render payload
 
 `QuestionVariationPresentation` is the adapter-produced, answer-free render result for one exact
-`QuestionVariation`. It nests that variation and carries the student-facing title, ordered prompt
+`QuestionVariation`. It nests that variation and carries the student-facing Question Title, ordered prompt
 blocks, and durable `QuestionResponseFormat`. `QuestionPresentation` is the later issued Student
 contract: it carries direct Question Revision and Question Seed, a server-minted nonce, the same
-public title and prompt, and a presentation-scoped `QuestionPresentationResponseFormat`.
+Question Title and prompt, and a presentation-scoped `QuestionPresentationResponseFormat`.
 
 The Question Variation Presentation contains:
 
-- student-facing `title`;
+- student-facing `questionTitle`;
 - ordered prompt blocks for text, math, images, code, and tables;
 - a tagged `QuestionResponseFormat` that selects the browser Question Response Control.
 
@@ -113,7 +112,7 @@ routes, without treating asset delivery as a Question Presentation field.
 The current browser Assignment Attempt screen receives a complete
 [QuestionAttempt](../crates/question_model/src/lib.rs). That persistence record contains:
 
-- course, Student Record, Assignment Attempt, immutable Question Revision reference, Assignment Entry, and seed;
+- Course, Student Record, Assignment Attempt, immutable Question Revision Reference, Assignment Entry, and Question Seed;
 - parameter hash, response, status, result, and timer state; and
 - Question Backend Version, Question Renderer Version, generator, source-object,
   asset-object, Question Grader Version, and Rendered Question SHA-256.
@@ -136,7 +135,6 @@ PLE currently accepts:
 
 ```http
 POST /api/courses/{courseId}/assignments/{assignmentId}/attempts/{attemptId}/submissions
-Idempotency-Key: <opaque bounded key>
 Content-Type: application/json
 ```
 
@@ -186,13 +184,13 @@ An issued attempt already binds the facts required to grade safely:
 - authenticated student through exact CourseId and Student ownership;
 - course and assignment context;
 - exact immutable QuestionRevisionReference and assignment position;
-- generated seed and immutable Question Source binding;
+- generated Question Seed and immutable Question Source Binding;
 - expected Question Type and grading backend;
 - issue time, effective deadline, and submission state; and
 - feedback, retry, grading, and continued-practice policies.
 
-The browser therefore does not need to resend a question ID, course ID, assignment ID, version,
-seed, backend, Question Type, points, or grading mode. Treating browser copies of those values as
+The browser therefore does not need to resend a Question ID, Course ID, Assignment ID, Question Revision,
+Question Seed, Question Backend, Question Type, points, or grading mode. Treating browser copies of those values as
 authority would create disagreement cases without adding information.
 
 ### UUID cost
@@ -229,10 +227,13 @@ descriptor, and one public Question Presentation:
     "presentationToken": "pd1_..."
   },
   "presentation": {
-    "version": "...",
-    "seed": 90210,
+    "questionRevision": {
+      "questionId": "...",
+      "revisionNumber": 1
+    },
+    "question_seed": 90210,
     "presentationNonce": "...",
-    "title": "Peptide bonds",
+    "questionTitle": "Peptide bonds",
     "prompt": [],
     "response": {
       "kind": "multipleChoice",
@@ -245,7 +246,7 @@ descriptor, and one public Question Presentation:
 The Assignment Attempt reference is already in the request path. The response omits complete Student Record, assignment,
 course, Student, Question Attempt, and Question Attempt Reproduction Details. The authenticated server resolves Student ownership
 from the exact Course Membership; the browser does not choose or receive a Student identifier. The
-browser receives `version` and `seed` because they help identify and reproduce the public render, but
+browser receives the Question Revision reference and `question_seed` because they help identify and reproduce the public render, but
 it does not send either value back when answering.
 
 ### Student response
@@ -259,7 +260,7 @@ Every ordinary answer uses the same outer request:
 }
 ```
 
-The attempt ID remains in the path and the idempotency key remains in the header. The server chooses
+The attempt ID remains in the path and is the submission identity. The server chooses
 the strict `answer` decoder from the attempt's issued Question Response Format.
 
 | Question Type     | Minimal `answer` representation                              |
@@ -336,7 +337,7 @@ CRC-16/CCITT-FALSE:
 - final XOR `0x0000`; and
 - check vector `123456789` produces `29b1`.
 
-The checksum input is domain-separated and includes the presentation nonce, immutable version, seed,
+The checksum input is domain-separated and includes the Question Presentation Nonce, immutable Question Revision Reference, Question Seed,
 Response Item Role, ordinal, durable Response Item Reference, and SHA-256 of the deterministic public presented content.
 This contract defines the normative byte framing.
 Rust owns this codec; the browser calls the Rust/Wasm implementation and does not reimplement it in
@@ -369,7 +370,7 @@ it is compact and easy to inspect, not because it is collision-resistant or secr
 Fine-grained Presentation Response Item References say which Response Items the student selected. A separate Question Presentation Checksum binds the
 complete public presentation:
 
-- immutable version and seed;
+- immutable Question Revision Reference and Question Seed;
 - presentation nonce;
 - public title and prompt blocks;
 - Question Response Format and Question Response Control constraints;
@@ -383,12 +384,12 @@ whole-presentation disagreement. It is still a consistency value, not an authent
 
 ### Detection boundary
 
-| Mechanism                                                              | Detects                                                                                                   | Does not prove                                                 |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Presentation Response Item Reference membership and Response Item Role | Unknown or stale selection, wrong ordering map, wrong matching side, wrong blank, or wrong Hotspot Region | Student identity or correctness                                |
-| Question Presentation Checksum                                         | Stale or mixed cached state, changed prompt/schema/order/assets/geometry, wrong version/seed/nonce        | TLS, browser integrity, pixel display, or image decode success |
-| Authenticated Question Attempt                                         | Student ownership, Course/Assignment Attempt binding, lifecycle, timing, backend, and immutable version   | That the browser rendered every asset                          |
-| Idempotency record                                                     | Exact retry versus changed replay                                                                         | Correctness of the answer                                      |
+| Mechanism                                                              | Detects                                                                                                                 | Does not prove                                                 |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Presentation Response Item Reference membership and Response Item Role | Unknown or stale selection, wrong ordering map, wrong matching side, wrong blank, or wrong Hotspot Region               | Student identity or correctness                                |
+| Question Presentation Checksum                                         | Stale or mixed cached state, changed prompt/schema/order/assets/geometry, wrong Question Revision/Question Seed/nonce   | TLS, browser integrity, pixel display, or image decode success |
+| Authenticated Question Attempt                                         | Student Record, Course/Assignment Attempt binding, lifecycle, timing, Question Backend, and immutable Question Revision | That the browser rendered every asset                          |
+| Question Submission and Receipt                                        | Exact repeat returns the existing result; a changed response conflicts                                                  | Correctness of the answer                                      |
 
 An ordinary transport checksum is unnecessary because TLS and HTTP already detect transfer
 corruption. The Question Presentation Checksum addresses application-state disagreement: the wrong valid render paired with
@@ -409,7 +410,7 @@ The browser then:
 5. asks the student to review the restored answer; and
 6. submits again only after the current presentation validates.
 
-PLE must not silently issue a new seed, grade against the stale state, or discard typed work. A
+PLE must not silently issue a new Question Seed, grade against the stale state, or discard typed work. A
 repeatable mismatch after same-attempt refresh is a server defect or corrupt persisted binding and
 must fail closed for operator investigation.
 
@@ -424,7 +425,7 @@ For PLE Question JSON Questions, PLE owns both immutable content and grading. Th
 4. Decode the type-free `answer` using the issued public Question Response Format.
 5. Map Presentation Response Item References to durable Response Item Bindings.
 6. Apply answer normalization, correctness, and partial-credit rules server-side.
-7. Atomically persist response, score events, Question Attempt/Assignment Attempt transitions, and idempotency result.
+7. Atomically persist the Question Submission, score events, Question Attempt/Assignment Attempt transitions, and Question Submission Receipt.
 8. Return only the policy-permitted receipt.
 
 This keeps rich type information inside Rust where exhaustive enums are useful while keeping the
@@ -437,17 +438,17 @@ scores or grading metadata.
 
 The browser-facing WeBWorK Question Presentation is typed and answer-free. PLE resolves immutable Question Source
 from server-only object storage and caches the safe render by Question Revision Reference and Question Seed. An
-**issue** cache hit reuses that public render but still makes one private same-seed renderer call to
+**issue** cache hit reuses that public render but still makes one private same-Question-Seed renderer call to
 recover and verify the replay mapping that the safe cache deliberately excludes. In contrast,
 reproducing an already-issued attempt reads only the safe cache and makes no renderer call; its
 attempt-bound replay mapping is loaded separately from the protected record for the exact
 `CourseId`, `StudentRecordId`, `AssignmentAttemptId`, and `QuestionAttemptId`.
 
-PLE privately calls the external standalone `/render-api` form endpoint with source, file path,
-seed, fixed display controls, and signed renderer state. Those fields never cross the browser
+PLE privately calls the external standalone `/render-api` form endpoint with Question Source, file path,
+its registered `seed` field, fixed display controls, and signed renderer state. Those fields never cross the browser
 boundary. The historical RC3 compatibility grading path originally performed two private calls:
 
-1. rerender the same source and seed to recover and validate the opaque PLE-choice to upstream
+1. rerender the same Question Source and Question Seed to recover and validate the opaque PLE-choice to upstream
    `AnSwEr...` field/value mapping; and
 2. call the same endpoint with the selected upstream field/value and `WWsubmit=1`.
 
@@ -526,7 +527,7 @@ IDs, but rich renderer answer and score objects participate in the browser-facin
 | Concern              | ADAPT observation                                      | PLE decision                                                                                                  |
 | -------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | Render sanitization  | Strips correct responses and feedback by role/policy   | Adopt and preserve                                                                                            |
-| Determinism          | Stores a per-student assignment/question seed          | Adopt the deterministic principle; bind it to an attempt                                                      |
+| Determinism          | Stores a per-student assignment/question seed          | Adopt the deterministic principle; bind one Question Seed to a Question Attempt                               |
 | Server-inferred type | Server infers `questionType`                           | Remove submission `kind` in PLE v1                                                                            |
 | Server-held identity | Browser sends assignment and question IDs              | Use one attempt ID that already binds both                                                                    |
 | ADAPT render scope   | Rich assignment/question records                       | Return one minimal active student screen                                                                      |
@@ -570,7 +571,7 @@ The end-to-end submission path contains:
 
 1. browser-to-PLE network round trip;
 2. authentication and bounded JSON parsing;
-3. RLS-visible Question Attempt, Assignment Attempt, question, and idempotency reads;
+3. RLS-visible Question Attempt, Assignment Attempt, Question Submission, and Receipt reads;
 4. presentation and response validation;
 5. PLE grading or private PLE-to-WeBWorK round trip and execution;
 6. atomic persistence and summary updates; and
@@ -593,7 +594,7 @@ counts or arbitrary latency thresholds into permanent tests.
 
 ### Safe caching
 
-PLE may cache public render data by immutable `QuestionRevisionReference`, seed, and the presentation binding.
+PLE may cache public render data by immutable `QuestionRevisionReference`, Question Seed, and the presentation binding.
 Cache entries may contain only the answer-free Question Presentation, public asset references, and
 Question Renderer Version needed to identify the render. They must not contain correct answers, private rubrics,
 credentials, session keys, source archives, or raw provider responses.
@@ -607,7 +608,7 @@ assets report their documented readiness; the Question Presentation Checksum doe
 PLE can prepare one next question while the student works on the current question when policy allows
 it. The server, not the browser:
 
-- chooses the next assignment position and fresh seed;
+- chooses the next Assignment position and fresh Question Seed;
 - creates the CourseId/StudentRecordId/Assignment Attempt/predecessor-attempt-bound reservation;
 - resolves source and backend;
 - renders and stores the public presentation binding; and
@@ -618,7 +619,7 @@ and practice work, the browser may receive the next answer-free Question Present
 set of same-origin assets. For timed or exam policy, PLE may pre-render privately but must not reveal
 the next Question Presentation until the current attempt commits. The current bodyless reservation route does not
 yet enforce that timing-policy distinction. Prefetch never grades, starts the next timer, or lets the
-browser choose a seed, backend, or source.
+browser choose a Question Seed, Question Backend, or source.
 
 ## Security properties
 
@@ -627,10 +628,10 @@ The security boundary is:
 - TLS and same-origin browser transport;
 - authenticated HttpOnly session;
 - exact CourseId and StudentRecordId ownership through forced RLS and Assignment Attempt lookup;
-- immutable version, seed, timing, and backend binding;
+- immutable Question Revision, Question Seed, timing, and Question Backend binding;
 - strict schema-selected answer decoding;
 - attempt lifecycle checks;
-- idempotency and atomic commit; and
+- one Question Submission per Question Attempt and atomic commit; and
 - server-only grading data and provider credentials.
 
 CRC16 and the Question Presentation Token/Checksum pair add useful consistency evidence. They do not replace any item in
@@ -674,7 +675,7 @@ easy to navigate without duplicating its exact migration and codec specification
 - Files: Student Question Attempt Views and submission receipts, PLE Question Backend validation, route tests, API fixtures,
   and generated client contracts.
 - Behavior: serve one minimal student screen, decode type-free answers after attempt load, verify
-  Question Presentation Checksum and idempotency before grading, and return compact receipts.
+  Question Presentation Checksum and the one-Submission-per-Question-Attempt boundary before grading, and return compact receipts.
 - Success: each Question Type accepts its exact shape and rejects extras; exact replay returns the first
   receipt; changed replay conflicts before grading; mismatch does not mutate; no raw attempt or
   Question Attempt Reproduction Details cross the active student route.
@@ -725,10 +726,10 @@ Permanent tests protect stable behavior:
 - a missing authenticated session, another AccountId, another course, and a foreign attempt are concealed before protected
   payload access;
 - every issued and replayed record matches its exact CourseId, StudentRecordId, AssignmentAttemptId, QuestionAttemptId,
-  QuestionRevisionReference, and seed;
+  QuestionRevisionReference, and Question Seed;
 - Presentation Response Item Reference membership, Response Item Role, collision retry, and fail-closed issuance;
 - presentation mismatch causes no grade or mutation;
-- exact idempotent replay and changed-replay conflict;
+- exact repeat returns the existing Question Submission Receipt and a changed response conflicts;
 - student-screen and receipt allowlists;
 - target prefetch promotion and timed-content withholding;
 - normal one-call WeBWorK grading; and

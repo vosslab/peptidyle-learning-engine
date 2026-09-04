@@ -32,24 +32,24 @@ pub(super) struct CachedWebworkRender {
 
 pub(super) fn render_key(
     question_revision: &QuestionRevisionReference,
-    seed: QuestionSeed,
+    question_seed: QuestionSeed,
 ) -> ObjectAddress {
     ObjectAddress::QuestionRender {
         question_revision: question_revision.clone(),
-        seed,
-        object: deterministic_render_object_id(question_revision, seed),
+        question_seed,
+        object: deterministic_render_object_id(question_revision, question_seed),
     }
 }
 
 fn deterministic_render_object_id(
     question_revision: &QuestionRevisionReference,
-    seed: QuestionSeed,
+    question_seed: QuestionSeed,
 ) -> ObjectId {
     let mut hash = Sha256::new();
     hash.update(b"peptidyle:webwork-render-cache:v2");
     hash.update(question_revision.question_id.to_string().as_bytes());
     hash.update(question_revision.revision_number.get().to_be_bytes());
-    hash.update(seed.value().to_be_bytes());
+    hash.update(question_seed.value().to_be_bytes());
     let digest = hash.finalize();
     let mut bytes = [0_u8; 16];
     bytes.copy_from_slice(&digest[..16]);
@@ -64,7 +64,7 @@ pub(super) fn decode_render(bytes: &[u8]) -> Result<CachedWebworkRender, Webwork
 pub(super) fn validate_cached(
     cached: &CachedWebworkRender,
     question_revision: &QuestionRevisionReference,
-    seed: QuestionSeed,
+    question_seed: QuestionSeed,
     source: &ResolvedWebworkQuestionSource,
     active_renderer_version: &QuestionRendererVersion,
 ) -> Result<(), WebworkAdapterError> {
@@ -84,23 +84,27 @@ pub(super) fn validate_cached(
             "cache renderer identity does not match the configured renderer".to_string(),
         ));
     }
-    validate_presentation(&cached.rendered.presentation, question_revision, seed)?;
+    validate_presentation(
+        &cached.rendered.presentation,
+        question_revision,
+        question_seed,
+    )?;
     Ok(())
 }
 
 pub(super) fn validate_presentation(
     presentation: &QuestionVariationPresentation,
     question_revision: &QuestionRevisionReference,
-    seed: QuestionSeed,
+    question_seed: QuestionSeed,
 ) -> Result<(), WebworkAdapterError> {
     if &presentation.variation.question_revision != question_revision {
         return Err(WebworkAdapterError::InvalidRendererQuestionPresentation(
             "renderer returned a different immutable version".to_string(),
         ));
     }
-    if presentation.variation.question_seed != seed {
+    if presentation.variation.question_seed != question_seed {
         return Err(WebworkAdapterError::InvalidRendererQuestionPresentation(
-            "renderer returned a different deterministic seed".to_string(),
+            "renderer returned a different deterministic Question Seed".to_string(),
         ));
     }
     Ok(())

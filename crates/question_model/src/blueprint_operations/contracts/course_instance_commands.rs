@@ -6,7 +6,6 @@ use super::{
     AssignmentImportReceipt, AssignmentSourceSnapshot, BlueprintAssignmentRevisionReference,
     BoundedResolvedScheduleSet, CourseInstanceCreationReservation, CourseInstanceSnapshot,
     CourseOrigin, CourseRolloverManifest, QuestionRevisionSubstitutions, RequestChecksum,
-    RequestRetryToken,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,19 +15,16 @@ pub struct CopyCourseForNewTermCommand {
     target_term: CourseTerm,
     manifest: CourseRolloverManifest,
     creation: CourseInstanceCreationReservation,
-    retry_token: RequestRetryToken,
 }
 
 impl CopyCourseForNewTermCommand {
     pub fn from_server_record(record: super::CopyCourseForNewTermApplyRecord) -> Self {
-        let retry_token = record.creation().retry_token().clone();
         Self {
             source_course_instance: record.source_course_instance().clone(),
             course_origin: record.course_origin(),
             target_term: record.target_term().clone(),
             manifest: record.manifest().clone(),
             creation: record.creation().clone(),
-            retry_token,
         }
     }
 
@@ -47,9 +43,6 @@ impl CopyCourseForNewTermCommand {
     pub fn creation(&self) -> &CourseInstanceCreationReservation {
         &self.creation
     }
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        &self.retry_token
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,7 +53,6 @@ pub struct ShiftCourseDatesCommand {
     schedules: BoundedResolvedScheduleSet,
     authorized_account: AccountId,
     request_checksum: RequestChecksum,
-    retry_token: RequestRetryToken,
 }
 
 impl ShiftCourseDatesCommand {
@@ -72,7 +64,6 @@ impl ShiftCourseDatesCommand {
             schedules: record.schedules().clone(),
             authorized_account: record.authorized_account(),
             request_checksum: record.request_checksum(),
-            retry_token: record.retry_token().clone(),
         }
     }
 
@@ -94,9 +85,6 @@ impl ShiftCourseDatesCommand {
     pub fn request_checksum(&self) -> RequestChecksum {
         self.request_checksum
     }
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        &self.retry_token
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -107,7 +95,6 @@ pub struct ApplyBlueprintUpdateCommand {
     course_origin: CourseOrigin,
     authorized_account: AccountId,
     request_checksum: RequestChecksum,
-    retry_token: RequestRetryToken,
 }
 
 impl ApplyBlueprintUpdateCommand {
@@ -119,7 +106,6 @@ impl ApplyBlueprintUpdateCommand {
             course_origin: record.course_origin(),
             authorized_account: record.authorized_account(),
             request_checksum: record.request_checksum(),
-            retry_token: record.retry_token().clone(),
         }
     }
 
@@ -141,9 +127,6 @@ impl ApplyBlueprintUpdateCommand {
     pub fn request_checksum(&self) -> RequestChecksum {
         self.request_checksum
     }
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        &self.retry_token
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -155,7 +138,6 @@ pub struct CopyAssignmentFromBlueprintCommand {
     replacements: QuestionRevisionSubstitutions,
     authorized_account: AccountId,
     request_checksum: RequestChecksum,
-    retry_token: RequestRetryToken,
 }
 
 impl CopyAssignmentFromBlueprintCommand {
@@ -168,7 +150,6 @@ impl CopyAssignmentFromBlueprintCommand {
             replacements: record.replacements().clone(),
             authorized_account: record.authorized_account(),
             request_checksum: record.request_checksum(),
-            retry_token: record.retry_token().clone(),
         }
     }
 
@@ -193,9 +174,6 @@ impl CopyAssignmentFromBlueprintCommand {
     pub fn request_checksum(&self) -> RequestChecksum {
         self.request_checksum
     }
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        &self.retry_token
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -204,7 +182,6 @@ pub struct AssignmentImportRepairCommand {
     course_origin: CourseOrigin,
     authorized_account: AccountId,
     request_checksum: RequestChecksum,
-    retry_token: RequestRetryToken,
 }
 
 impl AssignmentImportRepairCommand {
@@ -214,7 +191,6 @@ impl AssignmentImportRepairCommand {
             course_origin: record.course_origin(),
             authorized_account: record.authorized_account(),
             request_checksum: record.request_checksum(),
-            retry_token: record.retry_token().clone(),
         }
     }
 
@@ -229,8 +205,5 @@ impl AssignmentImportRepairCommand {
     }
     pub fn request_checksum(&self) -> RequestChecksum {
         self.request_checksum
-    }
-    pub fn retry_token(&self) -> &RequestRetryToken {
-        &self.retry_token
     }
 }

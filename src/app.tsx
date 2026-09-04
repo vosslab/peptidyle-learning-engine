@@ -158,7 +158,7 @@ export function App(props: RouteSectionProps): JSX.Element {
           </A>
           <Show when={canUseLibrary(session.state())}>
             <A href="/library" activeClass="active">
-              Library
+              Question Library
             </A>
           </Show>
           <Show when={canUseBlueprintCourses(session.state())}>

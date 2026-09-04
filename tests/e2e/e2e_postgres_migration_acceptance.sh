@@ -167,10 +167,12 @@ printf '%s\n' "$second_apply"
 printf '%s\n' "$second_apply" | grep -Eiq 'no.?op|already applied|complete' || fail "second PostgreSQL Migration did not report a no-op-compatible result"
 run_postgres_migration_acceptance_tool migration-acceptance-verify
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/question_records.sql"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/question_publication_operation.sql"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/question_publication_credit_catalog.sql"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/assignment_revision_entry_snapshot_catalog.sql"
 echo "PostgreSQL Migration Acceptance Runtime E2E: exact principal, schema, ACL, and membership catalog"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/postgres_migration_acceptance_catalog.sql"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/assignment_question_analysis_job_catalog.sql"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/imathas_question_backend_session_catalog_oracle.sql"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/postgres_migration_acceptance_instructor_account_creation.sql"
 assert_restricted_logins

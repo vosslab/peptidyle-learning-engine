@@ -25,11 +25,11 @@ pub const MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS: usize = 200;
 
 mod blueprint_children;
 pub use blueprint_children::{
-    BlueprintAssignmentEditHandle, BlueprintAssignmentId, BlueprintChildIdError,
-    BlueprintCourseAssignmentContentView, BlueprintCourseAssignmentReplacementInput,
-    BlueprintCourseModuleReplacementInput, BlueprintCourseModuleView, BlueprintModuleEditHandle,
-    BlueprintModuleId, CreateBlueprintCourseContentInput, CreateBlueprintCourseModuleInput,
-    ReplaceBlueprintCourseContentInput,
+    BlueprintAssignmentEditChoice, BlueprintAssignmentReference,
+    BlueprintAssignmentReplacementInput, BlueprintChildIdError,
+    BlueprintCourseAssignmentContentView, BlueprintModuleEditChoice, BlueprintModuleReference,
+    BlueprintModuleReplacementInput, BlueprintModuleView, CreateBlueprintCourseContentInput,
+    CreateBlueprintModuleInput, ReplaceBlueprintCourseContentInput,
 };
 
 mod relative_assignment_schedule;
@@ -164,7 +164,7 @@ pub enum BlueprintAssignmentEntryInput {
     Pool(ReusablePoolInput),
 }
 
-/// Complete submitted reusable-assignment meaning.
+/// Complete submitted Blueprint Assignment meaning.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintAssignmentContentInput {
@@ -276,7 +276,7 @@ pub enum BlueprintAssignmentEntryView {
     Pool(ReusablePoolView),
 }
 
-/// Current answer-free reusable-assignment content.
+/// Current answer-free Blueprint Assignment content.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintAssignmentContentView {
@@ -401,7 +401,7 @@ pub struct BlueprintCourseView {
     /// Browser-safe classification for this returned Blueprint Course view.
     pub read_access: BlueprintCourseReadAccess,
     /// Labelled modules in retained aggregate-owned order.
-    pub modules: Vec<BlueprintCourseModuleView>,
+    pub modules: Vec<BlueprintModuleView>,
 }
 
 /// Meaning-level validation failure for a Blueprint Course command.
@@ -433,10 +433,10 @@ pub enum BlueprintCourseValidationError {
     AssignmentAttemptTimeLimitOutOfRange,
     /// A reusable attempt limit exceeds the ordinary assignment bound.
     AttemptLimitOutOfRange,
-    /// A replacement submitted the same retained module handle more than once.
-    DuplicateRetainedModuleHandle,
-    /// A replacement submitted the same retained assignment handle more than once.
-    DuplicateRetainedAssignmentHandle,
+    /// A replacement submitted the same retained Blueprint Module Reference more than once.
+    DuplicateRetainedBlueprintModuleChoice,
+    /// A replacement submitted the same retained Blueprint Assignment Reference more than once.
+    DuplicateRetainedBlueprintAssignmentChoice,
 }
 
 impl std::fmt::Display for BlueprintCourseValidationError {
@@ -448,7 +448,7 @@ impl std::fmt::Display for BlueprintCourseValidationError {
             Self::InvalidEntryCount => "reusable content must contain bounded ordered entries",
             Self::InvalidModuleCount => "BlueprintCourse must contain bounded modules",
             Self::InvalidModuleAssignmentCount => {
-                "BlueprintCourse module must contain bounded reusable assignments"
+                "BlueprintCourse module must contain bounded Blueprint Assignments"
             }
             Self::InvalidQuestionPoolItems => {
                 "Question Pool Items must be present and within their bound"
@@ -467,11 +467,11 @@ impl std::fmt::Display for BlueprintCourseValidationError {
                 "reusable time limit exceeds the supported range"
             }
             Self::AttemptLimitOutOfRange => "reusable attempt limit exceeds the supported range",
-            Self::DuplicateRetainedModuleHandle => {
-                "BlueprintCourse replacement repeats a retained module handle"
+            Self::DuplicateRetainedBlueprintModuleChoice => {
+                "Blueprint Course replacement repeats a retained Blueprint Module Reference"
             }
-            Self::DuplicateRetainedAssignmentHandle => {
-                "BlueprintCourse replacement repeats a retained assignment handle"
+            Self::DuplicateRetainedBlueprintAssignmentChoice => {
+                "Blueprint Course replacement repeats a retained Blueprint Assignment Reference"
             }
         })
     }
@@ -491,12 +491,12 @@ mod tests {
     };
     use uuid::Uuid;
 
-    fn module_id() -> BlueprintModuleId {
-        BlueprintModuleId::from_uuid(Uuid::from_u128(1))
+    fn blueprint_module_reference() -> BlueprintModuleReference {
+        BlueprintModuleReference::from_uuid(Uuid::from_u128(1))
     }
 
-    fn assignment_id() -> BlueprintAssignmentId {
-        BlueprintAssignmentId::from_uuid(Uuid::from_u128(2))
+    fn blueprint_assignment_reference() -> BlueprintAssignmentReference {
+        BlueprintAssignmentReference::from_uuid(Uuid::from_u128(2))
     }
 
     fn question_id() -> QuestionId {
@@ -568,7 +568,7 @@ mod tests {
                 question_type: QuestionType::MultipleChoice,
                 capabilities: QuestionBackendCapabilities::none(),
                 metadata: QuestionMetadata {
-                    title: "Safe Question Library row".to_string(),
+                    question_title: "Safe Question Library row".to_string(),
                     question_description: "Instructor-facing Question Library row fixture."
                         .to_string(),
                     tags: Vec::new(),
@@ -584,7 +584,7 @@ mod tests {
                 availability: QuestionRevisionAvailability::Available,
                 published_at: Timestamp::from_unix_millis(0),
             },
-            evidence: QuestionStatistics::InsufficientEvidence,
+            evidence: QuestionStatistics::Unavailable,
         }
     }
 
@@ -685,7 +685,7 @@ mod tests {
         );
         let blueprint = CreateBlueprintCourseContentInput {
             title: "Biochemistry Blueprint".to_string(),
-            modules: vec![CreateBlueprintCourseModuleInput {
+            modules: vec![CreateBlueprintModuleInput {
                 label: "Week 1".to_string(),
                 assignments: vec![input(RelativeAssignmentSchedule::default())],
             }],
@@ -694,17 +694,17 @@ mod tests {
     }
 
     #[test]
-    fn blueprint_course_view_serializes_answer_free_question_library_rows_and_edit_handles() {
+    fn blueprint_course_view_serializes_answer_free_question_library_rows_and_edit_choices() {
         let view = BlueprintCourseView {
             reference: "BP-12".parse().expect("valid reference"),
             title: "Biochemistry Blueprint".to_string(),
             revision: BlueprintRevision::new(4).expect("valid revision"),
             read_access: BlueprintCourseReadAccess::ActiveInstructor,
-            modules: vec![BlueprintCourseModuleView {
-                module_id: module_id(),
+            modules: vec![BlueprintModuleView {
+                blueprint_module_reference: blueprint_module_reference(),
                 label: "Week 1".to_string(),
                 assignments: vec![BlueprintCourseAssignmentContentView {
-                    assignment_id: assignment_id(),
+                    blueprint_assignment_reference: blueprint_assignment_reference(),
                     content: BlueprintAssignmentContentView {
                         title: "Protein structure practice".to_string(),
                         instructions: AssignmentInstructions::default(),
@@ -754,8 +754,10 @@ mod tests {
                 .is_some()
         );
         assert_eq!(
-            wire.pointer("/modules/0/assignments/0/assignment_id"),
-            Some(&serde_json::Value::String(assignment_id().to_string()))
+            wire.pointer("/modules/0/assignments/0/blueprint_assignment_reference"),
+            Some(&serde_json::Value::String(
+                blueprint_assignment_reference().to_string(),
+            ))
         );
         assert!(
             wire.pointer("/modules/0/assignments/0/content/entries/0/revision")
@@ -785,7 +787,7 @@ mod blueprint_course_tests {
     fn blueprint_course_input_is_one_nested_question_id_tree() {
         let input = CreateBlueprintCourseContentInput {
             title: "Biochemistry".to_owned(),
-            modules: vec![CreateBlueprintCourseModuleInput {
+            modules: vec![CreateBlueprintModuleInput {
                 label: "Week 1".to_owned(),
                 assignments: vec![BlueprintAssignmentContentInput {
                     title: "Protein folding".to_owned(),
@@ -832,17 +834,18 @@ mod blueprint_course_tests {
     }
 
     #[test]
-    fn replacement_handles_are_explicit_strict_and_unique() {
-        let module_id = BlueprintModuleId::from_uuid(Uuid::from_u128(1));
-        let assignment_id = BlueprintAssignmentId::from_uuid(Uuid::from_u128(2));
+    fn replacement_choices_are_explicit_strict_and_unique() {
+        let blueprint_module_reference = BlueprintModuleReference::from_uuid(Uuid::from_u128(1));
+        let blueprint_assignment_reference =
+            BlueprintAssignmentReference::from_uuid(Uuid::from_u128(2));
         assert!(
             "00000000000000000000000000000001"
-                .parse::<BlueprintModuleId>()
+                .parse::<BlueprintModuleReference>()
                 .is_err()
         );
         assert!(
             "00000000-0000-0000-0000-00000000000A"
-                .parse::<BlueprintAssignmentId>()
+                .parse::<BlueprintAssignmentReference>()
                 .is_err()
         );
         let content = BlueprintAssignmentContentInput {
@@ -877,16 +880,20 @@ mod blueprint_course_tests {
         };
         let replacement = ReplaceBlueprintCourseContentInput {
             title: "Biochemistry".to_owned(),
-            modules: vec![BlueprintCourseModuleReplacementInput {
-                handle: BlueprintModuleEditHandle::Retained { module_id },
+            modules: vec![BlueprintModuleReplacementInput {
+                choice: BlueprintModuleEditChoice::Retained {
+                    blueprint_module_reference,
+                },
                 label: "Week 1".to_owned(),
                 assignments: vec![
-                    BlueprintCourseAssignmentReplacementInput {
-                        handle: BlueprintAssignmentEditHandle::Retained { assignment_id },
+                    BlueprintAssignmentReplacementInput {
+                        choice: BlueprintAssignmentEditChoice::Retained {
+                            blueprint_assignment_reference,
+                        },
                         content: content.clone(),
                     },
-                    BlueprintCourseAssignmentReplacementInput {
-                        handle: BlueprintAssignmentEditHandle::New,
+                    BlueprintAssignmentReplacementInput {
+                        choice: BlueprintAssignmentEditChoice::New,
                         content: content.clone(),
                     },
                 ],
@@ -894,30 +901,36 @@ mod blueprint_course_tests {
         };
         replacement.validate().expect("valid retained/new tree");
         let wire = serde_json::to_value(&replacement).expect("serializes");
-        assert_eq!(wire["modules"][0]["handle"]["kind"], "retained");
+        assert_eq!(wire["modules"][0]["choice"]["kind"], "retained");
         assert_eq!(
-            wire["modules"][0]["assignments"][1]["handle"]["kind"],
+            wire["modules"][0]["assignments"][1]["choice"]["kind"],
             "new"
         );
         let mut forged = wire;
-        forged["modules"][0]["handle"]["unexpected"] = serde_json::json!(true);
+        forged["modules"][0]["choice"]["unexpected"] = serde_json::json!(true);
         assert!(serde_json::from_value::<ReplaceBlueprintCourseContentInput>(forged).is_err());
 
         let duplicated = ReplaceBlueprintCourseContentInput {
             modules: vec![
-                BlueprintCourseModuleReplacementInput {
-                    handle: BlueprintModuleEditHandle::Retained { module_id },
+                BlueprintModuleReplacementInput {
+                    choice: BlueprintModuleEditChoice::Retained {
+                        blueprint_module_reference,
+                    },
                     label: "Week 1".to_owned(),
-                    assignments: vec![BlueprintCourseAssignmentReplacementInput {
-                        handle: BlueprintAssignmentEditHandle::Retained { assignment_id },
+                    assignments: vec![BlueprintAssignmentReplacementInput {
+                        choice: BlueprintAssignmentEditChoice::Retained {
+                            blueprint_assignment_reference,
+                        },
                         content: content.clone(),
                     }],
                 },
-                BlueprintCourseModuleReplacementInput {
-                    handle: BlueprintModuleEditHandle::Retained { module_id },
+                BlueprintModuleReplacementInput {
+                    choice: BlueprintModuleEditChoice::Retained {
+                        blueprint_module_reference,
+                    },
                     label: "Week 2".to_owned(),
-                    assignments: vec![BlueprintCourseAssignmentReplacementInput {
-                        handle: BlueprintAssignmentEditHandle::New,
+                    assignments: vec![BlueprintAssignmentReplacementInput {
+                        choice: BlueprintAssignmentEditChoice::New,
                         content,
                     }],
                 },
@@ -926,7 +939,7 @@ mod blueprint_course_tests {
         };
         assert_eq!(
             duplicated.validate(),
-            Err(BlueprintCourseValidationError::DuplicateRetainedModuleHandle)
+            Err(BlueprintCourseValidationError::DuplicateRetainedBlueprintModuleChoice)
         );
     }
 }

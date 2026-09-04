@@ -191,7 +191,7 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
 - No keyboard operation requires a key to be pressed within a shorter interval than pointer use.
 - A server deadline is announced, preserves the last valid controlled response, and submits it at
   most once according to the assignment policy.
-- Offline or expired-session recovery retains the response and original idempotency identity until
+- Offline or expired-session recovery retains the response until
   the student explicitly retries or edits it.
 - A failed prefetch does not block the current question. Continue falls back to the server-issued
   next state and moves focus predictably.
@@ -259,14 +259,14 @@ does not establish screen-reader comprehension, shortcut discoverability, or con
       from the primary platform journey.
 - [ ] Focus remains visible, is restored after recovery, and is never trapped.
 - [ ] Dynamic state is announced once with an actionable message.
-- [ ] The same server command and idempotency behavior result from keyboard and pointer operation.
+- [ ] Keyboard and pointer operation produce the same server command and exact operation result.
 - [ ] Failure preserves student input and offers a keyboard recovery action.
 - [ ] The behavior has the smallest durable test that would catch a real regression.
 - [ ] Any temporary inspection or assistive-technology probe is recorded separately and removed.
 
 ## Current evidence boundary
 
-The built mock single-choice journey proves the primary platform path. Mounted response fixtures
+The built mock single-choice journey proves the primary platform path. Rendered response fixtures
 prove the same Tab-and-Space path for multiple answer and ordering, then independently cover their
 arrows, native radio arrows, choice digits, Enter-to-submit, and Escape. Student Feedback and summary focus
 tests, the iMathAS Question Backend browser fixture, and the live WeBWorK browser gate are also implemented; the

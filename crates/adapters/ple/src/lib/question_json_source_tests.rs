@@ -45,9 +45,9 @@ async fn resolved_question_json_issues_and_grades_from_its_exact_immutable_sourc
     )
     .await
     .expect("source should resolve");
-    let seed = QuestionSeed::new(1);
+    let question_seed = QuestionSeed::new(1);
     let issued = PleQuestionBackend::new()
-        .issue_question_json(&source, seed)
+        .issue_question_json(&source, question_seed)
         .expect("source should issue");
 
     assert_eq!(source.question_revision(), &question_revision);
@@ -55,7 +55,7 @@ async fn resolved_question_json_issues_and_grades_from_its_exact_immutable_sourc
         issued.presentation.variation.question_revision,
         question_revision
     );
-    assert_eq!(issued.presentation.variation.question_seed, seed);
+    assert_eq!(issued.presentation.variation.question_seed, question_seed);
     assert_eq!(
         issued.reproduction_details.source_object_reference,
         Some(source_object_reference)

@@ -33,7 +33,7 @@ export function courseRouteView(data: CourseThemeRouteData): CourseRouteView {
   }
 }
 
-/** Optional access lets focused component fixtures mount outside the app shell. */
+/** Optional access lets focused component tests render outside the app shell. */
 export function useCourseThemeRouteData(): CourseThemeRouteData | undefined {
   return useContext(CourseThemeRouteContext);
 }

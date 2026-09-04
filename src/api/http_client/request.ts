@@ -506,7 +506,6 @@ export function createRequestClient(
       assignmentId: AssignmentId,
       attemptId: QuestionAttemptId,
       response: StudentResponse,
-      idempotencyKey: string,
     ): ReturnType<ApiClient["submitResponse"]> => {
       const decoded = decodeStudentResponse(response, "request.response");
       const path =
@@ -520,7 +519,6 @@ export function createRequestClient(
         decodeQuestionSubmissionAcknowledgement,
         {
           method: "POST",
-          headers: { "idempotency-key": idempotencyKey },
           body: { response: decoded },
         },
       );

@@ -70,7 +70,7 @@ fn active_student_course_membership_resolves_base_policy() {
     assert_eq!(
         start_decision,
         AssignmentStartDecision::MayStart {
-            late_work_status: StudentLateWorkStatus::OnTime
+            student_late_work_status: StudentLateWorkStatus::OnTime
         }
     );
 }

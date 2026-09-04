@@ -221,7 +221,7 @@ pub async fn resolve_session(
     })
 }
 
-/// Revokes the presented session. Missing or malformed cookies are idempotent.
+/// Revokes the presented session. Missing or malformed cookies are safe no-ops.
 pub async fn revoke_session(
     sessions: &dyn SessionStore,
     cookie_header: Option<&str>,

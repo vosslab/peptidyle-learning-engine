@@ -21,7 +21,8 @@ import {
 } from "../decoder";
 import { decodeIdentifier, decodeTimestamp, field, requireOnlyFields } from "./shared";
 import { decodeStudentFeedbackReleaseRule } from "./assignment_policy";
-import { decodeAssignmentEntry, decodeAssignmentReference } from "./question_library";
+import { decodeAssignmentEntry } from "./question_library";
+import { decodeAssignmentReference } from "./shared";
 
 export function decodeStudentAssignmentLandingSummary(
   value: unknown,
@@ -41,7 +42,7 @@ export function decodeStudentAssignmentLandingSummary(
 
 const LATE_POLICIES = ["accept", "mark_late", "reject"] as const;
 const ASSIGNMENT_DEADLINE_RULES = ["auto_submit"] as const;
-const LATE_STATUSES = ["on_time", "accepted_late", "marked_late"] as const;
+const STUDENT_LATE_WORK_STATUSES = ["on_time", "accepted_late", "marked_late"] as const;
 const ASSIGNMENT_AUTHORED_CONTENT_FAILURE_FIELDS = [
   "assignmentAuthoredContent",
   "timeZone",
@@ -220,7 +221,7 @@ export function decodeStudentAssignmentDetail(
     "attempt_limit",
     "late_work_rule",
     "assignment_deadline_rule",
-    "late_status",
+    "student_late_work_status",
   ]);
   const delivery: StudentAssignmentDelivery = {
     available_at: decodeNullable(
@@ -256,10 +257,10 @@ export function decodeStudentAssignmentDetail(
       `${path}.delivery.assignment_deadline_rule`,
       ASSIGNMENT_DEADLINE_RULES,
     ),
-    late_status: decodeStringEnum(
-      field(deliveryRecord, "late_status", `${path}.delivery`),
-      `${path}.delivery.late_status`,
-      LATE_STATUSES,
+    student_late_work_status: decodeStringEnum(
+      field(deliveryRecord, "student_late_work_status", `${path}.delivery`),
+      `${path}.delivery.student_late_work_status`,
+      STUDENT_LATE_WORK_STATUSES,
     ),
   };
   return {

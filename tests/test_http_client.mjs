@@ -3,6 +3,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS } from "../generated/api/MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS.ts";
+import { MAX_QUESTION_TITLE_UNICODE_SCALARS } from "../generated/api/MAX_QUESTION_TITLE_UNICODE_SCALARS.ts";
 import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 import { DecodeError } from "../src/api/decoder.ts";
 import {
@@ -24,7 +26,7 @@ test("an issued iMathAS Question Backend Question Presentation accepts only its 
     questionRevision: { questionId: "7K3-M9QP", revisionNumber: 1 },
     question_seed: 2,
     presentationNonce: "0123456789abcdef0123456789abcdef",
-    title: "iMathAS Question Backend practice item",
+    questionTitle: "iMathAS Question Backend practice item",
     prompt: [],
     response: { kind: "imathasQuestionBackend" },
   };
@@ -89,6 +91,39 @@ test("Question Library pages remain bounded and do not disclose an Answer Key", 
   assert.throws(() => decodeQuestionPage({ ...page, answerKey: "secret" }), DecodeError);
   assert.throws(
     () => decodeQuestionPage({ ...page, items: Array.from({ length: 101 }, () => page.items[0]) }),
+    DecodeError,
+  );
+});
+
+test("Question Title and Question Description remain bounded at the strict Question Library boundary", () => {
+  const summary = publishedQuestionFixture.publishedQuestion;
+  const pageWithMetadata = (metadata) => ({
+    items: [
+      {
+        ...summary,
+        metadata,
+      },
+    ],
+    nextCursor: null,
+  });
+  assert.throws(
+    () =>
+      decodeQuestionPage(
+        pageWithMetadata({
+          ...summary.metadata,
+          questionTitle: "x".repeat(MAX_QUESTION_TITLE_UNICODE_SCALARS + 1),
+        }),
+      ),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeQuestionPage(
+        pageWithMetadata({
+          ...summary.metadata,
+          questionDescription: "x".repeat(MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS + 1),
+        }),
+      ),
     DecodeError,
   );
 });
@@ -325,7 +360,7 @@ test("ordinary submission uses the explicit nested binding and answer-only body"
   const { recordingFetch, requests } = createRecordingFetch(async () => jsonResponse(receipt));
   const client = createHttpApiClient({ fetch: recordingFetch });
 
-  await client.submitResponse(course.id, assignment.id, attempt.id, response, "nested-once");
+  await client.submitResponse(course.id, assignment.id, attempt.id, response);
   const request = requests[0];
   assert.ok(request);
   assert.equal(
@@ -333,7 +368,7 @@ test("ordinary submission uses the explicit nested binding and answer-only body"
     `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/submissions`,
   );
   assert.equal(request.method, "POST");
-  assert.equal(request.headers.get("idempotency-key"), "nested-once");
+  assert.equal(request.headers.get("idempotency-key"), null);
   assert.deepEqual(await request.json(), { response });
 });
 
@@ -363,7 +398,7 @@ test("submission status uses its route-bound same-origin no-store GET", async ()
   assert.equal(await request.text(), "");
 });
 
-test("iMathAS Question Backend submission sends only the marker with its caller idempotency key", async () => {
+test("iMathAS Question Backend submission sends only its marker", async () => {
   const course = publishedQuestionFixture.course;
   const assignment = publishedQuestionFixture.assignment;
   const attempt = publishedQuestionFixture.attempts[0];
@@ -392,13 +427,9 @@ test("iMathAS Question Backend submission sends only the marker with its caller 
   const { recordingFetch, requests } = createRecordingFetch(async () => jsonResponse(receipt));
   const client = createHttpApiClient({ fetch: recordingFetch });
 
-  await client.submitResponse(
-    course.id,
-    assignment.id,
-    attempt.id,
-    { kind: "imathasQuestionBackend" },
-    "imathas-question-backend-once",
-  );
+  await client.submitResponse(course.id, assignment.id, attempt.id, {
+    kind: "imathasQuestionBackend",
+  });
   const request = requests[0];
   assert.ok(request);
   assert.equal(
@@ -406,6 +437,6 @@ test("iMathAS Question Backend submission sends only the marker with its caller 
     `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/imathas-question-backend/launch/submission`,
   );
   assert.equal(request.method, "POST");
-  assert.equal(request.headers.get("idempotency-key"), "imathas-question-backend-once");
+  assert.equal(request.headers.get("idempotency-key"), null);
   assert.deepEqual(await request.json(), { response: { kind: "imathasQuestionBackend" } });
 });

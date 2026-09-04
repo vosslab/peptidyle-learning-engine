@@ -87,7 +87,7 @@ and [SOLID_MODEL.md](SOLID_MODEL.md).
 The browser may check response format, but it never receives Answer Keys, Question Grader code,
 or correctness decisions. Those live in `crates/grading`, outside the WebAssembly dependency
 closure. The server repeats format validation and makes the authoritative grading decision. The
-browser's key-free server format-validation fallback is planned but is not mounted in the current
+browser's key-free server format-validation fallback is planned but has no Server Route in the current
 server route set. A Student submission is graded on the server, and an authorized
 Instructor Gradebook reads the resulting server-owned record. See [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md)
 and [QUESTION_MODEL.md](QUESTION_MODEL.md).
@@ -206,7 +206,7 @@ session. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [AUTHORIZATION_CONTRACTS
 
 A durable question attempt binds the authenticated student, Course Instance, assignment, immutable
 question revision, seed, timing state, and grading backend. The browser therefore sends only that
-attempt's route identity, an idempotency key, and the student's answer. Presentation checksums and
+attempt's route identity and the student's answer. Presentation checksums and
 compact Presentation Response Item References detect a stale or mismatched display; they are consistency checks, not
 authentication or grading proof. See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 

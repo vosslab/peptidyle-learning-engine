@@ -87,7 +87,7 @@ current acceptance status remains in
 - Evidence: the project identifies itself as a WeBWorK standalone problem renderer, and PLE's
   [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) documents it as the private stateless
   renderer service in the production-shaped stack.
-- Notes: PLE consumes the declared image and private HTTP contract rather than importing or mounting
+- Notes: PLE consumes the declared image and private HTTP contract rather than importing or loading
   a sibling checkout.
 
 ### iMathAS
@@ -138,7 +138,7 @@ current acceptance status remains in
 - Evidence: the official site describes chapter-based problem collections and Blackboard and Canvas
   import tutorials; PLE's [README.md](../README.md) identifies it as the author's related open
   educational resource project.
-- Notes: the site supplies adjacent content and authoring workflows; it is not mounted, imported, or
+- Notes: the site supplies adjacent content and authoring workflows; it is not a runtime dependency, imported, or
   executed by the PLE runtime.
 
 ### 1EdTech QTI

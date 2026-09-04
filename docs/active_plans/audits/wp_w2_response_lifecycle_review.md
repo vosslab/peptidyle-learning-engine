@@ -17,7 +17,7 @@ controller and local selection.
   editing preserve the context ID. They do not recreate the keyed subtree; the
   question response control's local selection and controller therefore remain available.
   The attempt-state behavior suite independently pins the buffered-response and
-  original-idempotency-key recovery contracts.
+  same-Question-Attempt recovery contract.
 - `currentEnvelope()` remains reactive and supplies the new attempt definition
   after `machine.advance`. `initialResponse` reads the current machine state,
   while the event callback for the iMathAS Question Backend control closes over the same keyed

@@ -48,7 +48,7 @@ pub use crate::question_pool_selection::{
     QuestionPoolSelectionEntropy, QuestionPoolSelectionError, select_question_pool_items,
 };
 pub use crate::teaching_authority::{
-    CourseInvitationAcceptance, CourseInvitationError, DirectInstructorMembership,
+    CourseInvitationAcceptance, CourseInvitationError, CurrentInstructorCourseMembership,
     InstructorAuthority, InstructorMembershipRemovalError, StudentCourseMembership,
     accept_course_invitation, current_course_instructor, evaluate_course_instructor_authority,
     invitation_state, refuse_final_instructor_removal, student_owns_course_record,

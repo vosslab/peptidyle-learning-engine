@@ -18,7 +18,7 @@ import {
 function source(response) {
   return {
     ...createDefaultPleQuestionJsonSource(),
-    title: "Question",
+    questionTitle: "Question",
     prompt: "Prompt",
     response,
     language: "en",

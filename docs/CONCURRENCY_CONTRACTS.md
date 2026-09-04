@@ -23,13 +23,13 @@ this document means:
 
 ## Authority status
 
-**Current authority.** The current applied schema and mounted Authenticated Session
+**Current authority.** The current applied schema and implemented Authenticated Session
 boundary establish database and Account facts. Store-backed course, authoring,
 activity, worker, and object operations remain deferred; this document
 specifies the concurrency rules they must satisfy when composed.
 
 **Required for new work.** A mutation must name its transaction boundary,
-idempotency or compare-and-swap rule, and lock order before it can expose a
+an exact repeat rule or compare-and-swap rule, and lock order before it can expose a
 result. A worker must name its lease and, when output can be superseded, its
 generation fence.
 
@@ -47,15 +47,15 @@ PostgreSQL metadata to bytes. The browser can retry an authenticated request, wh
 advance a revision, renew a lease, replace a receipt, or make a pending
 operation final.
 
-| State or decision                              | Authoritative owner                                                                | Status      | Main implementation owner                                                                                                                             |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Account identity and row access                | `AuthenticatedSession`, transaction-local forced PostgreSQL RLS                    | Implemented | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security), [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
-| Mutable authoring and assignment state         | Draft Question Edit Number and Assignment Edit Number preconditions                | Planned     | Future Store-backed authoring and Course Instance composition                                                                                         |
-| Student submission outcome                     | Attempt-scoped idempotency and append-only evidence                                | Planned     | Future Store-backed Student delivery composition                                                                                                      |
-| Background work ownership                      | PostgreSQL Job row plus opaque lease token                                         | Planned     | Future Store-backed Job composition                                                                                                                   |
-| Current analytic projection                    | Assignment/timing generation plus an active lease                                  | Planned     | Future Store-backed scoring and analysis composition                                                                                                  |
-| Published Question Revision                    | Independent immutable source rows created from an exact Draft Question Edit Number | Planned     | Future Store-backed publication with parallel draft/published metadata and separate source registrations                                              |
-| Cross-system object inventory Check and Repair | Object Storage Check and Repair job                                                | Planned     | [release completion plan](active_plans/active/release_completion_plan.md)                                                                             |
+| State or decision                              | Authoritative owner                                                                   | Status      | Main implementation owner                                                                                                                             |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Account identity and row access                | `AuthenticatedSession`, transaction-local forced PostgreSQL RLS                       | Implemented | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security), [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
+| Mutable authoring and assignment state         | Draft Question Edit Number and Assignment Edit Number preconditions                   | Planned     | Future Store-backed authoring and Course Instance composition                                                                                         |
+| Student submission outcome                     | One Submission per Question Attempt and append-only Question Submission evidence      | Planned     | Future Store-backed Student delivery composition                                                                                                      |
+| Background work ownership                      | PostgreSQL Job row plus opaque lease token                                            | Planned     | Future Store-backed Job composition                                                                                                                   |
+| Current analytic projection                    | Assignment/timing generation plus an active lease                                     | Planned     | Future Store-backed scoring and analysis composition                                                                                                  |
+| Published Question Revision                    | Independent immutable source Binding created from an exact Draft Question Edit Number | Planned     | Future Store-backed publication using accepted parallel draft/published metadata and separate Source Bindings                                         |
+| Cross-system object inventory Check and Repair | Object Storage Check and Repair job                                                   | Planned     | [release completion plan](active_plans/active/release_completion_plan.md)                                                                             |
 
 ## Account-scoped transactions and retries
 
@@ -88,12 +88,12 @@ serialization failure (`40001`) or deadlock (`40P01`). It does not retry a
 single statement inside an aborted transaction, connection failures, or an
 ambiguous commit.
 
-| Operation inside a retry closure                                                      | Rule                                                                                                                                                | Reason                                                                      |
-| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| New transaction, authorization, reads, inserts, updates, and commit                   | Allowed                                                                                                                                             | The full operation can be repeated after PostgreSQL aborts it.              |
-| Deterministic validation and construction from command data                           | Allowed                                                                                                                                             | It has no externally visible effect.                                        |
-| Object-store put/copy/delete, renderer call, email, HTTP callback, or message publish | Not allowed before a replayable commit                                                                                                              | Repeating it can duplicate an external effect or leave an ambiguous result. |
-| Random ID, nonce, or receipt generation                                               | Generate before retry only when its value is intentionally the same across retries; otherwise persist a durable idempotency key before side effects | A retry must converge on one logical operation, not create multiple ones.   |
+| Operation inside a retry closure                                                      | Rule                                                                                                                                                                    | Reason                                                                      |
+| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| New transaction, authorization, reads, inserts, updates, and commit                   | Allowed                                                                                                                                                                 | The full operation can be repeated after PostgreSQL aborts it.              |
+| Deterministic validation and construction from command data                           | Allowed                                                                                                                                                                 | It has no externally visible effect.                                        |
+| Object-store put/copy/delete, renderer call, email, HTTP callback, or message publish | Not allowed before a replayable commit                                                                                                                                  | Repeating it can duplicate an external effect or leave an ambiguous result. |
+| Random ID, nonce, or receipt generation                                               | Generate before retry only when its value is intentionally the same across retries; otherwise establish the operation's durable identity or receipt before side effects | A retry must converge on one logical operation, not create multiple ones.   |
 
 An operation that needs an external effect uses a durable prepare/claim/commit
 protocol. The worker first obtains a fenced lease, performs a bounded external
@@ -118,8 +118,8 @@ Required behavior:
   expected revision and authorization, then advances the revision once.
 - A stale request must return conflict without replacing the newer value or
   emitting a second downstream job.
-- A request that may be retried also needs an idempotency receipt when its
-  result is not safely inferred from the current revision alone.
+- A repeated Question Submission returns its existing Receipt when its existing
+  Question Attempt and submitted response identify that result; a changed response conflicts.
 
 ### Publication race
 
@@ -144,24 +144,23 @@ immutable publication, never as changed historical question content.
 ### Attempt identity
 
 An issued `QuestionAttemptId` binds the authenticated Student Account, exact course,
-Assignment Attempt Question Pool Item, immutable Question Revision, seed, timing state, and
+Assignment Attempt Question Pool Item, immutable Question Revision, Question Seed, timing state, and
 grading backend. It is the primary response authority. The browser sends the
-minimal Student response plus an `Idempotency-Key`; it does not choose an
-Account, course, key, seed, grading backend, or question kind. The exact browser
+minimal Student response; it does not choose an
+Account, Course, Question Seed, Question Backend, or Question Type. The exact browser
 boundary is [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 
-### Submission idempotency
+### Question Attempt submission convergence
 
-`submission_idempotency` is keyed by the exact `QuestionAttemptId`, and stores the
-bound idempotency key plus the replayable result. The submit path accepts an
-existing receipt only when the request identity/fingerprint agrees; a different
-logical request for the same attempt conflicts. A transport retry therefore
+The exact `QuestionAttemptId` is the submission identity. The submit path accepts an
+existing receipt only when the response fingerprint agrees; a different
+response for the same attempt conflicts. A transport retry therefore
 returns the original authorized outcome rather than creating a second
 submission or grading attempt.
 
 | Situation                                                  | Required result                                                                                   | Implemented owner                                                          |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Client times out after submission reaches PLE              | Retry with the same key; return the stored receipt/outcome                                        | Deferred Student delivery Store                                            |
+| Client times out after submission reaches PLE              | Retry the same response for that Question Attempt; return the stored receipt/outcome              | Deferred Student delivery Store                                            |
 | Two replicas receive the same submission                   | One durable receipt wins; the other converges on the same receipt or conflicts on differing input | Deferred Student delivery Store                                            |
 | Same attempt, different request/key/fingerprint            | Conflict; never overwrite response evidence                                                       | Deferred Student delivery Store                                            |
 | Retry after a server-side failure before a receipt commits | No final submission exists; ordinary retry rules apply                                            | [connection.rs](../crates/learning-data-access/src/postgres/connection.rs) |
@@ -224,9 +223,9 @@ course/Student/attempt scope, expiry-bound, and revocable. Its random bearer tok
 hash; backend state is encrypted before persistence. The browser-visible
 embed is presentation-only and cannot grade itself.
 
-An iMathAS Result Exchange is separately idempotent, lease-fenced, and
-indeterminate-safe. It binds the attempt/version/seed/Source Object Checksum,
-iMathAS Response Checksum, backend correlation, and idempotency key before verification.
+An iMathAS Result Exchange is separately lease-fenced and
+indeterminate-safe. Its exact iMathAS Session and result identities bind the Assignment Attempt, Question Revision, Question Seed, and Source Object Checksum,
+iMathAS Response Checksum, backend correlation, Session identity, and Result Exchange identity before verification.
 Before an effectful backend POST, the holder must atomically prove the exact
 launch-token hash and an unexpired authoritative lease, then write the durable
 pre-dispatch marker. A crash or ambiguous outcome leaves that marker in place:
@@ -301,7 +300,7 @@ verify all applicable points:
 - [ ] The mutation has one durable authority and a clear conflict result.
 - [ ] Retries cover only a complete replayable transaction; external effects
       are outside that retry or fenced by a durable receipt/lease.
-- [ ] A stale ETag, lease, generation, predecessor, or idempotency key cannot
+- [ ] A stale ETag, lease, generation, predecessor, or exact operation identity cannot
       overwrite the newer result.
 - [ ] Concurrent equal requests converge on one receipt; different requests
       conflict without destroying evidence.

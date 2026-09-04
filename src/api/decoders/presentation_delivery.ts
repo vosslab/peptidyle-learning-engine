@@ -136,9 +136,12 @@ function presentedHotspotRegion(value: unknown, path: string): PresentedHotspotR
 
 function questionAssetReference(value: unknown, path: string): QuestionAssetReference {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["asset", "checksum"]);
+  requireOnlyFields(record, path, ["questionAsset", "checksum"]);
   return {
-    asset: decodeIdentifier(field(record, "asset", path), `${path}.asset`),
+    questionAsset: decodeIdentifier(
+      field(record, "questionAsset", path),
+      `${path}.questionAsset`,
+    ),
     checksum: decodeSha256(field(record, "checksum", path), `${path}.checksum`),
   };
 }
@@ -256,7 +259,7 @@ function issuedQuestionResponseFormat(
       requireOnlyFields(record, path, ["kind", "surface", "minimum", "maximum"]);
       const surfacePath = `${path}.surface`;
       const surfaceRecord = decodeRecord(field(record, "surface", path), surfacePath);
-      requireOnlyFields(surfaceRecord, surfacePath, ["id", "asset", "description", "regions"]);
+      requireOnlyFields(surfaceRecord, surfacePath, ["id", "questionAsset", "description", "regions"]);
       const regions = decodeBoundedArray(
         field(surfaceRecord, "regions", surfacePath),
         `${surfacePath}.regions`,
@@ -274,9 +277,9 @@ function issuedQuestionResponseFormat(
             field(surfaceRecord, "id", surfacePath),
             `${surfacePath}.id`,
           ),
-          asset: questionAssetReference(
-            field(surfaceRecord, "asset", surfacePath),
-            `${surfacePath}.asset`,
+          questionAsset: questionAssetReference(
+            field(surfaceRecord, "questionAsset", surfacePath),
+            `${surfacePath}.questionAsset`,
           ),
           description: decodeNonemptyString(
             field(surfaceRecord, "description", surfacePath),
@@ -303,7 +306,7 @@ export function decodeIssuedQuestionPresentation(
     "questionRevision",
     "question_seed",
     "presentationNonce",
-    "title",
+    "questionTitle",
     "prompt",
     "response",
   ]);
@@ -322,7 +325,10 @@ export function decodeIssuedQuestionPresentation(
       `${path}.question_seed`,
     ),
     presentationNonce: nonce,
-    title: decodeQuestionTitle(field(record, "title", path), `${path}.title`),
+    questionTitle: decodeQuestionTitle(
+      field(record, "questionTitle", path),
+      `${path}.questionTitle`,
+    ),
     prompt: decodeBoundedArray(
       field(record, "prompt", path),
       `${path}.prompt`,

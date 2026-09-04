@@ -26,7 +26,7 @@ import type { QuestionSubmission } from "../../../generated/api/QuestionSubmissi
 import type { StudentAssignmentProgress } from "../../../generated/api/StudentAssignmentProgress";
 import type { AssignmentProgress } from "../../../generated/api/AssignmentProgress";
 import type { StudentAssignmentGrade } from "../../../generated/api/StudentAssignmentGrade";
-import type { StudentClassStatistics } from "../../../generated/api/StudentClassStatistics";
+import type { ClassStatistics } from "../../../generated/api/ClassStatistics";
 import type { AssignmentGradeScoreState } from "../../../generated/api/AssignmentGradeScoreState";
 import type { AssignmentScoringState } from "../../../generated/api/AssignmentScoringState";
 import type {
@@ -76,11 +76,11 @@ import {
 } from "./question_delivery";
 import { decodeIssuedQuestionPresentation } from "./presentation_delivery";
 import {
-  decodeAssignmentReference,
   decodeQuestionSummary,
   decodeCourseRouteView,
   decodeCourseSummary,
 } from "./question_library";
+import { decodeAssignmentReference } from "./shared";
 
 const ISSUED_ATTEMPT_CAPABILITIES = [
   "questionPresentation",
@@ -91,7 +91,7 @@ const ISSUED_ATTEMPT_CAPABILITIES = [
 
 // This fixed wire-contract minimum mirrors the server privacy floor. It only
 // rejects unsafe API data; release-policy evaluation remains server-owned.
-const STUDENT_CLASS_STATISTICS_WIRE_MINIMUM_COHORT_SIZE = 5;
+const CLASS_STATISTICS_WIRE_MINIMUM_COHORT_SIZE = 5;
 const ASSIGNMENT_SCORING_STATES = [
   "current",
   "recalculating",
@@ -132,7 +132,7 @@ export function decodeStudentIssuedQuestion(value: unknown, path: string): Stude
     "assignmentContentEntryIndex",
     "issuedPosition",
     "reference",
-    "statisticsEligible",
+    "questionStatisticsEligibility",
   ]);
   const reference = decodeRecord(field(record, "reference", path), `${path}.reference`);
   requireOnlyFields(reference, `${path}.reference`, ["questionId", "revisionNumber"]);
@@ -155,9 +155,9 @@ export function decodeStudentIssuedQuestion(value: unknown, path: string): Stude
       `${path}.issuedPosition`,
     ),
     reference: decodeQuestionRevisionReference(reference, `${path}.reference`, true),
-    statisticsEligible: decodeBoolean(
-      field(record, "statisticsEligible", path),
-      `${path}.statisticsEligible`,
+    questionStatisticsEligibility: decodeBoolean(
+      field(record, "questionStatisticsEligibility", path),
+      `${path}.questionStatisticsEligibility`,
     ),
   } satisfies StudentIssuedQuestion;
 }
@@ -366,13 +366,13 @@ function decodeAssignmentRevisionReference(
   };
 }
 
-function decodeStudentClassStatistics(value: unknown, path: string): StudentClassStatistics {
+function decodeClassStatistics(value: unknown, path: string): ClassStatistics {
   const record = decodeRecord(value, path);
   const statisticsState = decodeStringEnum(field(record, "state", path), `${path}.state`, [
-    "insufficient_evidence",
+    "unavailable",
     "available",
-  ] as const satisfies ReadonlyArray<StudentClassStatistics["state"]>);
-  if (statisticsState === "insufficient_evidence") {
+  ] as const satisfies ReadonlyArray<ClassStatistics["state"]>);
+  if (statisticsState === "unavailable") {
     requireOnlyFields(record, path, ["state"]);
     return { state: statisticsState };
   }
@@ -395,10 +395,10 @@ function decodeStudentClassStatistics(value: unknown, path: string): StudentClas
     field(record, "completed_student_cohort_size", path),
     `${path}.completed_student_cohort_size`,
   );
-  if (completedStudentCohortSize < STUDENT_CLASS_STATISTICS_WIRE_MINIMUM_COHORT_SIZE) {
+  if (completedStudentCohortSize < CLASS_STATISTICS_WIRE_MINIMUM_COHORT_SIZE) {
     throw new DecodeError(
       `${path}.completed_student_cohort_size`,
-      `a cohort of at least ${STUDENT_CLASS_STATISTICS_WIRE_MINIMUM_COHORT_SIZE} completed Students`,
+      `a cohort of at least ${CLASS_STATISTICS_WIRE_MINIMUM_COHORT_SIZE} completed Students`,
     );
   }
   return {
@@ -503,7 +503,7 @@ function decodeStudentAssignmentGrade(value: unknown, path: string): StudentAssi
     "available",
   ] as const satisfies ReadonlyArray<AssignmentGradeScoreState>);
   const classStatistics = Object.prototype.hasOwnProperty.call(record, "class_statistics")
-    ? decodeStudentClassStatistics(record["class_statistics"], `${path}.class_statistics`)
+    ? decodeClassStatistics(record["class_statistics"], `${path}.class_statistics`)
     : undefined;
   const decoded = {
     score_state: scoreState,

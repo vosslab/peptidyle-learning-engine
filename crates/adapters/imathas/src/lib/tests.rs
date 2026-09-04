@@ -47,7 +47,7 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
         assert_eq!(request.snapshot, b"{\"recorded\":true}");
         assert_eq!(request.profile, "recorded-v1");
         Ok(SafeImathasQuestionRender {
-            title: "Recorded iMathAS question".into(),
+            question_title: "Recorded iMathAS question".into(),
             prompt: vec![QuestionContentBlock::Text {
                 markdown: "Complete this iMathAS activity.".into(),
             }],
@@ -254,8 +254,14 @@ async fn immutable_snapshot_cache_and_verified_grade_are_bound_to_exact_attempt(
     assert!(!first.cache_hit);
     assert!(second.cache_hit);
     assert_eq!(renders.load(Ordering::SeqCst), 1);
-    assert_eq!(first.presentation.title, "Recorded iMathAS question");
-    assert_eq!(second.presentation.title, first.presentation.title);
+    assert_eq!(
+        first.presentation.question_title,
+        "Recorded iMathAS question"
+    );
+    assert_eq!(
+        second.presentation.question_title,
+        first.presentation.question_title
+    );
     assert!(matches!(
         first.presentation.response,
         question_model::QuestionResponseFormat::ImathasQuestionBackend {}

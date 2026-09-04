@@ -38,7 +38,8 @@ RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data AS $$
 BEGIN
     IF NEW.assignment_id <> OLD.assignment_id
        OR NEW.course_id <> OLD.course_id
-       OR NEW.source_blueprint_revision_id <> OLD.source_blueprint_revision_id
+       OR NEW.source_blueprint_course_reference_number <> OLD.source_blueprint_course_reference_number
+       OR NEW.source_blueprint_revision_number <> OLD.source_blueprint_revision_number
        OR NEW.created_at <> OLD.created_at
        OR NEW.updated_at < OLD.updated_at THEN
         RAISE EXCEPTION USING

@@ -8,9 +8,11 @@
 use std::num::NonZeroU64;
 
 use async_trait::async_trait;
+use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea};
 use question_model::{
-    DraftImathasQuestionBackendBinding, QuestionBackend, QuestionFormat, SourceObjectChecksum,
-    SourceObjectReference, WorkspaceId,
+    DraftImathasQuestionBackendBinding, QuestionAuthorship, QuestionBackend, QuestionFormat,
+    QuestionId, QuestionLicense, QuestionRevisionNumber, QuestionRevisionReason,
+    QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -127,9 +129,111 @@ pub trait DraftQuestionSourceBindingStore: Send + Sync {
     ) -> Result<(), StoreError>;
 }
 
+/// Session-authorized resolution of the exact Draft Question Source selected
+/// for a publication attempt.
+#[async_trait]
+pub trait DraftQuestionPublicationSourceStore: Send + Sync {
+    /// Loads the current immutable Workspace Question Source Object Record only
+    /// when the Draft Question, Edit Number, and workspace remain exact.
+    async fn load_draft_question_publication_source(
+        &self,
+        session_token_hash: SessionTokenHash,
+        draft_question_uuid: DraftQuestionUuid,
+        expected_draft_question_edit_number: DraftQuestionEditNumber,
+        workspace: WorkspaceId,
+    ) -> Result<ObjectRecord, StoreError>;
+}
+
+/// Server-only inputs for publishing an exact Draft Question as a new lineage.
+///
+/// The `question_source_object_record` comes from a completed bytes-first copy
+/// to its immutable Question Revision Object Address. It is never accepted
+/// from a browser payload.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewQuestionLineagePublicationInput {
+    /// Current private Draft Question selected for publication.
+    pub draft_question_uuid: DraftQuestionUuid,
+    /// Exact saved Draft Question state validated by the server.
+    pub expected_draft_question_edit_number: DraftQuestionEditNumber,
+    /// Authoring Workspace that owns the Draft Question.
+    pub workspace: WorkspaceId,
+    /// Fresh server-minted Published Question lineage identity.
+    pub question_id: QuestionId,
+    /// Verified immutable target object created by the bytes-first copy.
+    pub question_source_object_record: ObjectRecord,
+    /// Reviewed ordered Question Authorship snapshot.
+    pub question_authorship: QuestionAuthorship,
+    /// Compatible Question License for the immutable first revision.
+    pub question_license: QuestionLicense,
+    /// Reviewed Question Revision Reason recorded with first-revision acceptance.
+    pub question_revision_reason: QuestionRevisionReason,
+    /// Fresh immutable Question Ownership Event identity.
+    pub question_ownership_event_id: Uuid,
+    /// Fresh immutable Question Publication Event identity.
+    pub question_publication_event_id: Uuid,
+    /// Fresh initial Available-event identity.
+    pub question_availability_event_id: Uuid,
+}
+
+impl NewQuestionLineagePublicationInput {
+    /// Exact first Question Revision created by this publication.
+    pub fn question_revision(&self) -> QuestionRevisionReference {
+        QuestionRevisionReference {
+            question_id: self.question_id.clone(),
+            revision_number: QuestionRevisionNumber::new(1)
+                .expect("first Question Revision Number is positive"),
+        }
+    }
+
+    /// Refuses target object or acceptance facts that do not match this publication.
+    pub fn validate(&self) -> Result<(), StoreError> {
+        let expected_revision = self.question_revision();
+        let ObjectAddress::QuestionSource {
+            question_revision,
+            object,
+        } = &self.question_source_object_record.address
+        else {
+            return Err(StoreError::InvalidRecord(
+                "Question Publication requires a Question Source Object Address".to_string(),
+            ));
+        };
+        if question_revision != &expected_revision
+            || *object != self.question_source_object_record.id
+            || self.question_source_object_record.storage_area != ObjectStorageArea::PrivateContent
+            || self.question_source_object_record.data_class != ObjectDataClass::QuestionSource
+            || self
+                .question_source_object_record
+                .question_revision
+                .as_ref()
+                != Some(&expected_revision)
+        {
+            return Err(StoreError::InvalidRecord(
+                "Question Publication Object Record must derive from its exact first Question Revision"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Session-authorized persistence for new-lineage Question Publication.
+#[async_trait]
+pub trait NewQuestionLineagePublicationStore: Send + Sync {
+    /// Atomically records one complete new Published Question aggregate after
+    /// the exact source bytes have been copied to immutable object storage.
+    async fn publish_new_question_lineage(
+        &self,
+        session_token_hash: SessionTokenHash,
+        input: NewQuestionLineagePublicationInput,
+    ) -> Result<QuestionRevisionReference, StoreError>;
+}
+
 #[cfg(test)]
 mod tests {
-    use question_model::{ObjectId, SourceObjectChecksum};
+    use objects::{ObjectDataClass, ObjectStorageArea, Sha256Checksum};
+    use question_model::{
+        ObjectId, QuestionAuthor, QuestionAuthorDisplayName, QuestionLicense, Timestamp,
+    };
 
     use super::*;
 
@@ -175,6 +279,68 @@ mod tests {
         ));
         assert!(matches!(
             DraftQuestionEditNumber::new(i64::MAX as u64 + 1),
+            Err(StoreError::InvalidRecord(_))
+        ));
+    }
+
+    fn publication_input() -> NewQuestionLineagePublicationInput {
+        let question_id =
+            QuestionId::from_canonical_parts("ABCDEF", 'G').expect("canonical Question ID");
+        let question_revision = QuestionRevisionReference {
+            question_id: question_id.clone(),
+            revision_number: QuestionRevisionNumber::new(1)
+                .expect("positive Question Revision Number"),
+        };
+        let object = ObjectId::from_uuid(Uuid::from_u128(7));
+        NewQuestionLineagePublicationInput {
+            draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::from_u128(1)),
+            expected_draft_question_edit_number: DraftQuestionEditNumber::new(2)
+                .expect("positive Draft Question Edit Number"),
+            workspace: WorkspaceId::from_uuid(Uuid::from_u128(2)),
+            question_id,
+            question_source_object_record: ObjectRecord {
+                id: object,
+                storage_area: ObjectStorageArea::PrivateContent,
+                data_class: ObjectDataClass::QuestionSource,
+                address: ObjectAddress::QuestionSource {
+                    question_revision: question_revision.clone(),
+                    object,
+                },
+                sha256: Sha256Checksum::compute(b"complete Question Source"),
+                size_bytes: 24,
+                media_type: "application/json".to_string(),
+                question_revision: Some(question_revision),
+                created_at: Timestamp::from_unix_millis(1_000),
+            },
+            question_authorship: QuestionAuthorship::new(vec![QuestionAuthor {
+                display_name: QuestionAuthorDisplayName::new("Ada Lovelace".to_string())
+                    .expect("reviewed Question Author"),
+            }])
+            .expect("bounded Question Authorship"),
+            question_license: QuestionLicense::CcBy4_0,
+            question_revision_reason: QuestionRevisionReason::new(
+                "Initial reviewed publication".to_string(),
+            )
+            .expect("reviewed Question Revision Reason"),
+            question_ownership_event_id: Uuid::from_u128(8),
+            question_publication_event_id: Uuid::from_u128(9),
+            question_availability_event_id: Uuid::from_u128(10),
+        }
+    }
+
+    #[test]
+    fn new_lineage_publication_requires_its_exact_revision_owned_object() {
+        let input = publication_input();
+        assert_eq!(input.validate(), Ok(()));
+
+        let mut wrong_address = input;
+        wrong_address.question_source_object_record.address =
+            ObjectAddress::WorkspaceQuestionSource {
+                workspace: wrong_address.workspace,
+                object: wrong_address.question_source_object_record.id,
+            };
+        assert!(matches!(
+            wrong_address.validate(),
             Err(StoreError::InvalidRecord(_))
         ));
     }

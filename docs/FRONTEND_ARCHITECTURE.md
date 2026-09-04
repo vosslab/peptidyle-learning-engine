@@ -24,11 +24,11 @@ authenticated course context
   -> authoritative response and revision
 ```
 
-BlueprintCourse is the reusable source surface. A published BlueprintCourse
+Blueprint Course is the reusable source surface. A published Blueprint Course
 `BlueprintCourseView` is visible and reusable to every vetted Instructor; a draft is
-visible only to its owner and authorized workspace collaborators. CourseInstance
+visible only to its Blueprint Course Owner and authorized Blueprint Collaborators. Course Instance
 pages are private to current equal Teaching Team Members and enrolled Students. Each
-CourseInstance route and response carries the exact destination CourseId; its
+Course Instance route and response carries the exact destination Course ID; its
 immutable Blueprint parent and applied revision are server-owned.
 
 ## Route map
@@ -114,11 +114,11 @@ The Blueprint-operation transport is separate from the reusable source client:
 
 - src/api/blueprint_operations.ts: source, destination, operation, preview, and
   receipt types.
-- src/api/http_client/blueprint_operations.ts: no-store preview and idempotent
-  apply requests.
+- src/api/http_client/blueprint_operations.ts: no-store preview and direct
+  apply requests without a Retry Token.
 - src/features/blueprint_operations/: the operation-workflow stylesheet.
 
-No Blueprint-operation page or server route is mounted yet.
+No Blueprint-operation Browser Surface or Server Route exists yet.
 
 The future page loads one BlueprintCourse source and asks the Instructor to
 choose the destination operation:
@@ -133,7 +133,7 @@ choose the destination operation:
 | Fast-forward or selected copy  | Update untouched import or create a new assignment when divergent |
 
 Every preview binds source reference, observed revision, target CourseId where
-applicable, term, time zone, and idempotency evidence. The server resolves
+applicable, term, time zone, and server-held Request Checksum evidence. The server resolves
 relative calendar-day and local-wall-clock values, reports DST corrections,
 and returns an apply command derived from the accepted preview. New
 BlueprintCourse assignments appear in daughter CourseInstances as unreleased;
@@ -146,16 +146,16 @@ branches.
 
 ## Client contract
 
-| Concern         | Frontend rule                                                                  |
-| --------------- | ------------------------------------------------------------------------------ |
-| API access      | Every route uses the typed API runtime and same-origin client.                 |
-| Decoding        | Decode from unknown with closed, bounded, field-by-field decoders.             |
-| Mutation        | Send strong revision evidence and operation-specific idempotency keys.         |
-| Pagination      | Use cursor contracts; never create an offset-based fallback.                   |
-| Cache           | Use no-store for private reader results and previews; do not cache authority.  |
-| Generated types | Consume generated/api/ output derived from Rust; do not hand-edit it.          |
-| Errors          | Preserve entered draft/response where the contract permits recovery.           |
-| Authority       | Treat server authorization, revision, schedule, release, and grading as final. |
+| Concern         | Frontend rule                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------------- |
+| API access      | Every route uses the typed API runtime and same-origin client.                                          |
+| Decoding        | Decode from unknown with closed, bounded, field-by-field decoders.                                      |
+| Mutation        | Send strong revision evidence; repeated requests use the operation's existing identity and constraints. |
+| Pagination      | Use cursor contracts; never create an offset-based fallback.                                            |
+| Cache           | Use no-store for private reader results and previews; do not cache authority.                           |
+| Generated types | Consume generated/api/ output derived from Rust; do not hand-edit it.                                   |
+| Errors          | Preserve entered draft/response where the contract permits recovery.                                    |
+| Authority       | Treat server authorization, revision, schedule, release, and grading as final.                          |
 
 Rust Serde owns serialized spelling. The generated TypeScript declaration is a
 derivative of Rust contract roots through
@@ -164,8 +164,7 @@ adapters, strict decoding, and presentation models.
 
 ## Student and delivery boundary
 
-The Assignment Attempt page keeps one editable response and one idempotency key for the
-current Assignment Attempt. It may use answer-free Wasm for format hints and timing
+The Assignment Attempt page keeps one editable response for the current Question Attempt. It may use answer-free Wasm for Response Format Messages and timing
 display. It never stores Answer Keys, Question Grading Input, private Response Item Bindings,
 Question Presentation Bindings, unreleased Student Feedback, or
 provider state, and never derives correctness or completion.
@@ -173,7 +172,7 @@ provider state, and never derives correctness or completion.
 After accepted submission, the browser clears the response and polls an
 answer-free Assignment Attempt status result. It does not resubmit known-accepted work.
 Student Feedback, score, item correctness, Question Answer, Question Answer Explanation,
-class statistics, late status,
+class statistics, Student Late Work Status,
 and Student Feedback Release are redacted or exposed only by the server's current policy.
 
 CourseInstance pages use exact CourseId and Student relationship context.
@@ -226,7 +225,7 @@ server-owned Course Route View data, not browser storage.
 - Authentication and role preflight happen before protected data decoding.
 - References locate BlueprintCourse or CourseInstance records; they never
   carry authority.
-- Mutations use same-origin requests, strong revisions, and typed idempotency.
+- Mutations use same-origin requests, strong revisions, and their exact operation identity.
 - Browser logs contain no response text, answer, key, undisclosed feedback,
   grades, email, UUID, or FERPA record.
 - Question Backends convert supported content into typed Question Content Blocks behind

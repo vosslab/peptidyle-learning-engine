@@ -98,7 +98,7 @@ pub fn descriptor_bytes(
     );
     encoder.u64(presentation.presentation.question_seed.value());
     encoder.raw(&presentation.presentation.presentation_nonce.as_bytes());
-    encoder.string(&presentation.presentation.title)?;
+    encoder.string(&presentation.presentation.question_title)?;
     encoder.content_blocks(&presentation.presentation.prompt)?;
     encoder.question_response_format(&presentation.presentation.response, presentation)?;
     encoder.u32_len(presentation.item_bindings.len())?;
@@ -268,9 +268,12 @@ impl Encoder {
         Ok(())
     }
 
-    fn asset_ref(&mut self, asset: &QuestionAssetReference) -> Result<(), PresentationBuildError> {
-        self.raw(asset.asset.as_uuid().as_bytes());
-        self.checksum(&asset.checksum)
+    fn asset_ref(
+        &mut self,
+        question_asset: &QuestionAssetReference,
+    ) -> Result<(), PresentationBuildError> {
+        self.raw(question_asset.question_asset.as_uuid().as_bytes());
+        self.checksum(&question_asset.checksum)
     }
 
     fn question_asset_rendition(
@@ -300,9 +303,12 @@ impl Encoder {
                     self.string(latex)?;
                     self.string(description)?;
                 }
-                QuestionContentBlock::Image { asset, description } => {
+                QuestionContentBlock::Image {
+                    question_asset,
+                    description,
+                } => {
                     self.u8(2);
-                    self.asset_ref(asset)?;
+                    self.asset_ref(question_asset)?;
                     self.string(description)?;
                 }
                 QuestionContentBlock::Code { language, source } => {

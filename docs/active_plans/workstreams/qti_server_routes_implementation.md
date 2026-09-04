@@ -25,8 +25,8 @@ PostgreSQL/RLS/profile-to-PLE acceptance.
   rereads the retained archive, reparses and remaps the selected item, recompiles through the native
   bridge, and uses the WP-QTI-8 atomic Store command. Refused requests do not mutate the draft.
 - Future authorized publication atomically creates the complete Question Revision-owned Question
-  Source Registration and aggregate, including any approved immutable import provenance; it remains
-  unmounted. Manually authored Questions retain no import origin.
+  Source Binding and aggregate, including any approved immutable import provenance; it remains
+  unavailable. Manually authored Questions retain no import origin.
 - Memory and PostgreSQL serialize draft deletion and prepared profile work. Deletion either prevents
   preparation or removes prepared state before a workspace identity can be reused.
 - Responses use `Cache-Control: no-store`; inaccessible and absent resources remain uniformly

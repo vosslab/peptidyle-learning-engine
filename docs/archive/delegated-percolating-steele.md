@@ -37,10 +37,10 @@ as the evidence base; it preserves no compatibility vocabulary or dual model.
   Search vocabulary. The direct Question Summary, Question Search Result,
   Question Details, Question Statistics, and Question Search boundaries replace
   the parallel discovery model.
-- The current mounted server is `server_core`: Account session handling,
+- The current implemented server is `server_core`: Account session handling,
   composition, health, request lifecycle, and HTTP security. Course, Question
   Library, delivery, and worker routes remain explicit downstream construction
-  work rather than falsely documented mounted surfaces.
+  work rather than falsely documented available surfaces.
 - Exact whole-word source searches confirm that the retired installation-scope
   and generic account-principal labels are absent from active PLE source,
   schemas, tests, and durable documentation. Remaining ordinary-language or
@@ -74,9 +74,9 @@ the private notification subscription.
 
 ### 3. Keep documentation current
 
-Durable docs describe only current source and mounted behavior. Plans and
+Durable docs describe only current source and implemented behavior. Plans and
 historical evidence state their temporal scope explicitly. Documentation does
-not promise unmounted routes, deleted modules, unsupported roster partitions,
+not promise nonexistent routes, deleted modules, unsupported roster partitions,
 or retired product objects.
 
 Update `docs/CHANGELOG.md` after a defined correction has its narrow gate and

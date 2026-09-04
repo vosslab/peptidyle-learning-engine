@@ -191,7 +191,7 @@ export function moveQuestionPickerSelection(
   );
 }
 
-/** Adapts mounted Question Library searches for the picker source choices. */
+/** Adapts available Question Library searches for the picker source choices. */
 export function questionLibraryPickerRepository(
   library: QuestionLibraryBrowseRepository,
   myQuestions: QuestionLibraryBrowseRepository,
@@ -211,12 +211,12 @@ export function questionLibraryPickerRepository(
   };
 }
 
-/** Current mounted Question Library choices for Instructor picker compositions. */
+/** Current available Question Library choices for Instructor picker compositions. */
 export function questionLibraryPickerSources(
   includeMyQuestions: boolean,
 ): ReadonlyArray<QuestionPickerSource> {
   return [
-    { kind: "library", label: "Library" },
+    { kind: "library", label: "Question Library" },
     ...(includeMyQuestions ? ([{ kind: "mine", label: "My Questions" }] as const) : []),
   ];
 }
@@ -239,37 +239,20 @@ function reusableQuestionLibraryRow(item: {
   readonly summary: {
     readonly questionId: string;
     readonly metadata: {
-      readonly title: string;
+      readonly questionTitle: string;
       readonly questionDescription: string;
       readonly questionLicense: "CC0-1.0" | "CC-BY-4.0" | "CC-BY-SA-4.0" | null;
     };
     readonly authorship: { readonly authors: ReadonlyArray<{ readonly displayName: string }> };
     readonly capabilities: ReadonlyArray<string>;
   };
-  readonly evidence:
-    | { readonly state: "insufficientEvidence" }
-    | {
-        readonly state: "available";
-        readonly observedCourseCount: number;
-        readonly independentLearnerObservationCount: number;
-        readonly difficultyIndex: number;
-        readonly discriminationIndex?: number;
-      };
+  readonly evidence: { readonly state: "unavailable" };
 }): QuestionLibraryBrowseRow {
   const summary = item.summary;
-  const evidence =
-    item.evidence.state === "insufficientEvidence"
-      ? { state: "insufficientEvidence" as const }
-      : {
-          state: "available" as const,
-          observedCourseCount: item.evidence.observedCourseCount,
-          independentLearnerObservationCount: item.evidence.independentLearnerObservationCount,
-          difficultyIndex: item.evidence.difficultyIndex,
-          discriminationIndex: item.evidence.discriminationIndex,
-        };
+  const evidence = { state: "unavailable" as const };
   return {
     displayId: summary.questionId,
-    title: summary.metadata.title,
+    questionTitle: summary.metadata.questionTitle,
     summary: summary.metadata.questionDescription,
     authorNames: summary.authorship.authors.map((author) => author.displayName),
     capabilities: summary.capabilities,
@@ -291,7 +274,8 @@ function selectedBlueprintAssignment(
   }
   for (const module of course.modules) {
     const content = module.assignments.find(
-      (assignment) => assignment.assignment_id === source.assignment_id,
+      (assignment) =>
+        assignment.blueprint_assignment_reference === source.blueprint_assignment_reference,
     );
     if (content !== undefined) return content;
   }
@@ -333,10 +317,12 @@ function sourceRowsMatchQuery(
 ): QuestionLibraryBrowseRow[] {
   const needle = query.search.trim().toLocaleLowerCase();
   if (needle === "") return [...rows];
-  return rows.filter((row) => `${row.title}\n${row.summary}`.toLocaleLowerCase().includes(needle));
+  return rows.filter((row) =>
+    `${row.questionTitle}\n${row.summary}`.toLocaleLowerCase().includes(needle),
+  );
 }
 
-/** Connects reusable assignments to the established picker without creating a second row model. */
+/** Connects Blueprint Assignments to the established picker without creating a second row model. */
 export function blueprintCourseQuestionPickerRepository(
   client: BlueprintCourseClient,
 ): QuestionPickerSourceRepository {

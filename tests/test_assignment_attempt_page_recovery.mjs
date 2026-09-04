@@ -48,7 +48,7 @@ function gradedAcknowledgement(response, attemptId) {
   };
 }
 
-test("session expiry, reauthentication, and page retry submit one saved response with its original key", async () => {
+test("session expiry, reauthentication, and page retry submit one saved response for its Question Attempt", async () => {
   const submissions = [];
   let callCount = 0;
   const machine = createQuestionAttemptStateMachine({
@@ -62,9 +62,8 @@ test("session expiry, reauthentication, and page retry submit one saved response
     storage: createStorage(),
     clock: { now: () => 1_000 },
     network: { isOnline: () => true },
-    generateIdempotencyKey: () => "saved-key",
-    submitResponse: async (attemptId, response, idempotencyKey) => {
-      submissions.push({ attemptId, response, idempotencyKey });
+    submitResponse: async (attemptId, response) => {
+      submissions.push({ attemptId, response });
       callCount += 1;
       if (callCount === 1) throw new Error("session expired");
       return gradedAcknowledgement(response, "attempt-a");
@@ -99,8 +98,8 @@ test("session expiry, reauthentication, and page retry submit one saved response
     [response, response],
   );
   assert.deepEqual(
-    submissions.map((submission) => submission.idempotencyKey),
-    ["saved-key", "saved-key"],
+    submissions.map((submission) => submission.attemptId),
+    ["attempt-a", "attempt-a"],
   );
   assert.equal(machine.state().phase, "studentFeedback");
 });
@@ -113,7 +112,6 @@ test("the response controller exposes 422 and receipt failures for correction be
     ),
     new ApiProtocolError("Submission receipt attempt does not match its request"),
   ]) {
-    const submissionKeys = [];
     let submissions = 0;
     const machine = createQuestionAttemptStateMachine({
       context: {
@@ -126,12 +124,7 @@ test("the response controller exposes 422 and receipt failures for correction be
       storage: createStorage(),
       clock: { now: () => 1_000 },
       network: { isOnline: () => true },
-      generateIdempotencyKey: () => {
-        const key = `correction-key-${submissionKeys.length + 1}`;
-        submissionKeys.push(key);
-        return key;
-      },
-      submitResponse: async (attemptId, response, _idempotencyKey) => {
+      submitResponse: async (attemptId, response) => {
         submissions += 1;
         if (submissions === 1) throw failure;
         return gradedAcknowledgement(response, attemptId);
@@ -179,6 +172,6 @@ test("the response controller exposes 422 and receipt failures for correction be
 
     assert.equal(machine.state().phase, "studentFeedback");
     assert.equal(controller.phase().kind, "submitted");
-    assert.deepEqual(submissionKeys, ["correction-key-1", "correction-key-2"]);
+    assert.equal(submissions, 2);
   }
 });

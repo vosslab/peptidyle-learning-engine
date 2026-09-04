@@ -2,7 +2,7 @@
 
 PLE's current local Live Demo is a disposable HTTPS stack with real PostgreSQL,
 MinIO, API, gateway, worker dependencies, and the private WebWork renderer. Its
-currently mounted browser surface is deliberately limited to the account/session
+currently available Browser Surface is deliberately limited to the account/session
 entry boundary; it is not yet a runnable course-delivery demonstration.
 
 ## Quick start
@@ -43,7 +43,7 @@ persona key only. The server resolves the configured Account and derives role,
 membership, Student ownership, and every later authorization decision from
 stored PLE state.
 
-The current mounted HTTP surface is:
+The current implemented HTTP surface is:
 
 - `GET /health`
 - `GET /api/auth/session`
@@ -52,7 +52,7 @@ The current mounted HTTP surface is:
   is present
 
 Email-code and passkey sign-in remain retained product requirements. Their
-browser adapters and delivery path are not mounted in the current local demo.
+browser adapters and delivery path are unavailable in the current local demo.
 
 ## Retained teaching workflows
 
@@ -60,10 +60,10 @@ Course navigation, Question Library, authoring workspace, Blueprint Course and
 Course Instance operations, roster and invitation handling, assignment delivery,
 Question submission, automated grading, Gradebook, worker operations, and
 course retention remain future Store-backed product workflows. Their browser
-routes are not mounted in the current demo, so this document does not instruct a
+Server Routes do not exist in the current demo, so this document does not instruct a
 reader to use them.
 
-When those workflows are mounted, their design retains these boundaries:
+When those workflows are implemented, their design retains these boundaries:
 
 - exact Course Membership and Student ownership determine access;
 - Answer Keys, Question Graders, private Question Source data, and grading input

@@ -12,7 +12,7 @@ third-party-provider evaluation remains pending.
 
 This is a focused no-mouse audit of the student browser interface, not a claim of complete WCAG
 conformance. The reviewer used a cognitive walkthrough over a built, mock-backed student journey,
-mounted dynamic production-component fixtures, the live PLE-owned WebWork path, an automated axe
+rendered dynamic production-component fixtures, the live PLE-owned WebWork path, an automated axe
 scan of the student question and feedback states, and source inspection where a browser scenario was
 not present. No student participants or screen-reader users were recruited for this pass. The inside
 of any embedded frame remains the embedded application's responsibility.
@@ -61,12 +61,12 @@ Question Format.
 
 | Question Format          | Primary platform path                                                               | Separately tested or documented extensions                                     | Accepted evidence                                                                         |
 | ------------------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| Single choice            | Tab enters the native radio group; Space selects; Tab and Space submit explicitly   | Native radio Arrows select; digits 1-9 select a visible ordinal; Enter submits | Built mock platform journey, mounted extension scenarios, and live PLE-owned WebWork path |
-| Multiple answer          | Tab moves through checkboxes; Space toggles; Tab and Space submit explicitly        | Arrows move focus without changing selection; digits toggle; Enter submits     | Mounted production-component platform and extension fixtures                              |
+| Single choice            | Tab enters the native radio group; Space selects; Tab and Space submit explicitly   | Native radio Arrows select; digits 1-9 select a visible ordinal; Enter submits | Built mock platform journey, rendered extension scenarios, and live PLE-owned WebWork path |
+| Multiple answer          | Tab moves through checkboxes; Space toggles; Tab and Space submit explicitly        | Arrows move focus without changing selection; digits toggle; Enter submits     | Rendered production-component platform and extension fixtures                              |
 | Numeric                  | Tab reaches input and Submit answer; typing enters data; Space activates submission | Browser number adjustment Arrows and ready-input Enter-to-submit               | Source inspection plus shared response-controller tests                                   |
 | Short text               | Tab reaches textarea and Submit answer; Space activates submission                  | Escape returns; Enter remains ordinary multiline text entry                    | Native textarea/button semantics and source inspection                                    |
-| Ordering                 | Tab reaches visible move buttons; Space moves and submits                           | Up/Down Arrow moves the item and announces its new position                    | Mounted production-component platform and extension fixtures                              |
-| iMathAS Question Backend | Tab reaches launch, submit, return, and retry buttons; Space activates them         | Escape returns; native frame internals retain their own contract               | Mounted browser fixture plus source inspection; real backend internals remain unevaluated |
+| Ordering                 | Tab reaches visible move buttons; Space moves and submits                           | Up/Down Arrow moves the item and announces its new position                    | Rendered production-component platform and extension fixtures                              |
+| iMathAS Question Backend | Tab reaches launch, submit, return, and retry buttons; Space activates them         | Escape returns; native frame internals retain their own contract               | Rendered browser fixture plus source inspection; real backend internals remain unevaluated |
 
 ## Findings and corrections
 
@@ -130,7 +130,7 @@ node --import tsx --test \
 
 These focused offline checks cover Question Response Control behavior, Student Feedback announcements, and
 frontend route/session contracts. They remain permanent behavior tests under
-`docs/PYTEST_STYLE.md`, but they do not claim mounted browser, axe, or complete keyboard-journey
+`docs/PYTEST_STYLE.md`, but they do not claim connected-browser, axe, or complete keyboard-journey
 acceptance.
 
 The current connected-browser owners are the declared `learner_delivery` and

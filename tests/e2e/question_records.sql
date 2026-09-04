@@ -13,8 +13,7 @@ BEGIN
          WHERE table_schema = 'ple_private' AND table_name = 'draft_question'
            AND column_name = 'draft_question_edit_number' AND data_type = 'bigint'
            AND is_nullable = 'NO'
-    ) OR to_regclass('ple_private.question_source_registration') IS NOT NULL
-       OR to_regclass('ple_private.draft_question_source_binding') IS NULL
+    ) OR to_regclass('ple_private.draft_question_source_binding') IS NULL
        OR to_regclass('ple_private.question_revision_source_binding') IS NULL
        OR NOT EXISTS (
            SELECT 1 FROM pg_constraint
@@ -49,15 +48,14 @@ BEGIN
     ) THEN
         RAISE EXCEPTION 'Retired generic Question Source sidecar table remains';
     END IF;
-    IF to_regprocedure('ple_private.copy_draft_question_source_registration_to_question_revision(uuid,integer,text,integer,text,uuid,jsonb,bytea,bigint,text,bigint)') IS NOT NULL THEN
-        RAISE EXCEPTION 'unmounted legacy Draft Question Source Registration copy helper remains';
-    END IF;
 END
 $$;
 
 INSERT INTO ple_private.account (account_id, product_role, created_at)
 VALUES ('00000000-0000-0000-0000-000000000901', 'instructor', '2026-08-31T00:00:00Z');
-INSERT INTO ple_private.authoring_workspace (workspace_id, owner_account_id, created_at)
+INSERT INTO ple_private.authoring_workspace (
+    workspace_id, authoring_workspace_owner_account_id, created_at
+)
 VALUES ('00000000-0000-0000-0000-000000000902', '00000000-0000-0000-0000-000000000901', '2026-08-31T00:00:00Z');
 INSERT INTO ple_private.draft_question (
     draft_question_uuid, workspace_id, draft_question_edit_number, created_at, updated_at
@@ -142,7 +140,40 @@ BEGIN
     END IF;
 END $$;
 
--- Published fixtures use direct immutable records; publication workflow remains unmounted.
+-- Both Source Binding owners reject a mismatched Question Backend/Format pair
+-- at the database boundary, independent of the public Draft capability.
+DO $$
+BEGIN
+    UPDATE ple_private.draft_question_source_binding
+       SET question_format = 'pleQuestionJson'
+     WHERE draft_question_uuid = '00000000-0000-0000-0000-000000000905';
+    RAISE EXCEPTION 'Draft Question Source Binding accepted a mismatched Question Backend/Format pair';
+EXCEPTION WHEN SQLSTATE '23514' THEN NULL;
+END $$;
+
+INSERT INTO ple_private.object_record (
+    object_id, object_address, object_storage_area, object_data_class, sha256,
+    size_bytes, media_type, created_at
+) VALUES (
+    '00000000-0000-0000-0000-000000000904',
+    jsonb_build_object('kind', 'workspaceQuestionSource',
+        'workspace', '00000000-0000-0000-0000-000000000902'::uuid,
+        'object', '00000000-0000-0000-0000-000000000904'::uuid,
+        'unexpected', 'hostile'),
+    'private-content', 'authoring-content', decode(repeat('ab', 32), 'hex'), 17,
+    'application/json', '2026-08-31T00:00:00Z'
+);
+DO $$
+BEGIN
+    UPDATE ple_private.draft_question_source_binding
+       SET source_object_id = '00000000-0000-0000-0000-000000000904'
+     WHERE draft_question_uuid = '00000000-0000-0000-0000-000000000905';
+    RAISE EXCEPTION 'Draft Question Source Binding accepted a hostile superset Object Address';
+EXCEPTION WHEN SQLSTATE '23514' THEN NULL;
+END $$;
+
+-- Historical Published Question fixtures use direct immutable records. The P1
+-- publication-operation oracle separately exercises the authorized transaction.
 INSERT INTO ple_data.published_question (question_id, created_at)
 VALUES ('SRC-0001', '2026-08-31T00:00:00Z');
 INSERT INTO ple_data.question_revision (question_id, revision_number, backend, published_at)
@@ -172,3 +203,46 @@ INSERT INTO ple_private.question_revision_source_binding (
     '00000000-0000-0000-0000-000000000911', repeat('ab', 32),
     '2026-08-31T00:00:00Z'
 );
+
+INSERT INTO ple_data.published_question (question_id, created_at)
+VALUES ('SRC-0002', '2026-08-31T00:00:00Z');
+INSERT INTO ple_data.question_revision (question_id, revision_number, backend, published_at)
+VALUES ('SRC-0002', 1, 'ple', '2026-08-31T00:00:00Z');
+INSERT INTO ple_private.object_record (
+    object_id, object_address, object_storage_area, object_data_class, sha256,
+    size_bytes, media_type, created_at
+) VALUES (
+    '00000000-0000-0000-0000-000000000912',
+    jsonb_build_object('kind', 'questionSource', 'questionRevision',
+        jsonb_build_object('questionId', 'SRC-0002', 'revisionNumber', 1),
+        'object', '00000000-0000-0000-0000-000000000912'::uuid,
+        'unexpected', 'hostile'),
+    'private-content', 'question-source', decode(repeat('ab', 32), 'hex'), 17,
+    'application/json', '2026-08-31T00:00:00Z'
+);
+DO $$
+BEGIN
+    INSERT INTO ple_private.question_revision_source_binding (
+        question_id, revision_number, backend, question_format,
+        source_object_id, source_object_checksum, created_at
+    ) VALUES (
+        'SRC-0002', 1, 'ple', 'webworkPg',
+        '00000000-0000-0000-0000-000000000912', repeat('ab', 32),
+        '2026-08-31T00:00:00Z'
+    );
+    RAISE EXCEPTION 'Question Revision Source Binding accepted a mismatched Question Backend/Format pair';
+EXCEPTION WHEN SQLSTATE '23514' THEN NULL;
+END $$;
+DO $$
+BEGIN
+    INSERT INTO ple_private.question_revision_source_binding (
+        question_id, revision_number, backend, question_format,
+        source_object_id, source_object_checksum, created_at
+    ) VALUES (
+        'SRC-0002', 1, 'ple', 'pleQuestionJson',
+        '00000000-0000-0000-0000-000000000912', repeat('ab', 32),
+        '2026-08-31T00:00:00Z'
+    );
+    RAISE EXCEPTION 'Question Revision Source Binding accepted a hostile superset Object Address';
+EXCEPTION WHEN SQLSTATE '23514' THEN NULL;
+END $$;

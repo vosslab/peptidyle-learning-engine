@@ -42,7 +42,7 @@ Every state-changing path falls into one of four outcomes:
 | ------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Committed     | The requested durable effect is known to be visible.                                                      | Show the returned receipt or current Assignment Attempt Summary.                                                  |
 | Rejected      | Validation, authorization, lifecycle, or immutable-state rules refused the request before a valid effect. | Do not retry unchanged automatically; correct the visible condition or reload.                                    |
-| Retryable     | A dependency or serializable transaction was unavailable before a known commit.                           | Retry only through the operation's documented idempotency or lease boundary.                                      |
+| Retryable     | A dependency or serializable transaction was unavailable before a known commit.                           | Retry only through the operation's documented record/revision/Receipt or lease boundary.                          |
 | Indeterminate | The client lost contact while a commit might have happened.                                               | Preserve the request identity, query/retry through its durable receipt, and never create a second logical action. |
 
 The application must never turn an indeterminate result into a new attempt, seed, response,
@@ -61,7 +61,7 @@ attached diagnostic text.
 | `AlreadyExists`                              | Immutable identity or first-writer boundary already exists.                                                                    | Resolve the existing immutable record only when the operation defines exact replay. Otherwise reload.                            |
 | `Forbidden`                                  | Caller context lacks the required Account relationship, course/Student ownership, workspace relationship, capability, or role. | Stop. Preserve concealment of a foreign Account's record.                                                                        |
 | `Conflict`                                   | A compare-and-swap, lifecycle, or immutable-state precondition changed.                                                        | Reload the authoritative Student Question Attempt View or Assignment Attempt Summary and ask the user to review before retrying. |
-| `RetryableTransaction`                       | PostgreSQL aborted the whole serializable/deadlock transaction.                                                                | Retry only at the owner-defined transaction or idempotent command boundary.                                                      |
+| `RetryableTransaction`                       | PostgreSQL aborted the whole serializable/deadlock transaction.                                                                | Retry only at the owner-defined transaction boundary with its exact operation facts.                                             |
 | `TimedOut`                                   | The database-authoritative attempt deadline already passed.                                                                    | Stop the submission path and reload the current attempt or summary.                                                              |
 | `InvalidRecord` or Assignment Activity Rules | Trusted code or accepted wire data violated an Assignment policy rule.                                                         | Do not retry unchanged; return the bounded, route-approved validation message.                                                   |
 | `Unavailable`                                | A bounded dependency is unavailable.                                                                                           | Preserve input and retry the same logical operation after recovery.                                                              |
@@ -85,9 +85,8 @@ The durable attempt is the authority for student, course, assignment, question r
 timing, and grading backend. A replica reconstructs that state from PostgreSQL; the browser cannot
 recover an uncertain submission by issuing a different attempt.
 
-- A student supplies one `Idempotency-Key` header for a submission. The validated key is bounded,
-  visible ASCII and is stored with exact course/Student submission evidence in
-  the deferred Store contract.
+- The exact Question Attempt is the submission identity. The deferred Store records one accepted
+  submission and receipt for it.
 - The Store first atomically persists the accepted Question Submission and its Question Submission
   Receipt, pending evaluation, execution, and ready job. The submission remains bound through its
   Question Attempt to the immutable Issued Question and private Question Attempt Reproduction
@@ -96,9 +95,9 @@ recover an uncertain submission by issuing a different attempt.
 - After `202 Accepted`, the browser uses the route-bound submission-status read. The sealed worker
   commits the Grading Result, Question Attempt/Assignment Attempt/enrollment transitions, Assignment Attempt Summary, and Automated Grading Receipt in one
   transaction; an authorized status reader derives policy-redacted Student Feedback without re-grading.
-- If the browser loses the response, it preserves the same request body and idempotency key, then
-  retries that exact logical submission after connectivity returns. It must not create a new key
-  merely because the outcome was unknown.
+- If the browser loses the response, it preserves the same request body and retries that exact
+  Question Attempt after connectivity returns. It must not create a new attempt merely because the
+  outcome was unknown.
 - If a deadline has elapsed, the Store refuses the response. The browser reloads the attempt or
   summary; client clocks never extend a deadline.
 - A returned conflict means the student must reload the durable state. This is particularly
@@ -110,13 +109,13 @@ The accepted payload redesign in
 Checksum and Presentation Response Item References. Its planned mismatch response is a fail-closed `409`: PLE does not
 grade or mutate the attempt, preserves the editable draft only in memory, reloads the same
 presentation, and restores the draft only when its schema and Presentation Response Item References still match. Until that
-work package lands, current clients must use the implemented attempt and idempotency boundary and
+work package lands, current clients must use the implemented Question Attempt and Question Submission boundary and
 must not treat current Question Attempt Reproduction Details as client authority.
 
 ## Replica and cache recovery
 
 API replicas have no correctness-bearing process memory. The shared PostgreSQL session store,
-authenticated Account context, attempts, submissions, Question Submission Receipts, idempotency bindings, and shared S3-compatible object store
+authenticated Account context, attempts, Question Submissions, Question Submission Receipts, and shared S3-compatible object store
 allow a surviving replica to resume an authorized attempt. The exact topology and evidence are in
 [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md).
 

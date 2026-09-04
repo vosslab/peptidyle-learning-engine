@@ -107,7 +107,7 @@ pub(super) fn package_import_result_checksum_input(
 pub struct QtiPublicMappingChecksumInput {
     pub source_location: String,
     pub source_identifier: String,
-    pub title: String,
+    pub question_title: String,
     pub prompt_markdown: String,
     pub choices: Vec<QtiPublicChoiceChecksumInput>,
     /// Normalized QTI source-points evidence; never Assignment Entry policy.

@@ -6,7 +6,7 @@ use crate::generation::QuestionSeed;
 use crate::question_content::QuestionContentBlock;
 use crate::{QuestionResponseFormat, QuestionRevisionReference};
 
-/// The reproducible generated state for one exact Question Revision and seed.
+/// The reproducible generated state for one exact Question Revision and Question Seed.
 ///
 /// The same pair produces the same Question Variation Presentation on every
 /// machine, allowing the render cache to serve a repeat request and grading to
@@ -23,13 +23,13 @@ pub struct QuestionVariation {
 
 impl QuestionVariation {
     /// Records the two exact facts that reproduce an issued Question Variation.
-    pub fn from_question_revision_and_seed(
+    pub fn from_question_revision_and_question_seed(
         question_revision: QuestionRevisionReference,
-        seed: QuestionSeed,
+        question_seed: QuestionSeed,
     ) -> Self {
         Self {
             question_revision,
-            question_seed: seed,
+            question_seed,
         }
     }
 }
@@ -40,10 +40,10 @@ impl QuestionVariation {
 pub struct QuestionVariationPresentation {
     /// The exact reproducible variation this presentation renders.
     pub variation: QuestionVariation,
-    /// A bounded student-facing title from published metadata or a safe imported
+    /// A bounded student-facing Question Title from published metadata or a safe imported
     /// Question Backend label. This deliberately excludes Question Source, Answer Key,
     /// and Question Grading Input while letting the student identify the issued Question.
-    pub title: String,
+    pub question_title: String,
     /// The prompt, in render order.
     pub prompt: Vec<QuestionContentBlock>,
     /// The shape of response this variant expects.
@@ -63,8 +63,10 @@ mod tests {
 
     #[test]
     fn variation_retains_its_exact_question_seed() {
-        let variation =
-            QuestionVariation::from_question_revision_and_seed(reference(), QuestionSeed::new(5));
+        let variation = QuestionVariation::from_question_revision_and_question_seed(
+            reference(),
+            QuestionSeed::new(5),
+        );
         assert_eq!(variation.question_seed, QuestionSeed::new(5));
     }
 }

@@ -1,4 +1,4 @@
-// Deployment-gated seeded-demo entry for the current mounted session surface.
+// Deployment-gated seeded-demo entry for the current available session surface.
 
 import { useNavigate } from "@solidjs/router";
 import { For, Show, createSignal, onMount, type JSX } from "solid-js";
@@ -25,7 +25,7 @@ function seededDemoOpeningName(state: SeededDemoState): string {
 }
 
 /**
- * Provides the only currently mounted sign-in entry. Email-code and passkey
+ * Provides the only currently available sign-in entry. Email-code and passkey
  * authentication will return here once their Account session adapters exist.
  */
 export function SignInPage(): JSX.Element {

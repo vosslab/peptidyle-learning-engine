@@ -15,13 +15,10 @@ import {
   type QuestionLibraryBrowseState,
 } from "./library_page_model";
 
-/* Each virtual row reserves room for a title, two-line summary, and Question Authors.
+/* Each virtual row reserves room for a Question Title, two-line summary, and Question Authors.
  * Keep this fallback aligned with --ple-question-library-row-block-size in src/style.css. */
 const FALLBACK_ROW_HEIGHT_PX = 164;
 const OVERSCAN_ROWS = 5;
-const percentage = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 0 });
-const wholeNumber = new Intl.NumberFormat("en-US");
-const decimalNumber = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 
 function questionLink(row: QuestionLibraryBrowseRow): string {
   return `/library/${encodeURIComponent(row.displayId)}`;
@@ -50,25 +47,12 @@ function backendLabel(value: string): string {
   return labels[value] ?? value;
 }
 
-function QuestionStatisticsPreview(props: { readonly row: QuestionLibraryBrowseRow }): JSX.Element {
-  const availableEvidence = ():
-    Extract<QuestionLibraryBrowseRow["evidence"], { readonly state: "available" }> | undefined =>
-    props.row.evidence.state === "available" ? props.row.evidence : undefined;
+function QuestionStatisticsPreview(_props: {
+  readonly row: QuestionLibraryBrowseRow;
+}): JSX.Element {
   return (
     <p class="question-library-row-evidence" aria-label="Learning evidence">
-      <Show
-        when={availableEvidence()}
-        fallback="More evidence is needed. This question remains ranked by relevance."
-      >
-        {(available) => {
-          const discrimination = available().discriminationIndex;
-          const discriminationText =
-            discrimination === undefined
-              ? ""
-              : `; discrimination ${decimalNumber.format(discrimination)}`;
-          return `${wholeNumber.format(available().observedCourseCount)} observed courses; ${wholeNumber.format(available().independentLearnerObservationCount)} independent Student observations; mean score ${percentage.format(available().difficultyIndex)}${discriminationText}.`;
-        }}
-      </Show>
+      Question Statistics are unavailable. This question remains ranked by relevance.
     </p>
   );
 }
@@ -113,7 +97,6 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
       | "questionType"
       | "capability"
       | "questionLicense"
-      | "evidence"
       | "usedInMyCourses",
   ): (() => ReadonlyArray<{ readonly value: string; readonly count: number }>) => {
     return () => aggregates().filter((aggregate) => aggregate.facet === facet);
@@ -268,22 +251,6 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           </select>
         </label>
         <label>
-          Evidence
-          <select
-            value={query().evidence ?? ""}
-            onChange={(event) => changeQuery({ evidence: event.currentTarget.value || null })}
-          >
-            <option value="">Any evidence</option>
-            <For each={facets("evidence")()}>
-              {(facet) => (
-                <option value={facet.value}>
-                  {`${facet.value === "available" ? "Has disclosed evidence" : "Insufficient evidence"} (${facet.count})`}
-                </option>
-              )}
-            </For>
-          </select>
-        </label>
-        <label>
           Used in my courses
           <select
             value={query().usedInMyCourses ?? ""}
@@ -349,7 +316,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
               <For each={virtualWindow().rows}>
                 {(row) => (
                   <article class="question-library-row" style={{ height: `${rowHeightPx()}px` }}>
-                    <h2>{row.title}</h2>
+                    <h2>{row.questionTitle}</h2>
                     <p class="question-library-row-summary">{row.summary}</p>
                     <p class="question-library-row-authors" aria-label="Question Authors">
                       Authors: {row.authorNames.join(", ")}

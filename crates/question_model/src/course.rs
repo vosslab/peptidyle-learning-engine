@@ -52,7 +52,7 @@ pub struct FixedQuestionAssignmentEntrySummary {
     /// Browser-visible Question ID for the stable Published Question lineage.
     pub question_id: QuestionId,
     /// Safe Question Library label shown while editing this assignment.
-    pub title: String,
+    pub question_title: String,
     /// Question Backend selected for this Fixed Question Assignment Entry.
     pub backend: QuestionBackend,
     /// Capabilities declared for the published question.
@@ -78,7 +78,7 @@ pub struct QuestionPoolItemSummary {
     /// Browser-visible Question ID for the stable Published Question lineage.
     pub question_id: QuestionId,
     /// Safe Question Library label shown while editing this assignment.
-    pub title: String,
+    pub question_title: String,
     /// Question Backend selected for this Question Pool Item.
     pub backend: QuestionBackend,
     /// Capabilities declared for the published question.
@@ -220,7 +220,7 @@ pub struct StudentAssignmentDelivery {
     /// Server behavior at the resolved effective deadline.
     pub assignment_deadline_rule: AssignmentDeadlineRule,
     /// Server-owned late condition for the Student's present work.
-    pub late_status: StudentLateWorkStatus,
+    pub student_late_work_status: StudentLateWorkStatus,
 }
 
 /// Student-safe detail returned by the dedicated Student Assignment Detail route.
@@ -327,7 +327,7 @@ mod tests {
                 FixedQuestionAssignmentEntrySummary {
                     id: crate::AssignmentEntryId::from_uuid(Uuid::from_u128(4)),
                     question_id: "7K3-M9QX".parse().expect("fixture Question ID parses"),
-                    title: "Peptide bonds".to_string(),
+                    question_title: "Peptide bonds".to_string(),
                     backend: crate::QuestionBackend::Ple,
                     capabilities: crate::QuestionBackendCapabilities::none(),
                     points_possible: crate::AssignmentPointValue::from_whole(1),
@@ -416,13 +416,13 @@ mod tests {
                 attempt_limit: None,
                 late_work_rule: LateWorkRule::MarkLate,
                 assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
-                late_status: StudentLateWorkStatus::MarkedLate,
+                student_late_work_status: StudentLateWorkStatus::MarkedLate,
             },
         );
         let value = serde_json::to_value(&detail).expect("detail serializes");
         assert_eq!(value["instructions"], "Read the legend.");
         assert_eq!(value["time_zone"], "America/Chicago");
-        assert_eq!(value["delivery"]["late_status"], "marked_late");
+        assert_eq!(value["delivery"]["student_late_work_status"], "marked_late");
         assert!(
             serde_json::from_value::<StudentAssignmentDetail>(serde_json::json!({
                 "id": detail.id,

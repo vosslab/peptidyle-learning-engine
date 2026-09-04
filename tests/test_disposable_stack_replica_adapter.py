@@ -172,6 +172,11 @@ def test_replica_count_command_uses_profile_scoped_parameters(
 	assert f"attempt_id={attempt}" in argv
 	assert attempt not in sql
 	assert ":'attempt_id'::uuid" in sql
+	assert "ple_private.question_submission" in sql
+	assert "ple_private.question_submission_grading" in sql
+	assert "ple_private.grading_result" in sql
+	assert "ple_audit.automated_grading_receipt" in sql
+	assert "submission_idempotency" not in sql
 	assert environment["COMPOSE_PROJECT_NAME"] == "ple-live-demo-browser"
 
 

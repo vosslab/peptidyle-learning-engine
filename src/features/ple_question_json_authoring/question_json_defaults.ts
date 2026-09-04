@@ -10,7 +10,7 @@ export function createDefaultPleQuestionJsonSource(): PleQuestionJsonDocument {
   return {
     format: PLE_QUESTION_JSON_FORMAT,
     version: PLE_QUESTION_JSON_SCHEMA_VERSION,
-    title: "Untitled question",
+    questionTitle: "Untitled question",
     questionDescription: "Instructor-facing summary of this Question.",
     prompt: "Write your question prompt here.",
     response: {

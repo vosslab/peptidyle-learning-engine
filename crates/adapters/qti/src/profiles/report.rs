@@ -308,7 +308,7 @@ pub enum QtiSafeItemStatus {
 #[serde(rename_all = "camelCase")]
 pub struct QtiSafeItemReport {
     pub(super) source_identifier: String,
-    pub(super) title: Option<String>,
+    pub(super) question_title: Option<String>,
     pub(super) status: QtiSafeItemStatus,
     pub(super) diagnostics: Vec<QtiSafeDiagnostic>,
     pub(super) defaults: Vec<QtiSafeDiagnostic>,
@@ -319,8 +319,8 @@ impl QtiSafeItemReport {
     pub fn source_identifier(&self) -> &str {
         &self.source_identifier
     }
-    pub fn title(&self) -> Option<&str> {
-        self.title.as_deref()
+    pub fn question_title(&self) -> Option<&str> {
+        self.question_title.as_deref()
     }
     pub fn status(&self) -> QtiSafeItemStatus {
         self.status

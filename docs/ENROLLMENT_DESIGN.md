@@ -113,7 +113,7 @@ never becomes an answer, score, completion flag, or attempt authority.
 
 The original missing seam was visible at three boundaries:
 
-- The earlier course-route surface mounted course reads, course creation,
+- The earlier course-route surface provided course reads, course creation,
   gradebook reads, and assignment creation/update without roster mutation.
 - The deferred course-delivery route surface will expose Student-owned
   Assignment Attempt history. Course Enrollment occurs through course-level
@@ -210,7 +210,7 @@ Passkey registration begins from an authenticated PLE account, so a passkey can
 shorten later sign-in but cannot bootstrap the first account by itself. The
 seeded selector is disabled when its deployment settings are absent. Email
 start fails closed unless both the invitation-token secret and a complete
-external SMTP configuration are present; mounting a route is not evidence of a
+external SMTP configuration are present; a Server Route's existence is not evidence of a
 live email-authentication ceremony.
 
 ENR6 therefore uses email authentication to restore an existing PLE
@@ -352,7 +352,7 @@ integrations, not prerequisites for PLE registration or enrollment.
 Roster reads and mutations use the existing course authorization order:
 
 ```text
-session -> AuthenticatedSession -> exact course lookup -> direct Instructor membership
+session -> AuthenticatedSession -> exact course lookup -> current Instructor Course Membership
 ```
 
 The rules are:
@@ -417,9 +417,9 @@ transaction; no route or migration may hand-write only one side.
 
 ## HTTP contract
 
-Course-roster delivery is planned and unmounted. Its future Store, routes, invitation workflow, and atomic
+Course-roster delivery is planned and unavailable. Its future Store, Server Routes, invitation workflow, and atomic
 Student Account resolve-or-create transaction; no roster, roster-import,
-invitation, or invitation-redemption route is currently mounted.
+invitation, or invitation-redemption Server Route currently exists.
 
 The planned Course Roster Import receives normalized Student Authentication
 Emails and course-scoped roster metadata. Before authentication, its atomic
@@ -484,7 +484,7 @@ PLE intentionally improves several implementation details:
 | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
 | Controllers combine Account Creation, email, LMS checks, enrollment, analytics, and assignment distribution. | Separate account authentication, invitation delivery, authorization, and Store-owned Course Roster Import and Course Membership state. |
 | A roster upload is parsed, then the browser sends one invitation request per row.                            | Stage one bounded import and commit the reviewed set idempotently.                                                                     |
-| An Instructor invitation may create an Account row by email before that student authenticates.               | Create only a pending invitation. The planned, unmounted Course Roster Import transaction resolves or creates Student Accounts.        |
+| An Instructor invitation may create an Account row by email before that student authenticates.               | Create only a pending invitation. The planned Course Roster Import transaction resolves or creates Student Accounts.                   |
 | `student_id` is stored on the global ADAPT user.                                                             | Store an institution-provided roster identifier only on the protected course roster/export mapping.                                    |
 | Domain whitelist validation uses substring matching.                                                         | Compare a parsed, normalized complete domain or an explicitly configured subdomain boundary.                                           |
 | Access codes are visible, reusable course/invitation values.                                                 | Use random, expiring, single-purpose invitation secrets stored only as hashes.                                                         |
@@ -555,7 +555,7 @@ separate recovery mode:
   path used during registration;
 - a Student Authentication Email is immutable; a different institutional email
   identifies a different Student Account;
-- the planned, unmounted Course Roster Import transaction is the normal
+- the planned Course Roster Import transaction is the normal
   Student Account resolve-or-create boundary; and
 - if the student no longer controls the current account email, version 1 has
   no identity-recovery or record-transfer workflow. The instructor may revoke
@@ -624,16 +624,16 @@ hand-match 50 scores.
 | Institutional roster ID         | Match PLE results to an LMS/gradebook row                                       | Course-scoped protected record; no global lookup or authentication use                                                                                                                                                          |
 | Display name or handle          | Let the instructor distinguish roster members                                   | Student-controlled account data copied only where the course workflow needs it; no legal-name requirement                                                                                                                       |
 | Raw roster CSV                  | Import 50 students at once                                                      | Parse in memory or controlled temporary storage, then delete raw bytes after normalized preview creation                                                                                                                        |
-| Normalized import preview       | Review errors before sending invitations                                        | Expires after one hour; direct-Instructor access; no account-existence signal                                                                                                                                                   |
+| Normalized import preview       | Review errors before sending invitations                                        | Expires after one hour; current Instructor Course Membership access; no account-existence signal                                                                                                                                |
 | Grade export                    | Upload results to the institutional system                                      | Contains only the destination profile's required roster ID, course roster email, display label, and selected result fields; never global `AccountId`, passkey state, or unrelated activity; protected, audited, and short-lived |
 
-The planned, unmounted Course-roster delivery will expire a Course Invitation after
+The planned Course Roster delivery will expire a Course Invitation after
 seven days and an email-authentication challenge after ten minutes. Resending
 will create new secrets and invalidate the old delivery. Those bounds will be
 server constants, not browser choices.
 
 A grade export is generated synchronously for one course and assignment under
-the existing direct-Instructor authorization boundary. It uses the course roster
+the existing current Instructor Course Membership authorization boundary. It uses the course roster
 ID as the join key and the server-calculated assignment summary as the value.
 The response is `Cache-Control: no-store`, is not persisted as an export
 object, and carries a server-issued opaque export ID. The database retains only

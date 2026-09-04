@@ -66,7 +66,7 @@ function attemptContext(
     attemptId: attempt.id,
     issuedQuestionId: attempt.issuedQuestion,
     questionRevision: presentation.questionRevision,
-    seed: presentation.question_seed,
+    questionSeed: presentation.question_seed,
     deadline: attempt.timing.deadline,
   };
 }
@@ -83,10 +83,6 @@ function attemptStorage(): AttemptStorage {
       globalThis.sessionStorage.removeItem(key);
     },
   };
-}
-
-function generateIdempotencyKey(): string {
-  return globalThis.crypto.randomUUID();
 }
 
 function isSessionExpired(error: unknown): boolean {
@@ -135,7 +131,9 @@ function assetIdsForPresentation(presentation: QuestionPresentation): ReadonlyAr
     blocks.push(...presentation.response.items.flatMap((item) => item.body));
   }
   return [
-    ...new Set(blocks.filter((block) => block.kind === "image").map((block) => block.asset.asset)),
+    ...new Set(
+      blocks.filter((block) => block.kind === "image").map((block) => block.questionAsset.questionAsset),
+    ),
   ].slice(0, MAX_PREFETCH_ASSETS);
 }
 
@@ -176,14 +174,12 @@ function AttemptExperience(props: {
     storage: attemptStorage(),
     clock: { now: () => Date.now() },
     network: { isOnline: () => navigator.onLine },
-    generateIdempotencyKey,
-    submitResponse: (attemptId, response, idempotencyKey) =>
+    submitResponse: (attemptId, response) =>
       runtime.client.submitResponse(
         screen().course.summary.id,
         screen().assignment.id,
         attemptId,
         response,
-        idempotencyKey,
       ),
     getSubmissionStatus: (attemptId) =>
       runtime.client.getSubmissionStatus(
@@ -197,7 +193,7 @@ function AttemptExperience(props: {
     onStateChange: setState,
   });
   // Establish the first answer state during component construction so the
-  // Question Response Controls do not wait for a post-paint mount callback.
+  // Question Response Controls do not wait for a post-paint render callback.
   machine.start(props.initialScreen.issuedQuestion.response);
 
   function escapeToAssignment(): void {
@@ -246,7 +242,7 @@ function AttemptExperience(props: {
             assignmentAttemptId: receiptNext.issuedQuestion.assignmentAttempt,
             issuedQuestionId: receiptNext.issuedQuestion.id,
             questionRevision: cached.presentation.questionRevision,
-            seed: cached.presentation.question_seed,
+            questionSeed: cached.presentation.question_seed,
             deadline: receiptNext.deadline,
           },
           presentation: cached.presentation,
@@ -514,7 +510,7 @@ function AttemptExperience(props: {
       <header class="assignment-attempt-header">
         <div>
           <p class="eyebrow">Assignment Attempt {screen().assignmentAttempt.attemptNumber}</p>
-          <h1>{currentPresentation().title}</h1>
+          <h1>{currentPresentation().questionTitle}</h1>
         </div>
         <span class="calm-status" role="timer" aria-live="polite">
           {formatRemaining(
@@ -573,7 +569,7 @@ function AttemptExperience(props: {
                           : undefined
                       }
                       assetUrl={(asset) =>
-                        new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
+                        new URL(runtime.client.assetUrl(asset.questionAsset), window.location.origin)
                       }
                     />
                   )}
@@ -631,7 +627,7 @@ function AttemptExperience(props: {
               <QuestionPresentationRenderer
                 presentation={currentPresentation()}
                 assetUrl={(asset) =>
-                  new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
+                  new URL(runtime.client.assetUrl(asset.questionAsset), window.location.origin)
                 }
                 onRetry={() => machine.retryRenderer()}
               />
@@ -786,7 +782,7 @@ function AttemptExperience(props: {
                         disclosure={studentFeedbackPresentation(feedback())}
                         studentResponse={currentStudentResponse(feedback().response)}
                         assetUrl={(asset) =>
-                          new URL(runtime.client.assetUrl(asset.asset), window.location.origin)
+                          new URL(runtime.client.assetUrl(asset.questionAsset), window.location.origin)
                         }
                         onAdvance={() => void continueAttempt()}
                         advanceLabel={submissionAdvanceLabel(feedback().acknowledgement)}

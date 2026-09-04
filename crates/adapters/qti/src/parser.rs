@@ -4,8 +4,8 @@
 //! accepts a deliberately small QTI subset using an XML event parser: DTDs,
 //! entity declarations, malformed nesting, and duplicate attributes fail
 //! before any model is made.  Asset bytes leave this module only in an
-//! immutable worker handoff; student-visible questions contain `QuestionAssetId`s and
-//! checksums, never archive paths or an Answer Key.
+//! immutable worker handoff; student-visible questions contain `QuestionAssetReference`s,
+//! never archive paths or an Answer Key.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -524,8 +524,8 @@ fn image_block(
         .entry(path.clone())
         .or_insert_with(|| asset_object(path.clone(), bytes.to_vec(), media_type.to_string()));
     Ok(QuestionContentBlock::Image {
-        asset: QuestionAssetReference {
-            asset: asset.asset,
+        question_asset: QuestionAssetReference {
+            question_asset: asset.asset,
             checksum: asset.sha256.clone(),
         },
         description: image

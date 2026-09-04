@@ -239,7 +239,7 @@ BEGIN
 
     INSERT INTO ple_private.issued_question (
         issued_question_id, assignment_attempt_id, assignment_entry_id, question_id,
-        revision_number, issued_position, point_value, scoring_rule, statistics_eligible,
+        revision_number, issued_position, point_value, scoring_rule, question_statistics_eligibility,
         question_pool_selection_id, question_pool_item_id
     )
     SELECT input.issued_question_id, p_assignment_attempt_id, input.assignment_entry_id,

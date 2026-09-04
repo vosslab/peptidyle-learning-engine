@@ -139,7 +139,7 @@ impl StudentFeedback {
     }
 }
 
-/// Closed score-only feedback for an audited Instructor Student-work read.
+/// Closed permitted correctness and score fields for a Student Response Inspection.
 ///
 /// This type deliberately cannot carry Question Hints, Question Answer,
 /// Question Answer Explanation, or other instructional content.
@@ -158,7 +158,7 @@ pub struct StudentResponseInspectionFeedback {
 }
 
 impl StudentResponseInspectionFeedback {
-    /// Returns the no-score/no-correctness Student Response Inspection Feedback.
+    /// Returns an empty Student Response Inspection Feedback value.
     pub const fn empty() -> Self {
         Self {
             correctness: None,
@@ -189,7 +189,7 @@ mod tests {
     }
 
     #[test]
-    fn inspected_score_feedback_debug_is_redacted() {
+    fn student_response_inspection_feedback_debug_is_redacted() {
         let feedback = StudentResponseInspectionFeedback {
             correctness: Some(true),
             points_earned: Some(17.25),

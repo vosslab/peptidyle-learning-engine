@@ -175,31 +175,21 @@ accepted them on 2026-08-28. The allocation receipt makes no implementation or t
 The [implementation status registry](../implementation_status.md) is the current route-by-route
 authority. No C7 is created.
 
-### WN1-C6-GO1: Instructor Grading Operation Retry Token
+### Superseded WN1-C6-GO1: Instructor Grading Operation Retry Token
 
-- Owner: one expert coder for the atomic grading-operations route/Store/receipt closure.
-- Depends on: accepted `WN1-B5`, accepted `WN1-MG`, and the applicable
-  `WN1-QM-GRADING-OPS` source-type closure; it precedes `WN1-F`.
-- Outcome: make the server own one durable binding of an Instructor Grading Operation Retry Token
-  to the exact Instructor Grading Operation, `retry` or `recalculate` action, Request Checksum, and
-  accepted Receipt. Project it once through a route-only `browser-api-contract` DTO with effective
-  Serde `retry_token`, regenerate the direct TypeScript contract, and change the strict decoder,
-  same-origin client, and assignment-workspace intent together. A new Instructor decision creates
-  one opaque token; ambiguous retry preserves it. The registered `idempotency-key` HTTP header
-  remains protocol framing rather than a PLE value name.
-- Boundaries: this child owns no manual grading, generic cross-operation retry abstraction,
-  enrollment or Student-submission idempotency terms, compatibility camel alias, or browser-grading
-  authority. It adds any required forward persistence shape only with its Store producer/reader;
-  accepted migrations and immutable historical receipts remain unchanged.
-- Permanent gate: focused Rust/Store behavior proves same-token same-request replay returns one
-  equal accepted Receipt and no second side effect, while changed operation/action/checksum refuses
-  the old binding; the named strict Node decoder/client and assignment-workspace model suites prove
-  `retry_token` decoding, request/receipt equality, malformed/retired-field refusal, and ambiguous
-  retry reuse. Run TypeScript compilation and the applicable generated-contract gate.
-- Service gate: disposable PostgreSQL route/transaction evidence proves the unique durable binding,
-  receipt replay, and authorization boundary. Browser mocks do not accept this service or
-  persistence claim. Record `git diff --check`, direct generated/wire-shape inspection, and the
-  package receipt before completing vocabulary rows 459-460.
+The direct pre-production review found no implemented Instructor Grading Operation Store or Server
+Route. The proposed token, replay registry, test-only Store seam, receipt field, generated contract,
+strict decoder/client, request header, and page-generated UUID are therefore removed rather than
+completed as a parallel identity architecture. An Instructor action remains identified by its exact
+Instructor Grading Operation, action, expected revision, Request Checksum, and accepted Receipt.
+After a repeated request, the eventual implemented Store and Server Route must return the existing
+result or report a conflict using those facts. A qualified token is admissible only after that exact
+operation proves those natural identities inadequate under the Terminology Contract.
+
+The focused Question Model, browser API contract, Learning Data Access, strict Node client/model,
+TypeScript, and generated-contract gates prove this removal. This correction creates no grading
+Store, Server Route, persistence, browser authority, manual-grading behavior, fixture, or
+compatibility path.
 
 ### WN1-C6-QM-STUDENT-VIEW-SCENARIO-WIRE: Student View Scenario wire contract
 
@@ -231,7 +221,7 @@ authority. No C7 is created.
 ### WN1-C6-QM-ASSIGNMENT-GRADE-PROGRESS-WIRE: Assignment Grade and Progress wire contract
 
 - Status: completed on 2026-09-03. Vocabulary row 126 closes with direct nested `snake_case`
-  records and no mounted delivery boundary; the receipt is recorded in the implementation status
+  records and no implemented delivery boundary; the receipt is recorded in the implementation status
   registry and changelog.
 - Owner: one expert coder for the complete Student activity/grade model-to-browser closure.
 - Depends on: accepted `WN1-B5`; it precedes `WN1-F` and is independent of the Student View
@@ -253,16 +243,16 @@ authority. No C7 is created.
   `GradebookSummaryRow` construction and nested-boundary test. `cargo tools
 tsgen` regenerates their direct `generated/api/` declarations. `src/api/decoders/assignment_attempt.ts`
   owns strict refusal of the retired flattened data; `src/api/contracts.ts`, `src/api/client.ts`,
-  `src/api/application_api.tsx`, and `src/api/http_client/response.ts` own the unmounted client
+  `src/api/application_api.tsx`, and `src/api/http_client/response.ts` own the client contract
   facade; `src/student_progress.ts` and `src/components/student_assignment_presentation.tsx` own
   Student display. Existing `crates/question_model/src/student_work.rs`,
   `crates/domain/src/scoring.rs`, `crates/domain/src/assignment_activity.rs`,
   `crates/domain/tests/assignment_attempt_31.rs`, `crates/question_model/src/course.rs`, and
   `tests/test_student_progress.mjs` own the focused behavior evidence. Update only current
   documentation that claims Progress owns scores.
-- Boundary: current server composition mounts neither a Student/Gradebook Store nor a route for
+- Boundary: current server composition contains neither a Student/Gradebook Store nor a Server Route for
   these read shapes. This package neither creates persistence, schema, Store, route, worker,
-  fixture, feature, or permanent test nor represents browser client scaffolding as mounted
+  fixture, feature, or permanent test nor represents browser client scaffolding as an available Browser Surface
   delivery. A later service persists the two exact records and commits its accepted activity
   transition atomically.
 - Permanent gate: update the named existing Question Model and Domain activity/scoring tests,
@@ -318,7 +308,7 @@ one direct contract rather than leaving serialization in a shared routing module
 
 - Owner: one expert coder for the complete Course Appearance terminology closure.
 - Depends on: accepted `WN1-B5`; it is independent of deferred Course Appearance persistence,
-  service, and mounted-editor capability work, and precedes `WN1-F`.
+  Service, and available-editor capability work, and precedes `WN1-F`.
 - Outcome: replace the abbreviated validated-string type `CourseBannerAltText` with
   `CourseBannerInformativeText` across the Question Model, public facade, regenerated TypeScript,
   strict decoder, Course Banner renderer, focused fixtures/tests, and current documentation. Keep
@@ -327,7 +317,7 @@ one direct contract rather than leaving serialization in a shared routing module
   Rust export and generated `CourseBannerAltText.ts` directly; add no aliases, duplicate fields, or
   legacy decoder branch.
 - Boundaries: this child changes no Course Banner object-address/storage ownership, schema,
-  PostgreSQL migration, Store, route, authorization, or mounted editor. The absent Course Appearance
+  PostgreSQL migration, Store, Server Route, authorization, or available editor. The absent Course Appearance
   revision/current-pointer capability remains separately allocated future work. The checklist row
   is completed only after this child's evidence is recorded.
 - Permanent gate: `cargo test -p question_model course_appearance`; regenerate with `cargo tools
@@ -354,7 +344,7 @@ tests/test_course_theme_scope.mjs` after adding strict Decorative/Informative de
   prior PLE-owned reader-shape name directly; add no alias, dual DTO, or legacy decoder branch.
 - Deferred boundary: this reader-only child creates no Course Appearance Store or retained record,
   schema/current-pointer relation, PostgreSQL migration, server route, authorization oracle, Course
-  Banner Upload promotion/cleanup, or mounted editor. Low-level database/query projection remains
+  Banner Upload promotion/cleanup, or available editor. Low-level database/query projection remains
   distinct technical vocabulary. Those persistence and editor capabilities are deferred feature work,
   not evidence for this terminology closure.
 - Permanent gate: `cargo test -p question_model course_appearance`; `cargo tools tsgen`; `npx tsc
@@ -397,7 +387,7 @@ Submission Grading -> Job -> Grading Result -> Automated Grading Receipt`. Quest
 - **Migration allocation:** rewrite both unshipped migrations directly. `2026082927` owns the
   iMathAS Question Backend cache/session/exchange schema and removes the orphaned LTI schema;
   `2026090102` owns the Session/Exchange lifecycle, encrypted-state fields, result-token checksum,
-  marker Submission, pending ordinary-grading Job, worker-leased idempotent Grading Result and
+  marker Submission, pending ordinary-grading Job, worker-leased exact Grading Result and
   Automated Grading Receipt lineage. Neither migration is shared with a superseded package.
 - **Dependency order:** (1) terminology contract/checklist allocation, (2) Question Model marker
   and generated contracts, (3) LDA and iMathAS adapter aggregate cutover, (4) both migrations and

@@ -259,7 +259,7 @@ server rejection gracefully.
 
 ## Assignment workspace boundary
 
-The Instructor assignment workspace keeps mastery configuration in the same assignment aggregate
+The Instructor Assignment Workspace keeps mastery configuration on the same Assignment and current Assignment Revision
 while separating the teaching tasks. Questions owns the title and ordered fixed-or-pool content;
 Policies owns Student Feedback Release Rules, Assignment Activity Rules, instructions, schedule, limits, late behavior,
 and lifecycle; Active Student Course Membership determines ordinary access. Each focused save uses the assignment's shared revision and returns the complete

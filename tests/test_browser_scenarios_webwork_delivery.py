@@ -16,15 +16,15 @@ import e2e_browser_scenario_webwork_delivery as webwork_delivery
 
 #============================================
 def test_published_question_fixture_receipt_accepts_only_public_question_location() -> None:
-	"""The host hand-off contains only the reviewed Question ID and student title."""
+	"""The host hand-off contains only the reviewed Question ID and Question Title."""
 	fixture = webwork_delivery.decode_published_question_fixture_receipt(
-		'{"questionId":"ABC-1234","title":"Biochemistry: Identify hydrophobic compounds from formulas"}'
+		'{"questionId":"ABC-1234","questionTitle":"Biochemistry: Identify hydrophobic compounds from formulas"}'
 	)
 	assert fixture.question_id == "ABC-1234"
-	assert fixture.title == webwork_delivery.PUBLISHED_QUESTION_TITLE
+	assert fixture.question_title == webwork_delivery.PUBLISHED_QUESTION_TITLE
 	with pytest.raises(webwork_delivery.WebworkDeliveryEvidenceError, match="invalid"):
 		webwork_delivery.decode_published_question_fixture_receipt(
-			'{"questionId":"ABC-1234","source":"private","title":"Biochemistry: Identify hydrophobic compounds from formulas"}'
+			'{"questionId":"ABC-1234","questionTitle":"Biochemistry: Identify hydrophobic compounds from formulas","source":"private"}'
 		)
 
 
@@ -42,7 +42,7 @@ def test_published_question_fixture_private_input_is_canonical_and_private(tmp_p
 	assert value["questionId"] == "ABC-1234"
 	assert value["scenarioId"] == webwork_delivery.SCENARIO_ID
 	assert value["schemaVersion"] == webwork_delivery.PUBLISHED_QUESTION_FIXTURE_SCHEMA_VERSION
-	assert value["title"] == webwork_delivery.PUBLISHED_QUESTION_TITLE
+	assert value["questionTitle"] == webwork_delivery.PUBLISHED_QUESTION_TITLE
 
 
 #============================================

@@ -8,7 +8,6 @@ use domain::assignment_activity::AssignmentActivityError;
 mod assignment_attempt;
 mod authentication_ceremony;
 mod authentication_email;
-mod grading_operations;
 mod imathas_question_backend_session;
 mod object_record;
 mod pagination;
@@ -32,7 +31,6 @@ pub use authentication_ceremony::{
 pub use authentication_email::{
     AuthenticationEmail, AuthenticationEmailError, EmailDomain, MAX_AUTHENTICATION_EMAIL_BYTES,
 };
-pub use grading_operations::InstructorGradingOperationStore;
 pub use imathas_question_backend_session::{
     AutomatedGradingReceipt, AutomatedGradingReceiptChecksum, AutomatedGradingReceiptId,
     CommitStagedImathasResultGrading, GradingResultId, ImathasGradingContext,
@@ -45,9 +43,8 @@ pub use imathas_question_backend_session::{
     ImathasQuestionBackendSessionValidation, ImathasQuestionBackendStateCipher,
     ImathasQuestionBackendStateKeyId, ImathasQuestionBackendStateKeyRing,
     ImathasQuestionBackendStatePlaintext, ImathasResponseChecksum, ImathasResult,
-    ImathasResultChecksum, ImathasResultExchangeIdempotencyKey, ImathasResultToken,
-    ImathasResultTokenChecksum, JobId, LoadedImathasQuestionBackendSession,
-    MAX_IMATHAS_QUESTION_BACKEND_STATE_CIPHERTEXT_BYTES,
+    ImathasResultChecksum, ImathasResultToken, ImathasResultTokenChecksum, JobId,
+    LoadedImathasQuestionBackendSession, MAX_IMATHAS_QUESTION_BACKEND_STATE_CIPHERTEXT_BYTES,
     MAX_IMATHAS_QUESTION_BACKEND_STATE_PLAINTEXT_BYTES, MemoryImathasQuestionBackendSessionStore,
     QuestionSubmissionGradingId, StageVerifiedImathasResult, StagedImathasResultReceipt,
     derive_imathas_question_backend_evaluation,
@@ -65,8 +62,9 @@ pub use object_record::{
 };
 pub use pagination::{Cursor, Page, PageRequest, PageSize, PaginationError};
 pub use question_source::{
-    DraftQuestionEditNumber, DraftQuestionSourceBindingInput, DraftQuestionSourceBindingStore,
-    DraftQuestionUuid,
+    DraftQuestionEditNumber, DraftQuestionPublicationSourceStore, DraftQuestionSourceBindingInput,
+    DraftQuestionSourceBindingStore, DraftQuestionUuid, NewQuestionLineagePublicationInput,
+    NewQuestionLineagePublicationStore,
 };
 pub use session::{
     SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash,
