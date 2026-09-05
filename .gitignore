@@ -39,3 +39,4 @@ stats.html
 /containers/env.local
 /local_stack_state/
 /plan-*.md
+__pycache__/

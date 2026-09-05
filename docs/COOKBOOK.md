@@ -68,7 +68,7 @@ source source_me.sh && python3 local_stack.py acceptance
 Run the aggregate only when its full material-tree scope is required:
 
 ```bash
-source source_me.sh && ./all_test.sh
+source source_me.sh && ./launchers/all_test.sh
 ```
 
 The current acceptance lanes prove named Rust, TypeScript, Python, PostgreSQL, and object-store

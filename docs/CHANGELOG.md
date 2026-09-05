@@ -4,6 +4,10 @@
 
 ### Additions and New Features
 
+- Added the temporary attended macOS invitation mailer. It reads one private JSON export,
+  defaults to dry run, sends through visible Mail.app composition, throttles the batch, and keeps
+  atomic owner-private current status so reruns suppress confirmed or indeterminate recipients.
+  A deliberate resend requires `--send`, `--only`, and `--force-resend` together.
 - Completed Ribbon Application Shell M12: the generated 24-destination
   `docs/ux/RIBBON_DESTINATION_LEDGER.md` now derives canonical label, route identity, client method,
   backing evidence, and per-Product-Role Ribbon Availability from the executable catalog and
@@ -31,6 +35,14 @@
 
 ### Fixes and Maintenance
 
+- Moved the four-command aggregate wrapper from the repository root to
+  [`launchers/all_test.sh`](../launchers/all_test.sh). Its Rust, frontend, Python, and connected
+  acceptance calls remain unchanged and in the same fail-fast order.
+- Moved the temporary invitation-mailer front door from `tools/` to
+  [`launchers/send_invitations.py`](../launchers/send_invitations.py). The launcher now reads
+  as an entry point for the importable [`invitation_mailer/`](../invitation_mailer/) package
+  instead of as a standalone repository utility. `source_me.sh` now applies the repository's
+  canonical Git-root `PYTHONPATH` extension so subdirectory launchers can import root packages.
 - Refreshed the README; architecture and file map; installation and usage; FAQ and input formats;
   roadmap and TODO; development, troubleshooting, and cookbook; and related-projects documentation
   from current contracts and executable boundaries. The seeded Live Demo still proves only
@@ -58,6 +70,9 @@
 
 ### Removals and Deprecations
 
+- Archived the completed invitation-mailer plan at
+  `docs/archive/student_activation_mailer.md`. The mailer remains intentionally small and includes
+  disposal instructions in [USAGE.md](USAGE.md) for removing it after the trial.
 - Archived the completed Ribbon Application Shell plan at
   `docs/archive/ribbon_application_shell.md`. The task-owned index and worktree now agree that the
   archive path is present and the superseded active-plan path is absent. The three superseded velvet
@@ -67,6 +82,11 @@
 
 ### Decisions and Failures
 
+- The mailer accepts signup URLs created elsewhere and claims only its local dispatch observation;
+  it does not create an Account, Course Invitation, Course Enrollment, or signup-completion fact.
+  Real Mail.app delivery remains an attended operator check. A one-time native script-compilation
+  probe in the automated environment reached an unavailable macOS High-level Services connection
+  and aborted before executing the script; no message was composed or sent.
 - Screenshot capture was skipped because Playwright and the canonical production-browser owner were
   unavailable. Existing historical README embeds remain preserved as design reference, not current
   browser, accessibility, visual, privacy, or teaching-workflow acceptance. No duplicate NEWS or
@@ -81,6 +101,19 @@
 
 ### Developer Tests and Notes
 
+- Permanent offline invitation-mailer tests cover config and export boundaries, domain and URL
+  validation, duplicate suppression, private atomic status, template safety, per-recipient failure,
+  interruption recovery, dry-run sender isolation, and the narrow targeted-resend argument guard.
+  The disposable E2E executes the real launcher in default dry-run mode with a batch limit, then
+  uses a fake sender to prove initial send, no-op rerun, incremental send, and deliberate resend
+  without importing Mail.app. The focused tests, registered E2E runner, Python hygiene,
+  support-directory boundary, Bandit scan, shell syntax, and Markdown-link checks passed.
+  A fresh six-pass Plan, Test, Style, Documentation, Legacy, and Comment audit moved the operator
+  contract into [USAGE.md](USAGE.md), aligned root discovery with the Git-root rule, removed
+  redundant whole-workflow pytest coverage, and corrected stale claims in the completed plan.
+  The fresh full aggregate is not green: its Rust lane passed, then the frontend lane stopped
+  because `node_modules` is absent. The full Python lane was run independently and all 5,296
+  tests passed. This mailer adds no root script.
 - A fresh six-pass audit of the precision-field-console refinement found no plan or documentation
   drift. Its concrete test, style, legacy, and comment findings were repaired and independently
   re-reviewed: the all-theme browser oracle now locks three distinct row planes and two-part focus

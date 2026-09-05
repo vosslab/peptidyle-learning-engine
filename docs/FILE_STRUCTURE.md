@@ -20,10 +20,13 @@ spelling.
 +- tests/                  Offline, Node, Playwright, and disposable E2E checks
 +- docs/                   Durable references, history, and bounded active work
 +- local_stack_control/    Typed local-stack and acceptance lifecycle
++- invitation_mailer/      Temporary attended Mail.app sender implementation
++- launchers/              User-facing entry points and the aggregate gate wrapper
 +- devel/                  Developer-maintenance commands
 +- tools/                  Focused repository utilities
 +- Cargo.toml              Rust workspace manifest
 +- package.json            Browser tooling manifest
++- invitation_mailer.yaml  Recipient-domain allowlist and throttle for the mailer
 +- build.sh                Full local build entry point
 +- check_rust.sh           Rust gate
 +- check_codebase.sh       Fast TypeScript/Node typecheck, lint, format, and test gate

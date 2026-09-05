@@ -1,2 +1,4 @@
 # Runtime dependency for the local-stack controller.
 PyYAML
+# macOS Mail.app bridge for the temporary attended invitation mailer.
+py-applescript

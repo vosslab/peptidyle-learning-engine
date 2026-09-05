@@ -259,5 +259,5 @@ accessible interaction, and role-appropriate screenshots on the production brows
 
 Graphify maps, retired-identifier inventories, old-to-new schema allocation, clean-volume schema
 fingerprints, and Migration Check evidence are one-time evidence. They are not permanent test
-cases. The final material tree runs `source source_me.sh && ./all_test.sh` only after focused and
+cases. The final material tree runs `source source_me.sh && ./launchers/all_test.sh` only after focused and
 connected required gates are green; skipped required lanes keep the package incomplete.

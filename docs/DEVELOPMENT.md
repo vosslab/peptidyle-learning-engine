@@ -266,7 +266,7 @@ for the evidence model and completion rule.
 The exact final aggregate is:
 
 ```bash
-source source_me.sh && ./all_test.sh
+source source_me.sh && ./launchers/all_test.sh
 ```
 
 Run it on the final material tree after the package's focused and connected gates are green.

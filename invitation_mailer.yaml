@@ -1,0 +1,6 @@
+# Exact complete domains accepted for student recipients.
+allowed_recipient_domains:
+  - mail.roosevelt.edu
+
+# Delay between attended Mail.app sends.
+throttle_seconds: 1

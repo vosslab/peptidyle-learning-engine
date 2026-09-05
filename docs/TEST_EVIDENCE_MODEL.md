@@ -18,7 +18,7 @@ goal is complete only when every required gate is green on the final material
 tree, including required live gates and independent review. `SKIP`, unrun, or
 unavailable required gates are not green.
 
-The repository aggregate front door is `./all_test.sh`. It fails fast through
+The repository aggregate front door is `./launchers/all_test.sh`. It fails fast through
 these four gates, in this order:
 
 ```bash

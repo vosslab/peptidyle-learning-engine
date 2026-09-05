@@ -1,0 +1,7 @@
+Hello {recipient_name},
+
+You can set up your PLE account for {course_name} with this individual signup link:
+
+{signup_url}
+
+This link is intended only for you. If you did not expect this message, contact your instructor.

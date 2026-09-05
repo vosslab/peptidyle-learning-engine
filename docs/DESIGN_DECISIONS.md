@@ -622,7 +622,7 @@ The connected G1 oracle must call the actual five-input V2 as `ple_app` with
 well-formed values and observe SQLSTATE `42501`; undefined-function failure is
 not authorization evidence. The production real-stack browser and service
 path must then prove answer-free student and Instructor behavior, followed by
-`source source_me.sh && ./all_test.sh` on the exact final material tree.
+`source source_me.sh && ./launchers/all_test.sh` on the exact final material tree.
 
 ### Render once, answer compactly
 

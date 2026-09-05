@@ -93,7 +93,7 @@ source source_me.sh && python3 -m pytest tests/
 The complete aggregate adds disposable service acceptance:
 
 ```bash
-source source_me.sh && ./all_test.sh
+source source_me.sh && ./launchers/all_test.sh
 ```
 
 Passing these commands does not establish a visible browser teaching journey. Read

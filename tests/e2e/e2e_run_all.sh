@@ -59,6 +59,9 @@ run_check ribbon_app_component node --import tsx --test tests/e2e/e2e_ribbon_app
 run_check ribbon_destination_ledger_contract node --import tsx --test tests/e2e/e2e_ribbon_destination_ledger_contract.mjs
 run_check ribbon_icon_sprite_contract node --import tsx --test tests/e2e/e2e_ribbon_icon_sprite_contract.mjs
 
+# The temporary attended mailer suppresses duplicates across complete operator runs.
+run_check invitation_mailer bash tests/e2e/e2e_invitation_mailer.sh
+
 # SQLx baseline, role grants, forced RLS, and disposable migration checksum proof.
 run_check database_baseline bash tests/e2e/e2e_database_baseline.sh
 

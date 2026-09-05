@@ -33,7 +33,7 @@ tests/
 
 The `tests/playwright/ribbon_*.mjs` scripts compile supplied fixture content and
 inspect it in headless Chromium. They are focused structural, responsive, and
-visual evidence; they are outside `./all_test.sh` and do not establish
+visual evidence; they are outside `./launchers/all_test.sh` and do not establish
 production-browser acceptance. The `tests/playwright/e2e/*.spec.ts` scenarios
 remain staged source for the fresh Store-backed browser owner. Current aggregate
 acceptance is limited to the executable database/object service lanes.
