@@ -6,7 +6,7 @@ import {
   toStudentAssignmentPresentationData,
 } from "../../components/student_assignment_presentation";
 import "../../components/student_assignment_presentation.css";
-import { assignmentWorkspacePath } from "./assignment_workspace_nav";
+import { assignmentWorkspacePath } from "./assignment_workspace_paths";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
 import {
   STUDENT_VIEW_CUE,

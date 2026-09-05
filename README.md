@@ -33,6 +33,7 @@ These retained images illustrate planned Instructor and Student teaching surface
 historical design reference, not evidence that a current browser workflow is available.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
+
 ![Instructor assignment Policies workspace showing delivery, completion, grading, and continued-practice controls](docs/screenshots/instructor/assignment_workspace/01_assignment_policies.png)
 ![Student practice Assignment Attempt showing server-returned feedback after a selected peptide-bond response](docs/screenshots/student/delivery/05_feedback_correct.png)
 ![Instructor Gradebook showing the completed Peptide Bonds Guided Practice result](docs/screenshots/instructor/grading/01_instructor_gradebook.png)
@@ -114,3 +115,7 @@ Passing these commands does not establish a visible browser teaching journey. Re
 Code is licensed under the [GNU Affero General Public License v3](LICENSE.AGPL-3.0). Documentation
 and figures are licensed under [Creative Commons Attribution 4.0](LICENSE.CC-BY-4.0). See
 [AUTHORS.md](docs/AUTHORS.md) for project authorship and acknowledgments.
+
+The bundled Ribbon sprite redistributes only Font Awesome Free SVG icon artwork under
+[Creative Commons Attribution 4.0](LICENSE.CC-BY-4.0). That attribution does not claim to
+redistribute Font Awesome package tooling, code, or fonts.

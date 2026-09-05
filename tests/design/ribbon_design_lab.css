@@ -1,0 +1,106 @@
+/* ribbon_design_lab.css - laboratory page scaffolding; treatments own Ribbon presentation. */
+
+.ple-ribbon-design-lab {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  padding: 1rem;
+}
+
+.ple-ribbon-design-lab__treatment {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+  min-inline-size: 0;
+}
+
+.ple-ribbon-design-lab__heading,
+.ple-ribbon-design-lab__subheading,
+.ple-ribbon-design-lab__caption,
+.ple-ribbon-design-lab__admission-note,
+.ple-ribbon-design-lab__glyph-atlas > h2,
+.ple-ribbon-design-lab__glyph-atlas > p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ple-ribbon-design-lab__glyph-atlas {
+  display: grid;
+  gap: 0.55rem;
+  min-inline-size: 0;
+  padding: 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--ple-muted, #536174) 28%, transparent);
+  border-radius: 0.45rem;
+}
+
+.ple-ribbon-design-lab__glyph-atlas > ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ple-ribbon-design-lab__glyph-atlas li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-inline-size: 0;
+  min-block-size: 2.2rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--ple-muted, #536174) 20%, transparent);
+  border-radius: 0.3rem;
+}
+
+.ple-ribbon-design-lab__glyph-atlas li > span {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.ple-ribbon-design-lab__glyph-atlas .ple-app-ribbon__icon {
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+}
+
+.ple-ribbon-design-lab__icon-only-specimens {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.ple-ribbon-design-lab__icon-only-specimens > h3,
+.ple-ribbon-design-lab__icon-only-specimens > p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ple-ribbon-design-lab__icon-only-specimens > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.ple-ribbon-design-lab__schema-grid,
+.ple-ribbon-design-lab__specimen-grid,
+.ple-ribbon-design-lab__theme-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+  min-inline-size: 0;
+}
+
+.ple-ribbon-design-lab__panel {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: minmax(0, 1fr);
+  min-inline-size: 0;
+}
+
+.ple-ribbon-design-lab__panel > .ple-app-ribbon {
+  min-inline-size: 0;
+}
+
+.ple-ribbon-design-lab__theme-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+}

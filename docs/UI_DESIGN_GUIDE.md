@@ -7,6 +7,13 @@ specific to a course rather than like a collection of generic bordered forms. Th
 space to the current teaching decision, keeps secondary explanation available without making it
 permanent noise, and makes the next action easy to recognize.
 
+The Application Shell follows a **precision field console** philosophy: it is an instrument for
+teaching work, not a marketing surface. Context, destination, and task bands each own one distinct
+neutral plane; the course accent signals scoped identity and selection instead of decorating the
+chrome. Subtle rules, tonal depth, and immediate state paint establish hierarchy without padding,
+oversized controls, or nested cards. Even truthfully empty bands must read as reserved structure.
+Route-specific work may fill this console, but may not weaken its visual grammar.
+
 Instructor work is composed first for a 1280 by 800 CSS-pixel laptop viewport. Student work is
 composed for that same canonical laptop viewport and for the high-priority 800 by 1280 tablet
 target, and stays usable through a narrow-phone compatibility guard.
@@ -60,17 +67,70 @@ differences with `calc()`, but should not duplicate the governing measurement. B
 behavior thresholds rather than distances: change one only when the composition actually stops
 working, and validate 1280 by 800 plus the student tablet and phone targets after any token change.
 
+## System-wide interface behavior
+
+The Ribbon is PLE's first reference implementation of this guide, not a visual exception. Every
+surface should make the current teaching decision easy to locate, act on, and verify without
+turning each local group into a card or making an ordinary state change rearrange the workspace.
+
+- **Restrained surfaces have a named owner.** The page or feature that owns a decision owns its
+  local grouping; `src/style.css` supplies the shared canvas and spacing tokens; and
+  `src/features/course_appearance/course_theme_variables.tsx` supplies a course's applied visual
+  variables. Start with alignment, shared background, and proximity. Add a divider for scan
+  structure or a boundary only when it identifies a real contained unit. Browser review must be
+  able to identify the grouping purpose; nested decorative containers are a defect, not neutral
+  polish.
+- **Proximity comes before containment.** Use the shared spacing scale to make items with one
+  purpose closer to each other than to the next purpose. A feature may not solve an unclear group
+  by accumulating per-child margins or a new border. Computed-style and rendered review should
+  show the intended between-group rhythm, including in the compact and narrow arrangements.
+- **Density is deliberate information, not accidental compression.** Persistent space earns its
+  cost by exposing useful context, navigation, and frequent work while labels, semantic controls,
+  focus, and touch reachability remain intact. Prominence comes from position, order, selection,
+  and treatment rather than a control growing larger. A density finding therefore needs concrete
+  evidence such as clipping, unreadable text, ambiguous state, missed target, or lost keyboard
+  reachability; a preference for more empty chrome is not evidence.
+- **Spatial memory is a behavioral contract.** `src/application_shell.tsx` owns the persistent
+  shell and content origin; `src/ribbon/app_ribbon.tsx` owns the three fixed Ribbon rows. Route,
+  loading, error, theme, and label changes may update content or paint, but may not move a visible
+  control. The rows remain reserved even when truthful capability admission leaves Tabs or Tasks
+  empty. Identity and geometry evidence must prove that a deferred or recovered route does not
+  replace the shell or shift its visible controls.
+- **Contextual and asynchronous state fills a stable frame.** A page owns its heading, recovery,
+  and Page Action at the point where that work occurs. `src/ribbon/ribbon_contract.ts` derives
+  navigation presentation from the declared route, scope, role, and admitted capability; it does
+  not let a late response add a surprise layout. Immediate selected or pending treatment belongs
+  on the activated control, while the keyed content region may resolve separately. Tests must
+  distinguish a truthful absent capability from a hidden loading or authorization failure.
+- **Responsive states are discrete projections of one interaction system.** Standard, compact,
+  narrow, text-enlarged, forced-colors, and reduced-motion presentations retain semantic order,
+  visible focus, and reachable controls. A responsive threshold requires evidence of an actual
+  constraint--clipping, unreadability, failed reflow, or target collision--rather than a device
+  label. Reduced motion may remove animation; it may not remove the state cue.
+- **Accessibility is expressed in the geometry, not added afterward.** Owners provide real links
+  for navigation, buttons for mutations, logical DOM/focus order, visible non-color selection and
+  focus treatment, readable contrast, and touch spacing that survives compact layouts. The shell
+  moves focus to `#main-content` after navigation and retains its skip link; local features must
+  preserve those landmarks instead of introducing positive `tabindex` or focus-driven navigation.
+  Browser evidence covers keyboard activation, focus placement, reflow, contrast, and forced-color
+  behavior alongside visual inspection.
+
 ## Navigation
 
 Global navigation, course navigation, assignment progress, and page actions are different layers and
-must look different. Global navigation is quiet and persistent. Course navigation sits inside the
-course identity surface and clearly marks the active section. Assignment progress communicates
-sequence and state. Page actions live with the content they affect.
+must look different. The Application Shell makes global and course navigation quiet and persistent
+in the Ribbon. Assignment progress communicates sequence and state in the Context Row. Page actions
+live with the content they affect.
 
-The [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns Ribbon vocabulary and canonical visible
-names. This guide owns which Slots and Tasks exist, their order, their placement, and their
-presentation behavior. `src/ribbon/ribbon_contract.ts` is the planned executable owner of the same
-schemas.
+[INTERFACE_TERMINOLOGY.md](INTERFACE_TERMINOLOGY.md) owns Ribbon vocabulary and canonical visible
+names. This guide owns which Slots and Tasks exist, their order, placement, and presentation
+behavior. `src/ribbon/ribbon_contract.ts` is the executable schema/model owner;
+`src/application_shell.tsx` is the persistent composition owner; and
+`src/ribbon/app_ribbon.tsx` is the fixed-row presentation owner.
+
+The catalog preserves the designed locations of future destinations, but the capability registry
+admits a control only when its complete usable path is backed. A retained future label or route
+identity does not claim a Browser Surface, Service, Server Route, or authorization grant.
 
 Use one ordered Ribbon Schema for each Ribbon Scope and immutable Product Role pair. Every role uses
 the same Application Shell and Ribbon architecture with a completely distinct menu:
@@ -95,9 +155,10 @@ The Question Library interface area has five ordered Ribbon Tasks in two Ribbon 
 - **Question Relationships**: **Starred**, **Watched**.
 
 Library means Published Question discovery, My means ownership, Draft means private authoring
-state, Starred means endorsement, and Watched means a private subscription. My Question Drafts
-navigates to the separate Authoring Workspace Store; its placement here does not make drafts part
-of the Question Library. Question Folders, Question Tags, Saved Question Searches, and search
+state, Starred means endorsement, and Watched means a private subscription. When its complete
+usable path is backed, My Question Drafts will enter the separate Authoring Workspace Store; its
+retained placement here does not make drafts part of the Question Library. Question Folders,
+Question Tags, Saved Question Searches, and search
 facets organize or find Questions in their applicable destination.
 
 Course Setup has the ordered Ribbon Tasks **Grade Settings** and **Appearance**. Create Assignment is
@@ -115,6 +176,13 @@ relationship-narrowed Slots form the remaining suffix. Resolve that suffix befor
 omit Unavailable Slots, and preserve the relative order of visible controls. A later availability
 result can therefore append controls without moving a visible control. This rule supports future
 Course Observer, Student Observer, and Grader relationships that are independent of Product Role.
+
+The Context, Tab, and Task Rows are always reserved as the persistent Ribbon's spatial grammar.
+When the current product truthfully admits no destination, the row stays present but empty; it is
+not replaced with disabled fiction, a placeholder link, or a shorter shell. That deliberate density
+preserves the content origin and lets the populated structural model remain the reference for full
+Ribbon hierarchy. Review reserved rows only for concrete failures such as clipping, ambiguity,
+contrast, keyboard reachability, or broken reflow.
 
 Use real links for navigation and buttons for mutations. Active navigation uses shape, position,
 text, and color together; color alone is not the indicator.

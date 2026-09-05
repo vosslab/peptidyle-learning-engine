@@ -3,9 +3,10 @@
 import { Show, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../../api/application_api";
+import { useRouteScopeData } from "../../ribbon/route_scope_context";
 import { courseBannerImageAlternativeText } from "./course_banner_alternative_text";
 import { createCourseBannerUrl } from "./course_banner_delivery";
-import { courseRouteView, useCourseThemeRouteData } from "./course_theme_context";
+import { courseRouteView } from "./course_theme_context";
 
 const COURSE_ENTRY_IDENTITY_STYLES = `
 .course-entry-identity {
@@ -33,25 +34,37 @@ const COURSE_ENTRY_IDENTITY_STYLES = `
 /** Renders the authorized Course Route View already loaded by the route scope. */
 export function CourseEntryIdentity(): JSX.Element {
   const runtime = useApplicationApi();
-  const routeData = useCourseThemeRouteData();
-  const banner = routeData === undefined ? null : courseRouteView(routeData).appearance.banner;
-  const deliveryUrl = createCourseBannerUrl(() => banner?.reference ?? null, runtime.client);
-  if (routeData === undefined) return <></>;
-  const course = courseRouteView(routeData);
+  const routeData = useRouteScopeData();
+  const banner = (): ReturnType<typeof courseRouteView>["appearance"]["banner"] | null => {
+    const data = routeData();
+    return data === undefined ? null : courseRouteView(data).appearance.banner;
+  };
+  const deliveryUrl = createCourseBannerUrl(() => banner()?.reference ?? null, runtime.client);
   return (
-    <header class="course-entry-identity" data-course-title>
-      <style>{COURSE_ENTRY_IDENTITY_STYLES}</style>
-      <p class="eyebrow">Course home</p>
-      <h1>{course.summary.title}</h1>
-      <Show when={banner !== null && deliveryUrl() !== undefined}>
-        <img
-          class="course-entry-banner"
-          src={deliveryUrl()}
-          alt={banner === null ? "" : courseBannerImageAlternativeText(banner.alternativeText)}
-          width="1200"
-          height="328"
-        />
-      </Show>
-    </header>
+    <Show when={routeData()} keyed>
+      {(data) => {
+        const course = courseRouteView(data);
+        return (
+          <header class="course-entry-identity" data-course-title>
+            <style>{COURSE_ENTRY_IDENTITY_STYLES}</style>
+            <p class="eyebrow">Course home</p>
+            <h1>{course.summary.title}</h1>
+            <Show when={banner() !== null && deliveryUrl() !== undefined}>
+              <img
+                class="course-entry-banner"
+                src={deliveryUrl()}
+                alt={
+                  banner() === null
+                    ? ""
+                    : courseBannerImageAlternativeText(banner()!.alternativeText)
+                }
+                width="1200"
+                height="328"
+              />
+            </Show>
+          </header>
+        );
+      }}
+    </Show>
   );
 }

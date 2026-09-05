@@ -43,6 +43,22 @@ run_check wasm_export_allowlist node tests/e2e/e2e_wasm_export_allowlist.mjs
 # The shipped browser build has one production-authentication composition path.
 run_check browser_production_build node tests/e2e/e2e_browser_production_build.mjs
 
+# The production API factory builds real browser query identities around a counted fake transport.
+run_check ribbon_application_api node --conditions=browser --import tsx tests/e2e/e2e_ribbon_application_api.mjs
+
+# Browser-condition Ribbon controller integration remains outside the fast Node lane.
+run_check ribbon_route_scope_context node --conditions=browser --import tsx --test tests/e2e/e2e_ribbon_route_scope_context.mjs
+run_check ribbon_pending_navigation node --conditions=browser --import tsx --test tests/e2e/e2e_ribbon_pending_navigation.mjs
+
+# Production artifacts must retain the local Ribbon sprite and authored Ribbon CSS.
+run_check ribbon_icon_sprite_build node tests/e2e/e2e_ribbon_icon_sprite_build.mjs
+run_check ribbon_production_styles node tests/e2e/e2e_ribbon_production_styles.mjs
+run_check ribbon_destination_ledger node tests/e2e/e2e_ribbon_destination_ledger.mjs
+run_check devel_repo_root node tests/e2e/e2e_devel_repo_root.mjs
+run_check ribbon_app_component node --import tsx --test tests/e2e/e2e_ribbon_app_component.mjs
+run_check ribbon_destination_ledger_contract node --import tsx --test tests/e2e/e2e_ribbon_destination_ledger_contract.mjs
+run_check ribbon_icon_sprite_contract node --import tsx --test tests/e2e/e2e_ribbon_icon_sprite_contract.mjs
+
 # SQLx baseline, role grants, forced RLS, and disposable migration checksum proof.
 run_check database_baseline bash tests/e2e/e2e_database_baseline.sh
 

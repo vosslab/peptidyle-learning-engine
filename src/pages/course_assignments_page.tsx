@@ -5,12 +5,9 @@ import { For, Show, Suspense, createSignal, type JSX } from "solid-js";
 
 import type { CourseId } from "../../generated/api/CourseId";
 import { useApplicationApi } from "../api/application_api";
-import type { CursorPage, StudentAssignmentLandingSummary } from "../api/contracts";
+import type { CourseSummary, CursorPage, StudentAssignmentLandingSummary } from "../api/contracts";
 import { CourseEntryIdentity } from "../features/course_appearance/course_entry_identity";
-import {
-  courseRouteView,
-  useCourseThemeRouteData,
-} from "../features/course_appearance/course_theme_context";
+import { courseRouteView } from "../features/course_appearance/course_theme_context";
 import { useSessionBootstrap } from "../auth/session_context";
 import { studentProgressSummary } from "../student_progress";
 import { CursorPageSession, type CursorPageSessionState } from "./cursor_page_session";
@@ -19,6 +16,50 @@ import {
   courseInstanceRouteReference,
   type CourseInstanceRouteReference,
 } from "../navigation/public_route";
+import { useRouteScopeData } from "../ribbon/route_scope_context";
+
+const COURSE_ASSIGNMENTS_IDENTITY_STYLES = `
+.course-assignments-identity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--ple-space-4, 1rem);
+  row-gap: var(--ple-space-1, 0.25rem);
+  align-items: end;
+  margin-bottom: var(--ple-space-4, 1rem);
+}
+
+.course-assignments-identity .eyebrow,
+.course-assignments-identity h1 {
+  grid-column: 1;
+}
+
+.course-assignments-identity .eyebrow {
+  margin: 0;
+}
+
+.course-assignments-identity h1 {
+  margin: 0;
+}
+
+.course-assignments-identity .primary-link {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  margin: 0;
+}
+
+@media (max-width: 36rem) {
+  .course-assignments-identity {
+    grid-template-columns: 1fr;
+  }
+
+  .course-assignments-identity .primary-link {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+    margin-top: var(--ple-space-2, 0.5rem);
+  }
+}
+`;
 
 export interface AssignmentListProps {
   readonly courseId: CourseId;
@@ -300,39 +341,49 @@ export function AssignmentList(props: AssignmentListProps): JSX.Element {
   );
 }
 
-export function CourseAssignmentsPage(): JSX.Element {
+function CourseAssignmentsContent(props: { readonly course: CourseSummary }): JSX.Element {
   const applicationApi = useApplicationApi();
   const session = useSessionBootstrap();
-  const courseScope = useCourseThemeRouteData();
-  const course = courseScope?.kind === "course" ? courseRouteView(courseScope).summary : undefined;
-  const courseId = course?.id;
-  const courseReference =
-    course === undefined ? undefined : courseInstanceRouteReference(course.reference);
+  const course = props.course;
+  const courseId = course.id;
+  const courseReference = courseInstanceRouteReference(course.reference);
+  const assignmentCreateHref = (): string | undefined =>
+    courseReference === undefined
+      ? undefined
+      : `/instructor/courses/${courseReference}/assignments/new`;
   const assignments = createAsync(() => {
-    if (courseId === undefined) {
-      return Promise.reject(new Error("Course route is unavailable"));
-    }
     return applicationApi.queries.assignments(courseId);
   });
   const canManageCourse = (): boolean => {
     const current = session.state();
     const hasInstructorRole =
       current.kind === "authenticated" && current.session.account.productRole === "instructor";
-    if (!hasInstructorRole || courseScope?.kind !== "course") return false;
-    const role = courseRouteView(courseScope).summary.role;
-    return role === "instructor";
+    return hasInstructorRole && course.role === "instructor";
   };
   async function reloadAssignments(): Promise<void> {
-    if (courseId === undefined) return;
     await revalidate(applicationApi.queries.assignments.keyFor(courseId));
   }
 
   return (
     <section class="page" data-route-surface="courseAssignments">
-      <Show when={!canManageCourse()}>
-        <CourseEntryIdentity />
+      <Show
+        when={canManageCourse() && assignmentCreateHref() !== undefined}
+        fallback={
+          <>
+            <CourseEntryIdentity />
+            <h2>Assignments</h2>
+          </>
+        }
+      >
+        <header class="course-assignments-identity">
+          <style>{COURSE_ASSIGNMENTS_IDENTITY_STYLES}</style>
+          <p class="eyebrow">Instructor course</p>
+          <h1>Assignments</h1>
+          <A class="primary-link" href={assignmentCreateHref()!}>
+            New assignment
+          </A>
+        </header>
       </Show>
-      <h2>Assignments</h2>
       <Suspense fallback={<p class="loading-state">Loading assignments...</p>}>
         <Show
           when={assignments()}
@@ -340,9 +391,7 @@ export function CourseAssignmentsPage(): JSX.Element {
           fallback={<p class="empty-state">No assignments are available in this course.</p>}
         >
           {(page) => {
-            return courseId === undefined || courseReference === undefined ? (
-              <p class="empty-state">No assignments are available in this course.</p>
-            ) : (
+            return (
               <AssignmentList
                 courseId={courseId}
                 courseReference={courseReference}
@@ -355,5 +404,29 @@ export function CourseAssignmentsPage(): JSX.Element {
         </Show>
       </Suspense>
     </section>
+  );
+}
+
+/** Keeps the assignment resource below the content-level deferred course boundary. */
+export function CourseAssignmentsPage(): JSX.Element {
+  const routeData = useRouteScopeData();
+  const course = (): CourseSummary | undefined => {
+    const data = routeData();
+    return data?.kind === "course" ? courseRouteView(data).summary : undefined;
+  };
+  return (
+    <Show
+      when={course()}
+      keyed
+      fallback={
+        <section class="page" data-route-surface="courseAssignments">
+          <p class="loading-state" role="status">
+            Loading assignments...
+          </p>
+        </section>
+      }
+    >
+      {(loadedCourse) => <CourseAssignmentsContent course={loadedCourse} />}
+    </Show>
   );
 }

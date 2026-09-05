@@ -1,0 +1,574 @@
+/* Fixed-profile geometry and Fieldstation visual system for the persistent Ribbon. */
+
+:root {
+  --ple-ribbon-context-block-size: 3rem;
+  --ple-ribbon-tab-block-size: 2.5rem;
+  --ple-ribbon-task-block-size: 2.5rem;
+  --ple-ribbon-block-size: calc(
+    var(--ple-ribbon-context-block-size) + var(--ple-ribbon-tab-block-size) +
+      var(--ple-ribbon-task-block-size)
+  );
+}
+
+/* The persistent shell opts into this grid contract to reserve its fixed rows. */
+.ple-ribbon-shell-grid {
+  --ple-ribbon-shell-block-size: var(--ple-ribbon-block-size);
+  display: grid;
+  grid-template-rows: var(--ple-ribbon-shell-block-size) minmax(0, 1fr);
+  min-inline-size: 0;
+}
+
+.ple-app-ribbon {
+  /* Readable local names make the shared spacing-scale authority visible at
+     every row boundary. */
+  --ple-ribbon-space-tight: var(--ple-space-1);
+  --ple-ribbon-space-control: var(--ple-space-2);
+  --ple-ribbon-space-within-area: var(--ple-space-1);
+  --ple-ribbon-space-between-area: var(--ple-space-3);
+  --ple-ribbon-space-row: var(--ple-space-3);
+  --ple-ribbon-space-inline: var(--ple-space-4);
+  --ple-ribbon-space-cue: var(--ple-space-6);
+  --ple-ribbon-course-accent: var(--ple-accent-strong);
+  --ple-ribbon-rule: color-mix(in srgb, var(--ple-ink) 18%, transparent);
+  --ple-ribbon-rule-quiet: color-mix(in srgb, var(--ple-ink) 10%, transparent);
+  --ple-ribbon-context-surface: color-mix(
+    in srgb,
+    var(--ple-surface-soft) 88%,
+    var(--ple-card-surface)
+  );
+  --ple-ribbon-tab-surface: color-mix(
+    in srgb,
+    var(--ple-card-surface) 84%,
+    var(--ple-surface-soft)
+  );
+  --ple-ribbon-task-surface: color-mix(
+    in srgb,
+    var(--ple-surface-soft) 54%,
+    var(--ple-card-surface)
+  );
+  --ple-ribbon-interaction-surface: color-mix(
+    in srgb,
+    var(--ple-surface-soft) 76%,
+    var(--ple-card-surface)
+  );
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-rows: var(--ple-ribbon-context-block-size) var(--ple-ribbon-tab-block-size) var(
+      --ple-ribbon-task-block-size
+    );
+  block-size: var(--ple-ribbon-block-size);
+  min-inline-size: 0;
+  overflow: clip;
+  color: var(--ple-ink);
+  background-color: var(--ple-card-surface);
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--ple-card-surface) 96%, var(--ple-ink)),
+    var(--ple-card-surface)
+  );
+  border-block-end: 1px solid var(--ple-border);
+  box-shadow:
+    0 0.3rem 0.75rem color-mix(in srgb, var(--ple-ink) 11%, transparent),
+    inset 0 -1px 0 var(--ple-ribbon-rule);
+}
+
+.ple-app-ribbon__row {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  block-size: 100%;
+  min-inline-size: 0;
+  box-sizing: border-box;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-padding-inline: var(--ple-ribbon-space-cue);
+  scrollbar-color: var(--ple-border) transparent;
+  scrollbar-width: thin;
+  white-space: nowrap;
+}
+
+/* The scrollport remains the labelled row. Its fixed-grid clipping and
+   positioning layer keeps cues stationary while row content moves below it. */
+.ple-app-ribbon__row-frame {
+  position: relative;
+  min-inline-size: 0;
+  overflow: clip;
+}
+
+.ple-app-ribbon__row-frame[data-ribbon-row-frame="context"] {
+  --ple-ribbon-row-surface: var(--ple-ribbon-context-surface);
+}
+
+.ple-app-ribbon__row-frame[data-ribbon-row-frame="tabs"] {
+  --ple-ribbon-row-surface: var(--ple-ribbon-tab-surface);
+}
+
+.ple-app-ribbon__row-frame[data-ribbon-row-frame="tasks"] {
+  --ple-ribbon-row-surface: var(--ple-ribbon-task-surface);
+}
+
+.ple-app-ribbon__overflow-cue {
+  position: absolute;
+  z-index: 1;
+  inset-block: 0;
+  inline-size: var(--ple-ribbon-space-cue);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+.ple-app-ribbon__overflow-cue[data-ribbon-overflow-active="true"] {
+  opacity: 1;
+}
+
+.ple-app-ribbon__overflow-cue--start {
+  inset-inline-start: 0;
+  background: linear-gradient(to right, var(--ple-ribbon-row-surface), transparent);
+}
+
+.ple-app-ribbon__overflow-cue--end {
+  inset-inline-end: 0;
+  background: linear-gradient(to left, var(--ple-ribbon-row-surface), transparent);
+}
+
+/* Context answers where am I: quiet type, a neutral surface, and only the
+   scoped course identity receives its small semantic accent marker. */
+.ple-app-ribbon__context {
+  gap: var(--ple-ribbon-space-row);
+  padding-inline: var(--ple-ribbon-space-inline);
+  background-color: var(--ple-ribbon-context-surface);
+  background-image:
+    linear-gradient(to bottom, rgb(255 255 255 / 34%), transparent 66%),
+    linear-gradient(to right, var(--ple-ribbon-rule-quiet), transparent 42%);
+  box-shadow: inset 0 -1px 0 var(--ple-ribbon-rule);
+}
+
+.ple-app-ribbon__context-identity,
+.ple-app-ribbon__context-details,
+.ple-app-ribbon__task-area {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.ple-app-ribbon__context-identity {
+  gap: var(--ple-ribbon-space-control);
+  padding-inline-end: var(--ple-ribbon-space-row);
+  border-inline-end: 1px solid var(--ple-ribbon-rule);
+}
+
+.ple-app-ribbon__context-details {
+  gap: var(--ple-ribbon-space-control);
+  color: var(--ple-muted);
+  font-size: 0.84rem;
+  font-weight: 620;
+}
+
+.ple-app-ribbon__account-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ple-ribbon-space-tight);
+}
+
+.ple-app-ribbon__course-scope-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ple-ribbon-space-tight);
+  color: var(--ple-ink);
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+}
+
+.ple-app-ribbon__course-scope-label::before {
+  inline-size: var(--ple-ribbon-space-tight);
+  block-size: var(--ple-ribbon-space-tight);
+  border-radius: 50%;
+  background: var(--ple-ribbon-course-accent);
+  content: "";
+}
+
+.ple-app-ribbon__icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  inline-size: 1em;
+  block-size: 1em;
+  fill: currentColor;
+  vertical-align: -0.12em;
+}
+
+.ple-app-ribbon__product-name {
+  font-weight: 790;
+  letter-spacing: -0.018em;
+}
+
+.ple-app-ribbon__product-role {
+  color: var(--ple-muted);
+  background: color-mix(in srgb, var(--ple-card-surface) 62%, transparent);
+  border: 1px solid var(--ple-ribbon-rule);
+  border-radius: calc(var(--ple-radius-control) / 2);
+  padding-block: var(--ple-ribbon-space-tight);
+  padding-inline: var(--ple-ribbon-space-control);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.ple-app-ribbon__context-details > span + span {
+  padding-inline-start: var(--ple-ribbon-space-control);
+  border-inline-start: 1px solid var(--ple-ribbon-rule);
+}
+
+/* Controls remain flat in their resting state. Presentation classes are a
+   catalog declaration, never a proxy for role or priority. */
+.ple-app-ribbon__sign-out,
+.ple-app-ribbon__link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ple-ribbon-space-control);
+  flex: 0 0 auto;
+  min-block-size: 2rem;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: var(--ple-radius-control);
+  padding-block: var(--ple-ribbon-space-tight);
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  line-height: 1.2;
+  text-decoration: none;
+  transition:
+    color 110ms ease-out,
+    background-color 110ms ease-out,
+    box-shadow 110ms ease-out;
+}
+
+.ple-app-ribbon__link--standard {
+  padding-inline: var(--ple-ribbon-space-control);
+  font-size: 0.9rem;
+  font-weight: 710;
+}
+
+.ple-app-ribbon__link--compact {
+  padding-inline: var(--ple-ribbon-space-tight);
+  font-size: 0.84rem;
+  font-weight: 680;
+}
+
+.ple-app-ribbon__sign-out {
+  margin-inline-start: auto;
+  border-inline-start: 1px solid var(--ple-ribbon-rule);
+  border-radius: 0;
+  padding-inline: var(--ple-ribbon-space-control);
+  color: var(--ple-muted);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+/* Tabs answer which destination: this is the strongest repeated rhythm, with
+   unchanged boxes and an underline/weight pair that survives loss of color. */
+.ple-app-ribbon__tabs {
+  gap: var(--ple-ribbon-space-tight);
+  padding-inline: var(--ple-ribbon-space-inline);
+  background-color: var(--ple-ribbon-tab-surface);
+  background-image: linear-gradient(to bottom, rgb(255 255 255 / 52%), transparent);
+  box-shadow: inset 0 -1px 0 var(--ple-ribbon-rule);
+}
+
+.ple-app-ribbon__tabs .ple-app-ribbon__link {
+  position: relative;
+  align-self: stretch;
+  justify-content: center;
+}
+
+.ple-app-ribbon__tabs .ple-app-ribbon__link::after {
+  position: absolute;
+  inset-inline: var(--ple-ribbon-space-control);
+  inset-block-end: 0;
+  block-size: var(--ple-ribbon-space-tight);
+  background: transparent;
+  content: "";
+}
+
+.ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"] {
+  color: var(--ple-ink);
+  background: var(--ple-ribbon-interaction-surface);
+  box-shadow: inset 0 0 0 1px var(--ple-ribbon-rule-quiet);
+  font-weight: 800;
+}
+
+.ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"]::after {
+  background: var(--ple-ribbon-course-accent);
+}
+
+/* Tasks answer which part of the work to enter: a lighter strip with explicit
+   proximity grouping. The between-area padding is deliberately larger than
+   the within-area gap. */
+.ple-app-ribbon__tasks {
+  gap: var(--ple-ribbon-space-row);
+  padding-inline: var(--ple-ribbon-space-inline);
+  background-color: var(--ple-ribbon-task-surface);
+  background-image: linear-gradient(to bottom, rgb(255 255 255 / 18%), transparent 72%);
+}
+
+.ple-app-ribbon__task-area {
+  gap: var(--ple-ribbon-space-within-area);
+}
+
+.ple-app-ribbon__task-area + .ple-app-ribbon__task-area {
+  padding-inline-start: var(--ple-ribbon-space-between-area);
+  /* This task-area boundary uses the all-theme text-safe neutral rather than
+     the intentionally softer structural border token. */
+  border-inline-start: 1px solid var(--ple-muted);
+}
+
+.ple-app-ribbon__task-area-label {
+  color: var(--ple-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.ple-app-ribbon__tasks .ple-app-ribbon__link[aria-current="page"] {
+  color: var(--ple-on-action);
+  background: var(--ple-ribbon-course-accent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 34%),
+    inset 0 -1px 0 color-mix(in srgb, var(--ple-ink) 24%, transparent);
+  font-weight: 760;
+}
+
+.ple-app-ribbon__link:hover,
+.ple-app-ribbon__sign-out:hover {
+  background-color: var(--ple-ribbon-interaction-surface);
+}
+
+.ple-app-ribbon__link:active,
+.ple-app-ribbon__sign-out:active {
+  box-shadow: inset 0 0 0 1px var(--ple-ribbon-rule);
+}
+
+/* Pending feedback scans within the activated key without changing a box
+   metric. It reads as work in progress while the content region resolves. */
+.ple-app-ribbon__link[data-ribbon-pending="true"] {
+  background-image: linear-gradient(
+    105deg,
+    transparent 28%,
+    rgb(255 255 255 / 42%) 44%,
+    transparent 60%
+  );
+  background-position: 150% 0;
+  background-size: 220% 100%;
+  box-shadow: inset 0 calc(-1 * var(--ple-ribbon-space-tight)) 0 var(--ple-focus);
+  animation: ple-ribbon-pending-scan 1.35s ease-in-out infinite;
+}
+
+@keyframes ple-ribbon-pending-scan {
+  from {
+    background-position: 150% 0;
+  }
+
+  to {
+    background-position: -75% 0;
+  }
+}
+
+.ple-app-ribbon__link:focus-visible,
+.ple-app-ribbon__sign-out:focus-visible {
+  z-index: 1;
+  outline: var(--ple-ribbon-space-tight) solid var(--ple-focus);
+  outline-offset: var(--ple-ribbon-space-tight);
+}
+
+.ple-app-ribbon__link:focus-visible::before,
+.ple-app-ribbon__sign-out:focus-visible::before {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--ple-focus);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+}
+
+@media (max-width: 40rem) {
+  :root {
+    --ple-ribbon-context-block-size: 3.25rem;
+    --ple-ribbon-tab-block-size: 2.75rem;
+    --ple-ribbon-task-block-size: 2.75rem;
+  }
+
+  .ple-app-ribbon {
+    --ple-ribbon-space-inline: var(--ple-space-2);
+  }
+}
+
+/* Labels never disappear for ordinary destinations. The smallest profile only
+   collapses standard presentation to its declared compact treatment. */
+@media (max-width: 24rem) {
+  .ple-app-ribbon__link--standard,
+  .ple-app-ribbon__link--compact {
+    gap: var(--ple-ribbon-space-tight);
+    padding-inline: var(--ple-ribbon-space-tight);
+    font-size: 0.84rem;
+  }
+
+  .ple-app-ribbon__link .ple-app-ribbon__icon {
+    inline-size: 0.75em;
+    block-size: 0.75em;
+  }
+
+  .ple-app-ribbon__link[data-ribbon-icon-only-safe="true"] .ple-app-ribbon__control-label,
+  .ple-app-ribbon__sign-out .ple-app-ribbon__control-label {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .ple-app-ribbon__link[data-ribbon-icon-only-safe="true"],
+  .ple-app-ribbon__sign-out {
+    justify-content: center;
+    inline-size: 2.75rem;
+    padding-inline: var(--ple-ribbon-space-tight);
+  }
+
+  .ple-app-ribbon .ple-app-ribbon__tasks {
+    align-items: stretch;
+  }
+
+  .ple-app-ribbon .ple-app-ribbon__task-area {
+    display: grid;
+    grid-auto-columns: max-content;
+    grid-template-rows: 1fr 1fr;
+    align-items: center;
+    align-content: center;
+    column-gap: var(--ple-ribbon-space-tight);
+    row-gap: 0;
+  }
+
+  .ple-app-ribbon .ple-app-ribbon__task-area-label {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .ple-app-ribbon .ple-app-ribbon__task-area > .ple-app-ribbon__link {
+    grid-row: 2;
+    justify-self: start;
+    font-size: 0.64rem;
+    padding-inline: var(--ple-ribbon-space-tight);
+  }
+}
+
+/* Touch profiles change only the declared profile token; catalog role and
+   priority remain absent from the visual cascade. */
+@media (pointer: coarse) {
+  :root {
+    --ple-ribbon-context-block-size: 3.25rem;
+    --ple-ribbon-tab-block-size: 2.75rem;
+    --ple-ribbon-task-block-size: 2.75rem;
+  }
+
+  .ple-app-ribbon {
+    --ple-ribbon-space-row: var(--ple-space-2);
+    --ple-ribbon-space-inline: var(--ple-space-2);
+  }
+
+  .ple-app-ribbon__sign-out,
+  .ple-app-ribbon__link {
+    min-block-size: 2.75rem;
+    padding-block: var(--ple-ribbon-space-tight);
+  }
+
+  .ple-app-ribbon__context-identity,
+  .ple-app-ribbon__context-details {
+    gap: var(--ple-ribbon-space-tight);
+  }
+
+  .ple-app-ribbon__context-details {
+    font-size: 0.82rem;
+  }
+}
+
+/* This ordered narrow projection follows the coarse-pointer profile so its
+   two-line task rail wins through cascade order, never selector specificity. */
+@media (max-width: 24rem) {
+  :root {
+    --ple-ribbon-task-block-size: 4.5rem;
+  }
+}
+
+@media (forced-colors: active) {
+  .ple-app-ribbon {
+    background-image: none;
+    border-block-end-color: ButtonText;
+    box-shadow: none;
+  }
+
+  .ple-app-ribbon__context,
+  .ple-app-ribbon__tabs,
+  .ple-app-ribbon__tasks {
+    background-image: none;
+    box-shadow: none;
+  }
+
+  .ple-app-ribbon__context-identity,
+  .ple-app-ribbon__context-details > span + span,
+  .ple-app-ribbon__sign-out {
+    border-color: ButtonText;
+  }
+
+  .ple-app-ribbon__course-scope-label::before {
+    background: Highlight;
+  }
+
+  .ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"] {
+    color: ButtonText;
+    background: Canvas;
+    font-weight: 800;
+    outline: 1px solid Highlight;
+  }
+
+  .ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"]::after {
+    background: Highlight;
+  }
+
+  .ple-app-ribbon__tasks .ple-app-ribbon__link[aria-current="page"] {
+    color: HighlightText;
+    background: Highlight;
+    outline: 1px solid Highlight;
+  }
+
+  .ple-app-ribbon__task-area + .ple-app-ribbon__task-area {
+    border-inline-start-color: ButtonText;
+  }
+
+  .ple-app-ribbon__link:focus-visible,
+  .ple-app-ribbon__sign-out:focus-visible {
+    outline-color: Highlight;
+    outline-offset: var(--ple-ribbon-space-tight);
+  }
+
+  .ple-app-ribbon__link:focus-visible::before,
+  .ple-app-ribbon__sign-out:focus-visible::before {
+    border-color: ButtonText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ple-app-ribbon,
+  .ple-app-ribbon * {
+    animation: none;
+    scroll-behavior: auto;
+    transition: none;
+  }
+}

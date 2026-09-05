@@ -1,6 +1,7 @@
 # Design decisions
 
 <!-- VENDORED HEADER: START -->
+
 Record each durable decision about how this code and repository are shaped, once it is settled, with
 the reasoning a later reader needs. Guidance Neil Voss states belongs in
 [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), dated history in `docs/CHANGELOG.md`, open discussion in
@@ -1039,17 +1040,38 @@ the Question Library.
 organize or find Questions within those views. Star means visible endorsement, and Watch
 means private notification subscription.
 
-### Instructor course navigation has one spatial owner
+### The Application Shell owns one Ribbon for every Product Role
 
-**Decision.** The authorized course-route scope owns one Instructor course frame: stable course
-identity, one six-slot Course Instance Ribbon, and one content origin below it. Its ordered slots are
-Assignments, Students, Gradebook, Teaching Operations, Blueprint Updates, and Course Setup. Course
-Setup contains Grade Settings and Appearance as Ribbon Tasks. Individual route pages own their task
-heading and workflow content.
+**Decision.** `src/application_shell.tsx` owns the one persistent Application Shell and Ribbon for
+every authenticated Product Role on every admitted application route. `src/ribbon/ribbon_contract.ts`
+selects the ordered Ribbon Schema from the declared route, Ribbon Scope, immutable Product Role, and
+truthful capability admission; `src/ribbon/app_ribbon.tsx` presents its fixed Context, Tab, and Task
+Rows. Route pages own their task heading, workflow content, route-specific recovery, and Page Actions
+at the point of work. Public, unknown or unmatched, and signed-out routes do not fabricate a Ribbon.
+An authenticated route that matches a declared scoped pattern but carries an invalid declared
+reference retains that declared, data-free Ribbon schema: it does not resolve scope data, fall back
+to Product scope, or expose usable controls.
 
-**Why.** A persistent navigation landmark preserves spatial memory and makes a tab change feel like
-changing tasks inside one course instead of opening an unrelated page. Central ownership also keeps
-nested assignment, Gradebook inspection, and course-setting routes aligned as the product grows.
+**Why.** One persistent navigation landmark preserves spatial memory for Instructor, Student, and
+Sysadmin work alike: a tab change remains a task change within one application rather than a new
+page frame. Keeping headings and mutations with their route content avoids both duplicated course
+identity and navigation controls that pretend to perform a page operation. The former
+Instructor-only course-management frame could not provide that invariant across product scopes or
+async route data.
+
+**Consequence.** The retired course-management frame, course-management navigation, and assignment
+workspace navigation do not regain a parallel navigation role. The shell's three Ribbon Rows retain
+their geometry when a route, deferred scope label, content error, theme, or capability-admission
+result changes; truthfully empty Tabs or Tasks remain reserved rather than being filled with disabled
+or invented destinations. Identity, selected-control, focus, keyboard, contrast, and responsive
+browser evidence must prove this behavior. Course Setup retains Grade Settings and Appearance as
+Ribbon Tasks, while Create Assignment remains the Assignments Page Action.
+
+**Owner.** `src/application_shell.tsx` owns persistent shell composition, focus transfer, and the
+content boundary; `src/ribbon/ribbon_contract.ts` owns route, scope, role, and capability selection;
+and `src/ribbon/app_ribbon.tsx` owns Ribbon-row presentation. The exact retirement responsibility
+map is `docs/ux/RIBBON_RETIREMENT_RESPONSIBILITY_INVENTORY.md`;
+individual route-page components own their content and Page Actions.
 
 ### Course appearance derives usable roles from three anchors
 

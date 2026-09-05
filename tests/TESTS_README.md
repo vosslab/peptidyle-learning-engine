@@ -12,9 +12,9 @@ tests/
   test_*.mjs             pure Node tests, no browser (rare)
   conftest.py            pytest config; declares collect_ignore
   conftest.py includes:  collect_ignore = ["e2e", "playwright"]
-  playwright/            staged browser scenarios awaiting the fresh owner
+  playwright/            browser-driven evidence, excluded from pytest and the aggregate
+    ribbon_*.mjs         focused compiled-Chromium structural, responsive, and visual fixture evidence
     e2e/*.spec.ts        scenario-registry-owned future production browser scenarios
-    *.mjs                browser-free contract checks
   e2e/                   non-browser whole-system E2E (shell/Python/Node)
     e2e_*.sh             shell orchestration
     e2e_*.py             Python orchestration
@@ -29,8 +29,13 @@ tests/
   `source source_me.sh && python3 tests/e2e/e2e_<name>.py`, or
   `node tests/e2e/e2e_<name>.mjs` (see [../docs/E2E_TESTS.md](../docs/E2E_TESTS.md))
 - Bulk non-browser E2E: `bash tests/e2e/e2e_run_all.sh`
+- Focused Ribbon fixture evidence: `node --import tsx tests/playwright/ribbon_<name>.mjs`
 
-The browser scenarios are staged source for the fresh Store-backed browser owner. Current
+The `tests/playwright/ribbon_*.mjs` scripts compile supplied fixture content and
+inspect it in headless Chromium. They are focused structural, responsive, and
+visual evidence; they are outside `./all_test.sh` and do not establish
+production-browser acceptance. The `tests/playwright/e2e/*.spec.ts` scenarios
+remain staged source for the fresh Store-backed browser owner. Current aggregate
 acceptance is limited to the executable database/object service lanes.
 
 ## Why two folders for E2E
@@ -40,8 +45,12 @@ Playwright is a tool; E2E is a scope. Not every Playwright test is end-to-end (a
 - `tests/playwright/` -- browser-driven tests (Playwright; future tools like Cypress would get their own tool-named folder)
 - `tests/e2e/` -- non-browser whole-system orchestration (CLIs, build pipelines, multi-suite runners)
 
-The `tests/playwright/e2e/` subfolder is the scenario-registry-owned set of full-path browser journeys. The
-The fresh browser owner will select registered scenarios and own their disposable production stack.
+The `tests/playwright/e2e/` subfolder is the scenario-registry-owned set of
+full-path browser journeys. Its fresh owner must select registered scenarios,
+serve the production bundle through the local HTTPS stack, create product state
+through visible controls, and own the disposable stack. Until that owner is
+restored, neither these staged scenarios nor the focused Ribbon fixtures are a
+substitute for human-input, real-stack production-browser acceptance.
 
 ## Disposable stack ownership
 

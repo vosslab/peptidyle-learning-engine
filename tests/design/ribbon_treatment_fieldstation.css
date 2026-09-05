@@ -1,0 +1,10 @@
+/*
+ * Fieldstation is the selected design direction. Its complete Ribbon treatment
+ * lives in src/ribbon/app_ribbon.css, so this retained lab stylesheet is
+ * intentionally non-authoritative: the selector records the comparison-panel
+ * identity without overriding a production row, state, or accessibility rule.
+ */
+
+[data-ribbon-treatment="fieldstation"] {
+  --ple-ribbon-lab-selected-treatment: 1;
+}

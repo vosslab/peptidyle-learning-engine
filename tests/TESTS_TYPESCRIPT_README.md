@@ -2,32 +2,37 @@
 
 ## What this repo is
 
-This is a TypeScript browser app. You write code in `src/`, bundle it into
-`dist/`, and ship `dist/` to GitHub Pages. A small set of named shell scripts
-is the whole interface: drive the repo through them and you never need to open
-`package.json`. The npm aliases (`npm run build`, `serve`, `check`, `clean`,
-`test:playwright`) mirror the scripts one to one as an optional convenience.
+This is a Solid TypeScript client within a server platform. You write client
+code in `src/`; `./build.sh` produces the derived browser bundle in `dist/`.
+`dist/` is not a GitHub Pages artifact and is not source. The root scripts are
+the supported commands; `npm run build`, `npm run check`, and `npm run clean`
+mirror their corresponding repository commands as optional conveniences.
 
 ## Front door shell scripts
 
-| Script | What it does |
-| --- | --- |
-| `./check_codebase.sh` | Fast gate: typecheck, lint, format check, Node unit tests. |
-| `./build_github_pages.sh` | Bundle `src/` into `dist/` (the Pages artifact). |
-| `./run_web_server.sh` | Build `dist/`, serve a local preview on a random port. |
-| `./run_playwright_tests.sh` | Run browser tests; builds `dist/` as needed. |
-| `./dist_clean.sh` | Wipe `dist/`. |
+| Script                        | What it does                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------- |
+| `./devel/setup_typescript.sh` | Install the checked-in JavaScript dependencies.                                       |
+| `./check_codebase.sh`         | Fast Node gate: typecheck, ESLint, Prettier check, and Node tests.                    |
+| `./build.sh`                  | Build Rust, Wasm, generated TypeScript inputs, fixtures, and the Solid client bundle. |
+| `./devel/clean_build.sh`      | Remove rebuildable client output.                                                     |
+| `./devel/dist_clean.sh`       | Remove the derived `dist/` output.                                                    |
+| `./run_live_demo.sh`          | Start or stop the typed local live-demo controller.                                   |
 
-Run `./check_codebase.sh --help` for usage. `./run_web_server.sh` picks a
-random port each run so the browser cache stays fresh; set `PORT` to override.
-`./run_playwright_tests.sh` lets Playwright's own `webServer` config start the
-test server, and accepts `--build` to force a rebuild first.
+Run `./check_codebase.sh --help` or `./build.sh --help` for their exact options.
+`./run_live_demo.sh --help` documents the local-stack lifecycle. There is no
+supported static-preview or GitHub Pages command.
+
+The retained `./run_playwright_tests.sh` wrapper is not a developer quickstart
+or current acceptance entry point. Its configuration requires private input
+from the unavailable production-browser owner. Do not invoke it as evidence
+that a local build, browser workflow, or production journey is accepted.
 
 ## Repo layout you edit
 
-- `src/main.ts` is the entry point (use `src/main.tsx` for JSX or Solid).
-- `src/index.html` is the page shell that loads `dist/main.js`.
-- `src/style.css` holds the styles, copied into `dist/` at build time.
+- `src/main.tsx` is the browser entry point.
+- `src/index.html` is the page shell.
+- `src/style.css` holds shared styles.
 - `dist/` is the generated bundle; treat it as build output, not source.
 - `tests/` holds every test tier described below.
 
@@ -37,14 +42,14 @@ The repo has four test tiers. Pick the home by what you are testing.
 
 - Fast pytest hygiene under `tests/` covers markdown links, ASCII compliance,
   and file naming. These are cross-ecosystem checks, not the TypeScript
-  toolchain. Run them with `source source_me.sh && pytest tests/`. One guard, the test naming check,
+  toolchain. Run them with `source source_me.sh && python3 -m pytest tests/`. One guard, the test naming check,
   enforces test file naming under `tests/e2e/` and `tests/playwright/`.
 - Node unit tests live in `tests/test_*.mjs`. Add one by dropping a
   `test_<name>.mjs` into `tests/`; `./check_codebase.sh` picks it up
   automatically through `node --import tsx --test 'tests/test_*.mjs'`.
-- Browser tests live under `tests/playwright/`. Run them with
-  `./run_playwright_tests.sh`. See `docs/PLAYWRIGHT_USAGE.md` for the browser
-  test conventions.
+- `tests/playwright/` holds browser-oriented evidence. The current focused
+  scripts are not the missing real-stack production-browser acceptance owner;
+  see `docs/TEST_EVIDENCE_MODEL.md` for the boundary.
 - Whole-system E2E lives under `tests/e2e/` and runs directly, excluded from
   pytest. See `E2E_TESTS.md` for the non-browser E2E conventions.
 
@@ -54,26 +59,16 @@ A typical edit loop runs the tiers in this order:
 
 - Edit files under `src/`.
 - Run `./check_codebase.sh` for the fast gate.
-- Run `./run_web_server.sh` and eyeball the app in a browser.
-- Run `./run_playwright_tests.sh` to confirm browser behavior.
-
-## Ship to GitHub Pages
-
-- Run `./build_github_pages.sh` to emit `dist/`, including `dist/.nojekyll` so
-  Pages serves files whose names start with an underscore.
-- Deploy runs as a GitHub Action from `dist/`. The seed workflow ships as a
-  root-level `deploy-pages.yml`; move it into your repository workflows
-  directory to activate it.
-- Once the site is live, link `https://<owner>.github.io/<repo>/` near the top
-  of `README.md` so readers can open the app in one click.
+- Run `./build.sh` when generated Rust/Wasm inputs or the browser bundle must
+  be current.
+- Use the named local-stack command for a service boundary only when that
+  boundary is in scope. The current browser acceptance owner is unavailable.
 
 ## Common first run failures
 
 - `npx tsc -p tsconfig.lint.json` exits with TS18003 when `tests/` and `tools/`
   contain no `.ts` files. Seed a small `.ts` stub or narrow the include list in
   the consumer-owned `tsconfig.lint.json`.
-- Playwright needs `dist/` built before it serves the app. The runner
-  auto-builds when `dist/` is missing, or pass `--build` to force a rebuild.
 - A fresh `npm install` must run esbuild's postinstall step. The `allowScripts`
   block in `package.json` already permits it, so let the install complete.
 

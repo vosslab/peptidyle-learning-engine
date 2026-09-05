@@ -17,10 +17,7 @@ import type { ApiClient } from "../../api/client";
 import type { AssignmentEditorDetail, CourseSummary } from "../../api/contracts";
 import { useApplicationApi } from "../../api/application_api";
 import { useSessionBootstrap } from "../../auth/session_context";
-import {
-  courseRouteView,
-  useCourseThemeRouteData,
-} from "../../features/course_appearance/course_theme_context";
+import { courseRouteView } from "../../features/course_appearance/course_theme_context";
 import { resolveAssignmentRoute } from "../../navigation/resolved_route";
 import {
   courseInstanceRouteReference,
@@ -29,12 +26,10 @@ import {
   type AssignmentRouteReference,
   type CourseInstanceRouteReference,
 } from "../../navigation/public_route";
+import { useRouteScopeData } from "../../ribbon/route_scope_context";
 import { createAssignmentEditorRepository } from "../assignment_editor_repository";
 import "./assignment_workspace_authoring.css";
-import {
-  AssignmentWorkspaceNav,
-  type AssignmentWorkspaceSection,
-} from "./assignment_workspace_nav";
+import { type AssignmentWorkspaceSection } from "./assignment_workspace_paths";
 import { AssignmentWorkspaceOverviewPage } from "./assignment_workspace_overview_page";
 import { AssignmentWorkspaceOperationsPage } from "./assignment_workspace_operations_page";
 import { AssignmentWorkspacePoliciesPage } from "./assignment_workspace_policies_page";
@@ -159,10 +154,11 @@ export interface AssignmentWorkspaceLivePageProps {
 }
 
 /** Resolves public references, proves the exact course relationship, then loads one workspace detail. */
-export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePageProps): JSX.Element {
+function AssignmentWorkspaceLiveContent(
+  props: AssignmentWorkspaceLivePageProps & { readonly course: CourseSummary },
+): JSX.Element {
   const applicationApi = useApplicationApi();
   const params = useParams();
-  const scopedRoute = useCourseThemeRouteData();
   const session = useSessionBootstrap();
   const [state, setState] = createSignal<LoadState>("loading");
   const [workspace, setWorkspace] = createSignal<AssignmentWorkspaceContextValue>();
@@ -174,11 +170,10 @@ export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePagePr
 
   async function load(): Promise<void> {
     setState("loading");
-    const course =
-      scopedRoute?.kind === "course" ? courseRouteView(scopedRoute).summary : undefined;
+    const course = props.course;
     const courseReference = parseCourseInstanceReference(params["courseRef"] ?? "");
     const assignmentReference = parseAssignmentReference(params["assignmentRef"] ?? "");
-    if (course === undefined || courseReference === null || assignmentReference === null) {
+    if (courseReference === null || assignmentReference === null) {
       setState("unavailable");
       return;
     }
@@ -264,15 +259,34 @@ export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePagePr
       {(loaded) => (
         <AssignmentWorkspaceContext.Provider value={loaded}>
           <section class="page assignment-workspace" data-route-surface="assignmentWorkspace">
-            <AssignmentWorkspaceNav
-              courseReference={loaded.courseReference}
-              assignmentReference={loaded.assignmentReference}
-              active={props.section}
-            />
             <WorkspaceChild section={props.section} />
           </section>
         </AssignmentWorkspaceContext.Provider>
       )}
+    </Show>
+  );
+}
+
+/** Mounts the stateful workspace loader only after its course scope resolves. */
+export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePageProps): JSX.Element {
+  const routeData = useRouteScopeData();
+  const course = (): CourseSummary | undefined => {
+    const data = routeData();
+    return data?.kind === "course" ? courseRouteView(data).summary : undefined;
+  };
+  return (
+    <Show
+      when={course()}
+      keyed
+      fallback={
+        <section class="page assignment-workspace" data-route-surface="assignmentWorkspace">
+          <p class="loading-state" role="status">
+            Loading assignment workspace...
+          </p>
+        </section>
+      }
+    >
+      {(loadedCourse) => <AssignmentWorkspaceLiveContent {...props} course={loadedCourse} />}
     </Show>
   );
 }

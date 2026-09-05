@@ -92,9 +92,10 @@ Account and Profile remain Ribbon Context Controls.
 Canonical Question-area destination labels are **All Questions**, **My Questions**,
 **My Question Drafts**, **Starred**, and **Watched**. All Questions means every
 Published Question available through the Question Library, and My Questions is
-the current Account's owned Published Question View. My Question Drafts navigates
-to the separate private Authoring Workspace Store; its interface placement does
-not grant Draft Questions Question Library membership. Starred names a Question
+the current Account's owned Published Question View. When a complete usable path
+is backed, My Question Drafts will enter the separate private Authoring Workspace
+Store; its retained interface placement does not grant Draft Questions Question
+Library membership. Starred names a Question
 Star relationship and Watched names a Question Watch relationship. Question
 Folders, Question Tags, Saved Question Searches, and search facets organize or
 find Questions in their applicable destination.

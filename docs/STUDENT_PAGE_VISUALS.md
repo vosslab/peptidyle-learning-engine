@@ -1,14 +1,16 @@
 # Student page visuals
 
-This document defines the permanent student and access-evidence contract and embeds the current
-deterministic built-app demo environment. It uses fictional students and sample course data that
-people can evaluate without implying a real deployment. Browser behavior and no-transport
-assertions remain the authority for access control; screenshots show the student-visible composition.
+This document preserves the intended student and access-evidence contract alongside historical
+screenshot references. Its fictional students and sample course data describe a former deterministic
+demo fixture, not the current built-app Browser Surface. Browser behavior and no-transport assertions
+remain the authority for access control; retained screenshots show historical student-visible
+composition and establish no current acceptance.
 
 ## Evidence contract
 
-Student captures use these exact CSS-pixel viewports. The percentages are planning weights, not test
-quotas or telemetry targets.
+The historical student captures used these exact CSS-pixel viewports; a future replacement capture
+set must use them as its maintained profiles. The percentages are planning weights, not test quotas
+or telemetry targets.
 
 | Viewport    | Aspect                | Planning weight |
 | ----------- | --------------------- | --------------- |
@@ -27,12 +29,14 @@ components render or transport requests begin. It covers every instructor-only r
 gradebook, and does not depend on a component hiding itself after a request. A direct navigation to
 an instructor-only route must receive the same denial and no instructor transport as an in-app link.
 
-## Current visual evidence
+## Historical visual references
 
-The first four retained historical screenshot references show the allowed assignment overview with plain-text instructions and
-server-resolved course-zone delivery details. The next four show the same student session denied
-access to the representative instructor gradebook route. Each set follows the table's desktop,
-portrait tablet, iPhone Pro, and square order.
+The first four retained screenshot references show a historical allowed assignment overview with
+plain-text instructions and server-resolved course-zone delivery details. The next four show that
+historical student session denied access to a representative Instructor Gradebook route. Each set
+follows the table's desktop, portrait tablet, iPhone Pro, and square order. The current local Browser
+Surface is account/session entry only, so neither Student delivery nor this Gradebook denial journey
+is currently available for browser acceptance.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
@@ -69,9 +73,9 @@ it does not create an executable artifact list.
 
 ## Evidence boundaries
 
-Current evidence can exercise seeded Account session entry only. Credentials,
-invitations, passkeys, and their capture flows remain future work and require
-their own accepted Server Route and fresh capture before they can be evidence.
+The current Browser Surface can exercise seeded Account session entry only. Student delivery,
+credentials, invitations, passkeys, and their capture flows remain unavailable or future work and
+require their own accepted Server Route and fresh capture before they can become current evidence.
 Keep student and access artifacts under `docs/screenshots/student/` and
 `docs/screenshots/student/access/`; keep public evidence free of Answer Keys,
 Question Grader code, private source, real email, real identifying records,
@@ -85,9 +89,9 @@ alone do not establish current acceptance.
 
 ## Validation handoff
 
-The retained T1 evidence adds resolved instructions and delivery details to the already accepted S4
-student/access matrix. Behavior-named browser tests cover the allowed Student Question Attempt View,
-fail-closed direct-route denial, and no instructor transport; the visual capture and native
-inspection gate follows those tests. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the
-repository-wide Validation test suite and [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) for the durable
-viewport decision.
+The retained historical T1 and S4 references describe the intended student/access matrix. Once a
+browser owner is restored, behavior-named browser tests must cover the allowed Student Question
+Attempt View, fail-closed direct-route denial, and no Instructor transport before fresh visual
+capture and native inspection can provide acceptance evidence. See
+[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the repository-wide Validation test suite and
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) for the durable viewport decision.

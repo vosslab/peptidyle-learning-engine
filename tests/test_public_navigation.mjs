@@ -22,6 +22,8 @@ import {
   resolveAssignmentRoute,
   resolveCourseRoute,
   resolveAssignmentAttemptRoute,
+  resolveAssignmentAttemptIdentity,
+  resolveCourseIdentity,
   resolveWorkspaceRoute,
 } from "../src/navigation/resolved_route.ts";
 import { isAssignmentReference, isCourseInstanceReference } from "./support/public_references.ts";
@@ -81,7 +83,13 @@ test("route resolution recovers protected API identities without weakening refer
           courseId: fixture.course.id,
           assignmentId: fixture.assignment.id,
         },
-        "R-1": { kind: "assignmentAttempt", assignmentAttemptId: fixture.assignmentAttempt.id },
+        "R-1": {
+          kind: "assignmentAttempt",
+          courseId: fixture.course.id,
+          assignmentId: fixture.assignment.id,
+          studentRecordId: "student-record-id",
+          assignmentAttemptId: fixture.assignmentAttempt.id,
+        },
         "W-1": { kind: "workspace", workspaceId: fixture.workspace.id },
       };
       return values[reference];
@@ -89,6 +97,9 @@ test("route resolution recovers protected API identities without weakening refer
   };
 
   assert.equal(await resolveCourseRoute(client, fixture.course.reference), fixture.course.id);
+  const courseIdentity = await resolveCourseIdentity(client, fixture.course.reference);
+  assert.deepEqual(courseIdentity, { courseId: fixture.course.id });
+  assert.equal(Object.isFrozen(courseIdentity), true);
   assert.deepEqual(await resolveAssignmentRoute(client, fixture.assignment.reference), {
     kind: "assignment",
     courseId: fixture.course.id,
@@ -98,6 +109,16 @@ test("route resolution recovers protected API identities without weakening refer
     await resolveAssignmentAttemptRoute(client, fixture.assignmentAttempt.reference),
     fixture.assignmentAttempt.id,
   );
+  const attemptIdentity = await resolveAssignmentAttemptIdentity(
+    client,
+    fixture.assignmentAttempt.reference,
+  );
+  assert.deepEqual(attemptIdentity, {
+    courseId: fixture.course.id,
+    assignmentId: fixture.assignment.id,
+    assignmentAttemptId: fixture.assignmentAttempt.id,
+  });
+  assert.equal(Object.isFrozen(attemptIdentity), true);
   assert.equal(
     await resolveWorkspaceRoute(client, fixture.workspace.reference),
     fixture.workspace.id,
@@ -116,5 +137,17 @@ test("route resolution recovers protected API identities without weakening refer
   });
   await assert.rejects(resolveCourseRoute(client, fixture.course.id), {
     message: "Course route is incomplete",
+  });
+  await assert.rejects(resolveCourseIdentity(client, "C-01"), {
+    message: "Course reference is invalid",
+  });
+  await assert.rejects(resolveAssignmentAttemptIdentity(client, "C-1"), {
+    message: "Assignment Attempt route is incomplete",
+  });
+  await assert.rejects(resolveAssignmentAttemptIdentity(client, "R-01"), {
+    message: "Assignment Attempt reference is invalid",
+  });
+  await assert.rejects(resolveAssignmentAttemptIdentity(wrongKindClient, "R-1"), {
+    message: "Assignment Attempt reference resolved to another resource",
   });
 });

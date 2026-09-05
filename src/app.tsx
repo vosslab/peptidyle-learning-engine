@@ -1,39 +1,59 @@
 // app.tsx - persistent application shell and route-level error boundary.
 
-import { A, useLocation, useNavigate, type RouteSectionProps } from "@solidjs/router";
-import { createEffect, createSignal, ErrorBoundary, Show, type JSX } from "solid-js";
+import { A, useLocation, type RouteSectionProps } from "@solidjs/router";
+import { Show, type JSX } from "solid-js";
 
+import { ApplicationShell } from "./application_shell";
 import { useSessionBootstrap, type SessionBootstrapState } from "./auth/session_context";
 import {
-  productRoleMayAccessRoute,
-  routeContractForPathname,
-  type RouteId,
-} from "./route_contract";
-
-function canViewQuestionDrafts(state: SessionBootstrapState): boolean {
-  return canAccessRoute(state, "workspaceList");
-}
-
-function canAccessRoute(state: SessionBootstrapState, routeId: RouteId): boolean {
-  if (state.kind !== "authenticated") {
-    return false;
-  }
-  return productRoleMayAccessRoute(routeId, state.session.account.productRole);
-}
-
-function canUseLibrary(state: SessionBootstrapState): boolean {
-  return canAccessRoute(state, "library");
-}
-
-function canUseBlueprintCourses(state: SessionBootstrapState): boolean {
-  return canAccessRoute(state, "blueprintCourses");
-}
+  courseRouteView,
+  type CourseThemeRouteData,
+} from "./features/course_appearance/course_theme_context";
+import { routeParams } from "./navigation/route_params";
+import { routeContractForPathname } from "./route_contract";
+import {
+  deriveRibbonModel,
+  type RibbonContextLabels,
+  type RibbonModel,
+} from "./ribbon/ribbon_contract";
 
 type ScopedRouteSectionProps = RouteSectionProps & { readonly pathname: string };
 
 function isPublicAccountRoute(pathname: string): boolean {
   const routeId = routeContractForPathname(pathname)?.id;
   return routeId === "signIn";
+}
+
+function accountLabelFor(
+  state: Extract<SessionBootstrapState, { readonly kind: "authenticated" }>,
+): string {
+  switch (state.session.account.productRole) {
+    case "student":
+      return "Student account";
+    case "instructor":
+      return "Instructor account";
+    case "sysadmin":
+      return "System administrator";
+  }
+}
+
+function ribbonLabelsFor(
+  state: Extract<SessionBootstrapState, { readonly kind: "authenticated" }>,
+  routeData: CourseThemeRouteData | undefined,
+): RibbonContextLabels {
+  if (routeData === undefined) return { accountLabel: accountLabelFor(state) };
+
+  const courseTitle = courseRouteView(routeData).summary.title;
+  if (routeData.kind !== "assignmentAttempt") {
+    return { accountLabel: accountLabelFor(state), courseTitle };
+  }
+  const attemptNumber = routeData.screen.assignmentAttempt.attemptNumber;
+  return {
+    accountLabel: accountLabelFor(state),
+    courseTitle,
+    assignmentAttemptTitle: routeData.screen.assignment.title,
+    assignmentAttemptProgress: `Attempt ${String(attemptNumber)}`,
+  };
 }
 
 function SessionContent(props: ScopedRouteSectionProps): JSX.Element {
@@ -108,124 +128,34 @@ function SessionRecovery(props: SessionRecoveryProps): JSX.Element {
 
 export function App(props: RouteSectionProps): JSX.Element {
   const location = useLocation();
-  const navigate = useNavigate();
   const session = useSessionBootstrap();
-  const [signOutBusy, setSignOutBusy] = createSignal(false);
-  const [signOutError, setSignOutError] = createSignal("");
-  let mainContent: HTMLElement | undefined;
-  let previousPath = location.pathname;
+  const pathname = (): string => location.pathname;
+  function ribbonModel(routeData: CourseThemeRouteData | undefined): RibbonModel | undefined {
+    const currentPathname = pathname();
+    if (isPublicAccountRoute(currentPathname)) return undefined;
 
-  function focusMainContent(): void {
-    mainContent?.focus();
+    const route = routeContractForPathname(currentPathname);
+    const state = session.state();
+    if (route === undefined || state.kind !== "authenticated") return undefined;
+    // `routeParams` deliberately preserves raw declared segments. That lets a
+    // matched malformed scoped URL retain its declared Ribbon schema while the
+    // scope provider rejects resolution. `deriveRibbonModel` cannot turn those
+    // raw values into navigation URLs, so the model remains data-free and all
+    // affected route controls stay unavailable.
+    const params = routeParams(route, currentPathname);
+    if (params === undefined) return undefined;
+    return deriveRibbonModel(
+      { route, params },
+      { productRole: state.session.account.productRole },
+      ribbonLabelsFor(state, routeData),
+    );
   }
-
-  async function signOut(): Promise<void> {
-    setSignOutBusy(true);
-    setSignOutError("");
-    const confirmed = await session.signOut();
-    setSignOutBusy(false);
-    if (confirmed) {
-      navigate("/sign-in");
-    } else {
-      setSignOutError("Sign-out could not be confirmed. Your session is still open; please retry.");
-    }
-  }
-
-  createEffect(() => {
-    const nextPath = location.pathname;
-    if (nextPath === previousPath) {
-      return;
-    }
-    previousPath = nextPath;
-    queueMicrotask(focusMainContent);
-  });
 
   return (
-    <>
-      <a class="skip-link" href="#main-content" onClick={() => queueMicrotask(focusMainContent)}>
-        Skip to learning content
-      </a>
-      <header class="site-header">
-        <A class="brand" href="/" aria-label="Peptidyle home">
-          <span class="brand-mark" aria-hidden="true">
-            P
-          </span>
-          <span>Peptidyle</span>
-        </A>
-        <nav aria-label="Primary navigation">
-          <A href="/" activeClass="active" end>
-            Courses
-          </A>
-          <Show when={canUseLibrary(session.state())}>
-            <A href="/library" activeClass="active">
-              Question Library
-            </A>
-          </Show>
-          <Show when={canUseBlueprintCourses(session.state())}>
-            <A href="/blueprint-courses" activeClass="active">
-              Blueprint Courses
-            </A>
-          </Show>
-          <Show when={canViewQuestionDrafts(session.state())}>
-            <A href="/workspace" activeClass="active">
-              My Question Drafts
-            </A>
-          </Show>
-          <Show when={session.state().kind === "authenticated"}>
-            <A href="/account/course-invitations" activeClass="active">
-              Invitations
-            </A>
-            <button
-              class="nav-action"
-              type="button"
-              disabled={signOutBusy()}
-              onClick={() => void signOut()}
-            >
-              {signOutBusy() ? "Signing out..." : "Sign out"}
-            </button>
-          </Show>
-        </nav>
-        <span class="sr-only" role="status" aria-live="polite">
-          {signOutError()}
-        </span>
-      </header>
-      <main
-        id="main-content"
-        class="shell"
-        tabindex="-1"
-        ref={(element: HTMLElement) => {
-          mainContent = element;
-        }}
-      >
-        <Show when={location.pathname} keyed>
-          {(pathname) => (
-            <ErrorBoundary
-              fallback={(_error, reset) => (
-                <section class="route-error" role="alert">
-                  <p class="eyebrow">This page needs another try</p>
-                  <h1>The learning space is still available</h1>
-                  <p>
-                    The current page could not load. Your navigation and active Assignment Attempt
-                    remain available.
-                  </p>
-                  <div class="action-row">
-                    <button class="primary-action" type="button" onClick={reset}>
-                      Try this page again
-                    </button>
-                    <A class="quiet-link" href="/">
-                      Return to courses
-                    </A>
-                  </div>
-                </section>
-              )}
-            >
-              <div data-current-path={pathname}>
-                <RouteContent {...props} pathname={pathname} />
-              </div>
-            </ErrorBoundary>
-          )}
-        </Show>
-      </main>
-    </>
+    <ApplicationShell
+      pathname={pathname}
+      ribbonModel={ribbonModel}
+      content={(currentPathname) => <RouteContent {...props} pathname={currentPathname} />}
+    />
   );
 }

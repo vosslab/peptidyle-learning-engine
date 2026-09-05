@@ -36,11 +36,6 @@ export const QuestionDetailPage = contractPage(
   "Question Revision",
   "the Question Library browser lane",
 );
-export const WorkspaceListPage = contractPage(
-  "workspaceList",
-  "My Question Drafts",
-  "the registered Draft Question source and edit-number authoring lane",
-);
 export function NotFoundPage(): JSX.Element {
   const params = useParams();
   return (

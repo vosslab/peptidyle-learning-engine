@@ -1,0 +1,291 @@
+/* Atlas: scholarly scientific atlas + research-console Ribbon treatment.
+ *
+ * The fixture wrapper owns data-ribbon-treatment. These rules deliberately
+ * leave fixed row geometry alone: state may change ink and markers, never boxes.
+ */
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon {
+  --atlas-rule: color-mix(in srgb, var(--ple-ink, #172033) 20%, transparent);
+  --atlas-rule-quiet: color-mix(in srgb, var(--ple-ink, #172033) 11%, transparent);
+  --atlas-paper: color-mix(in srgb, var(--ple-card-surface, #fff) 92%, var(--ple-surface, #f8f7f3));
+  --atlas-wash: color-mix(
+    in srgb,
+    var(--ple-theme-canvas, var(--ple-surface-soft, #eef3f6)) 44%,
+    var(--ple-card-surface, #fff)
+  );
+  --atlas-accent: var(--ple-accent-strong, #264d79);
+  position: relative;
+  isolation: isolate;
+  border-block-end: 1px solid var(--atlas-rule);
+  background:
+    linear-gradient(
+      90deg,
+      var(--atlas-paper),
+      var(--ple-card-surface, #fff) 38%,
+      var(--atlas-paper)
+    ),
+    var(--ple-card-surface, #fff);
+  box-shadow: 0 0.3rem 0.8rem rgb(23 32 51 / 6%);
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-inline-start: 0.22rem solid var(--atlas-accent);
+  content: "";
+  pointer-events: none;
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__row {
+  scrollbar-color: var(--atlas-rule) transparent;
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__context {
+  gap: var(--ple-space-3, 0.75rem);
+  padding-inline: max(var(--ple-space-4, 1rem), 1.15rem);
+  border-block-end: 1px solid var(--atlas-rule-quiet);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--atlas-accent) 5%, transparent),
+      transparent 42%
+    ),
+    var(--atlas-wash);
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__context-identity {
+  gap: var(--ple-space-2, 0.5rem);
+  padding-inline-end: var(--ple-space-3, 0.75rem);
+  border-inline-end: 1px solid var(--atlas-rule);
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__product-name {
+  color: var(--ple-ink, #172033);
+  font-size: 0.88rem;
+  font-weight: 780;
+  letter-spacing: 0.015em;
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__product-role,
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__context-details,
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__task-area-label {
+  color: var(--ple-muted, #536174);
+  font-size: 0.7rem;
+  font-weight: 780;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__product-role::before {
+  content: "·";
+  margin-inline-end: var(--ple-space-2, 0.5rem);
+  color: var(--atlas-accent);
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__context-details {
+  gap: var(--ple-space-2, 0.5rem);
+  letter-spacing: 0.055em;
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__context-details > span + span::before {
+  color: var(--atlas-accent);
+  content: "/";
+  font-weight: 800;
+  margin-inline-end: var(--ple-space-2, 0.5rem);
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__sign-out,
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__link {
+  position: relative;
+  border-radius: 0;
+  color: var(--ple-ink, #172033);
+  font-size: 0.84rem;
+  font-weight: 660;
+  letter-spacing: 0.005em;
+  transition:
+    background-color 130ms ease,
+    color 130ms ease,
+    box-shadow 130ms ease;
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__sign-out {
+  padding-inline: var(--ple-space-2, 0.5rem);
+  color: var(--ple-muted, #536174);
+  font-size: 0.72rem;
+  font-weight: 760;
+  letter-spacing: 0.085em;
+  text-transform: uppercase;
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__tabs {
+  gap: 0;
+  padding-inline: max(var(--ple-space-4, 1rem), 1.15rem);
+  border-block-start: 0;
+  border-block-end: 1px solid var(--atlas-rule-quiet);
+  background: var(--atlas-paper);
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__tabs .ple-app-ribbon__link {
+  align-self: stretch;
+  display: inline-grid;
+  /* Base controls reserve a generic minimum. Atlas Tabs instead occupy only
+   * their fixed Tab row, so a narrow-row scrollport can never clip them. */
+  min-block-size: 0;
+  padding-inline: var(--ple-space-3, 0.75rem);
+  place-items: center;
+}
+
+[data-ribbon-treatment="atlas"]
+  .ple-app-ribbon__tabs
+  .ple-app-ribbon__link
+  + .ple-app-ribbon__link {
+  border-inline-start: 1px solid var(--atlas-rule-quiet);
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__tabs .ple-app-ribbon__link::after {
+  position: absolute;
+  right: var(--ple-space-3, 0.75rem);
+  bottom: 0.25rem;
+  left: var(--ple-space-3, 0.75rem);
+  block-size: 0.18rem;
+  background: transparent;
+  content: "";
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"] {
+  background: color-mix(in srgb, var(--atlas-accent) 8%, transparent);
+  box-shadow: inset 0 0.18rem 0 var(--atlas-accent);
+  color: var(--ple-ink, #172033);
+  font-weight: 820;
+}
+
+[data-ribbon-treatment="atlas"]
+  .ple-app-ribbon__tabs
+  .ple-app-ribbon__link[aria-current="page"]::after {
+  background: var(--atlas-accent);
+}
+
+[data-ribbon-treatment="atlas"]
+  .ple-app-ribbon__tabs
+  .ple-app-ribbon__link[aria-current="page"]::before {
+  position: absolute;
+  inset-block-start: 0.48rem;
+  inset-inline-start: 0.26rem;
+  block-size: 0.4rem;
+  border-block-start: 1px solid currentColor;
+  content: "";
+  inline-size: 0.4rem;
+  transform: rotate(-45deg);
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__tasks {
+  gap: 0;
+  padding-inline: max(var(--ple-space-4, 1rem), 1.15rem);
+  border-block-start: 0;
+  background: color-mix(in srgb, var(--atlas-wash) 54%, var(--ple-card-surface, #fff));
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__task-area {
+  align-self: stretch;
+  gap: 0;
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__task-area + .ple-app-ribbon__task-area {
+  margin-inline-start: var(--ple-space-3, 0.75rem);
+  padding-inline-start: var(--ple-space-3, 0.75rem);
+  border-inline-start: 1px solid var(--atlas-rule);
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__task-area-label {
+  align-self: center;
+  margin-inline-end: var(--ple-space-1, 0.25rem);
+  padding-inline: var(--ple-space-1, 0.25rem);
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__tasks .ple-app-ribbon__link {
+  align-self: stretch;
+  margin-block: 0.28rem;
+  min-block-size: 0;
+  padding-inline: var(--ple-space-2, 0.5rem);
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__tasks .ple-app-ribbon__link[aria-current="page"] {
+  background: var(--atlas-accent);
+  box-shadow: inset 0.18rem 0 0 color-mix(in srgb, var(--ple-card-surface, #fff) 88%, transparent);
+  color: var(--ple-card-surface, #fff);
+  font-weight: 820;
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__link:hover,
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__sign-out:hover {
+  background: color-mix(in srgb, var(--atlas-accent) 10%, transparent);
+  color: var(--ple-ink, #172033);
+}
+
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__link:focus-visible,
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__sign-out:focus-visible {
+  outline: 0.16rem solid var(--ple-focus, #8b5b14);
+  outline-offset: -0.16rem;
+  z-index: 1;
+}
+
+@media (max-width: 40rem) {
+  [data-ribbon-treatment="atlas"] .ple-app-ribbon__context,
+  [data-ribbon-treatment="atlas"] .ple-app-ribbon__tabs,
+  [data-ribbon-treatment="atlas"] .ple-app-ribbon__tasks {
+    padding-inline: var(--ple-space-3, 0.75rem);
+  }
+
+  [data-ribbon-treatment="atlas"] .ple-app-ribbon__context-identity {
+    padding-inline-end: var(--ple-space-2, 0.5rem);
+  }
+
+  [data-ribbon-treatment="atlas"] .ple-app-ribbon__tabs .ple-app-ribbon__link {
+    padding-inline: var(--ple-space-2, 0.5rem);
+  }
+}
+
+/* The legacy global mobile nav rule wraps every nav. Ribbon rows have their
+ * own horizontal-scroll contract, so wrapping would place otherwise reachable
+ * controls below the fixed Ribbon row and clip them. */
+@media (max-width: 48rem) {
+  [data-ribbon-treatment="atlas"] .ple-app-ribbon__tabs,
+  [data-ribbon-treatment="atlas"] .ple-app-ribbon__tasks {
+    flex-wrap: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-ribbon-treatment="atlas"] .ple-app-ribbon__sign-out,
+  [data-ribbon-treatment="atlas"] .ple-app-ribbon__link {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  [data-ribbon-treatment="atlas"] .ple-app-ribbon {
+    border: 1px solid CanvasText;
+    box-shadow: none;
+  }
+
+  [data-ribbon-treatment="atlas"] .ple-app-ribbon::before {
+    border-inline-start-color: Highlight;
+  }
+
+  [data-ribbon-treatment="atlas"] .ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"] {
+    border-block: 2px solid Highlight;
+    box-shadow: none;
+    font-weight: 900;
+  }
+
+  [data-ribbon-treatment="atlas"]
+    .ple-app-ribbon__tabs
+    .ple-app-ribbon__link[aria-current="page"]::after {
+    background: Highlight;
+  }
+
+  [data-ribbon-treatment="atlas"] .ple-app-ribbon__task-area + .ple-app-ribbon__task-area {
+    border-inline-start-color: CanvasText;
+  }
+}

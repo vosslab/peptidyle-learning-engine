@@ -2,24 +2,18 @@
 
 import { Show, createSignal, onMount, type JSX } from "solid-js";
 
-import {
-  courseRouteView,
-  useCourseThemeRouteData,
-} from "../features/course_appearance/course_theme_context";
+import type { CourseSummary } from "../api/contracts";
+import { courseRouteView } from "../features/course_appearance/course_theme_context";
+import { useRouteScopeData } from "../ribbon/route_scope_context";
 import { TeachingTeamPanel } from "./teaching_team_panel";
 
 type PageState = "loading" | "ready" | "denied" | "unavailable";
 
 /** Course-local shell for Instructor teaching authority. */
-export function TeachingOperationsPage(): JSX.Element {
-  const scopedRoute = useCourseThemeRouteData();
-  const course = scopedRoute?.kind === "course" ? courseRouteView(scopedRoute).summary : undefined;
+function TeachingOperationsContent(props: { readonly course: CourseSummary }): JSX.Element {
+  const course = props.course;
   const [state, setState] = createSignal<PageState>("loading");
   function load(): void {
-    if (course === undefined) {
-      setState("unavailable");
-      return;
-    }
     if (course.role !== "instructor") {
       setState("denied");
       return;
@@ -49,11 +43,35 @@ export function TeachingOperationsPage(): JSX.Element {
           </button>
         </section>
       </Show>
-      <Show when={course !== undefined && state() === "ready"}>
+      <Show when={state() === "ready"}>
         <div class="teaching-operations-hub">
-          <TeachingTeamPanel courseId={course!.id} />
+          <TeachingTeamPanel courseId={course.id} />
         </div>
       </Show>
     </section>
+  );
+}
+
+/** Mount teaching state only after a course arm exists; pending remains content-local. */
+export function TeachingOperationsPage(): JSX.Element {
+  const routeData = useRouteScopeData();
+  const course = (): CourseSummary | undefined => {
+    const data = routeData();
+    return data?.kind === "course" ? courseRouteView(data).summary : undefined;
+  };
+  return (
+    <Show
+      when={course()}
+      keyed
+      fallback={
+        <section class="page teaching-operations-page" data-route-surface="teachingOperations">
+          <p class="eyebrow">Instructor course settings</p>
+          <h1>Teaching operations</h1>
+          <p role="status">Loading teaching operations...</p>
+        </section>
+      }
+    >
+      {(loadedCourse) => <TeachingOperationsContent course={loadedCourse} />}
+    </Show>
   );
 }

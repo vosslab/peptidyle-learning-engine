@@ -14,11 +14,9 @@ import type {
 } from "../api/decoders/calculated_gradebook";
 import type { AssignmentInspectionChoice } from "../api/decoders/gradebook_selection";
 import { useApplicationApi } from "../api/application_api";
-import {
-  courseRouteView,
-  useCourseThemeRouteData,
-} from "../features/course_appearance/course_theme_context";
+import { courseRouteView } from "../features/course_appearance/course_theme_context";
 import { assignmentRouteReference, courseInstanceRouteReference } from "../navigation/public_route";
+import { useRouteScopeData } from "../ribbon/route_scope_context";
 import { formatPercentScore } from "../score_format";
 import { assignmentWorkspacePath } from "./assignment_workspace/assignment_workspace_paths";
 import {
@@ -628,11 +626,14 @@ function GradebookCoursePage(props: {
 }
 /** Recreates course-owned Gradebook state whenever the route course changes. */
 export function GradebookPage(): JSX.Element {
-  const scopedRoute = useCourseThemeRouteData();
-  const course = scopedRoute?.kind === "course" ? courseRouteView(scopedRoute).summary : undefined;
+  const scopedRoute = useRouteScopeData();
+  const course = (): ReturnType<typeof courseRouteView>["summary"] | undefined => {
+    const data = scopedRoute();
+    return data?.kind === "course" ? courseRouteView(data).summary : undefined;
+  };
   return (
     <Show
-      when={course}
+      when={course()}
       keyed
       fallback={
         <section class="page gradebook-page" data-route-surface="gradebook">

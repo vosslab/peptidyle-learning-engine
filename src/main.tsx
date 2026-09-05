@@ -15,6 +15,10 @@ import { createBrowserSessionBoundary } from "./auth/browser_session_boundary";
 import { SessionProvider } from "./auth/session_context";
 import { log } from "./log";
 import { appRoutes, notFoundRoute } from "./routes";
+// The live entry owns inclusion of the Ribbon's future shell geometry.  The
+// component retains its co-located import so isolated component bundles remain
+// complete; esbuild deduplicates this shared stylesheet in the production graph.
+import "./ribbon/app_ribbon.css";
 import { WasmRuntimeProvider } from "./wasm/context";
 
 const mountPoint = document.getElementById("root");

@@ -8,10 +8,7 @@ import type { CourseGradeSchemeView } from "../../generated/api/CourseGradeSchem
 import type { GradeCategoryReference } from "../../generated/api/GradeCategoryReference";
 import { CourseGradeSchemeConflictError } from "../api/http_client";
 import { useApplicationApi } from "../api/application_api";
-import {
-  courseRouteView,
-  useCourseThemeRouteData,
-} from "../features/course_appearance/course_theme_context";
+import { courseRouteView } from "../features/course_appearance/course_theme_context";
 import {
   renumberAssignmentsByCategory,
   gradeSettingsErrors,
@@ -19,6 +16,7 @@ import {
 } from "./course_grade_settings_model";
 import "./course_grade_settings_page.css";
 import { formatPercentScore } from "../score_format";
+import { useRouteScopeData } from "../ribbon/route_scope_context";
 
 type State = "loading" | "ready" | "saving" | "error";
 interface CoursePageProps {
@@ -669,11 +667,14 @@ function GradeSettingsCoursePage(props: CoursePageProps): JSX.Element {
 }
 
 export function CourseGradeSettingsPage(): JSX.Element {
-  const route = useCourseThemeRouteData();
-  const course = route?.kind === "course" ? courseRouteView(route).summary : undefined;
+  const route = useRouteScopeData();
+  const course = (): ReturnType<typeof courseRouteView>["summary"] | undefined => {
+    const data = route();
+    return data?.kind === "course" ? courseRouteView(data).summary : undefined;
+  };
   return (
     <Show
-      when={course}
+      when={course()}
       keyed
       fallback={
         <section class="page course-grade-settings">

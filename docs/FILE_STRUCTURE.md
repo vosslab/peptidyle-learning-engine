@@ -26,9 +26,9 @@ spelling.
 +- package.json            Browser tooling manifest
 +- build.sh                Full local build entry point
 +- check_rust.sh           Rust gate
-+- check_codebase.sh       TypeScript and browser gate
++- check_codebase.sh       Fast TypeScript/Node typecheck, lint, format, and test gate
 +- run_live_demo.sh        Live-demo lifecycle front door
-- run_playwright_tests.sh  Production-browser entry point
+`- run_playwright_tests.sh Retained real-stack-input wrapper; not a current acceptance entry point
 ```
 
 OTHER_REPOS/ contains reference snapshots only. It is not a runtime,
@@ -130,6 +130,8 @@ the exact destination course and current equal Teaching Team Member authority.
 
 ```text
 src/
++- application_shell.tsx                    Persistent shell, content origin, skip-link/focus boundary, and Ribbon mount
++- ribbon/                                  Catalog/schema, capability admission, scope, selection/pending state, and fixed-row presentation
 +- api/
 |  +- blueprint_course.ts                 BlueprintCourse client contract
 |  +- blueprint_operations.ts              Blueprint-operation client contract
@@ -155,6 +157,11 @@ branch. Blueprint operations have exact outcomes: Copy Assignment from
 Blueprint places one Assignment in an existing Course Instance, Create Course
 from Blueprint creates a new Course Instance, and Fork Blueprint Course creates
 a new Blueprint Course.
+
+`devel/generate_ribbon_destination_ledger.mjs` maintains only the machine-owned
+section of `docs/ux/RIBBON_DESTINATION_LEDGER.md` from the Ribbon catalog and
+capability registry. Its `--check` mode is the deterministic maintenance check;
+the editorial section remains human-owned.
 
 ## Generated contracts
 
@@ -192,9 +199,9 @@ API, workers, and publisher use separate capability profiles.
 ```text
 tests/
 +- test_*.py                  Fast deterministic repository-policy checks
-+- test_*.mjs                 Browser-contract and model checks without a browser
-+- playwright/e2e/*.spec.ts   Production HTTPS browser journeys
-+- e2e/                       Disposable PostgreSQL, service, lifecycle, and publication checks
++- test_*.mjs                 Fast Node behavior, contract, and model checks without a browser
++- e2e/                       Non-browser production-build and disposable service acceptance; e2e_run_all.sh owns its declared checks
++- playwright/ribbon_*.mjs    Focused compiled-Chromium structural, responsive, and visual evidence; not production acceptance
 `- fixtures/                  Small durable fixture evidence
 
 generated/
@@ -203,10 +210,16 @@ generated/
 ```
 
 Permanent tests protect behavior that can regress: tree ordering, exact pins,
-authorization, strict decoding, Blueprint-operation authorization boundaries, unreleased propagation,
-and answer-free browser reader data. Graphify and source/migration inventories are
-one-time evidence. PostgreSQL, browser, process, migration, and rendered visual
-checks stay in their named E2E or human-review lanes. See
+authorization, strict decoding, Blueprint-operation authorization boundaries,
+unreleased propagation, answer-free browser reader data, and deterministic Ribbon
+model behavior. Graphify and source/migration inventories are one-time evidence.
+`tests/e2e/e2e_run_all.sh` owns the current non-browser production-build E2E
+checks. The focused compiled-Chromium Ribbon scripts exercise supplied fixture
+content and are visual/structural evidence only. They do not substitute for the
+separately unclaimed human-input real-stack browser suite, which must serve the
+production bundle through the local HTTPS stack and create product state through
+visible PLE controls. PostgreSQL, process, migration, and rendered visual checks
+stay in their named E2E or human-review lanes. See
 [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
 
 Build output such as dist/, dist_wasm/, target/, and test-results/ is reproducible

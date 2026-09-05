@@ -246,13 +246,15 @@ The connected acceptance owner is:
 source source_me.sh && python3 local_stack.py acceptance
 ```
 
-It refuses an existing default or fixed live-demo stack, runs the canonical
-real-stack browser lane and current database/object service oracles, and cleans
-each disposable owner exactly. The future two-API profile returns with the
-fresh implemented course-delivery Store contract. Renderer, database, object-store,
-and worker checks are service evidence, not substitute browser journeys.
-[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) defines the required evidence
-classes and final gate order.
+It refuses an existing default or fixed live-demo stack, runs exactly two
+browser-free real-service lanes, and cleans each disposable owner exactly: the
+disposable PostgreSQL schema, authority, and persistence oracle; and the Course
+Appearance PostgreSQL and MinIO coherence oracle. The future two-API profile
+returns with the fresh implemented course-delivery Store contract. Renderer,
+database, object-store, and worker checks are service evidence, not substitute
+browser journeys. The production-browser owner is currently unavailable, so its
+visible/browser acceptance has not run; see [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)
+for that release-blocking boundary, the required evidence classes, and final gate order.
 
 ## Production boundary
 

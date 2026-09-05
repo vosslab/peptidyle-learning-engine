@@ -26,7 +26,7 @@ import { createAssignmentEditorRetainedAssignmentController } from "../assignmen
 import { resolveAssignmentContentSaveFailure } from "../../api/http_client";
 import type { QuestionPoolPreview } from "../../api/contracts";
 
-import { assignmentWorkspacePath } from "./assignment_workspace_nav";
+import { assignmentWorkspacePath } from "./assignment_workspace_paths";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
 
 function previewEditNumber(revision: string): AssignmentEditNumber {

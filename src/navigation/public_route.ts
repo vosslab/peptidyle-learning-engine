@@ -7,6 +7,7 @@ import type { QuestionId } from "../../generated/api/QuestionId";
 import type { AssignmentAttemptReference } from "../../generated/api/AssignmentAttemptReference";
 import type { AuthoringWorkspaceReference } from "../../generated/api/AuthoringWorkspaceReference";
 import type { DraftQuestionReference } from "../../generated/api/DraftQuestionReference";
+import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
 import { normalizeQuestionIdSyntax } from "../question_id";
 
 declare const routeReferenceBrand: unique symbol;
@@ -22,13 +23,16 @@ export type AuthoringWorkspaceRouteReference = AuthoringWorkspaceReference &
   BrandedRouteReference<"authoringWorkspace">;
 export type DraftQuestionRouteReference = DraftQuestionReference &
   BrandedRouteReference<"draftQuestion">;
+export type BlueprintCourseRouteReference = BlueprintCourseReference &
+  BrandedRouteReference<"blueprintCourse">;
 export type QuestionRouteReference = BrandedRouteReference<"question">;
 export type PublicRouteReference =
   | AssignmentAttemptRouteReference
   | CourseInstanceRouteReference
   | AssignmentRouteReference
   | AuthoringWorkspaceRouteReference
-  | DraftQuestionRouteReference;
+  | DraftQuestionRouteReference
+  | BlueprintCourseRouteReference;
 
 function parseExact<Kind extends string>(
   value: string,
@@ -63,6 +67,9 @@ export function parseAuthoringWorkspaceReference(
 }
 export function parseDraftQuestionReference(value: string): DraftQuestionRouteReference | null {
   return parseExact<"draftQuestion">(value, "D");
+}
+export function parseBlueprintCourseReference(value: string): BlueprintCourseRouteReference | null {
+  return parseExact<"blueprintCourse">(value, "BP");
 }
 export function courseInstanceRouteReference(
   value: CourseInstanceReference,
@@ -110,7 +117,8 @@ export function parsePublicRouteReference(value: string): PublicRouteReference |
     parseAssignmentReference(value) ??
     parseAssignmentAttemptReference(value) ??
     parseAuthoringWorkspaceReference(value) ??
-    parseDraftQuestionReference(value)
+    parseDraftQuestionReference(value) ??
+    parseBlueprintCourseReference(value)
   );
 }
 export function questionRouteReference(questionId: QuestionId): QuestionRouteReference {

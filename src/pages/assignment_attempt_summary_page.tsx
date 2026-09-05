@@ -1,7 +1,7 @@
 // assignment_attempt_summary_page.tsx - bounded, server-projected Assignment Attempt history.
 
 import { useNavigate } from "@solidjs/router";
-import { createSignal, For, onMount, Show, type JSX } from "solid-js";
+import { createSignal, For, Show, type JSX } from "solid-js";
 
 import type {
   AssignmentAttemptSummaryOutcome,
@@ -9,21 +9,22 @@ import type {
 } from "../api/contracts";
 import { StudentFeedbackPanel } from "../components/student_feedback_panel";
 import { useApplicationApi } from "../api/application_api";
-import { useCourseThemeRouteData } from "../features/course_appearance/course_theme_context";
 import { assignmentAttemptRouteReference } from "../navigation/public_route";
+import { useRouteScopeData } from "../ribbon/route_scope_context";
 import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
-export function AssignmentAttemptSummaryPage(): JSX.Element {
+interface AssignmentAttemptSummaryContentProps {
+  readonly initialSummary: AssignmentAttemptSummaryResponse;
+}
+
+function AssignmentAttemptSummaryContent(props: AssignmentAttemptSummaryContentProps): JSX.Element {
   const applicationApi = useApplicationApi();
   const navigate = useNavigate();
-  const scopedRoute = useCourseThemeRouteData();
-  const initialSummary =
-    scopedRoute?.kind === "assignmentAttemptSummary" ? scopedRoute.response : undefined;
   const [summary, setSummary] = createSignal<AssignmentAttemptSummaryResponse | undefined>(
-    initialSummary,
+    props.initialSummary,
   );
   const [rows, setRows] = createSignal<ReadonlyArray<AssignmentAttemptSummaryOutcome>>(
-    initialSummary?.outcomes.items ?? [],
+    props.initialSummary.outcomes.items,
   );
   const [error, setError] = createSignal<string | null>(null);
   const [loading, setLoading] = createSignal(false);
@@ -31,7 +32,7 @@ export function AssignmentAttemptSummaryPage(): JSX.Element {
 
   async function load(cursor?: string): Promise<void> {
     const assignmentAttemptId =
-      summary()?.assignmentAttempt.id ?? initialSummary?.assignmentAttempt.id;
+      summary()?.assignmentAttempt.id ?? props.initialSummary.assignmentAttempt.id;
     if (
       assignmentAttemptId === undefined ||
       loading() ||
@@ -65,13 +66,6 @@ export function AssignmentAttemptSummaryPage(): JSX.Element {
     }
   }
 
-  onMount(() => {
-    if (initialSummary === undefined) {
-      void load();
-      return;
-    }
-    return undefined;
-  });
   async function startAnotherAssignmentAttempt(): Promise<void> {
     const courseId = summary()?.course.summary.id;
     const assignment = summary()?.assignmentAttempt.assignment;
@@ -168,5 +162,29 @@ export function AssignmentAttemptSummaryPage(): JSX.Element {
         )}
       </Show>
     </section>
+  );
+}
+
+/** Owns deferred scope resolution so summary state never captures an initial missing route. */
+export function AssignmentAttemptSummaryPage(): JSX.Element {
+  const routeData = useRouteScopeData();
+  const summary = (): AssignmentAttemptSummaryResponse | undefined => {
+    const data = routeData();
+    return data?.kind === "assignmentAttemptSummary" ? data.response : undefined;
+  };
+  return (
+    <Show
+      when={summary()}
+      keyed
+      fallback={
+        <section class="page attempt-summary" data-route-surface="assignmentAttemptSummary">
+          <p class="loading-state" role="status">
+            Loading your recorded responses...
+          </p>
+        </section>
+      }
+    >
+      {(loadedSummary) => <AssignmentAttemptSummaryContent initialSummary={loadedSummary} />}
+    </Show>
   );
 }

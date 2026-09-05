@@ -1,7 +1,8 @@
 // Two ordinary instructor sessions resolve a real optimistic-concurrency conflict through PLE.
 //
 // Selector contract:
-// - src/components/course_management_nav.tsx:31 owns the Grade settings navigation link.
+// - src/ribbon/ribbon_catalog.ts owns the Grade Settings destination and
+//   src/ribbon/app_ribbon.tsx projects admitted catalog controls as navigation links.
 // - src/pages/course_grade_settings_page.tsx:319 owns the settings heading, labels, letter-band
 //   controls, save action, reload action, and status surface.
 // - src/pages/course_list_page.tsx:330 owns course creation and the course card/open control.

@@ -4,7 +4,6 @@ import { A, useLocation } from "@solidjs/router";
 import { createMemo, onMount, Show, type Component, type JSX } from "solid-js";
 
 import { useSessionBootstrap } from "./auth/session_context";
-import { CourseThemeScope } from "./features/course_appearance/course_theme_scope";
 import {
   productRoleMayAccessRoute,
   routeContractForPathname,
@@ -16,9 +15,6 @@ interface RouteAccessDeniedProps {
 }
 
 function RouteAccessDenied(props: RouteAccessDeniedProps): JSX.Element {
-  const sysadminOnly =
-    props.route.requiredProductRoles.length === 1 &&
-    props.route.requiredProductRoles[0] === "sysadmin";
   let heading: HTMLHeadingElement | undefined;
   onMount(() => {
     queueMicrotask(() => heading?.focus());
@@ -31,16 +27,14 @@ function RouteAccessDenied(props: RouteAccessDeniedProps): JSX.Element {
       role="alert"
       aria-atomic="true"
     >
-      <p class="eyebrow">{sysadminOnly ? "Sysadmin tools" : "Instructor tools"}</p>
+      <p class="eyebrow">Instructor tools</p>
       <h1
         tabindex="-1"
         ref={(element: HTMLHeadingElement) => {
           heading = element;
         }}
       >
-        {sysadminOnly
-          ? "This page is available to sysadmins only"
-          : "This page is available to instructors only"}
+        This page is available to instructors only
       </h1>
       <p>Your available account tools remain available.</p>
       <A class="primary-link" href="/">
@@ -72,17 +66,9 @@ export function withRouteAccessBoundary(
       }
       return productRoleMayAccessRoute(route.id, state.session.account.productRole);
     });
-    const allowedRoute = createMemo((): RouteContract | undefined =>
-      accessGranted() ? route : undefined,
-    );
-
     return (
-      <Show when={allowedRoute()} keyed fallback={<RouteAccessDenied route={route} />}>
-        {(_allowedRoute) => (
-          <CourseThemeScope pathname={location.pathname}>
-            <ProtectedComponent />
-          </CourseThemeScope>
-        )}
+      <Show when={accessGranted()} fallback={<RouteAccessDenied route={route} />}>
+        <ProtectedComponent />
       </Show>
     );
   };

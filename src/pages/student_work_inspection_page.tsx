@@ -24,10 +24,7 @@ import type {
 import { useApplicationApi } from "../api/application_api";
 import { QuestionPromptRenderer } from "../components/question_renderer";
 import { textFromBlocks } from "../components/question_response_controls/common";
-import {
-  courseRouteView,
-  useCourseThemeRouteData,
-} from "../features/course_appearance/course_theme_context";
+import { courseRouteView } from "../features/course_appearance/course_theme_context";
 import {
   parseAssignmentReference,
   parseCourseMembershipReference,
@@ -38,6 +35,7 @@ import {
   parseInspectedStudentWorkRouteSearch,
 } from "./gradebook_navigation";
 import { formatPointScore, formatScoreValue } from "../score_format";
+import { useRouteScopeData } from "../ribbon/route_scope_context";
 import "./student_work_inspection_page.css";
 
 type InspectionState =
@@ -435,11 +433,14 @@ function StudentWorkCoursePage(props: {
 
 /** Resolves the route's public course reference through the existing course theme scope. */
 export function StudentWorkInspectionPage(): JSX.Element {
-  const scopedRoute = useCourseThemeRouteData();
-  const course = scopedRoute?.kind === "course" ? courseRouteView(scopedRoute).summary : undefined;
+  const scopedRoute = useRouteScopeData();
+  const course = (): ReturnType<typeof courseRouteView>["summary"] | undefined => {
+    const data = scopedRoute();
+    return data?.kind === "course" ? courseRouteView(data).summary : undefined;
+  };
   return (
     <Show
-      when={course}
+      when={course()}
       keyed
       fallback={
         <section class="page route-error" role="alert">

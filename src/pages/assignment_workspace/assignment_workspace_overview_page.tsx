@@ -3,7 +3,7 @@
 import { A } from "@solidjs/router";
 import { For, Show, type JSX } from "solid-js";
 
-import { assignmentWorkspacePath } from "./assignment_workspace_nav";
+import { assignmentWorkspacePath } from "./assignment_workspace_paths";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
 
 function stateCopy(state: string): string {

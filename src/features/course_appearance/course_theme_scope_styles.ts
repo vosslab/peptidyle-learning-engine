@@ -27,7 +27,11 @@ export const COURSE_THEME_SCOPE_STYLES = `
       transparent 24rem
     ),
     linear-gradient(90deg, var(--ple-theme-secondary), var(--ple-theme-accent)),
-    linear-gradient(180deg, transparent var(--ple-course-theme-fade-start, 18rem), var(--ple-surface) 100%);
+    linear-gradient(
+      180deg,
+      transparent var(--ple-course-theme-fade-start, 18rem),
+      var(--ple-surface) 100%
+    );
   background-position: center, center, top, center;
   background-size: auto, auto, 100% var(--ple-course-theme-rail-size, 0.32rem), 100% 100%;
   background-repeat: no-repeat;
@@ -37,21 +41,6 @@ export const COURSE_THEME_SCOPE_STYLES = `
 .course-theme-scope > .page,
 .course-theme-scope > [data-current-path] > .page {
   position: relative;
-}
-
-.course-theme-scope .course-management-nav {
-  background: color-mix(in srgb, var(--ple-surface) 88%, transparent);
-}
-
-.course-theme-scope .course-management-nav a[aria-current="page"] {
-  background: var(--ple-theme-secondary);
-  box-shadow: inset 0 -0.2rem 0 var(--ple-theme-accent);
-  color: var(--ple-theme-on-secondary);
-}
-
-.course-theme-scope .course-management-nav a[aria-current="page"]:hover {
-  background: var(--ple-theme-secondary);
-  color: var(--ple-theme-on-secondary);
 }
 
 .course-theme-scope .course-card {

@@ -150,8 +150,9 @@ renderer, or a browser and do not prove those external boundaries.
 
 Connected and one-time evidence is opt-in and remains separate from the permanent fast lane:
 
-- `source source_me.sh && python3 local_stack.py acceptance` runs the complete connected acceptance
-  lane and its current browser-free service oracles.
+- `source source_me.sh && python3 local_stack.py acceptance` runs exactly two connected,
+  browser-free service oracles: the disposable PostgreSQL schema, authority, and persistence
+  oracle; and the Course Appearance PostgreSQL-and-MinIO coherence oracle.
 - Named `tests/e2e/` runners, migration probes, rendered captures, manual inspections, and load or
   query-plan observations prove only their stated disposable or one-time claim.
 
@@ -159,24 +160,20 @@ Do not promote a probe, inventory, screenshot, count, or live diagnostic to a pe
 it satisfies the admission rules in [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) and
 [PYTEST_STYLE.md](PYTEST_STYLE.md#is-this-a-good-pytest).
 
-### Future browser execution
+### Production-browser execution
 
-The fresh Store-backed browser owner will build production `dist/`, serve it through the HTTPS PLE
-gateway, and create product state through visible PLE controls. Until that owner and the available
-course-delivery routes exist together, browser evidence remains unclaimed.
+The required production-browser owner is currently unavailable. Its future dedicated command will
+build production `dist/`, serve it through the HTTPS PLE gateway, and create product state through
+visible PLE controls. Until that owner and the available course-delivery routes exist together,
+browser, visual, and visible-workflow evidence remain unrun and unclaimed.
 
-Run the complete Playwright Validation test suite explicitly when the bounded work item requires
-browser claims:
-
-```bash
-source source_me.sh && python3 local_stack.py acceptance
-```
-
-The command invokes the canonical browser lane once with its documented private
-inputs and retains only browser-free service receipts. A failed or skipped
-required lane is red, so the suite is not green until every lane passes. See
-[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the evidence boundary and
-[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for live-stack operator preconditions.
+`source source_me.sh && python3 local_stack.py acceptance` is not a Playwright command: it runs
+only the two browser-free service lanes described above. The retained
+`./run_playwright_tests.sh` wrapper requires private real-stack owner input and is not a supported
+developer quickstart or current acceptance entry point. Do not use either command to claim
+production-browser acceptance. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the
+evidence boundary and [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for live-stack
+operator preconditions.
 
 In-memory and other offline contract tests belong in the normal Rust and Node gates. PostgreSQL,
 MinIO, role/RLS, migration, restart, and private-renderer claims require their named E2E runner and

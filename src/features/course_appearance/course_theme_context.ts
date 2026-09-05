@@ -17,7 +17,6 @@ export type CourseThemeRouteData =
       readonly response: AssignmentAttemptSummaryResponse;
     };
 
-export const CourseThemeRouteContext = createContext<CourseThemeRouteData>();
 export const CourseThemePresentationContext =
   createContext<(appearance: CourseAppearanceView) => void>();
 
@@ -31,11 +30,6 @@ export function courseRouteView(data: CourseThemeRouteData): CourseRouteView {
     case "assignmentAttemptSummary":
       return data.response.course;
   }
-}
-
-/** Optional access lets focused component tests render outside the app shell. */
-export function useCourseThemeRouteData(): CourseThemeRouteData | undefined {
-  return useContext(CourseThemeRouteContext);
 }
 
 /** Lets a successful appearance mutation update its route-local palette immediately. */

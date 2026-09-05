@@ -36,22 +36,22 @@ consumer migration direction.
 
 ## Current root scripts
 
-| File | Kind of work |
-| --- | --- |
-| [bump_version.py](bump_version.py) | Preview and save repo version changes; enter `patch` for the next patch release. |
-| [version_lib.py](version_lib.py) | Shared version parsing and normalization behavior. |
-| [version_files.py](version_files.py) | Discover and update files that carry version metadata. |
-| [changelog_lib.py](changelog_lib.py) | Shared parser and helpers for changelog tools. |
-| [commit_changelog.py](commit_changelog.py) | Draft a commit message from new changelog entries. |
-| [query_changelog.py](query_changelog.py) | Search active and archived changelog entries. |
-| [rotate_changelog.py](rotate_changelog.py) | Move old changelog day blocks into archive files. |
-| [flatten_broken_md_links.py](flatten_broken_md_links.py) | Repair or flatten broken Markdown links. |
-| [dist_clean.sh](dist_clean.sh) | Remove build artifacts, caches, and dependency installs. |
-| [graphify_map_repo.py](graphify_map_repo.py) | Build repository maps and manager orientation for technical maintenance. |
-| [graphify_context_lib.py](graphify_context_lib.py) | Load artifacts and format orientation. |
-| [graphify_docs_lib.py](graphify_docs_lib.py) | Render a browsable repository map. |
-| [graphify_prune_tests.py](graphify_prune_tests.py) | Remove Rust tests before clustering. |
-| [graphify_clean_svg.py](graphify_clean_svg.py) | Shrink an exported SVG figure. |
+| File                                                     | Kind of work                                                                     |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| [bump_version.py](bump_version.py)                       | Preview and save repo version changes; enter `patch` for the next patch release. |
+| [version_lib.py](version_lib.py)                         | Shared version parsing and normalization behavior.                               |
+| [version_files.py](version_files.py)                     | Discover and update files that carry version metadata.                           |
+| [changelog_lib.py](changelog_lib.py)                     | Shared parser and helpers for changelog tools.                                   |
+| [commit_changelog.py](commit_changelog.py)               | Draft a commit message from new changelog entries.                               |
+| [query_changelog.py](query_changelog.py)                 | Search active and archived changelog entries.                                    |
+| [rotate_changelog.py](rotate_changelog.py)               | Move old changelog day blocks into archive files.                                |
+| [flatten_broken_md_links.py](flatten_broken_md_links.py) | Repair or flatten broken Markdown links.                                         |
+| [dist_clean.sh](dist_clean.sh)                           | Remove build artifacts, caches, and dependency installs.                         |
+| [graphify_map_repo.py](graphify_map_repo.py)             | Build repository maps and manager orientation for technical maintenance.         |
+| [graphify_context_lib.py](graphify_context_lib.py)       | Load artifacts and format orientation.                                           |
+| [graphify_docs_lib.py](graphify_docs_lib.py)             | Render a browsable repository map.                                               |
+| [graphify_prune_tests.py](graphify_prune_tests.py)       | Remove Rust tests before clustering.                                             |
+| [graphify_clean_svg.py](graphify_clean_svg.py)           | Shrink an exported SVG figure.                                                   |
 
 ## Propagated devel scripts
 
@@ -144,3 +144,21 @@ source source_me.sh && python3 devel/<script>.py
 
 Run individual scripts with `--help` for current options. Keep command details
 in script help output instead of duplicating them here.
+
+### Ribbon destination ledger
+
+`generate_ribbon_destination_ledger.mjs` writes only the machine-owned section
+of `docs/ux/RIBBON_DESTINATION_LEDGER.md` from the Ribbon catalog and capability
+registry. After changing those declarations, write the generated section with:
+
+```bash
+node --import tsx devel/generate_ribbon_destination_ledger.mjs
+```
+
+Verify that it is current with:
+
+```bash
+node --import tsx devel/generate_ribbon_destination_ledger.mjs --check
+```
+
+The human-owned editorial section remains untouched.

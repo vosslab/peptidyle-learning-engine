@@ -24,10 +24,8 @@ import {
   RosterConfirmationDialog,
   type PendingRosterConfirmation,
 } from "./roster_confirmation_dialog";
-import {
-  courseRouteView,
-  useCourseThemeRouteData,
-} from "../features/course_appearance/course_theme_context";
+import { courseRouteView } from "../features/course_appearance/course_theme_context";
+import { useRouteScopeData } from "../ribbon/route_scope_context";
 
 type RosterState =
   | { readonly kind: "loading" }
@@ -111,11 +109,13 @@ function downloadRosterImportTemplate(): void {
   downloadExport("ple-roster-import-template.csv", csv);
 }
 
-export function CourseRosterPage(): JSX.Element {
+interface CourseRosterContentProps {
+  readonly courseId: string;
+}
+
+function CourseRosterContent(props: CourseRosterContentProps): JSX.Element {
   const applicationApi = useApplicationApi();
-  const scopedRoute = useCourseThemeRouteData();
-  const course = scopedRoute?.kind === "course" ? courseRouteView(scopedRoute).summary : undefined;
-  const courseId = course?.id;
+  const courseId = props.courseId;
   const [state, setState] = createSignal<RosterState>({ kind: "loading" });
   const [email, setEmail] = createSignal("");
   const [rosterId, setRosterId] = createSignal("");
@@ -142,10 +142,6 @@ export function CourseRosterPage(): JSX.Element {
   });
 
   async function load(): Promise<void> {
-    if (courseId === undefined) {
-      setState({ kind: "error", message: "The course route is incomplete." });
-      return;
-    }
     setState({ kind: "loading" });
     setError(null);
     try {
@@ -163,7 +159,7 @@ export function CourseRosterPage(): JSX.Element {
   async function invite(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     const current = ready();
-    if (courseId === undefined || current === null) return;
+    if (current === null) return;
     setBusy(true);
     setError(null);
     try {
@@ -208,7 +204,7 @@ export function CourseRosterPage(): JSX.Element {
   async function loadMoreRoster(): Promise<void> {
     const current = ready();
     const cursor = current?.roster.nextCursor;
-    if (courseId === undefined || current === null || cursor === null) return;
+    if (current === null || cursor === null) return;
     setBusy(true);
     setError(null);
     try {
@@ -236,7 +232,7 @@ export function CourseRosterPage(): JSX.Element {
 
   async function revokeInvitation(invitationId: string): Promise<void> {
     const current = ready();
-    if (courseId === undefined || current === null) return;
+    if (current === null) return;
     setBusy(true);
     setError(null);
     try {
@@ -259,7 +255,7 @@ export function CourseRosterPage(): JSX.Element {
 
   async function revokeMember(memberId: string): Promise<void> {
     const current = ready();
-    if (courseId === undefined || current === null) return;
+    if (current === null) return;
     setBusy(true);
     setError(null);
     try {
@@ -281,7 +277,7 @@ export function CourseRosterPage(): JSX.Element {
   async function savePolicy(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     const current = ready();
-    if (courseId === undefined || current === null) return;
+    if (current === null) return;
     setBusy(true);
     setError(null);
     try {
@@ -308,7 +304,7 @@ export function CourseRosterPage(): JSX.Element {
     event.preventDefault();
     const current = ready();
     const file = selectedFile();
-    if (courseId === undefined || current === null || file === null) return;
+    if (current === null || file === null) return;
     setBusy(true);
     setError(null);
     try {
@@ -360,7 +356,7 @@ export function CourseRosterPage(): JSX.Element {
 
   async function commitImport(): Promise<void> {
     const report = preview();
-    if (courseId === undefined || report === null || selectedRows().size === 0) return;
+    if (report === null || selectedRows().size === 0) return;
     setBusy(true);
     setError(null);
     try {
@@ -780,5 +776,29 @@ export function CourseRosterPage(): JSX.Element {
         )}
       </Show>
     </section>
+  );
+}
+
+/** The roster loader is content-owned and cannot reject a deferred course snapshot. */
+export function CourseRosterPage(): JSX.Element {
+  const routeData = useRouteScopeData();
+  const course = (): ReturnType<typeof courseRouteView>["summary"] | undefined => {
+    const data = routeData();
+    return data?.kind === "course" ? courseRouteView(data).summary : undefined;
+  };
+  return (
+    <Show
+      when={course()}
+      keyed
+      fallback={
+        <section class="page roster-page" data-route-surface="courseRoster">
+          <p class="loading-state" role="status">
+            Loading course roster...
+          </p>
+        </section>
+      }
+    >
+      {(loadedCourse) => <CourseRosterContent courseId={loadedCourse.id} />}
+    </Show>
   );
 }

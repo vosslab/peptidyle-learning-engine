@@ -11,12 +11,10 @@ import type { AssignmentEditNumber } from "../../generated/api/AssignmentEditNum
 import type { CourseRouteView } from "../api/contracts";
 import { ApiRequestError, PreviewPlaneConflictError } from "../api/http_client";
 import { useApplicationApi } from "../api/application_api";
-import {
-  courseRouteView,
-  useCourseThemeRouteData,
-} from "../features/course_appearance/course_theme_context";
+import { courseRouteView } from "../features/course_appearance/course_theme_context";
 import { parseAssignmentReference } from "../navigation/public_route";
 import { resolveAssignmentRoute } from "../navigation/resolved_route";
+import { useRouteScopeData } from "../ribbon/route_scope_context";
 import {
   emptyPatchDraft,
   policyRequest,
@@ -229,13 +227,15 @@ function PreviewResult(props: {
   );
 }
 
+interface AssignmentPreviewContentProps {
+  readonly course: CourseRouteView["summary"];
+}
+
 /** The page sends only public C-/A-/M- locators; all delivery facts come back from the server. */
-export function AssignmentPreviewPage(): JSX.Element {
+function AssignmentPreviewContent(props: AssignmentPreviewContentProps): JSX.Element {
   const runtime = useApplicationApi();
   const params = useParams();
-  const routeData = useCourseThemeRouteData();
-  const course = (): CourseRouteView["summary"] | undefined =>
-    routeData?.kind === "course" ? courseRouteView(routeData).summary : undefined;
+  const course = (): CourseRouteView["summary"] => props.course;
   const assignment = (): AssignmentReference | undefined => {
     const reference = params["assignmentRef"];
     return reference === undefined ? undefined : (parseAssignmentReference(reference) ?? undefined);
@@ -422,7 +422,7 @@ export function AssignmentPreviewPage(): JSX.Element {
       <Show when={course() && assignment()}>
         <A
           class="quiet-link"
-          href={`/instructor/courses/${course()!.reference}/assignments/${assignment()!}/policies`}
+          href={`/instructor/courses/${course().reference}/assignments/${assignment()!}/policies`}
         >
           Return to assignment policies
         </A>
@@ -657,5 +657,29 @@ export function AssignmentPreviewPage(): JSX.Element {
         </Match>
       </Switch>
     </section>
+  );
+}
+
+/** Content owns its deferred course boundary; the persistent shell never gates this loader. */
+export function AssignmentPreviewPage(): JSX.Element {
+  const routeData = useRouteScopeData();
+  const course = (): CourseRouteView["summary"] | undefined => {
+    const data = routeData();
+    return data?.kind === "course" ? courseRouteView(data).summary : undefined;
+  };
+  return (
+    <Show
+      when={course()}
+      keyed
+      fallback={
+        <section class="page assignment-preview-page" data-route-surface="assignmentPreview">
+          <p class="loading-state" role="status">
+            Loading assignment delivery check...
+          </p>
+        </section>
+      }
+    >
+      {(loadedCourse) => <AssignmentPreviewContent course={loadedCourse} />}
+    </Show>
   );
 }

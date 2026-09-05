@@ -10,7 +10,7 @@ import {
   AssignmentConflictError,
   AssignmentPoliciesValidationError,
 } from "../../api/http_client";
-import { assignmentWorkspacePath } from "./assignment_workspace_nav";
+import { assignmentWorkspacePath } from "./assignment_workspace_paths";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
 import { AssignmentWorkspacePolicyPanel } from "./assignment_workspace_policy_panel";
 import {

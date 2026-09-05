@@ -61,6 +61,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Interface philosophy
 
+- Dream big on the UI: choose one visual philosophy and hold that line through implementation.
 - Visual design should be pushed harder. Make the interface less bubbly and reduce excessive padding.
 - Themes should use biome and habitat names, with names removed when their themes look substantially alike.
 - UUIDs should never appear in visible page content, navigation URLs, or copyable links.

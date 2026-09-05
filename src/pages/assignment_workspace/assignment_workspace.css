@@ -5,38 +5,6 @@
   gap: var(--ple-section-gap);
 }
 
-.assignment-workspace-nav {
-  display: flex;
-  flex-wrap: wrap;
-  width: fit-content;
-  max-width: 100%;
-  gap: 0.16rem;
-  margin: calc(var(--ple-section-gap) * -0.45) 0 0;
-  padding: 0.2rem;
-  overflow-x: visible;
-  border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset, 0.6rem);
-  background: color-mix(in srgb, var(--ple-card-surface) 78%, transparent);
-}
-
-.assignment-workspace-nav a {
-  flex: 0 0 auto;
-  min-height: 2.5rem;
-  padding: 0.55rem 0.82rem;
-  border-radius: 0.44rem;
-  color: var(--ple-muted);
-  font-size: 0.9rem;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.assignment-workspace-nav a:hover,
-.assignment-workspace-nav a[aria-current="page"] {
-  background: var(--ple-card-surface);
-  color: var(--ple-accent-strong);
-  box-shadow: 0 1px 2px rgb(15 23 42 / 10%);
-}
-
 .assignment-workspace-overview,
 .assignment-workspace-placeholder,
 .assignment-workspace-policies {
@@ -312,15 +280,6 @@
 }
 
 @media (max-width: 40rem) {
-  .assignment-workspace-nav {
-    width: 100%;
-  }
-
-  .assignment-workspace-nav a {
-    flex: 1 0 auto;
-    text-align: center;
-  }
-
   .assignment-workspace-policies .assignment-editor-policy-set--disclosure,
   .assignment-workspace-policies .assignment-editor-policy-set--lifecycle,
   .assignment-workspace-policies .assignment-editor-policy-set--schedule,

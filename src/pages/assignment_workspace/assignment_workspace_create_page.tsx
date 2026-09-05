@@ -5,15 +5,13 @@ import { Show, createSignal, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../../api/application_api";
 import { useSessionBootstrap } from "../../auth/session_context";
-import {
-  courseRouteView,
-  useCourseThemeRouteData,
-} from "../../features/course_appearance/course_theme_context";
+import { courseRouteView } from "../../features/course_appearance/course_theme_context";
 import {
   assignmentRouteReference,
   parseCourseInstanceReference,
   type CourseInstanceRouteReference,
 } from "../../navigation/public_route";
+import { useRouteScopeData } from "../../ribbon/route_scope_context";
 
 import {
   assignmentWorkspaceCreateErrorMessage,
@@ -26,7 +24,7 @@ type CreateState = "ready" | "saving" | "unavailable";
 export function AssignmentWorkspaceCreatePage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const session = useSessionBootstrap();
-  const route = useCourseThemeRouteData();
+  const route = useRouteScopeData();
   const params = useParams();
   const navigate = useNavigate();
   const [title, setTitle] = createSignal("");
@@ -34,7 +32,7 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
   const [state, setState] = createSignal<CreateState>("ready");
   let titleInput: HTMLInputElement | undefined;
   const course = (): ReturnType<typeof courseRouteView>["summary"] | undefined =>
-    route?.kind === "course" ? courseRouteView(route).summary : undefined;
+    route()?.kind === "course" ? courseRouteView(route()!).summary : undefined;
   const courseReference = (): CourseInstanceRouteReference | null =>
     parseCourseInstanceReference(params["courseRef"] ?? "");
   const mayCreate = (): boolean => {

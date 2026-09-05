@@ -155,26 +155,39 @@ renderer has no database, volume, host port, or browser network; required
 services remain in the normal stack; and controller parsing, project ownership,
 and cleanup confirmation preserve their bounded contracts.
 
-Live container and browser behavior belongs in the explicit E2E lane:
+The current live acceptance command is:
 
 ```bash
-./run_playwright_tests.sh --build
+source source_me.sh && python3 local_stack.py acceptance
 ```
 
-Browser behavior is selected through `run_playwright_tests.sh`. A successor
-service oracle returns only after the fresh Store and implemented course-delivery
-contracts exist.
+It runs exactly two browser-free, disposable real-service lanes in order: the
+PostgreSQL schema, authority, and persistence oracle; then the Course
+Appearance PostgreSQL and MinIO coherence oracle. It does not start a gateway,
+serve `dist/`, or execute a browser scenario. Its conflict preflight excludes
+an existing default or fixed live-demo stack so these bounded service owners
+cannot be confused with a browser lifecycle.
 
-The browser scenario exercises visible render and non-disclosure behavior.
-Chapter One publication semantics stay with the fixed seed/manifest and Rust
-behavior tests; installation occurs through the same live-demo lifecycle rather
-than a separate stack owner.
+The prior `./run_playwright_tests.sh --build` wrapper and root Playwright
+configuration still describe a private input from a production-browser owner,
+but that owner/configuration is not currently restored as an executable,
+accepted browser path. Treat that wrapper as historical/future restoration
+context, not a current quickstart, aggregate lane, or substitute for the
+missing owner. The existing browser scenarios consequently establish no current
+release evidence.
 
-The aggregate live browser command is
-`source source_me.sh && python3 local_stack.py acceptance`. The canonical owner
-lease serializes it with the Developer Browser Suite lifecycle and exact cleanup. The active plan
-names the full Validation test suite; [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite)
-defines why permanent offline checks and opt-in live acceptance remain separate.
+Restoring the dedicated production-browser owner remains release-blocking. That
+future owner must build and serve the production bundle through the fixed
+same-origin gateway, provide its private live-demo inputs, and drive visible
+behavior against the real stack. Browser render, non-disclosure, and visible
+workflow claims belong to that restored owner; Chapter One publication
+semantics remain with their fixed seed/manifest and Rust behavior tests until
+then. A successor service oracle returns only after the fresh Store and
+implemented course-delivery contracts exist.
+
+The active plan names the complete Validation suite; [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite)
+defines the separate boundaries for permanent offline checks, the two current
+service lanes, and the unrun production-browser requirement.
 
 See [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for operating commands and
 [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md) for replica and production

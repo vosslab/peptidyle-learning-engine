@@ -4,8 +4,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { decodeCourseAppearanceView } from "../src/api/decoders.ts";
-import { courseBannerImageAlternativeText } from "../src/features/course_appearance/course_banner_alternative_text.ts";
-import { courseThemeRouteRequest } from "../src/features/course_appearance/course_theme_route.ts";
+import {
+  courseBannerImageAlternativeText, // Decode the closed banner accessibility union.
+} from "../src/features/course_appearance/course_banner_alternative_text.ts";
 import {
   COURSE_THEME_REGISTRY,
   courseThemeStyle,
@@ -104,7 +105,8 @@ test("every reviewed theme resolves to complete, contrast-safe course tokens", (
       for (const background of [tokens.anchors.canvas, tokens.card]) {
         assert.ok(
           contrast(foreground, background) <= 8.25,
-          `${id}: standard ${role} contrast should preserve the palette instead of approaching black on white`,
+          `${id}: standard ${role} contrast should preserve the palette instead of` +
+            " approaching black on white",
         );
       }
     }
@@ -191,53 +193,4 @@ test("course banners preserve their closed decorative or informative treatment",
       banner: { id: bannerReference, alternativeText: { kind: "decorative" } },
     }),
   );
-});
-
-test("only course-owned executable routes request a theme scope", () => {
-  const course = "C-10";
-  const assignment = "A-20";
-  const assignmentAttemptReference = "R-30";
-  assert.deepEqual(courseThemeRouteRequest(`/courses/${course}`), {
-    kind: "course",
-    courseReference: course,
-  });
-  assert.deepEqual(courseThemeRouteRequest(`/courses/${course}/assignments/${assignment}`), {
-    kind: "course",
-    courseReference: course,
-  });
-  assert.deepEqual(
-    courseThemeRouteRequest(`/instructor/courses/${course}/assignments/${assignment}`),
-    { kind: "course", courseReference: course },
-  );
-  assert.deepEqual(courseThemeRouteRequest(`/instructor/courses/${course}/teaching-operations`), {
-    kind: "course",
-    courseReference: course,
-  });
-  assert.deepEqual(courseThemeRouteRequest(`/instructor/courses/${course}/gradebook`), {
-    kind: "course",
-    courseReference: course,
-  });
-  assert.deepEqual(courseThemeRouteRequest(`/instructor/courses/${course}/appearance`), {
-    kind: "global",
-  });
-  assert.deepEqual(courseThemeRouteRequest(`/assignment-attempts/${assignmentAttemptReference}`), {
-    kind: "assignmentAttempt",
-    assignmentAttemptReference,
-  });
-  assert.deepEqual(
-    courseThemeRouteRequest(`/assignment-attempts/${assignmentAttemptReference}/summary`),
-    {
-      kind: "assignmentAttemptSummary",
-      assignmentAttemptReference,
-    },
-  );
-  for (const path of [
-    "/",
-    "/library",
-    "/workspace",
-    "/blueprint-courses",
-    `/library/${course}/versions/${assignment}`,
-  ]) {
-    assert.deepEqual(courseThemeRouteRequest(path), { kind: "global" });
-  }
 });

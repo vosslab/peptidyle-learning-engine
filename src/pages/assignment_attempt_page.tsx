@@ -25,7 +25,7 @@ import type {
 } from "../api/contracts";
 import { ApiProtocolError, ApiRequestError } from "../api/http_client";
 import { useApplicationApi } from "../api/application_api";
-import { useCourseThemeRouteData } from "../features/course_appearance/course_theme_context";
+import { useRouteScopeData } from "../ribbon/route_scope_context";
 import {
   assignmentRouteReference,
   courseInstanceRouteReference,
@@ -812,14 +812,24 @@ function AttemptExperience(props: {
 }
 
 export function AssignmentAttemptPage(): JSX.Element {
-  const scopedRoute = useCourseThemeRouteData();
-  if (scopedRoute?.kind === "assignmentAttempt") {
-    return <AttemptExperience initialScreen={scopedRoute.screen} />;
-  }
+  const scopedRoute = useRouteScopeData();
+  const screen = (): AssignmentAttemptScreenData | undefined => {
+    const data = scopedRoute();
+    return data?.kind === "assignmentAttempt" ? data.screen : undefined;
+  };
   return (
-    <section class="route-error" role="alert">
-      <h1>Practice Assignment Attempt unavailable</h1>
-      <p>Return to the assignment and open the practice Assignment Attempt again.</p>
-    </section>
+    <Show
+      when={screen()}
+      keyed
+      fallback={
+        <section class="page" data-route-surface="assignmentAttempt">
+          <p class="loading-state" role="status">
+            Loading your Assignment Attempt...
+          </p>
+        </section>
+      }
+    >
+      {(loadedScreen) => <AttemptExperience initialScreen={loadedScreen} />}
+    </Show>
   );
 }

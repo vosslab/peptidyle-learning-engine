@@ -42,6 +42,7 @@ const distDir = path.join(repoRoot, "dist");
 const srcDir = path.join(repoRoot, "src");
 const wasmWebDir = path.join(repoRoot, "dist_wasm", "web");
 const STATIC_STYLESHEETS = ["style.css", "styles/accessibility.css"];
+const RIBBON_ICON_SPRITE = "assets/ribbon-icons.svg";
 
 //============================================
 
@@ -150,6 +151,23 @@ function copyStaticStylesheets() {
 
 //============================================
 
+/** Checks the committed Ribbon icon subset before it becomes a browser asset. */
+function checkRibbonIconSprite() {
+  run("node", ["--import", "tsx", "devel/build_ribbon_icon_sprite.mjs", "--check"]);
+}
+
+//============================================
+
+/** Copies the checked same-origin Ribbon icon sprite into the production asset root. */
+function copyRibbonIconSprite() {
+  const sourcePath = path.join(srcDir, "ribbon", RIBBON_ICON_SPRITE);
+  const targetPath = path.join(distDir, RIBBON_ICON_SPRITE);
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.copyFileSync(sourcePath, targetPath);
+}
+
+//============================================
+
 /**
  * Builds the site into dist/.
  *
@@ -167,6 +185,9 @@ async function main() {
 
   console.log("==> typecheck");
   run("npx", ["tsc", "--noEmit", "-p", "tsconfig.json"]);
+
+  console.log("==> Ribbon icon sprite");
+  checkRibbonIconSprite();
 
   fs.rmSync(distDir, { recursive: true, force: true });
   fs.mkdirSync(distDir, { recursive: true });
@@ -194,10 +215,17 @@ async function main() {
     .slice(0, 8);
   const stylesheetHashes = copyStaticStylesheets();
   copyIndexHtml(bundleHash, stylesheetHashes, componentStylesheetHash);
+  copyRibbonIconSprite();
 
   copyWasmBridge();
 
-  for (const required of ["index.html", "main.js", "main.css", ...STATIC_STYLESHEETS]) {
+  for (const required of [
+    "index.html",
+    "main.js",
+    "main.css",
+    ...STATIC_STYLESHEETS,
+    RIBBON_ICON_SPRITE,
+  ]) {
     if (!fs.existsSync(path.join(distDir, required))) {
       throw new Error(`build finished but dist/${required} is missing`);
     }

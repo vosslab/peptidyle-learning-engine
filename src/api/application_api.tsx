@@ -22,6 +22,16 @@ import type {
   AssignmentAttemptScreenData,
   AssignmentAttemptSummaryResponse,
 } from "./contracts";
+import {
+  resolveAssignmentAttemptIdentity,
+  resolveCourseIdentity,
+  type ResolvedAssignmentAttemptIdentity,
+  type ResolvedCourseIdentity,
+} from "../navigation/resolved_route";
+import type {
+  AssignmentAttemptRouteReference,
+  CourseInstanceRouteReference,
+} from "../navigation/public_route";
 
 interface QueryFunction<Arguments extends ReadonlyArray<unknown>, Result> {
   (...arguments_: Arguments): Promise<Result>;
@@ -47,6 +57,13 @@ export interface ApplicationApi<Client extends ApiClient = ApiClient> {
     readonly assignmentAttemptSummary: QueryFunction<
       [AssignmentAttemptId],
       AssignmentAttemptSummaryResponse
+    >;
+    /** Public-reference keyed scope identity; not an authorization result. */
+    readonly resolveCourse: QueryFunction<[CourseInstanceRouteReference], ResolvedCourseIdentity>;
+    /** Public-reference keyed attempt scope identity; not an authorization result. */
+    readonly resolveAssignmentAttempt: QueryFunction<
+      [AssignmentAttemptRouteReference],
+      ResolvedAssignmentAttemptIdentity
     >;
   };
 }
@@ -102,6 +119,15 @@ export function createApplicationApi<Client extends ApiClient>(
         (assignmentAttemptId: AssignmentAttemptId) =>
           client.getAssignmentAttemptSummary(assignmentAttemptId, undefined, 30),
         "assignment-attempt-summary",
+      ),
+      resolveCourse: query(
+        (reference: CourseInstanceRouteReference) => resolveCourseIdentity(client, reference),
+        "resolve-course",
+      ),
+      resolveAssignmentAttempt: query(
+        (reference: AssignmentAttemptRouteReference) =>
+          resolveAssignmentAttemptIdentity(client, reference),
+        "resolve-assignment-attempt",
       ),
     },
   };
