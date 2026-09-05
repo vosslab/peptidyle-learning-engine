@@ -1,6 +1,6 @@
 {
   "name": "peptidyle-learning-engine",
-  "version": "26.8.0",
+  "version": "26.9.0",
   "type": "module",
   "private": true,
   "scripts": {
