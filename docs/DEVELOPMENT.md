@@ -131,15 +131,17 @@ bounded work item.
 | Repository documentation and hygiene       | `source source_me.sh && python3 -m pytest tests/`          | Fast Python hygiene and repository-rule checks.                      |
 | Connected current acceptance               | `source source_me.sh && python3 local_stack.py acceptance` | Current database/object service receipts under the typed controller. |
 | Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                             | The named disposable whole-system oracle.                            |
+| All named non-browser E2E checks            | `bash tests/e2e/e2e_run_all.sh`                            | The current build, CLI, contract, and named-service E2E collection.  |
 | Local stack diagnosis and lifecycle        | `source source_me.sh && python3 local_stack.py <command>`  | The scoped controller contract.                                      |
 
 `tests/playwright/` is browser-driven testing and `tests/e2e/` is non-browser whole-system
 orchestration. Both are intentionally excluded from `pytest tests/`; see
 [E2E_TESTS.md](E2E_TESTS.md) for the test-tier boundary. Install the browser binaries once with
 `./devel/setup_playwright.sh` (or `npm run setup:playwright`) before running Playwright.
-The fresh Store-backed browser owner and visual-publication path return after the implemented
-course-delivery surface is rebuilt. The current aggregate validates the active code and service
-contracts without claiming browser or screenshot acceptance.
+The current aggregate validates the active code and service contracts without claiming browser,
+visual, or screenshot acceptance. The retained Playwright wrapper requires a real-stack
+browser-suite owner input; it is not a developer quickstart or current aggregate evidence.
+The canonical production-browser owner remains a release-blocking restoration item.
 
 ### Permanent and connected evidence
 
@@ -155,6 +157,8 @@ Connected and one-time evidence is opt-in and remains separate from the permanen
   oracle; and the Course Appearance PostgreSQL-and-MinIO coherence oracle.
 - Named `tests/e2e/` runners, migration probes, rendered captures, manual inspections, and load or
   query-plan observations prove only their stated disposable or one-time claim.
+- `bash tests/e2e/e2e_run_all.sh` is the bulk owner for the current non-browser E2E collection.
+  It is not a browser suite and does not substitute for visible-workflow evidence.
 
 Do not promote a probe, inventory, screenshot, count, or live diagnostic to a permanent test unless
 it satisfies the admission rules in [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) and
@@ -162,10 +166,10 @@ it satisfies the admission rules in [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL
 
 ### Production-browser execution
 
-The required production-browser owner is currently unavailable. Its future dedicated command will
-build production `dist/`, serve it through the HTTPS PLE gateway, and create product state through
-visible PLE controls. Until that owner and the available course-delivery routes exist together,
-browser, visual, and visible-workflow evidence remain unrun and unclaimed.
+The required canonical production-browser owner currently has no executable owner. Its restored
+dedicated command will build production `dist/`, serve it through the HTTPS PLE gateway, and create
+product state through visible PLE controls. Until that owner and available course-delivery routes
+exist together, browser, visual, and visible-workflow evidence remain unrun and unclaimed.
 
 `source source_me.sh && python3 local_stack.py acceptance` is not a Playwright command: it runs
 only the two browser-free service lanes described above. The retained
@@ -211,7 +215,8 @@ manifest with a retained teaching set: if it is missing, the local controller re
 ## Run local services
 
 Use the fixed owner when a work package needs the supported PostgreSQL, MinIO,
-API, worker, gateway, and external stateless WeBWorK PG renderer:
+API, gateway, and private standalone WeBWorK PG renderer. Background-job
+worker capabilities remain future-only:
 
 ```bash
 source source_me.sh && python3 local_stack.py start --headless

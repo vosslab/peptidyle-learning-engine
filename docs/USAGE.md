@@ -51,8 +51,9 @@ The current implemented HTTP surface is:
 - `GET` and `POST /api/auth/live-demo/accounts` when seeded demo configuration
   is present
 
-Email-code and passkey sign-in remain retained product requirements. Their
-browser adapters and delivery path are unavailable in the current local demo.
+Email-code authentication remains future work. The passkey capability is deferred:
+it has no configuration, setup credential, Server Route, Browser Surface, or
+completed ceremony in the current local demo.
 
 ## Retained teaching workflows
 
@@ -79,6 +80,15 @@ The intended product behavior and its contracts are documented in
 [API_CONTRACTS.md](API_CONTRACTS.md). A restored browser acceptance owner must
 establish a visible journey before any guide can call these workflows current.
 
+## Temporary attended signup-email tool
+
+The local macOS invitation mailer sends signup URLs that were created elsewhere;
+it does not implement or claim PLE roster import, Account creation, Course
+Enrollment, or signup completion. Its private export format, dry-run-first command,
+resume behavior, explicit single-recipient resend, Mail.app permission check, and
+disposal instructions are in the
+[invitation-mailer operator guide](../invitation_mailer/README.md).
+
 ## Build and validation commands
 
 Use the root shell scripts for named build and validation evidence:
@@ -102,15 +112,25 @@ controller:
 
 ```bash
 source source_me.sh && python3 local_stack.py doctor
+source source_me.sh && python3 local_stack.py projects
 source source_me.sh && python3 local_stack.py status
 source source_me.sh && python3 local_stack.py logs --tail 120
 source source_me.sh && python3 local_stack.py validate
 ```
 
 `doctor` checks Podman and its Compose provider. `status` reports semantic
-readiness. `logs` prints scoped application logs. `validate` checks
-configuration and runtime availability without starting the stack. Add `--json`
-to `doctor`, `status`, or `validate` for machine output.
+readiness. `projects` lists labelled Compose projects. `logs` prints scoped
+application logs. `validate` checks configuration and runtime availability
+without starting the stack. Add `--json`
+to `doctor`, `projects`, `status`, or `validate` for machine output. `logs`
+accepts `--follow`, an explicit `--project`, and optional service names while
+diagnosing a stack.
 
 For recovery guidance, see [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md)
 and [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
+## Known gaps
+
+- TODO: Restore the canonical production-browser owner and record visible,
+  accessible teaching-workflow acceptance before documenting a course workflow
+  as current.

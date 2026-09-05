@@ -104,9 +104,14 @@ These are retained future-contract work, not current interfaces:
 - Broader scored H5P conversion. Current H5P remains ungraded key-free practice; any scored
   conversion requires a separate bounded, evidence-backed adapter contract.
 
-YAML is not an input or output interface. A future human-editing format may compile to canonical
-PLE Question JSON, but no YAML schema is accepted today. Generic PG, PGML, WebWork2, Open Problem Library,
-LMS roster synchronization, and Canvas/Blackboard export are not current file interfaces.
+YAML is not a generic input or output interface. The checked-in pilot Question Set manifest is a
+controlled source input owned and validated by
+[pilot_content.rs](../crates/project-tools/src/pilot_content.rs); the generated private
+`runtime.yaml` is a controlled runtime handoff owned and validated by
+[runtime_manifest.py](../local_stack_control/runtime_manifest.py). No generic user-facing YAML
+authoring or interchange schema is accepted today. A future human-editing format may compile to
+canonical PLE Question JSON. Generic PG, PGML, WebWork2, Open Problem Library, LMS roster
+synchronization, and Canvas/Blackboard export are not current file interfaces.
 
 Durable release direction and unfinished-work routing are maintained in
 [ROADMAP.md](ROADMAP.md) and [TODO.md](TODO.md).

@@ -9,22 +9,27 @@ permanent authorities.
 
 ## Evidence boundary
 
-The current pre-production reset is the 36-file foundational migration baseline
-(`2026082901` through `2026082936`). A clean PostgreSQL 17 volume applies that exact
-domain-ordered baseline, accepts a second no-op run, and passes the restricted-login
-Question Library probes. Earlier migration epochs are historical evidence only; they are not part of
-the material schema contract. [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) owns the checked-in
-migration sequence and forward allocation rule.
+The current pre-production reset is the 49-file foundational migration baseline,
+from `2026082901_principal_baseline.sql` through
+`2026090401_account_creation_audit.sql`. A clean PostgreSQL 17 volume applies the
+complete checked-in sequence, accepts a second no-op run, and passes the
+restricted-login Question Library probes. `2026082905` and `2026082927` are not
+migration files. Earlier migration epochs and their migration-count claims are
+historical evidence only; they are not part of the material schema contract.
+[DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) owns the checked-in migration sequence
+and forward allocation rule.
 
-The automated-grading operation boundary is accepted. Its seven predecessor migrations and four-file
-`2026081866`-`2026081869` closeout sequence are present, and final material-tree Validation passed on
-the 99-migration tree. The completed wire-naming and terminology cutovers are recorded in
-[CHANGELOG.md](CHANGELOG.md) and governed by [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) and
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md). Student-work inspection and grade-scheme-aware
-calculated Gradebook work remain acceptance-open for their remaining visual and documentation gates.
-Provider/mailbox, unrelated passkey, multi-replica, security, HCI, and release work remain acceptance-open.
-Instructor live-demo acceptance does not imply production onboarding,
-deployment, or release acceptance.
+The automated-grading operation boundary has accepted historical evidence. Its
+former 99-migration validation tree predates the current reset and does not
+describe the material schema contract. The completed wire-naming and terminology
+cutovers are recorded in [CHANGELOG.md](CHANGELOG.md) and governed by
+[NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) and
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md). Student-work inspection and
+grade-scheme-aware calculated Gradebook work remain acceptance-open for their
+remaining visual and documentation gates. Provider/mailbox, unrelated passkey,
+multi-replica, security, HCI, and release work remain acceptance-open. Instructor
+live-demo acceptance does not imply production onboarding, deployment, or release
+acceptance.
 
 ## Accepted/current/future
 
@@ -36,6 +41,9 @@ deployment, or release acceptance.
 - The real live-demo deployment and session boundary: a seeded Account selector, ordinary
   server-owned Authenticated Session resolution, and the explicitly absent teaching routes
   specified in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
+- The mounted Application Shell and its single role-aware Ribbon. Its destinations remain
+  truthfully unbacked and unavailable; this shell acceptance does not establish a Server Route,
+  Service, Browser Surface, or teaching workflow.
 - Historical automated-grading HCI evidence as contextual evidence only. It does not establish a
   current Student, Instructor, or Gradebook browser workflow.
 - Existing normalized operational models only where [CHANGELOG.md](CHANGELOG.md) records accepted
@@ -44,7 +52,8 @@ deployment, or release acceptance.
 ### Current and acceptance-open
 
 - Restore the Course, authoring, delivery, grading, Gradebook, and administration route surface,
-  then establish separate browser, visual, accessibility, and task-completion evidence.
+  then establish separate browser, visual, accessibility, and task-completion evidence. The mounted
+  shell may expose a destination only after its complete usable capability path is established.
 - Rerun the complete named Validation suite on each final material tree. Focused or historical
   migration counts do not establish release acceptance.
 - Keep documentation links GitHub-browsable through the material-tree Markdown-link gate.

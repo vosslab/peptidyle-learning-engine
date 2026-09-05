@@ -22,8 +22,9 @@ For a headless result, use:
 ```
 
 The command builds `dist/`, starts the `ple-live-demo-browser` stack, and prints its HTTPS origin.
-The visible seeded selector establishes an ordinary session for Elena Instructor; Mary, Jack, or
-Avery Student; or Morgan Sysadmin. It does not grant a role or relationship chosen by the browser.
+When at least one configured seeded mapping is valid, the visible selector can establish an ordinary
+session for Elena Instructor; Mary, Jack, or Avery Student; or Morgan Sysadmin. It does not grant a
+role or relationship chosen by the browser.
 
 ## Inspect before changing state
 
@@ -33,7 +34,7 @@ Run read-only diagnostics from the repository root:
 source source_me.sh && python3 local_stack.py doctor
 source source_me.sh && python3 local_stack.py projects
 source source_me.sh && python3 local_stack.py status --project ple-live-demo-browser
-source source_me.sh && python3 local_stack.py logs --project ple-live-demo-browser --tail 120 gateway api worker
+source source_me.sh && python3 local_stack.py logs --project ple-live-demo-browser --tail 120 gateway api
 source source_me.sh && python3 local_stack.py validate
 ```
 

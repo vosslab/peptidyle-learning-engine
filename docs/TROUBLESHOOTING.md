@@ -51,7 +51,7 @@ Run these commands from the repository root before changing the stack:
 source source_me.sh && python3 local_stack.py doctor
 source source_me.sh && python3 local_stack.py projects
 source source_me.sh && python3 local_stack.py status --project ple-live-demo-browser
-source source_me.sh && python3 local_stack.py logs --project ple-live-demo-browser --tail 120 gateway api worker
+source source_me.sh && python3 local_stack.py logs --project ple-live-demo-browser --tail 120 gateway api webwork-renderer
 source source_me.sh && python3 local_stack.py validate
 ```
 
@@ -106,8 +106,9 @@ the renderer identity, and the available engine without mutating the stack.
   ./run_live_demo.sh
   ```
 
-- **`the stack did not become ready`:** inspect `gateway`, `api`, and `worker`
-  logs. Readiness is semantic `/health`, not merely a running container.
+- **`the stack did not become ready`:** inspect `gateway`, `api`, and
+  `webwork-renderer` logs. Readiness is semantic `/health`, not merely a
+  running container.
   Retry the same `./run_live_demo.sh` command after correcting the named
   failure.
 - **Gateway `unhealthy` while `webwork-renderer` is `starting`:** this is a
@@ -199,5 +200,8 @@ the stack is available:
 source source_me.sh && python3 local_stack.py acceptance
 ```
 
-Browser and Podman acceptance are explicit evidence; permanent offline tests
-remain separate. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite).
+This acceptance command currently runs the disposable PostgreSQL schema,
+authority, and persistence oracle, followed by the Course Appearance
+PostgreSQL and MinIO coherence oracle. Those are real-service boundaries, not
+browser or visible-workflow acceptance; permanent offline tests remain
+separate. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite).

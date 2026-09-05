@@ -2,13 +2,13 @@
 
 For a developer checkout, installation means starting the real, disposable PLE session-entry demo.
 The primary command prepares missing JavaScript dependencies, builds the production browser artifact,
-and starts the production-shaped HTTPS stack with real PostgreSQL, MinIO, API, worker, gateway, and
-private WebWork renderer services.
+and starts the production-shaped HTTPS stack with PostgreSQL, MinIO, API, gateway, and a private
+WeBWorK renderer. It establishes only the current seeded session-entry boundary.
 
 ## Requirements
 
 - Git and Bash.
-- Current Node.js and npm. The first launch installs the dependencies locked in `package-lock.json`.
+- Node.js and npm. The first launch installs the dependencies declared by `package.json`.
 - Current stable Rust through `rustup`; [rust-toolchain.toml](../rust-toolchain.toml) selects
   `rustfmt`, Clippy, and `wasm32-unknown-unknown`.
 - Python 3.12 available as `python3`. The live-demo wrapper sources the repository shell
@@ -92,8 +92,9 @@ After the browser opens, use the visible **Explore this live demo** panel on the
   their routes are implemented.
 - The seeded data belongs to this disposable installation. Relaunching the demo restores the
   baseline and discards changes from the prior session.
-- No email-code or passkey Server Routes exist in this build. Their private schema and
-  single-session credential contracts are present; the visible selector is the current demo entry.
+- Email-code authentication remains future work. The passkey capability is deferred: this build has
+  no passkey configuration, setup credential, installation command, Server Route, or Browser Surface.
+  The visible selector is the current local-demo entry.
 
 ## Verify install
 
@@ -105,6 +106,7 @@ From a fresh checkout, use the non-opening launch as the installation verificati
 ```
 
 The first command must print a ready HTTPS origin; the second must confirm owner-scoped cleanup.
+This proves the named disposable deployment and session-entry boundary, not a browser teaching journey.
 For an offline cross-language verification after installing the developer tools, run:
 
 ```bash

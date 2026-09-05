@@ -28,7 +28,6 @@ MODE_AUTO = "auto"
 MODE_FRESH = "fresh"
 MODE_UPDATE = "update"
 MODE_CONTEXT = "context"
-MODE_SVG = "svg"
 COLLAPSED_EDGE_FIELD = "directed_same_endpoint_collapsed_edges"
 
 
@@ -40,13 +39,13 @@ def build_parser() -> argparse.ArgumentParser:
 	help_epilog = (
 		"With no flag, update the existing code map or build it when absent. "
 		"Fresh builds relabel communities and benchmark; add --ollama when the Claude "
-		"allowance is exhausted. --svg requires an existing map and writes only the cleaned "
-		"docs/GRAPHIFY_map.svg; the full Graphify export remains generated under graphify-out/."
+		"allowance is exhausted. Add --svg to fresh or update to publish documentation in "
+		"the same run, or use --svg alone to publish the existing map."
 	)
 	# ASVS 2.1.1 and 2.2.1: expose and document only the fixed action allowlist.
 	parser = argparse.ArgumentParser(
 		description=(
-			"Update a Graphify map, rebuild it, inspect its context, or write its cleaned SVG."
+			"Update a Graphify map, rebuild it, inspect context, or publish its docs."
 		),
 		epilog=help_epilog,
 		formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -73,12 +72,11 @@ def build_parser() -> argparse.ArgumentParser:
 		const=MODE_CONTEXT,
 		help="print existing-map orientation without rebuilding",
 	)
-	mode_group.add_argument(
+	parser.add_argument(
 		"-S", "--svg",
-		dest="mode",
-		action="store_const",
-		const=MODE_SVG,
-		help="write the cleaned SVG to docs/GRAPHIFY_map.svg from the existing map",
+		dest="write_svg",
+		action="store_true",
+		help="publish docs/GRAPHIFY.md and its compact community SVG",
 	)
 	parser.add_argument(
 		"-O", "--ollama",
@@ -87,7 +85,7 @@ def build_parser() -> argparse.ArgumentParser:
 		const=OLLAMA_BACKEND,
 		help=f"with --fresh, label locally with {OLLAMA_MODEL}",
 	)
-	parser.set_defaults(mode=MODE_AUTO, label_backend=LABEL_BACKEND)
+	parser.set_defaults(mode=MODE_AUTO, label_backend=LABEL_BACKEND, write_svg=False)
 	return parser
 
 
@@ -394,26 +392,17 @@ def print_context(repo_root: pathlib.Path) -> None:
 #============================================
 
 
-def write_map_svg(repo_root: pathlib.Path) -> None:
-	"""Write the cleaned map SVG from an existing Graphify map."""
+def write_graphify_docs(repo_root: pathlib.Path) -> None:
+	"""Write the Graphify page and compact SVG from an existing graph."""
 	if graphify_context_lib.manager_context(repo_root) is None:
 		print(f"No Graphify map exists in {graphify_context_lib.OUTPUT_DIR_NAME}/ yet.")
 		print("Run without a mode, with --fresh, or with --update to build the first map.")
 		return
-	print_step("WRITING CLEANED GRAPHIFY SVG")
-	graphify_executable = require_command("graphify")
-	# ASVS 5.3.2: the output path is fixed inside docs/, never supplied by the caller.
-	figure_summary = graphify_docs_lib.build_figure(graphify_executable, repo_root)
-	if figure_summary is None:
-		print("SVG was not written: Graphify's SVG export is unavailable.")
-		return
-	target_kb = figure_summary["target_bytes"] / 1024
-	figure_path = repo_root / "docs" / graphify_docs_lib.FIGURE_FILE_NAME
-	print(
-		f"Cleaned SVG written to {figure_path.relative_to(repo_root)}: "
-		f"{target_kb:.0f} KB, {figure_summary['removed_labels']} node labels removed, "
-		f"{figure_summary['kept_labels']} community labels kept."
-	)
+	print_step("PUBLISHING GRAPHIFY DOCUMENTATION")
+	# ASVS 5.3.2: the writer owns two fixed paths beneath repository docs/.
+	page_path, figure_path = graphify_docs_lib.write_docs(repo_root)
+	print(f"Graphify page written to {page_path.relative_to(repo_root)}")
+	print(f"Compact SVG written to {figure_path.relative_to(repo_root)}")
 
 
 #============================================
@@ -426,9 +415,12 @@ def main() -> None:
 	require_repo_root(repo_root)
 	if args.mode == MODE_CONTEXT:
 		print_context(repo_root)
+		if args.write_svg:
+			write_graphify_docs(repo_root)
 		return
-	if args.mode == MODE_SVG:
-		write_map_svg(repo_root)
+	# Bare --svg publishes the existing graph without implicitly updating it.
+	if args.mode == MODE_AUTO and args.write_svg:
+		write_graphify_docs(repo_root)
 		return
 
 	is_fresh = graph_build_is_fresh(repo_root, args.mode)
@@ -468,6 +460,8 @@ def main() -> None:
 	print(context)
 	print()
 	print(f"Manager context written to {context_path.relative_to(repo_root)}")
+	if args.write_svg:
+		write_graphify_docs(repo_root)
 
 
 if __name__ == "__main__":

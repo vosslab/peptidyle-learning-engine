@@ -43,12 +43,13 @@ durable release direction remains in [ROADMAP.md](ROADMAP.md).
 ### WeBWorK2
 
 - Relationship: Prior art or inspiration
-- Link: https://github.com/openwebwork/webwork2
+- Link: https://openwebwork.org/
 - Why visitors may care: instructors can explore a mature open homework application for math and
   science courses, including course management and a large community problem library.
-- Evidence: the [official WeBWorK project](https://github.com/openwebwork/webwork2) describes an
-  open-source online homework system, and its [Open Problem Library guide](https://wiki.openwebwork.org/wiki/Open_Problem_Library)
-  documents reviewed, reusable problem contributions. PLE's
+- Evidence: the [official WeBWorK project](https://openwebwork.org/) describes an open-source
+  online homework system for STEM courses and its Open Problem Library; the
+  [Open Problem Library guide](https://wiki.openwebwork.org/wiki/Open_Problem_Library) documents
+  contributed, reviewed, and taxonomy-browsable problems. PLE's
   [question content philosophy](HUMAN_GUIDANCE.md#question-content-philosophy) records the
   deterministic, server-owned question model that bounds this prior-art comparison.
 - Notes: PLE owns its own courses, rosters, assignments, attempts, and gradebook; WeBWorK2 is not a
@@ -183,11 +184,12 @@ durable release direction remains in [ROADMAP.md](ROADMAP.md).
 ### Moodle question banks
 
 - Relationship: Same-workflow project or independent implementation
-- Link: https://docs.moodle.org/500/en/Question_banks
+- Link: https://docs.moodle.org/502/en/Question_banks
 - Why visitors may care: instructors can compare a mature course-shared question-bank workflow with
   preview, editing, categories, cross-course reuse, and exact-version selection.
-- Evidence: Moodle's official documentation describes course-shared and quiz-local banks, reuse
-  across courses, propagated question updates, and version pinning.
+- Evidence: Moodle's [official Question banks guide](https://docs.moodle.org/502/en/Question_banks)
+  describes course-shared and quiz-local banks, cross-course reuse, question history, and choosing
+  an exact version for a quiz.
 - Confidence: likely
 
 ### 1EdTech LTI Advantage
@@ -207,9 +209,10 @@ durable release direction remains in [ROADMAP.md](ROADMAP.md).
 
 The confirmed set requires repository evidence of a current adapter, explicit lineage, named prior
 art, a same-author companion relationship, or a standard already present in PLE's contracts. The
-possible set comes from bounded seed and widening discovery reviewed on 2026-09-04. Official
-WeBWorK, Numbas, and 1EdTech QTI sources confirm the shared assessment-authoring, question-reuse,
-automatic-grading, or LMS-integration workflows; retained entries preserve their own evidence links.
+possible set comes from bounded seed and widening discovery reviewed on 2026-09-05. Official
+PrairieLearn, Moodle, iMathAS, WeBWorK, H5P, Numbas, and 1EdTech sources confirm the shared
+assessment-authoring, question-reuse, automatic-grading, content-interchange, or LMS-integration
+workflows; retained entries preserve their own evidence links.
 
 The distinctions between WeBWorK2, PG, and `webwork-pg-renderer` are intentional: WeBWorK2 is the
 full application and prior art, PG is the upstream question engine, and the standalone renderer is

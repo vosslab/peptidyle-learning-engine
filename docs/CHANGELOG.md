@@ -31,6 +31,10 @@
 
 ### Fixes and Maintenance
 
+- Refreshed the README; architecture and file map; installation and usage; FAQ and input formats;
+  roadmap and TODO; development, troubleshooting, and cookbook; and related-projects documentation
+  from current contracts and executable boundaries. The seeded Live Demo still proves only
+  server-owned ordinary-session entry; retained teaching and browser workflows remain unavailable.
 - Corrected generated Ribbon destination-ledger evidence links so the anchor text names the linked
   repository path and the exact `::symbol` remains adjacent evidence outside the anchor. The
   generator contract now prevents path-like labels from drifting away from their GitHub targets;
@@ -50,6 +54,7 @@
   boundary.
 - Rotated the complete 2026-09-03 changelog day block to `docs/CHANGELOG-2026-09d.md`, retaining
   exactly the two newest date blocks in this active changelog.
+- Synchronized shared style guides, tests, and repository support files from the starter template.
 
 ### Removals and Deprecations
 
@@ -62,6 +67,10 @@
 
 ### Decisions and Failures
 
+- Screenshot capture was skipped because Playwright and the canonical production-browser owner were
+  unavailable. Existing historical README embeds remain preserved as design reference, not current
+  browser, accessibility, visual, privacy, or teaching-workflow acceptance. No duplicate NEWS or
+  release-history block was added because `v26.09` already has one.
 - Current Ribbon Availability remains truthfully all unbacked and therefore unavailable: no backend,
   Server Route, Service, or Browser Surface is claimed by this close-out. `./run_playwright_tests.sh`
   remains unclaimed because it requires documented human-owned `PLE_*` real-stack inputs. Focused
