@@ -1,6 +1,7 @@
 # Human guidance
 
 <!-- VENDORED HEADER: START -->
+
 Record the durable guidance Neil Voss states, or approves for preservation here, in his own words:
 first person or close paraphrase, one to three lines per bullet. Material he supplies as a source
 may inform [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) once it is settled, and an entry of uncertain
@@ -55,7 +56,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - PLE accounts should be global within that installation and use passwordless email authentication.
 - Email is not configured for the Live Demo yet; use the visible seeded-role entry for demo access.
 - Project images and simulated live-stack data are disposable acceptance infrastructure.
-- `./run_live_demo.sh` is the normal local-stack entry point. For direct controller
+- `./launchers/run_live_demo.sh` is the normal local-stack entry point. For direct controller
   diagnostics, use `source source_me.sh && python3 local_stack.py`.
 
 ## Interface philosophy

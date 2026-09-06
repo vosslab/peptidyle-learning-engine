@@ -3,10 +3,10 @@
 
 set -euo pipefail
 
-script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+repository_root="$(git rev-parse --show-toplevel)"
 
 usage() {
-  echo "Usage: ./run_live_demo.sh [--headless|start [--open|--headless]|open|--open|stop]"
+  echo "Usage: ./launchers/run_live_demo.sh [--headless|start [--open|--headless]|open|--open|stop]"
 }
 
 command="start"
@@ -56,22 +56,22 @@ case "$#" in
 esac
 
 # shellcheck disable=SC1091
-source "$script_directory/source_me.sh"
+source "$repository_root/source_me.sh"
 
 case "$command" in
   open|stop)
     # ASVS 1.2.5: fixed controller path and literal arguments avoid shell evaluation.
-    exec python3 "$script_directory/local_stack.py" "$command"
+    exec python3 "$repository_root/local_stack.py" "$command"
     ;;
 esac
 
-"$script_directory/devel/setup_typescript.sh"
+"$repository_root/devel/setup_typescript.sh"
 
 case "$headless" in
   true)
-    exec python3 "$script_directory/local_stack.py" start --headless
+    exec python3 "$repository_root/local_stack.py" start --headless
     ;;
   false)
-    exec python3 "$script_directory/local_stack.py" start
+    exec python3 "$repository_root/local_stack.py" start
     ;;
 esac

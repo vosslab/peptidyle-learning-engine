@@ -11,7 +11,7 @@ is not a runnable course-delivery demonstration.
 Start the Live Demo:
 
 ```bash
-./run_live_demo.sh
+./launchers/run_live_demo.sh
 ```
 
 After the Python prerequisites in [INSTALL.md](INSTALL.md) are present, this command sources the
@@ -24,21 +24,36 @@ your browser.
 To open the ready URL of an already-running demo, use:
 
 ```bash
-./run_live_demo.sh open
+./launchers/run_live_demo.sh open
 ```
 
 `--open` is a compatible shorthand for `open`. To create a fresh demo and open it automatically,
-use `./run_live_demo.sh start --open`. `--headless` remains an accepted explicit spelling of the
+use `./launchers/run_live_demo.sh start --open`. `--headless` remains an accepted explicit spelling of the
 default non-opening behavior.
 
 Stop the disposable stack through its owner:
 
 ```bash
-./run_live_demo.sh stop
+./launchers/run_live_demo.sh stop
 ```
 
 Starting again replaces this project's disposable resources and seeded state. It
 does not change unrelated Podman projects.
+
+## Capture current Live Demo screenshots
+
+Rebuild every declared current screenshot with one developer command:
+
+```bash
+./devel/capture_screenshots.sh
+```
+
+The command starts a fresh headless Live Demo through `launchers/run_live_demo.sh`, delegates
+browser installation to `devel/setup_playwright.sh`, enters as Elena Instructor
+through the visible Account selector, and writes six images under
+`docs/screenshots/live_demo/`. It leaves the ready Live Demo running for manual
+inspection. These captures are one-time visual evidence, not permanent tests or
+evidence for the unavailable teaching workflows.
 
 ## Current Live Demo entry
 

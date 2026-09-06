@@ -1,9 +1,26 @@
 # Changelog
 
+## 2026-09-06
+
+### Fixes and Maintenance
+
+- Moved the retained Playwright browser-test wrapper from the repository root to
+  [`devel/run_playwright_tests.sh`](../devel/run_playwright_tests.sh), matching its developer-only
+  role and private real-stack input boundary. Its build check, argument forwarding, Playwright
+  invocation, Git-root resolution, and exit behavior remain unchanged. Current operational
+  references use the new path; historical changelog entries, completed plans, and recorded command
+  evidence retain the path that was current when written.
+
 ## 2026-09-05
 
 ### Additions and New Features
 
+- Restored one developer screenshot command at `devel/capture_screenshots.sh`. It delegates the
+  fresh fixed Live Demo and Playwright installation to their existing launchers, enters through the
+  visible Elena Instructor Account choice, and regenerates six current desktop, selected-state,
+  invitation-email, tablet, and phone images under `docs/screenshots/live_demo/`. The capture is
+  one-time visual evidence rather than a permanent test or a revival of the retired teaching-workflow
+  corpus.
 - Added a deployment-gated `/live-demo/ribbon` developer showcase as the seeded
   sign-in destination. It renders the real production `AppRibbon` from an
   explicitly labelled populated Instructor structural model; activating a
@@ -42,6 +59,12 @@
 
 ### Fixes and Maintenance
 
+- Moved the Live Demo front door from the repository root to
+  [`launchers/run_live_demo.sh`](../launchers/run_live_demo.sh). The launcher now resolves the
+  checkout through Git before sourcing `source_me.sh`, while its start, open, stop, default-headless,
+  TypeScript-setup, and fixed-owner behavior remains unchanged. Current commands and the screenshot
+  launcher now use the new path; historical changelogs and archived plans retain the path that was
+  current when they were written.
 - Repaired the disposable Live Demo's first migration by creating its exact temporary
   `ple_migrator` principal and default-deny bootstrap grants before Cargo applies the immutable
   principal-baseline migration. The lifecycle now verifies that migrated schema through the actual
@@ -52,7 +75,7 @@
   Its generated HTTPS target now supplies that exact browser origin to the production API, and
   both the API and gateway health checks preserve the canonical public `Host` authority instead
   of sending their internal listener addresses.
-  [Brewfile](../Brewfile) now declares the system-wide Python prerequisite. `run_live_demo.sh`
+  [Brewfile](../Brewfile) now declares the system-wide Python prerequisite. `launchers/run_live_demo.sh`
   always delegates TypeScript dependency setup to its existing helper without managing Python.
 - The Live Demo launcher now prints its ready HTTPS URL by default so an operator can choose the
   browser that opens it. `open` reads and opens the authenticated URL of an already-running suite,

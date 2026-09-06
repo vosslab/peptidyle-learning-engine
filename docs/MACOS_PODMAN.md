@@ -111,11 +111,11 @@ check.
 ## Cleaning up
 
 ```bash
-./run_live_demo.sh stop                            # stop and remove live-demo data
+./launchers/run_live_demo.sh stop                  # stop and remove live-demo data
 podman machine stop                                # stop the virtual machine
 ```
 
-`./run_live_demo.sh stop` performs the authenticated owner cleanup for the
+`./launchers/run_live_demo.sh stop` performs the authenticated owner cleanup for the
 fixed live-demo project. It removes only that project's labelled containers,
 volumes, networks, and private workspace, so the next launch starts with a
 fresh demo dataset. Review status and logs before stopping when diagnostic

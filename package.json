@@ -7,7 +7,7 @@
     "setup": "./devel/setup_typescript.sh",
     "setup:playwright": "./devel/setup_playwright.sh",
     "build": "./build.sh",
-    "launch": "./run_live_demo.sh",
+    "launch": "./launchers/run_live_demo.sh",
     "build:wasm": "./pipeline/build_wasm.sh",
     "check": "./check_codebase.sh",
     "clean": "./devel/clean_build.sh",

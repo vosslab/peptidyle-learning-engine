@@ -28,17 +28,17 @@ git clone https://github.com/vosslab/peptidyle-learning-engine.git
 cd peptidyle-learning-engine
 brew bundle
 source source_me.sh && python3 -m pip install --requirement pip_requirements.txt
-./run_live_demo.sh
+./launchers/run_live_demo.sh
 ```
 
-`./run_live_demo.sh` is the supported live-demo front door. It sources the repository shell
-environment through its fixed `source_me.sh` path and invokes `python3 local_stack.py`. When
+`./launchers/run_live_demo.sh` is the supported live-demo front door. It resolves the checkout
+through Git, sources the repository `source_me.sh`, and invokes `python3 local_stack.py`. When
 starting, it runs `devel/setup_typescript.sh`; that helper owns TypeScript dependency setup. Cargo
 restores its checkout-local build artifacts during the build. The launcher then builds the
 production `dist/` bundle and creates the
 disposable `ple-live-demo-browser` HTTPS session, and prints its ready origin. Open that URL in your
-browser, or run `./run_live_demo.sh open` to open an already-running demo automatically. Use
-`./run_live_demo.sh start --open` to create a fresh demo and open it. Select a seeded persona in the
+browser, or run `./launchers/run_live_demo.sh open` to open an already-running demo automatically. Use
+`./launchers/run_live_demo.sh start --open` to create a fresh demo and open it. Select a seeded persona in the
 visible PLE sign-in flow. The server derives its Account and ordinary
 Authenticated Session from disposable seeded state, then opens the explicitly labelled populated
 Ribbon and invitation-mailer developer showcase. The Ribbon controls change preview selection only;
@@ -52,14 +52,14 @@ production-shaped; this is not a browser mock or a separate WebWork2 application
 Use the non-opening form when a browser is unavailable:
 
 ```bash
-./run_live_demo.sh --headless
+./launchers/run_live_demo.sh --headless
 ```
 
 It starts the same stack and prints the HTTPS origin. Stop the session through its owner when you
 finish:
 
 ```bash
-./run_live_demo.sh stop
+./launchers/run_live_demo.sh stop
 ```
 
 ## Developer tools
@@ -84,7 +84,7 @@ dependencies are present:
 ```
 
 The script requires `node_modules`; run `./devel/setup_typescript.sh` first when starting from a
-checkout that has not yet run `./run_live_demo.sh`. Browser installation is optional for the
+checkout that has not yet run `./launchers/run_live_demo.sh`. Browser installation is optional for the
 headless live-demo start and for offline Rust, TypeScript, and Python checks.
 
 ## Seeded accounts
@@ -110,8 +110,8 @@ After the browser opens, use the visible **Explore this live demo** panel on the
 From a fresh checkout, use the non-opening launch as the installation verification:
 
 ```bash
-./run_live_demo.sh --headless
-./run_live_demo.sh stop
+./launchers/run_live_demo.sh --headless
+./launchers/run_live_demo.sh stop
 ```
 
 The first command must print a ready HTTPS origin; the second must confirm owner-scoped cleanup.

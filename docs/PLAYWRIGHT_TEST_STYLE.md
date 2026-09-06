@@ -64,7 +64,7 @@ user actually receives.
 - Pin a random free port into an environment variable so parallel workers agree
   on the same URL.
 
-A repo can wrap the runner flow in a `run_playwright_tests.sh` that preflights
+A repo can wrap the runner flow in a `devel/run_playwright_tests.sh` that preflights
 tooling, rebuilds on `--build`, forwards remaining arguments to
 `npx playwright test`, and prints a single PASS or FAIL line. Reuse that shape
 where a repo wants one entry point.

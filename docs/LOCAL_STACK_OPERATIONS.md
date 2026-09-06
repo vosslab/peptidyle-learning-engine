@@ -1,7 +1,7 @@
 # Local stack operations
 
 This guide operates the local Podman stack for the Peptidyle Learning Engine.
-The canonical developer/browser entry point is [run_live_demo.sh](../run_live_demo.sh);
+The canonical developer/browser entry point is [launchers/run_live_demo.sh](../launchers/run_live_demo.sh);
 it delegates to `local_stack.py` and the private `local_stack_control` owner.
 The topology is defined by [containers/compose.yaml](../containers/compose.yaml)
 and the fixed production-auth overlay at
@@ -96,15 +96,15 @@ disposable data. Production uses managed RDS, S3, IAM, and KMS controls.
 
 ## First run
 
-Use the root script from the repository root:
+Use the launcher from the repository root:
 
 ```bash
-./run_live_demo.sh
-./run_live_demo.sh open
-./run_live_demo.sh start --open
+./launchers/run_live_demo.sh
+./launchers/run_live_demo.sh open
+./launchers/run_live_demo.sh start --open
 ```
 
-The script sources [source_me.sh](../source_me.sh) through its fixed script-directory path,
+The launcher resolves the checkout through Git, sources [source_me.sh](../source_me.sh),
 runs [devel/setup_typescript.sh](../devel/setup_typescript.sh), and then runs
 `python3 local_stack.py start`. Start always builds the production `dist/`
 bundle, creates a fresh fixed target, waits for the HTTPS gateway, and prints its URL for an operator
@@ -126,7 +126,7 @@ cleanup. It accepts no project, environment, identity, SMTP, or skipped-build
 selector. Bare `podman compose up` against an empty database is not an
 equivalent bootstrap path.
 
-If you request `./run_live_demo.sh stop` while that owner is still starting, the
+If you request `./launchers/run_live_demo.sh stop` while that owner is still starting, the
 command waits for its authenticated stop endpoint rather than attempting a second cleanup. It then
 stops the same fixed owner normally.
 
@@ -216,7 +216,7 @@ entry point.
 Stop the canonical live-demo session with:
 
 ```bash
-./run_live_demo.sh stop
+./launchers/run_live_demo.sh stop
 ```
 
 The stop request authenticates to the private owner control socket. The owner

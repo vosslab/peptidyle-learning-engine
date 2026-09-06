@@ -292,7 +292,7 @@ def start(
 		open_developer_origin(runner, repo_root, entry_url)
 	print(f"Live demo entry: {entry_url}")
 	print(f"Project: {result.project}")
-	print("Stop with: ./run_live_demo.sh stop")
+	print("Stop with: ./launchers/run_live_demo.sh stop")
 	return 0
 
 

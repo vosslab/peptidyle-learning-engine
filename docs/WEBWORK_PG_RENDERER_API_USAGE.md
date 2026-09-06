@@ -187,7 +187,7 @@ Live acceptance is intentionally separate:
 cargo test -p adapter_webwork --all-targets
 cargo clippy -p adapter_webwork --all-targets -- -D warnings
 source source_me.sh && python3 local_stack.py validate
-./run_playwright_tests.sh --build
+./devel/run_playwright_tests.sh --build
 ```
 
 Exact Compose and lifecycle source inspection was useful during the renderer

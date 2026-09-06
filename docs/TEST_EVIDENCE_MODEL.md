@@ -128,7 +128,7 @@ ends unless it independently meets the permanent-test standard.
 
 PLE retains one intended production `dist/` browser artifact and fixed
 disposable real-stack browser path. The prior Playwright owner configuration
-and `./run_playwright_tests.sh --build` invocation currently have no executable owner;
+and `./devel/run_playwright_tests.sh --build` invocation currently have no executable owner;
 they are not current aggregate evidence. Restoring that canonical owner is
 required before release acceptance.
 
@@ -160,15 +160,18 @@ claim.
 
 ## Visual evidence
 
-The retired screenshot corpus, capture command, manifest, and private publisher
-are absent from the current tree. Retained images under `docs/screenshots/` are
-historical visual reference only; they establish no current browser acceptance.
+`./devel/capture_screenshots.sh` is the single current Live Demo capture command.
+It regenerates the fixed disposable Browser Suite, serves the production bundle
+through its HTTPS gateway, enters through the visible seeded Account selector,
+and rebuilds the six declared desktop, tablet, phone, selected-state, and
+invitation-email images under `docs/screenshots/live_demo/`.
 
-Visual changes require a restored single browser owner that serves the current
-production bundle through the local stack, captures real UI-created state, and
-records privacy and human visual-review evidence. Until that owner exists, the
-affected visual acceptance gate remains unrun rather than substituted with a
-Node test or a historical image gallery.
+This command is one-time rendered evidence, not a permanent test or full product
+browser-acceptance lane. It proves only the currently implemented Account entry
+and developer-showcase surfaces. Retained images elsewhere under
+`docs/screenshots/` remain historical visual reference, and unavailable teaching
+workflows remain unclaimed until their Server Routes and production-browser
+scenarios are restored.
 
 ## Service-only acceptance
 

@@ -28,20 +28,20 @@ The current code and contracts preserve two non-negotiable boundaries:
 See [MASTERY_ASSIGNMENT_DESIGN.md](docs/MASTERY_ASSIGNMENT_DESIGN.md) for the teaching model and
 [CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) for the technical ownership boundary.
 
-## Historical interface reference
+## Current Live Demo screenshots
 
-These retained images illustrate planned Instructor and Student teaching surfaces. They are
-historical design reference, not evidence that a current browser workflow is available.
+These images come from the production bundle served by the fixed disposable Live Demo owner.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Instructor assignment Policies workspace showing delivery, completion, grading, and continued-practice controls](docs/screenshots/instructor/assignment_workspace/01_assignment_policies.png)
-![Student practice Assignment Attempt showing server-returned feedback after a selected peptide-bond response](docs/screenshots/student/delivery/05_feedback_correct.png)
-![Instructor Gradebook showing the completed Peptide Bonds Guided Practice result](docs/screenshots/instructor/grading/01_instructor_gradebook.png)
+![Live Demo Account selector showing the five seeded Accounts](docs/screenshots/live_demo/01_account_selection.png)
+![Live Demo showing the populated production Instructor Ribbon](docs/screenshots/live_demo/02_instructor_ribbon.png)
+![Live Demo attended invitation email panel showing its dry-run and bounded send commands](docs/screenshots/live_demo/04_invitation_email_hack.png)
 <!-- screenshots:end -->
 
-Current screenshots require a restored browser owner that creates visible state through the local
-stack and records accessibility, privacy, and human visual review evidence.
+Run `./devel/capture_screenshots.sh` to rebuild all six current desktop, tablet, phone, selected
+state, and invitation-email images. They demonstrate only the current Live Demo surfaces; the older
+teaching-workflow images under `docs/screenshots/` remain historical design reference.
 
 ## Quick start
 
@@ -50,7 +50,7 @@ the prerequisites in [INSTALL.md](docs/INSTALL.md), including Python, Rust, Node
 and a usable Compose provider. Then run:
 
 ```bash
-./run_live_demo.sh
+./launchers/run_live_demo.sh
 ```
 
 The command runs the existing TypeScript setup, builds the production browser bundle, starts the
@@ -59,13 +59,13 @@ Open that URL in your browser to
 choose a seeded persona; the server derives the ordinary authenticated session from disposable
 seeded state and opens the developer showcase. There you can inspect and activate the production
 Ribbon's structural preview and copy the existing attended invitation-mailer commands. Run
-`./run_live_demo.sh open` (or its `--open` shorthand) to open an already-running demo; use
-`./run_live_demo.sh start --open` to create a fresh demo and open it.
+`./launchers/run_live_demo.sh open` (or its `--open` shorthand) to open an already-running demo; use
+`./launchers/run_live_demo.sh start --open` to create a fresh demo and open it.
 
 Stop the disposable stack when you finish:
 
 ```bash
-./run_live_demo.sh stop
+./launchers/run_live_demo.sh stop
 ```
 
 Relaunching replaces this demo's containers, volumes, networks, and seeded records. It does not

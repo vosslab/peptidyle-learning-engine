@@ -59,7 +59,7 @@ starting a service or acceptance lane:
 
 ```bash
 source source_me.sh && python3 local_stack.py --help
-./run_live_demo.sh --help
+./launchers/run_live_demo.sh --help
 ```
 
 The help commands do not start containers, open a browser, or mutate generated artifacts. Choose
@@ -131,17 +131,19 @@ bounded work item.
 | Repository documentation and hygiene       | `source source_me.sh && python3 -m pytest tests/`          | Fast Python hygiene and repository-rule checks.                      |
 | Connected current acceptance               | `source source_me.sh && python3 local_stack.py acceptance` | Current database/object service receipts under the typed controller. |
 | Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                             | The named disposable whole-system oracle.                            |
-| All named non-browser E2E checks            | `bash tests/e2e/e2e_run_all.sh`                            | The current build, CLI, contract, and named-service E2E collection.  |
+| All named non-browser E2E checks           | `bash tests/e2e/e2e_run_all.sh`                            | The current build, CLI, contract, and named-service E2E collection.  |
 | Local stack diagnosis and lifecycle        | `source source_me.sh && python3 local_stack.py <command>`  | The scoped controller contract.                                      |
+| Current Live Demo screenshots              | `./devel/capture_screenshots.sh`                           | The rendered Account entry and developer-showcase surfaces.          |
 
 `tests/playwright/` is browser-driven testing and `tests/e2e/` is non-browser whole-system
 orchestration. Both are intentionally excluded from `pytest tests/`; see
 [E2E_TESTS.md](E2E_TESTS.md) for the test-tier boundary. Install the browser binaries once with
 `./devel/setup_playwright.sh` (or `npm run setup:playwright`) before running Playwright.
-The current aggregate validates the active code and service contracts without claiming browser,
-visual, or screenshot acceptance. The retained Playwright wrapper requires a real-stack
-browser-suite owner input; it is not a developer quickstart or current aggregate evidence.
-The canonical production-browser owner remains a release-blocking restoration item.
+The current aggregate validates the active code and service contracts without claiming browser or
+visual acceptance. The Live Demo screenshot command is a separate one-time developer-evidence lane.
+The retained Playwright wrapper requires a real-stack browser-suite owner input; it is not a
+developer quickstart or current aggregate evidence. The complete teaching-workflow
+production-browser owner remains a release-blocking restoration item.
 
 ### Permanent and connected evidence
 
@@ -166,14 +168,15 @@ it satisfies the admission rules in [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL
 
 ### Production-browser execution
 
-The required canonical production-browser owner currently has no executable owner. Its restored
-dedicated command will build production `dist/`, serve it through the HTTPS PLE gateway, and create
-product state through visible PLE controls. Until that owner and available course-delivery routes
-exist together, browser, visual, and visible-workflow evidence remain unrun and unclaimed.
+`./devel/capture_screenshots.sh` owns current Live Demo capture. It builds production `dist/`, serves
+it through the fixed HTTPS PLE gateway, and enters through the visible seeded Account selector.
+Its six images prove only the Account-entry and developer-showcase surfaces. Until the unavailable
+course-delivery routes and their complete browser scenarios exist together, teaching-workflow
+browser and visual evidence remain unrun and unclaimed.
 
 `source source_me.sh && python3 local_stack.py acceptance` is not a Playwright command: it runs
 only the two browser-free service lanes described above. The retained
-`./run_playwright_tests.sh` wrapper requires private real-stack owner input and is not a supported
+`./devel/run_playwright_tests.sh` wrapper requires private real-stack owner input and is not a supported
 developer quickstart or current acceptance entry point. Do not use either command to claim
 production-browser acceptance. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the
 evidence boundary and [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for live-stack
@@ -234,17 +237,17 @@ than building a second WeBWorK platform or database. See
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for the owner and cleanup
 contract.
 
-The convenience wrapper `./run_live_demo.sh` starts or stops that same owner. It sources the
-repository shell environment through its fixed `source_me.sh` path, runs `python3 local_stack.py`,
+The convenience wrapper `./launchers/run_live_demo.sh` starts or stops that same owner. It resolves
+the checkout through Git, sources the repository `source_me.sh`, runs `python3 local_stack.py`,
 and delegates TypeScript dependency setup to `devel/setup_typescript.sh` before a start. It prints
 the ready HTTPS origin without
-opening a browser. Run `./run_live_demo.sh open` to open an already-running demo, or
-`./run_live_demo.sh start --open` to create a fresh demo and open it. Use it for a human demo; use
+opening a browser. Run `./launchers/run_live_demo.sh open` to open an already-running demo, or
+`./launchers/run_live_demo.sh start --open` to create a fresh demo and open it. Use it for a human demo; use
 `source source_me.sh && python3 local_stack.py <command>` directly when selecting a controller
 command or collecting diagnostics.
 
 `source_me.sh` is a shell precondition: it requires Bash and loads the repository's shell setup.
-`run_live_demo.sh` and direct controller diagnostics use that shell environment and `python3`.
+`launchers/run_live_demo.sh` and direct controller diagnostics use that shell environment and `python3`.
 Install the live-demo runtime dependency with
 `source source_me.sh && python3 -m pip install --requirement pip_requirements.txt`.
 For pytest and aggregate-validation commands, install both declared requirement files with

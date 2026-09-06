@@ -68,7 +68,7 @@ correctly.
 node tools/capture_page.mjs
 ```
 
-When a repository provides a runner such as `run_playwright_tests.sh`, prefer that runner over
+When a repository provides a runner such as `devel/run_playwright_tests.sh`, prefer that runner over
 invoking `npx playwright test` directly. Repository-owned runners may provide required preflight
 checks, configuration paths, server coordination, argument handling, and consistent result
 reporting.

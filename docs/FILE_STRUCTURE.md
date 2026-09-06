@@ -21,17 +21,19 @@ spelling.
 +- docs/                   Durable references, history, and bounded active work
 +- local_stack_control/    Typed local-stack and acceptance lifecycle
 +- invitation_mailer/      Temporary attended Mail.app sender implementation
-+- launchers/              User-facing entry points and the aggregate gate wrapper
++- launchers/              User-facing and aggregate entry points
+|  +- run_live_demo.sh     Live-demo lifecycle front door
+|  +- send_invitations.py  Temporary attended invitation-mailer front door
+|  `- all_test.sh          Ordered aggregate Validation wrapper
 +- devel/                  Developer-maintenance commands
+|  `- run_playwright_tests.sh Retained real-stack-input browser-test wrapper
 +- tools/                  Focused repository utilities
 +- Cargo.toml              Rust workspace manifest
 +- package.json            Browser tooling manifest
 +- invitation_mailer.yaml  Recipient-domain allowlist and throttle for the mailer
 +- build.sh                Full local build entry point
 +- check_rust.sh           Rust gate
-+- check_codebase.sh       Fast TypeScript/Node typecheck, lint, format, and test gate
-+- run_live_demo.sh        Live-demo lifecycle front door
-`- run_playwright_tests.sh Retained real-stack-input wrapper; not a current acceptance entry point
+`- check_codebase.sh       Fast TypeScript/Node typecheck, lint, format, and test gate
 ```
 
 OTHER_REPOS/ contains reference snapshots only. It is not a runtime,
@@ -226,9 +228,11 @@ stay in their named E2E or human-review lanes. See
 [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
 
 Build output such as dist/, dist_wasm/, target/, and test-results/ is reproducible
-ignored state. Committed screenshots under docs/screenshots/ are historical
-visual reference, not source contracts. The former screenshot manifest and
-publisher are absent; a restored browser owner will own fresh visual evidence.
+ignored state. `devel/capture_screenshots.sh` owns the current Live Demo images
+under docs/screenshots/live_demo/ through the fixed production HTTPS Browser
+Suite. Other committed screenshots are historical visual reference, not source
+contracts. The former teaching-workflow corpus and private publisher remain
+retired.
 
 ## Documentation map
 

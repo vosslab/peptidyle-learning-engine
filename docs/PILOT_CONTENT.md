@@ -59,7 +59,7 @@ internal for grading and Question Attempt Reproduction Details.
 Browser student behavior is selected only through the canonical wrapper:
 
 ```bash
-./run_playwright_tests.sh --build
+./devel/run_playwright_tests.sh --build
 ```
 
 That wrapper owns the production `dist/` build, HTTPS stack, browser selection,

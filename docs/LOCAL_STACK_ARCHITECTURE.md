@@ -6,7 +6,7 @@ fixed developer stack exist? The owner uses
 `tests/e2e/compose.live-demo-browser.yaml`.
 The base defines common services, networks, hardening, and one-shot setup; the
 owner overlay selects seeded production authentication and the TLS gateway. The
-normal path is `./run_live_demo.sh`. Direct controller operations use
+normal path is `./launchers/run_live_demo.sh`. Direct controller operations use
 `source source_me.sh && python3 local_stack.py`.
 Focused private `local_stack_control` modules and the canonical browser owner
 hold the lease through bootstrap, startup, migration, seed, Question Renderer Version,
@@ -97,7 +97,7 @@ storage, IAM, and KMS controls.
 The normal stop command is authenticated owner cleanup:
 
 ```bash
-./run_live_demo.sh stop
+./launchers/run_live_demo.sh stop
 ```
 
 The owner verifies exact cleanup of its resources; do not remove unrelated
@@ -168,7 +168,7 @@ serve `dist/`, or execute a browser scenario. Its conflict preflight excludes
 an existing default or fixed live-demo stack so these bounded service owners
 cannot be confused with a browser lifecycle.
 
-The prior `./run_playwright_tests.sh --build` wrapper and root Playwright
+The `./devel/run_playwright_tests.sh --build` wrapper and prior root Playwright
 configuration still describe a private input from a production-browser owner,
 but that owner/configuration is not currently restored as an executable,
 accepted browser path. Treat that wrapper as historical/future restoration

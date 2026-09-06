@@ -1,7 +1,7 @@
 # Troubleshooting local stacks
 
 Use this guide when the fixed production-shaped developer stack does not start,
-does not become ready, or does not clean up. The root wrapper owns ordinary
+does not become ready, or does not clean up. The launcher owns ordinary
 start and stop operations. The controller is the direct, scoped diagnostic
 interface; it does not authorize a caller-selected live-demo project.
 
@@ -10,13 +10,13 @@ For prerequisites and normal operation, see [INSTALL.md](INSTALL.md),
 
 ## Triage order
 
-Use the root front door for mutations. It sources the repository shell environment and invokes
+Use the launcher front door for mutations. It sources the repository shell environment and invokes
 the fixed controller with `python3`, selects the owner-locked `ple-live-demo-browser` project,
 and does not accept a caller-selected project, environment, or identity. Start
 with read-only inspection, preserve the private owner receipt, and change one
 named failure at a time. The command surface is implemented in
 [local_stack.py](../local_stack.py#L1-L28) and the wrapper dispatch is in
-[run_live_demo.sh](../run_live_demo.sh#L27-L43).
+[launchers/run_live_demo.sh](../launchers/run_live_demo.sh#L27-L43).
 
 Do not use `podman compose down`, `podman system prune`, or another global
 cleanup command. Those commands bypass the label and lease checks that prove
@@ -24,13 +24,13 @@ the project scope.
 
 ## Preflight failures
 
-- **`python3 is required`:** run `brew bundle`, then rerun `./run_live_demo.sh`. The wrapper sources
+- **`python3 is required`:** run `brew bundle`, then rerun `./launchers/run_live_demo.sh`. The wrapper sources
   `source_me.sh` and invokes the controller directly.
 - **`command not found on PATH`:** install the named prerequisite and retry
-  `./run_live_demo.sh`. The wrapper requires Git, Podman, curl, awk, OpenSSL,
+  `./launchers/run_live_demo.sh`. The wrapper requires Git, Podman, curl, awk, OpenSSL,
   xxd, and lsof.
 - **`neither 'podman compose' nor 'podman-compose' is usable`:** install one
-  supported Podman Compose provider and retry `./run_live_demo.sh`.
+  supported Podman Compose provider and retry `./launchers/run_live_demo.sh`.
 - **`a custom mutating env file must already exist and have mode 0600`:** use
   the repository's first-run path with the default environment. Do not point
   the wrapper at another environment, project, identity, SMTP configuration,
@@ -71,7 +71,7 @@ the renderer identity, and the available engine without mutating the stack.
   podman machine list
   podman machine start
   podman info
-  ./run_live_demo.sh
+  ./launchers/run_live_demo.sh
   ```
 
   On macOS, use the resource values in [MACOS_PODMAN.md](MACOS_PODMAN.md) if
@@ -86,16 +86,16 @@ the renderer identity, and the available engine without mutating the stack.
 
 - **`local port ... is already listening`:** identify the owning process with
   the reported port, stop only that process if you own it, then retry
-  `./run_live_demo.sh`. The fixed owner chooses a free loopback gateway port
+  `./launchers/run_live_demo.sh`. The fixed owner chooses a free loopback gateway port
   on first setup when the default port is occupied.
 - **`selected gateway port is occupied`:** correct the selected environment's
-  port ownership, then retry `./run_live_demo.sh`; do not substitute a project
+  port ownership, then retry `./launchers/run_live_demo.sh`; do not substitute a project
   or arbitrary port through the command line.
 
 ## Startup failures
 
 - **`host artifact build failed (...)`:** inspect the reported build failure,
-  correct the source or dependency, then retry `./run_live_demo.sh`. The owner
+  correct the source or dependency, then retry `./launchers/run_live_demo.sh`. The owner
   builds the production `dist/` bundle before Compose startup.
 - **`PostgreSQL did not become ready`:** inspect retained services and database
   logs, correct the reported container, image, or volume problem, then retry:
@@ -103,18 +103,18 @@ the renderer identity, and the available engine without mutating the stack.
   ```bash
   source source_me.sh && python3 local_stack.py status --project ple-live-demo-browser
   source source_me.sh && python3 local_stack.py logs --project ple-live-demo-browser --tail 120 postgres
-  ./run_live_demo.sh
+  ./launchers/run_live_demo.sh
   ```
 
 - **`the stack did not become ready`:** inspect `gateway`, `api`, and
   `webwork-renderer` logs. Readiness is semantic `/health`, not merely a
   running container.
-  Retry the same `./run_live_demo.sh` command after correcting the named
+  Retry the same `./launchers/run_live_demo.sh` command after correcting the named
   failure.
 - **Gateway `unhealthy` while `webwork-renderer` is `starting`:** this is a
   normal transient dependency state. Wait for the configured timeout. If it
   expires, inspect renderer logs first, correct the renderer image or
-  render/grade probe failure, and retry `./run_live_demo.sh`.
+  render/grade probe failure, and retry `./launchers/run_live_demo.sh`.
 - **`running renderer does not match the selected OCI configuration`** or
   **`renderer service is missing or ambiguous`:** preserve the private owner
   receipt, inspect status and renderer logs, and retry the fixed wrapper after
@@ -166,7 +166,7 @@ migrations`:** preserve the retained resource and private owner receipt.
 
   ```bash
   source source_me.sh && python3 local_stack.py reset --confirm-project containers
-  ./run_live_demo.sh
+  ./launchers/run_live_demo.sh
   ```
 
   Retained receipt history follows the separately planned immutable augmentation
@@ -179,7 +179,7 @@ Stop the active developer owner and remove its fixed disposable browser
 containers, volumes, networks, and private workspace:
 
 ```bash
-./run_live_demo.sh stop
+./launchers/run_live_demo.sh stop
 ```
 
 This stop is intentionally destructive to the disposable live-demo data. If

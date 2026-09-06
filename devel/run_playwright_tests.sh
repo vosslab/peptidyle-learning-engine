@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run_playwright_tests.sh - run the Playwright browser test suite.
+# devel/run_playwright_tests.sh - run the Playwright browser test suite.
 #
 # Contract:
 #   - Requires node and npm on PATH.
@@ -20,16 +20,16 @@
 #   --build       Force rebuild of dist/ before running tests.
 #
 # Examples:
-#   bash run_playwright_tests.sh
-#   bash run_playwright_tests.sh --build
-#   bash run_playwright_tests.sh tests/playwright/smoke.spec.ts
+#   ./devel/run_playwright_tests.sh
+#   ./devel/run_playwright_tests.sh --build
+#   ./devel/run_playwright_tests.sh tests/playwright/smoke.spec.ts
 
 set -euo pipefail
 
 # Usage
 usage() {
 	cat <<'USAGE'
-Usage: run_playwright_tests.sh [-h|--help] [--build] [PLAYWRIGHT_ARGS...]
+Usage: ./devel/run_playwright_tests.sh [-h|--help] [--build] [PLAYWRIGHT_ARGS...]
 
   -h, --help    Print this help and exit 0.
   --build       Force a dist/ rebuild before running tests.

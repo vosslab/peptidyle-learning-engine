@@ -19,7 +19,7 @@ not a new authorization claim.
 
 | Record or capability                                            | Exact owner or scope                                                  | Authorization                                                   |
 | --------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Account, Authentication Email, future passkey, session           | Global `AccountId` and Authenticated Session                          | Account/session contract; passkeys are deferred                |
+| Account, Authentication Email, future passkey, session          | Global `AccountId` and Authenticated Session                          | Account/session contract; passkeys are deferred                 |
 | Published question and presentation asset                       | Stable `QuestionId` lineage and immutable Question Revision Reference | Every active Instructor                                         |
 | Draft Question or private curriculum workspace                  | `WorkspaceId` and Authoring Workspace relationship                    | Authoring Workspace Owner or Workspace Collaborator             |
 | Draft Blueprint Revision                                        | Exact Blueprint Course and revision                                   | Blueprint Course Owner or Blueprint Collaborator                |
@@ -198,12 +198,12 @@ expiry/deletion policy. Temporary processing is never served.
 Use the fixed lifecycle for the developer/browser stack:
 
 ```bash
-./run_live_demo.sh
-./run_live_demo.sh --headless
-./run_live_demo.sh stop
+./launchers/run_live_demo.sh
+./launchers/run_live_demo.sh --headless
+./launchers/run_live_demo.sh stop
 ```
 
-The script sources `source_me.sh` through its fixed script-directory path, delegates TypeScript
+The launcher resolves the checkout through Git, sources `source_me.sh`, delegates TypeScript
 dependency setup to `devel/setup_typescript.sh`, and delegates lifecycle work to
 `python3 local_stack.py`. Its only mutable
 browser-session choices

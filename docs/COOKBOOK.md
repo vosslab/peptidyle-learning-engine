@@ -12,16 +12,16 @@ surface, and [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the current executable b
 Start the fixed disposable owner and copy its printed HTTPS URL into your browser:
 
 ```bash
-./run_live_demo.sh
+./launchers/run_live_demo.sh
 ```
 
 To open the ready URL of the running demo without replacing it, use:
 
 ```bash
-./run_live_demo.sh open
+./launchers/run_live_demo.sh open
 ```
 
-Use `./run_live_demo.sh start --open` only when you intentionally want to replace the disposable
+Use `./launchers/run_live_demo.sh start --open` only when you intentionally want to replace the disposable
 demo and open the new one.
 
 The command builds `dist/`, starts the `ple-live-demo-browser` stack, and prints its HTTPS origin.
@@ -51,8 +51,8 @@ Use the default non-opening launch to verify the full local installation, then s
 owner:
 
 ```bash
-./run_live_demo.sh
-./run_live_demo.sh stop
+./launchers/run_live_demo.sh
+./launchers/run_live_demo.sh stop
 ```
 
 Success means the first command prints a ready HTTPS origin and the second confirms owner-scoped

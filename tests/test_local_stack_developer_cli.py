@@ -112,7 +112,7 @@ def test_start_uses_the_fixed_owner_and_opens_its_safe_origin(
 	assert result == 0
 	assert events == ["clear", "start"]
 	assert runner.argvs == [["open", entry_url()]]
-	assert "Stop with: ./run_live_demo.sh stop" in output
+	assert "Stop with: ./launchers/run_live_demo.sh stop" in output
 
 
 #============================================

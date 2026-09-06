@@ -233,7 +233,7 @@ node tests/e2e/e2e_wasm_bridge.mjs
 
 # Browser-Wasm proof: the canonical production browser suite loads the Wasm
 # module from dist/ and the instructor scenario asserts visible wasm mode.
-./run_playwright_tests.sh --scenario instructor_authoring
+./devel/run_playwright_tests.sh --scenario instructor_authoring
 ```
 
 The fixed Question Response Format Fixture Set is `crates/wasm/ple_question_json_response_format_fixture_set.json`; Rust,

@@ -31,4 +31,4 @@ PLE remains pre-production; these notes describe the current development snapsho
 ### Upgrade notes
 
 - Use `source source_me.sh && python3 ...` for repository Python commands. The canonical live-demo
-  entry remains `./run_live_demo.sh`.
+  entry is `./launchers/run_live_demo.sh`.
