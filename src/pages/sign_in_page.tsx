@@ -6,7 +6,6 @@ import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 import type { SeededDemoAccount, SeededDemoAccounts } from "../api/live_demo";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
-import { LIVE_DEMO_RIBBON_SHOWCASE_PATH } from "../live_demo_routes";
 import {
   isLiveDemoUnavailable,
   seededDemoAvailabilityStatus,
@@ -70,7 +69,13 @@ export function SignInPage(): JSX.Element {
     try {
       await runtime.client.selectSeededDemoAccount(account.persona);
       await session.retry();
-      navigate(LIVE_DEMO_RIBBON_SHOWCASE_PATH);
+      const currentSession = session.state();
+      navigate(
+        currentSession.kind === "authenticated" &&
+          currentSession.session.account.productRole === "instructor"
+          ? "/library"
+          : "/",
+      );
     } catch {
       setSeededDemo({ kind: "ready", response });
     }

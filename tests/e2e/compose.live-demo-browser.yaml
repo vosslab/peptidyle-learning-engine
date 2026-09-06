@@ -26,6 +26,10 @@ services:
     volumes: !override
       - ple_identity_runtime:/run/ple-secrets:ro
 
+  worker:
+    environment:
+      PLE_STORAGE_TOPOLOGY: disposable-local
+
   gateway:
     volumes: !override
       - ../tests/e2e/Caddyfile.live-demo-browser:/etc/caddy/Caddyfile:ro

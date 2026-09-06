@@ -47,6 +47,8 @@ export interface RouteContract {
     | "assignmentAttemptSummary"
     | "library"
     | "questionDetail"
+    | "questionDrafts"
+    | "questionDraftEditor"
     | "blueprintCourses"
     | "blueprintCourseDetail"
     | "assignmentCreate"
@@ -157,6 +159,30 @@ export const ROUTE_CONTRACT = [
       tab: "questionLibrary",
       taskGroup: "questionLibrary",
       contentLayout: "reading",
+    },
+  },
+  {
+    id: "questionDrafts",
+    path: "/authoring/drafts",
+    surface: "My Question Drafts private Authoring Workspace view",
+    requiredProductRoles: ["instructor"],
+    ribbon: {
+      scope: "product",
+      tab: "questionLibrary",
+      taskGroup: "questionLibrary",
+      contentLayout: "fullWidth",
+    },
+  },
+  {
+    id: "questionDraftEditor",
+    path: "/authoring/drafts/:draftQuestionRef",
+    surface: "Private Draft Question editor",
+    requiredProductRoles: ["instructor"],
+    ribbon: {
+      scope: "product",
+      tab: "questionLibrary",
+      taskGroup: "questionLibrary",
+      contentLayout: "fullWidth",
     },
   },
   {

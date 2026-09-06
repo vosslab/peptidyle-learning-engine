@@ -41,9 +41,38 @@ https://localhost:8080 {
 		X-Frame-Options "SAMEORIGIN"
 	}
 
-	@api path /api /api/* /health
+	# Readiness must forward a dependency's own bounded 503. Unlike the API
+	# routes below, only a transport failure means the API itself is unavailable.
+	@health path /health
+	handle @health {
+		reverse_proxy api:3000 {
+			@api_unavailable status 502 504
+			handle_response @api_unavailable {
+				respond `{"status":"degraded","unavailable":["api"]}` 503
+			}
+			header_up -X-Forwarded-For
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto https
+			transport http {
+				network_proxy none
+				versions 1.1
+				dial_timeout 2s
+				response_header_timeout 30s
+				read_timeout 30s
+				write_timeout 30s
+			}
+		}
+	}
+
+	@api path /api /api/*
 	handle @api {
 		reverse_proxy api:3000 {
+			# A stopped API has no process to return its own readiness body. Map
+			# only edge-generated upstream failures to the same bounded M2 form.
+			@api_unavailable status 502 503 504
+			handle_response @api_unavailable {
+				respond `{"status":"degraded","unavailable":["api"]}` 503
+			}
 			header_up -X-Forwarded-For
 			header_up X-Forwarded-For {remote_host}
 			header_up X-Forwarded-Proto https
@@ -73,5 +102,15 @@ https://localhost:8080 {
 		root * /srv/peptidyle
 		try_files {path} /index.html
 		file_server
+	}
+
+	# `handle_response` above receives only HTTP responses. A stopped API
+	# produces a proxy transport error instead, so normalize that health-only
+	# edge failure without changing asset or application-route failures.
+	handle_errors {
+		@readiness_api_unavailable expression `{path} == "/health" && ({err.status_code} == 502 || {err.status_code} == 504)`
+		handle @readiness_api_unavailable {
+			respond `{"status":"degraded","unavailable":["api"]}` 503
+		}
 	}
 }

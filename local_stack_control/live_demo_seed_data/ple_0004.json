@@ -1,0 +1,18 @@
+{
+  "format": "pleQuestionJson",
+  "version": 3,
+  "questionTitle": "Amino terminus",
+  "questionDescription": "Use peptide directionality vocabulary to name the free alpha-amino end.",
+  "prompt": "What is the conventional name for the end of a peptide with the free alpha-amino group?",
+  "response": {
+    "kind": "fillIn",
+    "answers": ["N terminus", "N-terminus"],
+    "matchMode": "normalized",
+    "maxLength": 80
+  },
+  "feedback": {"correct": "Correct. Peptide sequences are conventionally written from the N terminus to the C terminus.", "incorrect": "Name the terminus from the functional group that remains free."},
+  "tags": ["biochemistry", "protein-sequence"],
+  "questionLicense": "CC-BY-SA-4.0",
+  "questionCitation": null,
+  "language": "en-US"
+}

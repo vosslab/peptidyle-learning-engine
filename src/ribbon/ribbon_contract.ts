@@ -13,6 +13,7 @@ import {
   parseBlueprintCourseReference,
   parseCourseInstanceReference,
   parseCourseMembershipReference,
+  parseDraftQuestionReference,
   parseQuestionRouteReference,
 } from "../navigation/public_route";
 import {
@@ -160,6 +161,7 @@ const ROUTE_PARAM_PARSERS: Readonly<Record<RouteParamName, RouteParamParser>> = 
   assignmentAttemptRef: parseAssignmentAttemptReference,
   membershipRef: parseCourseMembershipReference,
   questionRef: parseQuestionRouteReference,
+  draftQuestionRef: parseDraftQuestionReference,
   blueprintCourseRef: parseBlueprintCourseReference,
 };
 

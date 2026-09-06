@@ -8,6 +8,7 @@ import local_stack_control.disposable_stack_command
 import local_stack_control.disposable_stack_adapter
 import local_stack_control.models
 import local_stack_control.process
+import local_stack_control.readiness_faults
 
 
 #============================================
@@ -133,6 +134,105 @@ def test_gateway_outage_plan_is_closed_to_one_running_labelled_gateway(
 
 
 #============================================
+def test_worker_stop_plan_is_closed_to_the_browser_profile_and_one_worker(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""Only the browser lifecycle profile may stop its one labelled worker."""
+	browser = disposable(tmp_path)
+	webwork_root = tmp_path / "webwork"
+	webwork_root.mkdir()
+	webwork = disposable(webwork_root, local_stack_control.models.LiveDemoProfile.WEBWORK_RENDER_RPC)
+	before = snapshot((container("worker-id", "worker", True), container("api-id", "api", True)))
+
+	plan = local_stack_control.disposable_stack_adapter.worker_stop_plan(browser, before)
+
+	assert plan.service == "worker"
+	assert plan.argv[-2:] == ("stop", "worker")
+	with pytest.raises(local_stack_control.models.ControllerError, match="cannot stop"):
+		local_stack_control.disposable_stack_adapter.worker_stop_plan(webwork, before)
+
+
+#============================================
+@pytest.mark.parametrize(
+	"before",
+	(
+		snapshot((container("worker-id", "worker", False),)),
+		snapshot((container("worker-one", "worker", True), container("worker-two", "worker", True))),
+	),
+)
+def test_worker_stop_rejects_unavailable_or_ambiguous_selection(
+	tmp_path: pathlib.Path,
+	before: local_stack_control.models.ProjectSnapshot,
+) -> None:
+	"""The fixed worker action cannot select zero or multiple worker containers."""
+	with pytest.raises(local_stack_control.models.ControllerError, match="exactly one"):
+		local_stack_control.disposable_stack_adapter.worker_stop_plan(disposable(tmp_path), before)
+
+
+#============================================
+@pytest.mark.parametrize(
+	"before",
+	(
+		snapshot((container("worker-id", "worker", True),)),
+		snapshot((container("worker-one", "worker", False), container("worker-two", "worker", False))),
+	),
+)
+def test_worker_replacement_rejects_running_or_ambiguous_selection(
+	tmp_path: pathlib.Path,
+	before: local_stack_control.models.ProjectSnapshot,
+) -> None:
+	"""The replacement action begins only with one stopped worker container."""
+	with pytest.raises(local_stack_control.models.ControllerError, match="exactly one stopped"):
+		local_stack_control.disposable_stack_adapter.worker_replacement_plan(disposable(tmp_path), before)
+
+
+#============================================
+def test_readiness_fault_plan_is_closed_to_one_declared_dependency(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""M2 may fault only a fixed browser dependency, never a caller-selected service."""
+	selected = disposable(tmp_path)
+	before = snapshot((container("minio-id", "minio", True), container("api-id", "api", True)))
+
+	plan = local_stack_control.readiness_faults.stop_plan(selected, before, "minio")
+
+	assert plan.argv[-2:] == ("stop", "minio")
+	with pytest.raises(local_stack_control.models.ControllerError, match="cannot create"):
+		local_stack_control.readiness_faults.stop_plan(selected, before, "gateway")
+
+
+#============================================
+def test_readiness_fault_stop_and_recovery_prove_only_the_selected_service(
+	monkeypatch: pytest.MonkeyPatch,
+	tmp_path: pathlib.Path,
+) -> None:
+	"""Each fault is bound to its exact stopped/restarted container identity."""
+	selected = disposable(tmp_path)
+	runner = RecordingRunner()
+	running = snapshot((container("minio-id", "minio", True), container("api-id", "api", True)))
+	stopped = snapshot((container("minio-id", "minio", False), container("api-id", "api", True)))
+	recovered = snapshot((container("minio-id", "minio", True), container("api-id", "api", True)))
+	values = iter((running, stopped, stopped, recovered))
+	monkeypatch.setattr(
+		local_stack_control.disposable_stack_adapter,
+		"require_current_resource_capability",
+		lambda unused_runner, unused_disposable: next(values),
+	)
+
+	stopped_receipt = local_stack_control.readiness_faults.stop_dependency(runner, selected, "minio")
+	recovery_receipt = local_stack_control.readiness_faults.recover_dependency(
+		runner, selected, "minio"
+	)
+
+	assert stopped_receipt == local_stack_control.models.ReadinessFaultStop(running.project, "minio")
+	assert recovery_receipt == local_stack_control.models.ReadinessFaultRecovery(
+		running.project, "minio", "minio-id", "minio-id"
+	)
+	assert runner.streamed[0][-2:] == ("stop", "minio")
+	assert runner.streamed[1][-2:] == ("start", "minio")
+
+
+#============================================
 @pytest.mark.parametrize(
 	"before",
 	(
@@ -186,6 +286,56 @@ def test_gateway_outage_postcondition_rejects_a_replaced_gateway(tmp_path: pathl
 
 	with pytest.raises(local_stack_control.models.ControllerError):
 		local_stack_control.disposable_stack_adapter.require_declared_outage_stopped(selected, before, after, plan)
+
+
+#============================================
+def test_worker_stop_postcondition_rejects_persistent_or_unrelated_change(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""Stopping the worker cannot alter persistence or another labelled service."""
+	selected = disposable(tmp_path)
+	before = snapshot((container("worker-id", "worker", True), container("api-id", "api", True)))
+	plan = local_stack_control.disposable_stack_adapter.worker_stop_plan(selected, before)
+	after_persistent_change = snapshot(
+		(container("worker-id", "worker", False), container("api-id", "api", True)),
+		(local_stack_control.models.VolumeResource("other-volume", before.project),),
+	)
+	after_unrelated_change = snapshot(
+		(container("worker-id", "worker", False), container("api-id", "api", False)),
+	)
+
+	with pytest.raises(local_stack_control.models.ControllerError):
+		local_stack_control.disposable_stack_adapter.require_worker_stopped(
+			selected, before, after_persistent_change, plan
+		)
+	with pytest.raises(local_stack_control.models.ControllerError):
+		local_stack_control.disposable_stack_adapter.require_worker_stopped(
+			selected, before, after_unrelated_change, plan
+		)
+
+
+#============================================
+def test_worker_replacement_postcondition_requires_a_new_running_worker(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""The fixed replacement keeps every other labelled resource unchanged."""
+	selected = disposable(tmp_path)
+	before = snapshot((container("worker-id", "worker", False), container("api-id", "api", True)))
+	plan = local_stack_control.disposable_stack_adapter.worker_replacement_plan(selected, before)
+	after = snapshot((container("replacement-id", "worker", True), container("api-id", "api", True)))
+
+	result = local_stack_control.disposable_stack_adapter.require_worker_replaced(
+		selected, before, after, plan
+	)
+
+	assert result.id == "replacement-id"
+	with pytest.raises(local_stack_control.models.ControllerError, match="retained"):
+		local_stack_control.disposable_stack_adapter.require_worker_replaced(
+			selected,
+			before,
+			snapshot((container("worker-id", "worker", True), container("api-id", "api", True))),
+			plan,
+		)
 
 
 #============================================
@@ -294,6 +444,54 @@ def test_gateway_outage_boundary_reinvents_and_proves_the_stopped_gateway(
 
 
 #============================================
+def test_worker_stop_boundary_reinvents_and_proves_the_stopped_worker(
+	monkeypatch: pytest.MonkeyPatch,
+	tmp_path: pathlib.Path,
+) -> None:
+	"""The worker action proves before/after state through the same typed seam."""
+	selected = disposable(tmp_path)
+	before = snapshot((container("worker-id", "worker", True), container("api-id", "api", True)))
+	after = snapshot((container("worker-id", "worker", False), container("api-id", "api", True)))
+	values = iter((before, after))
+	runner = RecordingRunner()
+	monkeypatch.setattr(
+		local_stack_control.disposable_stack_adapter,
+		"require_current_resource_capability",
+		lambda unused_runner, unused_disposable: next(values),
+	)
+
+	completed = local_stack_control.disposable_stack_adapter.stop_worker_service(runner, selected)
+
+	assert completed == local_stack_control.models.WorkerStop(before.project, "worker")
+	assert runner.streamed[0][-2:] == ("stop", "worker")
+
+
+#============================================
+def test_worker_replacement_boundary_reinvents_and_proves_the_new_worker(
+	monkeypatch: pytest.MonkeyPatch,
+	tmp_path: pathlib.Path,
+) -> None:
+	"""The recreation action proves the replacement through the typed seam."""
+	selected = disposable(tmp_path)
+	before = snapshot((container("worker-id", "worker", False), container("api-id", "api", True)))
+	after = snapshot((container("replacement-id", "worker", True), container("api-id", "api", True)))
+	values = iter((before, after))
+	runner = RecordingRunner()
+	monkeypatch.setattr(
+		local_stack_control.disposable_stack_adapter,
+		"require_current_resource_capability",
+		lambda unused_runner, unused_disposable: next(values),
+	)
+
+	completed = local_stack_control.disposable_stack_adapter.replace_worker_service(runner, selected)
+
+	assert completed == local_stack_control.models.WorkerReplacement(
+		before.project, "worker", "worker-id", "replacement-id"
+	)
+	assert runner.streamed[0][-5:] == ("up", "-d", "--force-recreate", "--no-deps", "worker")
+
+
+#============================================
 @pytest.mark.parametrize(
 	"before",
 	(
@@ -347,3 +545,41 @@ def test_outage_cli_derives_the_service_from_its_manifest_policy(tmp_path: pathl
 
 	assert args.action == "stop-outage-service"
 	assert not hasattr(args, "service")
+
+
+#============================================
+def test_worker_cli_derives_its_only_service_from_browser_policy(tmp_path: pathlib.Path) -> None:
+	"""The worker action exposes no caller-selected service authority."""
+	manifest = tmp_path / "manifest"
+	args = local_stack_control.disposable_stack_command.parse_args([
+		"stop-worker", "--manifest", str(manifest),
+	])
+
+	assert args.action == "stop-worker"
+	assert not hasattr(args, "service")
+
+
+#============================================
+def test_worker_replacement_cli_derives_its_only_service_from_browser_policy(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""The replacement action accepts a manifest only, never a service selector."""
+	manifest = tmp_path / "manifest"
+	args = local_stack_control.disposable_stack_command.parse_args([
+		"replace-worker", "--manifest", str(manifest),
+	])
+
+	assert args.action == "replace-worker"
+	assert not hasattr(args, "service")
+
+
+#============================================
+def test_readiness_fault_cli_is_limited_to_its_closed_dependency_tuple(tmp_path: pathlib.Path) -> None:
+	"""The M2 fault harness permits only declared dependencies for one manifest."""
+	manifest = tmp_path / "manifest"
+	args = local_stack_control.disposable_stack_command.parse_args([
+		"stop-readiness-dependency", "--manifest", str(manifest), "--service", "webwork-renderer"
+	])
+
+	assert args.action == "stop-readiness-dependency"
+	assert args.service == "webwork-renderer"

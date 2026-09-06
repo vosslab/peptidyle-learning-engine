@@ -38,9 +38,46 @@
 		X-Frame-Options "SAMEORIGIN"
 	}
 
-	@api path /api /api/* /health
+	# Readiness has to forward a dependency's own bounded 503. The active
+	# replica health policy below is intentionally not used for this request:
+	# a degraded dependency makes an API replica report 503 while it remains
+	# able to serve all unaffected routes.
+	@health path /health
+	handle @health {
+		reverse_proxy {
+			@api_unavailable status 502 504
+			handle_response @api_unavailable {
+				respond `{"status":"degraded","unavailable":["api"]}` 503
+			}
+			dynamic a api 3000 {
+				refresh 2s
+				versions ipv4
+			}
+			lb_policy round_robin
+			lb_try_duration 5s
+			lb_try_interval 250ms
+			fail_duration 10s
+			max_fails 1
+			transport http {
+				network_proxy none
+				versions 1.1
+				dial_timeout 2s
+				response_header_timeout 30s
+				read_timeout 30s
+				write_timeout 30s
+			}
+		}
+	}
+
+	@api path /api /api/*
 	handle @api {
 		reverse_proxy {
+			# A stopped API cannot produce its own readiness body. Map only the
+			# edge's upstream failure response to the bounded M2 readiness form.
+			@api_unavailable status 502 503 504
+			handle_response @api_unavailable {
+				respond `{"status":"degraded","unavailable":["api"]}` 503
+			}
 			# Dynamic A discovery asks Compose DNS for every api replica instead of
 			# resolving one container name once at gateway startup. Caddy refreshes
 			# this bounded list while requests are being served.
@@ -82,5 +119,15 @@
 		root * /srv/peptidyle
 		try_files {path} /index.html
 		file_server
+	}
+
+	# A dial failure never reaches reverse_proxy's response interceptor. Restrict
+	# error normalization to readiness so a stopped API has the same bounded M2
+	# response while unrelated edge errors preserve their own behavior.
+	handle_errors {
+		@readiness_api_unavailable expression `{path} == "/health" && ({err.status_code} == 502 || {err.status_code} == 504)`
+		handle @readiness_api_unavailable {
+			respond `{"status":"degraded","unavailable":["api"]}` 503
+		}
 	}
 }

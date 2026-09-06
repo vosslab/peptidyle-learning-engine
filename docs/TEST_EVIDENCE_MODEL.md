@@ -34,10 +34,10 @@ two declared real-service lanes: the disposable PostgreSQL schema, authority,
 and persistence oracle, and the Course Appearance PostgreSQL and MinIO
 coherence oracle. It does not invoke a browser suite.
 
-The canonical production-browser path remains a release-blocking requirement.
-Its former owner configuration is currently absent, so a passing aggregate
-does not establish browser, visual, or visible-workflow acceptance. Restore
-that dedicated owner before release acceptance.
+The complete canonical production-browser path remains a release-blocking M19
+requirement. M5 supplies one owned live-browser scenario for its Question
+Library task, but a passing aggregate or M5 scenario does not establish the
+remaining Instructor, Student, Sysadmin, visual, or serial-workflow acceptance.
 
 Run the full named suite again after any material change that affects a gate.
 When a plan requires repeat-run or cleanup evidence, rerun all four gates on
@@ -127,10 +127,12 @@ ends unless it independently meets the permanent-test standard.
 ## Production browser evidence
 
 PLE retains one intended production `dist/` browser artifact and fixed
-disposable real-stack browser path. The prior Playwright owner configuration
-and `./devel/run_playwright_tests.sh --build` invocation currently have no executable owner;
-they are not current aggregate evidence. Restoring that canonical owner is
-required before release acceptance.
+disposable real-stack browser path. M5 owns
+`bash tests/e2e/e2e_live_demo_question_library.sh --browser`, which enters the
+fixed HTTPS stack through the seeded Instructor session and proves visible
+Ribbon navigation, search, and Question Details. It is deliberately a focused
+milestone scenario, not the serial `./devel/run_playwright_tests.sh --build`
+owner required for M19 release acceptance.
 
 The restored owner will regenerate the fixed disposable stack, serve the
 production bundle through its HTTPS gateway, and run its selected real-stack
@@ -167,11 +169,11 @@ and rebuilds the six declared desktop, tablet, phone, selected-state, and
 invitation-email images under `docs/screenshots/live_demo/`.
 
 This command is one-time rendered evidence, not a permanent test or full product
-browser-acceptance lane. It proves only the currently implemented Account entry
-and developer-showcase surfaces. Retained images elsewhere under
-`docs/screenshots/` remain historical visual reference, and unavailable teaching
-workflows remain unclaimed until their Server Routes and production-browser
-scenarios are restored.
+browser-acceptance lane. Its remaining showcase capture is historical developer
+evidence, not Live Demo completion; M19 retires it before M20 creates the
+declared safe capture corpus. Retained images elsewhere under `docs/screenshots/`
+remain historical visual reference, and unavailable teaching workflows remain
+unclaimed until their Server Routes and production-browser scenarios are restored.
 
 ## Service-only acceptance
 

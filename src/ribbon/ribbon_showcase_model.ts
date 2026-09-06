@@ -53,6 +53,7 @@ const CANONICAL_SHOWCASE_PARAMS = {
   assignmentAttemptRef: "R-1",
   membershipRef: "M-1",
   questionRef: "7K3-M9QP",
+  draftQuestionRef: "D-1",
   blueprintCourseRef: "BP-1",
 } as const;
 

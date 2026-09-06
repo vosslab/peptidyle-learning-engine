@@ -34,6 +34,7 @@ BASE_LONG_RUNNING_SERVICES = (
 	"minio",
 	"webwork-renderer",
 	"api",
+	"worker",
 	"gateway",
 )
 BASE_ONE_SHOT_SERVICES = (
@@ -42,7 +43,7 @@ BASE_ONE_SHOT_SERVICES = (
 	"identity-secret-init",
 )
 CLEANUP_ONLY_SERVICES = ("postgres-major-guard",)
-RESTARTABLE_SERVICES = ("api", "gateway", "webwork-renderer")
+RESTARTABLE_SERVICES = ("api", "gateway", "webwork-renderer", "worker")
 STOPPABLE_SERVICES = ("webwork-renderer",)
 
 
@@ -82,7 +83,9 @@ LIVE_DEMO_PROFILE_POLICIES = (
 			PRIMARY_COMPOSE_FILE,
 			"tests/e2e/compose.live-demo-browser.yaml",
 		),
-		child_capabilities=("browser_lifecycle",),
+		child_capabilities=(
+			"browser_lifecycle", "readiness_fault", "seed_inventory", "worker_lifecycle",
+		),
 		evidence_log_services=(("renderer_delivery", "api"),),
 		outage_service="gateway",
 	),
@@ -399,6 +402,62 @@ class DeclaredOutageStop:
 
 	project: str
 	service: str
+
+
+@dataclasses.dataclass(frozen=True)
+class WorkerStop:
+	"""Completed fixed-worker stop proved against labelled browser state."""
+
+	project: str
+	service: str
+
+
+@dataclasses.dataclass(frozen=True)
+class WorkerReplacementPlan:
+	"""One fixed worker recreation command bound to a stopped container ID."""
+
+	project: str
+	service: str
+	previous_container_id: str
+	argv: tuple[str, ...]
+
+
+@dataclasses.dataclass(frozen=True)
+class WorkerReplacement:
+	"""Completed fixed-worker recreation proved against labelled browser state."""
+
+	project: str
+	service: str
+	previous_container_id: str
+	container_id: str
+
+
+@dataclasses.dataclass(frozen=True)
+class ReadinessFaultStop:
+	"""Completed closed dependency stop proved against labelled browser state."""
+
+	project: str
+	service: str
+
+
+@dataclasses.dataclass(frozen=True)
+class ReadinessFaultRecoveryPlan:
+	"""One fixed in-place dependency recovery command bound to a stopped container ID."""
+
+	project: str
+	service: str
+	previous_container_id: str
+	argv: tuple[str, ...]
+
+
+@dataclasses.dataclass(frozen=True)
+class ReadinessFaultRecovery:
+	"""Completed closed dependency recovery proved against browser state."""
+
+	project: str
+	service: str
+	previous_container_id: str
+	container_id: str
 
 
 @dataclasses.dataclass(frozen=True)

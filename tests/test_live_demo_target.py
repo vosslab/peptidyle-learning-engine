@@ -107,7 +107,9 @@ def test_closed_profiles_have_exact_topology_and_child_capabilities() -> None:
 		"containers/compose.yaml",
 		"tests/e2e/compose.live-demo-browser.yaml",
 	)
-	assert browser.child_capabilities == ("browser_lifecycle",)
+	assert browser.child_capabilities == (
+		"browser_lifecycle", "readiness_fault", "seed_inventory", "worker_lifecycle",
+	)
 	assert webwork.child_capabilities == (
 		"bounded_renderer_log", "webwork_service_client",
 	)

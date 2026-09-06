@@ -174,7 +174,7 @@ const EXPECTED_CONTROL_METADATA = [
     "task",
     "myQuestionDrafts",
     "My Question Drafts",
-    { kind: "future", futureId: "myQuestionDrafts" },
+    { kind: "route", routeId: "questionDrafts" },
     [],
     "questionLibrary",
     "questionDestinations",
@@ -404,8 +404,8 @@ test("future destinations remain declared identities rather than fabricated rout
     "future",
   );
   assert.deepEqual(RIBBON_TASK_CATALOG.find(({ id }) => id === "myQuestionDrafts")?.destination, {
-    kind: "future",
-    futureId: "myQuestionDrafts",
+    kind: "route",
+    routeId: "questionDrafts",
   });
 });
 

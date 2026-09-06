@@ -22,7 +22,7 @@ import {
 } from "../src/features/ple_question_json_authoring/question_json_repository.ts";
 import { PLE_QUESTION_JSON_MEDIA_TYPE } from "../src/features/ple_question_json_authoring/question_json_source.ts";
 
-const workspace = "00000000-0000-4000-8000-000000000001";
+const draftQuestion = "D-1";
 
 function source() {
   return {
@@ -74,6 +74,10 @@ function jsonResponse(value, status = 200, revision = '"1"') {
     status,
     headers: { "content-type": "application/json", etag: revision },
   });
+}
+
+function noContent(revision = '"1"') {
+  return new Response(null, { status: 204, headers: { etag: revision } });
 }
 
 test("codec accepts a valid source and serializes deterministic compact JSON", () => {
@@ -522,7 +526,7 @@ test("client sends exact protected paths, headers, body, and revisions", async (
     basePath: "/ple",
     fetch: async (input, init) => {
       requests.push({ input: String(input), init });
-      if (init.method === "GET") {
+      if (init.method === "GET" && requests.length === 1) {
         return new Response(serializePleQuestionJsonSource(source()), {
           headers: {
             "content-type": `${PLE_QUESTION_JSON_MEDIA_TYPE}; charset=utf-8`,
@@ -530,26 +534,28 @@ test("client sends exact protected paths, headers, body, and revisions", async (
           },
         });
       }
-      if (init.method === "PUT") return jsonResponse({ saved: true }, 200, '"2"');
-      return jsonResponse(publicationSummary(), 201, '"2"');
+      if (init.method === "PUT") return noContent('"2"');
+      if (init.method === "POST") return jsonResponse({ questionId: "7K3-M9QP" }, 201);
+      return jsonResponse(publicationSummary());
     },
   });
 
-  const loaded = await client.load(workspace);
-  const saved = await client.save(workspace, loaded.source, loaded.revision);
+  const loaded = await client.load(draftQuestion);
+  const saved = await client.save(draftQuestion, loaded.source, loaded.revision);
   const publicationRequest = { authorship: { authors: [{ displayName: "Fixture Instructor" }] } };
-  const published = await client.publish(workspace, publicationRequest, saved.revision);
+  const published = await client.publish(draftQuestion, publicationRequest, saved.revision);
   assert.deepEqual(published, publicationSummary());
 
-  assert.equal(requests[0].input, `/ple/api/workspaces/${workspace}/ple-question-json`);
+  assert.equal(requests[0].input, `/ple/api/authoring/drafts/${draftQuestion}/source`);
   assert.equal(requests[0].init.headers.accept, PLE_QUESTION_JSON_MEDIA_TYPE);
   assert.equal(requests[1].init.method, "PUT");
   assert.equal(requests[1].init.headers["content-type"], PLE_QUESTION_JSON_MEDIA_TYPE);
   assert.equal(requests[1].init.headers["if-match"], '"1"');
   assert.equal(requests[1].init.body, serializePleQuestionJsonSource(source()));
-  assert.equal(requests[2].input, `/ple/api/questions/${workspace}/ple-question-json-publish`);
-  assert.equal(requests[2].init.body, JSON.stringify(publicationRequest));
+  assert.equal(requests[2].input, `/ple/api/authoring/drafts/${draftQuestion}/publish`);
+  assert.equal(requests[2].init.body, JSON.stringify({ authors: ["Fixture Instructor"] }));
   assert.equal(requests[2].init.headers["if-match"], '"2"');
+  assert.equal(requests[3].input, "/ple/api/questions/by-id/7K3-M9QP");
 });
 
 test("publication rejects invalid reviewed Question Authorship before it can make a request", async () => {
@@ -564,7 +570,7 @@ test("publication rejects invalid reviewed Question Authorship before it can mak
     [{ displayName: "Ada Lovelace" }, { displayName: "Ada Lovelace" }],
   ]) {
     await assert.rejects(
-      client.publish(workspace, { authorship: { authors } }, '"1"'),
+      client.publish(draftQuestion, { authorship: { authors } }, '"1"'),
       PleQuestionJsonProtocolError,
     );
   }
@@ -584,9 +590,9 @@ test("client requires exact response media types and body-free JSON errors", asy
         headers: { "content-type": "application/json-everything" },
       }),
   });
-  await assert.rejects(client.save(workspace, source()), (error) => {
+  await assert.rejects(client.save(draftQuestion, source()), (error) => {
     assert.equal(error.message.includes(secret), false);
-    assert.match(error.message, /application\/json/u);
+    assert.match(error.message, /no content/u);
     return true;
   });
 
@@ -596,7 +602,7 @@ test("client requires exact response media types and body-free JSON errors", asy
         headers: { "content-type": "application/json" },
       }),
   });
-  await assert.rejects(malformed.save(workspace, source()), (error) => {
+  await assert.rejects(malformed.save(draftQuestion, source()), (error) => {
     assert.equal(error.message.includes(secret), false);
     assert.equal(error.message.includes("Unexpected"), false);
     return true;
@@ -609,7 +615,7 @@ test("conflicts do not echo a response body and repository preserves the caller 
     fetch: async () =>
       new Response(secret, { status: 409, headers: { "content-type": "application/json" } }),
   });
-  await assert.rejects(client.load(workspace), (error) => {
+  await assert.rejects(client.load(draftQuestion), (error) => {
     assert.ok(error instanceof PleQuestionJsonConflictError);
     assert.equal(error.message.includes(secret), false);
     return true;
@@ -620,15 +626,15 @@ test("conflicts do not echo a response body and repository preserves the caller 
       return { source: source(), revision: '"1"' };
     },
     async save() {
-      throw new PleQuestionJsonConflictError(409, "/api/workspaces/test/ple-question-json");
+      throw new PleQuestionJsonConflictError(409, "/api/authoring/drafts/D-1/source");
     },
     async publish() {
       throw new Error("not used");
     },
   });
-  await repository.load(workspace);
+  await repository.load(draftQuestion);
   const edited = source();
-  await assert.rejects(repository.save(workspace, edited), (error) => {
+  await assert.rejects(repository.save(draftQuestion, edited), (error) => {
     assert.ok(error instanceof PleQuestionJsonStaleConflictError);
     assert.equal(error.source, edited);
     return true;
@@ -637,11 +643,14 @@ test("conflicts do not echo a response body and repository preserves the caller 
 
 test("client rejects publication summaries that do not exactly confirm publication", async () => {
   const wrongPublication = createPleQuestionJsonClient({
-    fetch: async () => jsonResponse(publicationSummary("webwork")),
+    fetch: async (_input, init) =>
+      init.method === "POST"
+        ? jsonResponse({ questionId: "7K3-M9QP" })
+        : jsonResponse(publicationSummary("webwork")),
   });
   await assert.rejects(
     wrongPublication.publish(
-      workspace,
+      draftQuestion,
       { authorship: { authors: [{ displayName: "Fixture Instructor" }] } },
       '"1"',
     ),
@@ -649,11 +658,14 @@ test("client rejects publication summaries that do not exactly confirm publicati
   );
 
   const staleScope = createPleQuestionJsonClient({
-    fetch: async () => jsonResponse({ ...publicationSummary(), scope: "public" }),
+    fetch: async (_input, init) =>
+      init.method === "POST"
+        ? jsonResponse({ questionId: "7K3-M9QP" })
+        : jsonResponse({ ...publicationSummary(), scope: "public" }),
   });
   await assert.rejects(
     staleScope.publish(
-      workspace,
+      draftQuestion,
       { authorship: { authors: [{ displayName: "Fixture Instructor" }] } },
       '"1"',
     ),
@@ -664,11 +676,12 @@ test("client rejects publication summaries that do not exactly confirm publicati
     { ...publicationSummary(), availability: { availability: "archived", reason: "withdrawn" } },
   ]) {
     const wrongLifecycleOrScope = createPleQuestionJsonClient({
-      fetch: async () => jsonResponse(summary),
+      fetch: async (_input, init) =>
+        init.method === "POST" ? jsonResponse({ questionId: "7K3-M9QP" }) : jsonResponse(summary),
     });
     await assert.rejects(
       wrongLifecycleOrScope.publish(
-        workspace,
+        draftQuestion,
         { authorship: { authors: [{ displayName: "Fixture Instructor" }] } },
         '"1"',
       ),
@@ -692,9 +705,9 @@ test("client saves a strict PLE hotspot source through its exact endpoint", asyn
     },
   });
   const client = createPleQuestionJsonClient({
-    fetch: async () => jsonResponse({ saved: true }),
+    fetch: async () => noContent(),
   });
-  await client.save(workspace, hotspot);
+  await client.save(draftQuestion, hotspot);
 });
 
 function deferred() {
@@ -705,7 +718,7 @@ function deferred() {
   return { promise, resolve };
 }
 
-test("repository does not regress a workspace revision when an older save finishes last", async () => {
+test("repository does not regress a Draft Question Edit Number when an older save finishes last", async () => {
   const firstSave = deferred();
   const secondSave = deferred();
   const observedRevisions = [];
@@ -724,14 +737,14 @@ test("repository does not regress a workspace revision when an older save finish
     },
   });
 
-  await repository.load(workspace);
-  const older = repository.save(workspace, source());
-  const newer = repository.save(workspace, source());
+  await repository.load(draftQuestion);
+  const older = repository.save(draftQuestion, source());
+  const newer = repository.save(draftQuestion, source());
   secondSave.resolve({ revision: '"3"' });
   await newer;
   firstSave.resolve({ revision: '"2"' });
   await older;
-  await repository.publish(workspace, {
+  await repository.publish(draftQuestion, {
     authorship: { authors: [{ displayName: "Fixture Instructor" }] },
   });
   assert.deepEqual(observedRevisions, ['"1"', '"1"']);

@@ -24,21 +24,19 @@ import local_stack_control.process_logins
 import local_stack_control.renderer
 import local_stack_control.status
 import local_stack_control.live_demo_gateway
+import local_stack_control.live_demo_seed
 
 
-LOCAL_INSTRUCTOR_ACCOUNT_ID = "00000000-0000-0000-0000-000000000101"
-LOCAL_MARY_ACCOUNT_ID = "00000000-0000-0000-0000-000000000102"
-LOCAL_JACK_ACCOUNT_ID = "00000000-0000-0000-0000-000000000103"
-LOCAL_APPROVAL_CANDIDATE_ACCOUNT_ID = "00000000-0000-0000-0000-000000000104"
-LOCAL_MORGAN_SYSADMIN_ACCOUNT_ID = "00000000-0000-0000-0000-000000000105"
+LOCAL_INSTRUCTOR_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[0].account_id
+LOCAL_MARY_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[1].account_id
+LOCAL_JACK_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[2].account_id
+LOCAL_APPROVAL_CANDIDATE_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[3].account_id
+LOCAL_MORGAN_SYSADMIN_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[4].account_id
 MIGRATION_DATABASE_OWNER = "ple_database_owner"
 MIGRATION_ROLE = "ple_migrator"
 LIVE_DEMO_ACCOUNT_SEEDS = (
-	("PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID", LOCAL_INSTRUCTOR_ACCOUNT_ID, "instructor"),
-	("PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID", LOCAL_MARY_ACCOUNT_ID, "student"),
-	("PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID", LOCAL_JACK_ACCOUNT_ID, "student"),
-	("PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID", LOCAL_APPROVAL_CANDIDATE_ACCOUNT_ID, "student"),
-	("PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID", LOCAL_MORGAN_SYSADMIN_ACCOUNT_ID, "sysadmin"),
+	(account.setting, account.account_id, account.product_role)
+	for account in local_stack_control.live_demo_seed.SEEDED_ACCOUNTS
 )
 @dataclasses.dataclass(frozen=True)
 class LifecycleOptions:
@@ -328,7 +326,6 @@ def start_lifecycle(
 	wait_for_postgres(selected, runner, values, options)
 	synchronize_database(target, runner, values, options)
 	run_migrations(target, runner, repo_root, values, environment)
-	seed_live_demo_accounts(selected, runner, values)
 	if local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
 		service_login_verification_urls = local_stack_control.process_logins.setup_service_logins(
 			selected, runner, values, child_environment(selected)
@@ -339,12 +336,13 @@ def start_lifecycle(
 			)
 	compose_run(selected, runner, ["up", "-d", "minio", "createbuckets"])
 	wait_for_one_shot(selected, runner, options, "createbuckets")
+	seed_live_demo_baseline(selected, runner, values)
 	compose_run(selected, runner, ["up", "-d", "--force-recreate", "--no-deps", "webwork-renderer"])
 	wait_for_renderer_ready(selected, runner, options, oci_id)
 	attest_renderer(selected, runner, repo_root, values, oci_id)
 	run_api_initializers(selected, runner, options)
 	compose_run(selected, runner, ["build", "api", "gateway"])
-	application_services = ["api", "gateway"]
+	application_services = ["api", "worker", "gateway"]
 	application_scale_arguments = local_stack_control.lifecycle_profiles.application_scale_arguments(
 		target, tuple(application_services)
 	)
@@ -393,10 +391,9 @@ def restart_lifecycle(
 	)
 	if service == "webwork-renderer":
 		require_question_renderer_version(selected, values, oci_id)
-	else:
+	elif service == "api":
 		require_attested_running_renderer(selected, runner, values, oci_id)
-		if service == "api":
-			probe_renderer(selected, runner, repo_root, oci_id)
+		probe_renderer(selected, runner, repo_root, oci_id)
 	if service == "api":
 		run_api_initializers(selected, runner, options)
 	arguments = local_stack_control.lifecycle_profiles.recreate_arguments(target, service)
@@ -597,53 +594,70 @@ def run_migrations(
 
 
 #============================================
-def live_demo_account_seed_sql() -> str:
-	"""Return the fixed idempotent Account seed for the disposable browser demo."""
-	accounts = ",\n\t".join(
-		f"('{account_id}', '{product_role}', pg_catalog.clock_timestamp())"
-		for _setting, account_id, product_role in LIVE_DEMO_ACCOUNT_SEEDS
-	)
-	expected = ",\n\t".join(
-		f"('{account_id}', '{product_role}')"
-		for _setting, account_id, product_role in LIVE_DEMO_ACCOUNT_SEEDS
-	)
-	return f"""BEGIN;
-INSERT INTO ple_private.account (account_id, product_role, created_at)
-VALUES
-	{accounts}
-ON CONFLICT (account_id) DO NOTHING;
-DO $$
-BEGIN
-	IF EXISTS (
-		SELECT 1
-		  FROM (VALUES
-			{expected}
-		  ) AS expected(account_id, product_role)
-		  LEFT JOIN ple_private.account AS actual
-		    ON actual.account_id = expected.account_id::uuid
-		 WHERE actual.product_role IS DISTINCT FROM expected.product_role
-	) THEN
-		RAISE EXCEPTION USING
-			ERRCODE = '23514',
-			MESSAGE = 'seeded Live Demo Account configuration is incompatible';
-	END IF;
-END
-$$;
-COMMIT;
-"""
+def seed_live_demo_source_objects(
+	target: local_stack_control.models.ComposeTarget,
+	runner: local_stack_control.process.CommandRunner,
+) -> None:
+	"""Put immutable private Question Source bytes before recording their facts."""
+	for question in local_stack_control.live_demo_seed.SEEDED_PUBLISHED_QUESTIONS:
+		object_path = local_stack_control.live_demo_seed.source_object_path(question)
+		stat_argv = local_stack_control.compose.compose_argv(
+			target,
+			[
+				"exec", "-T", "minio", "/bin/sh", "-ec",
+				"mc alias set seeded http://127.0.0.1:9000 \"$MINIO_ROOT_USER\" \"$MINIO_ROOT_PASSWORD\" >/dev/null; exec mc stat \"$1\"",
+				"seeded-stat", f"seeded/private-content/{object_path}",
+			],
+		)
+		stat = runner.run(stat_argv, child_environment(target), target.repo_root)
+		if stat.returncode == 0:
+			continue
+		if stat.returncode != 1:
+			raise local_stack_control.models.ControllerError(
+				"live-demo Question Source storage inspection did not complete"
+			)
+		metadata = local_stack_control.live_demo_seed.object_record_metadata(target.repo_root, question)
+		put_argv = local_stack_control.compose.compose_argv(
+			target,
+			[
+				"run", "--rm", "--no-deps", "-T", "--entrypoint", "/bin/sh",
+				"createbuckets", "-ec",
+				"mc alias set seeded http://minio:9000 \"$MINIO_ROOT_USER\" \"$MINIO_ROOT_PASSWORD\" >/dev/null; object_file=; trap 'rm -f \"$object_file\"' EXIT; object_file=$(mktemp /tmp/live-demo-question-source.XXXXXX); chmod 600 \"$object_file\"; cat >\"$object_file\"; mc cp --disable-multipart --custom-header \"Content-Type: $2\" --attr \"ple-record-v1=$1\" \"$object_file\" \"$3\" >/dev/null",
+				"seeded-copy",
+				metadata,
+				local_stack_control.live_demo_seed.PLE_QUESTION_JSON_MEDIA_TYPE,
+				f"seeded/private-content/{object_path}",
+			],
+		)
+		# ASVS 8.2.1 and 14.2.4: the fixed source bytes enter only the private
+		# bucket before the browser-facing API starts; no caller selects a key.
+		put_result = runner.run(
+				put_argv,
+				child_environment(target),
+				target.repo_root,
+				local_stack_control.live_demo_seed.source_bytes(target.repo_root, question).decode("utf-8"),
+		)
+		require_command(
+			put_result,
+			"live-demo Question Source initialization",
+			local_stack_control.disposable_stack_adapter.private_environment_values(
+				target.env_file
+			),
+		)
 
 
 #============================================
-def seed_live_demo_accounts(
+def seed_live_demo_baseline(
 	target: local_stack_control.models.ComposeTarget,
 	runner: local_stack_control.process.CommandRunner,
 	values: dict[str, str],
 ) -> None:
-	"""Create only the fixed browser-demo Accounts after their schema exists."""
+	"""Install the one fixed Account and Published Question baseline after buckets exist."""
 	if not local_stack_control.live_demo_gateway.is_tls_target(target):
 		return
 	if any(values.get(setting) != account_id for setting, account_id, _role in LIVE_DEMO_ACCOUNT_SEEDS):
 		raise local_stack_control.models.ControllerError("live-demo seeded Account mapping is invalid")
+	seed_live_demo_source_objects(target, runner)
 	child = child_environment(target)
 	child["PGPASSWORD"] = values["POSTGRES_PASSWORD"]
 	argv = local_stack_control.compose.compose_argv(
@@ -653,12 +667,13 @@ def seed_live_demo_accounts(
 			"-U", values["POSTGRES_USER"], "-d", values["POSTGRES_DB"],
 		],
 	)
-	# ASVS 2.2.1 and 8.2.1: this one-time bootstrap uses no application role and
-	# accepts no caller-selected identity or Product Role. It exists only before
-	# the browser-facing API starts; a conflicting durable Account fails closed.
+	# ASVS 2.2.1, 8.2.1, and 14.2.4: this fixed one-time bootstrap uses no
+	# application role and accepts no caller-selected identity, Product Role, or
+	# Question source. It runs before the browser-facing API starts; conflicts
+	# fail closed rather than changing immutable baseline records.
 	require_command(
-		runner.run(argv, child, target.repo_root, live_demo_account_seed_sql()),
-		"live-demo Account initialization",
+		runner.run(argv, child, target.repo_root, local_stack_control.live_demo_seed.seed_sql(target.repo_root)),
+		"live-demo baseline initialization",
 		(values["POSTGRES_PASSWORD"],),
 	)
 
@@ -671,15 +686,16 @@ def verify_migrated_application_schema(
 	service_login_verification_urls: tuple[str, ...],
 ) -> None:
 	"""Verify a fresh HTTPS demo through the API login after its capabilities exist."""
-	if len(service_login_verification_urls) != 1:
+	api_urls = tuple(
+		url
+		for url in service_login_verification_urls
+		if url.startswith("postgres://ple_api_login:")
+	)
+	if len(api_urls) != 1:
 		raise local_stack_control.models.ControllerError(
 			"live-demo application-schema verification credentials are unavailable"
 		)
-	application_verification_url = service_login_verification_urls[0]
-	if not application_verification_url.startswith("postgres://ple_api_login:"):
-		raise local_stack_control.models.ControllerError(
-			"live-demo application-schema verification identity is invalid"
-		)
+	application_verification_url = api_urls[0]
 	child = dict(environment)
 	# ASVS 8.2.1: the compatibility read proves the actual application capability,
 	# never an elevated migration principal that can create database roles.

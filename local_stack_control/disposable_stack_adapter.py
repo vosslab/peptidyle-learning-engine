@@ -12,9 +12,26 @@ import local_stack_control.browser_suite_ownership
 import local_stack_control.compose
 import local_stack_control.discovery
 import local_stack_control.env_file
+import local_stack_control.live_demo_seed
 import local_stack_control.models
 import local_stack_control.process
 import local_stack_control.runtime_manifest
+from local_stack_control.readiness_faults import (
+	READINESS_DEPENDENCIES,
+	recover_dependency as recover_readiness_dependency,
+	stop_dependency as stop_readiness_dependency,
+)
+from local_stack_control.worker_lifecycle import (
+	replace_worker_service,
+	require_worker_replaced,
+	require_worker_stopped,
+	stop_worker_service,
+	worker_replacement_command,
+	worker_replacement_plan,
+	worker_service,
+	worker_stop_command,
+	worker_stop_plan,
+)
 
 
 MANIFEST_KEYS = ("OWNER", "PROJECT", "ENV_FILE", "CAPABILITY_FILE")
@@ -623,6 +640,43 @@ def postgresql_count_command(
 			"|",
 		],
 	)
+	return argv, compose_environment(disposable), sql
+
+
+#============================================
+def seed_inventory_command(
+	disposable: local_stack_control.models.DisposableComposeTarget,
+) -> tuple[list[str], dict[str, str], str]:
+	"""Form the browser profile's one answer-free seeded-baseline projection."""
+	if disposable.owner_policy != local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
+		raise local_stack_control.models.ControllerError(
+			"seed inventory is limited to the fixed browser profile"
+		)
+	profile = live_demo_profile_policy(disposable)
+	if (
+		profile.profile is not local_stack_control.models.LiveDemoProfile.BROWSER
+		or "seed_inventory" not in profile.child_capabilities
+	):
+		raise local_stack_control.models.ControllerError(
+			"seed inventory is limited to the fixed browser profile"
+		)
+	values = local_stack_control.env_file.env_settings(disposable.target.env_file)
+	postgres_user = values.get("POSTGRES_USER")
+	postgres_database = values.get("POSTGRES_DB")
+	if not postgres_user or not postgres_database:
+		raise local_stack_control.models.ControllerError(
+			"seed inventory target omits its database selection"
+		)
+	# ASVS 8.2.2 and 14.2.4: this sealed projection returns only five aggregate
+	# counts. It omits source bytes, answer keys, Account identifiers, and roles.
+	argv = local_stack_control.compose.compose_argv(
+		disposable.target,
+		[
+			"exec", "-T", "postgres", "psql", "-v", "ON_ERROR_STOP=1",
+			"-U", postgres_user, "-d", postgres_database, "-tA", "-F", "|",
+		],
+	)
+	sql = local_stack_control.live_demo_seed.inventory_sql(disposable.target.repo_root)
 	return argv, compose_environment(disposable), sql
 
 

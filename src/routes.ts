@@ -8,6 +8,8 @@ import { NotFoundPage } from "./pages/contract_pages";
 import { AssignmentAttemptSummaryPage } from "./pages/assignment_attempt_summary_page";
 import { LibraryRoutePage } from "./pages/library_route_page";
 import { QuestionDetailPage } from "./pages/question_detail_page";
+import { QuestionDraftEditorPage } from "./pages/question_draft_editor_page";
+import { QuestionDraftsPage } from "./pages/question_drafts_page";
 import { CourseAssignmentsPage } from "./pages/course_assignments_page";
 import { CourseListPage } from "./pages/course_list_page";
 import { GradebookPage } from "./pages/gradebook_page";
@@ -48,6 +50,8 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   assignmentAttemptSummary: AssignmentAttemptSummaryPage,
   library: LibraryRoutePage,
   questionDetail: QuestionDetailPage,
+  questionDrafts: QuestionDraftsPage,
+  questionDraftEditor: QuestionDraftEditorPage,
   blueprintCourses: BlueprintCoursesLivePage,
   blueprintCourseDetail: BlueprintCourseDetailLivePage,
   assignmentCreate: AssignmentWorkspaceCreatePage,

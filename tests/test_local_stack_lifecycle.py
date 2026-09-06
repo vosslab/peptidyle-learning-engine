@@ -102,6 +102,7 @@ def live_demo_target(
 	return disposable
 
 
+
 #============================================
 def readiness_container(
 	service: str,
@@ -355,7 +356,7 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_postgres", lambda target, runner, values, options: mark("database-ready"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "synchronize_database", lambda target, runner, values, options: mark("database-login"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "run_migrations", lambda target, runner, root, values, environment: mark("migrated"))
-	monkeypatch.setattr(local_stack_control.lifecycle, "seed_live_demo_accounts", lambda target, runner, values: mark("demo-accounts"))
+	monkeypatch.setattr(local_stack_control.lifecycle, "seed_live_demo_baseline", lambda target, runner, values: mark("demo-baseline"))
 	monkeypatch.setattr(
 		local_stack_control.process_logins,
 		"setup_service_logins",
@@ -385,11 +386,11 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	local_stack_control.lifecycle.start_lifecycle(target, UnexpectedRunner(), tmp_path, options)
 	assert (
 		events.index("migrated")
-		< events.index("demo-accounts")
 		< events.index("service-login-setup")
 		< events.index("storage")
 	)
 	assert events.index("storage") < events.index("storage-ready")
+	assert events.index("storage-ready") < events.index("demo-baseline")
 	assert events.index("renderer-ready") < events.index("renderer-probed")
 	assert events.index("build") < events.index("renderer-image") < events.index("maintenance")
 	assert events.index("renderer-probed") < events.index("api-initializers")
@@ -433,10 +434,11 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	if replica_profile:
 		assert application_start == [
 			"up", "-d", "--force-recreate", "--no-deps",
-			"--scale", "api=2", "api", "gateway",
+			"--scale", "api=2", "api", "worker", "gateway",
 		]
 	else:
 		assert "--scale" not in application_start
+	assert "worker" in application_start
 
 
 #============================================

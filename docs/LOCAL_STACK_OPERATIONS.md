@@ -130,7 +130,7 @@ If you request `./launchers/run_live_demo.sh stop` while that owner is still sta
 command waits for its authenticated stop endpoint rather than attempting a second cleanup. It then
 stops the same fixed owner normally.
 
-## Demo accounts and courses
+## Demo accounts and baseline
 
 The production-auth overlay seeds five ordinary PLE personas: Elena (Instructor),
 Mary, Jack, and Avery (Students), and Morgan
@@ -138,17 +138,36 @@ Mary, Jack, and Avery (Students), and Morgan
 server resolves the global account and issues an ordinary session; it does not
 accept a browser role claim.
 
-The seeded course memberships are exact:
+The M4 baseline seeds no Course Instance, membership, roster, or Student Record.
+After Elena's ordinary Instructor session is issued, the browser enters the
+available Question Library, where she can search the four fixed Published
+Questions and open an answer-free Question Details view. Student and Sysadmin
+sessions do not gain that Instructor destination. The former developer showcase
+is not a completion surface and remains scheduled for retirement by M19.
 
-- `Biochemistry: Protein Structure and Function`: Elena is the Instructor;
-  Mary and Jack are Students.
-- `Genetics Practice Course`: Morgan is the Instructor member and Avery is the
-  Student member.
+The M4 baseline installer also creates four fixed Published Questions and their
+first immutable Question Revisions. Their PLE Question JSON sources live only
+in the private object-store bucket. The sealed `seed-inventory` receipt reports
+only the aggregate counts for Accounts, Published Questions, source bindings,
+publication events, and Object Records; it never reports answer-bearing source
+content. Re-run the disposable installer and its idempotence proof with:
 
-Those memberships remain seeded relationship data, but the current browser
-does not expose a Course list Server Route. After persona selection it opens the
-explicitly labelled populated Ribbon structural showcase; fixture controls do
-not grant access to a course, another Student, or another workspace.
+```bash
+bash tests/e2e/e2e_live_demo_seeded_baseline.sh --install
+bash tests/e2e/e2e_live_demo_seeded_baseline.sh --replay
+```
+
+`--replay` performs an install followed by a second start and requires the
+same fixed inventory. It is data-foundation evidence; the separate M5 command
+proves the available Instructor Question Library route and browser task:
+
+```bash
+bash tests/e2e/e2e_live_demo_question_library.sh
+```
+
+That command proves Instructor browse/detail success and the same concealed
+response for Student and anonymous requests. It does not claim Course,
+Student-delivery, grading, or Sysadmin workflow completion.
 
 ## Startup order
 
@@ -185,11 +204,15 @@ authorize a course, Student, or object.
 
 ## Health and inspection
 
-`/health` is readiness, not liveness. It returns 200 only when the API verifies
-expected migration versions/checksums and successfully probes the content
-bucket. A failing dependency returns 503 with safe names. The gateway polls
-this route; it does not evict a replica for every feature-local application
-failure.
+`/health` is readiness, not liveness. In the disposable Live Demo topology, it
+returns 200 only after the API can acquire its database pool, head the declared
+public-assets bucket, connect to the private renderer, and connect to the
+worker's private non-HTTP readiness socket. A failed probe returns 503 with
+only `database`, `object-store`, `renderer`, or `worker`; credentials,
+connection strings, and provider details stay server-side. The gateway forwards
+that safe response and maps a missing API process to the same bounded 503 form
+with only `api`. Migration verification remains a lifecycle startup gate, not a
+claim made by this runtime route.
 
 Inspect through the controller:
 

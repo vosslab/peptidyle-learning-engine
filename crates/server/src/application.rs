@@ -9,15 +9,21 @@ use std::net::SocketAddr;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ProcessMode {
     Api,
-    HealthProbe,
+    ApiHealthProbe,
+    Worker,
+    WorkerHealthProbe,
 }
 
-const PROCESS_USAGE: &str = "peptidyle-api [--health-probe]";
+const PROCESS_USAGE: &str = "peptidyle-api [--health-probe | --worker [--health-probe]]";
 
 fn process_mode(arguments: &[String]) -> anyhow::Result<ProcessMode> {
     match arguments {
         [] => Ok(ProcessMode::Api),
-        [flag] if flag == "--health-probe" => Ok(ProcessMode::HealthProbe),
+        [flag] if flag == "--health-probe" => Ok(ProcessMode::ApiHealthProbe),
+        [flag] if flag == "--worker" => Ok(ProcessMode::Worker),
+        [worker, probe] if worker == "--worker" && probe == "--health-probe" => {
+            Ok(ProcessMode::WorkerHealthProbe)
+        }
         _ => anyhow::bail!("usage: {PROCESS_USAGE}"),
     }
 }
@@ -35,7 +41,7 @@ pub(crate) async fn run() -> anyhow::Result<()> {
     // Container health check mode. The same binary probes its own /health so
     // the runtime image needs no curl or wget, which keeps the attack surface
     // to one executable.
-    if mode == ProcessMode::HealthProbe {
+    if mode == ProcessMode::ApiHealthProbe {
         let bind_addr = server_core::composition::bind_address_from_env()?;
         let browser_authority = server_core::composition::browser_authority_from_env()?;
         // The server binds 0.0.0.0 (every interface), which is not an address
@@ -53,6 +59,15 @@ pub(crate) async fn run() -> anyhow::Result<()> {
                 std::process::exit(1);
             }
         };
+    }
+
+    if mode == ProcessMode::WorkerHealthProbe {
+        return server_core::composition::verify_worker_database_login_from_env().await;
+    }
+
+    if mode == ProcessMode::Worker {
+        server_core::composition::verify_worker_database_login_from_env().await?;
+        return server_core::worker::run_until_shutdown().await;
     }
 
     let bind_addr = server_core::composition::bind_address_from_env()?;
@@ -145,14 +160,22 @@ mod tests {
         assert_eq!(process_mode(&[]).expect("API"), ProcessMode::Api);
         assert_eq!(
             process_mode(&["--health-probe".to_string()]).expect("probe"),
-            ProcessMode::HealthProbe
+            ProcessMode::ApiHealthProbe
+        );
+        assert_eq!(
+            process_mode(&["--worker".to_string()]).expect("worker"),
+            ProcessMode::Worker
+        );
+        assert_eq!(
+            process_mode(&["--worker".to_string(), "--health-probe".to_string()])
+                .expect("worker probe"),
+            ProcessMode::WorkerHealthProbe
         );
         for invalid in [
             vec!["--unknown".to_string()],
-            vec!["--worker".to_string()],
             vec!["--local-worker".to_string()],
             vec!["--local-invitation-delivery-worker".to_string()],
-            vec!["--worker".to_string(), "--health-probe".to_string()],
+            vec!["--health-probe".to_string(), "--worker".to_string()],
         ] {
             assert!(process_mode(&invalid).is_err());
         }

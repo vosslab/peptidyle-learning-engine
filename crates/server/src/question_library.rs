@@ -1,0 +1,539 @@
+//! Live Question Library browse and detail Server Routes.
+//!
+//! Private Question Source bytes are resolved only after the PostgreSQL Store
+//! has installed the current session and confirmed the active Instructor
+//! boundary.  The route serializes only browser-safe Question Library values.
+
+use std::collections::BTreeMap;
+use std::sync::Arc;
+
+use axum::{
+    Json, Router,
+    extract::{Path, Query, State},
+    http::{HeaderMap, StatusCode, header::COOKIE},
+    response::{IntoResponse, Response},
+    routing::get,
+};
+use learning_data_access::{
+    PublishedQuestionLibraryEntry, QuestionLibraryStore, SessionTokenHash, StoreError,
+    postgres::PostgresQuestionLibraryStore,
+};
+use objects::{ResolvedQuestionSource, s3::S3ObjectStore};
+use question_model::{
+    Capability, QuestionBackend, QuestionBackendCapabilities, QuestionDetails,
+    QuestionDetailsPromptView, QuestionId, QuestionSearchAuthorFacet, QuestionSearchAuthorship,
+    QuestionSearchBackendFacet, QuestionSearchCapabilityFacet, QuestionSearchCourseUse,
+    QuestionSearchCourseUseFacet, QuestionSearchFacets, QuestionSearchPage,
+    QuestionSearchQuestionLicenseFacet, QuestionSearchRequest, QuestionSearchResult,
+    QuestionSearchTagFacet, QuestionStatistics, QuestionSummary, QuestionTypeFacet,
+    QuestionUseDetails, QuestionUseSummary,
+};
+use serde::Deserialize;
+
+use crate::auth::{AuthError, resolve_session};
+use question_model::ProductRole;
+
+const DEFAULT_PAGE_SIZE: u16 = 50;
+const MAX_PAGE_SIZE: u16 = 100;
+
+#[derive(Clone)]
+struct QuestionLibraryRouteState {
+    sessions: Arc<learning_data_access::postgres::PostgresSessionStore>,
+    store: PostgresQuestionLibraryStore,
+    objects: S3ObjectStore,
+}
+
+/// Registers the Instructor-only Question Library browse and detail routes.
+pub fn question_library_router(
+    sessions: Arc<learning_data_access::postgres::PostgresSessionStore>,
+    store: PostgresQuestionLibraryStore,
+    objects: S3ObjectStore,
+) -> Router {
+    Router::new()
+        .route("/api/questions/search", get(search_questions))
+        .route("/api/questions/by-id/{question_id}", get(resolve_question))
+        .route(
+            "/api/questions/by-id/{question_id}/detail",
+            get(question_details),
+        )
+        .with_state(QuestionLibraryRouteState {
+            sessions,
+            store,
+            objects,
+        })
+}
+
+/// URL form of the current Question Search request.
+///
+/// The model's transport form intentionally has no defaults because saved
+/// searches must record every field. HTTP uses defaults for omitted filters,
+/// then immediately constructs the same strict model value.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct QuestionSearchQuery {
+    #[serde(default)]
+    text: Option<String>,
+    #[serde(default)]
+    author_names: Vec<String>,
+    #[serde(default)]
+    backends: Vec<QuestionBackend>,
+    #[serde(default)]
+    tags: Vec<String>,
+    #[serde(default)]
+    question_types: Vec<question_model::QuestionType>,
+    #[serde(default)]
+    capabilities: Vec<Capability>,
+    #[serde(default)]
+    question_licenses: Vec<question_model::QuestionLicense>,
+    #[serde(default)]
+    used_in_my_courses: QuestionSearchCourseUse,
+    #[serde(default)]
+    authorship: QuestionSearchAuthorship,
+    #[serde(default)]
+    cursor: Option<String>,
+    #[serde(default)]
+    page_size: Option<u16>,
+}
+
+impl TryFrom<QuestionSearchQuery> for QuestionSearchRequest {
+    type Error = (StatusCode, &'static str);
+
+    fn try_from(query: QuestionSearchQuery) -> Result<Self, Self::Error> {
+        if query.cursor.is_some() {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Question Library continuation is unavailable for this fixed live baseline",
+            ));
+        }
+        if query
+            .page_size
+            .is_some_and(|size| size == 0 || size > MAX_PAGE_SIZE)
+        {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Question Library page size is invalid",
+            ));
+        }
+        QuestionSearchRequest {
+            text: query.text,
+            author_names: query.author_names,
+            backends: query.backends,
+            tags: query.tags,
+            question_types: query.question_types,
+            capabilities: query.capabilities,
+            question_licenses: query.question_licenses,
+            used_in_my_courses: query.used_in_my_courses,
+            authorship: query.authorship,
+            cursor: None,
+            page_size: query.page_size.or(Some(DEFAULT_PAGE_SIZE)),
+        }
+        .normalized()
+        .map_err(|_| (StatusCode::BAD_REQUEST, "Question Library query is invalid"))
+    }
+}
+
+async fn search_questions(
+    State(state): State<QuestionLibraryRouteState>,
+    headers: HeaderMap,
+    Query(query): Query<QuestionSearchQuery>,
+) -> Response {
+    let query = match QuestionSearchRequest::try_from(query) {
+        Ok(query) => query,
+        Err((status, message)) => return route_error(status, message),
+    };
+    let session_hash = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let entries = match state
+        .store
+        .list_published_question_library_entries(session_hash)
+        .await
+    {
+        Ok(entries) => entries,
+        Err(error) => return store_error_response(error),
+    };
+    let summaries = match entries_to_summaries(&state.objects, entries).await {
+        Ok(summaries) => summaries,
+        Err(()) => {
+            return route_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Question Library unavailable",
+            );
+        }
+    };
+    let matching = summaries
+        .iter()
+        .filter(|entry| matches_query(entry, &query))
+        .collect::<Vec<_>>();
+    let page_size = usize::from(query.page_size.unwrap_or(DEFAULT_PAGE_SIZE));
+    if matching.len() > page_size {
+        return route_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Question Library baseline requires a larger page size",
+        );
+    }
+    let page = QuestionSearchPage {
+        items: matching
+            .iter()
+            .map(|entry| QuestionSearchResult {
+                summary: entry.summary.clone(),
+                evidence: QuestionStatistics::Unavailable,
+            })
+            .collect(),
+        next_cursor: None,
+        facets: facets(&matching),
+    };
+    crate::auth::no_store(Json(page).into_response())
+}
+
+async fn resolve_question(
+    State(state): State<QuestionLibraryRouteState>,
+    headers: HeaderMap,
+    Path(question_id): Path<String>,
+) -> Response {
+    let session_hash = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let question_id = match question_id.parse::<QuestionId>() {
+        Ok(question_id) => question_id,
+        Err(_) => return concealed(),
+    };
+    let entry = match state
+        .store
+        .load_published_question_library_entry(session_hash, &question_id)
+        .await
+    {
+        Ok(entry) => entry,
+        Err(error) => return store_error_response(error),
+    };
+    match summary_from_entry(&state.objects, entry).await {
+        Ok(summary) => crate::auth::no_store(Json(summary).into_response()),
+        Err(()) => route_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Question Library unavailable",
+        ),
+    }
+}
+
+async fn question_details(
+    State(state): State<QuestionLibraryRouteState>,
+    headers: HeaderMap,
+    Path(question_id): Path<String>,
+) -> Response {
+    let session_hash = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let question_id = match question_id.parse::<QuestionId>() {
+        Ok(question_id) => question_id,
+        Err(_) => return concealed(),
+    };
+    let entry = match state
+        .store
+        .load_published_question_library_entry(session_hash, &question_id)
+        .await
+    {
+        Ok(entry) => entry,
+        Err(error) => return store_error_response(error),
+    };
+    let resolved = match resolved_ple_question(&state.objects, entry).await {
+        Ok(resolved) => resolved,
+        Err(()) => {
+            return route_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Question Library unavailable",
+            );
+        }
+    };
+    let detail = QuestionDetails {
+        summary: resolved.summary,
+        prompt: QuestionDetailsPromptView::Static {
+            blocks: resolved.prompt,
+        },
+        evidence: QuestionStatistics::Unavailable,
+        usage: QuestionUseDetails {
+            summary: QuestionUseSummary {
+                global_course_count: 0,
+                global_assignment_count: 0,
+                own_course_count: 0,
+                own_assignment_count: 0,
+            },
+            own_courses: Vec::new(),
+            own_courses_truncated: false,
+        },
+    };
+    crate::auth::no_store(Json(detail).into_response())
+}
+
+async fn instructor_session_hash(
+    state: &QuestionLibraryRouteState,
+    headers: &HeaderMap,
+) -> Result<SessionTokenHash, Box<Response>> {
+    let cookie_header = joined_cookie_header(headers);
+    match resolve_session(state.sessions.as_ref(), cookie_header.as_deref()).await {
+        Ok(session) if session.record.product_role == ProductRole::Instructor => {
+            Ok(session.session_hash)
+        }
+        Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
+        Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Question Library authentication unavailable",
+        ))),
+    }
+}
+
+fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
+    let values = headers
+        .get_all(COOKIE)
+        .iter()
+        .map(|value| value.to_str().ok())
+        .collect::<Option<Vec<_>>>()?;
+    (!values.is_empty()).then(|| values.join("; "))
+}
+
+struct ResolvedQuestionLibraryEntry {
+    summary: QuestionSummary,
+    prompt: Vec<question_model::QuestionContentBlock>,
+    authored_by_current_account: bool,
+}
+
+async fn entries_to_summaries(
+    objects: &S3ObjectStore,
+    entries: Vec<PublishedQuestionLibraryEntry>,
+) -> Result<Vec<ResolvedQuestionLibraryEntry>, ()> {
+    let mut summaries = Vec::with_capacity(entries.len());
+    for entry in entries {
+        summaries.push(resolved_ple_question(objects, entry).await?);
+    }
+    Ok(summaries)
+}
+
+async fn summary_from_entry(
+    objects: &S3ObjectStore,
+    entry: PublishedQuestionLibraryEntry,
+) -> Result<QuestionSummary, ()> {
+    Ok(resolved_ple_question(objects, entry).await?.summary)
+}
+
+async fn resolved_ple_question(
+    objects: &S3ObjectStore,
+    entry: PublishedQuestionLibraryEntry,
+) -> Result<ResolvedQuestionLibraryEntry, ()> {
+    if entry.backend != QuestionBackend::Ple {
+        return Err(());
+    }
+    let source = ResolvedQuestionSource::resolve(
+        objects,
+        entry.question_revision.clone(),
+        entry.source_object_reference.clone(),
+        entry.source_object_checksum.clone(),
+    )
+    .await
+    .map_err(|_| ())?;
+    if source.media_type() != adapter_ple::question_json::PLE_QUESTION_JSON_MEDIA_TYPE
+        || source.media_type() != entry.source_media_type
+    {
+        return Err(());
+    }
+    let document = adapter_ple::question_json::PleQuestionJsonDocument::parse(source.bytes())
+        .map_err(|_| ())?;
+    let compiled = document.compile().map_err(|_| ())?;
+    let presentation = compiled.presentation();
+    let mut metadata = presentation.metadata().clone();
+    if metadata.question_title != entry.question_title
+        || metadata.question_description != entry.question_description
+        || metadata.question_license.as_ref() != Some(&entry.question_license)
+    {
+        return Err(());
+    }
+    metadata.question_license = Some(entry.question_license.clone());
+    Ok(ResolvedQuestionLibraryEntry {
+        summary: QuestionSummary {
+            question_id: entry.question_revision.question_id.clone(),
+            latest_question_revision: entry.question_revision,
+            backend: entry.backend,
+            question_type: presentation.question_type(),
+            capabilities: QuestionBackendCapabilities::from_iter([
+                Capability::ClientRendering,
+                Capability::ServerGrading,
+            ]),
+            metadata,
+            authorship: entry.authorship,
+            availability: entry.availability,
+            published_at: entry.published_at,
+        },
+        prompt: presentation.prompt().to_vec(),
+        authored_by_current_account: entry.authored_by_current_account,
+    })
+}
+
+fn matches_query(entry: &&ResolvedQuestionLibraryEntry, query: &QuestionSearchRequest) -> bool {
+    let summary = &entry.summary;
+    if let Some(exact_question_id) = query.exact_question_id() {
+        return summary.question_id == exact_question_id;
+    }
+    if let Some(text) = &query.text {
+        let haystack = format!(
+            "{} {} {} {}",
+            summary.metadata.question_title,
+            summary.metadata.question_description,
+            summary
+                .metadata
+                .tags
+                .iter()
+                .map(|tag| tag.as_str())
+                .collect::<Vec<_>>()
+                .join(" "),
+            summary
+                .authorship
+                .authors
+                .iter()
+                .map(|author| author.display_name.as_str())
+                .collect::<Vec<_>>()
+                .join(" ")
+        )
+        .to_lowercase();
+        if !text.split(' ').all(|word| haystack.contains(word)) {
+            return false;
+        }
+    }
+    if !query.author_names.is_empty()
+        && !summary.authorship.authors.iter().any(|author| {
+            query
+                .author_names
+                .iter()
+                .any(|name| name == &author.display_name.as_str().to_lowercase())
+        })
+    {
+        return false;
+    }
+    if !query.backends.is_empty() && !query.backends.contains(&summary.backend) {
+        return false;
+    }
+    if !query.tags.is_empty()
+        && !summary
+            .metadata
+            .tags
+            .iter()
+            .any(|tag| query.tags.contains(&tag.as_str().to_lowercase()))
+    {
+        return false;
+    }
+    if !query.question_types.is_empty() && !query.question_types.contains(&summary.question_type) {
+        return false;
+    }
+    if !query
+        .capabilities
+        .iter()
+        .all(|capability| summary.capabilities.supports(*capability))
+    {
+        return false;
+    }
+    if !query.question_licenses.is_empty()
+        && !summary
+            .metadata
+            .question_license
+            .as_ref()
+            .is_some_and(|license| query.question_licenses.contains(license))
+    {
+        return false;
+    }
+    if query.used_in_my_courses == QuestionSearchCourseUse::Used {
+        return false;
+    }
+    query.authorship != QuestionSearchAuthorship::AuthoredByCurrentAccount
+        || entry.authored_by_current_account
+}
+
+fn facets(entries: &[&ResolvedQuestionLibraryEntry]) -> QuestionSearchFacets {
+    let mut authors = BTreeMap::<String, u64>::new();
+    let mut backends = BTreeMap::<QuestionBackend, u64>::new();
+    let mut tags = BTreeMap::<String, u64>::new();
+    let mut question_types = BTreeMap::<question_model::QuestionType, u64>::new();
+    let mut capabilities = BTreeMap::<Capability, u64>::new();
+    let mut licenses = BTreeMap::<question_model::QuestionLicense, u64>::new();
+    for entry in entries {
+        let summary = &entry.summary;
+        for author in &summary.authorship.authors {
+            *authors
+                .entry(author.display_name.as_str().to_string())
+                .or_default() += 1;
+        }
+        *backends.entry(summary.backend).or_default() += 1;
+        for tag in &summary.metadata.tags {
+            *tags.entry(tag.as_str().to_string()).or_default() += 1;
+        }
+        *question_types.entry(summary.question_type).or_default() += 1;
+        for capability in summary.capabilities.declared() {
+            *capabilities.entry(capability).or_default() += 1;
+        }
+        if let Some(license) = &summary.metadata.question_license {
+            *licenses.entry(license.clone()).or_default() += 1;
+        }
+    }
+    QuestionSearchFacets {
+        author_names: authors
+            .into_iter()
+            .map(|(author_name, count)| QuestionSearchAuthorFacet { author_name, count })
+            .collect(),
+        backends: backends
+            .into_iter()
+            .map(|(backend, count)| QuestionSearchBackendFacet { backend, count })
+            .collect(),
+        tags: tags
+            .into_iter()
+            .map(|(tag, count)| QuestionSearchTagFacet { tag, count })
+            .collect(),
+        question_types: question_types
+            .into_iter()
+            .map(|(question_type, count)| QuestionTypeFacet {
+                question_type,
+                count,
+            })
+            .collect(),
+        capabilities: capabilities
+            .into_iter()
+            .map(|(capability, count)| QuestionSearchCapabilityFacet { capability, count })
+            .collect(),
+        question_licenses: licenses
+            .into_iter()
+            .map(
+                |(question_license, count)| QuestionSearchQuestionLicenseFacet {
+                    question_license,
+                    count,
+                },
+            )
+            .collect(),
+        used_in_my_courses: QuestionSearchCourseUseFacet { used: 0 },
+    }
+}
+
+fn store_error_response(error: StoreError) -> Response {
+    match error {
+        StoreError::NotFound | StoreError::Forbidden => concealed(),
+        StoreError::InvalidRecord(_) => route_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Question Library unavailable",
+        ),
+        StoreError::AlreadyExists
+        | StoreError::OwnershipMismatch
+        | StoreError::Conflict
+        | StoreError::RetryableTransaction
+        | StoreError::AssignmentActivity(_)
+        | StoreError::TimedOut
+        | StoreError::Unavailable(_) => route_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Question Library unavailable",
+        ),
+    }
+}
+
+fn concealed() -> Response {
+    route_error(StatusCode::NOT_FOUND, "Question Library unavailable")
+}
+
+fn route_error(status: StatusCode, message: &'static str) -> Response {
+    crate::auth::no_store((status, Json(serde_json::json!({ "error": message }))).into_response())
+}

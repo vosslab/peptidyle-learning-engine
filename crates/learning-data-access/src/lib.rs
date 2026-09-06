@@ -8,10 +8,12 @@ use domain::assignment_activity::AssignmentActivityError;
 mod assignment_attempt;
 mod authentication_ceremony;
 mod authentication_email;
+mod authoring;
 mod imathas_question_backend_session;
 mod object_record;
 mod pagination;
 pub mod postgres;
+mod question_library;
 mod question_source;
 mod random_uuid;
 pub mod session;
@@ -30,6 +32,10 @@ pub use authentication_ceremony::{
 };
 pub use authentication_email::{
     AuthenticationEmail, AuthenticationEmailError, EmailDomain, MAX_AUTHENTICATION_EMAIL_BYTES,
+};
+pub use authoring::{
+    AuthoringDraft, AuthoringDraftStore, AuthoringDraftSummary, CreateAuthoringDraftInput,
+    SaveAuthoringDraftInput,
 };
 pub use imathas_question_backend_session::{
     AutomatedGradingReceipt, AutomatedGradingReceiptChecksum, AutomatedGradingReceiptId,
@@ -61,6 +67,7 @@ pub use object_record::{
     WorkspaceQuestionSourceObjectRecordStore, validate_workspace_question_source_object_record,
 };
 pub use pagination::{Cursor, Page, PageRequest, PageSize, PaginationError};
+pub use question_library::{PublishedQuestionLibraryEntry, QuestionLibraryStore};
 pub use question_source::{
     DraftQuestionEditNumber, DraftQuestionPublicationSourceStore, DraftQuestionSourceBindingInput,
     DraftQuestionSourceBindingStore, DraftQuestionUuid, NewQuestionLineagePublicationInput,

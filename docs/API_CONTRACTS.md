@@ -12,21 +12,24 @@ security and storage rules.
 ## Status and authority
 
 [composition.rs](../crates/server/src/composition.rs) is the executable
-authority for the production route surface. Its current entry point provides only
-health, session resolution/logout, and the deployment-gated seeded Live Demo
-account selector. Route modules absent from server composition, generated DTOs, browser clients,
-schemas, and models retain product design; none establishes an available HTTP
-endpoint.
+authority for the production route surface. Its current entry point provides
+health, session resolution/logout, the deployment-gated seeded Live Demo
+account selector, and the M5 Instructor Question Library. Route modules absent
+from server composition, generated DTOs, browser clients, schemas, and models
+retain product design; none establishes an available HTTP endpoint.
 
 ## Implemented Server Routes
 
 | Surface                | Route                               | Current boundary                                                                                                                                                              | Owner                                                  |
 | ---------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| Health                 | `GET /health`                       | HTTPS readiness response                                                                                                                                                      | [composition.rs](../crates/server/src/composition.rs)  |
+| Health                 | `GET /health`                       | Bounded readiness: `200` with no unavailable dependencies, or `503` naming only closed unavailable categories; the disposable topology checks database, object store, renderer, and worker, while the gateway names a missing API | [composition.rs](../crates/server/src/composition.rs)  |
 | Session                | `GET /api/auth/session`             | Resolves the presented opaque session cookie into a browser-safe Authenticated Session response                                                                               | [auth.rs](../crates/server/src/auth.rs)                |
 | Session                | `POST /api/auth/logout`             | Revokes the presented session and clears its cookie                                                                                                                           | [auth.rs](../crates/server/src/auth.rs)                |
 | Seeded Live Demo entry | `GET /api/auth/live-demo/accounts`  | Lists surviving members of the deployment's closed seeded-persona set and a bounded unavailable count, with no Account ID, unavailable-persona detail, or authorization claim | [live_demo.rs](../crates/server/src/auth/live_demo.rs) |
 | Seeded Live Demo entry | `POST /api/auth/live-demo/accounts` | Resolves one closed seeded persona and issues the ordinary Authenticated Session                                                                                              | [live_demo.rs](../crates/server/src/auth/live_demo.rs) |
+| Question Library | `GET /api/questions/search` | Requires the stored current Instructor role, resolves only M4 Published Question source bindings server-side, and returns a bounded, answer-free filtered page. Student and anonymous requests receive the same `404` concealment. | [question_library.rs](../crates/server/src/question_library.rs) |
+| Question Library | `GET /api/questions/by-id/{question_id}` | Resolves one currently published stable Question ID after the same Instructor boundary. Object records, source bindings, checksums, and private source bytes remain server-only. | [question_library.rs](../crates/server/src/question_library.rs) |
+| Question Library | `GET /api/questions/by-id/{question_id}/detail` | Returns the browser-safe current Question Details presentation after the same Instructor boundary; no response, answer, feedback, source, or grading fields cross the route. | [question_library.rs](../crates/server/src/question_library.rs) |
 
 The seeded routes are present when at least one valid, unambiguous deployment
 mapping survives. The five-persona set remains closed, but a configured demo
@@ -49,12 +52,12 @@ from stored PLE records whenever a future route needs them.
 
 ## Deferred teaching routes
 
-Question Library and lifecycle; private authoring and imports; Blueprint Course
-and Course Instance operations; roster, invitation, and enrollment; assignment
-workspace; Student delivery and Question submission; automated grading;
-Gradebook; Student-work inspection; object delivery; Course Retention; and
-iMathAS Question Backend browser boundaries are retained Store-backed product
-requirements. Server composition currently provides none of these HTTP routes.
+Private authoring and imports; Blueprint Course and Course Instance operations;
+roster, invitation, and enrollment; assignment workspace; Student delivery and
+Question submission; automated grading; Gradebook; Student-work inspection;
+object delivery; Course Retention; and iMathAS Question Backend browser
+boundaries are retained Store-backed product requirements. Server composition
+currently provides none of those HTTP routes.
 
 When implemented, each route uses the session-derived Account plus exact stored
 relationships. Course and Assignment references locate a resource only after

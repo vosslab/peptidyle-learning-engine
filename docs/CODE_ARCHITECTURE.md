@@ -100,9 +100,9 @@ assignment. Copy Course for New Term and Shift Course Dates are separate Course 
 | Question model       | `crates/question_model/`                                | BlueprintCourse tree, typed references, exact question identities, assignment meaning, Blueprint-operation contracts, previews, and browser-safe reader types.                                      |
 | Domain               | `crates/domain/`                                        | Pure timing, policy, disclosure, Assignment Attempt, scoring, generation, and validation behavior without database or wall-clock reads.                                                             |
 | Grading              | `crates/grading/`                                       | Answer-bearing checkers and correctness decisions; server-only and outside the Wasm dependency closure.                                                                                             |
-| Learning data access | `crates/learning-data-access/src/`                      | Current focused Account Session, authentication, Assignment Attempt, Question Source, object-record, grading-operation, pagination, and iMathAS Question Backend Session contracts and persistence. |
-| PostgreSQL modules   | `crates/learning-data-access/src/postgres/`             | Current connection, migration, Account Session, Assignment Attempt, Question Source, object-record, and iMathAS Question Backend Session persistence support.                                       |
-| Server               | `crates/server/src/`                                    | Current health, Account Session authentication and logout, deployment-gated seeded Live Demo selection, and their HTTP/cookie boundary.                                                             |
+| Learning data access | `crates/learning-data-access/src/`                      | Current focused Account Session, authentication, Assignment Attempt, Instructor Question Library, Question Source, object-record, grading-operation, pagination, and iMathAS Question Backend Session contracts and persistence. |
+| PostgreSQL modules   | `crates/learning-data-access/src/postgres/`             | Current connection, migration, Account Session, Assignment Attempt, Instructor Question Library, Question Source, object-record, and iMathAS Question Backend Session persistence support.                                       |
+| Server               | `crates/server/src/`                                    | Current health, Account Session authentication and logout, deployment-gated seeded Live Demo selection, Instructor Question Library browse/detail, and their HTTP/cookie boundary.                                                             |
 | Generated contracts  | `crates/project-tools/src/tsgen.rs` -> `generated/api/` | Derivative TypeScript DTOs generated from Rust contract roots; generated files are not hand-edited.                                                                                                 |
 | Browser              | `src/`                                                  | Application Shell, strict decoding, route/page state, and retained BlueprintCourse and Blueprint-operation client contracts; no course or Blueprint-operation Server Routes exist.                  |
 | Object storage       | `crates/objects/`                                       | Typed keys, checksums, image ingress, and the `public-assets`, `private-content`, `student-records`, and `temp-processing` domains.                                                                 |
@@ -110,11 +110,15 @@ assignment. Copy Course for New Term and Shift Course Dates are separate Course 
 
 The current server composition is
 [`crates/server/src/composition.rs`](../crates/server/src/composition.rs).
-`production_router_from_env()` constructs the PostgreSQL Account Session Store,
-exposes health, Account Session, and deployment-gated seeded Live Demo routes,
-then applies the browser cookie boundary and HTTP security headers. Object
-storage, Question Backends, workers, and publishing remain separate future
-assembly responsibilities until their Server Routes and Services are implemented.
+`production_router_from_env()` constructs the PostgreSQL Account Session Store
+and Instructor Question Library Store, binds the latter to its server-only S3
+Question Source resolver, exposes health, Account Session, deployment-gated
+seeded Live Demo, and Instructor Question Library routes, then applies the
+browser cookie boundary and HTTP security headers. The worker process has a
+separate internal composition path with its dedicated database login and no
+HTTP listener; its Job operations remain future work. Object storage, Question
+Backends, and publishing remain separate future assembly responsibilities until
+their Server Routes and Services are implemented.
 
 ## Persistence ownership
 
@@ -199,9 +203,12 @@ MinIO, API, worker, gateway, and private renderer compose the local
 production-shaped topology.
 
 `local_stack_control/` owns typed lifecycle, readiness, leases, scoped cleanup,
-and acceptance composition. It is operational infrastructure, not a second
-application architecture. `deploy/opentofu/` describes the AWS target but does
-not prove that production activation has occurred.
+and acceptance composition. The disposable API readiness route checks the
+database, object store, renderer, and worker; its public body identifies only a
+closed unavailable category, while the worker's socket stays private and is not
+an HTTP or Job-execution surface. It is operational infrastructure, not a
+second application architecture. `deploy/opentofu/` describes the AWS target
+but does not prove that production activation has occurred.
 
 ## Testing and verification
 
@@ -211,7 +218,9 @@ Validation follows [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md):
   DTO decoding, answer-free browser reader data, and deterministic Application
   Shell/Ribbon behavior.
 - Current disposable PostgreSQL/RLS oracles prove the applied schema and
-  service authority boundaries.
+  service authority boundaries. The M5 real-stack runner separately proves
+  Instructor Question Library browse/detail plus Student and anonymous
+  concealment; it is not a complete browser-owner or teaching-workflow claim.
 - A future Blueprint-operation implementation requires focused contract,
   PostgreSQL/RLS, generated-contract, and browser acceptance evidence for its
   exact operations before the visible workflow is treated as current.

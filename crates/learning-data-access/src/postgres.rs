@@ -5,6 +5,8 @@
 #[cfg(feature = "postgres")]
 mod assignment_attempt;
 #[cfg(feature = "postgres")]
+mod authoring;
+#[cfg(feature = "postgres")]
 mod connection;
 #[cfg(feature = "postgres")]
 mod imathas_question_backend_session;
@@ -13,12 +15,16 @@ mod migrations;
 #[cfg(feature = "postgres")]
 mod object_record;
 #[cfg(feature = "postgres")]
+mod question_library;
+#[cfg(feature = "postgres")]
 mod question_source;
 #[cfg(feature = "postgres")]
 mod sessions;
 
 #[cfg(feature = "postgres")]
 pub use assignment_attempt::PostgresAssignmentAttemptStore;
+#[cfg(feature = "postgres")]
+pub use authoring::PostgresAuthoringDraftStore;
 #[cfg(feature = "postgres")]
 pub use connection::{ProductionLoginProfile, lazy_pool, local_development_pool, production_pool};
 #[cfg(feature = "postgres")]
@@ -31,6 +37,8 @@ pub use migrations::{
 };
 #[cfg(feature = "postgres")]
 pub use object_record::PostgresWorkspaceQuestionSourceObjectRecordStore;
+#[cfg(feature = "postgres")]
+pub use question_library::PostgresQuestionLibraryStore;
 #[cfg(feature = "postgres")]
 pub use question_source::PostgresDraftQuestionSourceBindingStore;
 #[cfg(feature = "postgres")]

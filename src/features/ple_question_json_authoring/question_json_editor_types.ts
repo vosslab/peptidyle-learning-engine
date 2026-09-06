@@ -1,6 +1,6 @@
 // Public composition contract for the ple-question-json editor surface.
 
-import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
+import type { DraftQuestionReference } from "../../../generated/api/DraftQuestionReference";
 import type { WasmFacade } from "../../wasm/index";
 import type { PleQuestionJsonRead } from "./question_json_client";
 import type { PleQuestionJsonRepository } from "./question_json_repository";
@@ -32,7 +32,7 @@ type PleQuestionJsonResponseMemberRolesAreDistinct = Assert<
 void (undefined as unknown as PleQuestionJsonResponseMemberRolesAreDistinct);
 
 export interface PleQuestionJsonEditorPageProps {
-  readonly workspace: WorkspaceId;
+  readonly draftQuestion: DraftQuestionReference;
   readonly initial: PleQuestionJsonRead;
   readonly repository: PleQuestionJsonRepository;
   /** Injected browser-safe validator keeps preview on the same student QuestionResponseControl path. */

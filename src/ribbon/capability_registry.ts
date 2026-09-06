@@ -162,8 +162,8 @@ const NO_TEACHING_HANDLER = [
 
 /**
  * Capability declarations are total over the catalog, but they do not invent paths or authority.
- * Every current destination is unbacked: production registers entry/auth/health only, not a
- * complete teaching or data handler for any Ribbon destination.
+ * The Question Library is backed by its registered Instructor routes; every
+ * other teaching destination remains unavailable until its complete path lands.
  */
 const CAPABILITY_DECLARATIONS = {
   courses: {
@@ -172,10 +172,14 @@ const CAPABILITY_DECLARATIONS = {
     evidence: [...NO_TEACHING_HANDLER, "src/api/application_api.tsx::ApiClient.listCourses"],
   },
   questionLibrary: {
-    kind: "unbacked",
-    reason: "Question Library search has no registered production teaching/data handler.",
+    kind: "backed",
+    clientMethod: "ApiClient.searchQuestionLibrary",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/question_library.rs::question_library_router",
+    },
     evidence: [
-      ...NO_TEACHING_HANDLER,
+      "crates/server/src/question_library.rs::question_library_router",
       "src/api/application_api.tsx::ApiClient.searchQuestionLibrary",
     ],
   },
@@ -238,10 +242,14 @@ const CAPABILITY_DECLARATIONS = {
     evidence: [...NO_TEACHING_HANDLER, "src/ribbon/ribbon_catalog.ts::instructorAccounts"],
   },
   allQuestions: {
-    kind: "unbacked",
-    reason: "All Questions has no registered production teaching/data handler.",
+    kind: "backed",
+    clientMethod: "ApiClient.searchQuestionLibrary",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/question_library.rs::question_library_router",
+    },
     evidence: [
-      ...NO_TEACHING_HANDLER,
+      "crates/server/src/question_library.rs::question_library_router",
       "src/api/application_api.tsx::ApiClient.searchQuestionLibrary",
     ],
   },
@@ -251,11 +259,16 @@ const CAPABILITY_DECLARATIONS = {
     evidence: [...NO_TEACHING_HANDLER, "src/ribbon/ribbon_catalog.ts::myQuestions"],
   },
   myQuestionDrafts: {
-    kind: "unbacked",
-    reason:
-      "My Question Drafts is a retained future destination without a declared usable path " +
-      "or registered production handler.",
-    evidence: [...NO_TEACHING_HANDLER, "src/ribbon/ribbon_catalog.ts::myQuestionDrafts"],
+    kind: "backed",
+    clientMethod: "QuestionDraftsPage::listDrafts",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/authoring.rs::authoring_router",
+    },
+    evidence: [
+      "crates/server/src/authoring.rs::authoring_router",
+      "src/pages/question_drafts_page.tsx::QuestionDraftsPage",
+    ],
   },
   starred: {
     kind: "unbacked",

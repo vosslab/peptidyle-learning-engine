@@ -12,7 +12,7 @@ pub use grading::ple_question_json::{
     PleQuestionJsonError, PleQuestionJsonEvaluation, PleQuestionJsonPrivateGrading,
     validate_ple_question_json_shape,
 };
-use question_model::QuestionContentBlock;
+use question_model::{QuestionContentBlock, QuestionMetadata};
 use question_model::{QuestionHint, QuestionType};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -70,15 +70,20 @@ struct PleQuestionJsonOutcomeFeedback {
 /// Public draft plus separately persisted server-only grading and pre-response teaching content.
 #[derive(Clone)]
 pub struct PleQuestionJsonPresentation {
-    question_title: String,
+    metadata: QuestionMetadata,
     prompt: Vec<QuestionContentBlock>,
     response: question_model::response::QuestionResponseFormat,
     question_type: QuestionType,
 }
 
 impl PleQuestionJsonPresentation {
+    /// Returns the browser-safe Question Metadata compiled from this source.
+    pub fn metadata(&self) -> &QuestionMetadata {
+        &self.metadata
+    }
+
     pub fn question_title(&self) -> &str {
-        &self.question_title
+        &self.metadata.question_title
     }
     pub fn prompt(&self) -> &[QuestionContentBlock] {
         &self.prompt

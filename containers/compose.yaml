@@ -306,6 +306,43 @@ services:
       # SMTP and iMathAS. Storage and renderer traffic remain private.
       - api_outbound
 
+  # The worker has one database login and no browser, gateway, object-store,
+  # renderer, or outbound network authority. Its private non-HTTP readiness
+  # socket lets the API report M2 dependency state without a public route.
+  # M3 supplies typed procedures and lease protocol; it performs no queue work.
+  worker:
+    labels: *ple-disposable-capability-label
+    image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
+    command: ["--worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Service Login Setup replaces this fail-closed sentinel before the
+      # worker starts. The worker never receives the API login URL.
+      DATABASE_URL: ${PLE_WORKER_DATABASE_URL:-postgres://ple_worker_login:service-login-setup-required@postgres:5432/${POSTGRES_DB:-peptidyle}}
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/peptidyle-api", "--worker", "--health-probe"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+    cpus: "0.25"
+    mem_limit: 128m
+    pids_limit: 64
+    restart: on-failure
+    stop_grace_period: 30s
+    networks:
+      - default
+
   gateway:
     labels: *ple-disposable-capability-label
     build:

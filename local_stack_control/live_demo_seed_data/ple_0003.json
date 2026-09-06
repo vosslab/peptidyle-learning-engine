@@ -1,0 +1,18 @@
+{
+  "format": "pleQuestionJson",
+  "version": 3,
+  "questionTitle": "Peptide net charge",
+  "questionDescription": "Calculate a simple peptide net charge from stated ionizable groups.",
+  "prompt": "At pH 7, a peptide has one protonated N terminus (+1), one deprotonated C terminus (-1), and one protonated lysine side chain (+1). What is its net charge?",
+  "response": {
+    "kind": "numeric",
+    "answer": 1,
+    "tolerance": {"kind": "exact"},
+    "unit": null
+  },
+  "feedback": {"correct": "Correct. Add the three stated charges directly.", "incorrect": "List each stated ionizable group and sum its charge at the given pH."},
+  "tags": ["biochemistry", "acid-base"],
+  "questionLicense": "CC-BY-SA-4.0",
+  "questionCitation": null,
+  "language": "en-US"
+}

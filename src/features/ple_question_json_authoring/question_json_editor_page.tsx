@@ -290,7 +290,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     setStatus("Saving private draft...");
     transition({ kind: "saveStarted" });
     try {
-      const result = await props.repository.save(props.workspace, current);
+      const result = await props.repository.save(props.draftQuestion, current);
       setLatestRevision(result.revision);
       transition({ kind: "saveSucceeded" });
       setStatus("Private draft saved. It is not published.");
@@ -313,7 +313,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     transition({ kind: "reloadStarted" });
     setStatus("Loading the newest private draft...");
     try {
-      const newest = await props.repository.reload(props.workspace);
+      const newest = await props.repository.reload(props.draftQuestion);
       setLatestRevision(newest.revision);
       setReview(null);
       setShowInstructorCheck(false);
@@ -382,7 +382,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     transition({ kind: "publishStarted" });
     setStatus("Publishing a new Question ID...");
     try {
-      const summary = await props.repository.publish(props.workspace, { authorship });
+      const summary = await props.repository.publish(props.draftQuestion, { authorship });
       setPublishedSummary(summary);
       transition({
         kind: "publishSucceeded",

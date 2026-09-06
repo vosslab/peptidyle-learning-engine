@@ -13,8 +13,11 @@ import local_stack_control.process
 
 API_LOGIN = "ple_api_login"
 API_ROLES = ("ple_app", "ple_auth")
+WORKER_LOGIN = "ple_worker_login"
+WORKER_ROLES = ("ple_imathas_question_backend_grading_worker",)
 LOGIN_PROFILES = (
 	(API_LOGIN, API_ROLES, "PLE_API_DATABASE_URL"),
+	(WORKER_LOGIN, WORKER_ROLES, "PLE_WORKER_DATABASE_URL"),
 )
 
 
@@ -153,7 +156,7 @@ def write_runtime_urls(
 	env_file: pathlib.Path,
 	urls: tuple[str, ...],
 ) -> None:
-	"""Replace the API database URL inside the selected mode-0600 Compose input."""
+	"""Replace every service-specific database URL inside private Compose input."""
 	local_stack_control.env_file.require_mutation_env_file(env_file)
 	if len(urls) != len(LOGIN_PROFILES) or len(set(urls)) != len(LOGIN_PROFILES):
 		raise local_stack_control.models.ControllerError("service login URLs are invalid")

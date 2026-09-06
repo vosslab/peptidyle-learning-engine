@@ -1,6 +1,6 @@
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { QuestionAuthorship } from "../../../generated/api/QuestionAuthorship";
-import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
+import type { DraftQuestionReference } from "../../../generated/api/DraftQuestionReference";
 import {
   PleQuestionJsonConflictError,
   type PleQuestionJsonRead,
@@ -9,25 +9,28 @@ import {
 import type { PleQuestionJsonDocument } from "./question_json_source";
 
 export interface PleQuestionJsonAuthoringClient {
-  load(workspace: WorkspaceId): Promise<PleQuestionJsonRead>;
+  load(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead>;
   save(
-    workspace: WorkspaceId,
+    draftQuestion: DraftQuestionReference,
     source: PleQuestionJsonDocument,
     revision?: string,
   ): Promise<PleQuestionJsonSave>;
   publish(
-    workspace: WorkspaceId,
+    draftQuestion: DraftQuestionReference,
     request: { readonly authorship: QuestionAuthorship },
     revision: string,
   ): Promise<QuestionSummary>;
 }
 
 export interface PleQuestionJsonRepository {
-  load(workspace: WorkspaceId): Promise<PleQuestionJsonRead>;
-  save(workspace: WorkspaceId, source: PleQuestionJsonDocument): Promise<PleQuestionJsonSave>;
-  reload(workspace: WorkspaceId): Promise<PleQuestionJsonRead>;
+  load(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead>;
+  save(
+    draftQuestion: DraftQuestionReference,
+    source: PleQuestionJsonDocument,
+  ): Promise<PleQuestionJsonSave>;
+  reload(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead>;
   publish(
-    workspace: WorkspaceId,
+    draftQuestion: DraftQuestionReference,
     request: { readonly authorship: QuestionAuthorship },
   ): Promise<QuestionSummary>;
 }
@@ -46,39 +49,40 @@ export class PleQuestionJsonStaleConflictError extends PleQuestionJsonConflictEr
 export function createPleQuestionJsonRepository(
   client: PleQuestionJsonAuthoringClient,
 ): PleQuestionJsonRepository {
-  const revisions = new Map<WorkspaceId, string>();
-  const operationGenerations = new Map<WorkspaceId, number>();
+  const revisions = new Map<DraftQuestionReference, string>();
+  const operationGenerations = new Map<DraftQuestionReference, number>();
 
-  function startOperation(workspace: WorkspaceId): number {
-    const generation = (operationGenerations.get(workspace) ?? 0) + 1;
-    operationGenerations.set(workspace, generation);
+  function startOperation(draftQuestion: DraftQuestionReference): number {
+    const generation = (operationGenerations.get(draftQuestion) ?? 0) + 1;
+    operationGenerations.set(draftQuestion, generation);
     return generation;
   }
 
   function setRevisionIfCurrent(
-    workspace: WorkspaceId,
+    draftQuestion: DraftQuestionReference,
     generation: number,
     revision: string,
   ): void {
-    if (operationGenerations.get(workspace) === generation) revisions.set(workspace, revision);
+    if (operationGenerations.get(draftQuestion) === generation)
+      revisions.set(draftQuestion, revision);
   }
 
-  async function load(workspace: WorkspaceId): Promise<PleQuestionJsonRead> {
-    const generation = startOperation(workspace);
-    const result = await client.load(workspace);
-    setRevisionIfCurrent(workspace, generation, result.revision);
+  async function load(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead> {
+    const generation = startOperation(draftQuestion);
+    const result = await client.load(draftQuestion);
+    setRevisionIfCurrent(draftQuestion, generation, result.revision);
     return result;
   }
 
   async function save(
-    workspace: WorkspaceId,
+    draftQuestion: DraftQuestionReference,
     source: PleQuestionJsonDocument,
   ): Promise<PleQuestionJsonSave> {
-    const generation = startOperation(workspace);
-    const revision = revisions.get(workspace);
+    const generation = startOperation(draftQuestion);
+    const revision = revisions.get(draftQuestion);
     try {
-      const result = await client.save(workspace, source, revision);
-      setRevisionIfCurrent(workspace, generation, result.revision);
+      const result = await client.save(draftQuestion, source, revision);
+      setRevisionIfCurrent(draftQuestion, generation, result.revision);
       return result;
     } catch (error: unknown) {
       if (error instanceof PleQuestionJsonConflictError) {
@@ -88,19 +92,19 @@ export function createPleQuestionJsonRepository(
     }
   }
 
-  async function reload(workspace: WorkspaceId): Promise<PleQuestionJsonRead> {
-    return await load(workspace);
+  async function reload(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead> {
+    return await load(draftQuestion);
   }
 
   async function publish(
-    workspace: WorkspaceId,
+    draftQuestion: DraftQuestionReference,
     request: { readonly authorship: QuestionAuthorship },
   ): Promise<QuestionSummary> {
-    const revision = revisions.get(workspace);
+    const revision = revisions.get(draftQuestion);
     if (revision === undefined) {
       throw new Error("Load the saved Question before publishing it.");
     }
-    return await client.publish(workspace, request, revision);
+    return await client.publish(draftQuestion, request, revision);
   }
 
   return { load, save, reload, publish };

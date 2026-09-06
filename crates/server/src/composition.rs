@@ -3,12 +3,19 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::{Context, Result, bail};
-use axum::{Router, http::StatusCode, routing::get};
+use axum::{Router, routing::get};
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
     SessionLifetime,
     postgres::{
-        PostgresSessionStore, ProductionLoginProfile, local_development_pool, production_pool,
+        PostgresAuthoringDraftStore, PostgresDraftQuestionSourceBindingStore,
+        PostgresQuestionLibraryStore, PostgresSessionStore, ProductionLoginProfile,
+        local_development_pool, production_pool,
     },
+};
+use objects::{
+    minio::{EndpointConfig, client as minio_client},
+    s3::{BucketNames, S3ObjectStore},
 };
 use question_model::AccountId;
 
@@ -59,15 +66,38 @@ pub async fn production_router_from_env() -> Result<Router> {
         .await
         .context("the attested API database pool could not connect")?;
 
-    let sessions = Arc::new(PostgresSessionStore::new(pool));
+    let readiness = crate::health::ReadinessState::from_environment(pool.clone())
+        .map_err(anyhow::Error::msg)
+        .context("could not configure API readiness checks")?;
+    let sessions = Arc::new(PostgresSessionStore::new(pool.clone()));
+    let question_library_store = PostgresQuestionLibraryStore::new(pool.clone());
+    let authoring_drafts = PostgresAuthoringDraftStore::new(pool.clone());
+    let authoring_publication = PostgresDraftQuestionSourceBindingStore::new(pool);
+    let question_library_objects = question_library_object_store_from_env().await?;
+    let question_id_issuer = question_id_issuer_from_env()?;
     let session_config = production_session_config();
+    let readiness_router = Router::new()
+        .route("/health", get(crate::health::readiness_handler))
+        .with_state(readiness);
     let router = Router::new()
-        .route("/health", get(|| async { StatusCode::OK }))
+        .merge(readiness_router)
         .merge(session_router(Arc::clone(&sessions), session_config))
         .merge(live_demo_router(
-            sessions,
+            Arc::clone(&sessions),
             live_demo_config_from_env()?,
             session_config,
+        ))
+        .merge(crate::question_library::question_library_router(
+            Arc::clone(&sessions),
+            question_library_store,
+            question_library_objects.clone(),
+        ))
+        .merge(crate::authoring::authoring_router(
+            sessions,
+            authoring_drafts,
+            authoring_publication,
+            question_library_objects,
+            question_id_issuer,
         ));
     let browser_boundary = production_browser_boundary_from_env()?;
     Ok(crate::http_security::apply_api_security_headers(
@@ -76,6 +106,76 @@ pub async fn production_router_from_env() -> Result<Router> {
             crate::auth::production_cookie_boundary,
         )),
     ))
+}
+
+/// Reads the deployment-owned HMAC key that validates newly minted Question IDs.
+/// The base64url capability remains in the mounted private file and is never
+/// emitted in diagnostics or browser data.
+fn question_id_issuer_from_env() -> Result<crate::question_publication::HmacQuestionIdIssuer> {
+    let path = required_env("PLE_QUESTION_ID_SECRET_FILE")?;
+    let encoded = std::fs::read_to_string(path)
+        .context("could not read the Question ID secret capability")?;
+    let encoded = encoded.trim_end_matches(['\r', '\n']);
+    let bytes = URL_SAFE_NO_PAD
+        .decode(encoded)
+        .context("Question ID secret capability must be unpadded base64url")?;
+    let bytes: [u8; 32] = bytes.try_into().map_err(|_| {
+        anyhow::anyhow!("Question ID secret capability must contain exactly 32 bytes")
+    })?;
+    Ok(crate::question_publication::HmacQuestionIdIssuer::new(
+        crate::question_publication::QuestionIdSecret::from_bytes(bytes),
+    ))
+}
+
+/// Constructs the API-owned object reader used to compile answer-free Question
+/// Library views. The disposable topology may use its explicitly configured
+/// MinIO endpoint; production uses workload identity only.
+async fn question_library_object_store_from_env() -> Result<S3ObjectStore> {
+    let buckets = BucketNames {
+        public_assets: required_env("PLE_PUBLIC_ASSETS_BUCKET")?,
+        private_content: required_env("PLE_PRIVATE_CONTENT_BUCKET")?,
+        student_records: required_env("PLE_STUDENT_RECORDS_BUCKET")?,
+        temp_processing: required_env("PLE_TEMP_PROCESSING_BUCKET")?,
+    };
+    let client =
+        if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local") {
+            minio_client(&EndpointConfig {
+                endpoint_url: required_env("PLE_S3_ENDPOINT")?,
+                region: required_env("PLE_S3_REGION")?,
+                access_key_id: required_env("AWS_ACCESS_KEY_ID")?,
+                secret_access_key: required_env("AWS_SECRET_ACCESS_KEY")?,
+            })
+        } else {
+            objects::aws::container_role_client(&objects::aws::ContainerRoleConfig {
+                region: required_env("PLE_S3_REGION")?,
+            })
+            .await
+        };
+    Ok(S3ObjectStore::new(client, buckets))
+}
+
+/// Attests the one worker login without constructing an API router or listener.
+// ASVS 8.3.1: the worker's database URL must attest the worker profile before
+// it can later claim a typed Job. No Account/session authority is constructed.
+pub async fn verify_worker_database_login_from_env() -> Result<()> {
+    let database_url = required_env("DATABASE_URL")?;
+    let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local")
+    {
+        local_development_pool(
+            &database_url,
+            ProductionLoginProfile::ImathasQuestionBackendGradingWorker,
+        )
+    } else {
+        production_pool(
+            &database_url,
+            ProductionLoginProfile::ImathasQuestionBackendGradingWorker,
+        )
+    }
+    .context("could not construct the attested worker database pool")?;
+    pool.acquire()
+        .await
+        .context("the attested worker database pool could not connect")?;
+    Ok(())
 }
 
 /// The address the binary binds, parsed once at startup.

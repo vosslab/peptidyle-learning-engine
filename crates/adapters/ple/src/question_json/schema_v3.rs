@@ -12,7 +12,7 @@ use question_model::response::{
     HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
     QuestionResponseFormat, QuestionType, ResponseItemReference, TextEntrySlot,
 };
-use question_model::{QuestionAssetId, QuestionHint};
+use question_model::{QuestionAssetId, QuestionHint, QuestionMetadata};
 use question_model::{QuestionAssetReference, QuestionContentBlock};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -359,7 +359,19 @@ impl PleQuestionJsonDocumentBody {
             .and_then(QuestionHint::new);
         Ok(CompiledPleQuestionJson {
             presentation: PleQuestionJsonPresentation {
-                question_title: self.question_title.clone(),
+                metadata: QuestionMetadata {
+                    question_title: self.question_title.clone(),
+                    question_description: self.question_description.clone(),
+                    tags: self
+                        .tags
+                        .iter()
+                        .cloned()
+                        .map(question_model::Tag::new)
+                        .collect(),
+                    question_license: self.question_license.clone(),
+                    question_citation: self.question_citation.clone(),
+                    language: self.language.clone(),
+                },
                 prompt,
                 response,
                 question_type,

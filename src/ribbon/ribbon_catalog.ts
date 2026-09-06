@@ -18,7 +18,6 @@ export type FutureRibbonDestinationId =
   | "blueprintUpdates"
   | "courseSetup"
   | "myQuestions"
-  | "myQuestionDrafts"
   | "starredQuestions"
   | "watchedQuestions"
   | "courseAppearance";
@@ -238,7 +237,7 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "myQuestionDrafts",
     label: "My Question Drafts",
-    destination: { kind: "future", futureId: "myQuestionDrafts" },
+    destination: { kind: "route", routeId: "questionDrafts" },
     requiredParams: [],
     taskGroup: "questionLibrary",
     area: "questionDestinations",

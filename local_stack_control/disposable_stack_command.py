@@ -36,6 +36,20 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	restart.add_argument("--timeout-seconds", required=True, type=int)
 	stop_outage = actions.add_parser("stop-outage-service")
 	stop_outage.add_argument("--manifest", required=True, type=pathlib.Path)
+	stop_worker = actions.add_parser("stop-worker")
+	stop_worker.add_argument("--manifest", required=True, type=pathlib.Path)
+	replace_worker = actions.add_parser("replace-worker")
+	replace_worker.add_argument("--manifest", required=True, type=pathlib.Path)
+	stop_readiness_dependency = actions.add_parser("stop-readiness-dependency")
+	stop_readiness_dependency.add_argument("--manifest", required=True, type=pathlib.Path)
+	stop_readiness_dependency.add_argument(
+		"--service", required=True, choices=local_stack_control.disposable_stack_adapter.READINESS_DEPENDENCIES
+	)
+	recover_readiness_dependency = actions.add_parser("recover-readiness-dependency")
+	recover_readiness_dependency.add_argument("--manifest", required=True, type=pathlib.Path)
+	recover_readiness_dependency.add_argument(
+		"--service", required=True, choices=local_stack_control.disposable_stack_adapter.READINESS_DEPENDENCIES
+	)
 	evidence_logs = actions.add_parser("read-evidence-logs")
 	evidence_logs.add_argument("--manifest", required=True, type=pathlib.Path)
 	evidence_logs.add_argument(
@@ -51,6 +65,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	postgresql_count = actions.add_parser("postgresql-count")
 	postgresql_count.add_argument("--manifest", required=True, type=pathlib.Path)
 	postgresql_count.add_argument("--attempt-id", required=True)
+	seed_inventory = actions.add_parser("seed-inventory")
+	seed_inventory.add_argument("--manifest", required=True, type=pathlib.Path)
 	args = parser.parse_args(argv)
 	if args.action == "compose":
 		if len(args.arguments) > 0 and args.arguments[0] == "--":
@@ -251,6 +267,24 @@ def run_postgresql_count(
 
 
 #============================================
+def run_seed_inventory(
+	runner: local_stack_control.process.CommandRunner,
+	disposable: local_stack_control.models.DisposableComposeTarget,
+) -> int:
+	"""Run and emit only the five seeded-baseline aggregate counts."""
+	local_stack_control.disposable_stack_adapter.require_current_resource_capability(runner, disposable)
+	argv, environment, sql = local_stack_control.disposable_stack_adapter.seed_inventory_command(disposable)
+	result = runner.run(argv, environment, disposable.target.repo_root, sql)
+	if not result.ok():
+		raise local_stack_control.models.ControllerError("seed inventory did not complete")
+	counts = result.stdout.strip()
+	if re.fullmatch(r"[0-9]{1,10}(?:\|[0-9]{1,10}){4}", counts) is None:
+		raise local_stack_control.models.ControllerError("seed inventory returned an invalid result")
+	print(counts)
+	return 0
+
+
+#============================================
 def main() -> None:
 	"""Run a closed Compose call or one exact disposable cleanup."""
 	args = parse_args(sys.argv[1:])
@@ -313,6 +347,26 @@ def main() -> None:
 			completed = local_stack_control.disposable_stack_adapter.stop_declared_outage_service(runner, disposable)
 			print(f"Disposable outage stopped: {completed.service}")
 			raise SystemExit(0)
+		if args.action == "stop-worker":
+			completed = local_stack_control.disposable_stack_adapter.stop_worker_service(runner, disposable)
+			print(f"Disposable worker stopped: {completed.service}")
+			raise SystemExit(0)
+		if args.action == "replace-worker":
+			completed = local_stack_control.disposable_stack_adapter.replace_worker_service(runner, disposable)
+			print(f"Disposable worker replaced: {completed.service}")
+			raise SystemExit(0)
+		if args.action == "stop-readiness-dependency":
+			completed = local_stack_control.disposable_stack_adapter.stop_readiness_dependency(
+				runner, disposable, args.service
+			)
+			print(f"Disposable readiness dependency stopped: {completed.service}")
+			raise SystemExit(0)
+		if args.action == "recover-readiness-dependency":
+			completed = local_stack_control.disposable_stack_adapter.recover_readiness_dependency(
+				runner, disposable, args.service
+			)
+			print(f"Disposable readiness dependency recovered: {completed.service}")
+			raise SystemExit(0)
 		if args.action == "read-evidence-logs":
 			result = read_evidence_logs(runner, disposable, args.claim)
 			raise SystemExit(result)
@@ -334,6 +388,9 @@ def main() -> None:
 				disposable,
 				args.attempt_id,
 			)
+			raise SystemExit(result)
+		if args.action == "seed-inventory":
+			result = run_seed_inventory(runner, disposable)
 			raise SystemExit(result)
 
 		before = local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, disposable)

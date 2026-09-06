@@ -3,10 +3,10 @@
 # The public entry point delegates the lease, private manifest, and fixed Compose ownership to local_stack_control.postgres_migration_acceptance_owner; the private child owns only this PostgreSQL 17 oracle.
 set -euo pipefail
 script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-REPO_ROOT="$(cd "$script_directory/../.." && pwd -P)"
-readonly REPO_ROOT
+repository_root="$(cd "$script_directory/../.." && pwd -P)"
+readonly repository_root
 if [ "${1:-}" != "--owned-child" ]; then
-	cd "$REPO_ROOT"
+	cd "$repository_root"
 	exec python3 -m local_stack_control.postgres_migration_acceptance_owner
 fi
 shift
@@ -33,7 +33,7 @@ fail() {
 require_command() {
 	command -v "$1" >/dev/null 2>&1 || fail "missing required command: $1"
 }
-compose() { (cd "$REPO_ROOT"; python3 -m local_stack_control.disposable_stack_command compose --manifest "$RUNTIME_MANIFEST_PATH" "$@"); }
+compose() { (cd "$repository_root"; python3 -m local_stack_control.disposable_stack_command compose --manifest "$RUNTIME_MANIFEST_PATH" "$@"); }
 capture_postgres_volume() {
 	local container_ids container_id volume_projects
 	container_ids="$(podman ps -aq --filter "label=io.podman.compose.project=$PROJECT_NAME" --filter 'label=io.podman.compose.service=postgres')"
@@ -56,7 +56,7 @@ cleanup() {
 	local status="$?"
 	local cleanup_failed=0
 	if [ "$compose_started" = "1" ]; then
-		(cd "$REPO_ROOT"; python3 -m local_stack_control.disposable_stack_command cleanup --manifest "$RUNTIME_MANIFEST_PATH") || cleanup_failed=1
+		(cd "$repository_root"; python3 -m local_stack_control.disposable_stack_command cleanup --manifest "$RUNTIME_MANIFEST_PATH") || cleanup_failed=1
 	fi
 	if [ "$cleanup_failed" = "0" ]; then
 		if [ -n "$postgres_volume_name" ] && podman volume inspect "$postgres_volume_name" >/dev/null 2>&1; then
@@ -81,7 +81,7 @@ psql_in_container() {
 	shift
 	compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$login" "$@"
 }
-run_postgres_migration_acceptance_tool() { (cd "$WORKSPACE"; PLE_ACCEPTANCE_RUNTIME_MANIFEST="$POSTGRES_MIGRATION_ACCEPTANCE_RUNTIME_MANIFEST_PATH" cargo run --manifest-path "$REPO_ROOT/Cargo.toml" --quiet -p project-tools -- database "$@" --acceptance-runtime); }
+run_postgres_migration_acceptance_tool() { (cd "$WORKSPACE"; PLE_ACCEPTANCE_RUNTIME_MANIFEST="$POSTGRES_MIGRATION_ACCEPTANCE_RUNTIME_MANIFEST_PATH" cargo run --manifest-path "$repository_root/Cargo.toml" --quiet -p project-tools -- database "$@" --acceptance-runtime); }
 expect_denied() {
 	local label="$1"
 	shift
@@ -125,12 +125,12 @@ assert_imathas_question_backend_service_logins() {
 	expect_denied "API login cannot update locked Issued Questions directly" psql_in_container ple_api_login -d "$DATABASE_NAME" -c "UPDATE ple_private.issued_question SET issued_question_id = issued_question_id WHERE issued_question_id = '00000000-0000-5000-8000-000000000115'"
 	expect_denied "API login cannot update locked Assignment Attempts directly" psql_in_container ple_api_login -d "$DATABASE_NAME" -c "UPDATE ple_private.assignment_attempt SET assignment_attempt_id = assignment_attempt_id WHERE assignment_attempt_id = '00000000-0000-0000-0000-000000000114'"
 }
-cd "$REPO_ROOT"
+cd "$repository_root"
 require_command podman
 require_command cargo
 require_command python3
 # shellcheck disable=SC1091
-source "$REPO_ROOT/source_me.sh"
+source "$repository_root/source_me.sh"
 export PLE_ACCEPTANCE_RUNTIME_MANIFEST="$RUNTIME_MANIFEST_PATH"
 echo "PostgreSQL Migration Acceptance Runtime E2E: starting isolated PostgreSQL 17 project $PROJECT_NAME"
 compose_started=1
@@ -153,7 +153,7 @@ CREATE ROLE ple_migrator LOGIN NOINHERIT NOSUPERUSER NOCREATEDB CREATEROLE NOREP
 GRANT ple_database_owner TO ple_migrator WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
 CREATE DATABASE ple_e2e_baseline OWNER ple_database_owner;
 SQL
-(cd "$REPO_ROOT"; python3 -m local_stack_control.runtime_manifest --emit-migration-acceptance-bootstrap "$WORKSPACE") | psql_in_container "$BOOTSTRAP_USER" -d "$POSTGRES_DB"
+(cd "$repository_root"; python3 -m local_stack_control.runtime_manifest --emit-migration-acceptance-bootstrap "$WORKSPACE") | psql_in_container "$BOOTSTRAP_USER" -d "$POSTGRES_DB"
 psql_in_container "$BOOTSTRAP_USER" -d "$POSTGRES_DB" -c "REVOKE CONNECT, CREATE, TEMPORARY ON DATABASE $DATABASE_NAME FROM PUBLIC; GRANT CONNECT ON DATABASE $DATABASE_NAME TO ple_migrator"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" -c 'REVOKE ALL ON SCHEMA public FROM PUBLIC; GRANT CREATE, USAGE ON SCHEMA public TO ple_migrator; GRANT USAGE ON SCHEMA pg_catalog TO ple_migrator'
 echo "PostgreSQL Migration Acceptance Runtime E2E: Migration Check is pending before apply"
@@ -166,17 +166,17 @@ second_apply="$(run_postgres_migration_acceptance_tool migration-acceptance-migr
 printf '%s\n' "$second_apply"
 printf '%s\n' "$second_apply" | grep -Eiq 'no.?op|already applied|complete' || fail "second PostgreSQL Migration did not report a no-op-compatible result"
 run_postgres_migration_acceptance_tool migration-acceptance-verify
-psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/question_records.sql"
-psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/question_publication_operation.sql"
-psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/question_publication_credit_catalog.sql"
-psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/assignment_revision_entry_snapshot_catalog.sql"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/question_records.sql"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/question_publication_operation.sql"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/question_publication_credit_catalog.sql"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/assignment_revision_entry_snapshot_catalog.sql"
 echo "PostgreSQL Migration Acceptance Runtime E2E: exact principal, schema, ACL, and membership catalog"
-psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/postgres_migration_acceptance_catalog.sql"
-psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/assignment_question_analysis_job_catalog.sql"
-psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/imathas_question_backend_session_catalog_oracle.sql"
-psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/postgres_migration_acceptance_instructor_account_creation.sql"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/postgres_migration_acceptance_catalog.sql"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/assignment_question_analysis_job_catalog.sql"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/imathas_question_backend_session_catalog_oracle.sql"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/postgres_migration_acceptance_instructor_account_creation.sql"
 assert_restricted_logins
-psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$REPO_ROOT/tests/e2e/imathas_question_backend_session_postgres_oracle.sql"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/imathas_question_backend_session_postgres_oracle.sql"
 assert_imathas_question_backend_service_logins
-bash "$REPO_ROOT/tests/e2e/e2e_imathas_question_backend_session_postgres_oracle.sh" "$WORKSPACE"
+bash "$repository_root/tests/e2e/e2e_imathas_question_backend_session_postgres_oracle.sh" "$WORKSPACE"
 echo "PostgreSQL Migration Acceptance Runtime E2E: PASS (fresh apply, no-op, PostgreSQL 17 catalog, restricted probes)"

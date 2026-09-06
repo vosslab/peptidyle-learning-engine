@@ -1,6 +1,6 @@
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { QuestionAuthorship } from "../../../generated/api/QuestionAuthorship";
-import type { WorkspaceId } from "../../../generated/api/WorkspaceId";
+import type { DraftQuestionReference } from "../../../generated/api/DraftQuestionReference";
 import { decodeQuestionSummary, isAvailablePleQuestionSummary } from "../../api/decoders";
 import { isQuestionAuthorship } from "../../api/question_authorship";
 import { PLE_QUESTION_JSON_MEDIA_TYPE, type PleQuestionJsonDocument } from "./question_json_source";
@@ -52,14 +52,14 @@ export type PleQuestionJsonSave = {
 };
 
 export interface PleQuestionJsonClient {
-  load(workspace: WorkspaceId): Promise<PleQuestionJsonRead>;
+  load(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead>;
   save(
-    workspace: WorkspaceId,
+    draftQuestion: DraftQuestionReference,
     source: PleQuestionJsonDocument,
     revision?: string,
   ): Promise<PleQuestionJsonSave>;
   publish(
-    workspace: WorkspaceId,
+    draftQuestion: DraftQuestionReference,
     request: { readonly authorship: QuestionAuthorship },
     revision: string,
   ): Promise<QuestionSummary>;
@@ -108,12 +108,16 @@ function encodedId(value: string): string {
   return encodeURIComponent(value);
 }
 
-function sourcePath(workspace: WorkspaceId): string {
-  return `/api/workspaces/${encodedId(workspace)}/ple-question-json`;
+function sourcePath(draftQuestion: DraftQuestionReference): string {
+  return `/api/authoring/drafts/${encodedId(draftQuestion)}/source`;
 }
 
-function publishPath(workspace: WorkspaceId): string {
-  return `/api/questions/${encodedId(workspace)}/ple-question-json-publish`;
+function publishPath(draftQuestion: DraftQuestionReference): string {
+  return `/api/authoring/drafts/${encodedId(draftQuestion)}/publish`;
+}
+
+function publishedQuestionPath(questionId: string): string {
+  return `/api/questions/by-id/${encodedId(questionId)}`;
 }
 
 /** Proves that every browser-relative request remains under the current origin and base path. */
@@ -193,8 +197,8 @@ export function createPleQuestionJsonClient(
   const fetchImplementation = config.fetch ?? browserFetch;
   const basePath = normalizeBasePath(config.basePath);
 
-  async function load(workspace: WorkspaceId): Promise<PleQuestionJsonRead> {
-    const path = sourcePath(workspace);
+  async function load(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead> {
+    const path = sourcePath(draftQuestion);
     const requestPath = sameOriginPath(basePath, path);
     const response = await fetchImplementation(
       requestPath,
@@ -215,11 +219,11 @@ export function createPleQuestionJsonClient(
   }
 
   async function save(
-    workspace: WorkspaceId,
+    draftQuestion: DraftQuestionReference,
     source: PleQuestionJsonDocument,
     revision?: string,
   ): Promise<PleQuestionJsonSave> {
-    const path = sourcePath(workspace);
+    const path = sourcePath(draftQuestion);
     const requestPath = sameOriginPath(basePath, path);
     const headers: Record<string, string> = {
       accept: "application/json",
@@ -233,13 +237,16 @@ export function createPleQuestionJsonClient(
     if (response.status === 409 || response.status === 428)
       throw new PleQuestionJsonConflictError(response.status, path);
     if (!response.ok) throw new PleQuestionJsonRequestError(response.status, path);
-    requireJson(response, path);
-    decodeJson(await boundedText(response, path), path);
+    if (response.status !== 204) {
+      throw new PleQuestionJsonProtocolError(
+        `PLE Question JSON save ${path} must return no content`,
+      );
+    }
     return { revision: strongRevision(response, path) };
   }
 
   async function publish(
-    workspace: WorkspaceId,
+    draftQuestion: DraftQuestionReference,
     request: { readonly authorship: QuestionAuthorship },
     revision: string,
   ): Promise<QuestionSummary> {
@@ -248,7 +255,7 @@ export function createPleQuestionJsonClient(
         "PLE Question JSON publication requires one to sixteen reviewed Question Authors",
       );
     }
-    const path = publishPath(workspace);
+    const path = publishPath(draftQuestion);
     const requestPath = sameOriginPath(basePath, path);
     const response = await fetchImplementation(
       requestPath,
@@ -259,16 +266,30 @@ export function createPleQuestionJsonClient(
           "content-type": "application/json",
           "if-match": validRevision(revision),
         },
-        JSON.stringify(request),
+        JSON.stringify({
+          authors: request.authorship.authors.map((author) => author.displayName),
+        }),
       ),
     );
     if (response.status === 409 || response.status === 428)
       throw new PleQuestionJsonConflictError(response.status, path);
     if (!response.ok) throw new PleQuestionJsonRequestError(response.status, path);
     requireJson(response, path);
-    const summary = decodeQuestionSummary(
+    const questionId = publishedQuestionId(
       decodeJson(await boundedText(response, path), path),
       path,
+    );
+    const summaryPath = publishedQuestionPath(questionId);
+    const summaryResponse = await fetchImplementation(
+      sameOriginPath(basePath, summaryPath),
+      requestInit("GET", { accept: "application/json" }),
+    );
+    if (!summaryResponse.ok)
+      throw new PleQuestionJsonRequestError(summaryResponse.status, summaryPath);
+    requireJson(summaryResponse, summaryPath);
+    const summary = decodeQuestionSummary(
+      decodeJson(await boundedText(summaryResponse, summaryPath), summaryPath),
+      summaryPath,
       true,
     );
     if (!isAvailablePleQuestionSummary(summary)) {
@@ -280,6 +301,25 @@ export function createPleQuestionJsonClient(
   }
 
   return { load, save, publish };
+}
+
+function publishedQuestionId(value: unknown, path: string): string {
+  const questionId =
+    typeof value === "object" && value !== null && !Array.isArray(value)
+      ? (value as Record<string, unknown>).questionId
+      : undefined;
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value) ||
+    Object.keys(value).length !== 1 ||
+    typeof questionId !== "string"
+  ) {
+    throw new PleQuestionJsonProtocolError(
+      `PLE Question JSON publication ${path} must return only a Question ID`,
+    );
+  }
+  return questionId;
 }
 
 function validRevision(value: string): string {

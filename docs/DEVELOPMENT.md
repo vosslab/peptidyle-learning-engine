@@ -218,8 +218,9 @@ manifest with a retained teaching set: if it is missing, the local controller re
 ## Run local services
 
 Use the fixed owner when a work package needs the supported PostgreSQL, MinIO,
-API, gateway, and private standalone WeBWorK PG renderer. Background-job
-worker capabilities remain future-only:
+API, gateway, private standalone WeBWorK PG renderer, and one internal worker
+Service Identity. The worker's Job claim, lease, and commit capabilities remain
+future M3 work:
 
 ```bash
 source source_me.sh && python3 local_stack.py start --headless

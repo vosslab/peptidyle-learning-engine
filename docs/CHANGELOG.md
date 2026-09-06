@@ -2,6 +2,50 @@
 
 ## 2026-09-06
 
+### Additions and New Features
+
+- Added the tracked Live Demo restoration blueprint at
+  [docs/active_plans/active/restore_live_demo.md](active_plans/active/restore_live_demo.md).
+  It defines the authority order, full three-persona completion contract, 22 milestone ladder,
+  package ownership, security constraints, and production-browser evidence required to replace
+  the present developer showcase with the actual Live Demo.
+- Completed Live Demo restoration M0 with
+  [docs/active_plans/audits/live_demo_foundation_findings.md](active_plans/audits/live_demo_foundation_findings.md).
+  The report records the fresh forced-RLS/default-deny baseline, classifies every retained
+  Playwright specification, assigns client and decoder handoffs, and identifies the showcase as
+  a destination M19 must retire rather than a restored product path.
+- Completed Live Demo restoration M1. The fixed disposable topology now starts exactly one
+  internal `worker` Service Identity with a dedicated `ple_worker_login`, no HTTP listener,
+  gateway route, host port, renderer/object-store credential, or direct protected-table access.
+  The browser owner may stop and replace only that labelled worker through sealed,
+  capability-validated actions; the real worker topology and lifecycle runner passed. This is a
+  runtime foundation only: Job draining, leases, and protected claim/commit behavior remain M3.
+- Completed Live Demo restoration M2. `GET /health` now performs bounded live checks of the API
+  database pool and, in the disposable topology, the declared object-store bucket, private
+  renderer, and worker socket. It returns only a closed unavailable category; the gateway maps a
+  missing API process to that same safe 503 form. The sealed readiness runner proved every
+  dependency's stopped, bounded-503, recovered, and healthy state. This does not add Job
+  execution, a worker lease, or browser-task completion.
+- Completed Live Demo restoration M3. The connected fresh PostgreSQL 17 runtime now has one
+  milestone gate for the immutable migration baseline, forced RLS/default deny, and the
+  `ple_imathas_question_backend_grading_worker` claim-and-commit boundary. It proves a worker
+  login cannot read protected tables or assume another role, while stale, foreign, and duplicate
+  lease paths refuse and one receipt persists. The running worker still has no generic Job
+  dispatcher or Student delivery path.
+- Completed Live Demo restoration M4. The fixed disposable baseline now installs five exact
+  ordinary Accounts and four private-source Published Questions with first immutable Question
+  Revisions, source bindings, publication events, and Object Records. Its sealed inventory
+  receipt exposes aggregate counts only, and the real-stack replay gate proves a second lifecycle
+  start preserves that baseline without duplicate Accounts or Published Questions. This is a
+  foundation for later Question Library and Student delivery work, not browser acceptance.
+- Completed Live Demo restoration M5. The fixed stack now resolves the Instructor-only Question
+  Library through PostgreSQL session authorization, typed immutable private-source bindings, and
+  server-side PLE compilation. Search, stable Question ID resolution, and answer-free Question
+  Details serialize no source, checksum, response, answer, or feedback fields; Student and
+  anonymous requests receive the same concealment. The real browser runner enters the enabled
+  Ribbon destination, searches the seeded baseline, and opens a Question Details route. This does
+  not claim authoring, Course, Student delivery, grading, or Sysadmin workflows.
+
 ### Fixes and Maintenance
 
 - Moved the retained Playwright browser-test wrapper from the repository root to

@@ -101,6 +101,9 @@ def test_service_login_profiles_have_exact_set_only_memberships() -> None:
 	"""Role reset grants each service its one intended capability profile."""
 	expected_roles = {
 		local_stack_control.process_logins.API_LOGIN: ("ple_app", "ple_auth"),
+		local_stack_control.process_logins.WORKER_LOGIN: (
+			"ple_imathas_question_backend_grading_worker",
+		),
 	}
 	actual_roles = {
 		login: roles
@@ -133,7 +136,7 @@ def test_service_login_setup_writes_separate_service_urls_without_service_creden
 ) -> None:
 	"""Compose reads service credentials only from its selected private file."""
 	runner = RecordingRunner()
-	passwords = iter(("a" * 64,))
+	passwords = iter(("a" * 64, "b" * 64))
 	monkeypatch.setattr(
 		local_stack_control.process_logins.secrets,
 		"token_hex",
@@ -147,14 +150,19 @@ def test_service_login_setup_writes_separate_service_urls_without_service_creden
 		{
 			"PATH": "/bin",
 			"PLE_API_DATABASE_URL": "postgres://ambient-service-credential@postgres/ple",
+			"PLE_WORKER_DATABASE_URL": "postgres://ambient-worker-credential@postgres/ple",
 		},
 	)
 	content = selected.env_file.read_text(encoding="utf-8")
 	assert "PLE_API_DATABASE_URL=postgres://ple_api_login:" + "a" * 64 in content
+	assert "PLE_WORKER_DATABASE_URL=postgres://ple_worker_login:" + "b" * 64 in content
 	assert runner.environment == {"PATH": "/bin", "PGPASSWORD": "admin-private"}
-	service_passwords = ("a" * 64,)
+	service_passwords = ("a" * 64, "b" * 64)
 	assert all(password not in runner.environment.values() for password in service_passwords)
-	assert host_urls == ("postgres://ple_api_login:" + "a" * 64 + "@127.0.0.1:55432/ple",)
+	assert host_urls == (
+		"postgres://ple_api_login:" + "a" * 64 + "@127.0.0.1:55432/ple",
+		"postgres://ple_worker_login:" + "b" * 64 + "@127.0.0.1:55432/ple",
+	)
 
 
 #============================================
