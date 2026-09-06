@@ -4,6 +4,7 @@ import dataclasses
 import pathlib
 import os
 import collections.abc
+import secrets
 
 import local_stack_control.compose
 import local_stack_control.disposable_stack_adapter
@@ -30,6 +31,15 @@ LOCAL_MARY_ACCOUNT_ID = "00000000-0000-0000-0000-000000000102"
 LOCAL_JACK_ACCOUNT_ID = "00000000-0000-0000-0000-000000000103"
 LOCAL_APPROVAL_CANDIDATE_ACCOUNT_ID = "00000000-0000-0000-0000-000000000104"
 LOCAL_MORGAN_SYSADMIN_ACCOUNT_ID = "00000000-0000-0000-0000-000000000105"
+MIGRATION_DATABASE_OWNER = "ple_database_owner"
+MIGRATION_ROLE = "ple_migrator"
+LIVE_DEMO_ACCOUNT_SEEDS = (
+	("PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID", LOCAL_INSTRUCTOR_ACCOUNT_ID, "instructor"),
+	("PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID", LOCAL_MARY_ACCOUNT_ID, "student"),
+	("PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID", LOCAL_JACK_ACCOUNT_ID, "student"),
+	("PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID", LOCAL_APPROVAL_CANDIDATE_ACCOUNT_ID, "student"),
+	("PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID", LOCAL_MORGAN_SYSADMIN_ACCOUNT_ID, "sysadmin"),
+)
 @dataclasses.dataclass(frozen=True)
 class LifecycleOptions:
 	"""Explicit lifecycle intent after the public CLI has parsed it once."""
@@ -317,11 +327,16 @@ def start_lifecycle(
 	compose_run(selected, runner, ["up", "-d", "postgres"])
 	wait_for_postgres(selected, runner, values, options)
 	synchronize_database(target, runner, values, options)
-	run_migrations(runner, repo_root, values, environment)
+	run_migrations(target, runner, repo_root, values, environment)
+	seed_live_demo_accounts(selected, runner, values)
 	if local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
-		local_stack_control.process_logins.setup_service_logins(
+		service_login_verification_urls = local_stack_control.process_logins.setup_service_logins(
 			selected, runner, values, child_environment(selected)
 		)
+		if local_stack_control.live_demo_gateway.is_tls_target(selected):
+			verify_migrated_application_schema(
+				runner, repo_root, environment, service_login_verification_urls
+			)
 	compose_run(selected, runner, ["up", "-d", "minio", "createbuckets"])
 	wait_for_one_shot(selected, runner, options, "createbuckets")
 	compose_run(selected, runner, ["up", "-d", "--force-recreate", "--no-deps", "webwork-renderer"])
@@ -560,15 +575,182 @@ def synchronize_database(
 
 
 #============================================
-def run_migrations(runner: local_stack_control.process.CommandRunner, repo_root: pathlib.Path, values: dict[str, str], environment: dict[str, str]) -> None:
+def run_migrations(
+	target: LifecycleTarget,
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+	values: dict[str, str],
+	environment: dict[str, str],
+) -> None:
 	"""Run migrations with the database URL only in the direct child environment."""
 	child = dict(environment)
-	migration_database_url = database_url(values)
+	migration_database_url = migration_database_url_for(target, runner, values)
 	child["PLE_MIGRATION_DATABASE_URL"] = migration_database_url
+	operation = "migrate"
+	if local_stack_control.live_demo_gateway.is_tls_target(target_of(target)):
+		operation = "migrate-schema"
 	require_command(
-		runner.run(["cargo", "tools", "database", "migrate"], child, repo_root),
+		runner.run(["cargo", "tools", "database", operation], child, repo_root),
 		"database migration",
 		(migration_database_url,),
+	)
+
+
+#============================================
+def live_demo_account_seed_sql() -> str:
+	"""Return the fixed idempotent Account seed for the disposable browser demo."""
+	accounts = ",\n\t".join(
+		f"('{account_id}', '{product_role}', pg_catalog.clock_timestamp())"
+		for _setting, account_id, product_role in LIVE_DEMO_ACCOUNT_SEEDS
+	)
+	expected = ",\n\t".join(
+		f"('{account_id}', '{product_role}')"
+		for _setting, account_id, product_role in LIVE_DEMO_ACCOUNT_SEEDS
+	)
+	return f"""BEGIN;
+INSERT INTO ple_private.account (account_id, product_role, created_at)
+VALUES
+	{accounts}
+ON CONFLICT (account_id) DO NOTHING;
+DO $$
+BEGIN
+	IF EXISTS (
+		SELECT 1
+		  FROM (VALUES
+			{expected}
+		  ) AS expected(account_id, product_role)
+		  LEFT JOIN ple_private.account AS actual
+		    ON actual.account_id = expected.account_id::uuid
+		 WHERE actual.product_role IS DISTINCT FROM expected.product_role
+	) THEN
+		RAISE EXCEPTION USING
+			ERRCODE = '23514',
+			MESSAGE = 'seeded Live Demo Account configuration is incompatible';
+	END IF;
+END
+$$;
+COMMIT;
+"""
+
+
+#============================================
+def seed_live_demo_accounts(
+	target: local_stack_control.models.ComposeTarget,
+	runner: local_stack_control.process.CommandRunner,
+	values: dict[str, str],
+) -> None:
+	"""Create only the fixed browser-demo Accounts after their schema exists."""
+	if not local_stack_control.live_demo_gateway.is_tls_target(target):
+		return
+	if any(values.get(setting) != account_id for setting, account_id, _role in LIVE_DEMO_ACCOUNT_SEEDS):
+		raise local_stack_control.models.ControllerError("live-demo seeded Account mapping is invalid")
+	child = child_environment(target)
+	child["PGPASSWORD"] = values["POSTGRES_PASSWORD"]
+	argv = local_stack_control.compose.compose_argv(
+		target,
+		[
+			"exec", "-T", "postgres", "psql", "-X", "-v", "ON_ERROR_STOP=1",
+			"-U", values["POSTGRES_USER"], "-d", values["POSTGRES_DB"],
+		],
+	)
+	# ASVS 2.2.1 and 8.2.1: this one-time bootstrap uses no application role and
+	# accepts no caller-selected identity or Product Role. It exists only before
+	# the browser-facing API starts; a conflicting durable Account fails closed.
+	require_command(
+		runner.run(argv, child, target.repo_root, live_demo_account_seed_sql()),
+		"live-demo Account initialization",
+		(values["POSTGRES_PASSWORD"],),
+	)
+
+
+#============================================
+def verify_migrated_application_schema(
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+	environment: dict[str, str],
+	service_login_verification_urls: tuple[str, ...],
+) -> None:
+	"""Verify a fresh HTTPS demo through the API login after its capabilities exist."""
+	if len(service_login_verification_urls) != 1:
+		raise local_stack_control.models.ControllerError(
+			"live-demo application-schema verification credentials are unavailable"
+		)
+	application_verification_url = service_login_verification_urls[0]
+	if not application_verification_url.startswith("postgres://ple_api_login:"):
+		raise local_stack_control.models.ControllerError(
+			"live-demo application-schema verification identity is invalid"
+		)
+	child = dict(environment)
+	# ASVS 8.2.1: the compatibility read proves the actual application capability,
+	# never an elevated migration principal that can create database roles.
+	child["PLE_MIGRATION_DATABASE_URL"] = application_verification_url
+	require_command(
+		runner.run(["cargo", "tools", "database", "verify"], child, repo_root),
+		"application-schema verification",
+		(application_verification_url,),
+	)
+
+
+#============================================
+def migration_database_url_for(
+	target: LifecycleTarget,
+	runner: local_stack_control.process.CommandRunner,
+	values: dict[str, str],
+) -> str:
+	"""Create the fixed fresh-demo migration principal and return its private URL."""
+	selected = target_of(target)
+	if not local_stack_control.live_demo_gateway.is_tls_target(selected):
+		return database_url(values)
+
+	migrator_password = secrets.token_hex(32)
+	bootstrap_environment = child_environment(selected)
+	bootstrap_environment["PGPASSWORD"] = values["POSTGRES_PASSWORD"]
+	bootstrap_argv = local_stack_control.compose.compose_argv(
+		selected,
+		[
+			"exec", "-T", "postgres", "psql", "-X", "-v", "ON_ERROR_STOP=1",
+			"-U", values["POSTGRES_USER"], "-d", values["POSTGRES_DB"],
+		],
+	)
+	# ASVS 2.3.1 and 8.2.1: establish the exact least-privilege migration
+	# principal before the migration subprocess can mutate the fresh demo database.
+	require_command(
+		runner.run(
+			bootstrap_argv,
+			bootstrap_environment,
+			selected.repo_root,
+			migration_principal_bootstrap_sql(values["POSTGRES_DB"], migrator_password),
+		),
+		"live-demo migration-principal bootstrap",
+		(values["POSTGRES_PASSWORD"], migrator_password),
+	)
+	migrator_values = dict(values)
+	migrator_values["POSTGRES_USER"] = MIGRATION_ROLE
+	migrator_values["POSTGRES_PASSWORD"] = migrator_password
+	return database_url(migrator_values)
+
+
+#============================================
+def migration_principal_bootstrap_sql(database_name: str, migrator_password: str) -> str:
+	"""Build the closed fresh-database principal baseline delivered only over stdin."""
+	if not database_name.replace("_", "").isalnum() or not migrator_password.isalnum():
+		raise local_stack_control.models.ControllerError(
+			"local PostgreSQL migration principal settings are invalid"
+		)
+	return (
+		f"CREATE ROLE {MIGRATION_DATABASE_OWNER} NOLOGIN NOINHERIT NOSUPERUSER "
+		"NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;\n"
+		f"CREATE ROLE {MIGRATION_ROLE} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB "
+		"CREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 2;\n"
+		f"ALTER ROLE {MIGRATION_ROLE} PASSWORD '{migrator_password}';\n"
+		f"GRANT {MIGRATION_DATABASE_OWNER} TO {MIGRATION_ROLE} "
+		"WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;\n"
+		f"ALTER DATABASE {database_name} OWNER TO {MIGRATION_DATABASE_OWNER};\n"
+		f"REVOKE ALL PRIVILEGES ON DATABASE {database_name} FROM PUBLIC;\n"
+		f"GRANT CONNECT ON DATABASE {database_name} TO {MIGRATION_ROLE};\n"
+		"REVOKE ALL PRIVILEGES ON SCHEMA public FROM PUBLIC;\n"
+		f"GRANT CREATE, USAGE ON SCHEMA public TO {MIGRATION_ROLE};\n"
+		f"GRANT USAGE ON SCHEMA pg_catalog TO {MIGRATION_ROLE};\n"
 	)
 
 
@@ -739,7 +921,27 @@ def wait_for_complete_ready(
 		return unavailable_report(selected)
 	local_stack_control.lifecycle_wait.poll_ready(read_report, options.timeout_seconds)
 	require_complete_ready(target, runner)
+	require_live_demo_session_entry(selected, runner, url)
 	return url
+
+
+#============================================
+def require_live_demo_session_entry(
+	target: local_stack_control.models.ComposeTarget,
+	runner: local_stack_control.process.CommandRunner,
+	url: str,
+) -> None:
+	"""Require the browser demo can mint a first-party session before reporting ready."""
+	if not local_stack_control.live_demo_gateway.is_tls_target(target):
+		return
+	# ASVS 3.5.1: the probe uses the canonical first-party Origin and asks for
+	# only the closed Elena persona; its issued cookie stays in curl's process.
+	result = runner.run(
+		local_stack_control.live_demo_gateway.seeded_session_probe_argv(url),
+		child_environment(target),
+		target.repo_root,
+	)
+	require_command(result, "live-demo Account session entry")
 
 
 #============================================

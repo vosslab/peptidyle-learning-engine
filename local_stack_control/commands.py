@@ -287,9 +287,10 @@ def start(
 	)
 	print(f"Developer Browser Suite cleared: {project}")
 	result = local_stack_control.browser_suite_developer.start_developer_browser_suite(repo_root)
+	entry_url = live_demo_entry_url(result.origin)
 	if not args.headless:
-		open_developer_origin(runner, repo_root, result.origin)
-	print(f"Developer browser ready: {result.origin}")
+		open_developer_origin(runner, repo_root, entry_url)
+	print(f"Live demo entry: {entry_url}")
 	print(f"Project: {result.project}")
 	print("Stop with: ./run_live_demo.sh stop")
 	return 0
@@ -311,6 +312,31 @@ def open_developer_origin(
 	fallback = runner.run(["xdg-open", origin], environment, repo_root)
 	if not fallback.ok():
 		raise local_stack_control.models.ControllerError("could not open developer browser")
+
+
+#============================================
+def live_demo_entry_url(origin: str) -> str:
+	"""Return the fixed account-selection page beneath a supervisor-proven origin."""
+	if not origin.startswith("https://localhost:") or not origin.endswith("/"):
+		raise local_stack_control.models.ControllerError("developer browser origin is invalid")
+	return origin + "sign-in"
+
+
+#============================================
+def open(
+	args: argparse.Namespace,
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+) -> int:
+	"""Open the exact HTTPS origin published by an already-running fixed owner."""
+	_ = args
+	result = local_stack_control.browser_suite_developer.read_developer_browser_suite_start_receipt(
+		repo_root
+	)
+	entry_url = live_demo_entry_url(result.origin)
+	open_developer_origin(runner, repo_root, entry_url)
+	print(f"Live demo entry opened: {entry_url}")
+	return 0
 
 
 #============================================

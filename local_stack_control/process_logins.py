@@ -24,12 +24,13 @@ def setup_service_logins(
 	runner: local_stack_control.process.CommandRunner,
 	values: dict[str, str],
 	environment: dict[str, str],
-) -> None:
+) -> tuple[str, ...]:
 	"""Reconcile disposable service logins and write capability-specific URLs.
 
 	The administrator is confined to this migration-adjacent psql child.  Each
 	service receives only its needed generated URL through the private Compose
-	env file (ASVS 13.2.2, 13.3.2, and 14.2.4).
+	env file (ASVS 13.2.2, 13.3.2, and 14.2.4).  The return value is the matching
+	host-only URL for an immediate, non-persistent application-schema check.
 	"""
 	passwords = tuple(secrets.token_hex(32) for _ in LOGIN_PROFILES)
 	child = dict(environment)
@@ -59,6 +60,10 @@ def setup_service_logins(
 	write_runtime_urls(
 		target.env_file,
 		urls,
+	)
+	return tuple(
+		host_database_url(values, login, password)
+		for (login, _, _), password in zip(LOGIN_PROFILES, passwords, strict=True)
 	)
 
 
@@ -104,6 +109,7 @@ ALTER ROLE {login}
 	DO $$
 BEGIN
 		EXECUTE format('REVOKE ALL PRIVILEGES ON DATABASE %I FROM {login}', current_database());
+		EXECUTE format('GRANT CONNECT ON DATABASE %I TO {login}', current_database());
 END
 $$;
 REVOKE ALL PRIVILEGES ON SCHEMA public FROM {login};
@@ -130,6 +136,15 @@ def database_url(values: dict[str, str], login: str, password: str) -> str:
 	):
 		raise local_stack_control.models.ControllerError("service login database settings are invalid")
 	result = f"postgres://{login}:{password}@postgres:5432/{database_name}"
+	return result
+
+
+#============================================
+def host_database_url(values: dict[str, str], login: str, password: str) -> str:
+	"""Construct the matching host-only URL for a bounded immediate verifier."""
+	_ = database_url(values, login, password)
+	port = values["PLE_POSTGRES_HOST_PORT"]
+	result = f"postgres://{login}:{password}@127.0.0.1:{port}/{values['POSTGRES_DB']}"
 	return result
 
 

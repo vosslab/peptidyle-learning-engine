@@ -203,9 +203,10 @@ Use the fixed lifecycle for the developer/browser stack:
 ./run_live_demo.sh stop
 ```
 
-The script sources `source_me.sh` through its fixed script-directory path,
-installs TypeScript dependencies through `devel/setup_typescript.sh` when needed,
-and delegates to `python3 local_stack.py`. Its only mutable browser-session choices
+The script sources `source_me.sh` through its fixed script-directory path, delegates TypeScript
+dependency setup to `devel/setup_typescript.sh`, and delegates lifecycle work to
+`python3 local_stack.py`. Its only mutable
+browser-session choices
 are start and stop, with optional `--headless` on start. It does not accept a
 project, environment, identity, SMTP, or skipped-build selector.
 

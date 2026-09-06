@@ -75,6 +75,11 @@ def build_parser() -> argparse.ArgumentParser:
 	start.add_argument("--headless", action="store_true")
 	start.set_defaults(handler=local_stack_control.commands.start)
 
+	open_browser = subparsers.add_parser(
+		"open", help="open the ready HTTPS origin of the fixed Developer Browser Suite"
+	)
+	open_browser.set_defaults(handler=local_stack_control.commands.open)
+
 	stop = subparsers.add_parser("stop", help="clear the fixed production-browser Developer Browser Suite")
 	stop.set_defaults(handler=local_stack_control.commands.stop)
 

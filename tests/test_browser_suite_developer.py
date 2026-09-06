@@ -82,6 +82,35 @@ def test_stop_request_authenticates_live_supervisor_not_recycled_pid() -> None:
 
 
 #============================================
+def test_stop_waits_for_a_lease_holding_supervisor_to_publish_its_receipt(
+	monkeypatch: pytest.MonkeyPatch,
+	tmp_path: pathlib.Path,
+) -> None:
+	"""A stop during startup waits for the owner instead of attempting unsafe cleanup."""
+	observations: list[str] = []
+
+	def read_receipt(_root: pathlib.Path) -> local_stack_control.browser_suite_developer.DeveloperControlReceipt:
+		observations.append("read")
+		if len(observations) == 1:
+			raise local_stack_control.browser_suite_developer.DeveloperBrowserSuiteError(
+				"Developer Browser Suite is not running"
+			)
+		return _receipt()
+
+	monkeypatch.setattr(local_stack_control.browser_suite_developer, "read_control_receipt", read_receipt)
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_developer,
+		"_browser_suite_lease_is_held",
+		lambda _root: True,
+	)
+	monkeypatch.setattr(local_stack_control.browser_suite_developer.time, "sleep", lambda _seconds: None)
+	result = local_stack_control.browser_suite_developer._wait_for_authenticated_control_receipt(
+		tmp_path, 1.0
+	)
+	assert result == _receipt()
+
+
+#============================================
 def test_start_waits_for_private_ready_receipt(tmp_path: pathlib.Path) -> None:
 	"""The parent reports the canonical origin only after the child receipt exists."""
 	_write_receipt(tmp_path)

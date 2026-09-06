@@ -4,6 +4,13 @@
 
 ### Additions and New Features
 
+- Added a deployment-gated `/live-demo/ribbon` developer showcase as the seeded
+  sign-in destination. It renders the real production `AppRibbon` from an
+  explicitly labelled populated Instructor structural model; activating a
+  control changes fixture selection without navigating to or admitting an
+  unbacked teaching route. The same page gives the operator the existing
+  dry-run and bounded attended `launchers/send_invitations.py` commands while
+  keeping Mail.app delivery outside the browser.
 - Added the temporary attended macOS invitation mailer. It reads one private JSON export,
   defaults to dry run, sends through visible Mail.app composition, throttles the batch, and keeps
   atomic owner-private current status so reruns suppress confirmed or indeterminate recipients.
@@ -35,6 +42,25 @@
 
 ### Fixes and Maintenance
 
+- Repaired the disposable Live Demo's first migration by creating its exact temporary
+  `ple_migrator` principal and default-deny bootstrap grants before Cargo applies the immutable
+  principal-baseline migration. The lifecycle now verifies that migrated schema through the actual
+  least-privilege API login after it is created, including its required database `CONNECT` grant.
+  Before declaring the browser stack ready, it initializes the fixed disposable demo Accounts and
+  proves the same-origin selector can mint an ordinary Authenticated Session; a healthy process
+  without usable demo entry can no longer be reported as a ready Live Demo.
+  Its generated HTTPS target now supplies that exact browser origin to the production API, and
+  both the API and gateway health checks preserve the canonical public `Host` authority instead
+  of sending their internal listener addresses.
+  [Brewfile](../Brewfile) now declares the system-wide Python prerequisite. `run_live_demo.sh`
+  always delegates TypeScript dependency setup to its existing helper without managing Python.
+- The Live Demo launcher now prints its ready HTTPS URL by default so an operator can choose the
+  browser that opens it. `open` reads and opens the authenticated URL of an already-running suite,
+  while `start --open` creates and opens a fresh one. `--open` remains the compatible `open`
+  shorthand; `--headless` remains an explicit spelling of the default behavior.
+- Stopping an in-progress Live Demo launch now waits for the fixed lease-owning supervisor to publish
+  its authenticated stop endpoint, rather than misreporting the protected startup lease as an
+  irrecoverable "already running" failure.
 - Moved the four-command aggregate wrapper from the repository root to
   [`launchers/all_test.sh`](../launchers/all_test.sh). Its Rust, frontend, Python, and connected
   acceptance calls remain unchanged and in the same fail-fast order.

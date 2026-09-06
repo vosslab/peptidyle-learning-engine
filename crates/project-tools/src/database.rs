@@ -10,12 +10,13 @@ mod database_postgres_migration_acceptance;
 
 use database_postgres_migration_acceptance::PostgresMigrationAcceptanceAction;
 
-const USAGE: &str = "usage: cargo tools database <status|migrate|verify> [--migrations-dir PATH] [--acceptance-runtime] | cargo tools database <migration-acceptance-status|migration-acceptance-migrate|migration-acceptance-verify> --acceptance-runtime (ordinary mode reads PLE_MIGRATION_DATABASE_URL or DATABASE_URL)";
+const USAGE: &str = "usage: cargo tools database <status|migrate|migrate-schema|verify> [--migrations-dir PATH] [--acceptance-runtime] | cargo tools database <migration-acceptance-status|migration-acceptance-migrate|migration-acceptance-verify> --acceptance-runtime (ordinary mode reads PLE_MIGRATION_DATABASE_URL or DATABASE_URL)";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum DatabaseAction {
     Status,
     Migrate,
+    MigrateSchema,
     Verify,
     PostgresMigrationAcceptance(PostgresMigrationAcceptanceAction),
 }
@@ -25,6 +26,7 @@ impl DatabaseAction {
         match value {
             "status" => Some(Self::Status),
             "migrate" => Some(Self::Migrate),
+            "migrate-schema" => Some(Self::MigrateSchema),
             "verify" => Some(Self::Verify),
             _ => PostgresMigrationAcceptanceAction::parse(value)
                 .map(Self::PostgresMigrationAcceptance),
@@ -128,8 +130,10 @@ fn database_connection_for(
         };
     }
     let value = match action {
-        DatabaseAction::Migrate => std::env::var("PLE_MIGRATION_DATABASE_URL")
-            .context("PLE_MIGRATION_DATABASE_URL must be set for database migration")?,
+        DatabaseAction::Migrate | DatabaseAction::MigrateSchema => {
+            std::env::var("PLE_MIGRATION_DATABASE_URL")
+                .context("PLE_MIGRATION_DATABASE_URL must be set for database migration")?
+        }
         DatabaseAction::Status | DatabaseAction::Verify => std::env::var(
             "PLE_MIGRATION_DATABASE_URL",
         )
@@ -189,6 +193,21 @@ async fn run_action(
             println!("database migrate: complete and compatible");
             Ok(())
         }
+        DatabaseAction::MigrateSchema => {
+            let role = learning_data_access::postgres::migration_principal(pool)
+                .await
+                .context("checking the connected migration role")?;
+            if !migration_role_is_allowed(&role) {
+                bail!("database migrate-schema refuses the ple_app application role");
+            }
+            learning_data_access::postgres::apply_migrations(pool)
+                .await
+                .context("applying the embedded SQLx database epoch")?;
+            println!(
+                "database migrate-schema: complete; application verification remains required"
+            );
+            Ok(())
+        }
         DatabaseAction::Verify => {
             learning_data_access::postgres::verify_application_schema(pool)
                 .await
@@ -241,6 +260,15 @@ mod tests {
     fn migration_refuses_the_application_principal() {
         assert!(!migration_role_is_allowed("ple_app"));
         assert!(migration_role_is_allowed("ple_migration"));
+    }
+
+    #[test]
+    fn schema_only_migration_is_an_explicit_separate_action() {
+        let args = vec!["migrate-schema".to_string()];
+        let (action, migrations_dir, acceptance_runtime) = parse_arguments(&args).unwrap();
+        assert_eq!(action, DatabaseAction::MigrateSchema);
+        assert!(migrations_dir.is_none());
+        assert!(!acceptance_runtime);
     }
 
     #[test]

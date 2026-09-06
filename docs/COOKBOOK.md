@@ -9,17 +9,20 @@ surface, and [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the current executable b
 
 ## Start the local session
 
-Start the fixed disposable owner and open the browser:
+Start the fixed disposable owner and copy its printed HTTPS URL into your browser:
 
 ```bash
 ./run_live_demo.sh
 ```
 
-For a headless result, use:
+To open the ready URL of the running demo without replacing it, use:
 
 ```bash
-./run_live_demo.sh --headless
+./run_live_demo.sh open
 ```
+
+Use `./run_live_demo.sh start --open` only when you intentionally want to replace the disposable
+demo and open the new one.
 
 The command builds `dist/`, starts the `ple-live-demo-browser` stack, and prints its HTTPS origin.
 When at least one configured seeded mapping is valid, the visible selector can establish an ordinary
@@ -44,10 +47,11 @@ only container state. `logs` remains scoped to the fixed project. See
 
 ## Verify the installed stack
 
-Use the non-opening launch to verify the full local installation, then stop it through its owner:
+Use the default non-opening launch to verify the full local installation, then stop it through its
+owner:
 
 ```bash
-./run_live_demo.sh --headless
+./run_live_demo.sh
 ./run_live_demo.sh stop
 ```
 

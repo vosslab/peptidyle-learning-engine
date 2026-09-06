@@ -236,7 +236,10 @@ contract.
 
 The convenience wrapper `./run_live_demo.sh` starts or stops that same owner. It sources the
 repository shell environment through its fixed `source_me.sh` path, runs `python3 local_stack.py`,
-and installs TypeScript dependencies when `node_modules` is absent. Use it for a human demo; use
+and delegates TypeScript dependency setup to `devel/setup_typescript.sh` before a start. It prints
+the ready HTTPS origin without
+opening a browser. Run `./run_live_demo.sh open` to open an already-running demo, or
+`./run_live_demo.sh start --open` to create a fresh demo and open it. Use it for a human demo; use
 `source source_me.sh && python3 local_stack.py <command>` directly when selecting a controller
 command or collecting diagnostics.
 

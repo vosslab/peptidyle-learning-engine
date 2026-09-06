@@ -69,9 +69,7 @@ pub async fn production_router_from_env() -> Result<Router> {
             live_demo_config_from_env()?,
             session_config,
         ));
-    let browser_boundary =
-        ProductionBrowserBoundary::new(Arc::from(required_env("PLE_BROWSER_ORIGIN")?))
-            .map_err(anyhow::Error::msg)?;
+    let browser_boundary = production_browser_boundary_from_env()?;
     Ok(crate::http_security::apply_api_security_headers(
         router.layer(axum::middleware::from_fn_with_state(
             browser_boundary,
@@ -86,6 +84,21 @@ pub fn bind_address_from_env() -> Result<SocketAddr> {
         .unwrap_or_else(|_| "0.0.0.0:3000".to_string())
         .parse()
         .context("PLE_BIND_ADDR must be a socket address")
+}
+
+/// Returns the canonical browser `Host` authority after validating the configured origin.
+///
+/// Container health checks reach the API over loopback but must still satisfy
+/// the same public-host boundary as browser traffic.
+pub fn browser_authority_from_env() -> Result<String> {
+    Ok(production_browser_boundary_from_env()?
+        .authority
+        .to_string())
+}
+
+fn production_browser_boundary_from_env() -> Result<ProductionBrowserBoundary> {
+    ProductionBrowserBoundary::new(Arc::from(required_env("PLE_BROWSER_ORIGIN")?))
+        .map_err(anyhow::Error::msg)
 }
 
 fn production_session_config() -> SessionConfig {

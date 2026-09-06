@@ -24,8 +24,8 @@ the project scope.
 
 ## Preflight failures
 
-- **`Python 3.12 is required`:** install `python3.12`, make it available as `python3`, then rerun
-  `./run_live_demo.sh`. The wrapper sources `source_me.sh` and invokes the controller directly.
+- **`python3 is required`:** run `brew bundle`, then rerun `./run_live_demo.sh`. The wrapper sources
+  `source_me.sh` and invokes the controller directly.
 - **`command not found on PATH`:** install the named prerequisite and retry
   `./run_live_demo.sh`. The wrapper requires Git, Podman, curl, awk, OpenSSL,
   xxd, and lsof.
@@ -38,7 +38,7 @@ the project scope.
 
 ## Read-only diagnostics
 
-Install the declared dependencies into the selected Python 3.12 environment when an import is
+Install the declared dependencies into the selected Python environment when an import is
 missing:
 
 ```bash

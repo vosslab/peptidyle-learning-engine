@@ -85,7 +85,7 @@ pub fn readiness(probes: &[ProbeResult]) -> Readiness {
 ///
 /// Returns a message when the socket cannot be opened, the exchange times out,
 /// or the response is anything other than 200.
-pub fn probe_over_http(addr: SocketAddr) -> Result<(), String> {
+pub fn probe_over_http(addr: SocketAddr, browser_authority: &str) -> Result<(), String> {
     // A health check that can hang is worse than one that fails: the
     // orchestrator would wait instead of restarting.
     let timeout = Duration::from_secs(2);
@@ -99,7 +99,7 @@ pub fn probe_over_http(addr: SocketAddr) -> Result<(), String> {
         .set_write_timeout(Some(timeout))
         .map_err(|error| format!("write timeout: {error}"))?;
 
-    let request = format!("GET /health HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n");
+    let request = health_request(browser_authority);
     stream
         .write_all(request.as_bytes())
         .map_err(|error| format!("write: {error}"))?;
@@ -115,6 +115,10 @@ pub fn probe_over_http(addr: SocketAddr) -> Result<(), String> {
     } else {
         Err(format!("unexpected status: {status_line}"))
     }
+}
+
+fn health_request(browser_authority: &str) -> String {
+    format!("GET /health HTTP/1.1\r\nHost: {browser_authority}\r\nConnection: close\r\n\r\n")
 }
 
 #[cfg(test)]
@@ -144,6 +148,14 @@ mod tests {
         assert_eq!(
             readiness(&[]),
             Readiness::Degraded(vec!["no-probes-configured"])
+        );
+    }
+
+    #[test]
+    fn self_probe_uses_the_canonical_browser_authority() {
+        assert_eq!(
+            health_request("localhost:8443"),
+            "GET /health HTTP/1.1\r\nHost: localhost:8443\r\nConnection: close\r\n\r\n"
         );
     }
 }

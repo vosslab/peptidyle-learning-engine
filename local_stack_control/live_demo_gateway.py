@@ -42,3 +42,23 @@ def health_probe_argv(url: str) -> list[str]:
 		argv.append("--insecure")
 	argv.extend(("--output", "/dev/null", url + "health"))
 	return argv
+
+
+#============================================
+def seeded_session_probe_argv(url: str) -> list[str]:
+	"""Build one same-origin demo-session probe after generic health succeeds."""
+	if not url.startswith("https://localhost:") or not url.endswith("/"):
+		raise local_stack_control.models.ControllerError(
+			"live-demo session probe requires the fixed HTTPS origin"
+		)
+	origin = url.removesuffix("/")
+	return [
+		"curl", "--fail", "--silent", "--show-error", "--max-time", "2", "--insecure",
+		"--request", "POST",
+		"--header", f"origin: {origin}",
+		"--header", "accept: application/json",
+		"--header", "content-type: application/json",
+		"--data", '{"persona":"elenaInstructor"}',
+		"--output", "/dev/null",
+		origin + "/api/auth/live-demo/accounts",
+	]

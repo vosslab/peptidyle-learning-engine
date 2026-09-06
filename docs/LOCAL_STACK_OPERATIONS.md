@@ -100,15 +100,17 @@ Use the root script from the repository root:
 
 ```bash
 ./run_live_demo.sh
-./run_live_demo.sh --headless
+./run_live_demo.sh open
+./run_live_demo.sh start --open
 ```
 
 The script sources [source_me.sh](../source_me.sh) through its fixed script-directory path,
-installs Node dependencies with [devel/setup_typescript.sh](../devel/setup_typescript.sh) when
-`node_modules` is absent, and runs `python3 local_stack.py start`. Start always
-builds the production `dist/` bundle, creates a fresh fixed target, and waits
-for the HTTPS gateway. Without `--headless` it opens the URL; with it, it
-prints the URL for an operator to open.
+runs [devel/setup_typescript.sh](../devel/setup_typescript.sh), and then runs
+`python3 local_stack.py start`. Start always builds the production `dist/`
+bundle, creates a fresh fixed target, waits for the HTTPS gateway, and prints its URL for an operator
+to open. `open` opens the exact URL of an already-running fixed target without restarting it;
+`--open` is its compatible shorthand. `start --open` creates a fresh target and opens it. `--headless`
+remains an accepted explicit spelling of the default non-opening behavior.
 
 The fixed target is always:
 
@@ -123,6 +125,10 @@ PostgreSQL bootstrap, migration, seed, Question Renderer Version, readiness, and
 cleanup. It accepts no project, environment, identity, SMTP, or skipped-build
 selector. Bare `podman compose up` against an empty database is not an
 equivalent bootstrap path.
+
+If you request `./run_live_demo.sh stop` while that owner is still starting, the
+command waits for its authenticated stop endpoint rather than attempting a second cleanup. It then
+stops the same fixed owner normally.
 
 ## Demo accounts and courses
 
@@ -139,11 +145,10 @@ The seeded course memberships are exact:
 - `Genetics Practice Course`: Morgan is the Instructor member and Avery is the
   Student member.
 
-The visible course list is therefore membership-derived. Choosing a course
-does not grant access to another course, another Student, or another
-workspace. New browser scenarios may create additional course records through
-the ordinary Instructor workflow; those records remain scoped to their exact
-`CourseId`.
+Those memberships remain seeded relationship data, but the current browser
+does not expose a Course list Server Route. After persona selection it opens the
+explicitly labelled populated Ribbon structural showcase; fixture controls do
+not grant access to a course, another Student, or another workspace.
 
 ## Startup order
 

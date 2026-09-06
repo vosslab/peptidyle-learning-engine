@@ -21,9 +21,11 @@ they are not browser formats merely because an Instructor can initiate the opera
 
 ## Live-demo operator input
 
-The supported front door is `./run_live_demo.sh` with `start`, `stop`, and `--headless`. It uses a
-fixed disposable target and does not accept a caller-selected project, identity, environment,
-SMTP configuration, or skip-build option. See [USAGE.md](USAGE.md) and
+The supported front door is `./run_live_demo.sh` with `start`, `open`, and `stop`. `--open` is a
+compatible shorthand for `open`, while `start --open` creates and opens a fresh demo. `--headless`
+remains an accepted explicit spelling of the default non-opening behavior. It uses a fixed disposable
+target and does not accept a caller-selected project, identity, environment, SMTP configuration, or
+skip-build option. See [USAGE.md](USAGE.md) and
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
 
 The lower-level lifecycle receives a private ASCII `NAME=value` owner manifest closed to `OWNER`,

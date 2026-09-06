@@ -2,28 +2,34 @@
 
 PLE's current local Live Demo is a disposable HTTPS stack with real PostgreSQL,
 MinIO, API, gateway, worker dependencies, and the private WebWork renderer. Its
-currently available Browser Surface is deliberately limited to the account/session
-entry boundary; it is not yet a runnable course-delivery demonstration.
+currently available Browser Surface contains the account/session entry boundary
+and an explicitly labelled Ribbon and invitation-mailer developer showcase; it
+is not a runnable course-delivery demonstration.
 
 ## Quick start
 
-Start and open the Live Demo:
+Start the Live Demo:
 
 ```bash
 ./run_live_demo.sh
 ```
 
-On a fresh clone, this command sources the repository shell environment through
-its fixed `source_me.sh` path, invokes `python3 local_stack.py`, and runs
-`devel/setup_typescript.sh` when `node_modules` is absent. It builds production
-`dist/`, starts `ple-live-demo-browser`, waits for HTTPS readiness, and opens the
-HTTPS origin.
+After the Python prerequisites in [INSTALL.md](INSTALL.md) are present, this command sources the
+repository shell environment through its fixed `source_me.sh` path, invokes
+`python3 local_stack.py`, and runs `devel/setup_typescript.sh` before a start. It builds production
+`dist/`, starts
+`ple-live-demo-browser`, waits for HTTPS readiness, and prints the HTTPS origin. Open that URL in
+your browser.
 
-For a headless start, use the printed origin:
+To open the ready URL of an already-running demo, use:
 
 ```bash
-./run_live_demo.sh --headless
+./run_live_demo.sh open
 ```
+
+`--open` is a compatible shorthand for `open`. To create a fresh demo and open it automatically,
+use `./run_live_demo.sh start --open`. `--headless` remains an accepted explicit spelling of the
+default non-opening behavior.
 
 Stop the disposable stack through its owner:
 
@@ -41,7 +47,11 @@ ordinary server-owned Authenticated Session for Elena Instructor, Mary Student,
 Jack Student, Avery Student, or Morgan Sysadmin. The selector supplies a closed
 persona key only. The server resolves the configured Account and derives role,
 membership, Student ownership, and every later authorization decision from
-stored PLE state.
+stored PLE state. After selection, `/live-demo/ribbon` displays the real
+production Ribbon with the populated Instructor structural model. Its controls
+change preview selection only; they do not navigate to or claim unbacked teaching
+destinations. The page also repeats the exact dry-run and attended commands for
+the separate macOS invitation mailer below.
 
 The current implemented HTTP surface is:
 

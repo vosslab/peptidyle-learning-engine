@@ -20,6 +20,8 @@ import { CourseRosterPage } from "./pages/course_roster_page";
 import { SignInPage } from "./pages/sign_in_page";
 import { AccountPendingInvitationsPage } from "./pages/account_pending_invitations_page";
 import { TeachingOperationsPage } from "./pages/teaching_operations_page";
+import { LiveDemoShowcasePage } from "./pages/live_demo_showcase_page";
+import { LIVE_DEMO_RIBBON_SHOWCASE_PATH } from "./live_demo_routes";
 import { AssignmentPreviewPage } from "./pages/assignment_preview_page";
 import {
   BlueprintCourseDetailLivePage,
@@ -73,6 +75,13 @@ export const appRoutes: ReadonlyArray<RouteDefinition> = ROUTE_CONTRACT.map((rou
   component: withRouteAccessBoundary(route, routeComponents[route.id]),
   info: { id: route.id, surface: route.surface },
 }));
+
+/** Deployment-gated infrastructure preview; deliberately absent from the product route contract. */
+export const liveDemoShowcaseRoute: RouteDefinition = {
+  path: LIVE_DEMO_RIBBON_SHOWCASE_PATH,
+  component: LiveDemoShowcasePage,
+  info: { surface: "liveDemoShowcase" },
+};
 
 /** Infrastructure fallback; intentionally excluded from the product routes. */
 export const notFoundRoute: RouteDefinition = {

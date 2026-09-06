@@ -50,6 +50,12 @@ def receipt() -> local_stack_control.browser_suite_developer.DeveloperStartRecei
 
 
 #============================================
+def entry_url() -> str:
+	"""Return the fixed browser-facing Account-selection URL."""
+	return receipt().origin + "sign-in"
+
+
+#============================================
 def test_start_parser_exposes_only_the_opening_convenience() -> None:
 	"""The public start surface cannot select another environment or artifact."""
 	args = local_stack_control.cli.build_parser().parse_args(["start", "--headless"])
@@ -105,7 +111,7 @@ def test_start_uses_the_fixed_owner_and_opens_its_safe_origin(
 	output = capsys.readouterr().out
 	assert result == 0
 	assert events == ["clear", "start"]
-	assert runner.argvs == [["open", receipt().origin]]
+	assert runner.argvs == [["open", entry_url()]]
 	assert "Stop with: ./run_live_demo.sh stop" in output
 
 
@@ -142,6 +148,28 @@ def test_start_headless_preserves_the_same_developer_browser_suite(
 	result = local_stack_control.cli.run(["start", "--headless"], runner, tmp_path)
 	assert result == 0
 	assert runner.argvs == []
+
+
+#============================================
+def test_open_uses_the_ready_fixed_owner_without_restarting_it(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	"""Opening a ready demo uses its published origin and never clears its owner."""
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_developer,
+		"read_developer_browser_suite_start_receipt",
+		lambda root: receipt() if root == tmp_path else (_ for _ in ()).throw(AssertionError()),
+	)
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_developer,
+		"clear_developer_browser_suite",
+		lambda *_unused: (_ for _ in ()).throw(AssertionError("open must not clear the active suite")),
+	)
+	runner = RecordingRunner()
+	result = local_stack_control.cli.run(["open"], runner, tmp_path)
+	assert result == 0
+	assert runner.argvs == [["open", entry_url()]]
 
 
 #============================================

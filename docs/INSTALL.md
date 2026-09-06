@@ -11,8 +11,10 @@ WeBWorK renderer. It establishes only the current seeded session-entry boundary.
 - Node.js and npm. The first launch installs the dependencies declared by `package.json`.
 - Current stable Rust through `rustup`; [rust-toolchain.toml](../rust-toolchain.toml) selects
   `rustfmt`, Clippy, and `wasm32-unknown-unknown`.
-- Python 3.12 available as `python3`. The live-demo wrapper sources the repository shell
-  environment and invokes the fixed local-stack controller with that interpreter.
+- Homebrew on macOS. `brew bundle` installs the system-wide Python interpreter and Podman
+  declared by [Brewfile](../Brewfile).
+- Python available as `python3`, with the runtime dependencies from
+  [pip_requirements.txt](../pip_requirements.txt) installed.
 - Podman and a usable Compose provider for the local stack. On macOS, also start a Podman machine;
   see [MACOS_PODMAN.md](MACOS_PODMAN.md).
 - `curl`, `awk`, `openssl`, `xxd`, and `lsof`, which the typed stack lifecycle uses.
@@ -24,19 +26,23 @@ Clone the repository and run its one supported developer front door:
 ```bash
 git clone https://github.com/vosslab/peptidyle-learning-engine.git
 cd peptidyle-learning-engine
+brew bundle
 source source_me.sh && python3 -m pip install --requirement pip_requirements.txt
 ./run_live_demo.sh
 ```
 
-The explicit Python command installs the declared live-demo runtime dependency into the selected
-Python 3.12 environment. `./run_live_demo.sh` is the supported live-demo front door. It
-sources the repository shell environment through its fixed `source_me.sh` path and invokes
-`python3 local_stack.py`. When `node_modules` is absent, it also visibly runs
-`devel/setup_typescript.sh`; it then builds the
-production `dist/` bundle, creates the disposable
-`ple-live-demo-browser` HTTPS session, waits for readiness, and opens the printed origin.
-Select a seeded persona in the visible PLE sign-in flow. The server derives its Account and ordinary
-Authenticated Session from disposable seeded state; teaching routes are not currently available.
+`./run_live_demo.sh` is the supported live-demo front door. It sources the repository shell
+environment through its fixed `source_me.sh` path and invokes `python3 local_stack.py`. When
+starting, it runs `devel/setup_typescript.sh`; that helper owns TypeScript dependency setup. Cargo
+restores its checkout-local build artifacts during the build. The launcher then builds the
+production `dist/` bundle and creates the
+disposable `ple-live-demo-browser` HTTPS session, and prints its ready origin. Open that URL in your
+browser, or run `./run_live_demo.sh open` to open an already-running demo automatically. Use
+`./run_live_demo.sh start --open` to create a fresh demo and open it. Select a seeded persona in the
+visible PLE sign-in flow. The server derives its Account and ordinary
+Authenticated Session from disposable seeded state, then opens the explicitly labelled populated
+Ribbon and invitation-mailer developer showcase. The Ribbon controls change preview selection only;
+teaching routes are not currently available.
 
 Each launch first completes owner-scoped cleanup of the previous `ple-live-demo-browser` session,
 then creates a fresh seeded installation. Relaunching therefore discards records created in the
@@ -58,8 +64,8 @@ finish:
 
 ## Developer tools
 
-Install or refresh the declared runtime and developer dependencies for the selected Python 3.12
-interpreter before running developer tools or tests:
+Install or refresh the declared runtime and developer dependencies for the selected `python3`
+before running developer tools or tests:
 
 ```bash
 source source_me.sh && python3 -m pip install --requirement pip_requirements.txt --requirement pip_requirements-dev.txt
@@ -87,6 +93,9 @@ After the browser opens, use the visible **Explore this live demo** panel on the
 
 - Choose the seeded Instructor, Student, or Sysadmin persona. Current personas are Elena
   (Instructor), Mary, Jack, and Avery (Students), and Morgan (Sysadmin).
+- The resulting `/live-demo/ribbon` page is a structural developer showcase, not a teaching route.
+  It renders the real production Ribbon component and repeats the existing dry-run and attended
+  invitation-mailer commands without giving the browser permission to send mail.
 - Persona selection only replaces the identity-verification ceremony. The server still resolves the
   ordinary Account and session; later course and authorization decisions remain server-derived when
   their routes are implemented.

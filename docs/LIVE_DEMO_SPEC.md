@@ -16,6 +16,15 @@ the unexposed session is revoked. When no configuration mapping remains, only
 seeded entry is absent; health and ordinary session/logout routes remain
 available.
 
+After selection, the demo opens an explicitly labelled developer showcase. It
+renders the real production Ribbon component from the established populated
+Instructor structural model and lets a reviewer change its selected state. The
+showcase intercepts those fixture links: it does not admit a destination, call a
+teaching handler, or change the production capability registry. It also displays
+the existing dry-run and attended commands for the temporary macOS invitation
+mailer; mail remains a local `launchers/send_invitations.py` action and cannot be
+sent by the browser.
+
 The selector does not grant a Product Role, Course Membership, Student record,
 course authority, or object access. Every future authorization decision remains
 derived from stored Account and relationship data. The implemented API surface is
@@ -29,9 +38,10 @@ prove a visible browser teaching journey.
 
 ## Purpose
 
-The current demo provides a real session and deployment boundary for local
-development. It is not presently a fully executable course-delivery,
-authoring, grading, or administration walkthrough.
+The current demo provides a real session and deployment boundary plus a
+presentation-only Ribbon and invitation-mailer developer showcase. It is not
+presently a fully executable course-delivery, authoring, grading, or
+administration walkthrough.
 
 ## Visual evidence profiles
 
@@ -67,9 +77,10 @@ not current route claims.
 ## Instructor perspective
 
 The current demo can establish the seeded Elena Instructor's Authenticated
-Session. Course, Blueprint, assignment workspace, roster, grading-operation,
-and Gradebook Server Routes do not exist. The intended Instructor workflow is
-documented as a future contract in [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md).
+Session and display the populated Instructor Ribbon structural preview. Course,
+Blueprint, assignment workspace, roster, grading-operation, and Gradebook Server
+Routes do not exist. The intended Instructor workflow is documented as a future
+contract in [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md).
 
 ## Student perspective
 

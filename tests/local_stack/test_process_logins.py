@@ -111,6 +111,7 @@ def test_service_login_profiles_have_exact_set_only_memberships() -> None:
 		sql = local_stack_control.process_logins.login_sql(login, roles, "a" * 64)
 		for role in roles:
 			assert f"GRANT {role} TO {login} WITH INHERIT FALSE, SET TRUE, ADMIN FALSE" in sql
+		assert f"GRANT CONNECT ON DATABASE %I TO {login}" in sql
 		assert "NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS" in sql
 
 
@@ -139,7 +140,7 @@ def test_service_login_setup_writes_separate_service_urls_without_service_creden
 		lambda size: next(passwords),
 	)
 	selected = target(tmp_path)
-	local_stack_control.process_logins.setup_service_logins(
+	host_urls = local_stack_control.process_logins.setup_service_logins(
 		selected,
 		runner,
 		values(),
@@ -153,6 +154,7 @@ def test_service_login_setup_writes_separate_service_urls_without_service_creden
 	assert runner.environment == {"PATH": "/bin", "PGPASSWORD": "admin-private"}
 	service_passwords = ("a" * 64,)
 	assert all(password not in runner.environment.values() for password in service_passwords)
+	assert host_urls == ("postgres://ple_api_login:" + "a" * 64 + "@127.0.0.1:55432/ple",)
 
 
 #============================================

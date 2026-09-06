@@ -1,0 +1,51 @@
+.live-demo-showcase-page {
+  max-width: 82rem;
+}
+
+.live-demo-showcase-note,
+.live-demo-mailer-panel {
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-control);
+  background: var(--ple-surface);
+  padding: var(--ple-space-4);
+}
+
+.live-demo-showcase-note {
+  margin-block: var(--ple-space-4);
+}
+
+.live-demo-showcase-note p,
+.live-demo-mailer-panel p {
+  margin-block: var(--ple-space-2);
+}
+
+.live-demo-ribbon-preview {
+  margin-block: var(--ple-space-4) var(--ple-space-6);
+  overflow: hidden;
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-control);
+}
+
+.live-demo-ribbon-preview .ple-app-ribbon {
+  border-radius: 0;
+}
+
+.live-demo-showcase-status {
+  min-height: 1.5rem;
+  margin: 0;
+  padding-inline: var(--ple-space-4);
+  color: var(--ple-muted);
+}
+
+.live-demo-mailer-panel pre {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: var(--ple-radius-control);
+  background: var(--ple-surface-soft);
+  padding: var(--ple-space-3);
+  white-space: pre-wrap;
+}
+
+.live-demo-mailer-panel code {
+  overflow-wrap: anywhere;
+}

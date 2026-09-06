@@ -37,6 +37,7 @@ pub(crate) async fn run() -> anyhow::Result<()> {
     // to one executable.
     if mode == ProcessMode::HealthProbe {
         let bind_addr = server_core::composition::bind_address_from_env()?;
+        let browser_authority = server_core::composition::browser_authority_from_env()?;
         // The server binds 0.0.0.0 (every interface), which is not an address
         // a client can connect *to*. Probe the loopback interface on the same
         // port instead.
@@ -45,7 +46,7 @@ pub(crate) async fn run() -> anyhow::Result<()> {
         } else {
             bind_addr
         };
-        return match server_core::health::probe_over_http(probe_addr) {
+        return match server_core::health::probe_over_http(probe_addr, &browser_authority) {
             Ok(()) => Ok(()),
             Err(message) => {
                 eprintln!("health probe failed: {message}");

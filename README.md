@@ -6,7 +6,8 @@ keeping grading decisions and answer keys on the server.
 ## Status
 
 PLE is under active development and is not ready for production deployment. The current local demo
-proves a real HTTPS deployment and ordinary seeded Account session, not a complete teaching
+proves a real HTTPS deployment and ordinary seeded Account session, then exposes an explicitly
+labelled populated Ribbon and invitation-mailer developer showcase. It is not a complete teaching
 workflow. Course, Question Library, authoring, assignment delivery, grading, Gradebook, and
 administration routes remain future work. [LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md) and
 [TEST_EVIDENCE_MODEL.md](docs/TEST_EVIDENCE_MODEL.md) define that boundary.
@@ -45,17 +46,21 @@ stack and records accessibility, privacy, and human visual review evidence.
 ## Quick start
 
 The first meaningful result is a disposable HTTPS PLE stack with the seeded sign-in entry. Install
-the prerequisites in [INSTALL.md](docs/INSTALL.md), including Python 3.12, Rust, Node.js, Podman,
+the prerequisites in [INSTALL.md](docs/INSTALL.md), including Python, Rust, Node.js, Podman,
 and a usable Compose provider. Then run:
 
 ```bash
-source source_me.sh && python3 -m pip install --requirement pip_requirements.txt
-./run_live_demo.sh --headless
+./run_live_demo.sh
 ```
 
-The command builds the production browser bundle, starts the fixed
-`ple-live-demo-browser` stack, and prints a ready HTTPS origin. Open that origin to choose a seeded
-persona; the server derives the ordinary authenticated session from disposable seeded state.
+The command runs the existing TypeScript setup, builds the production browser bundle, starts the
+fixed `ple-live-demo-browser` stack, and prints a ready HTTPS origin.
+Open that URL in your browser to
+choose a seeded persona; the server derives the ordinary authenticated session from disposable
+seeded state and opens the developer showcase. There you can inspect and activate the production
+Ribbon's structural preview and copy the existing attended invitation-mailer commands. Run
+`./run_live_demo.sh open` (or its `--open` shorthand) to open an already-running demo; use
+`./run_live_demo.sh start --open` to create a fresh demo and open it.
 
 Stop the disposable stack when you finish:
 

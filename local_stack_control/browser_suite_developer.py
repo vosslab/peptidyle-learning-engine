@@ -392,6 +392,59 @@ def _validate_stop_request(content: bytes, receipt: DeveloperControlReceipt) -> 
 
 
 #============================================
+def _browser_suite_lease_is_held(repository_root: pathlib.Path) -> bool:
+	"""Return whether one live owner still exclusively controls the fixed suite."""
+	try:
+		lease = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(repository_root)
+	except local_stack_control.browser_suite_lease.BrowserSuiteError as error:
+		if str(error) == "the live-demo browser suite is already running in this checkout":
+			return True
+		raise DeveloperBrowserSuiteError("developer browser control state is unavailable") from error
+	lease.release()
+	return False
+
+
+#============================================
+def _wait_for_authenticated_control_receipt(
+	repository_root: pathlib.Path,
+	timeout_seconds: float,
+) -> DeveloperControlReceipt:
+	"""Wait for a lease-owning supervisor to publish its authenticated ready receipt."""
+	deadline = time.monotonic() + timeout_seconds
+	reported_startup_wait = False
+	while True:
+		try:
+			return read_control_receipt(repository_root)
+		except DeveloperBrowserSuiteError as error:
+			if str(error) != "Developer Browser Suite is not running":
+				raise
+			# ASVS 15.4.2 and 15.4.3: a held fixed-owner lease is the only
+			# authority that justifies waiting; never reclaim or reset its work.
+			if not _browser_suite_lease_is_held(repository_root):
+				raise
+			if not reported_startup_wait:
+				print("Developer Browser Suite is still starting; waiting for its ready URL...")
+				reported_startup_wait = True
+			if time.monotonic() >= deadline:
+				raise DeveloperBrowserSuiteError(
+					"developer browser supervisor did not publish a ready URL"
+				) from error
+		time.sleep(0.05)
+
+
+#============================================
+def read_developer_browser_suite_start_receipt(
+	repository_root: pathlib.Path,
+) -> DeveloperStartReceipt:
+	"""Return the ready fixed-origin receipt without mutating its running suite."""
+	receipt = _wait_for_authenticated_control_receipt(
+		repository_root, DEVELOPER_START_WAIT_SECONDS
+	)
+	result = DeveloperStartReceipt(receipt.origin, receipt.project)
+	return result
+
+
+#============================================
 def request_developer_browser_suite_stop(
 	repository_root: pathlib.Path,
 	timeout_seconds: float = DEVELOPER_STOP_WAIT_SECONDS,
@@ -399,7 +452,9 @@ def request_developer_browser_suite_stop(
 	"""Request a bounded authenticated Browser Suite stop and await cleanup."""
 	if timeout_seconds <= 0:
 		raise DeveloperBrowserSuiteError("developer browser stop timeout is invalid")
-	receipt = read_control_receipt(repository_root)
+	receipt = _wait_for_authenticated_control_receipt(
+		repository_root, DEVELOPER_START_WAIT_SECONDS
+	)
 	path = _socket_path(repository_root)
 	directory_descriptor = _socket_directory_descriptor()
 	try:

@@ -217,6 +217,7 @@ def write_private_target(
 		f"PLE_GATEWAY_HOST_PORT={ports.gateway}\n"
 		f"PLE_LOCAL_AUTOMATED_GRADING_PASSWORD={secrets.token_hex(24)}\n"
 		f"PLE_E2E_OWNER={local_stack_control.models.LIVE_DEMO_BROWSER_OWNER}\n"
+		f"PLE_BROWSER_ORIGIN=https://localhost:{ports.gateway}\n"
 		f"PLE_PUBLIC_ASSET_BASE_URL=https://localhost:{ports.gateway}/public-assets\n"
 		"PLE_TRUSTED_PROXY_CIDRS=172.30.255.0/29\n"
 		"PLE_STORAGE_TOPOLOGY=disposable-local\n"
