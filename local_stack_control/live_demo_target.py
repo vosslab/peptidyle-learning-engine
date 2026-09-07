@@ -202,6 +202,9 @@ def write_private_target(
 	_write_private_file(invitation_path, random_secret32())
 	_write_private_file(question_path, random_secret32())
 	renderer_version_path = directory / "question-renderer-version"
+	publisher_restricted_path, publisher_public_path = (
+		local_stack_control.lifecycle.publisher_asset_storage_paths()
+	)
 	environment_path = directory / "env.local"
 	application_image_setting = ""
 	if policy.application_image is not None:
@@ -212,6 +215,14 @@ def write_private_target(
 		f"POSTGRES_DB={POSTGRES_DATABASE}\nPLE_POSTGRES_HOST_PORT={ports.postgres}\n"
 		"MINIO_ROOT_USER=ple-live-demo-browser\n"
 		f"MINIO_ROOT_PASSWORD={secrets.token_hex(24)}\n"
+		f"PLE_PUBLISHER_S3_ACCESS_KEY_ID={secrets.token_hex(16)}\n"
+		f"PLE_PUBLISHER_S3_SECRET_ACCESS_KEY={secrets.token_hex(32)}\n"
+		f"PLE_NATIVE_PLE_WORKER_S3_ACCESS_KEY_ID={secrets.token_hex(16)}\n"
+		f"PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY={secrets.token_hex(32)}\n"
+		f"PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID={secrets.token_hex(16)}\n"
+		f"PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY={secrets.token_hex(32)}\n"
+		f"PLE_PUBLISHER_RESTRICTED_ASSET_PATH={publisher_restricted_path}\n"
+		f"PLE_PUBLISHER_PUBLIC_ASSET_PATH={publisher_public_path}\n"
 		f"PLE_MINIO_API_HOST_PORT={ports.minio_api}\n"
 		f"PLE_MINIO_CONSOLE_HOST_PORT={ports.minio_console}\n"
 		f"PLE_GATEWAY_HOST_PORT={ports.gateway}\n"

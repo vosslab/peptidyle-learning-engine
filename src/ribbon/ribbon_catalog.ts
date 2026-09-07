@@ -15,6 +15,7 @@ export type RibbonPresentation = "standard" | "compact";
 /** The closed identities for destinations whose backend capability has not landed. */
 export type FutureRibbonDestinationId =
   | "instructorAccounts"
+  | "supportRoster"
   | "blueprintUpdates"
   | "courseSetup"
   | "myQuestions"
@@ -196,13 +197,14 @@ export const TAB_CATALOG = [
   {
     id: "instructorAccounts",
     label: "Instructor Accounts",
-    destination: { kind: "future", futureId: "instructorAccounts" },
+    destination: { kind: "route", routeId: "instructorAccounts" },
     requiredParams: [],
     role: "primary",
     priority: "critical",
     presentation: "standard",
     ...textOnlyIconFlags,
   },
+  { id: "supportRoster", label: "Scoped Support", destination: { kind: "route", routeId: "supportRoster" }, requiredParams: [], role: "supporting", priority: "normal", presentation: "standard", ...textOnlyIconFlags },
 ] as const satisfies ReadonlyArray<RibbonCatalogControl<RibbonTabId>>;
 
 /**

@@ -7,7 +7,7 @@ repository_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 readonly repository_root
 readonly project_name="ple-live-demo-browser"
 readonly manifest_path="local_stack_state/live_demo_browser/workspace/disposable.manifest"
-readonly expected_inventory="5|4|4|4|4"
+readonly expected_inventory="5|4|4|4|4|1|1|1|1"
 
 usage() {
 	echo "Usage: bash tests/e2e/e2e_live_demo_seeded_baseline.sh [--install|--replay]" >&2
@@ -50,7 +50,7 @@ require_baseline() {
 		exit 1
 	fi
 	bash tests/e2e/e2e_live_demo_readiness.sh --healthy
-	echo "Seeded baseline installed: Accounts Published Questions source bindings publication events Object Records"
+	echo "Seeded baseline installed: Accounts Published Questions private sources and one pending Question Asset publication chain"
 }
 
 install_baseline() {

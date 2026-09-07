@@ -28,6 +28,13 @@ pub enum ProductionLoginProfile {
     Api,
     /// iMathAS Question Backend grading worker: claim and commit procedures only.
     ImathasQuestionBackendGradingWorker,
+    /// Native PLE grading worker: claim and commit procedures only.
+    NativePleGradingWorker,
+    /// WeBWorK grading worker: lease/commit procedures plus private renderer access.
+    WebworkGradingWorker,
+    /// Dedicated immutable public Question Asset publisher: its exact private
+    /// source-to-public rendition claim and activation procedures only.
+    PublicAssetPublisher,
 }
 
 fn pool_options(max_connections: u32) -> PgPoolOptions {

@@ -40,6 +40,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	stop_worker.add_argument("--manifest", required=True, type=pathlib.Path)
 	replace_worker = actions.add_parser("replace-worker")
 	replace_worker.add_argument("--manifest", required=True, type=pathlib.Path)
+	stop_native_ple_worker = actions.add_parser("stop-native-ple-worker")
+	stop_native_ple_worker.add_argument("--manifest", required=True, type=pathlib.Path)
+	replace_native_ple_worker = actions.add_parser("replace-native-ple-worker")
+	replace_native_ple_worker.add_argument("--manifest", required=True, type=pathlib.Path)
+	stop_webwork_renderer = actions.add_parser("stop-webwork-renderer")
+	stop_webwork_renderer.add_argument("--manifest", required=True, type=pathlib.Path)
+	replace_webwork_renderer = actions.add_parser("replace-webwork-renderer")
+	replace_webwork_renderer.add_argument("--manifest", required=True, type=pathlib.Path)
 	stop_readiness_dependency = actions.add_parser("stop-readiness-dependency")
 	stop_readiness_dependency.add_argument("--manifest", required=True, type=pathlib.Path)
 	stop_readiness_dependency.add_argument(
@@ -285,6 +293,72 @@ def run_seed_inventory(
 
 
 #============================================
+def webwork_renderer_service(
+	disposable: local_stack_control.models.DisposableComposeTarget,
+) -> str:
+	"""Authorize only the browser profile's isolated renderer outage action."""
+	policy = local_stack_control.disposable_stack_adapter.live_demo_profile_policy(disposable)
+	if (
+		policy.profile is not local_stack_control.models.LiveDemoProfile.BROWSER
+		or "webwork_renderer_lifecycle" not in policy.child_capabilities
+	):
+		raise local_stack_control.models.ControllerError("this owner cannot control the WeBWorK renderer")
+	return "webwork-renderer"
+
+
+#============================================
+def unrelated_renderer_scope(
+	snapshot: local_stack_control.models.ProjectSnapshot,
+	service: str,
+) -> tuple[tuple[object, ...], ...]:
+	"""Compare unchanged renderer-neighbor authority without transient health."""
+	return tuple(sorted(
+		(
+			item.id, item.names, item.project, item.service, item.running,
+			item.image, item.ports, item.capability_digest, item.image_id, item.owner,
+		)
+		for item in snapshot.containers if item.service != service
+	))
+
+
+#============================================
+def change_webwork_renderer(
+	runner: local_stack_control.process.CommandRunner,
+	disposable: local_stack_control.models.DisposableComposeTarget,
+	replace: bool,
+) -> str:
+	"""Stop or recreate only the selected renderer and prove closed scope."""
+	service = webwork_renderer_service(disposable)
+	before = local_stack_control.disposable_stack_adapter.require_current_resource_capability(runner, disposable)
+	selected = tuple(item for item in before.containers if item.service == service)
+	if len(selected) != 1 or selected[0].running == replace:
+		raise local_stack_control.models.ControllerError("WeBWorK renderer lifecycle precondition is invalid")
+	# Starting the stopped renderer instance is the only recovery that preserves
+	# the running API, gateway, and worker instances.  Compose recreation may
+	# cascade through their dependency graph even with ``--no-deps``.
+	argv = (
+		["podman", "start", selected[0].id]
+		if replace
+		else local_stack_control.compose.compose_argv(disposable.target, ["stop", service])
+	)
+	if runner.stream(argv, local_stack_control.disposable_stack_adapter.compose_environment(disposable), disposable.target.repo_root) != 0:
+		raise local_stack_control.models.ControllerError("WeBWorK renderer lifecycle command failed")
+	after = local_stack_control.disposable_stack_adapter.require_current_resource_capability(runner, disposable)
+	changed = tuple(item for item in after.containers if item.service == service)
+	if (
+		local_stack_control.disposable_stack_adapter.persistent_scope(before)
+		!= local_stack_control.disposable_stack_adapter.persistent_scope(after)
+		or unrelated_renderer_scope(before, service) != unrelated_renderer_scope(after, service)
+		or len(changed) != 1
+		or changed[0].running != replace
+		or (replace and changed[0].id != selected[0].id)
+		or (not replace and changed[0].id != selected[0].id)
+	):
+		raise local_stack_control.models.ControllerError("WeBWorK renderer lifecycle violated its closed scope")
+	return service
+
+
+#============================================
 def main() -> None:
 	"""Run a closed Compose call or one exact disposable cleanup."""
 	args = parse_args(sys.argv[1:])
@@ -354,6 +428,20 @@ def main() -> None:
 		if args.action == "replace-worker":
 			completed = local_stack_control.disposable_stack_adapter.replace_worker_service(runner, disposable)
 			print(f"Disposable worker replaced: {completed.service}")
+			raise SystemExit(0)
+		if args.action == "stop-native-ple-worker":
+			completed = local_stack_control.disposable_stack_adapter.stop_native_ple_worker_service(runner, disposable)
+			print(f"Disposable native PLE worker stopped: {completed.service}")
+			raise SystemExit(0)
+		if args.action == "replace-native-ple-worker":
+			completed = local_stack_control.disposable_stack_adapter.replace_native_ple_worker_service(runner, disposable)
+			print(f"Disposable native PLE worker replaced: {completed.service}")
+			raise SystemExit(0)
+		if args.action == "stop-webwork-renderer":
+			print(f"Disposable WeBWorK renderer stopped: {change_webwork_renderer(runner, disposable, False)}")
+			raise SystemExit(0)
+		if args.action == "replace-webwork-renderer":
+			print(f"Disposable WeBWorK renderer replaced: {change_webwork_renderer(runner, disposable, True)}")
 			raise SystemExit(0)
 		if args.action == "stop-readiness-dependency":
 			completed = local_stack_control.disposable_stack_adapter.stop_readiness_dependency(

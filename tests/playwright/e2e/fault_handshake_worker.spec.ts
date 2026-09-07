@@ -10,14 +10,12 @@ test("fault handshake worker: exchanges the closed owner phases without a browse
   );
   const handshake = await faultHandshakeFromEnvironment(
     process.env,
-    "learner_gateway_recovery",
-    "bs1-0123456789ab-learner_gateway_recovery",
+    "learner_native_ple_recovery",
+    "bs1-0123456789ab-learner_native_ple_recovery",
   );
   try {
-    handshake.notify("response_selected");
-    await handshake.waitFor("gateway_stopped");
-    handshake.notify("network_recovery_visible");
-    await handshake.waitFor("gateway_recovered");
+    handshake.notify("submission_accepted");
+    await handshake.waitFor("native_ple_worker_replaced");
     handshake.notify("completed");
   } finally {
     handshake.close();

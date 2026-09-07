@@ -176,9 +176,15 @@ model, or feature selector is added merely to preserve deleted behavior.
 | M7 | complete | `bash tests/e2e/e2e_live_demo_blueprint_course.sh --service` and `--browser` passed on 2026-09-06 against the fixed HTTPS stack; M7 proves Blueprint Course Owner and Active Instructor read access, immutable Blueprint Revision preservation, and visible Instructor creation/publication, not Course Instance delivery |
 | M8 | complete | `bash tests/e2e/e2e_live_demo_course_instance.sh --authority` and `--browser` passed on 2026-09-06 against the fixed HTTPS stack; M8 proves exact published Blueprint Revision source, immutable Course Origin, initial Assigned Instructor Course Membership and Teaching Team, no ambient Sysadmin Course access, and visible Instructor Course Instance creation/opening, not roster, Student Record, Assignment, or delivery |
 | M9 | complete | `bash tests/e2e/e2e_live_demo_roster.sh --import` and `--browser` passed on 2026-09-06 against the fixed HTTPS stack; M9 proves idempotent Course Roster Import, Student Authentication Email resolve-or-create, pending Course Invitation, exact Student Record/Student Course Membership claim, immediate access revocation, and visible Instructor roster projection, not email delivery, Assignment delivery, grading, or M19 serial-browser acceptance |
-| M10 | planned | Assignment runner |
-| M11-M14 | planned | Student delivery and renderer runners |
-| M15-M18 | planned | Gradebook, account, support, and export runners |
+| M10 | complete | `bash tests/e2e/e2e_live_demo_assignment_release.sh` passed on 2026-09-06 against a final fresh fixed HTTPS stack; M10 proves direct Instructor Course Membership authority, exact Assignment Edit Number conflict handling, release validation, immutable Assignment Revision snapshotting without Student work, and visible Assignment creation, Available Published Question selection, save, answer-free Assignment Preview, and release. It does not implement Student View Scenario evaluation, Assignment delivery, Student identity or work, grading, or M19 serial-browser acceptance. |
+| M11 | complete | `bash tests/e2e/e2e_live_demo_assignment_attempt.sh` passed again on 2026-09-07 against a fresh controller-managed fixed HTTPS stack. M11 proves Student-only public `C-`/`A-` Assignment Access, exact active Student Record authorization, released-snapshot deadline refusal before issue, initial issuance/resume of an exact Question Revision as a full answer-free QuestionPresentation, and narrow forced-RLS snapshot-entry access. The private one-to-one immutable QuestionPresentation binding retains only nonce and full descriptor checksum; source/S3 resolution and reproduction details remain private Question Attempt/source-binding facts, and resume reproduces the same public presentation. The M12 format-only presentation omits M13 submission, grading, and feedback controls. M13 response persistence/submission/grading/recovery, Student View Scenario evaluation, and M19 serial-browser acceptance remain unclaimed. |
+| M12 | complete | `bash tests/e2e/e2e_live_demo_native_controls.sh` passed on 2026-09-07 against a fresh controller-managed fixed HTTPS stack. M12 proves authorized Question Asset retrieval returns an immutable redirect while anonymous, foreign-Student, absent, and malformed references receive indistinguishable concealment; all eight issued native PLE response formats strictly decode; and all eight controls, including the fixed HOTSPOT, reach valid local states by keyboard without submission. This is whole-system plan acceptance/live browser evidence, not a new pytest. M13 response persistence/submission/grading/feedback/recovery and M19 serial-browser acceptance remain unclaimed. |
+| M13 | complete | `bash tests/e2e/e2e_live_demo_submission_recovery.sh` passed on 2026-09-07 against a fresh controller-managed fixed HTTPS stack. M13 proves one format-valid Student Response is accepted once with closed pending grading state, and an interrupted leased native PLE evaluation recovers one terminal result and receipt. This is whole-system plan acceptance evidence, not a new pytest. M15 Gradebook/Student Work and M19 serial-browser acceptance remain unclaimed. |
+| M14 | complete | `bash tests/e2e/e2e_live_demo_webwork.sh --render` previously accepted the render-issuance boundary. On 2026-09-07, `bash tests/e2e/e2e_live_demo_webwork.sh --grade` passed on a fresh controller-managed stack: `WeBWorK grade authority: deterministic renderer grade commit and bounded renderer failure complete`; `Live Demo WeBWorK grade: PASS`. The renderer fault is a bounded terminal local outcome. This service/browser cadence does not claim M19 serial production-browser acceptance. |
+| M15 | complete | `bash tests/e2e/e2e_live_demo_gradebook.sh --api` and `--browser` passed on 2026-09-07 against fresh controller-managed fixed HTTPS stacks. M15 proves current Course Instructor access to answer-free immutable Gradebook evidence, foreign-Course 404 concealment, and the visible Gradebook task. Individual Student Work remains unavailable; M19 serial-browser acceptance remains unclaimed. |
+| M16 | complete | `bash tests/e2e/e2e_live_demo_instructor_accounts.sh` passed on 2026-09-07 against a fresh controller-managed fixed HTTPS stack. M16 proves the Sysadmin-only Instructor Account lifecycle service, account concealment, and session revocation; the visible Sysadmin Ribbon task creates an Instructor Account, then deactivates and reactivates it. The disposable migration correction gives only `ple_private_owner` the Instructor-only lock policy needed by the existing `SELECT ... FOR UPDATE` boundary; it grants no direct application/API table access. This is whole-system plan acceptance/live browser evidence, not a new pytest. Course or Student Record access, passkey feature work, and M19 serial-browser acceptance remain unclaimed. |
+| M17 | complete | `bash tests/e2e/e2e_live_demo_support_capability.sh --issue` and `--browser` passed on 2026-09-07 against a fresh controller-managed fixed HTTPS stack. M17 proves exact-Course registered roster-support capability issuance, concealment, and revocation without ambient Sysadmin Course or Student Record access; the visible Sysadmin scoped roster task also completed. This is whole-system plan acceptance/live browser evidence, not a new pytest. M19 serial-browser acceptance remains unclaimed. |
+| M18 | complete | `bash tests/e2e/e2e_live_demo_invitation_export.sh --route` and `--dry-run` passed on 2026-09-06 against a fresh stack; M18 proves current direct-Instructor no-store attachment export of pending, unexpired Student Course Invitations in existing mailer JSON and dry-run-only consumption. Browser behavior is download-only and no send/delivery is claimed. The fixed demo has one Instructor persona, so foreign-Instructor procedure/catalog enforcement is recorded rather than browser-tested. |
 | M19 | planned | serial production-browser owner |
 | M20 | planned | capture manifest |
 | M21 | planned | final authority ledger and gates |
@@ -778,7 +784,7 @@ Obvious follow-ons: preserve Assignment Status separately from Assignment Access
 
 Owner: Assignment browser engineer.
 
-Touch points: Assignment Workspace pages, Question Picker, Student View Scenario, and Ribbon task.
+Touch points: Assignment Workspace pages, Question Picker, Assignment Preview, and Ribbon task.
 
 Depends on: WP-M10-1.
 
@@ -789,6 +795,9 @@ bash tests/e2e/e2e_live_demo_assignment_release.sh --browser
 ~~~
 
 Expected outcome: Instructor selects Published Questions, validates, previews, and releases Assignment.
+
+The M10 Assignment Preview is Instructor-only and answer-free. It is not the
+separate retained Student View Scenario contract and creates no Student work.
 
 Obvious follow-ons: M11 reads released Assignment Revision only.
 
@@ -968,6 +977,10 @@ bash tests/e2e/e2e_live_demo_webwork.sh --render
 
 Expected outcome: answer-free render output and provider inputs redacted from browser data and logs.
 
+Accepted evidence: `bash tests/e2e/e2e_live_demo_webwork.sh --render` exited 0
+on 2026-09-07 against an isolated stack after fresh runtime repairs. WP-M14-2
+records the completing deterministic-grade and bounded-failure evidence.
+
 Obvious follow-ons: preserve private renderer network isolation.
 
 ### Work package: WP-M14-2 Renderer grade and outage path
@@ -985,6 +998,12 @@ bash tests/e2e/e2e_live_demo_webwork.sh --grade
 ~~~
 
 Expected outcome: deterministic grade commit and bounded renderer outage recovery.
+
+Accepted evidence: `bash tests/e2e/e2e_live_demo_webwork.sh --grade` passed on
+2026-09-07 against a fresh controller-managed stack: `WeBWorK grade authority:
+deterministic renderer grade commit and bounded renderer failure complete`;
+`Live Demo WeBWorK grade: PASS`. The renderer fault is a bounded terminal local
+outcome, not a fallback or a claim of M19 serial production-browser acceptance.
 
 Obvious follow-ons: M19 adds route to serial browser scenario.
 
@@ -1034,6 +1053,13 @@ bash tests/e2e/e2e_live_demo_gradebook.sh --browser
 ~~~
 
 Expected outcome: Instructor reaches Gradebook after graded Student workflow.
+
+Accepted evidence: `bash tests/e2e/e2e_live_demo_gradebook.sh --api` and
+`--browser` passed on 2026-09-07 against fresh controller-managed fixed HTTPS
+stacks. The evidence proves answer-free immutable Gradebook evidence for the
+current Course Instructor, foreign-Course 404 concealment, and the visible
+Gradebook task. Individual Student Work remains unavailable; this does not
+claim M19 serial-browser acceptance.
 
 Obvious follow-ons: M20 captures declared safe projection only.
 
@@ -1337,9 +1363,9 @@ Obvious follow-ons: archive this blueprint after evidence ledger completion.
 
 - [ ] M0 records RLS, browser-spec, and client-decoder findings.
 - [ ] M1-M4 establish worker topology, readiness, protected lease operations, and replayable seed data.
-- [ ] M5-M10 establish Instructor Question, Blueprint Course, Course Instance, roster, and Assignment tasks.
-- [ ] M11-M14 establish Student issue, native controls, receipt recovery, and WeBWorK completion.
-- [ ] M15-M18 establish Gradebook, Instructor Account, support, and protected export tasks.
+- [x] M5-M10 establish Instructor Question, Blueprint Course, Course Instance, roster, and Assignment tasks.
+- [x] M11-M14 establish Student issue, native controls, receipt recovery, and WeBWorK completion.
+- [x] M15-M18 establish Gradebook, Instructor Account, support, and protected export tasks.
 - [ ] M19 completes serial production-browser owner.
 - [ ] M20 captures only manifest-listed safe artifacts.
 - [ ] M21 reconciles authority ledger and required gates.

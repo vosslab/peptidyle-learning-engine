@@ -11,7 +11,11 @@ import { MultiBlankResponse } from "./multi_blank";
 import { NumericResponse } from "./numeric";
 import { OrderingResponse } from "./ordering";
 import { ShortTextResponse } from "./short_text";
-import type { QuestionResponseControlProps, QuestionResponseControlBaseProps } from "./common";
+import {
+  ResponseControlModeProvider,
+  type QuestionResponseControlProps,
+  type QuestionResponseControlBaseProps,
+} from "./common";
 import type { QuestionPresentationResponseFormat } from "../../../generated/api/QuestionPresentationResponseFormat";
 
 export {
@@ -43,13 +47,16 @@ function assertNever(value: never): never {
   throw new Error(`Unhandled Question Response Format: ${JSON.stringify(value)}`);
 }
 
-/** Exhaustive dispatch point for every browser-safe Question Response Format variant. */
-export function QuestionResponseControl(props: QuestionResponseControlProps): JSX.Element {
-  let body: JSX.Element;
+/**
+ * Render the native control inside its mode provider.  Do not construct this
+ * body in the dispatcher: native controls read their mode from context while
+ * rendering.
+ */
+function QuestionResponseControlBody(props: QuestionResponseControlProps): JSX.Element {
   switch (props.responseFormat.kind) {
     case "numeric":
     case "numerical":
-      body = (
+      return (
         <NumericResponse
           {...props}
           responseFormat={props.responseFormat}
@@ -58,11 +65,10 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
           }
         />
       );
-      break;
     case "multipleChoice":
     case "singleChoice":
     case "multipleAnswer":
-      body = (
+      return (
         <MultipleChoiceController
           {...props}
           responseFormat={props.responseFormat}
@@ -71,10 +77,9 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
           }
         />
       );
-      break;
     case "shortText":
     case "fillIn":
-      body = (
+      return (
         <ShortTextResponse
           {...props}
           responseFormat={props.responseFormat}
@@ -83,10 +88,9 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
           }
         />
       );
-      break;
     case "multiBlank":
     case "multiFillIn":
-      body = (
+      return (
         <MultiBlankResponse
           {...props}
           responseFormat={props.responseFormat}
@@ -95,9 +99,8 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
           }
         />
       );
-      break;
     case "matching":
-      body = (
+      return (
         <MatchingResponse
           {...props}
           responseFormat={props.responseFormat}
@@ -106,9 +109,8 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
           }
         />
       );
-      break;
     case "ordering":
-      body = (
+      return (
         <OrderingResponse
           {...props}
           responseFormat={props.responseFormat}
@@ -117,9 +119,8 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
           }
         />
       );
-      break;
     case "hotspot":
-      body = (
+      return (
         <HotspotResponse
           {...props}
           responseFormat={props.responseFormat}
@@ -128,27 +129,37 @@ export function QuestionResponseControl(props: QuestionResponseControlProps): JS
           }
         />
       );
-      break;
     case "imathasQuestionBackend":
-      body = (
-        <ImathasQuestionBackendResponse
-          attemptId={props.attemptId}
-          onSubmit={props.onSubmit}
-          onEscape={props.onEscape}
-          onResponseChange={props.onResponseChange}
-          studentWorkRoute={props.studentWorkRoute}
-          beginImathasQuestionBackendLaunch={props.beginImathasQuestionBackendLaunch}
-        />
+      // A dedicated iMathAS launch is a submission-capable integration, not a
+      // native format-only control. M12 deliberately does not activate it.
+      return (
+        props.mode === "formatOnly" || props.onSubmit === undefined ? (
+          <p class="calm-status" role="status">
+            This response format is not available for local checking.
+          </p>
+        ) : (
+          <ImathasQuestionBackendResponse
+            attemptId={props.attemptId}
+            onSubmit={props.onSubmit}
+            onEscape={props.onEscape}
+            onResponseChange={props.onResponseChange}
+            studentWorkRoute={props.studentWorkRoute}
+            beginImathasQuestionBackendLaunch={props.beginImathasQuestionBackendLaunch}
+          />
+        )
       );
-      break;
     default:
-      body = assertNever(props.responseFormat);
+      return assertNever(props.responseFormat);
   }
+}
+
+/** Exhaustive dispatch point for every browser-safe Question Response Format variant. */
+export function QuestionResponseControl(props: QuestionResponseControlProps): JSX.Element {
   return (
-    <>
+    <ResponseControlModeProvider mode={props.mode ?? "submission"}>
       <style>{QUESTION_RESPONSE_CONTROL_STYLES}</style>
-      {body}
-    </>
+      <QuestionResponseControlBody {...props} />
+    </ResponseControlModeProvider>
   );
 }
 

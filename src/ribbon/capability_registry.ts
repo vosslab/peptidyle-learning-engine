@@ -203,9 +203,16 @@ const CAPABILITY_DECLARATIONS = {
     ],
   },
   assignments: {
-    kind: "unbacked",
-    reason: "Assignment listing has no registered production teaching/data handler.",
-    evidence: [...NO_TEACHING_HANDLER, "src/api/application_api.tsx::ApiClient.listAssignments"],
+    kind: "backed",
+    clientMethod: "ApiClient.getLiveAssignmentWorkspace",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/assignment_release.rs::assignment_release_router",
+    },
+    evidence: [
+      "crates/server/src/assignment_release.rs::assignment_release_router",
+      "src/api/http_client/assignment_release.ts::createLiveAssignmentReleaseClient",
+    ],
   },
   students: {
     kind: "backed",
@@ -220,11 +227,15 @@ const CAPABILITY_DECLARATIONS = {
     ],
   },
   gradebook: {
-    kind: "unbacked",
-    reason: "Calculated Gradebook has no registered production teaching/data handler.",
+    kind: "backed",
+    clientMethod: "ApiClient.getLiveDemoGradebook",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/live_gradebook.rs::live_gradebook_router",
+    },
     evidence: [
-      ...NO_TEACHING_HANDLER,
-      "src/api/application_api.tsx::ApiClient.getCalculatedGradebook",
+      "crates/server/src/live_gradebook.rs::live_gradebook_router",
+      "src/api/http_client/live_gradebook.ts::createLiveDemoGradebookClient",
     ],
   },
   teachingOperations: {
@@ -254,11 +265,18 @@ const CAPABILITY_DECLARATIONS = {
     ],
   },
   instructorAccounts: {
-    kind: "unbacked",
-    reason:
-      "Instructor Accounts has no declared route, page, client method, or registered handler.",
-    evidence: [...NO_TEACHING_HANDLER, "src/ribbon/ribbon_catalog.ts::instructorAccounts"],
+    kind: "backed",
+    clientMethod: "ApiClient.listInstructorAccounts",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/instructor_account.rs::instructor_account_router",
+    },
+    evidence: [
+      "crates/server/src/instructor_account.rs::instructor_account_router",
+      "src/api/http_client/instructor_account.ts::createInstructorAccountClient",
+    ],
   },
+  supportRoster: { kind: "backed", clientMethod: "ApiClient.readSupportCourseRoster", serverEvidence: { kind: "registeredHandler", handler: "crates/server/src/support_capability.rs::support_capability_router" }, evidence: ["crates/server/src/support_capability.rs::support_capability_router", "src/api/http_client/support_roster.ts::createSupportCapabilityClient"] },
   allQuestions: {
     kind: "backed",
     clientMethod: "ApiClient.searchQuestionLibrary",

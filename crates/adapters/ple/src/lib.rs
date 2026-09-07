@@ -43,6 +43,11 @@ pub struct QuestionAssetObjectReference {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PleIssuedQuestion {
     pub presentation: QuestionVariationPresentation,
+    /// Deterministic parameter record for this static Question Seed.
+    ///
+    /// This server-only value is persisted with the Question Attempt; it is
+    /// intentionally separate from the answer-free presentation.
+    pub parameter_hash: String,
     pub reproduction_details: QuestionAttemptReproductionDetails,
 }
 

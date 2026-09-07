@@ -232,10 +232,12 @@ END
 $$;
 INSERT INTO ple_data.blueprint_course_revision (
     blueprint_course_reference_number, blueprint_revision_number, title,
-    blueprint_course_content, created_at
+    blueprint_course_content, blueprint_content_checksum, created_at
 ) VALUES
-    (7, 1, 'Assignment Attempt fixture', '{}'::jsonb, '2026-01-01 00:00:00+00'),
-    (7, 2, 'Draft collaboration fixture', '{}'::jsonb, '2026-01-01 00:00:00+00');
+    (7, 1, 'Assignment Attempt fixture', '{}'::jsonb,
+     decode(repeat('00', 32), 'hex'), '2026-01-01 00:00:00+00'),
+    (7, 2, 'Draft collaboration fixture', '{}'::jsonb,
+     decode(repeat('00', 32), 'hex'), '2026-01-01 00:00:00+00');
 DO $$
 DECLARE
     identity_columns text[];
@@ -397,11 +399,11 @@ INSERT INTO ple_data.blueprint_collaborator_event (
 BEGIN;
 INSERT INTO ple_data.course_instance (
     course_id, blueprint_course_reference_number, blueprint_revision_number,
-    assigned_instructor_account_id, assigned_instructor_role, created_at
+    assigned_instructor_account_id, course_title, assigned_instructor_role, created_at
 ) VALUES (
     '00000000-0000-0000-0000-000000000105', 7, 1,
     '00000000-0000-0000-0000-000000000102',
-    'instructor', '2026-01-01 00:00:00+00'
+    'Assignment Attempt fixture', 'instructor', '2026-01-01 00:00:00+00'
 );
 INSERT INTO ple_data.student_record (
     student_record_id, course_id, student_account_id, created_at
@@ -427,11 +429,11 @@ BEGIN
     BEGIN
         INSERT INTO ple_data.course_instance (
             course_id, blueprint_course_reference_number, blueprint_revision_number,
-            assigned_instructor_account_id, assigned_instructor_role, created_at
+            assigned_instructor_account_id, course_title, assigned_instructor_role, created_at
         ) VALUES (
             '00000000-0000-0000-0000-000000000199', 7, 3,
             '00000000-0000-0000-0000-000000000102',
-            'instructor', '2026-01-01 00:00:00+00'
+            'Assignment Attempt fixture', 'instructor', '2026-01-01 00:00:00+00'
         );
         RAISE EXCEPTION 'Course Instance accepted a nonexistent Blueprint Revision Number';
     EXCEPTION WHEN foreign_key_violation THEN NULL;

@@ -29,7 +29,9 @@ export function CourseInstancePage(): JSX.Element {
           <Show when={course.error !== undefined}>
             <section class="route-error" role="alert">
               <h1>Course Instance unavailable</h1>
-              <p>This Course Instance is not available through your current Teaching Team access.</p>
+              <p>
+                This Course Instance is not available through your current Teaching Team access.
+              </p>
               <A class="primary-link" href="/">
                 Return to Course Instances
               </A>
@@ -58,14 +60,23 @@ export function CourseInstancePage(): JSX.Element {
                 {view().activeInstructorCount === 1 ? " is" : "s are"} currently recorded.
               </p>
             </section>
-            <section class="empty-state" aria-label="Future course delivery work">
+            <section class="empty-state" aria-label="Course delivery work">
               <h2>Course delivery begins with the roster</h2>
               <p>
                 Import Student roster entries before creating Assignment content, deadlines, or
                 release state.
               </p>
-              <A class="primary-link" href={`/instructor/courses/${view().course.reference}/students`}>
+              <A
+                class="primary-link"
+                href={`/instructor/courses/${view().course.reference}/students`}
+              >
                 Open Students
+              </A>
+              <A
+                class="primary-link"
+                href={`/instructor/courses/${view().course.reference}/assignments/new`}
+              >
+                Open Assignments
               </A>
             </section>
           </>

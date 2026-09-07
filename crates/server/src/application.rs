@@ -12,15 +12,29 @@ enum ProcessMode {
     ApiHealthProbe,
     Worker,
     WorkerHealthProbe,
+    NativePleWorker,
+    NativePleWorkerHealthProbe,
+    WebworkWorker,
+    WebworkWorkerHealthProbe,
+    PublicAssetPublisher,
 }
 
-const PROCESS_USAGE: &str = "peptidyle-api [--health-probe | --worker [--health-probe]]";
+const PROCESS_USAGE: &str = "peptidyle-api [--health-probe | --worker [--health-probe] | --native-ple-worker [--health-probe] | --webwork-worker [--health-probe] | --public-asset-publisher]";
 
 fn process_mode(arguments: &[String]) -> anyhow::Result<ProcessMode> {
     match arguments {
         [] => Ok(ProcessMode::Api),
         [flag] if flag == "--health-probe" => Ok(ProcessMode::ApiHealthProbe),
         [flag] if flag == "--worker" => Ok(ProcessMode::Worker),
+        [flag] if flag == "--native-ple-worker" => Ok(ProcessMode::NativePleWorker),
+        [worker, probe] if worker == "--native-ple-worker" && probe == "--health-probe" => {
+            Ok(ProcessMode::NativePleWorkerHealthProbe)
+        }
+        [flag] if flag == "--webwork-worker" => Ok(ProcessMode::WebworkWorker),
+        [worker, probe] if worker == "--webwork-worker" && probe == "--health-probe" => {
+            Ok(ProcessMode::WebworkWorkerHealthProbe)
+        }
+        [flag] if flag == "--public-asset-publisher" => Ok(ProcessMode::PublicAssetPublisher),
         [worker, probe] if worker == "--worker" && probe == "--health-probe" => {
             Ok(ProcessMode::WorkerHealthProbe)
         }
@@ -65,9 +79,28 @@ pub(crate) async fn run() -> anyhow::Result<()> {
         return server_core::composition::verify_worker_database_login_from_env().await;
     }
 
+    if mode == ProcessMode::NativePleWorkerHealthProbe {
+        return server_core::composition::verify_native_ple_worker_database_login_from_env().await;
+    }
+    if mode == ProcessMode::WebworkWorkerHealthProbe {
+        return server_core::composition::verify_webwork_worker_database_login_from_env().await;
+    }
+
     if mode == ProcessMode::Worker {
         server_core::composition::verify_worker_database_login_from_env().await?;
         return server_core::worker::run_until_shutdown().await;
+    }
+
+    if mode == ProcessMode::NativePleWorker {
+        return server_core::composition::run_native_ple_grading_worker_from_env().await;
+    }
+    if mode == ProcessMode::WebworkWorker {
+        return server_core::composition::run_webwork_grading_worker_from_env().await;
+    }
+
+    if mode == ProcessMode::PublicAssetPublisher {
+        let _published = server_core::composition::publish_one_public_asset_from_env().await?;
+        return Ok(());
     }
 
     let bind_addr = server_core::composition::bind_address_from_env()?;
@@ -167,6 +200,30 @@ mod tests {
             ProcessMode::Worker
         );
         assert_eq!(
+            process_mode(&["--native-ple-worker".to_string()]).expect("native PLE worker"),
+            ProcessMode::NativePleWorker
+        );
+        assert_eq!(
+            process_mode(&[
+                "--native-ple-worker".to_string(),
+                "--health-probe".to_string()
+            ])
+            .expect("native PLE worker probe"),
+            ProcessMode::NativePleWorkerHealthProbe
+        );
+        assert_eq!(
+            process_mode(&["--webwork-worker".to_string()]).expect("WeBWorK worker"),
+            ProcessMode::WebworkWorker
+        );
+        assert_eq!(
+            process_mode(&[
+                "--webwork-worker".to_string(),
+                "--health-probe".to_string()
+            ])
+            .expect("WeBWorK worker probe"),
+            ProcessMode::WebworkWorkerHealthProbe
+        );
+        assert_eq!(
             process_mode(&["--worker".to_string(), "--health-probe".to_string()])
                 .expect("worker probe"),
             ProcessMode::WorkerHealthProbe
@@ -174,6 +231,10 @@ mod tests {
         for invalid in [
             vec!["--unknown".to_string()],
             vec!["--local-worker".to_string()],
+            vec![
+                "--public-asset-publisher".to_string(),
+                "--health-probe".to_string(),
+            ],
             vec!["--local-invitation-delivery-worker".to_string()],
             vec!["--health-probe".to_string(), "--worker".to_string()],
         ] {

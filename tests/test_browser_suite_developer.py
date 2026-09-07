@@ -232,3 +232,26 @@ def test_start_early_supervisor_exit_terminates_child_then_exact_resets_fixed_ow
 	assert events == ["poll", "terminated", "engine", "reset"]
 	with local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path) as lease:
 		assert tuple(lease.reset_workspace().iterdir()) == ()
+
+
+#============================================
+def test_failed_start_receipt_retains_only_redacted_operator_evidence(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	"""A launch receipt survives workspace cleanup without retaining a private value."""
+	directory = tmp_path / "socket-control"
+	directory.mkdir(mode=0o700)
+	directory.chmod(0o700)
+	monkeypatch.setattr(local_stack_control.browser_suite_developer, "SOCKET_DIRECTORY", directory)
+	local_stack_control.browser_suite_developer._write_failure_receipt(
+		tmp_path,
+		local_stack_control.browser_suite_developer.DeveloperFailureReceipt(
+			"launch", 1, "Error: PLE_RENDERER_TOKEN=private-value /private/credential-file",
+		),
+	)
+	receipt = local_stack_control.browser_suite_developer._read_failure_receipt(tmp_path)
+	assert receipt == local_stack_control.browser_suite_developer.DeveloperFailureReceipt(
+		"launch", 1, "Error: [private] [path]"
+	)
+	assert "private-value" not in receipt.diagnostic

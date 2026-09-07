@@ -29,7 +29,7 @@
 	# same values at both layers.
 	header {
 		-Server
-		Cache-Control "no-store"
+		?Cache-Control "no-store"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "no-referrer"
 		Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"

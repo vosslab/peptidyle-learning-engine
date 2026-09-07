@@ -21,6 +21,7 @@ export const RIBBON_TAB_IDS = [
   "courseSetup",
   "attempt",
   "instructorAccounts",
+  "supportRoster",
 ] as const;
 
 export type RibbonTabId = (typeof RIBBON_TAB_IDS)[number];
@@ -52,6 +53,7 @@ export interface RouteContract {
     | "blueprintCourses"
     | "blueprintCourseDetail"
     | "assignmentCreate"
+    | "assignmentReleaseWorkspace"
     | "assignmentWorkspaceOverview"
     | "assignmentWorkspaceQuestions"
     | "assignmentWorkspacePolicies"
@@ -64,7 +66,10 @@ export interface RouteContract {
     | "courseRoster"
     | "teachingOperations"
     | "assignmentPreview"
-    | "pendingCourseInvitations";
+    | "instructorAccounts"
+    | "supportRoster"
+    | "pendingCourseInvitations"
+    | "studentCourseInvitation";
   readonly path: string;
   readonly surface: string;
   /** Product Role gate for the route; each route declares the Product Roles it serves. */
@@ -100,6 +105,28 @@ export const ROUTE_CONTRACT = [
     ribbon: { scope: "product", contentLayout: "reading" },
   },
   {
+    id: "studentCourseInvitation",
+    path: "/courses/:courseRef/invitation",
+    surface: "Student Course Invitation acceptance",
+    requiredProductRoles: ["student"],
+    ribbon: { scope: "product", contentLayout: "reading" },
+  },
+  {
+    id: "instructorAccounts",
+    path: "/sysadmin/instructor-accounts",
+    surface: "Sysadmin Instructor Account lifecycle workspace",
+    // ASVS 8.3.1: browser route gating mirrors the server's Sysadmin-only policy.
+    requiredProductRoles: ["sysadmin"],
+    ribbon: { scope: "product", tab: "instructorAccounts", contentLayout: "reading" },
+  },
+  {
+    id: "supportRoster",
+    path: "/sysadmin/support-roster",
+    surface: "Sysadmin exact-capability course roster support",
+    requiredProductRoles: ["sysadmin"],
+    ribbon: { scope: "product", tab: "supportRoster", contentLayout: "reading" },
+  },
+  {
     id: "courseAssignments",
     path: "/courses/:courseRef",
     surface: "Course Instance teaching-team workspace before roster and Assignment delivery",
@@ -109,7 +136,7 @@ export const ROUTE_CONTRACT = [
   {
     id: "assignmentOverview",
     path: "/courses/:courseRef/assignments/:assignmentRef",
-    surface: "Assignment overview, Assignment Attempt history, and practice entry",
+    surface: "Student Assignment Access and initial issued presentation",
     requiredProductRoles: ["student"],
     ribbon: { scope: "courseInstance", tab: "assignments", contentLayout: "reading" },
   },
@@ -205,6 +232,18 @@ export const ROUTE_CONTRACT = [
     surface: "Create persisted Assignment and enter Questions",
     requiredProductRoles: ["instructor"],
     ribbon: { scope: "courseInstance", tab: "assignments", contentLayout: "reading" },
+  },
+  {
+    id: "assignmentReleaseWorkspace",
+    path: "/instructor/courses/:courseRef/assignments/:assignmentRef/release",
+    surface: "Instructor Assignment Workspace and answer-free Assignment Preview",
+    requiredProductRoles: ["instructor"],
+    ribbon: {
+      scope: "courseInstance",
+      tab: "assignments",
+      taskGroup: "assignment",
+      contentLayout: "fullWidth",
+    },
   },
   {
     id: "assignmentWorkspaceOverview",

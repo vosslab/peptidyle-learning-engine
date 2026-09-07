@@ -1,5 +1,6 @@
 """Typed local-stack start, restart, validation, and diagnostic orchestration."""
 
+import base64
 import dataclasses
 import pathlib
 import os
@@ -38,6 +39,44 @@ LIVE_DEMO_ACCOUNT_SEEDS = (
 	(account.setting, account.account_id, account.product_role)
 	for account in local_stack_control.live_demo_seed.SEEDED_ACCOUNTS
 )
+
+
+#============================================
+def publisher_asset_storage_paths() -> tuple[str, str]:
+	"""Return the two fixed M4 object keys granted to the one-shot publisher."""
+	asset = local_stack_control.live_demo_seed.SEEDED_QUESTION_ASSET_PUBLICATION
+	restricted = local_stack_control.live_demo_seed.restricted_question_asset_object_path()
+	public = (
+		f"questions/{asset.question_id}/versions/{asset.revision_number}/assets/"
+		f"{asset.asset_id}/{asset.public_object_id}"
+	)
+	return restricted, public
+
+
+#============================================
+def require_publisher_storage_settings(values: dict[str, str]) -> None:
+	"""Refuse a local publisher identity or policy projection outside its M4 grant."""
+	restricted, public = publisher_asset_storage_paths()
+	required = (
+		"PLE_PUBLISHER_S3_ACCESS_KEY_ID",
+		"PLE_PUBLISHER_S3_SECRET_ACCESS_KEY",
+		"PLE_PUBLISHER_RESTRICTED_ASSET_PATH",
+		"PLE_PUBLISHER_PUBLIC_ASSET_PATH",
+	)
+	require_values(values, required)
+	if (
+		len(values["PLE_PUBLISHER_S3_ACCESS_KEY_ID"]) != 32
+		or len(values["PLE_PUBLISHER_S3_SECRET_ACCESS_KEY"]) != 64
+		or not values["PLE_PUBLISHER_S3_ACCESS_KEY_ID"].isalnum()
+		or not values["PLE_PUBLISHER_S3_SECRET_ACCESS_KEY"].isalnum()
+		or values["PLE_PUBLISHER_RESTRICTED_ASSET_PATH"] != restricted
+		or values["PLE_PUBLISHER_PUBLIC_ASSET_PATH"] != public
+	):
+		raise local_stack_control.models.ControllerError(
+			"selected publisher storage capability is incompatible"
+		)
+
+
 @dataclasses.dataclass(frozen=True)
 class LifecycleOptions:
 	"""Explicit lifecycle intent after the public CLI has parsed it once."""
@@ -125,6 +164,7 @@ def configure_default_environment(
 	values = local_stack_control.env_file.env_settings(target.env_file)
 	runtime_directory = target.env_file.parent
 	secret_directory = runtime_directory / ".secrets"
+	publisher_restricted_path, publisher_public_path = publisher_asset_storage_paths()
 	defaults = {
 		"POSTGRES_PASSWORD": os.urandom(24).hex(),
 		"MINIO_ROOT_PASSWORD": os.urandom(24).hex(),
@@ -140,6 +180,14 @@ def configure_default_environment(
 		"PLE_WEBWORK_PROBLEM_JWT_SECRET": os.urandom(32).hex(),
 		"PLE_WEBWORK_SESSION_JWT_SECRET": os.urandom(32).hex(),
 		"PLE_WEBWORK_RENDERER_ID": "vosslab-webwork-pg-renderer",
+		"PLE_PUBLISHER_S3_ACCESS_KEY_ID": secrets.token_hex(16),
+		"PLE_PUBLISHER_S3_SECRET_ACCESS_KEY": secrets.token_hex(32),
+		"PLE_NATIVE_PLE_WORKER_S3_ACCESS_KEY_ID": secrets.token_hex(16),
+		"PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY": secrets.token_hex(32),
+		"PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID": secrets.token_hex(16),
+		"PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY": secrets.token_hex(32),
+		"PLE_PUBLISHER_RESTRICTED_ASSET_PATH": publisher_restricted_path,
+		"PLE_PUBLISHER_PUBLIC_ASSET_PATH": publisher_public_path,
 	}
 	if local_stack_control.live_demo_gateway.is_tls_target(target):
 		defaults.update({
@@ -236,6 +284,8 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 			"PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID",
 		)
 	require_values(values, required)
+	if local_stack_control.live_demo_gateway.is_tls_target(target):
+		require_publisher_storage_settings(values)
 	for name in (
 		"PLE_POSTGRES_IMAGE_SHA256", "PLE_MINIO_IMAGE_SHA256", "PLE_MINIO_MC_IMAGE_SHA256",
 		"PLE_GATEWAY_IMAGE_SHA256", "PLE_SECRET_INIT_IMAGE_SHA256",
@@ -337,12 +387,13 @@ def start_lifecycle(
 	compose_run(selected, runner, ["up", "-d", "minio", "createbuckets"])
 	wait_for_one_shot(selected, runner, options, "createbuckets")
 	seed_live_demo_baseline(selected, runner, values)
+	publish_seeded_question_asset(selected, runner)
 	compose_run(selected, runner, ["up", "-d", "--force-recreate", "--no-deps", "webwork-renderer"])
 	wait_for_renderer_ready(selected, runner, options, oci_id)
 	attest_renderer(selected, runner, repo_root, values, oci_id)
 	run_api_initializers(selected, runner, options)
-	compose_run(selected, runner, ["build", "api", "gateway"])
-	application_services = ["api", "worker", "gateway"]
+	compose_run(selected, runner, ["build", "gateway"])
+	application_services = ["api", "worker", "native-ple-worker", "webwork-worker", "gateway"]
 	application_scale_arguments = local_stack_control.lifecycle_profiles.application_scale_arguments(
 		target, tuple(application_services)
 	)
@@ -471,12 +522,35 @@ def wait_for_postgres(target: local_stack_control.models.ComposeTarget, runner: 
 	argv = local_stack_control.compose.compose_argv(
 		target, ["exec", "-T", "postgres", "pg_isready", "-U", values["POSTGRES_USER"], "-d", values["POSTGRES_DB"]]
 	)
+	last_result: local_stack_control.models.CommandResult | None = None
 	def read_report() -> local_stack_control.models.StatusReport:
+		nonlocal last_result
 		result = runner.run(argv, child_environment(target), target.repo_root)
+		last_result = result
 		if result.ok():
 			return ready_report(target)
 		return unavailable_report(target)
-	local_stack_control.lifecycle_wait.poll_ready(read_report, options.timeout_seconds)
+	try:
+		local_stack_control.lifecycle_wait.poll_ready(read_report, options.timeout_seconds)
+	except local_stack_control.models.ControllerError as error:
+		if last_result is None:
+			raise
+		detail = local_stack_control.lifecycle_diagnostics.redacted_failure_detail(
+			last_result, tuple(values.values())
+		)
+		if last_result.stdout == "" and last_result.stderr == "":
+			log_argv = local_stack_control.compose.compose_argv(
+				target, ["logs", "--no-color", "--tail", "20", "postgres"]
+			)
+			log_result = runner.run(
+				log_argv, child_environment(target), target.repo_root
+			)
+			detail = local_stack_control.lifecycle_diagnostics.redacted_postgres_service_detail(
+				log_result, tuple(values.values())
+			)
+		raise local_stack_control.models.ControllerError(
+			f"{error}; PostgreSQL readiness detail: {detail}"
+		) from error
 
 
 #============================================
@@ -644,6 +718,53 @@ def seed_live_demo_source_objects(
 				target.env_file
 			),
 		)
+	local_stack_control.live_demo_seed.require_question_asset_baseline(target.repo_root)
+	asset_path = local_stack_control.live_demo_seed.restricted_question_asset_object_path()
+	stat_argv = local_stack_control.compose.compose_argv(
+		target,
+		[
+			"exec", "-T", "minio", "/bin/sh", "-ec",
+			"mc alias set seeded http://127.0.0.1:9000 \"$MINIO_ROOT_USER\" \"$MINIO_ROOT_PASSWORD\" >/dev/null; exec mc stat \"$1\"",
+			"seeded-asset-stat", f"seeded/private-content/{asset_path}",
+		],
+	)
+	stat = runner.run(stat_argv, child_environment(target), target.repo_root)
+	if stat.returncode == 0:
+		return
+	if stat.returncode != 1:
+		raise local_stack_control.models.ControllerError(
+			"live-demo Question Asset storage inspection did not complete"
+		)
+	metadata = local_stack_control.live_demo_seed.question_asset_record_metadata(target.repo_root)
+	put_argv = local_stack_control.compose.compose_argv(
+		target,
+		[
+			"run", "--rm", "--no-deps", "-T", "--entrypoint", "/bin/sh",
+			"createbuckets", "-ec",
+			"mc alias set seeded http://minio:9000 \"$MINIO_ROOT_USER\" \"$MINIO_ROOT_PASSWORD\" >/dev/null; object_file=; trap 'rm -f \"$object_file\"' EXIT; object_file=$(mktemp /tmp/live-demo-question-asset.XXXXXX); chmod 600 \"$object_file\"; base64 -d >\"$object_file\"; mc cp --disable-multipart --custom-header \"Content-Type: $2\" --attr \"ple-record-v1=$1\" \"$object_file\" \"$3\" >/dev/null",
+			"seeded-asset-copy",
+			metadata,
+			local_stack_control.live_demo_seed.PNG_MEDIA_TYPE,
+			f"seeded/private-content/{asset_path}",
+		],
+	)
+	# ASVS 8.2.1 and 14.2.4: the sole fixed raster is installed as a
+	# private restricted Question Asset.  The bootstrap neither writes a
+	# Public Assets key nor activates its Pending publication registry record.
+	require_command(
+		runner.run(
+			put_argv,
+			child_environment(target),
+			target.repo_root,
+			base64.b64encode(
+				local_stack_control.live_demo_seed.question_asset_bytes(target.repo_root)
+			).decode("ascii"),
+		),
+		"live-demo Question Asset initialization",
+		local_stack_control.disposable_stack_adapter.private_environment_values(
+			target.env_file
+		),
+	)
 
 
 #============================================
@@ -675,6 +796,24 @@ def seed_live_demo_baseline(
 		runner.run(argv, child, target.repo_root, local_stack_control.live_demo_seed.seed_sql(target.repo_root)),
 		"live-demo baseline initialization",
 		(values["POSTGRES_PASSWORD"],),
+	)
+
+
+#============================================
+def publish_seeded_question_asset(
+	target: local_stack_control.models.ComposeTarget,
+	runner: local_stack_control.process.CommandRunner,
+) -> None:
+	"""Run the isolated publisher once, after M4 has committed its pending job."""
+	if not local_stack_control.live_demo_gateway.is_tls_target(target):
+		return
+	# The publisher uses the API image but is a separate non-listening process;
+	# build it before the one-shot invocation rather than widening the worker.
+	compose_run(target, runner, ["build", "api"])
+	compose_run(
+		target,
+		runner,
+		["--profile", "publisher", "run", "--rm", "--no-deps", "public-asset-publisher"],
 	)
 
 
@@ -756,6 +895,9 @@ def migration_principal_bootstrap_sql(database_name: str, migrator_password: str
 	return (
 		f"CREATE ROLE {MIGRATION_DATABASE_OWNER} NOLOGIN NOINHERIT NOSUPERUSER "
 		"NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;\n"
+		"CREATE ROLE ple_public_asset_publisher "
+		"NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE "
+		"NOREPLICATION NOBYPASSRLS;\n"
 		f"CREATE ROLE {MIGRATION_ROLE} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB "
 		"CREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 2;\n"
 		f"ALTER ROLE {MIGRATION_ROLE} PASSWORD '{migrator_password}';\n"

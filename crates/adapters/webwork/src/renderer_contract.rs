@@ -13,14 +13,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// One private upstream form control/value pair for a visible item.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WebworkUpstreamControl {
     pub field: String,
     pub value: String,
 }
 
 /// One private matching prompt and its visible-choice value map.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WebworkUpstreamMatchingPrompt {
     pub field: String,
     pub choices: BTreeMap<ResponseItemReference, String>,
@@ -30,7 +30,7 @@ pub struct WebworkUpstreamMatchingPrompt {
 ///
 /// This contains form field names and visible option values, never the
 /// correct response, session key, password, source, or renderer credential.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WebworkQuestionAttemptReplayDetails {
     SingleChoice {
         controls: BTreeMap<ResponseItemReference, WebworkUpstreamControl>,

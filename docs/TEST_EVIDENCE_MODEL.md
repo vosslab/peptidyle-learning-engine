@@ -164,6 +164,44 @@ path proves Instructor Course Roster Import and its protected pending roster
 projection. Neither establishes email delivery, Assignment delivery, Student
 work, grading, export, or M19 serial-browser acceptance.
 
+M10 owns `bash tests/e2e/e2e_live_demo_assignment_release.sh`. It is focused
+disposable acceptance, not a permanent pytest test: the service path proves
+direct Instructor Course Membership authority, exact Assignment Edit Number
+conflict handling, release validation, and immutable Assignment Revision
+snapshotting without Student work. The real Chromium path proves visible
+Assignment creation, Available Published Question selection, save, validation,
+answer-free Assignment Preview, and release. It does not prove Student View
+Scenario evaluation, Assignment delivery, Student identity or work, grading,
+or M19 serial-browser acceptance.
+
+M11 owns `bash tests/e2e/e2e_live_demo_assignment_attempt.sh`. It is focused
+disposable acceptance, not a permanent pytest test: the service path proves
+Student-only public `C-`/`A-` access, the exact active Student Record boundary,
+deadline refusal before issue, initial issuance/resume of a full answer-free
+QuestionPresentation pinned to the exact Question Revision, and the narrow
+forced-RLS released-snapshot policy. It covers the private immutable one-to-one
+QuestionPresentation binding, which retains only nonce and full descriptor
+checksum; server-only source/S3 resolution and reproduction details remain
+private Question Attempt/source-binding facts. Resume reproduces the same public
+presentation. The real Chromium
+path proves visible Student access and initial start/resume. It does not prove
+response controls, response persistence, submission, grading, feedback, Student
+View Scenario evaluation, or M19 serial-browser acceptance.
+
+M18 owns `bash tests/e2e/e2e_live_demo_invitation_export.sh --route` and
+`--dry-run`. They are focused disposable acceptance, not delivery evidence:
+the route path proves the Instructor-only no-store attachment export of pending,
+unexpired Student Course Invitations in existing mailer JSON, and the browser
+downloads only that attachment. The mailer dry run proves no delivery claim.
+The fixed demo has one Instructor persona, so foreign-Instructor enforcement is
+procedure/catalog evidence rather than browser evidence. Neither path proves
+email delivery or M19 serial-browser acceptance.
+
+M12 has focused decoder/cardinality and asset-free native-control evidence for
+seven render-only controls. It remains active, not complete: a real issued
+HOTSPOT needs an authority-compatible managed Question Asset registry, delivery,
+and rendition path. Direct SQL/S3 seed data is not acceptance evidence.
+
 The restored owner will regenerate the fixed disposable stack, serve the
 production bundle through its HTTPS gateway, and run its selected real-stack
 scenarios serially. The browser path will travel through the same-origin

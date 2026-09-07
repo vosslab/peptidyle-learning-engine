@@ -31,7 +31,7 @@ https://localhost:8080 {
 
 	header {
 		-Server
-		Cache-Control "no-store"
+		?Cache-Control "no-store"
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "no-referrer"

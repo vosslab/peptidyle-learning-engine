@@ -89,24 +89,26 @@ function writeOriginReceiptValue(value: object): void {
 export async function chooseSeededIdentity(page: Page, name: RegExp): Promise<void> {
   await page.goto("/sign-in");
   await expect(
-    page.getByRole("heading", { level: 1, name: "Sign in to PLE", exact: true }),
+    page.getByRole("heading", { level: 1, name: "Explore Peptidyle Learning Engine", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: new RegExp(`Continue as .*${name.source}`, "i") }).click();
-  await expect(page.getByRole("heading", { name: "Choose your course" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Courses", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: /^(Course Instances you teach|Your Course Instances)$/u }),
+  ).toBeVisible();
 }
 
 export function courseChoice(page: Page, title: string): Locator {
   return page
-    .getByRole("heading", { name: "Choose your course" })
-    .locator("..")
-    .getByRole("button")
-    .filter({ hasText: title });
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: title, exact: true }) });
 }
 
 export async function selectVisibleCourse(page: Page, title: string): Promise<void> {
   const choice = courseChoice(page, title);
   await expect(choice).toHaveCount(1);
-  await choice.click();
+  await choice.getByRole("link", { name: "Open Course Instance", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
 }
 
@@ -141,7 +143,7 @@ export async function restoreViewportOrigin(page: Page): Promise<void> {
 export async function signOutVisible(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(
-    page.getByRole("heading", { level: 1, name: "Sign in to PLE", exact: true }),
+    page.getByRole("heading", { level: 1, name: "Explore Peptidyle Learning Engine", exact: true }),
   ).toBeVisible();
 }
 

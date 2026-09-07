@@ -357,6 +357,7 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	monkeypatch.setattr(local_stack_control.lifecycle, "synchronize_database", lambda target, runner, values, options: mark("database-login"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "run_migrations", lambda target, runner, root, values, environment: mark("migrated"))
 	monkeypatch.setattr(local_stack_control.lifecycle, "seed_live_demo_baseline", lambda target, runner, values: mark("demo-baseline"))
+	monkeypatch.setattr(local_stack_control.lifecycle, "publish_seeded_question_asset", lambda target, runner: mark("asset-published"))
 	monkeypatch.setattr(
 		local_stack_control.process_logins,
 		"setup_service_logins",
@@ -391,6 +392,7 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	)
 	assert events.index("storage") < events.index("storage-ready")
 	assert events.index("storage-ready") < events.index("demo-baseline")
+	assert events.index("demo-baseline") < events.index("asset-published") < events.index("renderer-ready")
 	assert events.index("renderer-ready") < events.index("renderer-probed")
 	assert events.index("build") < events.index("renderer-image") < events.index("maintenance")
 	assert events.index("renderer-probed") < events.index("api-initializers")
@@ -434,11 +436,12 @@ def test_start_orders_required_effects_before_semantic_readiness(
 	if replica_profile:
 		assert application_start == [
 			"up", "-d", "--force-recreate", "--no-deps",
-			"--scale", "api=2", "api", "worker", "gateway",
+			"--scale", "api=2", "api", "worker", "native-ple-worker", "webwork-worker", "gateway",
 		]
 	else:
 		assert "--scale" not in application_start
 	assert "worker" in application_start
+	assert "native-ple-worker" in application_start
 
 
 #============================================
@@ -862,6 +865,33 @@ def test_live_teaching_bootstrap_keeps_seed_inputs_without_local_auth_files(
 
 
 #============================================
+def test_publisher_storage_projection_is_the_closed_m4_asset_grant() -> None:
+	"""The local publisher cannot be configured for another private or public key."""
+	restricted, public = local_stack_control.lifecycle.publisher_asset_storage_paths()
+	assert restricted == (
+		"questions/PNE-0004/versions/1/restricted-assets/"
+		"00000000-0000-0000-0000-000000001204/"
+		"00000000-0000-0000-0000-000000001304"
+	)
+	assert public == (
+		"questions/PNE-0004/versions/1/assets/"
+		"00000000-0000-0000-0000-000000001204/"
+		"00000000-0000-0000-0000-000000001404"
+	)
+
+
+#============================================
+def test_minio_bootstrap_replaces_a_retained_publisher_policy_before_attachment() -> None:
+	"""A named policy from a retained volume cannot survive publisher bootstrap."""
+	compose = pathlib.Path("containers/compose.yaml").read_text(encoding="utf-8")
+	remove = "mc admin policy remove local ple-public-asset-publisher"
+	create = "mc admin policy create local ple-public-asset-publisher \"$$policy_file\""
+	attach = "mc admin policy attach local ple-public-asset-publisher --user"
+	assert "if ! mc admin policy info local ple-public-asset-publisher" not in compose
+	assert compose.index(remove) < compose.index(create) < compose.index(attach)
+
+
+#============================================
 def test_busy_default_port_selects_first_free_teaching_port_or_keeps_running_gateway(tmp_path: pathlib.Path) -> None:
 	"""First startup avoids an unrelated 8080 listener while retaining its own active gateway."""
 	target = lifecycle_target(tmp_path, "containers", "containers/env.local")
@@ -925,6 +955,62 @@ def test_unspecified_private_values_keep_failure_detail_generic() -> None:
 		local_stack_control.lifecycle.require_command(result, "other operation")
 	assert "child reported a failure" in str(error.value)
 	assert "useful child" not in str(error.value)
+
+
+#============================================
+def test_postgres_readiness_failure_retains_redacted_last_probe_detail(
+
+	monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path,
+) -> None:
+	"""A failed PostgreSQL probe retains bounded redacted operator detail."""
+	target = lifecycle_target(tmp_path, "containers", "containers/env.local")
+	secret = "private-postgres-password"
+	result = local_stack_control.models.CommandResult(
+		("podman", "compose"), 2, f"database rejected {secret}", "",
+	)
+	class ProbeFailureRunner(UnexpectedRunner):
+		def run(self, argv: list[str], environment: dict[str, str] | None = None, cwd: pathlib.Path | None = None, stdin: str | None = None) -> local_stack_control.models.CommandResult:
+			return result
+	def timeout(read_report: object, timeout_seconds: float) -> None:
+		read_report()  # type: ignore[operator]
+		raise local_stack_control.models.ControllerError("selected stack did not become ready: PostgreSQL is starting")
+	monkeypatch.setattr(local_stack_control.lifecycle_wait, "poll_ready", timeout)
+	with pytest.raises(local_stack_control.models.ControllerError) as error:
+		local_stack_control.lifecycle.wait_for_postgres(
+			target, ProbeFailureRunner(),
+			{"POSTGRES_USER": "ple", "POSTGRES_DB": "postgres", "POSTGRES_PASSWORD": secret},
+			local_stack_control.lifecycle.LifecycleOptions(1, False, False, False),
+		)
+	assert "PostgreSQL readiness detail: database rejected [private]" in str(error.value)
+	assert secret not in str(error.value)
+
+
+#============================================
+def test_postgres_readiness_failure_uses_redacted_service_log_when_probe_is_empty(
+	monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path,
+) -> None:
+	"""An empty probe falls back to filtered, redacted PostgreSQL lifecycle evidence."""
+	target = lifecycle_target(tmp_path, "containers", "containers/env.local")
+	secret = "private-postgres-password"
+	class ProbeThenLogRunner(UnexpectedRunner):
+		def run(self, argv: list[str], environment: dict[str, str] | None = None, cwd: pathlib.Path | None = None, stdin: str | None = None) -> local_stack_control.models.CommandResult:
+			if "pg_isready" in argv:
+				return local_stack_control.models.CommandResult(tuple(argv), 2, "", "")
+			return local_stack_control.models.CommandResult(
+				tuple(argv), 1, f"database system is starting {secret}\nSELECT secret", "",
+			)
+	def timeout(read_report: object, timeout_seconds: float) -> None:
+		read_report()  # type: ignore[operator]
+		raise local_stack_control.models.ControllerError("selected stack did not become ready: PostgreSQL is starting")
+	monkeypatch.setattr(local_stack_control.lifecycle_wait, "poll_ready", timeout)
+	with pytest.raises(local_stack_control.models.ControllerError) as error:
+		local_stack_control.lifecycle.wait_for_postgres(
+			target, ProbeThenLogRunner(),
+			{"POSTGRES_USER": "ple", "POSTGRES_DB": "postgres", "POSTGRES_PASSWORD": secret},
+			local_stack_control.lifecycle.LifecycleOptions(1, False, False, False),
+		)
+	assert "PostgreSQL readiness detail: database system is starting [private]" in str(error.value)
+	assert secret not in str(error.value) and "SELECT" not in str(error.value)
 
 
 #============================================

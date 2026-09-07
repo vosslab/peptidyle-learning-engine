@@ -87,6 +87,34 @@ test("blank numeric input stays invalid and never submits zero", async () => {
   assert.equal(controller.phase().kind, "invalid");
 });
 
+test("format-only controls validate locally without exposing submission", async () => {
+  let submitCalls = 0;
+  const controller = createRoot(() =>
+    createSubmissionController({
+      attemptId: "presentation-nonce-only",
+      mode: "formatOnly",
+      responseFormat: numericResponseFormat,
+      validator: {
+        mode: "wasm",
+        validateResponseFormat: async () => ({ issues: [] }),
+      },
+      onEscape: () => undefined,
+      onSubmit: async () => {
+        submitCalls += 1;
+        return { kind: "accepted" };
+      },
+    }),
+  );
+  const response = { kind: "numeric", value: 3 };
+
+  await controller.validate(response);
+  await controller.submit(response);
+
+  assert.equal(controller.phase().kind, "ready");
+  assert.equal(controller.canSubmit(), false);
+  assert.equal(submitCalls, 0);
+});
+
 test("initial controlled responses are checked before a student edits them", async () => {
   const orderingResponseFormat = {
     kind: "ordering",

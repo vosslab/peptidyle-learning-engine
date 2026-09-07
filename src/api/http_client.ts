@@ -16,9 +16,15 @@ import { createPreviewPlaneClient } from "./http_client/preview_plane";
 import { createBlueprintCourseClient } from "./http_client/blueprint_course";
 import { createCourseInstanceClient } from "./http_client/course_instance";
 import { createLiveCourseRosterClient } from "./http_client/course_roster";
+import { createLiveInvitationExportClient } from "./http_client/invitation_export";
 import { createBlueprintOperationsClient } from "./http_client/blueprint_operations";
 import { createGradingOperationsClient } from "./http_client/grading_operations";
 import { createCalculatedGradebookClient } from "./http_client/calculated_gradebook";
+import { createLiveAssignmentReleaseClient } from "./http_client/assignment_release";
+import { createLiveAssignmentAttemptIssuanceClient } from "./http_client/assignment_attempt_issuance";
+import { createInstructorAccountClient } from "./http_client/instructor_account";
+import { createSupportCapabilityClient } from "./http_client/support_roster";
+import { createLiveDemoGradebookClient } from "./http_client/live_gradebook";
 
 export {
   ApiProtocolError,
@@ -53,6 +59,12 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createBlueprintCourseClient(fetchImplementation, basePath),
     createCourseInstanceClient(fetchImplementation, basePath),
     createLiveCourseRosterClient(fetchImplementation, basePath),
+    createLiveInvitationExportClient(fetchImplementation, basePath),
+    createLiveAssignmentReleaseClient(fetchImplementation, basePath),
+    createLiveAssignmentAttemptIssuanceClient(fetchImplementation, basePath),
+    createInstructorAccountClient(fetchImplementation, basePath),
+    createSupportCapabilityClient(fetchImplementation, basePath),
+    createLiveDemoGradebookClient(fetchImplementation, basePath),
     createBlueprintOperationsClient(fetchImplementation, basePath),
     createGradingOperationsClient(fetchImplementation, basePath),
     createCalculatedGradebookClient(fetchImplementation, basePath),

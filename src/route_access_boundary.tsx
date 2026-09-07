@@ -27,14 +27,14 @@ function RouteAccessDenied(props: RouteAccessDeniedProps): JSX.Element {
       role="alert"
       aria-atomic="true"
     >
-      <p class="eyebrow">Instructor tools</p>
+      <p class="eyebrow">Account tools</p>
       <h1
         tabindex="-1"
         ref={(element: HTMLHeadingElement) => {
           heading = element;
         }}
       >
-        This page is available to instructors only
+        This page is not available to this account
       </h1>
       <p>Your available account tools remain available.</p>
       <A class="primary-link" href="/">

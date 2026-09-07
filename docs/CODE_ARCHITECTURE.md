@@ -100,11 +100,11 @@ assignment. Copy Course for New Term and Shift Course Dates are separate Course 
 | Question model       | `crates/question_model/`                                | BlueprintCourse tree, typed references, exact question identities, assignment meaning, Blueprint-operation contracts, previews, and browser-safe reader types.                                      |
 | Domain               | `crates/domain/`                                        | Pure timing, policy, disclosure, Assignment Attempt, scoring, generation, and validation behavior without database or wall-clock reads.                                                             |
 | Grading              | `crates/grading/`                                       | Answer-bearing checkers and correctness decisions; server-only and outside the Wasm dependency closure.                                                                                             |
-| Learning data access | `crates/learning-data-access/src/`                      | Current focused Account Session, authentication, Assignment Attempt, Instructor Question Library, private Authoring Workspace and Draft Question operations, reusable Blueprint Course lifecycle, Course Instance creation and initial Teaching Team, Course Roster Import/claim/revocation, Question Source, object-record, grading-operation, pagination, and iMathAS Question Backend Session contracts and persistence. |
-| PostgreSQL modules   | `crates/learning-data-access/src/postgres/`             | Current connection, migration, Account Session, Assignment Attempt, Instructor Question Library, private Authoring Workspace and Draft Question persistence, reusable Blueprint Course persistence, Course Instance creation and Teaching Team persistence, Course Roster Import/claim/revocation persistence, Question Source, object-record, and iMathAS Question Backend Session support.                                       |
-| Server               | `crates/server/src/`                                    | Current health, Account Session authentication and logout, deployment-gated seeded Live Demo selection, Instructor Question Library browse/detail, private Draft Question authoring/publication, Blueprint Course lifecycle, Course Instance creation and initial Teaching Team, Course Roster Import/claim/revocation, and their HTTP/cookie boundary.                                                             |
+| Learning data access | `crates/learning-data-access/src/`                      | Current focused Account Session, authentication, Assignment Attempt, Instructor Question Library, private Authoring Workspace and Draft Question operations, reusable Blueprint Course lifecycle, Course Instance creation and initial Teaching Team, Course Roster Import/claim/revocation, M10 direct-Instructor Assignment Workspace/release, M11 Student Assignment Access/QuestionPresentation issuance, and M18 Invitation Export, plus Question Source, object-record, grading-operation, pagination, and iMathAS Question Backend Session contracts and persistence. |
+| PostgreSQL modules   | `crates/learning-data-access/src/postgres/`             | Current connection, migration, Account Session, Assignment Attempt, Instructor Question Library, private Authoring Workspace and Draft Question persistence, reusable Blueprint Course persistence, Course Instance creation and Teaching Team persistence, Course Roster Import/claim/revocation persistence, M10 Assignment Workspace/release persistence, M11 Student Assignment Access/QuestionPresentation issuance persistence, and M18 Invitation Export persistence, plus Question Source, object-record, and iMathAS Question Backend Session support.                                       |
+| Server               | `crates/server/src/`                                    | Current health, Account Session authentication and logout, deployment-gated seeded Live Demo selection, Instructor Question Library browse/detail, private Draft Question authoring/publication, Blueprint Course lifecycle, Course Instance creation and initial Teaching Team, Course Roster Import/claim/revocation, M10 Assignment Workspace/release, M11 Student Assignment Access/QuestionPresentation issuance, M18 Invitation Export, and their HTTP/cookie boundary.                                                             |
 | Generated contracts  | `crates/project-tools/src/tsgen.rs` -> `generated/api/` | Derivative TypeScript DTOs generated from Rust contract roots; generated files are not hand-edited.                                                                                                 |
-| Browser              | `src/`                                                  | Application Shell, strict decoding, route/page state, and the available Blueprint Course, Course Instance creation, and Course Roster Import clients; Blueprint-operation Server Routes remain absent.                  |
+| Browser              | `src/`                                                  | Application Shell, strict decoding, route/page state, and the available Blueprint Course, Course Instance creation, Course Roster Import, M10 Assignment Workspace/release, M11 Student Assignment Access/QuestionPresentation issuance, and M18 invitation-attachment download clients; Blueprint-operation Server Routes remain absent.                  |
 | Object storage       | `crates/objects/`                                       | Typed keys, checksums, image ingress, and the `public-assets`, `private-content`, `student-records`, and `temp-processing` domains.                                                                 |
 | Adapters             | `crates/adapters/`                                      | Bounded PLE, iMathAS, and WeBWorK Question Backends, QTI Import, and H5P Package support behind the shared Question operations.                                                                     |
 
@@ -128,7 +128,9 @@ The current Learning Data Access inventory is intentionally focused: Account
 Session, authentication ceremony and email, Assignment Attempt, Question
 Source, workspace Question Source object records, reusable Blueprint Course
 lifecycle, Course Instance creation and initial Teaching Team, Course Roster
-Import/claim/revocation, Instructor Grading Operations, pagination, and iMathAS
+Import/claim/revocation, direct-Instructor Assignment Workspace/release,
+Student Assignment Access/QuestionPresentation issuance, Instructor Grading Operations,
+pagination, and iMathAS
 Question Backend Session contracts, Memory support, and PostgreSQL modules. M7 stores published reusable content as
 immutable Blueprint Revisions with exact Question Revision References, closed
 Blueprint Course Read Access, and checksum-verified content. M8 atomically
@@ -136,9 +138,23 @@ creates a Course Instance from an exact Available published Blueprint Revision,
 retaining Course Origin, Course Schedule Revision 1, and the initial Instructor
 Course Membership. M9 separately imports a pending Course Invitation, then
 creates the exact Student Record and Student Course Membership only when its
-authenticated target claims it. Blueprint-operation persistence remains future
+authenticated target claims it. M10 separately saves an Unreleased Course-owned
+Assignment through its exact Assignment Edit Number, validates selected
+Available Published Questions, and creates an immutable Assignment Revision
+without Student work. Its answer-free Assignment Preview has no Student
+identity, response, answer, feedback, or delivery state. Blueprint-operation persistence remains future
 work with its own Store, PostgreSQL/RLS authority, service routes, and browser
 integration.
+
+M11 separately authorizes only the signed-in Student's exact active Student
+Record for public Course and Assignment references. Its Store reads the released
+snapshot under narrow forced-RLS snapshot-entry access, calculates start/refusal
+at authoritative time, and atomically issues or resumes an exact Question
+Revision as an answer-free QuestionPresentation. It resolves the source pin and
+S3 object server-side. The private one-to-one immutable QuestionPresentation
+binding retains only nonce and full descriptor checksum; reproduction details
+remain private Question Attempt/source-binding facts. It exposes no response,
+Answer Key, grading input, feedback, submission, or grade; M12 owns response controls.
 
 The current Question Model owns Blueprint-operation contracts. M7 implements
 reusable Blueprint Course creation, reader access, and successor-revision

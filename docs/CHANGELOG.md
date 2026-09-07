@@ -1,8 +1,112 @@
 # Changelog
 
+## 2026-09-07
+
+### Additions and New Features
+
+- Completed Live Demo restoration M15. Fresh controller-managed fixed HTTPS
+  stacks passed `bash tests/e2e/e2e_live_demo_gradebook.sh --api` and
+  `--browser`: the current Course Instructor receives answer-free immutable
+  Gradebook evidence, foreign-Course access receives 404 concealment, and the
+  visible Gradebook task completes. Individual Student Work remains
+  unavailable; M19 serial-browser acceptance remains unclaimed. This is
+  whole-system plan acceptance/live browser evidence, not a new pytest.
+
+- Completed Live Demo restoration M16. A fresh controller-managed fixed HTTPS
+  stack passed `bash tests/e2e/e2e_live_demo_instructor_accounts.sh`: the
+  service proves the Sysadmin-only Instructor Account lifecycle, concealment,
+  and session revocation, while the visible Sysadmin Ribbon task creates an
+  Instructor Account and deactivates then reactivates it. The disposable M16
+  migration correction grants only `ple_private_owner` the Instructor-only
+  lock policy needed by the existing `SELECT ... FOR UPDATE` boundary; no
+  direct application/API table access was granted. This is plan
+  acceptance/live browser evidence, not a new pytest. Course or Student Record
+  access, passkey feature work, and M19
+  serial-browser acceptance remain unclaimed.
+
+- Completed Live Demo restoration M17. A fresh controller-managed fixed HTTPS
+  stack passed `bash tests/e2e/e2e_live_demo_support_capability.sh --issue` and
+  `--browser`: an Instructor issues and revokes exact-Course registered
+  roster-support capability while foreign or unregistered state remains
+  concealed, and the visible Sysadmin scoped roster task completes. It grants
+  no ambient Sysadmin Course or Student Record access. This is whole-system
+  plan acceptance/live browser evidence, not a new pytest; M19 serial-browser
+  acceptance remains unclaimed.
+
+- Completed Live Demo restoration M13. A fresh controller-managed fixed HTTPS
+  stack passed `bash tests/e2e/e2e_live_demo_submission_recovery.sh`: one
+  format-valid Student Response is accepted once with closed pending grading
+  state, and an interrupted leased native PLE evaluation recovers one terminal
+  result and receipt. This is whole-system plan acceptance evidence, not a new
+  pytest. M15 Gradebook/Student Work and M19 serial-browser acceptance remain
+  unclaimed.
+
+- Completed Live Demo restoration M12. The final fresh controller-managed fixed
+  HTTPS stack passed `bash tests/e2e/e2e_live_demo_native_controls.sh`:
+  authorized Question Asset retrieval returns an immutable redirect while
+  anonymous, foreign-Student, absent, and malformed references have
+  indistinguishable concealment; all eight issued native PLE response formats
+  strictly decode; and all eight controls, including the fixed HOTSPOT, reach
+  valid local states by keyboard without submission. This is plan
+  acceptance/live browser evidence, not a new pytest. Student Response
+  persistence, submission, grading, feedback, recovery, and M19
+  serial-browser acceptance remain unclaimed.
+
+- Revalidated M11 on the same fresh controller-managed fixed HTTPS stack with
+  `bash tests/e2e/e2e_live_demo_assignment_attempt.sh`. The format-only M12
+  presentation now omits M13 submission, grading, and feedback controls; this
+  does not implement any M13 behavior.
+
+- Completed Live Demo restoration M14. WP-M14-1's answer-free WeBWorK
+  render-issuance boundary previously passed with `--render`; on a fresh
+  controller-managed stack, `bash tests/e2e/e2e_live_demo_webwork.sh --grade`
+  passed: `WeBWorK grade authority: deterministic renderer grade commit and
+  bounded renderer failure complete`; `Live Demo WeBWorK grade: PASS`. The
+  renderer fault is a bounded terminal local outcome. This service/browser
+  cadence does not claim M19 serial production-browser acceptance.
+
 ## 2026-09-06
 
 ### Additions and New Features
+
+- Completed Live Demo restoration M18. The current direct Instructor can
+  download a no-store attachment of pending, unexpired Student Course
+  Invitations in existing mailer JSON. The browser downloads only; the mailer
+  dry run makes no send or delivery claim. Fresh route and dry-run gates passed.
+  The fixed demo has one Instructor persona, so foreign-Instructor enforcement
+  is procedure/catalog evidence rather than browser evidence.
+
+- Advanced Live Demo restoration M12 with a strict decoder/cardinality
+  correction and seven asset-free native render-only controls before its later
+  managed Question Asset delivery completion. No Student Response, submission,
+  grading, or feedback was claimed at this stage.
+
+- Completed Live Demo restoration M11. Student Assignment Access and initial
+  issuance accept only public Course and Assignment references, authorize the
+  signed-in Student's exact active Student Record, calculate access from the
+  released snapshot, and refuse due/late-rejected starts before issue. The
+  server atomically issues or resumes a full answer-free QuestionPresentation
+  pinned to the exact Question Revision, with a 53-bit OS-random public
+  QuestionSeed, nonce, title, prompt, and response format. Its private
+  one-to-one immutable QuestionPresentation binding retains only nonce and full
+  descriptor checksum; source/S3 resolution and reproduction details remain
+  private Question Attempt/source-binding facts, and resume reproduces the same
+  public presentation. The final fresh fixed HTTPS stack passed
+  `bash tests/e2e/e2e_live_demo_assignment_attempt.sh`. Response controls,
+  response persistence, submission, grading, feedback, Student View Scenario
+  evaluation, and M19 serial-browser acceptance remain unclaimed.
+
+- Completed Live Demo restoration M10. The direct-Instructor Assignment
+  Workspace now creates and saves Course-owned Unreleased Assignments with an
+  exact Assignment Edit Number, selects bounded Available Published Questions,
+  calculates release validation, provides an answer-free Assignment Preview,
+  and atomically creates an immutable Assignment Revision. The Preview has no
+  Student identity, Student work, response, answer, feedback, or delivery
+  state, and is not the retained Student View Scenario contract. The final
+  fresh fixed HTTPS stack passed
+  `bash tests/e2e/e2e_live_demo_assignment_release.sh`, including its service
+  oracle and real Chromium journey. Student delivery, Student View Scenario
+  evaluation, grading, and M19 serial-browser acceptance remain unclaimed.
 
 - Added the tracked Live Demo restoration blueprint at
   [docs/active_plans/active/restore_live_demo.md](active_plans/active/restore_live_demo.md).

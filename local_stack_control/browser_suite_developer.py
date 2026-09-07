@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import secrets
 import signal
 import socket
@@ -30,6 +31,7 @@ RESULT_NAME = "developer-result.json"
 SOCKET_NAME = "developer-control.sock"
 SOCKET_DIRECTORY = pathlib.Path("/private/tmp") / "ple-live-demo-browser-control"
 MAXIMUM_CONTROL_BYTES = 1024
+MAXIMUM_FAILURE_DIAGNOSTIC_CHARACTERS = 240
 LIFECYCLE_LAUNCH_TIMEOUT_SECONDS = 240.0
 DEVELOPER_STOP_WAIT_SECONDS = 20.0
 # The parent wait covers a clean host build before the child's separately
@@ -69,6 +71,15 @@ class DeveloperCompletionReceipt:
 	supervisor_id: str
 	capability: str
 	completed: bool
+
+
+@dataclasses.dataclass(frozen=True)
+class DeveloperFailureReceipt:
+	"""Small non-secret evidence for one supervisor that ended before ready."""
+
+	phase: str
+	returncode: int | None
+	diagnostic: str
 
 
 @dataclasses.dataclass(frozen=True)
@@ -335,6 +346,140 @@ def _socket_path(repository_root: pathlib.Path) -> pathlib.Path:
 
 
 #============================================
+def _failure_path(repository_root: pathlib.Path) -> pathlib.Path:
+	"""Keep one redacted failed-start receipt outside the reset workspace."""
+	return _socket_path(repository_root).with_suffix(".failure.json")
+
+
+#============================================
+def _redact_supervisor_diagnostic(detail: str) -> str:
+	"""Return a bounded operator clue without retaining private launch output."""
+	text = detail.encode("ascii", "replace").decode("ascii").replace("\x00", " ")
+	text = re.sub(r"https?://[^\s/@:]+:[^\s/@]+@[^\s/]+", "[private-url]", text)
+	text = re.sub(r"(?i)\b[A-Z_]*?(?:KEY|PASSWORD|SECRET|TOKEN|CREDENTIAL)[A-Z_]*=\S+", "[private]", text)
+	text = re.sub(r"(?i)\b(?:api[_-]?key|authorization|cookie|credential|password|secret|token)\b\s*[:=]\s*\S+", "[private]", text)
+	text = re.sub(r"\b[A-Fa-f0-9]{24,}\b", "[private]", text)
+	text = re.sub(r"(?:^|(?<=\s))/[^\s'\"]+", "[path]", text)
+	text = " ".join(text.split())
+	if text == "":
+		text = "supervisor ended before publishing readiness"
+	return text[-MAXIMUM_FAILURE_DIAGNOSTIC_CHARACTERS:]
+
+
+#============================================
+def _launch_diagnostic(output: str) -> str:
+	"""Project only controller error lines from a private child transcript."""
+	lines = (
+		line for line in output.splitlines()
+		if re.search(r"(?i)(error:|caused by:|failed|invalid|unavailable|not found|no such file)", line)
+	)
+	return _redact_supervisor_diagnostic("\n".join(lines))
+
+
+#============================================
+def _write_failure_receipt(repository_root: pathlib.Path, receipt: DeveloperFailureReceipt) -> None:
+	"""Atomically retain only sanitized failed-start evidence in private control state."""
+	if receipt.phase not in ("reset", "launch", "control", "cleanup"):
+		raise DeveloperBrowserSuiteError("developer browser failure receipt is invalid")
+	if receipt.returncode is not None and not isinstance(receipt.returncode, int):
+		raise DeveloperBrowserSuiteError("developer browser failure receipt is invalid")
+	value = {
+		"diagnostic": _redact_supervisor_diagnostic(receipt.diagnostic),
+		"phase": receipt.phase,
+		"returnCode": receipt.returncode,
+		"schemaVersion": 1,
+	}
+	content = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")
+	if len(content) > MAXIMUM_CONTROL_BYTES:
+		raise DeveloperBrowserSuiteError("developer browser failure receipt is invalid")
+	directory_descriptor = _socket_directory_descriptor()
+	path = _failure_path(repository_root)
+	temporary = "." + path.name + ".new"
+	try:
+		file_descriptor = os.open(
+			temporary,
+			os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+			0o600,
+			dir_fd=directory_descriptor,
+		)
+		with os.fdopen(file_descriptor, "wb") as output:
+			output.write(content)
+			output.flush()
+			os.fsync(output.fileno())
+		os.replace(temporary, path.name, src_dir_fd=directory_descriptor, dst_dir_fd=directory_descriptor)
+		os.fsync(directory_descriptor)
+	except OSError as error:
+		try:
+			os.unlink(temporary, dir_fd=directory_descriptor)
+		except OSError:
+			pass
+		raise DeveloperBrowserSuiteError("developer browser failure receipt is unavailable") from error
+	finally:
+		os.close(directory_descriptor)
+
+
+#============================================
+def _read_failure_receipt(repository_root: pathlib.Path) -> DeveloperFailureReceipt | None:
+	"""Read the checked non-secret failed-start receipt when one is available."""
+	directory_descriptor = _socket_directory_descriptor()
+	path = _failure_path(repository_root)
+	try:
+		try:
+			metadata = os.stat(path.name, dir_fd=directory_descriptor, follow_symlinks=False)
+			file_descriptor = os.open(path.name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=directory_descriptor)
+		except FileNotFoundError:
+			return None
+		if (
+			not stat.S_ISREG(metadata.st_mode)
+			or metadata.st_uid != os.getuid()
+			or stat.S_IMODE(metadata.st_mode) != 0o600
+		):
+			raise DeveloperBrowserSuiteError("developer browser failure receipt is unavailable")
+		try:
+			content = os.read(file_descriptor, MAXIMUM_CONTROL_BYTES + 1)
+		finally:
+			os.close(file_descriptor)
+	finally:
+		os.close(directory_descriptor)
+	if len(content) > MAXIMUM_CONTROL_BYTES:
+		raise DeveloperBrowserSuiteError("developer browser failure receipt is invalid")
+	try:
+		value = json.loads(content.decode("ascii"))
+	except (UnicodeDecodeError, json.JSONDecodeError) as error:
+		raise DeveloperBrowserSuiteError("developer browser failure receipt is invalid") from error
+	if (
+		not isinstance(value, dict)
+		or set(value) != {"diagnostic", "phase", "returnCode", "schemaVersion"}
+		or value["schemaVersion"] != 1
+		or value["phase"] not in ("reset", "launch", "control", "cleanup")
+		or not isinstance(value["diagnostic"], str)
+		or len(value["diagnostic"]) > MAXIMUM_FAILURE_DIAGNOSTIC_CHARACTERS
+		or (value["returnCode"] is not None and not isinstance(value["returnCode"], int))
+	):
+		raise DeveloperBrowserSuiteError("developer browser failure receipt is invalid")
+	return DeveloperFailureReceipt(value["phase"], value["returnCode"], value["diagnostic"])
+
+
+#============================================
+def _remove_failure_receipt(repository_root: pathlib.Path) -> None:
+	"""Discard stale failure evidence only as the next launch begins."""
+	directory_descriptor = _socket_directory_descriptor()
+	path = _failure_path(repository_root)
+	try:
+		try:
+			metadata = os.stat(path.name, dir_fd=directory_descriptor, follow_symlinks=False)
+		except FileNotFoundError:
+			return
+		if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) != 0o600:
+			raise DeveloperBrowserSuiteError("developer browser failure receipt is unavailable")
+		os.unlink(path.name, dir_fd=directory_descriptor)
+	except OSError as error:
+		raise DeveloperBrowserSuiteError("developer browser failure receipt is unavailable") from error
+	finally:
+		os.close(directory_descriptor)
+
+
+#============================================
 def _remove_socket_path(repository_root: pathlib.Path) -> None:
 	"""Remove the fixed local endpoint only when it is this user's socket."""
 	path = _socket_path(repository_root)
@@ -536,11 +681,16 @@ def default_operations() -> DeveloperOperations:
 		argv = _adapter_argv(
 			"launch", target.manifest_path, ("--timeout-seconds", str(int(LIFECYCLE_LAUNCH_TIMEOUT_SECONDS)))
 		)
-		result = local_stack_control.process.stream_in_owner_session(
-			runner, argv, None, root
+		environment = local_stack_control.env_file.sanitized_runtime_environment(
+			local_stack_control.process.current_environment()
 		)
-		if result.returncode != 0:
-			raise DeveloperBrowserSuiteError("developer browser stack launch failed")
+		environment["PLE_BROWSER_SUITE_OWNER_SESSION"] = "ple-owner-" + secrets.token_hex(16)
+		completed = subprocess.run(
+			argv, check=False, capture_output=True, text=True, env=environment, cwd=root,
+		)
+		if completed.returncode != 0:
+			diagnostic = _launch_diagnostic(completed.stdout + "\n" + completed.stderr)
+			raise DeveloperBrowserSuiteError("developer browser stack launch failed: " + diagnostic)
 		return RunningDeveloperStack(target.manifest_path, target.origin)
 
 	def stop_stack(running: RunningDeveloperStack, root: pathlib.Path) -> None:
@@ -594,6 +744,7 @@ def run_supervisor(
 	control: DeveloperControlReceipt | None = None
 	stop_requested = False
 	failures: list[BaseException] = []
+	failure_phase = "reset"
 
 	def request_supervisor_termination(_signal_number: int, _frame: object) -> None:
 		"""Request supervisor cleanup after receiving a termination signal."""
@@ -606,11 +757,14 @@ def run_supervisor(
 		previous_int = signal.signal(signal.SIGINT, request_supervisor_termination)
 		previous_term = signal.signal(signal.SIGTERM, request_supervisor_termination)
 	try:
+		failure_phase = "reset"
 		local_stack_control.browser_suite_reset.reset_live_demo_browser(
 			lease, local_stack_control.process.SubprocessRunner(), repository_root
 		)
 		workspace = lease.reset_workspace()
+		failure_phase = "launch"
 		running = active_operations.start(lease, repository_root, workspace)
+		failure_phase = "control"
 		launch_id = _read_launch_id(repository_root)
 		control = DeveloperControlReceipt(
 			os.getpid(), secrets.token_hex(32), secrets.token_hex(32), launch_id, running.origin,
@@ -667,6 +821,14 @@ def run_supervisor(
 			except BaseException as error:
 				failures.append(error)
 			os.close(root_descriptor)
+		if failures:
+			try:
+				_write_failure_receipt(
+					repository_root,
+					DeveloperFailureReceipt(failure_phase, None, str(failures[0])),
+				)
+			except BaseException as error:
+				failures.append(error)
 		lease.release()
 		if install_signal_handlers:
 			if previous_int is None or previous_term is None:
@@ -787,6 +949,14 @@ def _child_exited_before_ready(child: object) -> bool:
 
 
 #============================================
+def _child_returncode(child: object) -> int | None:
+	"""Read only an already-complete supervisor's numeric exit result."""
+	poll = getattr(child, "poll", None)
+	result = poll() if callable(poll) else None
+	return result if isinstance(result, int) else None
+
+
+#============================================
 def start_developer_browser_suite(
 	repository_root: pathlib.Path,
 	timeout_seconds: float = DEVELOPER_START_WAIT_SECONDS,
@@ -802,6 +972,7 @@ def start_developer_browser_suite(
 	root_descriptor = -1
 	launch_id = secrets.token_hex(32)
 	try:
+		_remove_failure_receipt(repository_root)
 		root_descriptor = _checked_root_descriptor(repository_root)
 		_remove_private_entry(root_descriptor, CONTROL_NAME)
 		_remove_private_entry(root_descriptor, LAUNCH_NAME)
@@ -878,6 +1049,17 @@ def start_developer_browser_suite(
 		cleanup_failures.append(error)
 	if cleanup_failures:
 		raise BaseExceptionGroup("developer browser failed-start cleanup failures", cleanup_failures)
+	receipt = _read_failure_receipt(repository_root)
+	if receipt is not None:
+		returncode = _child_returncode(child)
+		if receipt.returncode != returncode:
+			receipt = DeveloperFailureReceipt(receipt.phase, returncode, receipt.diagnostic)
+			_write_failure_receipt(repository_root, receipt)
+		exit_detail = "unknown" if receipt.returncode is None else str(receipt.returncode)
+		raise DeveloperBrowserSuiteError(
+			"developer browser supervisor failed during " + receipt.phase
+			+ " (exit " + exit_detail + "): " + receipt.diagnostic
+		)
 	if failure is not None:
 		raise DeveloperBrowserSuiteError("developer browser supervisor did not become ready") from failure
 	raise DeveloperBrowserSuiteError("developer browser supervisor did not become ready")

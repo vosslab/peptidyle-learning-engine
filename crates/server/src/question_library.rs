@@ -25,7 +25,7 @@ use question_model::{
     QuestionSearchBackendFacet, QuestionSearchCapabilityFacet, QuestionSearchCourseUse,
     QuestionSearchCourseUseFacet, QuestionSearchFacets, QuestionSearchPage,
     QuestionSearchQuestionLicenseFacet, QuestionSearchRequest, QuestionSearchResult,
-    QuestionSearchTagFacet, QuestionStatistics, QuestionSummary, QuestionTypeFacet,
+    QuestionSearchTagFacet, QuestionStatistics, QuestionSummary, QuestionType, QuestionTypeFacet,
     QuestionUseDetails, QuestionUseSummary,
 };
 use serde::Deserialize;
@@ -305,7 +305,7 @@ async fn entries_to_summaries(
 ) -> Result<Vec<ResolvedQuestionLibraryEntry>, ()> {
     let mut summaries = Vec::with_capacity(entries.len());
     for entry in entries {
-        summaries.push(resolved_ple_question(objects, entry).await?);
+        summaries.push(answer_free_question_library_entry(objects, entry).await?);
     }
     Ok(summaries)
 }
@@ -320,7 +320,7 @@ pub(crate) async fn answer_free_question_search_results(
     let mut results = BTreeMap::new();
     for entry in entries {
         let question_id = entry.question_revision.question_id.clone();
-        let resolved = resolved_ple_question(objects, entry).await?;
+        let resolved = answer_free_question_library_entry(objects, entry).await?;
         results.insert(
             question_id,
             QuestionSearchResult {
@@ -336,7 +336,57 @@ async fn summary_from_entry(
     objects: &S3ObjectStore,
     entry: PublishedQuestionLibraryEntry,
 ) -> Result<QuestionSummary, ()> {
-    Ok(resolved_ple_question(objects, entry).await?.summary)
+    Ok(answer_free_question_library_entry(objects, entry)
+        .await?
+        .summary)
+}
+
+/// Produces the one browser-safe Question Library entry shape from the
+/// backend-owned source boundary. Private source bindings never cross this
+/// boundary into a summary or search result.
+async fn answer_free_question_library_entry(
+    objects: &S3ObjectStore,
+    entry: PublishedQuestionLibraryEntry,
+) -> Result<ResolvedQuestionLibraryEntry, ()> {
+    match entry.backend {
+        QuestionBackend::Ple => resolved_ple_question(objects, entry).await,
+        QuestionBackend::Webwork => webwork_question_library_entry(entry),
+        QuestionBackend::Imathas => Err(()),
+    }
+}
+
+/// WeBWorK publication metadata is already database-authoritative and
+/// browser-safe. Its private PG source and renderer-only details are not
+/// needed to construct the current library summary.
+fn webwork_question_library_entry(
+    entry: PublishedQuestionLibraryEntry,
+) -> Result<ResolvedQuestionLibraryEntry, ()> {
+    Ok(ResolvedQuestionLibraryEntry {
+        summary: QuestionSummary {
+            question_id: entry.question_revision.question_id.clone(),
+            latest_question_revision: entry.question_revision,
+            backend: entry.backend,
+            // The current reviewed WeBWorK publication path is a single-choice
+            // PGML control. A future WebWork publication summary must supply
+            // its own validated Question Type rather than inspect PG source.
+            question_type: QuestionType::MultipleChoice,
+            capabilities: adapter_webwork::webwork_source_capabilities(QuestionBackend::Webwork)
+                .map_err(|_| ())?,
+            metadata: question_model::QuestionMetadata {
+                question_title: entry.question_title,
+                question_description: entry.question_description,
+                tags: Vec::new(),
+                question_license: Some(entry.question_license),
+                question_citation: None,
+                language: "en".to_string(),
+            },
+            authorship: entry.authorship,
+            availability: entry.availability,
+            published_at: entry.published_at,
+        },
+        prompt: Vec::new(),
+        authored_by_current_account: entry.authored_by_current_account,
+    })
 }
 
 async fn resolved_ple_question(

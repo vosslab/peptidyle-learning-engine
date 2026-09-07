@@ -146,16 +146,16 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
             {signOutError()}
           </span>
         </header>
-        <Show when={ribbonModel()} fallback={<ContentRegion />}>
-          {(model) => (
-            <div class="ple-ribbon-shell-grid">
+        <div classList={{ "ple-ribbon-shell-grid": ribbonModel() !== undefined }}>
+          <Show when={ribbonModel()}>
+            {(model) => (
               <div on:ple-ribbon-action={handleRibbonAction}>
                 <AppRibbon model={model()} />
               </div>
-              <ContentRegion />
-            </div>
-          )}
-        </Show>
+            )}
+          </Show>
+          <ContentRegion />
+        </div>
       </CourseThemeVariables>
     );
   }

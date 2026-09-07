@@ -49,6 +49,12 @@ async fn resolved_question_json_issues_and_grades_from_its_exact_immutable_sourc
     let issued = PleQuestionBackend::new()
         .issue_question_json(&source, question_seed)
         .expect("source should issue");
+    let replayed = PleQuestionBackend::new()
+        .issue_question_json(&source, question_seed)
+        .expect("same source and seed should issue");
+    let different_seed = PleQuestionBackend::new()
+        .issue_question_json(&source, QuestionSeed::new(2))
+        .expect("different seed should issue");
 
     assert_eq!(source.question_revision(), &question_revision);
     assert_eq!(
@@ -64,6 +70,8 @@ async fn resolved_question_json_issues_and_grades_from_its_exact_immutable_sourc
         issued.reproduction_details.source_object_checksum,
         Some(source_object_checksum)
     );
+    assert_eq!(issued.parameter_hash, replayed.parameter_hash);
+    assert_ne!(issued.parameter_hash, different_seed.parameter_hash);
     let evaluation = PleQuestionBackend::new()
         .grade_question_json(
             &source,

@@ -164,6 +164,16 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in the env file}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in the env file}
+      # These are projected only into this privileged local bootstrap and the
+      # one-shot publisher.  API and worker never receive this identity.
+      PLE_PUBLISHER_S3_ACCESS_KEY_ID: ${PLE_PUBLISHER_S3_ACCESS_KEY_ID:?set publisher storage access key in the env file}
+      PLE_PUBLISHER_S3_SECRET_ACCESS_KEY: ${PLE_PUBLISHER_S3_SECRET_ACCESS_KEY:?set publisher storage secret in the env file}
+      PLE_NATIVE_PLE_WORKER_S3_ACCESS_KEY_ID: ${PLE_NATIVE_PLE_WORKER_S3_ACCESS_KEY_ID:?set native PLE worker storage access key in the env file}
+      PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY: ${PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY:?set native PLE worker storage secret in the env file}
+      PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID: ${PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID:?set WeBWorK worker storage access key in the env file}
+      PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY: ${PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY:?set WeBWorK worker storage secret in the env file}
+      PLE_PUBLISHER_RESTRICTED_ASSET_PATH: ${PLE_PUBLISHER_RESTRICTED_ASSET_PATH:?set publisher restricted asset path in the env file}
+      PLE_PUBLISHER_PUBLIC_ASSET_PATH: ${PLE_PUBLISHER_PUBLIC_ASSET_PATH:?set publisher public asset path in the env file}
       HOME: /tmp
     entrypoint:
       - /bin/sh
@@ -172,9 +182,45 @@ services:
         set -e
         mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
         mc mb --ignore-existing local/public-assets
+        mc anonymous set download local/public-assets
         mc mb --ignore-existing local/private-content
         mc mb --ignore-existing local/student-records
         mc mb --ignore-existing local/temp-processing
+        policy_file=$$(mktemp /tmp/public-asset-publisher-policy.XXXXXX)
+        trap 'rm -f "$$policy_file"' EXIT
+        chmod 600 "$$policy_file"
+        cat >"$$policy_file" <<EOF
+        {"Version":"2012-10-17","Statement":[
+          {"Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::private-content/$${PLE_PUBLISHER_RESTRICTED_ASSET_PATH}"]},
+          {"Effect":"Allow","Action":["s3:GetObject","s3:GetObjectTagging"],"Resource":["arn:aws:s3:::public-assets/$${PLE_PUBLISHER_PUBLIC_ASSET_PATH}"]},
+          {"Effect":"Allow","Action":["s3:PutObject","s3:PutObjectTagging"],"Resource":["arn:aws:s3:::public-assets/$${PLE_PUBLISHER_PUBLIC_ASSET_PATH}"],"Condition":{"StringEquals":{"s3:RequestObjectTag/ple-published-immutable":"true"}}}
+        ]}
+        EOF
+        # A retained local MinIO volume may carry a former policy with this
+        # name. Remove then recreate it from the fixed JSON above; a failed
+        # removal or recreation leaves the bootstrap failed rather than
+        # attaching a publisher user to an unverified grant.
+        if mc admin policy info local ple-public-asset-publisher >/dev/null 2>&1; then
+          mc admin policy remove local ple-public-asset-publisher
+        fi
+        mc admin policy create local ple-public-asset-publisher "$$policy_file"
+        mc admin policy info local ple-public-asset-publisher >/dev/null
+        mc admin user add local "$${PLE_PUBLISHER_S3_ACCESS_KEY_ID}" "$${PLE_PUBLISHER_S3_SECRET_ACCESS_KEY}"
+        mc admin policy attach local ple-public-asset-publisher --user "$${PLE_PUBLISHER_S3_ACCESS_KEY_ID}"
+        native_policy=$$(mktemp /tmp/native-ple-worker-policy.XXXXXX)
+        trap 'rm -f "$$policy_file" "$$native_policy"' EXIT
+        printf '%s' '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::private-content/questions/*"]}]}' >"$$native_policy"
+        if mc admin policy info local ple-native-ple-grading-worker >/dev/null 2>&1; then mc admin policy remove local ple-native-ple-grading-worker; fi
+        mc admin policy create local ple-native-ple-grading-worker "$$native_policy"
+        mc admin user add local "$${PLE_NATIVE_PLE_WORKER_S3_ACCESS_KEY_ID}" "$${PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY}"
+        mc admin policy attach local ple-native-ple-grading-worker --user "$${PLE_NATIVE_PLE_WORKER_S3_ACCESS_KEY_ID}"
+        webwork_policy=$$(mktemp /tmp/webwork-worker-policy.XXXXXX)
+        trap 'rm -f "$$policy_file" "$$native_policy" "$$webwork_policy"' EXIT
+        printf '%s' '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::private-content/questions/*"]}]}' >"$$webwork_policy"
+        if mc admin policy info local ple-webwork-grading-worker >/dev/null 2>&1; then mc admin policy remove local ple-webwork-grading-worker; fi
+        mc admin policy create local ple-webwork-grading-worker "$$webwork_policy"
+        mc admin user add local "$${PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID}" "$${PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY}"
+        mc admin policy attach local ple-webwork-grading-worker --user "$${PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID}"
     user: "10001:10001"
     read_only: true
     cap_drop:
@@ -208,12 +254,20 @@ services:
         read_only: true
         bind:
           create_host_path: false
+      - type: bind
+        # This controller-written attestation is copied into the existing
+        # private runtime volume after the renderer has passed its probe.
+        source: ${PLE_WEBWORK_RENDERER_VERSION_FILE:?set PLE_WEBWORK_RENDERER_VERSION_FILE in the env file}
+        target: /run/source/question-renderer-version
+        read_only: true
+        bind:
+          create_host_path: false
       - ple_identity_runtime:/run/ple-secrets
     command:
       [
         "/bin/sh",
         "-ec",
-        "cp /run/source/invitation_token_secret /run/ple-secrets/invitation_token_secret; cp /run/source/question_id_secret /run/ple-secrets/question_id_secret; chmod 600 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret; chown 10001:10001 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret",
+        "cp /run/source/invitation_token_secret /run/ple-secrets/invitation_token_secret; cp /run/source/question_id_secret /run/ple-secrets/question_id_secret; cp /run/source/question-renderer-version /run/ple-secrets/question-renderer-version; chmod 600 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret /run/ple-secrets/question-renderer-version; chown 10001:10001 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret /run/ple-secrets/question-renderer-version",
       ]
     network_mode: none
     read_only: true
@@ -250,6 +304,11 @@ services:
         condition: service_healthy
     environment:
       PLE_BIND_ADDR: 0.0.0.0:3000
+      PLE_BROWSER_ORIGIN: ${PLE_BROWSER_ORIGIN:?set PLE_BROWSER_ORIGIN in the env file}
+      # The controller selects the disposable plaintext topology. The server
+      # uses this only for its local transport attestation path; its service
+      # login and database authority remain unchanged.
+      PLE_STORAGE_TOPOLOGY: ${PLE_STORAGE_TOPOLOGY:?set PLE_STORAGE_TOPOLOGY in the env file}
       # Service Login Setup replaces this fail-closed sentinel with the Local
       # Stack Controller-generated API login URL before the API can connect.
       DATABASE_URL: ${PLE_API_DATABASE_URL:-postgres://ple_api_login:service-login-setup-required@postgres:5432/${POSTGRES_DB:-peptidyle}}
@@ -266,7 +325,10 @@ services:
       PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:-15}
       PLE_WEBWORK_MAX_RESPONSE_BYTES: ${PLE_WEBWORK_MAX_RESPONSE_BYTES:-1048576}
       PLE_WEBWORK_RENDERER_ID: ${PLE_WEBWORK_RENDERER_ID:-vosslab-webwork-pg-renderer}
-      PLE_WEBWORK_RENDERER_VERSION: ${PLE_WEBWORK_RENDERER_VERSION:-unconfigured}
+      # The controller writes this attestation only after it has proved the
+      # selected renderer.  It is private API configuration, never browser
+      # data or renderer configuration.
+      PLE_WEBWORK_RENDERER_VERSION_FILE: /run/ple-secrets/question-renderer-version
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
     volumes:
@@ -318,6 +380,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      PLE_STORAGE_TOPOLOGY: ${PLE_STORAGE_TOPOLOGY:?set PLE_STORAGE_TOPOLOGY in the env file}
       # Service Login Setup replaces this fail-closed sentinel before the
       # worker starts. The worker never receives the API login URL.
       DATABASE_URL: ${PLE_WORKER_DATABASE_URL:-postgres://ple_worker_login:service-login-setup-required@postgres:5432/${POSTGRES_DB:-peptidyle}}
@@ -340,6 +403,152 @@ services:
     pids_limit: 64
     restart: on-failure
     stop_grace_period: 30s
+    networks:
+      - default
+
+  native-ple-worker:
+    labels: *ple-disposable-capability-label
+    image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
+    command: ["--native-ple-worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+    environment:
+      PLE_STORAGE_TOPOLOGY: ${PLE_STORAGE_TOPOLOGY:?set PLE_STORAGE_TOPOLOGY in the env file}
+      DATABASE_URL: ${PLE_NATIVE_PLE_WORKER_DATABASE_URL:-postgres://ple_native_ple_worker_login:service-login-setup-required@postgres:5432/${POSTGRES_DB:-peptidyle}}
+      PLE_S3_ENDPOINT: http://minio:9000
+      PLE_S3_REGION: us-east-1
+      PLE_PRIVATE_CONTENT_BUCKET: private-content
+      PLE_PUBLIC_ASSETS_BUCKET: public-assets
+      PLE_STUDENT_RECORDS_BUCKET: student-records
+      PLE_TEMP_PROCESSING_BUCKET: temp-processing
+      PLE_NATIVE_PLE_WORKER_S3_ACCESS_KEY_ID: ${PLE_NATIVE_PLE_WORKER_S3_ACCESS_KEY_ID:-native-ple-worker-storage-setup-required}
+      PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY: ${PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY:-native-ple-worker-storage-setup-required}
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/peptidyle-api", "--native-ple-worker", "--health-probe"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/peptidyle-api", "--native-ple-worker", "--health-probe"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+    cpus: "0.25"
+    mem_limit: 128m
+    pids_limit: 64
+    restart: on-failure
+    stop_grace_period: 30s
+    networks:
+      - default
+
+  webwork-worker:
+    labels: *ple-disposable-capability-label
+    image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
+    command: ["--webwork-worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+      identity-secret-init:
+        condition: service_completed_successfully
+      webwork-renderer:
+        condition: service_healthy
+    environment:
+      PLE_STORAGE_TOPOLOGY: ${PLE_STORAGE_TOPOLOGY:?set PLE_STORAGE_TOPOLOGY in the env file}
+      DATABASE_URL: ${PLE_WEBWORK_WORKER_DATABASE_URL:-postgres://ple_webwork_worker_login:service-login-setup-required@postgres:5432/${POSTGRES_DB:-peptidyle}}
+      PLE_S3_ENDPOINT: http://minio:9000
+      PLE_S3_REGION: us-east-1
+      PLE_PRIVATE_CONTENT_BUCKET: private-content
+      PLE_PUBLIC_ASSETS_BUCKET: public-assets
+      PLE_STUDENT_RECORDS_BUCKET: student-records
+      PLE_TEMP_PROCESSING_BUCKET: temp-processing
+      PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID: ${PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID:-webwork-worker-storage-setup-required}
+      PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY: ${PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY:-webwork-worker-storage-setup-required}
+      PLE_WEBWORK_RENDERER_BASE_URL: http://webwork-renderer:3000/
+      PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:-15}
+      PLE_WEBWORK_MAX_RESPONSE_BYTES: ${PLE_WEBWORK_MAX_RESPONSE_BYTES:-1048576}
+      PLE_WEBWORK_RENDERER_ID: ${PLE_WEBWORK_RENDERER_ID:-vosslab-webwork-pg-renderer}
+      PLE_WEBWORK_RENDERER_VERSION_FILE: /run/ple-secrets/question-renderer-version
+    volumes:
+      - ple_identity_runtime:/run/ple-secrets:ro
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/peptidyle-api", "--webwork-worker", "--health-probe"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+    cpus: "0.25"
+    mem_limit: 192m
+    pids_limit: 64
+    restart: on-failure
+    stop_grace_period: 30s
+    networks:
+      - default
+      - renderer_private
+
+  # A one-shot dedicated publisher. It receives neither API credentials nor a
+  # listener/gateway network; deployment assigns its object-store identity only
+  # private restricted-asset read and immutable public-asset creation rights.
+  # The profile makes lifecycle invocation explicit after a pending registry
+  # record exists rather than turning this into a generic background worker.
+  public-asset-publisher:
+    labels: *ple-disposable-capability-label
+    profiles: ["publisher"]
+    image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
+    command: ["--public-asset-publisher"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+    environment:
+      PLE_STORAGE_TOPOLOGY: ${PLE_STORAGE_TOPOLOGY:?set PLE_STORAGE_TOPOLOGY in the env file}
+      DATABASE_URL: ${PLE_PUBLISHER_DATABASE_URL:-postgres://ple_publisher_login:service-login-setup-required@postgres:5432/${POSTGRES_DB:-peptidyle}}
+      PLE_S3_ENDPOINT: http://minio:9000
+      PLE_S3_REGION: us-east-1
+      PLE_PUBLIC_ASSETS_BUCKET: public-assets
+      PLE_PRIVATE_CONTENT_BUCKET: private-content
+      PLE_STUDENT_RECORDS_BUCKET: student-records
+      PLE_TEMP_PROCESSING_BUCKET: temp-processing
+      # The local controller replaces these fail-closed sentinels only after
+      # provisioning the publisher's narrow MinIO policy. They intentionally
+      # never inherit the API's root credentials.
+      PLE_PUBLISHER_S3_ACCESS_KEY_ID: ${PLE_PUBLISHER_S3_ACCESS_KEY_ID:-publisher-storage-setup-required}
+      PLE_PUBLISHER_S3_SECRET_ACCESS_KEY: ${PLE_PUBLISHER_S3_SECRET_ACCESS_KEY:-publisher-storage-setup-required}
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,mode=1777
+    cpus: "0.25"
+    mem_limit: 256m
+    pids_limit: 64
+    restart: "no"
     networks:
       - default
 

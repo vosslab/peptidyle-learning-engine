@@ -3,14 +3,35 @@
   "version": 3,
   "questionTitle": "Amino terminus",
   "questionDescription": "Use peptide directionality vocabulary to name the free alpha-amino end.",
-  "prompt": "What is the conventional name for the end of a peptide with the free alpha-amino group?",
+  "prompt": "Select the free alpha-amino end of this peptide backbone.",
   "response": {
-    "kind": "fillIn",
-    "answers": ["N terminus", "N-terminus"],
-    "matchMode": "normalized",
-    "maxLength": 80
+    "kind": "hotspot",
+    "surface": {
+      "questionAsset": "00000000-0000-0000-0000-000000001204",
+      "checksum": "0aa945dc75c80da56e657d7bed4202aa3b410063f827d01a9b64fbc81697cfde",
+      "description": "A two-residue peptide backbone with free alpha-amino and carboxyl ends."
+    },
+    "regions": [
+      {
+        "id": "free-alpha-amino-end",
+        "label": "Free alpha-amino end",
+        "x": 0,
+        "y": 2600,
+        "width": 2800,
+        "height": 4700
+      },
+      {
+        "id": "free-carboxyl-end",
+        "label": "Free carboxyl end",
+        "x": 7600,
+        "y": 2600,
+        "width": 2400,
+        "height": 4700
+      }
+    ],
+    "correctRegions": ["free-alpha-amino-end"]
   },
-  "feedback": {"correct": "Correct. Peptide sequences are conventionally written from the N terminus to the C terminus.", "incorrect": "Name the terminus from the functional group that remains free."},
+  "feedback": {"correct": "Correct. Peptide sequences are conventionally written from the N terminus to the C terminus.", "incorrect": "Identify the terminus by the functional group that remains free."},
   "tags": ["biochemistry", "protein-sequence"],
   "questionLicense": "CC-BY-SA-4.0",
   "questionCitation": null,

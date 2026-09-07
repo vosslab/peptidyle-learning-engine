@@ -6,6 +6,8 @@
 use domain::assignment_activity::AssignmentActivityError;
 
 mod assignment_attempt;
+mod assignment_delivery;
+mod assignment_release;
 mod authentication_ceremony;
 mod authentication_email;
 mod authoring;
@@ -13,19 +15,40 @@ mod blueprint_course;
 mod course_instance;
 mod course_roster;
 mod imathas_question_backend_session;
+mod instructor_account;
+mod invitation_export;
+mod live_gradebook;
+mod native_ple_grading;
+mod native_ple_submission;
 mod object_record;
 mod pagination;
 pub mod postgres;
+mod public_asset_publication;
+mod question_asset_delivery;
 mod question_library;
 mod question_source;
 mod random_uuid;
 pub mod session;
 #[path = "contracts/store_error.rs"]
 mod store_error;
+mod support_capability;
+mod webwork_grading;
+mod webwork_submission;
 
 pub use assignment_attempt::{
     AssignmentAttemptStart, AssignmentAttemptStartResult, AssignmentAttemptStore,
     PreparedIssuedQuestion, PreparedQuestionPoolSelection,
+};
+pub use assignment_delivery::{
+    IssuedQuestionPresentation, LiveAssignmentAccess, LiveAssignmentAttempt,
+    LiveAssignmentDeliveryStore, LiveAssignmentStartDecision, NativePleIssuanceSource,
+    NativePlePresentationInput, NativeWebworkIssuanceSource, NativeWebworkPresentationInput,
+    ReadyQuestionAssetRendition,
+};
+pub use assignment_release::{
+    AssignmentPreview, AssignmentQuestionPickerEntry, AssignmentReleaseIssue,
+    AssignmentReleaseValidation, AuthoredAssignmentQuestion, CreateLiveAssignmentInput,
+    LiveAssignmentStore, LiveAssignmentWorkspace, ReleasedLiveAssignment, SaveLiveAssignmentInput,
 };
 pub use authentication_ceremony::{
     AuthenticatedAccount, AuthenticationCeremonyLifetime, AuthenticationCeremonyStore,
@@ -79,10 +102,26 @@ pub(crate) use imathas_question_backend_session::{
     ImathasQuestionBackendStateCipherStorageParts, StageVerifiedImathasResultParts,
     automated_grading_receipt_checksum_v1,
 };
+pub use instructor_account::{
+    CreateInstructorAccountInput, DeactivateInstructorAccountInput, InstructorAccountState,
+    InstructorAccountStore, InstructorAccountSummary,
+};
+pub use invitation_export::{
+    InvitationExportStore, InvitationMailerExport, InvitationMailerRecipient,
+    PendingInvitationExport, PendingInvitationRecipient,
+};
+pub use live_gradebook::{LiveDemoGradebook, LiveDemoGradebookStore, LiveDemoGradedStudentWork};
+pub use native_ple_grading::{NativePleGradingJobLease, NativePleGradingStore};
+pub use native_ple_submission::{
+    AcceptNativePleSubmission, NativePleSubmissionStore, ResolvedNativePleSubmission,
+    StudentQuestionSubmissionGradingState,
+};
 pub use object_record::{
     WorkspaceQuestionSourceObjectRecordStore, validate_workspace_question_source_object_record,
 };
 pub use pagination::{Cursor, Page, PageRequest, PageSize, PaginationError};
+pub use public_asset_publication::{ClaimedQuestionAssetPublication, PublicAssetPublicationStore};
+pub use question_asset_delivery::{QuestionAssetDeliveryStore, ReadyQuestionAssetDelivery};
 pub use question_library::{PublishedQuestionLibraryEntry, QuestionLibraryStore};
 pub use question_source::{
     DraftQuestionEditNumber, DraftQuestionPublicationSourceStore, DraftQuestionSourceBindingInput,
@@ -94,3 +133,9 @@ pub use session::{
     SessionTokenHashParseError,
 };
 pub use store_error::StoreError;
+pub use support_capability::{
+    IssueSupportCapabilityInput, SupportCapabilityReceipt, SupportCapabilityStore,
+    SupportMinimumProjection, SupportOperationKind,
+};
+pub use webwork_grading::{WebworkGradingJobLease, WebworkGradingStore};
+pub use webwork_submission::{ResolvedWebworkSubmission, WebworkSubmissionStore};

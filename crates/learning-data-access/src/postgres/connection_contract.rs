@@ -57,6 +57,13 @@ impl LoginContract {
             Self::Production(ProductionLoginProfile::ImathasQuestionBackendGradingWorker) => {
                 "ple_worker_login"
             }
+            Self::Production(ProductionLoginProfile::NativePleGradingWorker) => {
+                "ple_native_ple_worker_login"
+            }
+            Self::Production(ProductionLoginProfile::WebworkGradingWorker) => {
+                "ple_webwork_worker_login"
+            }
+            Self::Production(ProductionLoginProfile::PublicAssetPublisher) => "ple_publisher_login",
         }
     }
 
@@ -75,6 +82,24 @@ impl LoginContract {
             Self::Production(ProductionLoginProfile::ImathasQuestionBackendGradingWorker) => {
                 &[ExpectedMembership {
                     role_name: "ple_imathas_question_backend_grading_worker",
+                    set_option: true,
+                }]
+            }
+            Self::Production(ProductionLoginProfile::NativePleGradingWorker) => {
+                &[ExpectedMembership {
+                    role_name: "ple_native_ple_grading_worker",
+                    set_option: true,
+                }]
+            }
+            Self::Production(ProductionLoginProfile::WebworkGradingWorker) => {
+                &[ExpectedMembership {
+                    role_name: "ple_webwork_grading_worker",
+                    set_option: true,
+                }]
+            }
+            Self::Production(ProductionLoginProfile::PublicAssetPublisher) => {
+                &[ExpectedMembership {
+                    role_name: "ple_public_asset_publisher",
                     set_option: true,
                 }]
             }
@@ -119,6 +144,19 @@ mod tests {
             worker.expected_memberships(),
             [ExpectedMembership {
                 role_name: "ple_imathas_question_backend_grading_worker",
+                set_option: true,
+            }]
+        );
+    }
+
+    #[test]
+    fn public_asset_publisher_login_has_one_exact_capability() {
+        let publisher = LoginContract::Production(ProductionLoginProfile::PublicAssetPublisher);
+
+        assert_eq!(
+            publisher.expected_memberships(),
+            [ExpectedMembership {
+                role_name: "ple_public_asset_publisher",
                 set_option: true,
             }]
         );

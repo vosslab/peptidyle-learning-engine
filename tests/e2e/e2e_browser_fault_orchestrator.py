@@ -1,4 +1,4 @@
-"""Closed owner-child protocol for the real student gateway-recovery journey."""
+"""Closed owner-child protocol for one native-PLE recovery browser journey."""
 
 import dataclasses
 import fcntl
@@ -24,15 +24,13 @@ SHORT_PROTOCOL_DIRECTORY = pathlib.Path("/private/tmp/ple-live-demo-browser-faul
 TOKEN_LENGTH = 43
 SOCKET_NAME_PATTERN = "fault-"
 SOCKET_NAME = re.compile(r"^fault-[0-9a-f]{24}\.sock$")
-GATEWAY_SUBMIT_OUTAGE_PHASES = (
-	"response_selected",
-	"gateway_stopped",
-	"network_recovery_visible",
-	"gateway_recovered",
+NATIVE_PLE_SUBMISSION_RECOVERY_PHASES = (
+	"submission_accepted",
+	"native_ple_worker_replaced",
 	"completed",
 )
-PHASES = GATEWAY_SUBMIT_OUTAGE_PHASES
-ALL_PHASES = frozenset(GATEWAY_SUBMIT_OUTAGE_PHASES)
+PHASES = NATIVE_PLE_SUBMISSION_RECOVERY_PHASES
+ALL_PHASES = frozenset(NATIVE_PLE_SUBMISSION_RECOVERY_PHASES)
 
 
 class FaultProtocolError(RuntimeError):
@@ -41,7 +39,7 @@ class FaultProtocolError(RuntimeError):
 
 @dataclasses.dataclass(frozen=True)
 class FaultScenarioRequest:
-	"""The owner-only values needed for one gateway-recovery browser child."""
+	"""The owner-only values needed for one native-PLE recovery browser child."""
 
 	root: pathlib.Path
 	private_directory: pathlib.Path
@@ -486,14 +484,15 @@ def require_protocol_directory_absent() -> bool:
 	raise FaultProtocolError("fault protocol private directory remains after cleanup")
 
 
-def run_gateway_submit_outage(
+def run_native_ple_submission_recovery(
 	request: FaultScenarioRequest,
 	run_command: Command,
+	wait_for_leased_submission: Callable[[], None],
 	launch_child: ChildLauncher = e2e_browser_suite_children.launch,
 	reap_child: Callable[[e2e_browser_suite_children.BrowserChild, float], int] = e2e_browser_suite_children.reap,
 	record_session: SessionRecorder = lambda _session: None,
 ) -> FaultScenarioResult:
-	"""Drive the only accepted gateway outage in strict UI-visible phase order."""
+	"""Interrupt one leased native-PLE grade after the browser accepts it once."""
 	protocol: ProtocolDirectory | None = None
 	directory: pathlib.Path | None = None
 	socket_path: pathlib.Path | None = None
@@ -525,22 +524,16 @@ def run_gateway_submit_outage(
 		channel, _address = listener.accept()
 		channel.settimeout(PROTOCOL_TIMEOUT_SECONDS)
 		_authenticate(channel, request, token)
-		_receive(channel, "response_selected", token)
-		_require_marker(directory, request, "response_selected", token)
-		_require_marker_order(directory, ("response_selected",))
-		_require_success(run_command(["stop-outage-service"]), "stop")
+		_receive(channel, "submission_accepted", token)
+		_require_marker(directory, request, "submission_accepted", token)
+		_require_marker_order(directory, ("submission_accepted",))
+		wait_for_leased_submission()
+		_require_success(run_command(["stop-native-ple-worker"]), "native PLE worker stop")
 		injected = True
-		_write_marker(directory, request, "gateway_stopped", token)
-		_send(channel, "gateway_stopped", token)
-		_receive(channel, "network_recovery_visible", token)
-		_require_marker(directory, request, "network_recovery_visible", token)
-		_require_marker_order(directory, ("response_selected", "gateway_stopped", "network_recovery_visible"))
-		_require_success(
-			run_command(["restart", "--service", "gateway", "--timeout-seconds", "240"]), "restart"
-		)
+		_require_success(run_command(["replace-native-ple-worker"]), "native PLE worker replacement")
 		recovered = True
-		_write_marker(directory, request, "gateway_recovered", token)
-		_send(channel, "gateway_recovered", token)
+		_write_marker(directory, request, "native_ple_worker_replaced", token)
+		_send(channel, "native_ple_worker_replaced", token)
 		_receive(channel, "completed", token)
 		_require_marker(directory, request, "completed", token)
 		_require_marker_order(directory, PHASES)
@@ -553,10 +546,7 @@ def run_gateway_submit_outage(
 	finally:
 		if injected and not recovered:
 			try:
-				_require_success(
-					run_command(["restart", "--service", "gateway", "--timeout-seconds", "240"]),
-					"recovery",
-				)
+				_require_success(run_command(["replace-native-ple-worker"]), "native PLE worker recovery")
 				recovered = True
 			except BaseException as error:
 				failures.append(error)
@@ -597,4 +587,4 @@ def run_gateway_submit_outage(
 		raise BaseExceptionGroup("fault protocol failures", failures)
 	if child is None:
 		raise FaultProtocolError("fault protocol did not launch a browser child")
-	return FaultScenarioResult("gateway_submit_outage", injected, recovered, child.session)
+	return FaultScenarioResult("native_ple_submission_recovery", injected, recovered, child.session)

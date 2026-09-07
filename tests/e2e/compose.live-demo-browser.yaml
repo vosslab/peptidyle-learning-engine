@@ -7,7 +7,7 @@ services:
       [
         "/bin/sh",
         "-ec",
-        "cp /run/source/invitation_token_secret /run/ple-secrets/invitation_token_secret; cp /run/source/question_id_secret /run/ple-secrets/question_id_secret; chmod 600 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret; chown 10001:10001 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret",
+        "cp /run/source/invitation_token_secret /run/ple-secrets/invitation_token_secret; cp /run/source/question_id_secret /run/ple-secrets/question_id_secret; cp /run/source/question-renderer-version /run/ple-secrets/question-renderer-version; chmod 600 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret /run/ple-secrets/question-renderer-version; chown 10001:10001 /run/ple-secrets/invitation_token_secret /run/ple-secrets/question_id_secret /run/ple-secrets/question-renderer-version",
       ]
 
   api:

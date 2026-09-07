@@ -219,3 +219,79 @@ def replace_worker_service(
 	return local_stack_control.models.WorkerReplacement(
 		plan.project, plan.service, plan.previous_container_id, container.id
 	)
+
+
+#============================================
+def native_ple_worker_service(
+	disposable: local_stack_control.models.DisposableComposeTarget,
+) -> str:
+	"""Return the separately authorized native-PLE recovery worker service."""
+	policy = adapter.disposable_policy(disposable)
+	profile = adapter.live_demo_profile_policy(disposable)
+	if (
+		policy.owner != local_stack_control.models.LIVE_DEMO_BROWSER_OWNER
+		or profile.profile is not local_stack_control.models.LiveDemoProfile.BROWSER
+		or "native_ple_worker_lifecycle" not in profile.child_capabilities
+	):
+		raise local_stack_control.models.ControllerError(
+			"this disposable owner cannot stop the native PLE worker"
+		)
+	return "native-ple-worker"
+
+
+#============================================
+def stop_native_ple_worker_service(
+	runner: local_stack_control.process.CommandRunner,
+	disposable: local_stack_control.models.DisposableComposeTarget,
+) -> local_stack_control.models.WorkerStop:
+	"""Stop only the native-PLE worker and prove no other scope changed."""
+	service = native_ple_worker_service(disposable)
+	before = adapter.require_current_resource_capability(runner, disposable)
+	selected = tuple(item for item in before.containers if item.service == service)
+	if len(selected) != 1 or not selected[0].running:
+		raise local_stack_control.models.ControllerError("native PLE worker stop requires one running service")
+	argv = local_stack_control.compose.compose_argv(disposable.target, ["stop", service])
+	if runner.stream(argv, adapter.compose_environment(disposable), disposable.target.repo_root) != 0:
+		raise local_stack_control.models.ControllerError("native PLE worker stop command failed")
+	after = adapter.require_current_resource_capability(runner, disposable)
+	stopped = tuple(item for item in after.containers if item.service == service)
+	if (
+		adapter.persistent_scope(before) != adapter.persistent_scope(after)
+		or adapter.unrelated_containers(before, service) != adapter.unrelated_containers(after, service)
+		or len(stopped) != 1
+		or stopped[0].running
+		or stopped[0].id != selected[0].id
+	):
+		raise local_stack_control.models.ControllerError("native PLE worker stop violated its closed scope")
+	return local_stack_control.models.WorkerStop(disposable.target.project, service)
+
+
+#============================================
+def replace_native_ple_worker_service(
+	runner: local_stack_control.process.CommandRunner,
+	disposable: local_stack_control.models.DisposableComposeTarget,
+) -> local_stack_control.models.WorkerReplacement:
+	"""Replace only a stopped native-PLE worker after a recovery fault."""
+	service = native_ple_worker_service(disposable)
+	before = adapter.require_current_resource_capability(runner, disposable)
+	selected = tuple(item for item in before.containers if item.service == service)
+	if len(selected) != 1 or selected[0].running:
+		raise local_stack_control.models.ControllerError("native PLE worker replacement requires one stopped service")
+	argv = local_stack_control.compose.compose_argv(
+		disposable.target, ["up", "-d", "--force-recreate", "--no-deps", service]
+	)
+	if runner.stream(argv, adapter.compose_environment(disposable), disposable.target.repo_root) != 0:
+		raise local_stack_control.models.ControllerError("native PLE worker replacement command failed")
+	after = adapter.require_current_resource_capability(runner, disposable)
+	replacement = tuple(item for item in after.containers if item.service == service)
+	if (
+		adapter.persistent_scope(before) != adapter.persistent_scope(after)
+		or adapter.unrelated_containers(before, service) != adapter.unrelated_containers(after, service)
+		or len(replacement) != 1
+		or not replacement[0].running
+		or replacement[0].id == selected[0].id
+	):
+		raise local_stack_control.models.ControllerError("native PLE worker replacement violated its closed scope")
+	return local_stack_control.models.WorkerReplacement(
+		disposable.target.project, service, selected[0].id, replacement[0].id
+	)

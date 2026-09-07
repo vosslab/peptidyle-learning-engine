@@ -107,7 +107,7 @@ source_payload() {
 import json
 print(json.dumps({
     "format": "pleQuestionJson", "version": 3,
-    "questionTitle": "Live authoring boundary", 
+    "questionTitle": "Live authoring boundary",
     "questionDescription": "Private authoring verification question.",
     "prompt": "Which choice demonstrates the authoring boundary?",
     "response": {"kind": "singleChoice", "choices": [

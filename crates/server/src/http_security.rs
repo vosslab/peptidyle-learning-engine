@@ -16,7 +16,11 @@ pub(crate) fn apply_api_security_headers(router: Router) -> Router {
 pub(crate) async fn api_security_headers(request: Request, next: Next) -> Response {
     let mut response = next.run(request).await;
     let headers = response.headers_mut();
-    headers.insert("cache-control", HeaderValue::from_static("no-store"));
+    // A ready immutable public asset redirect owns its explicit long-lived
+    // cache policy. Every ordinary dynamic response remains no-store.
+    if !headers.contains_key("cache-control") {
+        headers.insert("cache-control", HeaderValue::from_static("no-store"));
+    }
     headers.insert(
         "x-content-type-options",
         HeaderValue::from_static("nosniff"),

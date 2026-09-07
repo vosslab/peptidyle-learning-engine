@@ -82,6 +82,29 @@ export function CourseRosterPage(): JSX.Element {
     }
   }
 
+  async function downloadPendingInvitations(): Promise<void> {
+    const course = reference();
+    if (course === null) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const exportBlob = await applicationApi.client.downloadLiveInvitationExport(course);
+      const downloadUrl = URL.createObjectURL(exportBlob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = "ple-invitations.json";
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
+      setMessage("Pending Course Invitations downloaded for the attended mailer.");
+    } catch {
+      setMessage("Pending Course Invitations could not be downloaded.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section class="page roster-page" data-route-surface="courseRoster">
       <p class="eyebrow">Course Instance roster</p>
@@ -118,6 +141,22 @@ export function CourseRosterPage(): JSX.Element {
           Import roster
         </button>
       </form>
+
+      <section class="roster-section" aria-labelledby="invitation-export-heading">
+        <h2 id="invitation-export-heading">Pending Course Invitations</h2>
+        <p class="field-help">
+          Download the protected mailer input for pending Course Invitations. This page does not
+          send email.
+        </p>
+        <button
+          class="quiet-action"
+          type="button"
+          disabled={busy()}
+          onClick={() => void downloadPendingInvitations()}
+        >
+          Download pending invitations
+        </button>
+      </section>
 
       <Show when={roster.loading}>
         <p class="loading-state" role="status">

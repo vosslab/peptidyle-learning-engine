@@ -793,6 +793,15 @@ def emit_postgres_migration_acceptance_bootstrap(workspace: pathlib.Path) -> Non
 	finally:
 		os.close(workspace_descriptor)
 	print("BEGIN;")
+	# PostgreSQL 17 grants a non-superuser role creator an unremovable ADMIN
+	# membership in its created role.  This bootstrap runs as the disposable
+	# superuser, so it can establish the isolated Publisher capability without
+	# leaving a ple_migrator control edge.
+	print(
+		"CREATE ROLE ple_public_asset_publisher "
+		"NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE "
+		"NOREPLICATION NOBYPASSRLS;"
+	)
 	print(f"ALTER ROLE {POSTGRES_MIGRATION_ACCEPTANCE_MIGRATOR_ROLE} PASSWORD '{password}';")
 	print("COMMIT;")
 

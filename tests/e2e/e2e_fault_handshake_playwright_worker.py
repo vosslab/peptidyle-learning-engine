@@ -23,9 +23,9 @@ def request() -> e2e_browser_fault_orchestrator.FaultScenarioRequest:
 	return e2e_browser_fault_orchestrator.FaultScenarioRequest(
 		SCRIPT_ROOT,
 		SCRIPT_ROOT / "target",
-		SCRIPT_ROOT / "target" / "gateway-recovery.manifest",
-		"learner_gateway_recovery",
-		"bs1-0123456789ab-learner_gateway_recovery",
+		SCRIPT_ROOT / "target" / "native-ple-recovery.manifest",
+		"learner_native_ple_recovery",
+		"bs1-0123456789ab-learner_native_ple_recovery",
 		[],
 		{},
 	)
@@ -138,16 +138,11 @@ def run() -> None:
 		channel.settimeout(PROCESS_TIMEOUT_SECONDS)
 		selected = request()
 		e2e_browser_fault_orchestrator._authenticate(channel, selected, token)
-		e2e_browser_fault_orchestrator._receive(channel, "response_selected", token)
+		e2e_browser_fault_orchestrator._receive(channel, "submission_accepted", token)
 		e2e_browser_fault_orchestrator._require_marker(
-			protocol.path, selected, "response_selected", token
+			protocol.path, selected, "submission_accepted", token
 		)
-		e2e_browser_fault_orchestrator._send(channel, "gateway_stopped", token)
-		e2e_browser_fault_orchestrator._receive(channel, "network_recovery_visible", token)
-		e2e_browser_fault_orchestrator._require_marker(
-			protocol.path, selected, "network_recovery_visible", token
-		)
-		e2e_browser_fault_orchestrator._send(channel, "gateway_recovered", token)
+		e2e_browser_fault_orchestrator._send(channel, "native_ple_worker_replaced", token)
 		e2e_browser_fault_orchestrator._receive(channel, "completed", token)
 		e2e_browser_fault_orchestrator._require_marker(protocol.path, selected, "completed", token)
 		try:

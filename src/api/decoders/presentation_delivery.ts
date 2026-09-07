@@ -59,9 +59,12 @@ function presentedItems<T extends { id: string }>(
   value: unknown,
   path: string,
   decodeItem: (item: unknown, itemPath: string) => T,
+  minimumItems: number,
 ): T[] {
   const choices = decodeBoundedArray(value, path, MAX_PRESENTED_ITEMS, decodeItem);
-  if (choices.length < 2) throw new DecodeError(path, "at least two presented choices");
+  if (choices.length < minimumItems) {
+    throw new DecodeError(path, `at least ${minimumItems} presented items`);
+  }
   const ids = choices.map((choice) => choice.id);
   if (new Set(ids).size !== ids.length) {
     throw new DecodeError(path, "presented choices with unique IDs");
@@ -169,6 +172,7 @@ function issuedQuestionResponseFormat(
           field(record, "choices", path),
           `${path}.choices`,
           presentedQuestionChoice,
+          2,
         ),
       };
     }
@@ -178,6 +182,7 @@ function issuedQuestionResponseFormat(
         field(record, "choices", path),
         `${path}.choices`,
         presentedQuestionChoice,
+        0,
       );
       const [minimum, maximum] = bounds(record, path, choices.length);
       return { kind: "multipleAnswer", choices, minimum, maximum };
@@ -224,11 +229,13 @@ function issuedQuestionResponseFormat(
         field(record, "prompts", path),
         `${path}.prompts`,
         presentedMatchingPrompt,
+        1,
       );
       const choices = presentedItems(
         field(record, "choices", path),
         `${path}.choices`,
         presentedMatchingChoice,
+        1,
       );
       const reuseChoices = decodeBoolean(
         field(record, "reuseChoices", path),
@@ -249,7 +256,12 @@ function issuedQuestionResponseFormat(
       requireOnlyFields(record, path, ["kind", "items"]);
       return {
         kind: "ordering",
-        items: presentedItems(field(record, "items", path), `${path}.items`, presentedOrderingItem),
+        items: presentedItems(
+          field(record, "items", path),
+          `${path}.items`,
+          presentedOrderingItem,
+          2,
+        ),
       };
     }
     case "hotspot": {

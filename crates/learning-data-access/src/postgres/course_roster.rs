@@ -61,7 +61,8 @@ impl CourseRosterStore for PostgresCourseRosterStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let rows = sqlx::query(
-            "SELECT roster_id, roster_email, state FROM ple_api.list_live_demo_course_roster($1)",
+            "SELECT roster_id, roster_email, state \
+             FROM ple_api.list_live_demo_course_roster($1, NULL::uuid)",
         )
         .bind(i64::from(course.number()))
         .fetch_all(&mut *transaction)

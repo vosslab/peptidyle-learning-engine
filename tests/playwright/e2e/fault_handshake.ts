@@ -4,9 +4,9 @@ import { createConnection, type Socket } from "node:net";
 import { basename, dirname, join } from "node:path";
 
 const PHASES = {
-  gateway_submit_outage: {
-    child: ["response_selected", "network_recovery_visible", "completed"],
-    owner: ["gateway_stopped", "gateway_recovered"],
+  native_ple_submission_recovery: {
+    child: ["submission_accepted", "completed"],
+    owner: ["native_ple_worker_replaced"],
   },
 } as const;
 const MAXIMUM_MESSAGE_BYTES = 256;
@@ -18,7 +18,7 @@ export type FaultTransition = keyof typeof PHASES;
 type ChildPhase<T extends FaultTransition> = (typeof PHASES)[T]["child"][number];
 type OwnerPhase<T extends FaultTransition> = (typeof PHASES)[T]["owner"][number];
 
-export interface FaultHandshake<T extends FaultTransition = "gateway_submit_outage"> {
+export interface FaultHandshake<T extends FaultTransition = "native_ple_submission_recovery"> {
   notify(phase: ChildPhase<T>): void;
   waitFor(phase: OwnerPhase<T>): Promise<void>;
   close(): void;
@@ -193,7 +193,7 @@ export function faultHandshakeFromEnvironment(
   environment: NodeJS.ProcessEnv,
   scenarioId: string,
   namespace: string,
-): Promise<FaultHandshake<"gateway_submit_outage">>;
+): Promise<FaultHandshake<"native_ple_submission_recovery">>;
 export function faultHandshakeFromEnvironment<T extends FaultTransition>(
   environment: NodeJS.ProcessEnv,
   scenarioId: string,
@@ -204,7 +204,7 @@ export async function faultHandshakeFromEnvironment(
   environment: NodeJS.ProcessEnv,
   scenarioId: string,
   namespace: string,
-  transition: FaultTransition = "gateway_submit_outage",
+  transition: FaultTransition = "native_ple_submission_recovery",
 ): Promise<FaultHandshake<FaultTransition>> {
   const tokenValue = token(required(environment, "PLE_BROWSER_SUITE_FAULT_TOKEN"));
   const socket = privateSocket(required(environment, "PLE_BROWSER_SUITE_FAULT_SOCKET_PATH"));

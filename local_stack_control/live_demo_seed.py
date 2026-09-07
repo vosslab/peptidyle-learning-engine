@@ -10,6 +10,7 @@ import pathlib
 SEED_TIMESTAMP = "2026-09-06T00:00:00Z"
 SEED_TIMESTAMP_MILLIS = 1_788_652_800_000
 PLE_QUESTION_JSON_MEDIA_TYPE = "application/vnd.peptidyle.question+json"
+PNG_MEDIA_TYPE = "image/png"
 SEED_SOURCE_DIRECTORY = pathlib.Path("local_stack_control/live_demo_seed_data")
 
 
@@ -32,6 +33,23 @@ class SeededPublishedQuestion:
 	question_description: str
 	source_object_id: str
 	source_filename: str
+
+
+@dataclasses.dataclass(frozen=True)
+class SeededQuestionAssetPublication:
+	"""One fixed private raster and Pending public rendition for PNE-0004."""
+
+	question_id: str
+	revision_number: int
+	asset_id: str
+	private_object_id: str
+	public_object_id: str
+	delivery_id: str
+	job_id: str
+	filename: str
+	checksum: str
+	width: int
+	height: int
 
 
 SEEDED_ACCOUNTS = (
@@ -106,11 +124,60 @@ SEEDED_PUBLISHED_QUESTIONS = (
 )
 
 
+# This is seed-owned acceptance infrastructure, not a browser-supplied upload.
+# The dedicated publisher is the only component allowed to copy this private
+# restricted Question Asset to its fixed Public Assets rendition and activate it.
+SEEDED_QUESTION_ASSET_PUBLICATION = SeededQuestionAssetPublication(
+	question_id="PNE-0004",
+	revision_number=1,
+	asset_id="00000000-0000-0000-0000-000000001204",
+	private_object_id="00000000-0000-0000-0000-000000001304",
+	public_object_id="00000000-0000-0000-0000-000000001404",
+	delivery_id="00000000-0000-0000-0000-000000001504",
+	job_id="00000000-0000-0000-0000-000000001604",
+	filename="two_residue_peptide_backbone.png",
+	checksum="0aa945dc75c80da56e657d7bed4202aa3b410063f827d01a9b64fbc81697cfde",
+	width=560,
+	height=320,
+)
+
+
 #============================================
 def source_path(repo_root: pathlib.Path, question: SeededPublishedQuestion) -> pathlib.Path:
 	"""Return one checked-in private source path under the repository root."""
 	path = repo_root / SEED_SOURCE_DIRECTORY / question.source_filename
 	return path
+
+
+#============================================
+def question_asset_path(repo_root: pathlib.Path) -> pathlib.Path:
+	"""Return the one repository-owned raster accepted by the seeded baseline."""
+	return repo_root / SEED_SOURCE_DIRECTORY / SEEDED_QUESTION_ASSET_PUBLICATION.filename
+
+
+#============================================
+def question_asset_bytes(repo_root: pathlib.Path) -> bytes:
+	"""Read the fixed PNE-0004 private asset without accepting a file selector."""
+	return question_asset_path(repo_root).read_bytes()
+
+
+#============================================
+def question_asset_dimensions(repo_root: pathlib.Path) -> tuple[int, int]:
+	"""Read intrinsic dimensions from the fixed PNG, refusing another container."""
+	data = question_asset_bytes(repo_root)
+	if data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR" or len(data) < 24:
+		raise ValueError("seeded Question Asset is not a PNG with an IHDR header")
+	return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+
+
+#============================================
+def require_question_asset_baseline(repo_root: pathlib.Path) -> None:
+	"""Refuse modified seed art before any private object upload or SQL write."""
+	asset = SEEDED_QUESTION_ASSET_PUBLICATION
+	if hashlib.sha256(question_asset_bytes(repo_root)).hexdigest() != asset.checksum:
+		raise ValueError("seeded Question Asset checksum is incompatible")
+	if question_asset_dimensions(repo_root) != (asset.width, asset.height):
+		raise ValueError("seeded Question Asset dimensions are incompatible")
 
 
 #============================================
@@ -135,6 +202,16 @@ def source_object_path(question: SeededPublishedQuestion) -> str:
 		f"{question.source_object_id}"
 	)
 	return path
+
+
+#============================================
+def restricted_question_asset_object_path() -> str:
+	"""Return the typed private key for PNE-0004's fixed hotspot surface."""
+	asset = SEEDED_QUESTION_ASSET_PUBLICATION
+	return (
+		f"questions/{asset.question_id}/versions/{asset.revision_number}/restricted-assets/"
+		f"{asset.asset_id}/{asset.private_object_id}"
+	)
 
 
 #============================================
@@ -185,8 +262,39 @@ def object_record_metadata(
 
 
 #============================================
+def question_asset_record_metadata(repo_root: pathlib.Path) -> str:
+	"""Encode the closed private Object Record metadata for the fixed PNG only."""
+	require_question_asset_baseline(repo_root)
+	asset = SEEDED_QUESTION_ASSET_PUBLICATION
+	address = {
+		"kind": "restrictedQuestionAsset",
+		"questionRevision": {
+			"questionId": asset.question_id,
+			"revisionNumber": asset.revision_number,
+		},
+		"asset": asset.asset_id,
+		"object": asset.private_object_id,
+	}
+	record = {
+		"id": asset.private_object_id,
+		"storageArea": "private-content",
+		"dataClass": "question-asset",
+		"address": address,
+		"sha256": asset.checksum,
+		"sizeBytes": len(question_asset_bytes(repo_root)),
+		"mediaType": PNG_MEDIA_TYPE,
+		"questionRevision": address["questionRevision"],
+		"createdAt": SEED_TIMESTAMP_MILLIS,
+	}
+	encoded = json.dumps(record, separators=(",", ":"), ensure_ascii=True).encode("ascii")
+	return base64.urlsafe_b64encode(encoded).decode("ascii").rstrip("=")
+
+
+#============================================
 def seed_sql(repo_root: pathlib.Path) -> str:
 	"""Return one fixed idempotent SQL transaction for the declared demo baseline."""
+	require_question_asset_baseline(repo_root)
+	asset = SEEDED_QUESTION_ASSET_PUBLICATION
 	accounts = ",\n\t".join(
 		f"('{account.account_id}', '{account.product_role}', '{SEED_TIMESTAMP}')"
 		for account in SEEDED_ACCOUNTS
@@ -244,6 +352,18 @@ def seed_sql(repo_root: pathlib.Path) -> str:
 		)) + ")"
 		for question in SEEDED_PUBLISHED_QUESTIONS
 	)
+	asset_object = "(" + ", ".join((
+		f"'{asset.private_object_id}'",
+		"jsonb_build_object('kind', 'restrictedQuestionAsset', 'questionRevision', "
+		f"jsonb_build_object('questionId', '{asset.question_id}', 'revisionNumber', {asset.revision_number}), "
+		f"'asset', '{asset.asset_id}'::uuid, 'object', '{asset.private_object_id}'::uuid)",
+		"'private-content'",
+		"'question-asset'",
+		f"decode('{asset.checksum}', 'hex')",
+		str(len(question_asset_bytes(repo_root))),
+		f"'{PNG_MEDIA_TYPE}'",
+		f"'{SEED_TIMESTAMP}'",
+	)) + ")"
 	acceptances = ",\n\t".join(
 		f"('{question.question_id}', 1, NULL, '{SEEDED_ACCOUNTS[0].account_id}', "
 		f"'{SEEDED_ACCOUNTS[0].account_id}', '{SEED_TIMESTAMP}', 'Initial Live Demo baseline')"
@@ -311,6 +431,12 @@ INSERT INTO ple_private.object_record (
 ) VALUES
 	{objects}
 ON CONFLICT (object_id) DO NOTHING;
+INSERT INTO ple_private.object_record (
+	object_id, object_address, object_storage_area, object_data_class, sha256,
+	size_bytes, media_type, created_at
+) VALUES
+	{asset_object}
+ON CONFLICT (object_id) DO NOTHING;
 INSERT INTO ple_private.question_revision_source_binding (
 	question_id, revision_number, backend, question_format, source_object_id,
 	source_object_checksum, created_at
@@ -348,6 +474,40 @@ INSERT INTO ple_data.question_revision_availability_event (
 ) VALUES
 	{availability_events}
 ON CONFLICT (question_id, revision_number, availability) DO NOTHING;
+INSERT INTO ple_private.job (
+	job_id, job_kind, job_target_kind, question_id, revision_number, generation,
+	payload, state, available_at, max_attempts, created_at
+) VALUES (
+	'{asset.job_id}', 'publish_public_assets', 'public_asset_publication',
+	'{asset.question_id}', {asset.revision_number}, 1, '{{}}'::jsonb, 'ready',
+	'{SEED_TIMESTAMP}', 1, '{SEED_TIMESTAMP}'
+)
+ON CONFLICT (job_id) DO NOTHING;
+INSERT INTO ple_data.object_delivery (
+	delivery_id, object_id, sha256, media_type, byte_length, delivery_state, registered_at
+) VALUES (
+	'{asset.delivery_id}', '{asset.public_object_id}', decode('{asset.checksum}', 'hex'),
+	'{PNG_MEDIA_TYPE}', {len(question_asset_bytes(repo_root))}, 'pending', '{SEED_TIMESTAMP}'
+)
+ON CONFLICT (delivery_id) DO NOTHING;
+INSERT INTO ple_data.question_asset_delivery (
+	delivery_id, object_id, question_id, revision_number, asset_id
+) VALUES (
+	'{asset.delivery_id}', '{asset.public_object_id}', '{asset.question_id}',
+	{asset.revision_number}, '{asset.asset_id}'
+)
+ON CONFLICT (delivery_id) DO NOTHING;
+INSERT INTO ple_private.question_asset_publication (
+	question_id, revision_number, asset_id, source_object_id, source_object_checksum,
+	public_object_id, public_object_checksum, public_byte_length, verified_media_type,
+	intrinsic_width, intrinsic_height, delivery_id, job_id, publication_state
+) VALUES (
+	'{asset.question_id}', {asset.revision_number}, '{asset.asset_id}', '{asset.private_object_id}',
+	decode('{asset.checksum}', 'hex'), '{asset.public_object_id}', decode('{asset.checksum}', 'hex'),
+	{len(question_asset_bytes(repo_root))}, '{PNG_MEDIA_TYPE}', {asset.width}, {asset.height},
+	'{asset.delivery_id}', '{asset.job_id}', 'pending'
+)
+ON CONFLICT (question_id, revision_number, asset_id) DO NOTHING;
 DO $$
 BEGIN
 	IF EXISTS (
@@ -382,6 +542,32 @@ BEGIN
 		RAISE EXCEPTION USING ERRCODE = '23514',
 			MESSAGE = 'seeded Live Demo Question configuration is incompatible';
 	END IF;
+	IF NOT EXISTS (
+		SELECT 1
+		  FROM ple_private.question_asset_publication AS publication
+		  JOIN ple_private.object_record AS source_record
+		    ON source_record.object_id = publication.source_object_id
+		  JOIN ple_data.object_delivery AS delivery
+		    ON delivery.delivery_id = publication.delivery_id
+		  JOIN ple_data.question_asset_delivery AS asset_delivery
+		    ON asset_delivery.delivery_id = publication.delivery_id
+		  JOIN ple_private.job AS job ON job.job_id = publication.job_id
+		 WHERE publication.question_id = '{asset.question_id}'
+		   AND publication.revision_number = {asset.revision_number}
+		   AND publication.asset_id = '{asset.asset_id}'::uuid
+		   AND publication.source_object_id = '{asset.private_object_id}'::uuid
+		   AND publication.public_object_id = '{asset.public_object_id}'::uuid
+		   AND publication.publication_state = 'pending'
+		   AND source_record.sha256 = decode('{asset.checksum}', 'hex')
+		   AND delivery.delivery_state = 'pending'
+		   AND asset_delivery.asset_id = '{asset.asset_id}'::uuid
+		   AND job.job_kind = 'publish_public_assets'
+		   AND job.job_target_kind = 'public_asset_publication'
+		   AND job.state IN ('ready', 'leased', 'completed')
+	) THEN
+		RAISE EXCEPTION USING ERRCODE = '23514',
+			MESSAGE = 'seeded Live Demo Question Asset publication configuration is incompatible';
+	END IF;
 END
 $$;
 COMMIT;
@@ -392,6 +578,8 @@ COMMIT;
 #============================================
 def inventory_sql(repo_root: pathlib.Path) -> str:
 	"""Return the one answer-free inventory projection allowed to the M4 runner."""
+	require_question_asset_baseline(repo_root)
+	asset = SEEDED_QUESTION_ASSET_PUBLICATION
 	expected_accounts = ",\n\t".join(
 		f"('{account.account_id}', '{account.product_role}')"
 		for account in SEEDED_ACCOUNTS
@@ -448,6 +636,29 @@ SELECT
 	   FROM expected_questions
 	   JOIN ple_private.object_record AS object_record
 	     ON object_record.object_id = expected_questions.source_object_id::uuid
-	    AND encode(object_record.sha256, 'hex') = expected_questions.source_checksum);
+	    AND encode(object_record.sha256, 'hex') = expected_questions.source_checksum),
+	(SELECT count(*)
+	   FROM ple_private.object_record
+	  WHERE object_id = '{asset.private_object_id}'::uuid
+	    AND object_storage_area = 'private-content'
+	    AND object_data_class = 'question-asset'
+	    AND sha256 = decode('{asset.checksum}', 'hex')),
+	(SELECT count(*)
+	   FROM ple_data.object_delivery
+	  WHERE delivery_id = '{asset.delivery_id}'::uuid
+	    AND object_id = '{asset.public_object_id}'::uuid
+	    AND delivery_state = 'pending'),
+	(SELECT count(*)
+	   FROM ple_private.job
+	  WHERE job_id = '{asset.job_id}'::uuid
+	    AND job_kind = 'publish_public_assets'
+	    AND job_target_kind = 'public_asset_publication'
+	    AND state IN ('ready', 'leased', 'completed')),
+	(SELECT count(*)
+	   FROM ple_private.question_asset_publication
+	  WHERE question_id = '{asset.question_id}'
+	    AND revision_number = {asset.revision_number}
+	    AND asset_id = '{asset.asset_id}'::uuid
+	    AND publication_state IN ('pending', 'ready'));
 """
 	return sql

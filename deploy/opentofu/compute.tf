@@ -102,7 +102,7 @@ resource "aws_iam_role_policy" "publisher_storage" {
   name = "immutable-publication-only"
   role = aws_iam_role.publisher.id
   policy = jsonencode({ Version = "2012-10-17", Statement = [
-    { Effect = "Allow", Action = ["s3:GetObject"], Resource = ["${aws_s3_bucket.object["private_content"].arn}/workspaces/*/*/imports/*/assets/*", "${aws_s3_bucket.object["private_content"].arn}/workspaces/*/*/questions/assets/*", "${aws_s3_bucket.object["public_assets"].arn}/questions/*/versions/*/assets/*"] },
+    { Effect = "Allow", Action = ["s3:GetObject"], Resource = ["${aws_s3_bucket.object["private_content"].arn}/questions/*/versions/*/restricted-assets/*", "${aws_s3_bucket.object["public_assets"].arn}/questions/*/versions/*/assets/*"] },
     { Effect = "Allow", Action = ["s3:GetObjectTagging"], Resource = "${aws_s3_bucket.object["public_assets"].arn}/questions/*/versions/*/assets/*" },
     { Effect = "Allow", Action = ["s3:PutObject", "s3:PutObjectTagging", "s3:AbortMultipartUpload"], Resource = "${aws_s3_bucket.object["public_assets"].arn}/questions/*/versions/*/assets/*", Condition = { StringEquals = { "s3:RequestObjectTag/ple-published-immutable" = "true" } } },
     { Effect = "Allow", Action = ["kms:Decrypt"], Resource = aws_kms_key.object["private_content"].arn },

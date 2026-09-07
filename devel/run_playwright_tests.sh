@@ -1,112 +1,44 @@
 #!/usr/bin/env bash
-# devel/run_playwright_tests.sh - run the Playwright browser test suite.
-#
-# Contract:
-#   - Requires node and npm on PATH.
-#   - Requires node_modules/ to be installed (npm install).
-#   - Requires playwright.config.ts at the repo root.
-#   - Assumption: playwright.config.ts owns the test server via its webServer
-#     block. This script does NOT start run_web_server.sh; Playwright spins up
-#     its own dev/preview server as configured in playwright.config.ts.
-#   - If dist/index.html or dist/main.js is missing, the webServer block will
-#     likely fail. Pass --build (or let the auto-check trigger) to rebuild first.
-#   - Pass --build to force a rebuild even when dist/ is already present.
-#   - Remaining arguments are forwarded to 'npx playwright test'.
-#   - Exits with playwright's exit code.
-#   - Prints a clear PASS or FAIL line on completion.
-#
-# Flags:
-#   -h, --help    Print usage and exit 0.
-#   --build       Force rebuild of dist/ before running tests.
-#
-# Examples:
-#   ./devel/run_playwright_tests.sh
-#   ./devel/run_playwright_tests.sh --build
-#   ./devel/run_playwright_tests.sh tests/playwright/smoke.spec.ts
+# Run the serial controller-managed production-browser owner.
 
 set -euo pipefail
 
-# Usage
 usage() {
 	cat <<'USAGE'
-Usage: ./devel/run_playwright_tests.sh [-h|--help] [--build] [PLAYWRIGHT_ARGS...]
+Usage: ./devel/run_playwright_tests.sh [--build] [--grep recovery]
 
-  -h, --help    Print this help and exit 0.
-  --build       Force a dist/ rebuild before running tests.
-
-Any remaining arguments are forwarded to 'npx playwright test'.
+Runs real HTTPS browser scenarios through the fixed local-stack controller.
+Only the declared recovery selector is accepted.
 USAGE
 }
 
-# Parse script-level flags; collect the rest for playwright.
-FORCE_BUILD=0
-PLAYWRIGHT_ARGS=()
-
+build=false
+recovery=false
 while [ "$#" -gt 0 ]; do
 	case "$1" in
-		-h|--help)
-			usage
-			exit 0
-			;;
-		--build)
-			FORCE_BUILD=1
+		-h|--help) usage; exit 0 ;;
+		--build) build=true ;;
+		--grep)
 			shift
+			[ "${1:-}" = "recovery" ] || { usage >&2; exit 2; }
+			recovery=true
 			;;
-		*)
-			PLAYWRIGHT_ARGS+=("$1")
-			shift
-			;;
+		*) usage >&2; exit 2 ;;
 	esac
+	shift
 done
 
-cd "$(git rev-parse --show-toplevel)"
+repository_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+cd "$repository_root"
+[ -d node_modules ] || { echo "ERROR: node_modules/ missing. Run npm install first." >&2; exit 1; }
 
-# Preflight: ensure required tools and project state are present.
-if ! command -v node >/dev/null 2>&1; then
-	echo "ERROR: node not found on PATH. Install Node.js first." >&2
-	exit 1
+if [ "$build" = true ]; then
+	echo "==> rebuilding the production browser bundle"
+	npm run build
 fi
 
-if ! command -v npm >/dev/null 2>&1; then
-	echo "ERROR: npm not found on PATH. Install Node.js first." >&2
-	exit 1
-fi
-
-if [ ! -d node_modules ]; then
-	echo "ERROR: node_modules/ missing. Run 'npm install' first." >&2
-	exit 1
-fi
-
-if [ ! -f playwright.config.ts ]; then
-	echo "ERROR: playwright.config.ts not found at repo root." >&2
-	echo "  Is this the right repo? Expected: $(pwd)/playwright.config.ts" >&2
-	exit 1
-fi
-
-# Build gate: rebuild dist/ when forced or when expected outputs are missing.
-if [ "$FORCE_BUILD" -eq 1 ]; then
-	echo "==> --build flag set: rebuilding dist/..."
-	bash build_github_pages.sh
-elif [ ! -f dist/index.html ] || [ ! -f dist/main.js ]; then
-	echo "==> dist/index.html or dist/main.js missing: running build_github_pages.sh..."
-	bash build_github_pages.sh
-fi
-
-# Run Playwright; capture exit code so we can print the summary line.
-# ${arr[@]+...} expands to nothing when the array is empty under set -u (bash 3.2 safe).
-# [*] on the echo joins args into one display string; [@] on the run line preserves word splitting.
-echo "==> npx playwright test ${PLAYWRIGHT_ARGS[*]+"${PLAYWRIGHT_ARGS[*]}"}"
-PW_EXIT=0
-set +e  # allow playwright to exit non-zero; captured in PW_EXIT below
-npx playwright test ${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}
-PW_EXIT=$?
-set -e  # re-enable exit-on-error
-
-# Summary line.
-if [ "$PW_EXIT" -eq 0 ]; then
-	echo "PASS: playwright tests passed."
-else
-	echo "FAIL: playwright tests failed (exit code $PW_EXIT)."
-fi
-
-exit "$PW_EXIT"
+# shellcheck disable=SC1091
+source source_me.sh
+arguments=()
+if [ "$recovery" = true ]; then arguments+=(--recovery); fi
+exec python3 tests/e2e/e2e_live_demo_production_browser.py ${arguments[@]+"${arguments[@]}"}

@@ -15,9 +15,18 @@ API_LOGIN = "ple_api_login"
 API_ROLES = ("ple_app", "ple_auth")
 WORKER_LOGIN = "ple_worker_login"
 WORKER_ROLES = ("ple_imathas_question_backend_grading_worker",)
+NATIVE_PLE_WORKER_LOGIN = "ple_native_ple_worker_login"
+NATIVE_PLE_WORKER_ROLES = ("ple_native_ple_grading_worker",)
+WEBWORK_WORKER_LOGIN = "ple_webwork_worker_login"
+WEBWORK_WORKER_ROLES = ("ple_webwork_grading_worker",)
+PUBLISHER_LOGIN = "ple_publisher_login"
+PUBLISHER_ROLES = ("ple_public_asset_publisher",)
 LOGIN_PROFILES = (
 	(API_LOGIN, API_ROLES, "PLE_API_DATABASE_URL"),
 	(WORKER_LOGIN, WORKER_ROLES, "PLE_WORKER_DATABASE_URL"),
+	(NATIVE_PLE_WORKER_LOGIN, NATIVE_PLE_WORKER_ROLES, "PLE_NATIVE_PLE_WORKER_DATABASE_URL"),
+	(WEBWORK_WORKER_LOGIN, WEBWORK_WORKER_ROLES, "PLE_WEBWORK_WORKER_DATABASE_URL"),
+	(PUBLISHER_LOGIN, PUBLISHER_ROLES, "PLE_PUBLISHER_DATABASE_URL"),
 )
 
 

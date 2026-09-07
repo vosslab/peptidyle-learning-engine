@@ -11,7 +11,7 @@ export interface BrowserScenarioInputV1 {
   readonly baselineReads: readonly string[];
   readonly visibleObservation: string;
   readonly serviceReceipt?: string;
-  readonly faultTransition?: "gateway_submit_outage" | "deterministic_grader_exception";
+  readonly faultTransition?: "native_ple_submission_recovery" | "deterministic_grader_exception";
 }
 type Value = Record<string, unknown>;
 const ID = /^[a-z][a-z0-9_]{0,95}$/u;
@@ -95,7 +95,7 @@ function parse(contents: string): BrowserScenarioInputV1 {
     (input.serviceReceipt !== undefined &&
       (typeof input.serviceReceipt !== "string" || !SERVICE_RECEIPTS.has(input.serviceReceipt))) ||
     (input.faultTransition !== undefined &&
-      input.faultTransition !== "gateway_submit_outage" &&
+      input.faultTransition !== "native_ple_submission_recovery" &&
       input.faultTransition !== "deterministic_grader_exception")
   )
     throw new Error("browser-suite input has an invalid shape");

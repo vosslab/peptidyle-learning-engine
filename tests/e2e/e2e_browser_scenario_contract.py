@@ -42,7 +42,7 @@ RESOURCE_KINDS = frozenset(
 )
 SEED_STATE_TRANSITIONS = frozenset()
 SERVICE_RECEIPTS = frozenset({"renderer_delivery"})
-FAULT_TRANSITIONS = frozenset({"gateway_submit_outage"})
+FAULT_TRANSITIONS = frozenset({"native_ple_submission_recovery"})
 REQUIRED_BASELINE_AUTHORIZATION_SCENARIOS = {
 	"auth_authorization": (
 		"tests/playwright/e2e/auth_authorization.spec.ts",

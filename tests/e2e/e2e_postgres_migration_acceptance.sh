@@ -167,9 +167,19 @@ printf '%s\n' "$second_apply"
 printf '%s\n' "$second_apply" | grep -Eiq 'no.?op|already applied|complete' || fail "second PostgreSQL Migration did not report a no-op-compatible result"
 run_postgres_migration_acceptance_tool migration-acceptance-verify
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/question_records.sql"
+echo "PostgreSQL Migration Acceptance Runtime E2E: Question Asset publication catalog and stale-lease oracle"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/question_asset_publication_catalog.sql"
+echo "PostgreSQL Migration Acceptance Runtime E2E: Question Asset publication catalog and stale-lease oracle PASS"
+if [ "${QUESTION_ASSET_PUBLICATION_ORACLE_ONLY:-0}" = "1" ]; then
+	echo "PostgreSQL Migration Acceptance Runtime E2E: Question Asset publication-only PASS"
+	exit 0
+fi
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/question_publication_operation.sql"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/question_publication_credit_catalog.sql"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/assignment_revision_entry_snapshot_catalog.sql"
+echo "PostgreSQL Migration Acceptance Runtime E2E: Question Asset delivery authorization oracle"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/question_asset_delivery_oracle.sql"
+echo "PostgreSQL Migration Acceptance Runtime E2E: Question Asset delivery authorization oracle PASS"
 echo "PostgreSQL Migration Acceptance Runtime E2E: exact principal, schema, ACL, and membership catalog"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/postgres_migration_acceptance_catalog.sql"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/assignment_question_analysis_job_catalog.sql"

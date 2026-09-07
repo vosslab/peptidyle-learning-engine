@@ -68,6 +68,12 @@ import type { LiveDemoClient } from "./live_demo";
 import type { BlueprintCourseClient } from "./blueprint_course";
 import type { CourseInstanceClient } from "./course_instance";
 import type { LiveCourseRosterClient } from "./course_roster";
+import type { LiveInvitationExportClient } from "./invitation_export";
+import type { LiveAssignmentReleaseClient } from "./assignment_release";
+import type { LiveAssignmentAttemptIssuanceClient } from "./assignment_attempt_issuance";
+import type { InstructorAccountClient } from "./instructor_account";
+import type { SupportCapabilityClient } from "./support_roster";
+import type { LiveDemoGradebookClient } from "./live_gradebook";
 import type { BlueprintOperationsClient } from "./blueprint_operations";
 import type {
   GradingOperationActionReceipt,
@@ -143,6 +149,12 @@ export interface ApiClient
     BlueprintCourseClient,
     CourseInstanceClient,
     LiveCourseRosterClient,
+    LiveInvitationExportClient,
+    LiveAssignmentReleaseClient,
+    LiveAssignmentAttemptIssuanceClient,
+    InstructorAccountClient,
+    SupportCapabilityClient,
+    LiveDemoGradebookClient,
     BlueprintOperationsClient,
     GradingOperationsClient,
     CalculatedGradebookClient {

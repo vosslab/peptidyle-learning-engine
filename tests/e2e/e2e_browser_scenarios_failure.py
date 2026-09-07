@@ -4,15 +4,15 @@ from e2e_browser_scenario_contract import ScenarioContract
 
 
 def contracts() -> tuple[ScenarioContract, ...]:
-	"""Return the lifecycle-controlled gateway recovery journey."""
+	"""Return the lifecycle-controlled native PLE recovery journey."""
 	return (
 		ScenarioContract(
-			scenario_id="learner_gateway_recovery",
-			spec_path="tests/playwright/e2e/learner_gateway_recovery.spec.ts",
+			scenario_id="learner_native_ple_recovery",
+			spec_path="tests/playwright/e2e/learner_native_ple_recovery.spec.ts",
 			personas=("elena_instructor", "mary_student"),
 			baseline_reads=("base_course",),
 			ui_creates=("question", "course", "assignment", "invitation", "response"),
-			visible_observation="saved_response_retries_after_gateway_recovery",
-			fault_transition="gateway_submit_outage",
+			visible_observation="accepted_response_recovers_after_native_ple_worker_interruption",
+			fault_transition="native_ple_submission_recovery",
 		),
 	)

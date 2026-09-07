@@ -1,6 +1,6 @@
 // common.tsx - shared browser-safe response-controller contracts and controls.
 
-import { createSignal, type JSX } from "solid-js";
+import { createContext, createSignal, useContext, type JSX } from "solid-js";
 
 import type { QuestionContentBlock } from "../../../generated/api/QuestionContentBlock";
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
@@ -17,6 +17,24 @@ import type { SubmissionOutcome } from "../../features/question_attempt/question
 import type { ResponseFormatValidator } from "../../wasm/index";
 
 export type ResponseFormat = QuestionResponseFormat | QuestionPresentationResponseFormat;
+/**
+ * M12 uses the same native controls as M13, but does not expose a submission
+ * boundary before Question Submission exists.  Keep that distinction at the
+ * shared controller boundary so each response-format component stays native.
+ */
+export type ResponseControlMode = "submission" | "formatOnly";
+const ResponseControlModeContext = createContext<ResponseControlMode>("submission");
+
+export function ResponseControlModeProvider(props: {
+  readonly mode: ResponseControlMode;
+  readonly children: JSX.Element;
+}): JSX.Element {
+  return (
+    <ResponseControlModeContext.Provider value={props.mode}>
+      {props.children}
+    </ResponseControlModeContext.Provider>
+  );
+}
 export type MultipleChoiceResponseFormat =
   | Extract<QuestionResponseFormat, { kind: "multipleChoice" }>
   | Extract<QuestionPresentationResponseFormat, { kind: "singleChoice" | "multipleAnswer" }>;
@@ -51,9 +69,11 @@ export interface StudentWorkRouteScope {
 
 export interface QuestionResponseControlBaseProps {
   readonly attemptId: string;
+  /** M12 format-only controls have no Student Response submission capability. */
+  readonly mode?: ResponseControlMode;
   /** Question Response Controls require only the key-free local format validation capability. */
   readonly validator: { readonly validateResponseFormat: ResponseFormatValidator };
-  readonly onSubmit: (response: StudentResponse) => Promise<SubmissionOutcome>;
+  readonly onSubmit?: (response: StudentResponse) => Promise<SubmissionOutcome>;
   readonly onEscape: () => void;
   readonly onResponseChange?: (
     response: StudentResponse,
@@ -183,6 +203,27 @@ function phaseMessage(phase: QuestionResponseControlPhase): string {
   }
 }
 
+function formatOnlyPhaseMessage(phase: QuestionResponseControlPhase): string {
+  switch (phase.kind) {
+    case "idle":
+      return "Complete the response. Its format is checked locally.";
+    case "validating":
+      return "Checking response format...";
+    case "ready":
+    case "restored":
+      return "Response format is ready.";
+    case "invalid":
+    case "failed":
+      return phase.message;
+    // Format-only controls never enter submission states, but preserve a safe
+    // status if a future caller supplies one.
+    case "submitting":
+    case "recoveryPending":
+    case "submitted":
+      return "Response format is ready.";
+  }
+}
+
 /** Key-free validation state machine. Validation never invokes server grading. */
 export function createSubmissionController(
   props: QuestionResponseControlProps,
@@ -220,6 +261,7 @@ export function createSubmissionController(
   }
 
   async function submit(response: StudentResponse): Promise<void> {
+    if (props.mode === "formatOnly") return;
     if (
       phase().kind === "submitting" ||
       phase().kind === "recoveryPending" ||
@@ -235,6 +277,10 @@ export function createSubmissionController(
     const request = submissionRequest;
     setPhase({ kind: "submitting" });
     try {
+      if (props.onSubmit === undefined) {
+        setPhase({ kind: "failed", message: "Response submission is unavailable." });
+        return;
+      }
       const outcome = await props.onSubmit(response);
       if (request !== submissionRequest) return;
       switch (outcome.kind) {
@@ -299,7 +345,9 @@ export function createSubmissionController(
       phase().kind === "submitting" ||
       phase().kind === "recoveryPending" ||
       phase().kind === "submitted",
-    canSubmit: () => phase().kind === "ready" || phase().kind === "restored",
+    canSubmit: () =>
+      props.mode !== "formatOnly" &&
+      (phase().kind === "ready" || phase().kind === "restored"),
     canReset: () =>
       phase().kind !== "submitting" &&
       phase().kind !== "recoveryPending" &&
@@ -314,6 +362,7 @@ export function Status(props: {
   readonly attemptId: string;
   readonly controller: SubmissionController;
 }): JSX.Element {
+  const mode = useContext(ResponseControlModeContext);
   return (
     <p
       id={`${props.attemptId}-format-status`}
@@ -329,7 +378,9 @@ export function Status(props: {
       aria-label="Response format"
       aria-live="polite"
     >
-      {phaseMessage(props.controller.phase())}
+      {mode === "formatOnly"
+        ? formatOnlyPhaseMessage(props.controller.phase())
+        : phaseMessage(props.controller.phase())}
     </p>
   );
 }
@@ -342,16 +393,19 @@ export function Actions(props: {
   readonly resetLabel?: "Clear response" | "Reset order";
   readonly onEscape: () => void;
 }): JSX.Element {
+  const mode = useContext(ResponseControlModeContext);
   return (
     <div class="response-actions">
-      <button
-        class="primary-action"
-        type="button"
-        disabled={props.disabled}
-        onClick={props.onSubmit}
-      >
-        Submit answer
-      </button>
+      {mode === "submission" ? (
+        <button
+          class="primary-action"
+          type="button"
+          disabled={props.disabled}
+          onClick={props.onSubmit}
+        >
+          Submit answer
+        </button>
+      ) : null}
       {props.onReset === undefined ? null : (
         <button
           class="quiet-action"

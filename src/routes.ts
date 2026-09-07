@@ -21,18 +21,18 @@ import { AssignmentAttemptPage } from "./pages/assignment_attempt_page";
 import { CourseRosterPage } from "./pages/course_roster_page";
 import { SignInPage } from "./pages/sign_in_page";
 import { AccountPendingInvitationsPage } from "./pages/account_pending_invitations_page";
+import { StudentCourseInvitationPage } from "./pages/student_course_invitation_page";
 import { TeachingOperationsPage } from "./pages/teaching_operations_page";
 import { LiveDemoShowcasePage } from "./pages/live_demo_showcase_page";
+import { InstructorAccountsPage } from "./pages/instructor_accounts_page";
+import { SupportRosterPage } from "./pages/support_roster_page";
 import { LIVE_DEMO_RIBBON_SHOWCASE_PATH } from "./live_demo_routes";
 import { AssignmentPreviewPage } from "./pages/assignment_preview_page";
+import { AssignmentReleasePage } from "./pages/assignment_release_page";
 import {
   BlueprintCourseDetailLivePage,
   BlueprintCoursesLivePage,
 } from "./pages/blueprint_course_live_pages";
-// prettier-ignore
-import {
-  AssignmentWorkspaceCreatePage,
-} from "./pages/assignment_workspace/assignment_workspace_create_page";
 // prettier-ignore
 import {
   AssignmentWorkspaceLivePage,
@@ -44,6 +44,9 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   courses: CourseListPage,
   signIn: SignInPage,
   pendingCourseInvitations: AccountPendingInvitationsPage,
+  studentCourseInvitation: StudentCourseInvitationPage,
+  instructorAccounts: InstructorAccountsPage,
+  supportRoster: SupportRosterPage,
   courseAssignments: CourseInstancePage,
   assignmentOverview: AssignmentOverviewPage,
   assignmentAttempt: AssignmentAttemptPage,
@@ -54,7 +57,8 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   questionDraftEditor: QuestionDraftEditorPage,
   blueprintCourses: BlueprintCoursesLivePage,
   blueprintCourseDetail: BlueprintCourseDetailLivePage,
-  assignmentCreate: AssignmentWorkspaceCreatePage,
+  assignmentCreate: AssignmentReleasePage,
+  assignmentReleaseWorkspace: AssignmentReleasePage,
   assignmentWorkspaceOverview: () =>
     createComponent(AssignmentWorkspaceLivePage, { section: "overview" }),
   assignmentWorkspaceQuestions: () =>

@@ -26,8 +26,8 @@ def request(tmp_path: pathlib.Path) -> fault_orchestrator.FaultScenarioRequest:
 		tmp_path,
 		tmp_path,
 		tmp_path / "disposable.manifest",
-		"learner_gateway_recovery",
-		"bs1-0123456789ab-learner_gateway_recovery",
+		"learner_native_ple_recovery",
+		"bs1-0123456789ab-learner_native_ple_recovery",
 		["npx", "playwright", "test"],
 		{},
 	)
@@ -56,7 +56,7 @@ def test_marker_rejects_unsafe_files(
 	directory = tmp_path / "handshake"
 	directory.mkdir(mode=0o700)
 	token = "a" * 43
-	path = directory / "fault-response_selected.json"
+	path = directory / "fault-submission_accepted.json"
 	if kind == "missing":
 		pass
 	elif kind == "symlink":
@@ -69,13 +69,13 @@ def test_marker_rejects_unsafe_files(
 		path.write_text("x" * 1_025, encoding="ascii")
 		path.chmod(0o600)
 	else:
-		private_marker(directory, selected, "response_selected", token)
+		private_marker(directory, selected, "submission_accepted", token)
 		if kind == "wrong_mode":
 			path.chmod(0o644)
 		if kind == "wrong_owner":
 			monkeypatch.setattr(os, "getuid", lambda: path.stat().st_uid + 1)
 	with pytest.raises(fault_orchestrator.FaultProtocolError):
-		fault_orchestrator._require_marker(directory, selected, "response_selected", token)
+		fault_orchestrator._require_marker(directory, selected, "submission_accepted", token)
 
 
 def test_marker_rejects_identity_canonical_and_order_violations(tmp_path: pathlib.Path) -> None:
@@ -84,27 +84,27 @@ def test_marker_rejects_identity_canonical_and_order_violations(tmp_path: pathli
 	directory = tmp_path / "handshake"
 	directory.mkdir(mode=0o700)
 	token = "b" * 43
-	path = private_marker(directory, selected, "response_selected", token)
-	other = dataclasses.replace(selected, namespace="bs1-abcdefabcdef-learner_gateway_recovery")
+	path = private_marker(directory, selected, "submission_accepted", token)
+	other = dataclasses.replace(selected, namespace="bs1-abcdefabcdef-learner_native_ple_recovery")
 	with pytest.raises(fault_orchestrator.FaultProtocolError, match="identity"):
-		fault_orchestrator._require_marker(directory, other, "response_selected", token)
-	path.write_text('{"namespace":"bs1-0123456789ab-learner_gateway_recovery"}', encoding="ascii")
+		fault_orchestrator._require_marker(directory, other, "submission_accepted", token)
+	path.write_text('{"namespace":"bs1-0123456789ab-learner_native_ple_recovery"}', encoding="ascii")
 	path.chmod(0o600)
 	with pytest.raises(fault_orchestrator.FaultProtocolError, match="identity"):
-		fault_orchestrator._require_marker(directory, selected, "response_selected", token)
+		fault_orchestrator._require_marker(directory, selected, "submission_accepted", token)
 	path.unlink()
-	private_marker(directory, selected, "response_selected", token)
+	private_marker(directory, selected, "submission_accepted", token)
 	(path.parent / "fault-completed.json").write_text("{}", encoding="ascii")
 	with pytest.raises(fault_orchestrator.FaultProtocolError, match="order"):
-		fault_orchestrator._require_marker_order(directory, ("response_selected",))
+		fault_orchestrator._require_marker_order(directory, ("submission_accepted",))
 
 
 @pytest.mark.parametrize(
 	"message, expected",
 	(
 		(b"not-json\n", "malformed"),
-		(b'{"phase":"response_selected","token":"wrong"}\n', "identity"),
-		(b'{"phase":"response_selected","token":"c"}\nextra', "trailing"),
+		(b'{"phase":"submission_accepted","token":"wrong"}\n', "identity"),
+		(b'{"phase":"submission_accepted","token":"c"}\nextra', "trailing"),
 		(b"x" * 257, "too large"),
 	),
 )
@@ -114,7 +114,7 @@ def test_socket_rejects_noncanonical_notifications(message: bytes, expected: str
 	try:
 		child.sendall(message)
 		with pytest.raises(fault_orchestrator.FaultProtocolError, match=expected):
-			fault_orchestrator._receive(owner, "response_selected", "c")
+			fault_orchestrator._receive(owner, "submission_accepted", "c")
 	finally:
 		owner.close()
 		child.close()
@@ -124,8 +124,8 @@ def test_socket_accepts_one_authenticated_canonical_notification() -> None:
 	"""The private socket accepts its exact closed notification shape."""
 	owner, child = socket.socketpair()
 	try:
-		fault_orchestrator._send(child, "response_selected", "d")
-		fault_orchestrator._receive(owner, "response_selected", "d")
+		fault_orchestrator._send(child, "submission_accepted", "d")
+		fault_orchestrator._receive(owner, "submission_accepted", "d")
 	finally:
 		owner.close()
 		child.close()
@@ -147,7 +147,7 @@ def test_authentication_rejects_stale_or_noncanonical_identity(
 			"version": 1,
 		}
 		if field == "namespace":
-			value["namespace"] = "bs1-abcdefabcdef-learner_gateway_recovery"
+			value["namespace"] = "bs1-abcdefabcdef-learner_native_ple_recovery"
 		elif field == "scenarioId":
 			value["scenarioId"] = "other_scenario"
 		elif field == "token":
@@ -155,7 +155,7 @@ def test_authentication_rejects_stale_or_noncanonical_identity(
 		elif field == "version":
 			value["version"] = 2
 		if field == "noncanonical":
-			child.sendall(b'{"version":1,"token":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","scenarioId":"learner_gateway_recovery","namespace":"bs1-0123456789ab-learner_gateway_recovery","kind":"hello"}\n')
+			child.sendall(b'{"version":1,"token":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","scenarioId":"learner_native_ple_recovery","namespace":"bs1-0123456789ab-learner_native_ple_recovery","kind":"hello"}\n')
 		else:
 			child.sendall(fault_orchestrator._canonical(value).encode("ascii") + b"\n")
 		with pytest.raises(fault_orchestrator.FaultProtocolError, match="identity"):
@@ -238,4 +238,3 @@ def test_reap_terminates_descendants_when_their_leader_has_already_exited(
 	)
 	assert e2e_browser_suite_children.reap(child, 0.01) == 0
 	assert signals == [signal.SIGTERM]
-
