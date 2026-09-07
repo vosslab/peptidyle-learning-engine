@@ -184,7 +184,7 @@ prove_api() {
 prove_browser() {
 	local port
 	port="$(gateway_port)"
-	node tests/e2e/e2e_live_demo_question_library_browser.mjs "$port"
+	node tests/playwright/e2e_live_demo_question_library_browser.mjs "$port"
 	echo "Question Library browser: navigation, search, and detail complete"
 }
 

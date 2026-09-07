@@ -1,17 +1,16 @@
 // M11 Student Assignment Access and initial issued presentation.
 
-import { createAsync, useParams } from "@solidjs/router";
+import { A, createAsync, useParams } from "@solidjs/router";
 import { createSignal, For, Match, Show, Switch, type JSX } from "solid-js";
 
 import type { LiveAssignmentAttempt } from "../api/assignment_attempt_issuance";
 import { useApplicationApi } from "../api/application_api";
 import { QuestionPresentationRenderer } from "../components/question_renderer";
 import { QuestionPresentationResponseControl } from "../components/question_response_controls/question_response_control";
-import {
-  parseAssignmentReference,
-  parseCourseInstanceReference,
-} from "../navigation/public_route";
+import { parseAssignmentReference, parseCourseInstanceReference } from "../navigation/public_route";
 import { useWasmFacade } from "../wasm/context";
+import type { SubmissionOutcome } from "../features/question_attempt/question_attempt_state";
+import type { StudentResponse } from "../../generated/api/StudentResponse";
 
 function startDecisionMessage(decision: string): string {
   switch (decision) {
@@ -30,6 +29,10 @@ function startDecisionMessage(decision: string): string {
   }
 }
 
+function presentationNonce(value: string | undefined): string | null {
+  return value !== undefined && /^[0-9a-f]{32}$/u.test(value) ? value : null;
+}
+
 /** M11 uses only public C-/A- references and keeps the response boundary for M12. */
 export function AssignmentOverviewPage(): JSX.Element {
   const runtime = useApplicationApi();
@@ -40,6 +43,8 @@ export function AssignmentOverviewPage(): JSX.Element {
   const [startError, setStartError] = createSignal<string>();
   const course = () => parseCourseInstanceReference(params["courseRef"] ?? "");
   const assignment = () => parseAssignmentReference(params["assignmentRef"] ?? "");
+  const selectedPresentationNonce = () => presentationNonce(params["presentationNonce"]);
+  const isSubmissionScreen = () => selectedPresentationNonce() !== null;
   const access = createAsync(() => {
     const courseReference = course();
     const assignmentReference = assignment();
@@ -54,11 +59,45 @@ export function AssignmentOverviewPage(): JSX.Element {
     setStarting(true);
     setStartError(undefined);
     try {
-      setIssued(await runtime.client.startLiveAssignment(courseReference, assignmentReference));
+      const attempt = await runtime.client.startLiveAssignment(
+        courseReference,
+        assignmentReference,
+      );
+      const selected = selectedPresentationNonce();
+      if (
+        selected !== null &&
+        !attempt.questions.some((question) => question.presentationNonce === selected)
+      ) {
+        setStartError("This response screen is unavailable.");
+        return;
+      }
+      setIssued(attempt);
     } catch (_error: unknown) {
       setStartError("Assignment could not be started. Please try again.");
     } finally {
       setStarting(false);
+    }
+  }
+
+  async function submitResponse(
+    presentationNonce: string,
+    response: StudentResponse,
+  ): Promise<SubmissionOutcome> {
+    const courseReference = course();
+    const assignmentReference = assignment();
+    if (courseReference === null || assignmentReference === null) {
+      return { kind: "rejected", message: "This Assignment is unavailable." };
+    }
+    try {
+      await runtime.client.submitLiveNativePleResponse(
+        courseReference,
+        assignmentReference,
+        presentationNonce,
+        response,
+      );
+      return { kind: "accepted" };
+    } catch (_error: unknown) {
+      return { kind: "rejected", message: "Your response could not be submitted. Try again." };
     }
   }
 
@@ -69,7 +108,10 @@ export function AssignmentOverviewPage(): JSX.Element {
         fallback={
           <>
             <h1>Assignment</h1>
-            <Show when={access()} fallback={<p class="loading-state">Loading Assignment Access...</p>}>
+            <Show
+              when={access()}
+              fallback={<p class="loading-state">Loading Assignment Access...</p>}
+            >
               {(current) => (
                 <>
                   <p role="status">{startDecisionMessage(current().startDecision)}</p>
@@ -85,7 +127,9 @@ export function AssignmentOverviewPage(): JSX.Element {
                       </button>
                     </Match>
                     <Match when={true}>
-                      <p>Check with your Instructor if you expected this Assignment to be available.</p>
+                      <p>
+                        Check with your Instructor if you expected this Assignment to be available.
+                      </p>
                     </Match>
                   </Switch>
                   <Show when={startError()}>
@@ -117,26 +161,51 @@ export function AssignmentOverviewPage(): JSX.Element {
               </section>
             </Show>
             <section aria-labelledby="issued-questions-heading">
-              <h2 id="issued-questions-heading" tabindex="-1">Questions</h2>
-              <For each={current().questions}>
+              <h2 id="issued-questions-heading" tabindex="-1">
+                Questions
+              </h2>
+              <For
+                each={current().questions.filter(
+                  (question) =>
+                    selectedPresentationNonce() === null ||
+                    question.presentationNonce === selectedPresentationNonce(),
+                )}
+              >
                 {(question, index) => (
                   <article class="question-presentation">
-                    <h3>Question {index() + 1}: {question.questionTitle}</h3>
+                    <h3>
+                      Question {index() + 1}: {question.questionTitle}
+                    </h3>
                     <QuestionPresentationRenderer
                       presentation={question}
                       assetUrl={(asset) =>
-                        new URL(runtime.client.assetUrl(asset.questionAsset), window.location.origin)
+                        new URL(
+                          runtime.client.assetUrl(asset.questionAsset),
+                          window.location.origin,
+                        )
                       }
                     />
                     <QuestionPresentationResponseControl
                       attemptId={question.presentationNonce}
-                      mode="formatOnly"
+                      mode={isSubmissionScreen() ? "submission" : "formatOnly"}
                       responseFormat={question.response}
                       validator={validator}
-                      onEscape={() =>
-                        document.getElementById("issued-questions-heading")?.focus()
+                      onSubmit={
+                        isSubmissionScreen()
+                          ? (response) => submitResponse(question.presentationNonce, response)
+                          : undefined
                       }
+                      onEscape={() => document.getElementById("issued-questions-heading")?.focus()}
                     />
+                    <Show when={!isSubmissionScreen()}>
+                      <p>
+                        <A
+                          href={`/courses/${course() ?? ""}/assignments/${assignment() ?? ""}/presentations/${question.presentationNonce}`}
+                        >
+                          Answer this question
+                        </A>
+                      </p>
+                    </Show>
                   </article>
                 )}
               </For>

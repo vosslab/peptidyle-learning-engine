@@ -268,7 +268,7 @@ if (!rejected) throw new Error("strict response decoder accepted an in-memory ma
 
 prove_keyboard() {
 	create_and_issue_native_catalog
-	node tests/e2e/e2e_live_demo_native_controls_browser.mjs "$(gateway_port)" "$prepared_course" "$prepared_assignment"
+	node tests/playwright/e2e_live_demo_native_controls_browser.mjs "$(gateway_port)" "$prepared_course" "$prepared_assignment"
 	echo "Native response controls keyboard: eight native controls, including the fixed HOTSPOT asset, reach valid local states without submission"
 }
 

@@ -266,7 +266,7 @@ prove_service() {
 prove_browser() {
 	local port
 	port="$(gateway_port)"
-	node tests/e2e/e2e_live_demo_assignment_release_browser.mjs "$port"
+	node tests/playwright/e2e_live_demo_assignment_release_browser.mjs "$port"
 	echo "Assignment Release browser: visible Instructor authoring, preview, and release complete"
 }
 

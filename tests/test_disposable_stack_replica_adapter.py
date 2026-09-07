@@ -59,6 +59,11 @@ def fixed_replica_target(
 	seed_directory.mkdir(parents=True, exist_ok=True)
 	for question in local_stack_control.live_demo_seed.SEEDED_PUBLISHED_QUESTIONS:
 		(seed_directory / question.source_filename).write_bytes(b"{}")
+	asset = local_stack_control.live_demo_seed.SEEDED_QUESTION_ASSET_PUBLICATION
+	repository_asset = local_stack_control.live_demo_seed.question_asset_path(
+		pathlib.Path(__file__).parents[1]
+	)
+	(seed_directory / asset.filename).write_bytes(repository_asset.read_bytes())
 	environment = root / "env.local"
 	environment.write_text(
 		"POSTGRES_USER=ple_live_demo_browser\nPOSTGRES_DB=ple_live_demo_browser\n",

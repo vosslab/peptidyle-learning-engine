@@ -283,7 +283,7 @@ run_browser() {
 		exit 1
 	fi
 	port="$(gateway_port)"
-	node tests/e2e/e2e_live_demo_assignment_attempt_browser.mjs "$port" "$prepared_course" "$prepared_assignment"
+	node tests/playwright/e2e_live_demo_assignment_attempt_browser.mjs "$port" "$prepared_course" "$prepared_assignment"
 	echo "Assignment Attempt browser: visible Student start and answer-free presentation complete"
 }
 

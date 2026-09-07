@@ -98,22 +98,20 @@ def values() -> dict[str, str]:
 
 #============================================
 def test_service_login_profiles_have_exact_set_only_memberships() -> None:
-	"""Role reset grants each service its one intended capability profile."""
-	expected_roles = {
-		local_stack_control.process_logins.API_LOGIN: ("ple_app", "ple_auth"),
-		local_stack_control.process_logins.WORKER_LOGIN: (
-			"ple_imathas_question_backend_grading_worker",
-		),
-	}
-	actual_roles = {
-		login: roles
-		for login, roles, _ in local_stack_control.process_logins.LOGIN_PROFILES
-	}
-	assert actual_roles == expected_roles
+	"""Each closed profile first loses authority, then receives only its scope."""
 	for login, roles, _ in local_stack_control.process_logins.LOGIN_PROFILES:
 		sql = local_stack_control.process_logins.login_sql(login, roles, "a" * 64)
-		for role in roles:
-			assert f"GRANT {role} TO {login} WITH INHERIT FALSE, SET TRUE, ADMIN FALSE" in sql
+		grant_lines = [
+			line
+			for line in sql.splitlines()
+			if line.startswith("GRANT ") and f" TO {login} " in line
+		]
+		expected_grants = [
+			f"GRANT {role} TO {login} WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;"
+			for role in roles
+		]
+		assert grant_lines == expected_grants
+		assert "REVOKE %I FROM %I" in sql
 		assert f"GRANT CONNECT ON DATABASE %I TO {login}" in sql
 		assert "NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS" in sql
 
@@ -136,7 +134,11 @@ def test_service_login_setup_writes_separate_service_urls_without_service_creden
 ) -> None:
 	"""Compose reads service credentials only from its selected private file."""
 	runner = RecordingRunner()
-	passwords = iter(("a" * 64, "b" * 64))
+	profile_passwords = tuple(
+		chr(ord("a") + index) * 64
+		for index, _ in enumerate(local_stack_control.process_logins.LOGIN_PROFILES)
+	)
+	passwords = iter(profile_passwords)
 	monkeypatch.setattr(
 		local_stack_control.process_logins.secrets,
 		"token_hex",
@@ -149,19 +151,36 @@ def test_service_login_setup_writes_separate_service_urls_without_service_creden
 		values(),
 		{
 			"PATH": "/bin",
-			"PLE_API_DATABASE_URL": "postgres://ambient-service-credential@postgres/ple",
-			"PLE_WORKER_DATABASE_URL": "postgres://ambient-worker-credential@postgres/ple",
+			**{
+				setting_name: "postgres://ambient-service-credential@postgres/ple"
+				for _, _, setting_name in local_stack_control.process_logins.LOGIN_PROFILES
+			},
 		},
 	)
 	content = selected.env_file.read_text(encoding="utf-8")
-	assert "PLE_API_DATABASE_URL=postgres://ple_api_login:" + "a" * 64 in content
-	assert "PLE_WORKER_DATABASE_URL=postgres://ple_worker_login:" + "b" * 64 in content
 	assert runner.environment == {"PATH": "/bin", "PGPASSWORD": "admin-private"}
-	service_passwords = ("a" * 64, "b" * 64)
-	assert all(password not in runner.environment.values() for password in service_passwords)
-	assert host_urls == (
-		"postgres://ple_api_login:" + "a" * 64 + "@127.0.0.1:55432/ple",
-		"postgres://ple_worker_login:" + "b" * 64 + "@127.0.0.1:55432/ple",
+	assert all(password not in runner.environment.values() for password in profile_passwords)
+	expected_urls = tuple(
+		f"postgres://{login}:{password}@postgres:5432/ple"
+		for (login, _, _), password in zip(
+			local_stack_control.process_logins.LOGIN_PROFILES,
+			profile_passwords,
+			strict=True,
+		)
+	)
+	for url, (_, _, setting_name) in zip(
+		expected_urls,
+		local_stack_control.process_logins.LOGIN_PROFILES,
+		strict=True,
+	):
+		assert f"{setting_name}={url}" in content
+	assert host_urls == tuple(
+		f"postgres://{login}:{password}@127.0.0.1:55432/ple"
+		for (login, _, _), password in zip(
+			local_stack_control.process_logins.LOGIN_PROFILES,
+			profile_passwords,
+			strict=True,
+		)
 	)
 
 

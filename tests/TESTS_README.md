@@ -88,7 +88,7 @@ excluded E2E subtrees, regardless of filename inside
 them. The filename conventions (`e2e_*` prefix in `tests/e2e/`, `*.spec.ts`
 for scenario-registry-owned Playwright scenarios) are a readability layer on top of this active guard.
 
-Important: `collect_ignore` only affects pytest test collection. The repo's lint tests (ASCII compliance, whitespace, pyflakes, indentation, shebangs, etc.) enumerate files via `git ls-files` and still scan files inside `tests/playwright/` and `tests/e2e/`. A non-ASCII character in `tests/playwright/foo.mjs` will still fail the ASCII check - only execution as a pytest test is suppressed.
+Important: `collect_ignore` only affects pytest test collection. The repo's lint tests (ASCII compliance, whitespace, pyflakes, indentation, shebangs, etc.) enumerate files via `git ls-files` and still scan files inside `tests/playwright/` and `tests/e2e/`. A non-ASCII character in `tests/playwright/foo.mjs` will still fail the ASCII check - only execution as a pytest test is suppressed. The sole current scoped exception is `bash_script_line_limit` for `tests/e2e/**`: documented executable E2E runners may exceed the small-script limit, while their shebang, ASCII, whitespace, and other hygiene scans remain active.
 
 Repository-specific pytest must also follow the permanent-test checklist in
 [PYTEST_STYLE.md](../docs/PYTEST_STYLE.md). In particular, do not add a pytest

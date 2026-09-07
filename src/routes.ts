@@ -49,6 +49,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   supportRoster: SupportRosterPage,
   courseAssignments: CourseInstancePage,
   assignmentOverview: AssignmentOverviewPage,
+  assignmentSubmission: AssignmentOverviewPage,
   assignmentAttempt: AssignmentAttemptPage,
   assignmentAttemptSummary: AssignmentAttemptSummaryPage,
   library: LibraryRoutePage,

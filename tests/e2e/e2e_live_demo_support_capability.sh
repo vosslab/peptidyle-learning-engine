@@ -77,7 +77,7 @@ prove_browser() {
     local port capability
     capability="$(issue_browser_capability)"
     port="$(gateway_port)"
-    node tests/e2e/e2e_live_demo_support_capability_browser.mjs "$port" "$capability"
+    node tests/playwright/e2e_live_demo_support_capability_browser.mjs "$port" "$capability"
     echo "Support capability browser: visible Sysadmin scoped roster task complete"
 }
 

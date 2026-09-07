@@ -32,9 +32,20 @@ def multiline_string_lines(path: pathlib.Path) -> set[int]:
 		set[int]: Line numbers inside multiline strings.
 	"""
 	in_string: set[int] = set()
+	fstring_start = getattr(tokenize, "FSTRING_START", None)
+	fstring_end = getattr(tokenize, "FSTRING_END", None)
+	open_fstring_lines: list[int] = []
 	with tokenize.open(path) as handle:
 		tokens = tokenize.generate_tokens(handle.readline)
 		for token in tokens:
+			if token.type == fstring_start:
+				open_fstring_lines.append(token.start[0])
+				continue
+			if token.type == fstring_end and open_fstring_lines:
+				start_line = open_fstring_lines.pop()
+				if token.end[0] > start_line:
+					in_string.update(range(start_line, token.end[0] + 1))
+				continue
 			if token.type != tokenize.STRING:
 				continue
 			start_line = token.start[0]
@@ -42,6 +53,20 @@ def multiline_string_lines(path: pathlib.Path) -> set[int]:
 			if end_line > start_line:
 				in_string.update(range(start_line, end_line + 1))
 	return in_string
+
+
+#============================================
+def test_multiline_fstring_content_does_not_count_as_indentation(tmp_path: pathlib.Path) -> None:
+	"""Ignore embedded f-string content but retain Python indentation checks."""
+	path = tmp_path / "embedded_sql.py"
+	path.write_text(
+		"sql = f\"\"\"BEGIN\n"
+		"\t{value}\n"
+		"\"\"\"\n"
+		" \t# real mixed indentation\n",
+		encoding="utf-8",
+	)
+	assert inspect_file(path) == [4]
 
 
 #============================================

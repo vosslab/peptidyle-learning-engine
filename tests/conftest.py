@@ -55,7 +55,9 @@ collect_ignore = ["e2e", "playwright", "test_checkout_disk_budget.py"]
 #   - Recursive directory exclusions need an explicit /** because fnmatch's *
 #     does not cross "/". Use "temp_scripts/**" to exclude a whole subtree.
 #
-# This template has no repo-specific exclusions, so the registry is empty.
+# The executable disposable E2E runners are documented whole-system acceptance
+# commands, not small reusable shell utilities. Keep their other hygiene scans;
+# only the 100-line Bash size rule does not apply to that subtree.
 # Cross-overlay doc references (a template doc naming a doc that ships from a
 # different overlay or the universal docs/ tree) use a backticked name, not a
 # markdown link: no single relative link is valid both in the split template
@@ -66,7 +68,9 @@ collect_ignore = ["e2e", "playwright", "test_checkout_disk_budget.py"]
 #       "ascii_compliance": ["human_readable-*.html"],
 #       "pyflakes_code_lint": ["devel/scratch_*.py"],
 #   }
-REPO_HYGIENE_FILTERS = {}
+REPO_HYGIENE_FILTERS = {
+	"bash_script_line_limit": ["tests/e2e/**"],
+}
 
 
 # === OPTIONAL_HELPERS_MENU ===

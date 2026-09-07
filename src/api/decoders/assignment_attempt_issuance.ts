@@ -4,6 +4,7 @@ import type {
   AssignmentStartDecision,
   LiveAssignmentAccess,
   LiveAssignmentAttempt,
+  LiveNativePleSubmissionAcknowledgement,
 } from "../assignment_attempt_issuance";
 import {
   DecodeError,
@@ -46,13 +47,19 @@ function instructions(value: unknown, path: string): string {
   return decoded;
 }
 
-export function decodeLiveAssignmentAccess(value: unknown, path = "response"): LiveAssignmentAccess {
+export function decodeLiveAssignmentAccess(
+  value: unknown,
+  path = "response",
+): LiveAssignmentAccess {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["startDecision"]);
   return { startDecision: decision(field(record, "startDecision", path), `${path}.startDecision`) };
 }
 
-export function decodeLiveAssignmentAttempt(value: unknown, path = "response"): LiveAssignmentAttempt {
+export function decodeLiveAssignmentAttempt(
+  value: unknown,
+  path = "response",
+): LiveAssignmentAttempt {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "assignment",
@@ -72,10 +79,33 @@ export function decodeLiveAssignmentAttempt(value: unknown, path = "response"): 
   }
   return {
     assignment: decodeAssignmentReference(field(record, "assignment", path), `${path}.assignment`),
-    attemptNumber: decodePositiveInteger(field(record, "attemptNumber", path), `${path}.attemptNumber`),
+    attemptNumber: decodePositiveInteger(
+      field(record, "attemptNumber", path),
+      `${path}.attemptNumber`,
+    ),
     resumed: decodeBoolean(field(record, "resumed", path), `${path}.resumed`),
     title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
     instructions: instructions(field(record, "instructions", path), `${path}.instructions`),
     questions,
   };
+}
+
+/** Strictly decodes the M13 public acknowledgement, not the retained UUID attempt receipt. */
+export function decodeLiveNativePleSubmissionAcknowledgement(
+  value: unknown,
+  path = "response",
+): LiveNativePleSubmissionAcknowledgement {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["presentationNonce", "gradingState"]);
+  const presentationNonce = decodeString(
+    field(record, "presentationNonce", path),
+    `${path}.presentationNonce`,
+  );
+  if (!/^[0-9a-f]{32}$/u.test(presentationNonce)) {
+    throw new DecodeError(`${path}.presentationNonce`, "32 lowercase hexadecimal characters");
+  }
+  if (field(record, "gradingState", path) !== "pending") {
+    throw new DecodeError(`${path}.gradingState`, "the pending grading state");
+  }
+  return { presentationNonce, gradingState: "pending" };
 }

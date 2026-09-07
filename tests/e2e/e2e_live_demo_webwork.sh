@@ -285,7 +285,7 @@ prove_render() {
 	assert_mixed_presentation "$(response_body "$mixed_started")"
 	assert_mixed_private_replay "$course" "$mixed_assignment"
 	port="$(gateway_port)"
-	node tests/e2e/e2e_live_demo_webwork_browser.mjs "$port" "$course" "$assignment"
+	node tests/playwright/e2e_live_demo_webwork_browser.mjs "$port" "$course" "$assignment"
 	echo "WeBWorK render authority: private renderer issue, answer-free public presentation, and exact replay complete"
 	echo "WeBWorK render browser: visible Student start and rendered answer-free Question Presentation complete"
 }

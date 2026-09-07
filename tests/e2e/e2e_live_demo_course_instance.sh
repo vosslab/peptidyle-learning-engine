@@ -284,7 +284,7 @@ print(reference)
 prove_browser() {
 	local port
 	port="$(gateway_port)"
-	node tests/e2e/e2e_live_demo_course_instance_browser.mjs "$port"
+	node tests/playwright/e2e_live_demo_course_instance_browser.mjs "$port"
 	echo "Course Instance browser: visible Instructor creation and Teaching Team entry complete"
 }
 

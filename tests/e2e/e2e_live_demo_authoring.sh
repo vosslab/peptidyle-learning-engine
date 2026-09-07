@@ -239,7 +239,7 @@ for forbidden in ("draftQuestion", "draftQuestionUuid", "workspaceId", "objectAd
 prove_browser() {
 	local port
 	port="$(gateway_port)"
-	node tests/e2e/e2e_live_demo_authoring_browser.mjs "$port"
+	node tests/playwright/e2e_live_demo_authoring_browser.mjs "$port"
 	echo "Authoring browser: My Question Drafts, private editing, and publication complete"
 }
 

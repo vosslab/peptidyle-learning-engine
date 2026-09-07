@@ -44,6 +44,7 @@ export interface RouteContract {
     | "courses"
     | "courseAssignments"
     | "assignmentOverview"
+    | "assignmentSubmission"
     | "assignmentAttempt"
     | "assignmentAttemptSummary"
     | "library"
@@ -137,6 +138,13 @@ export const ROUTE_CONTRACT = [
     id: "assignmentOverview",
     path: "/courses/:courseRef/assignments/:assignmentRef",
     surface: "Student Assignment Access and initial issued presentation",
+    requiredProductRoles: ["student"],
+    ribbon: { scope: "courseInstance", tab: "assignments", contentLayout: "reading" },
+  },
+  {
+    id: "assignmentSubmission",
+    path: "/courses/:courseRef/assignments/:assignmentRef/presentations/:presentationNonce",
+    surface: "Student response screen for one issued Question Presentation",
     requiredProductRoles: ["student"],
     ribbon: { scope: "courseInstance", tab: "assignments", contentLayout: "reading" },
   },

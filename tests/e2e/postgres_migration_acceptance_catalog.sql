@@ -803,7 +803,6 @@ BEGIN
 		RAISE EXCEPTION 'capability role has ambient data-schema usage';
 	END IF;
 END $$;
--- Assignment Question Analysis retains exact source Assignment Entry and Question Revision without Student data.
 DO $$
 BEGIN
     IF to_regclass('ple_data.assignment_question_analysis') IS NULL

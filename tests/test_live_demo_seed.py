@@ -3,8 +3,6 @@
 import json
 import pathlib
 
-import pytest
-
 import local_stack_control.lifecycle
 import local_stack_control.live_demo_seed
 import local_stack_control.models

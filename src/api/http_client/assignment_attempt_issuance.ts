@@ -7,6 +7,7 @@ import type { LiveAssignmentAttemptIssuanceClient } from "../assignment_attempt_
 import {
   decodeLiveAssignmentAccess,
   decodeLiveAssignmentAttempt,
+  decodeLiveNativePleSubmissionAcknowledgement,
 } from "../decoders/assignment_attempt_issuance";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
@@ -20,6 +21,13 @@ function assignmentPath(course: CourseInstanceReference, assignment: AssignmentR
     throw new ApiProtocolError("Assignment reference must be canonical");
   }
   return `/api/course-instances/${encodeURIComponent(course)}/assignments/${encodeURIComponent(assignment)}`;
+}
+
+function presentationNoncePathSegment(presentationNonce: string): string {
+  if (!/^[0-9a-f]{32}$/u.test(presentationNonce)) {
+    throw new ApiProtocolError("Presentation nonce must be canonical");
+  }
+  return encodeURIComponent(presentationNonce);
 }
 
 async function assignmentJson<T>(
@@ -47,11 +55,46 @@ export function createLiveAssignmentAttemptIssuanceClient(
   return {
     getLiveAssignmentAccess: (course, assignment) => {
       const path = `${assignmentPath(course, assignment)}/access`;
-      return assignmentJson(fetchImplementation, basePath, path, decodeLiveAssignmentAccess, "GET", 200);
+      return assignmentJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeLiveAssignmentAccess,
+        "GET",
+        200,
+      );
     },
     startLiveAssignment: (course, assignment) => {
       const path = `${assignmentPath(course, assignment)}/start`;
-      return assignmentJson(fetchImplementation, basePath, path, decodeLiveAssignmentAttempt, "POST", 201);
+      return assignmentJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeLiveAssignmentAttempt,
+        "POST",
+        201,
+      );
+    },
+    submitLiveNativePleResponse: async (course, assignment, presentationNonce, response) => {
+      const path = `${assignmentPath(course, assignment)}/presentations/${presentationNoncePathSegment(presentationNonce)}/submissions`;
+      const result = await requestSameOrigin(fetchImplementation, basePath, path, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ response }),
+      });
+      requireNoStore(result, path);
+      if (!result.ok) throw new ApiRequestError(result.status, path);
+      if (result.status !== 201) {
+        throw new ApiProtocolError(`API response ${path} must use status 201`);
+      }
+      const acknowledgement = decodeLiveNativePleSubmissionAcknowledgement(
+        await boundedResponseJson(result, path),
+        "response",
+      );
+      if (acknowledgement.presentationNonce !== presentationNonce) {
+        throw new ApiProtocolError("Submission acknowledgement nonce does not match its request");
+      }
+      return acknowledgement;
     },
   };
 }

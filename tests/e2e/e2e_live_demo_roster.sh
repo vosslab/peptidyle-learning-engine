@@ -236,7 +236,7 @@ prove_import() {
 prove_browser() {
 	local port
 	port="$(gateway_port)"
-	node tests/e2e/e2e_live_demo_roster_browser.mjs "$port"
+	node tests/playwright/e2e_live_demo_roster_browser.mjs "$port"
 	echo "Course Roster browser: visible Instructor import and protected roster projection complete"
 }
 

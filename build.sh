@@ -1,34 +1,11 @@
 #!/usr/bin/env bash
-# build.sh - master build for the whole repository.
+# Full local build entry point. It builds Rust, WASM, generated TypeScript
+# definitions, fixtures, and the browser client in dependency order. The client
+# needs the generated types and WASM bridge. Correctness gates live in
+# ./check_codebase.sh; the per-stage timings below are diagnostic only.
 #
-# Front door: run this directly as ./build.sh (npm run build mirrors it). It is
-# the one command that builds everything, in dependency order:
+# Flags: --release (optimized) or --debug (default).
 #
-#   1. rust     cargo build for the workspace (the API server and every crate)
-#   2. wasm     crates/wasm compiled to WebAssembly, plus generated JS glue
-#   3. tsgen    TypeScript definitions generated from the Rust question model
-#   4. fixtures verify tracked typed fixture evidence
-#   5. client   the Solid browser client bundled into dist/
-#
-# The order is not arbitrary. The client imports the generated types and the
-# WASM bridge, so both must exist before it bundles. Running a later stage
-# alone is what produces the "my change did nothing" class of confusion.
-#
-# Timing: each stage is measured and reported at the end. The numbers are ours
-# rather than cargo's because cargo only sees its own stage, and the useful
-# question is where the whole build spends its time.
-#
-# Treat the timings as information. They report where time went so a stage that
-# grows becomes visible and can be investigated. Build time varies with cache
-# state, machine load, and what changed, so read the numbers as a trend across
-# runs on one machine. Correctness gates live in ./check_codebase.sh.
-#
-# Flags:
-#   --release    optimized build (slower to build, what you ship)
-#   --debug      unoptimized build (default; faster iteration)
-#
-# Not a GitHub Pages build. This repository ships a server platform, so dist/
-# is a client bundle the API serves, not a static site.
 
 set -euo pipefail
 script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -65,10 +42,7 @@ if [ ! -d node_modules ]; then
 	exit 1
 fi
 
-# Sub-second timing. bash 3.2 ships on macOS and has no EPOCHREALTIME, and
-# `date +%s` only resolves to whole seconds, which is too coarse to tell a 0.4s
-# stage from a 1.4s one. python3 is already a hard dependency of this repo (the
-# pytest gate and devel/ scripts), so use it rather than adding a new one.
+# Python provides sub-second timing on macOS Bash 3.2 without a new dependency.
 now_seconds() {
 	python3 -c 'import time; print(f"{time.time():.3f}")'
 }
@@ -99,22 +73,14 @@ else
 	wasm_profile_flag="--debug"
 fi
 
-# 1. The Rust workspace, including the API server binary.
 # shellcheck disable=SC2086
 run_stage rust cargo build --workspace $cargo_profile_flag
 
-# 2. The WASM bridge. Always built before the client, which copies it.
 # shellcheck disable=SC2086
 run_stage wasm ./pipeline/build_wasm.sh $wasm_profile_flag
 
-# 3. TypeScript definitions generated from the Rust model, so the client cannot
-#    compile against a stale shape.
 run_stage tsgen cargo tools tsgen
-
-# 4. Verify intentional fixture evidence.
 run_stage fixtures cargo tools fixtures --check
-
-# 5. The browser client. --skip-wasm because stage 2 already built the bridge.
 run_stage client node pipeline/build.mjs --skip-wasm
 
 build_end="$(now_seconds)"
