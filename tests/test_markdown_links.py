@@ -374,6 +374,7 @@ def scan_file(
 		repo_root: Absolute path to the repository root.
 		tracked_set: Set of tracked repo-relative paths.
 		tracked_dirs: Set of tracked-directory repo-relative paths.
+		recent_untracked_set: Set of recently created untracked repo-relative paths.
 		md_path: Repo-relative path to the markdown file.
 
 	Returns:
@@ -467,6 +468,7 @@ def collect_violations(
 
 	Args:
 		files: Absolute paths to markdown files to scan.
+		recent_untracked_set: Set of recently created untracked repo-relative paths.
 
 	Returns:
 		dict[str, list[str]]: Repo-relative POSIX key -> list of issue strings.

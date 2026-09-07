@@ -6,10 +6,10 @@ shows the relative scale and coupling of the twelve largest communities.
 """
 
 # Standard Library
-import re
-import math
 import html
+import math
 import pathlib
+import re
 
 # local repo modules
 import graphify_context_lib

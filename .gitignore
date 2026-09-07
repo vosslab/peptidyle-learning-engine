@@ -39,4 +39,4 @@ stats.html
 /containers/env.local
 /local_stack_state/
 /plan-*.md
-__pycache__/
+#__pycache__ # not allowed per docs/PYTHON_STYLE.md; use source source_me.sh

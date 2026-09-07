@@ -365,7 +365,7 @@ never need to open `package.json` to learn how to drive a repo:
 - `./build_github_pages.sh` (build the GitHub Pages bundle).
 - `./run_web_server.sh` (build and serve a local preview).
 - `./devel/clean_build.sh` (wipe `dist/`).
-- `./devel/run_playwright_tests.sh` (build as needed, then run the Playwright
+- `./run_playwright_tests.sh` (build as needed, then run the Playwright
   browser tests). This is its own front door so `check_codebase.sh` stays the fast gate.
 
 Each script invokes its tools directly (`npx tsc`, `npx eslint`, `npx prettier`,
@@ -420,7 +420,7 @@ Alias rules:
 | `./build_github_pages.sh` | `npm run build` | Build the esbuild bundle into `dist/` |
 | `./run_web_server.sh` | `npm run serve` | Build and serve `dist/` on a random port |
 | `./devel/clean_build.sh` | `npm run clean` | Remove `dist/` |
-| `./devel/run_playwright_tests.sh` | `npm run test:playwright` | Build as needed, then run Playwright browser tests |
+| `./run_playwright_tests.sh` | `npm run test:playwright` | Build as needed, then run Playwright browser tests |
 
 The remaining `package.json` aliases have no shell-script front door. Run their
 direct command instead of the alias when you are not in an npm workflow. Use the
@@ -451,7 +451,7 @@ shell wrapper only when it improves usability, never a hidden alias.
 See the shell-script/npm-alias table above for the full list of scripts and their jobs.
 Script names for reference:
 `build_github_pages.sh`, `run_web_server.sh`, `check_codebase.sh`,
-`devel/clean_build.sh`, `devel/run_playwright_tests.sh`.
+`devel/clean_build.sh`, `run_playwright_tests.sh`.
 
 ### Repo-local extras
 
