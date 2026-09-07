@@ -7,14 +7,15 @@ persona on the visible account page. The server resolves the configured Account
 and creates the ordinary Authenticated Session. The selector supplies neither
 course authority nor a browser role claim.
 
-The current Browser Surface ends at the account/session entry. Course
-creation, Blueprint Course work, Course Instance management, roster and
-invitation work, assignment workspace controls, Student view, grading
-operations, and Gradebook screens are retained product workflows rather than
-current Live Demo routes. Start the local stack through [USAGE.md](USAGE.md) to
-inspect the available entry boundary.
+After entry, the Instructor can use the Question Library and private authoring,
+create Blueprint Courses and Course Instances, import a roster, create and
+release Assignments, inspect answer-free Gradebook evidence, and download the
+protected Course Invitation export. Each action requires the stored Instructor
+role and exact Course relationship where applicable. Start the local stack
+through [USAGE.md](USAGE.md); [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and
+[API_CONTRACTS.md](API_CONTRACTS.md) define the current route boundary.
 
-## Future Instructor teaching contract
+## Instructor teaching boundary
 
 PLE's retained product design separates reusable **Blueprint Course** content
 from a term-specific **Course Instance**. A Blueprint Course contains no
@@ -22,7 +23,7 @@ Students, deadlines, releases, accommodations, grades, or delivery settings. A
 Course Instance owns those teaching records and derives access from its exact
 Teaching Team Members and Student memberships.
 
-The intended Instructor workflow is:
+The current Instructor workflow is:
 
 1. Create or select a Blueprint Course, then create a Course Instance from one
    exact Blueprint revision.
@@ -32,10 +33,11 @@ The intended Instructor workflow is:
 4. Inspect answer-free Student delivery and authorized Gradebook evidence.
 5. Use bounded, receipt-backed recovery for an eligible grading operation.
 
-These are future Store-backed workflows. They preserve server-held Answer Keys,
-exact relationship-derived authorization, immutable issued evidence, and
-separate Student ownership. A public route reference locates an intended
-resource; it never grants authority.
+These Store-backed workflows preserve server-held Answer Keys, exact
+relationship-derived authorization, immutable issued evidence, and separate
+Student ownership. A public route reference locates an intended resource; it
+never grants authority. The browser downloads invitation-export data but does
+not send mail.
 
 ## Successor Assignment Revision
 
@@ -51,7 +53,8 @@ perform a structural successor operation.
 
 ## Accessibility contract
 
-The intended Instructor interface uses visible controls and the keyboard model
-in [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md). A
-restored browser acceptance owner must verify the available workflow before this
-guide presents it as an executable demonstration.
+The Instructor interface uses visible controls and the keyboard model in
+[NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md). The
+current connected browser owner verifies its supported workflow; role-owned
+screenshots remain one-time rendered evidence under
+[SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md).

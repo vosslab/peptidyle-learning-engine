@@ -5,12 +5,13 @@ keeping grading decisions and answer keys on the server.
 
 ## Status
 
-PLE is under active development and is not ready for production deployment. The current local demo
-proves a real HTTPS deployment and ordinary seeded Account session, then exposes an explicitly
-labelled populated Ribbon and invitation-mailer developer showcase. It is not a complete teaching
-workflow. Course, Question Library, authoring, assignment delivery, grading, Gradebook, and
-administration routes remain future work. [LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md) and
-[TEST_EVIDENCE_MODEL.md](docs/TEST_EVIDENCE_MODEL.md) define that boundary.
+PLE is under active development and is not ready for production deployment. The local Live Demo is
+the connected current PLE application: its Instructor, Student, and Sysadmin personas enter the
+same role- and relationship-gated routes that the application exposes. The browser does not send
+mail, disclose Answer Keys or private Question Source data, or grant authority beyond stored
+relationships. [LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md) and
+[TEST_EVIDENCE_MODEL.md](docs/TEST_EVIDENCE_MODEL.md) define the executable and evidence
+boundaries.
 
 ## The teaching promise
 
@@ -28,20 +29,29 @@ The current code and contracts preserve two non-negotiable boundaries:
 See [MASTERY_ASSIGNMENT_DESIGN.md](docs/MASTERY_ASSIGNMENT_DESIGN.md) for the teaching model and
 [CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) for the technical ownership boundary.
 
-## Current Live Demo screenshots
+## Current application screenshots
 
-These images come from the production bundle served by the fixed disposable Live Demo owner.
+These images come from the production bundle served by the fixed disposable seeded environment.
+They live in public or Product Role screen folders because the Live Demo reaches the same application
+surfaces as the rest of PLE. See [SCREENSHOT_CONTRACT.md](docs/SCREENSHOT_CONTRACT.md).
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Live Demo Account selector showing the five seeded Accounts](docs/screenshots/live_demo/01_account_selection.png)
-![Live Demo showing the populated production Instructor Ribbon](docs/screenshots/live_demo/02_instructor_ribbon.png)
-![Live Demo attended invitation email panel showing its dry-run and bounded send commands](docs/screenshots/live_demo/04_invitation_email_hack.png)
+![Seeded PLE Account entry](docs/screenshots/public/account/03_seeded_demo_sign_in_laptop.png)
+![Instructor Question Library](docs/screenshots/instructor/question_library_discovery/04_connected_question_library_laptop.png)
+![Instructor released Assignment Workspace](docs/screenshots/instructor/assignment_workspace/03_released_assignment_workspace_laptop.png)
+![Student Assignment overview on a laptop](docs/screenshots/student/access/allowed_assignment_overview/03_connected_assignment_overview_laptop.png)
+![Student Assignment overview on a tablet](docs/screenshots/student/access/allowed_assignment_overview/02_connected_assignment_overview_tablet.png)
+![Student unanswered Question presentation on a phone](docs/screenshots/student/delivery/09_unanswered_question_phone.png)
+![Student unanswered Question presentation in a square viewport](docs/screenshots/student/delivery/10_unanswered_question_square.png)
+![Sysadmin Instructor Accounts workspace](docs/screenshots/sysadmin/instructor_accounts/01_instructor_accounts_laptop.png)
 <!-- screenshots:end -->
 
-Run `./devel/capture_screenshots.sh` to rebuild all six current desktop, tablet, phone, selected
-state, and invitation-email images. They demonstrate only the current Live Demo surfaces; the older
-teaching-workflow images under `docs/screenshots/` remain historical design reference.
+Run `./devel/capture_screenshots.sh` to rebuild the manifest-listed role captures through a fresh
+seeded capture environment. Run `./devel/capture_screenshots.sh --verify` to validate their
+manifest without starting a stack. These are one-time rendered evidence, not permanent tests; older
+images outside [current_capture_manifest.json](docs/screenshots/current_capture_manifest.json)
+remain historical visual reference.
 
 ## Quick start
 
@@ -57,8 +67,7 @@ The command runs the existing TypeScript setup, builds the production browser bu
 fixed `ple-live-demo-browser` stack, and prints a ready HTTPS origin.
 Open that URL in your browser to
 choose a seeded persona; the server derives the ordinary authenticated session from disposable
-seeded state and opens the developer showcase. There you can inspect and activate the production
-Ribbon's structural preview and copy the existing attended invitation-mailer commands. Run
+seeded state and opens that persona's permitted PLE routes. Run
 `./launchers/run_live_demo.sh open` (or its `--open` shorthand) to open an already-running demo; use
 `./launchers/run_live_demo.sh start --open` to create a fresh demo and open it.
 

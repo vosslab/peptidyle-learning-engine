@@ -45,7 +45,9 @@ export function createLiveInvitationExportClient(
       requireInvitationExportAttachment(response, path);
       const exportBlob = await response.blob();
       if (exportBlob.type !== "application/json" || exportBlob.size > MAX_INVITATION_EXPORT_BYTES) {
-        throw new ApiProtocolError(`API response ${path} does not contain a bounded invitation export`);
+        throw new ApiProtocolError(
+          `API response ${path} does not contain a bounded invitation export`,
+        );
       }
       return exportBlob;
     },

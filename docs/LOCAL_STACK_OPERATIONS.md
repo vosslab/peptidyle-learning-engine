@@ -134,17 +134,16 @@ stops the same fixed owner normally.
 ## Demo accounts and baseline
 
 The production-auth overlay seeds five ordinary PLE personas: Elena (Instructor),
-Mary, Jack, and Avery (Students), and Morgan
-(Sysadmin). The public selector chooses only a known seeded persona key. The
-server resolves the global account and issues an ordinary session; it does not
+Mary, Jack, and Avery (Students), and Morgan (Sysadmin). Seeded entry replaces
+only the normal identity-verification ceremony with a known persona key. The
+server resolves the global Account and issues an ordinary session; it does not
 accept a browser role claim.
 
 The M4 baseline seeds no Course Instance, membership, roster, or Student Record.
-After Elena's ordinary Instructor session is issued, the browser enters the
-available Question Library, where she can search the four fixed Published
-Questions and open an answer-free Question Details view. Student and Sysadmin
-sessions do not gain that Instructor destination. The former developer showcase
-is not a completion surface and remains scheduled for retirement by M19.
+Its four fixed Published Questions supply the initial Instructor workflow; the
+role- and relationship-gated product routes create and use later Course,
+Assignment, and Student records. Student and Sysadmin sessions do not gain
+Instructor authority.
 
 The M4 baseline installer also creates four fixed Published Questions and their
 first immutable Question Revisions. Their PLE Question JSON sources live only

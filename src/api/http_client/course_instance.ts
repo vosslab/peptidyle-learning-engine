@@ -26,7 +26,11 @@ async function courseInstanceJson<T>(
   basePath: string,
   path: string,
   decoder: (value: unknown, path?: string) => T,
-  options: { readonly method?: "GET" | "POST"; readonly body?: unknown; readonly status?: 200 | 201 } = {},
+  options: {
+    readonly method?: "GET" | "POST";
+    readonly body?: unknown;
+    readonly status?: 200 | 201;
+  } = {},
 ): Promise<T> {
   const response = await requestSameOrigin(fetchImplementation, basePath, path, {
     method: options.method ?? "GET",

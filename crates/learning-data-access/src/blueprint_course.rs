@@ -375,8 +375,8 @@ impl StoredBlueprintAssignmentContent {
                     reference: question_revision.clone(),
                     points_possible: *points_possible,
                     scoring_rule: *scoring_rule,
-                    question_attempt_limit: question_attempt_limit.clone(),
-                    question_attempt_time_limit: question_attempt_time_limit.clone(),
+                    question_attempt_limit: *question_attempt_limit,
+                    question_attempt_time_limit: *question_attempt_time_limit,
                 }),
                 StoredBlueprintAssignmentEntry::Pool {
                     question_revisions,
@@ -393,8 +393,8 @@ impl StoredBlueprintAssignmentContent {
                         *points_per_item,
                         *scoring_rule,
                         *selection_rule,
-                        question_attempt_limit.clone(),
-                        question_attempt_time_limit.clone(),
+                        *question_attempt_limit,
+                        *question_attempt_time_limit,
                     )
                     .map_err(invalid_content)?,
                 )),

@@ -34,16 +34,11 @@ pub struct ResolvedNativePleSubmission {
     pub question_asset_renditions: Vec<ReadyQuestionAssetRendition>,
 }
 
-/// Answer-free public status projection for one already-authorized native PLE submission.
+/// Nonce-bound public status projection with grading state only; Student Feedback is separate.
 #[derive(Debug, Clone, PartialEq)]
-pub enum NativePleSubmissionStatus {
-    Pending,
-    Graded {
-        correct: bool,
-        points_earned: f64,
-        points_possible: f64,
-    },
-    InstructorAttention,
+pub struct NativePleSubmissionStatus {
+    pub presentation_nonce: String,
+    pub grading_state: StudentQuestionSubmissionGradingState,
 }
 
 /// Accepts one native PLE Student Response and prepares its separate grading

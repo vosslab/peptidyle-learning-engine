@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# capture_screenshots.sh - rebuild the current Live Demo documentation screenshots.
+# capture_screenshots.sh - rebuild current PLE screenshots through seeded demo data.
 
 set -euo pipefail
 
@@ -10,11 +10,16 @@ case "$#" in
 		;;
 	1)
 		case "$1" in
+			--verify)
+				cd "$repository_root"
+				exec node "$repository_root/tests/playwright/capture_live_demo_screenshots.mjs" --verify
+				;;
 			-h|--help)
 				printf '%s\n' \
-					"Usage: ./devel/capture_screenshots.sh" \
+					"Usage: ./devel/capture_screenshots.sh [--verify]" \
 					"" \
-					"Starts a fresh headless Live Demo and rebuilds its screenshots."
+					"Starts a fresh seeded PLE capture environment and rebuilds current application screenshots." \
+					"--verify checks the declared current-artifact manifest without starting a stack."
 				exit 0
 				;;
 		esac
@@ -32,6 +37,11 @@ cd "$repository_root"
 live_demo_output="$("$repository_root/launchers/run_live_demo.sh" --headless | tee /dev/stderr)"
 live_demo_entry="$(printf '%s\n' "$live_demo_output" | sed -n 's/^Live demo entry: //p')"
 
+cleanup() {
+	"$repository_root/launchers/run_live_demo.sh" stop >/dev/null || true
+}
+trap cleanup EXIT
+
 "$repository_root/devel/setup_playwright.sh"
 
-exec node "$repository_root/tests/playwright/capture_live_demo_screenshots.mjs" "$live_demo_entry"
+node "$repository_root/tests/playwright/capture_live_demo_screenshots.mjs" "$live_demo_entry"

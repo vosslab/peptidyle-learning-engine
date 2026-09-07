@@ -94,12 +94,38 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-DECLARE v_resumed boolean;
+DECLARE
+    v_resumed boolean;
+    v_issued record;
 BEGIN
-    SELECT issued.resumed INTO v_resumed
-      FROM ple_api.start_live_demo_native_ple_assignment(
-          p_course_reference_number, p_assignment_reference_number, p_presentations
-      ) AS issued LIMIT 1;
+    -- Atomic Assignment Attempt creation returns the answer-free presentation.
+    -- Capture its one result set while retaining its initial `resumed` state:
+    -- calling it again would correctly resume the new attempt, but would
+    -- falsely label the initial response as a resume.
+    -- ASVS 2.3.1/2.3.3 and 8.2.1/8.2.2.
+    FOR v_issued IN
+        SELECT * FROM ple_api.start_live_demo_native_ple_assignment(
+            p_course_reference_number, p_assignment_reference_number, p_presentations
+        )
+    LOOP
+        IF v_resumed IS NULL THEN
+            v_resumed := v_issued.resumed;
+        ELSIF v_resumed IS DISTINCT FROM v_issued.resumed THEN
+            RAISE EXCEPTION USING ERRCODE = '23514',
+                MESSAGE = 'Native PLE issuance returned inconsistent Assignment Attempt state';
+        END IF;
+        attempt_number := v_issued.attempt_number;
+        resumed := v_issued.resumed;
+        assignment_title := v_issued.assignment_title;
+        assignment_instructions := v_issued.assignment_instructions;
+        question_id := v_issued.question_id;
+        revision_number := v_issued.revision_number;
+        issued_position := v_issued.issued_position;
+        question_seed := v_issued.question_seed;
+        presentation_nonce := v_issued.presentation_nonce;
+        presentation_checksum := v_issued.presentation_checksum;
+        RETURN NEXT;
+    END LOOP;
     IF v_resumed IS NULL THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assignment is unavailable'; END IF;
     IF NOT v_resumed THEN
         -- The generic M11 commit admits the complete released entry set.  This
@@ -137,10 +163,6 @@ BEGIN
          WHERE binding.backend = 'webwork' AND binding.question_format = 'webworkPg'
            AND item.replay_details IS NOT NULL;
     END IF;
-    RETURN QUERY
-    SELECT issued.* FROM ple_api.start_live_demo_native_ple_assignment(
-        p_course_reference_number, p_assignment_reference_number, '[]'::jsonb
-    ) AS issued;
 END
 $$;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.prepare_live_demo_native_webwork_issuance(bigint, bigint),

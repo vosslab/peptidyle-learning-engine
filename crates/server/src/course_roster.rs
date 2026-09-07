@@ -51,7 +51,7 @@ async fn list_course_roster(
 ) -> Response {
     let course = match course_reference(&reference) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let session_hash =
         match required_session_hash(&state, &headers, |role| role == ProductRole::Instructor).await
@@ -73,7 +73,7 @@ async fn import_course_roster(
 ) -> Response {
     let course = match course_reference(&reference) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let session_hash =
         match required_session_hash(&state, &headers, |role| role == ProductRole::Instructor).await
@@ -98,7 +98,7 @@ async fn claim_course_invitation(
 ) -> Response {
     let course = match course_reference(&reference) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let session_hash =
         match required_session_hash(&state, &headers, |role| role == ProductRole::Student).await {
@@ -122,7 +122,7 @@ async fn revoke_course_roster_entry(
 ) -> Response {
     let course = match course_reference(&reference) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let session_hash =
         match required_session_hash(&state, &headers, |role| role == ProductRole::Instructor).await
@@ -140,8 +140,8 @@ async fn revoke_course_roster_entry(
     }
 }
 
-fn course_reference(value: &str) -> Result<CourseInstanceReference, Response> {
-    CourseInstanceReference::from_str(value).map_err(|_| concealed())
+fn course_reference(value: &str) -> Result<CourseInstanceReference, Box<Response>> {
+    CourseInstanceReference::from_str(value).map_err(|_| Box::new(concealed()))
 }
 
 async fn required_session_hash(

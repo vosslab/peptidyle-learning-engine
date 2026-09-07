@@ -3,7 +3,10 @@
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { ApiClient } from "../client";
-import type { LiveAssignmentReleaseClient } from "../assignment_release";
+import type {
+  LiveAssignmentReleaseClient,
+  RevisionedLiveAssignmentWorkspace,
+} from "../assignment_release";
 import {
   decodeAssignmentPreview,
   decodeAssignmentQuestionPicker,
@@ -98,7 +101,7 @@ export function createLiveAssignmentReleaseClient(
           decodeAssignmentQuestionPicker,
         )
       ).body,
-    createLiveAssignment: async (course, input) => {
+    createLiveAssignment: async (course, input): Promise<RevisionedLiveAssignmentWorkspace> => {
       const path = `${coursePath(course)}/assignments`;
       const result = await assignmentJson(
         fetchImplementation,
@@ -116,7 +119,10 @@ export function createLiveAssignmentReleaseClient(
         etag: requireWorkspaceEtag(result.response, result.body.editNumber, path),
       };
     },
-    getLiveAssignmentWorkspace: async (course, assignment) => {
+    getLiveAssignmentWorkspace: async (
+      course,
+      assignment,
+    ): Promise<RevisionedLiveAssignmentWorkspace> => {
       const path = assignmentPath(course, assignment);
       const result = await assignmentJson(
         fetchImplementation,
@@ -129,7 +135,12 @@ export function createLiveAssignmentReleaseClient(
         etag: requireWorkspaceEtag(result.response, result.body.editNumber, path),
       };
     },
-    saveLiveAssignment: async (course, assignment, input, etag) => {
+    saveLiveAssignment: async (
+      course,
+      assignment,
+      input,
+      etag,
+    ): Promise<RevisionedLiveAssignmentWorkspace> => {
       const path = assignmentPath(course, assignment);
       const result = await assignmentJson(
         fetchImplementation,

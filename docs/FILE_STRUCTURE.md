@@ -228,11 +228,13 @@ stay in their named E2E or human-review lanes. See
 [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
 
 Build output such as dist/, dist_wasm/, target/, and test-results/ is reproducible
-ignored state. `devel/capture_screenshots.sh` owns the current Live Demo images
-under docs/screenshots/live_demo/ through the fixed production HTTPS Browser
-Suite. Other committed screenshots are historical visual reference, not source
-contracts. The former teaching-workflow corpus and private publisher remain
-retired.
+ignored state. `devel/capture_screenshots.sh` owns the manifest-listed current
+role captures through the fixed production HTTPS Browser Suite. The captures
+live in their public, Instructor, Student, and Sysadmin screen folders; see
+[SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md) and
+`docs/screenshots/current_capture_manifest.json`. Other committed
+screenshots are historical visual reference, not source contracts. The former
+teaching-workflow corpus and private publisher remain retired.
 
 ## Documentation map
 

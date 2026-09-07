@@ -276,7 +276,18 @@ const CAPABILITY_DECLARATIONS = {
       "src/api/http_client/instructor_account.ts::createInstructorAccountClient",
     ],
   },
-  supportRoster: { kind: "backed", clientMethod: "ApiClient.readSupportCourseRoster", serverEvidence: { kind: "registeredHandler", handler: "crates/server/src/support_capability.rs::support_capability_router" }, evidence: ["crates/server/src/support_capability.rs::support_capability_router", "src/api/http_client/support_roster.ts::createSupportCapabilityClient"] },
+  supportRoster: {
+    kind: "backed",
+    clientMethod: "ApiClient.readSupportCourseRoster",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/support_capability.rs::support_capability_router",
+    },
+    evidence: [
+      "crates/server/src/support_capability.rs::support_capability_router",
+      "src/api/http_client/support_roster.ts::createSupportCapabilityClient",
+    ],
+  },
   allQuestions: {
     kind: "backed",
     clientMethod: "ApiClient.searchQuestionLibrary",

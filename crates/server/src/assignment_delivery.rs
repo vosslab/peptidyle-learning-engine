@@ -326,7 +326,7 @@ async fn issue_native_webwork_presentation_from_sources(
     let prepared = if resumed {
         Vec::new()
     } else {
-        issue_new_webwork_presentations(state, &sources).await?
+        issue_new_webwork_presentations(state, sources).await?
     };
     let attempt = state
         .delivery
@@ -602,6 +602,10 @@ async fn resolve_source(
     .map_err(|_| StartError::Unavailable)
 }
 
+// Route handlers return this response immediately; boxing it would add an
+// allocation and require every handler, including the submission boundary, to
+// unwrap it solely to preserve Axum's `Response` return type.
+#[allow(clippy::result_large_err)]
 pub(super) fn refs(
     course: &str,
     assignment: &str,

@@ -72,7 +72,7 @@ async fn list_picker(
 ) -> Response {
     let course = match course_reference(&course) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     let token = match instructor(&state, &headers).await {
         Ok(v) => v,
@@ -95,7 +95,7 @@ async fn create_assignment(
 ) -> Response {
     let course = match course_reference(&course) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     let token = match instructor(&state, &headers).await {
         Ok(v) => v,
@@ -117,7 +117,7 @@ async fn load_assignment(
 ) -> Response {
     let (course, assignment) = match refs(&course, &assignment) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     let token = match instructor(&state, &headers).await {
         Ok(v) => v,
@@ -140,11 +140,11 @@ async fn save_assignment(
 ) -> Response {
     let (course, assignment) = match refs(&course, &assignment) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     let expected = match edit_header(&headers) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     input.expected_edit_number = expected;
     let token = match instructor(&state, &headers).await {
@@ -167,7 +167,7 @@ async fn validate_release(
 ) -> Response {
     let (course, assignment) = match refs(&course, &assignment) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     let token = match instructor(&state, &headers).await {
         Ok(v) => v,
@@ -189,7 +189,7 @@ async fn assignment_preview(
 ) -> Response {
     let (course, assignment) = match refs(&course, &assignment) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     let token = match instructor(&state, &headers).await {
         Ok(v) => v,
@@ -211,11 +211,11 @@ async fn release_assignment(
 ) -> Response {
     let (course, assignment) = match refs(&course, &assignment) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     let expected = match edit_header(&headers) {
         Ok(v) => v,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     let token = match instructor(&state, &headers).await {
         Ok(v) => v,
@@ -241,25 +241,25 @@ fn workspace_response(
     }
     response
 }
-fn course_reference(value: &str) -> Result<CourseInstanceReference, Response> {
-    CourseInstanceReference::from_str(value).map_err(|_| concealed())
+fn course_reference(value: &str) -> Result<CourseInstanceReference, Box<Response>> {
+    CourseInstanceReference::from_str(value).map_err(|_| Box::new(concealed()))
 }
 fn refs(
     course_value: &str,
     assignment_value: &str,
-) -> Result<(CourseInstanceReference, AssignmentReference), Response> {
+) -> Result<(CourseInstanceReference, AssignmentReference), Box<Response>> {
     Ok((
         course_reference(course_value)?,
-        AssignmentReference::from_str(assignment_value).map_err(|_| concealed())?,
+        AssignmentReference::from_str(assignment_value).map_err(|_| Box::new(concealed()))?,
     ))
 }
-fn edit_header(headers: &HeaderMap) -> Result<AssignmentEditNumber, Response> {
+fn edit_header(headers: &HeaderMap) -> Result<AssignmentEditNumber, Box<Response>> {
     let value = headers
         .get(IF_MATCH)
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix('"').and_then(|x| x.strip_suffix('"')))
-        .ok_or_else(concealed)?;
-    AssignmentEditNumber::from_str(value).map_err(|_| concealed())
+        .ok_or_else(|| Box::new(concealed()))?;
+    AssignmentEditNumber::from_str(value).map_err(|_| Box::new(concealed()))
 }
 async fn instructor(
     state: &StateData,

@@ -46,10 +46,8 @@ struct NativePleSubmissionAcknowledgement {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct NativePleSubmissionStatusResponse {
+    presentation_nonce: String,
     grading_state: &'static str,
-    correct: Option<bool>,
-    points_earned: Option<f64>,
-    points_possible: Option<f64>,
 }
 
 pub(super) async fn native_ple_submission_status(
@@ -79,27 +77,18 @@ pub(super) async fn native_ple_submission_status(
         )
         .await
     {
-        Ok(NativePleSubmissionStatus::Pending) => NativePleSubmissionStatusResponse {
-            grading_state: "pending",
-            correct: None,
-            points_earned: None,
-            points_possible: None,
-        },
-        Ok(NativePleSubmissionStatus::InstructorAttention) => NativePleSubmissionStatusResponse {
-            grading_state: "instructorAttention",
-            correct: None,
-            points_earned: None,
-            points_possible: None,
-        },
-        Ok(NativePleSubmissionStatus::Graded {
-            correct,
-            points_earned,
-            points_possible,
+        Ok(NativePleSubmissionStatus {
+            presentation_nonce,
+            grading_state,
         }) => NativePleSubmissionStatusResponse {
-            grading_state: "graded",
-            correct: Some(correct),
-            points_earned: Some(points_earned),
-            points_possible: Some(points_possible),
+            presentation_nonce,
+            grading_state: match grading_state {
+                learning_data_access::StudentQuestionSubmissionGradingState::Pending => "pending",
+                learning_data_access::StudentQuestionSubmissionGradingState::Graded => "graded",
+                learning_data_access::StudentQuestionSubmissionGradingState::InstructorAttention => {
+                    "instructorAttention"
+                }
+            },
         },
         Err(value) => return submission_store_error(value),
     };
@@ -127,7 +116,7 @@ pub(super) async fn submit_native_ple_response(
     let resolved = match state
         .submissions
         .resolve_native_ple_submission(
-            token.clone(),
+            token,
             u64::from(course.number()),
             u64::from(assignment.number()),
             &nonce.to_hex(),
@@ -208,7 +197,7 @@ async fn submit_webwork_response(
     let resolved = match state
         .webwork_submissions
         .resolve_webwork_submission(
-            token.clone(),
+            token,
             u64::from(course.number()),
             u64::from(assignment.number()),
             &nonce.to_hex(),

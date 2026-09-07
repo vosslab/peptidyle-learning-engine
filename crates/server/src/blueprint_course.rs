@@ -149,7 +149,7 @@ async fn create_blueprint(
     };
     let record = match state
         .blueprints
-        .create_blueprint_course(session_hash.clone(), input)
+        .create_blueprint_course(session_hash, input)
         .await
     {
         Ok(value) => value,
@@ -185,7 +185,7 @@ async fn replace_blueprint(
     };
     let record = match state
         .blueprints
-        .replace_blueprint_course(session_hash.clone(), reference, expected_revision, input)
+        .replace_blueprint_course(session_hash, reference, expected_revision, input)
         .await
     {
         Ok(value) => value,
@@ -216,7 +216,7 @@ async fn load_view(
 ) -> Result<BlueprintCourseView, RouteLoadError> {
     let record = state
         .blueprints
-        .load_blueprint_course(session_hash.clone(), reference)
+        .load_blueprint_course(session_hash, reference)
         .await
         .map_err(RouteLoadError::Store)?;
     view_from_record(state, session_hash, record).await
@@ -286,8 +286,8 @@ fn assignment_content_view(
                 question: Box::new(question_view(question_revision, questions)?),
                 points_possible: *points_possible,
                 scoring_rule: *scoring_rule,
-                question_attempt_limit: question_attempt_limit.clone(),
-                question_attempt_time_limit: question_attempt_time_limit.clone(),
+                question_attempt_limit: *question_attempt_limit,
+                question_attempt_time_limit: *question_attempt_time_limit,
             }),
             StoredBlueprintAssignmentEntry::Pool {
                 question_revisions,
@@ -311,8 +311,8 @@ fn assignment_content_view(
                 points_per_item: *points_per_item,
                 scoring_rule: *scoring_rule,
                 selection_rule: *selection_rule,
-                question_attempt_limit: question_attempt_limit.clone(),
-                question_attempt_time_limit: question_attempt_time_limit.clone(),
+                question_attempt_limit: *question_attempt_limit,
+                question_attempt_time_limit: *question_attempt_time_limit,
             })),
         })
         .collect::<Result<Vec<_>, RouteLoadError>>()?;

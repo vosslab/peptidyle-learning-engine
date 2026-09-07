@@ -16,7 +16,8 @@ function CourseInstanceCard(props: { readonly course: CourseInstanceSummary }): 
       <p class="card-kicker">Live Course Instance</p>
       <h2>{props.course.title}</h2>
       <p>
-        {props.course.term.startDate} through {props.course.term.endDate} · {props.course.term.timeZone}
+        {props.course.term.startDate} through {props.course.term.endDate} ·{" "}
+        {props.course.term.timeZone}
       </p>
       <p>Teaching Team access is ready. Assignment content begins in the next restoration lane.</p>
       <A class="primary-link" href={`/courses/${reference}`} id={`course-open-${reference}`}>
@@ -62,15 +63,17 @@ export function CourseListPage(): JSX.Element {
     const state = session.state();
     return state.kind === "authenticated" && state.session.account.productRole === "instructor";
   });
-  const [courses, { refetch: refetchCourses }] = createResource(
-    isInstructor,
-    async (instructor) => (instructor ? applicationApi.client.listCourseInstances() : []),
+  const [courses, { refetch: refetchCourses }] = createResource(isInstructor, async (instructor) =>
+    instructor ? applicationApi.client.listCourseInstances() : [],
   );
   const [blueprints, { refetch: refetchBlueprints }] = createResource(
     isInstructor,
-    async (instructor) => (instructor ? applicationApi.client.listBlueprintCourses() : { items: [] }),
+    async (instructor) =>
+      instructor ? applicationApi.client.listBlueprintCourses() : { items: [] },
   );
-  const [createdCourses, setCreatedCourses] = createSignal<ReadonlyArray<CourseInstanceSummary>>([]);
+  const [createdCourses, setCreatedCourses] = createSignal<ReadonlyArray<CourseInstanceSummary>>(
+    [],
+  );
   const [source, setSource] = createSignal("");
   const [title, setTitle] = createSignal("");
   const [startDate, setStartDate] = createSignal("");
@@ -128,7 +131,9 @@ export function CourseListPage(): JSX.Element {
       void refetchCourses();
       void refetchBlueprints();
       queueMicrotask(() =>
-        document.getElementById(`course-open-${courseInstanceRouteReference(created.course.reference)}`)?.focus(),
+        document
+          .getElementById(`course-open-${courseInstanceRouteReference(created.course.reference)}`)
+          ?.focus(),
       );
     } catch (_error: unknown) {
       setCreationError("We could not create that Course Instance. Check the source and try again.");

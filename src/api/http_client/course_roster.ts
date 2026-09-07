@@ -24,7 +24,11 @@ async function rosterJson<T>(
   basePath: string,
   path: string,
   decoder: (value: unknown, path?: string) => T,
-  options: { readonly method?: "GET" | "POST"; readonly body?: unknown; readonly status?: number } = {},
+  options: {
+    readonly method?: "GET" | "POST";
+    readonly body?: unknown;
+    readonly status?: number;
+  } = {},
 ): Promise<T> {
   const response = await requestSameOrigin(fetchImplementation, basePath, path, {
     method: options.method ?? "GET",
@@ -60,12 +64,14 @@ export function createLiveCourseRosterClient(
         decodeClaimedCourseInvitation,
         { method: "POST" },
       ),
-    revokeLiveCourseRosterEntry: async (course, rosterId) => {
+    revokeLiveCourseRosterEntry: async (course, rosterId): Promise<void> => {
       if (!/^[A-Za-z0-9._-]{1,64}$/u.test(rosterId)) {
         throw new ApiProtocolError("Course roster identifier must be canonical");
       }
       const path = `${courseRosterPath(course)}/${encodeURIComponent(rosterId)}/revoke`;
-      const response = await requestSameOrigin(fetchImplementation, basePath, path, { method: "POST" });
+      const response = await requestSameOrigin(fetchImplementation, basePath, path, {
+        method: "POST",
+      });
       requireNoStore(response, path);
       if (!response.ok) throw new ApiRequestError(response.status, path);
       if (response.status !== 204) {

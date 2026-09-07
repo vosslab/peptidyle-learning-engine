@@ -3,7 +3,13 @@
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { ApiClient } from "../client";
-import type { LiveAssignmentAttemptIssuanceClient } from "../assignment_attempt_issuance";
+import type {
+  LiveAssignmentAccess,
+  LiveAssignmentAttempt,
+  LiveAssignmentAttemptIssuanceClient,
+  LiveNativePleSubmissionAcknowledgement,
+  LiveNativePleSubmissionStatus,
+} from "../assignment_attempt_issuance";
 import {
   decodeLiveAssignmentAccess,
   decodeLiveAssignmentAttempt,
@@ -54,7 +60,7 @@ export function createLiveAssignmentAttemptIssuanceClient(
   basePath: string,
 ): Pick<ApiClient, keyof LiveAssignmentAttemptIssuanceClient> {
   return {
-    getLiveAssignmentAccess: (course, assignment) => {
+    getLiveAssignmentAccess: (course, assignment): Promise<LiveAssignmentAccess> => {
       const path = `${assignmentPath(course, assignment)}/access`;
       return assignmentJson(
         fetchImplementation,
@@ -65,7 +71,7 @@ export function createLiveAssignmentAttemptIssuanceClient(
         200,
       );
     },
-    startLiveAssignment: (course, assignment) => {
+    startLiveAssignment: (course, assignment): Promise<LiveAssignmentAttempt> => {
       const path = `${assignmentPath(course, assignment)}/start`;
       return assignmentJson(
         fetchImplementation,
@@ -76,7 +82,12 @@ export function createLiveAssignmentAttemptIssuanceClient(
         201,
       );
     },
-    submitLiveNativePleResponse: async (course, assignment, presentationNonce, response) => {
+    submitLiveNativePleResponse: async (
+      course,
+      assignment,
+      presentationNonce,
+      response,
+    ): Promise<LiveNativePleSubmissionAcknowledgement> => {
       const path = `${assignmentPath(course, assignment)}/presentations/${presentationNoncePathSegment(presentationNonce)}/submissions`;
       const result = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "POST",
@@ -97,15 +108,23 @@ export function createLiveAssignmentAttemptIssuanceClient(
       }
       return acknowledgement;
     },
-    getLiveNativePleSubmissionStatus: async (course, assignment, presentationNonce) => {
+    getLiveNativePleSubmissionStatus: async (
+      course,
+      assignment,
+      presentationNonce,
+    ): Promise<LiveNativePleSubmissionStatus> => {
       const path = `${assignmentPath(course, assignment)}/presentations/${presentationNoncePathSegment(presentationNonce)}/submissions`;
       const result = await requestSameOrigin(fetchImplementation, basePath, path);
       requireNoStore(result, path);
       if (!result.ok) throw new ApiRequestError(result.status, path);
-      return decodeLiveNativePleSubmissionStatus(
+      const status = decodeLiveNativePleSubmissionStatus(
         await boundedResponseJson(result, path),
         "response",
       );
+      if (status.presentationNonce !== presentationNonce) {
+        throw new ApiProtocolError("Submission status nonce does not match its request");
+      }
+      return status;
     },
   };
 }

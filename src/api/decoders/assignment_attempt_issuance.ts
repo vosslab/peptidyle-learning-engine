@@ -12,7 +12,6 @@ import {
   decodeArray,
   decodeBoolean,
   decodePositiveInteger,
-  decodeFiniteNumber,
   decodeRecord,
   decodeString,
 } from "../decoder";
@@ -117,42 +116,21 @@ export function decodeLiveNativePleSubmissionStatus(
   path = "response",
 ): LiveNativePleSubmissionStatus {
   const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["presentationNonce", "gradingState"]);
+  const presentationNonce = decodeString(
+    field(record, "presentationNonce", path),
+    `${path}.presentationNonce`,
+  );
+  if (!/^[0-9a-f]{32}$/u.test(presentationNonce)) {
+    throw new DecodeError(`${path}.presentationNonce`, "32 lowercase hexadecimal characters");
+  }
   const gradingState = decodeString(field(record, "gradingState", path), `${path}.gradingState`);
-  if (gradingState === "pending" || gradingState === "instructorAttention") {
-    requireOnlyFields(record, path, ["gradingState", "correct", "pointsEarned", "pointsPossible"]);
-    if (
-      field(record, "correct", path) !== null ||
-      field(record, "pointsEarned", path) !== null ||
-      field(record, "pointsPossible", path) !== null
-    ) {
-      throw new DecodeError(path, "an answer-free pending grading status");
-    }
-    return { gradingState };
-  }
-  if (gradingState !== "graded")
-    throw new DecodeError(`${path}.gradingState`, "a known grading state");
-  requireOnlyFields(record, path, ["gradingState", "correct", "pointsEarned", "pointsPossible"]);
-  const pointsEarned = decodeFiniteNumber(
-    field(record, "pointsEarned", path),
-    `${path}.pointsEarned`,
-  );
-  const pointsPossible = decodeFiniteNumber(
-    field(record, "pointsPossible", path),
-    `${path}.pointsPossible`,
-  );
   if (
-    !Number.isFinite(pointsEarned) ||
-    !Number.isFinite(pointsPossible) ||
-    pointsEarned < 0 ||
-    pointsPossible < 0 ||
-    pointsEarned > pointsPossible
+    gradingState !== "pending" &&
+    gradingState !== "graded" &&
+    gradingState !== "instructorAttention"
   ) {
-    throw new DecodeError(path, "a finite grading summary");
+    throw new DecodeError(`${path}.gradingState`, "a known grading state");
   }
-  return {
-    gradingState,
-    correct: decodeBoolean(field(record, "correct", path), `${path}.correct`),
-    pointsEarned,
-    pointsPossible,
-  };
+  return { presentationNonce, gradingState };
 }

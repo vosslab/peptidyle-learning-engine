@@ -2,10 +2,6 @@
 -- iMathAS worker: a native PLE worker may claim only immutable native PLE
 -- submissions and may commit only its current typed lease.
 
-CREATE ROLE ple_native_ple_grading_worker
-    NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-REVOKE ple_native_ple_grading_worker FROM ple_migrator;
-
 SET LOCAL ROLE ple_api_owner;
 GRANT CREATE ON SCHEMA ple_api TO ple_private_owner;
 RESET ROLE;

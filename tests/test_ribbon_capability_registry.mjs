@@ -19,7 +19,8 @@ const CATALOG = [...TAB_CATALOG, ...RIBBON_TASK_CATALOG];
 
 function backedEntry(relationshipRequirement = "none") {
   const control = CATALOG.find(
-    (candidate) => candidate.destination.kind === "route" && candidate.destination.routeId === "library",
+    (candidate) =>
+      candidate.destination.kind === "route" && candidate.destination.routeId === "library",
   );
   assert.ok(control, "a declared route supplies the synthetic backed entry");
   return createRibbonCapabilityEntry(
@@ -65,7 +66,10 @@ test("registry and catalog agree on each declared navigation destination", () =>
     }
   }
   for (const entry of Object.values(CAPABILITY_REGISTRY)) {
-    assert.ok(CATALOG.some((control) => control.id === entry.id), entry.id);
+    assert.ok(
+      CATALOG.some((control) => control.id === entry.id),
+      entry.id,
+    );
   }
 });
 

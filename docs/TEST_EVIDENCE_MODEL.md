@@ -34,10 +34,10 @@ two declared real-service lanes: the disposable PostgreSQL schema, authority,
 and persistence oracle, and the Course Appearance PostgreSQL and MinIO
 coherence oracle. It does not invoke a browser suite.
 
-The complete canonical production-browser path remains a release-blocking M19
-requirement. M5 supplies one owned live-browser scenario for its Question
-Library task, but a passing aggregate or M5 scenario does not establish the
-remaining Instructor, Student, Sysadmin, visual, or serial-workflow acceptance.
+M19 accepted the complete canonical production-browser path on 2026-09-07. M5
+supplies one owned live-browser scenario for its Question Library task, but its
+passing aggregate or focused scenario remains narrower than the separate
+Instructor, Student, Sysadmin, visual, and serial-workflow acceptance.
 
 Run the full named suite again after any material change that affects a gate.
 When a plan requires repeat-run or cleanup evidence, rerun all four gates on
@@ -230,18 +230,20 @@ claim.
 
 ## Visual evidence
 
-`./devel/capture_screenshots.sh` is the single current Live Demo capture command.
-It regenerates the fixed disposable Browser Suite, serves the production bundle
-through its HTTPS gateway, enters through the visible seeded Account selector,
-and rebuilds the six declared desktop, tablet, phone, selected-state, and
-invitation-email images under `docs/screenshots/live_demo/`.
+M19 accepted fresh serial production-browser evidence before M20 rebuilt its
+safe capture corpus from the fixed disposable Browser Suite and visible
+application navigation. `./devel/capture_screenshots.sh` owns that rebuild;
+`./devel/capture_screenshots.sh --verify` checks the declared current artifacts
+without starting a stack. The manifest is
+`docs/screenshots/current_capture_manifest.json`, whose paths place the current
+captures in public and Product Role screen folders. The
+[SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md) defines their application
+ownership and the seeded Live Demo environment boundary.
 
-This command is one-time rendered evidence, not a permanent test or full product
-browser-acceptance lane. Its remaining showcase capture is historical developer
-evidence, not Live Demo completion; M19 retires it before M20 creates the
-declared safe capture corpus. Retained images elsewhere under `docs/screenshots/`
-remain historical visual reference, and unavailable teaching workflows remain
-unclaimed until their Server Routes and production-browser scenarios are restored.
+Capture is one-time rendered evidence, not a permanent test or full
+product-browser-acceptance lane. Other retained images under
+`docs/screenshots/` remain historical visual reference and do not extend the
+current Live Demo acceptance claim.
 
 ## Service-only acceptance
 

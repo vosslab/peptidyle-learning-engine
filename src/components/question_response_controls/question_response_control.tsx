@@ -132,21 +132,19 @@ function QuestionResponseControlBody(props: QuestionResponseControlProps): JSX.E
     case "imathasQuestionBackend":
       // A dedicated iMathAS launch is a submission-capable integration, not a
       // native format-only control. M12 deliberately does not activate it.
-      return (
-        props.mode === "formatOnly" || props.onSubmit === undefined ? (
-          <p class="calm-status" role="status">
-            This response format is not available for local checking.
-          </p>
-        ) : (
-          <ImathasQuestionBackendResponse
-            attemptId={props.attemptId}
-            onSubmit={props.onSubmit}
-            onEscape={props.onEscape}
-            onResponseChange={props.onResponseChange}
-            studentWorkRoute={props.studentWorkRoute}
-            beginImathasQuestionBackendLaunch={props.beginImathasQuestionBackendLaunch}
-          />
-        )
+      return props.mode === "formatOnly" || props.onSubmit === undefined ? (
+        <p class="calm-status" role="status">
+          This response format is not available for local checking.
+        </p>
+      ) : (
+        <ImathasQuestionBackendResponse
+          attemptId={props.attemptId}
+          onSubmit={props.onSubmit}
+          onEscape={props.onEscape}
+          onResponseChange={props.onResponseChange}
+          studentWorkRoute={props.studentWorkRoute}
+          beginImathasQuestionBackendLaunch={props.beginImathasQuestionBackendLaunch}
+        />
       );
     default:
       return assertNever(props.responseFormat);

@@ -2,7 +2,7 @@
 
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { ApiClient } from "../client";
-import type { LiveDemoGradebookClient } from "../live_gradebook";
+import type { LiveDemoGradebook, LiveDemoGradebookClient } from "../live_gradebook";
 import { decodeLiveDemoGradebook } from "../decoders/live_gradebook";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
@@ -21,7 +21,7 @@ export function createLiveDemoGradebookClient(
   basePath: string,
 ): Pick<ApiClient, keyof LiveDemoGradebookClient> {
   return {
-    getLiveDemoGradebook: async (course) => {
+    getLiveDemoGradebook: async (course): Promise<LiveDemoGradebook> => {
       const path = gradebookPath(course);
       const response = await requestSameOrigin(fetchImplementation, basePath, path);
       requireNoStore(response, path);

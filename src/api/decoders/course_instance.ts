@@ -1,8 +1,6 @@
 // Strict decoding for the M8 Course Instance creation and teaching-team boundary.
 
 import type { AccountReference } from "../../../generated/api/AccountReference";
-import type { BlueprintCourseReference } from "../../../generated/api/BlueprintCourseReference";
-import type { CourseTerm } from "../../../generated/api/CourseTerm";
 import type {
   CourseCreationInstructor,
   CourseInstanceSummary,
@@ -71,13 +69,13 @@ export function decodeCreateCourseInstanceInput(
     blueprintCourse: decodeBlueprintCourseReference(
       field(record, "blueprintCourse", path),
       `${path}.blueprintCourse`,
-    ) as BlueprintCourseReference,
+    ),
     blueprintRevision: decodeBlueprintRevision(
       field(record, "blueprintRevision", path),
       `${path}.blueprintRevision`,
     ),
     title: title(field(record, "title", path), `${path}.title`),
-    term: decodeCourseTerm(field(record, "term", path), `${path}.term`) as CourseTerm,
+    term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
     ...(assignedInstructor === undefined
       ? {}
       : { assignedInstructor: accountReference(assignedInstructor, `${path}.assignedInstructor`) }),
@@ -141,7 +139,10 @@ export function decodeCourseCreationInstructors(
     const instructor = decodeRecord(entry, entryPath);
     requireOnlyFields(instructor, entryPath, ["reference"]);
     return {
-      reference: accountReference(field(instructor, "reference", entryPath), `${entryPath}.reference`),
+      reference: accountReference(
+        field(instructor, "reference", entryPath),
+        `${entryPath}.reference`,
+      ),
     };
   });
 }

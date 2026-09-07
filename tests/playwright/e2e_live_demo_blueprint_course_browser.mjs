@@ -29,13 +29,12 @@ try {
   await firstQuestion.check();
   await page.getByRole("button", { name: "Use selected Questions" }).click();
   await page.getByText("1 fixed Question selected in order.").waitFor();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Create Blueprint Course" })
-    .click();
+  await page.getByRole("dialog").getByRole("button", { name: "Create Blueprint Course" }).click();
   await page.waitForURL(/\/blueprint-courses\/BP-[1-9][0-9]*$/u);
   await page.getByRole("heading", { name: courseTitle }).waitFor();
-  await page.getByText("Blueprint Course loaded. Update its Blueprint Assignments deliberately.").waitFor();
+  await page
+    .getByText("Blueprint Course loaded. Update its Blueprint Assignments deliberately.")
+    .waitFor();
   await page.getByRole("link", { name: "Return to Blueprint Courses" }).click();
   await page.waitForURL(`${origin}/blueprint-courses`);
   await page.getByRole("link", { name: courseTitle }).waitFor();

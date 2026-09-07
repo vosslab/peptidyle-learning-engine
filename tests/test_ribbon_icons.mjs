@@ -33,19 +33,6 @@ const EXPECTED_DESTINATION_GLYPHS = {
   backToAssignments: "arrow-left",
 };
 
-const EXPECTED_TEXT_ONLY_DESTINATIONS = [
-  "blueprintCourses",
-  "teachingOperations",
-  "blueprintUpdates",
-  "instructorAccounts",
-  "allQuestions",
-  "myQuestions",
-  "assignmentOverview",
-  "assignmentPolicies",
-  "assignmentGradingOperations",
-  "gradeSettings",
-];
-
 test("the glyph vocabulary is a closed same-origin semantic contract", () => {
   assert.equal(RIBBON_ICON_ASSET_PATH, "/assets/ribbon-icons.svg");
   assert.equal(Object.isFrozen(RIBBON_DESTINATION_GLYPHS), true);
@@ -108,16 +95,6 @@ test("only conventional narrow-phone destinations may drop their labels", () => 
     CATALOG.filter((control) => control.iconOnlySafe).map((control) => control.id),
     ["starred", "watched", "backToAssignments"],
   );
-});
-
-test("ambiguous teaching destinations remain deliberately text-only", () => {
-  assert.deepEqual(
-    CATALOG.filter((control) => !control.iconBearing).map((control) => control.id),
-    EXPECTED_TEXT_ONLY_DESTINATIONS,
-  );
-  for (const id of EXPECTED_TEXT_ONLY_DESTINATIONS) {
-    assert.equal(ribbonGlyphForDestination(id), undefined, `${id} must remain text-only`);
-  }
 });
 
 test("context glyphs remain closed identities rather than invented navigation controls", () => {

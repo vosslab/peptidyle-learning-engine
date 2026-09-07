@@ -7,7 +7,10 @@ import "./course_roster_page.css";
 
 import type { CourseRosterImportEntry } from "../api/course_roster";
 import { useApplicationApi } from "../api/application_api";
-import { parseCourseInstanceReference } from "../navigation/public_route";
+import {
+  type CourseInstanceRouteReference,
+  parseCourseInstanceReference,
+} from "../navigation/public_route";
 
 function parseImportRows(value: string): ReadonlyArray<CourseRosterImportEntry> {
   const lines = value
@@ -19,7 +22,13 @@ function parseImportRows(value: string): ReadonlyArray<CourseRosterImportEntry> 
     const fields = line.split(",").map((field) => field.trim());
     const email = fields[0];
     const rosterId = fields[1];
-    if (fields.length !== 2 || email === undefined || rosterId === undefined || email === "" || rosterId === "") {
+    if (
+      fields.length !== 2 ||
+      email === undefined ||
+      rosterId === undefined ||
+      email === "" ||
+      rosterId === ""
+    ) {
       throw new Error("Use one email,roster_id pair on each row.");
     }
     return { email, rosterId };
@@ -34,7 +43,8 @@ function stateLabel(state: "invitationPending" | "activeStudent"): string {
 export function CourseRosterPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const params = useParams();
-  const reference = () => parseCourseInstanceReference(params["courseRef"] ?? "");
+  const reference = (): CourseInstanceRouteReference | null =>
+    parseCourseInstanceReference(params["courseRef"] ?? "");
   const [roster, { refetch }] = createResource(reference, async (course) => {
     if (course === null) throw new Error("Course Instance reference is invalid");
     return applicationApi.client.getLiveCourseRoster(course);
@@ -53,7 +63,9 @@ export function CourseRosterPage(): JSX.Element {
       const entries = parseImportRows(importText());
       await applicationApi.client.importLiveCourseRoster(course, { entries });
       setImportText("");
-      setMessage("Roster import recorded. Students remain pending until they claim their Course Invitation.");
+      setMessage(
+        "Roster import recorded. Students remain pending until they claim their Course Invitation.",
+      );
       await refetch();
     } catch (error) {
       setMessage(
@@ -73,7 +85,9 @@ export function CourseRosterPage(): JSX.Element {
     setMessage("");
     try {
       await applicationApi.client.revokeLiveCourseRosterEntry(course, rosterId);
-      setMessage("Course access was removed. Protected educational records remain under retention.");
+      setMessage(
+        "Course access was removed. Protected educational records remain under retention.",
+      );
       await refetch();
     } catch {
       setMessage("This roster entry could not be changed. Reload and try again.");
@@ -110,8 +124,8 @@ export function CourseRosterPage(): JSX.Element {
       <p class="eyebrow">Course Instance roster</p>
       <h1>Students</h1>
       <p class="page-lede">
-        Import reviewed Student Authentication Email and course roster ID pairs. An import creates
-        a pending Course Invitation; it does not create Assignment or Student-work records.
+        Import reviewed Student Authentication Email and course roster ID pairs. An import creates a
+        pending Course Invitation; it does not create Assignment or Student-work records.
       </p>
       <Show when={message()}>
         {(text) => (
@@ -121,7 +135,10 @@ export function CourseRosterPage(): JSX.Element {
         )}
       </Show>
 
-      <form class="auth-panel auth-form roster-section" onSubmit={(event) => void importRoster(event)}>
+      <form
+        class="auth-panel auth-form roster-section"
+        onSubmit={(event) => void importRoster(event)}
+      >
         <h2>Import roster</h2>
         <label for="live-course-roster-import">Email, roster ID</label>
         <textarea
@@ -134,8 +151,8 @@ export function CourseRosterPage(): JSX.Element {
           aria-describedby="live-course-roster-import-help"
         />
         <p id="live-course-roster-import-help" class="field-help">
-          One comma-separated pair per line, up to 50 rows. Roster IDs remain course-scoped and
-          are not sign-in credentials.
+          One comma-separated pair per line, up to 50 rows. Roster IDs remain course-scoped and are
+          not sign-in credentials.
         </p>
         <button class="primary-action" type="submit" disabled={busy()}>
           Import roster
@@ -176,7 +193,10 @@ export function CourseRosterPage(): JSX.Element {
         {(entries) => (
           <section class="roster-section" aria-labelledby="current-roster-heading">
             <h2 id="current-roster-heading">Current roster</h2>
-            <Show when={entries().length > 0} fallback={<p class="empty-state">No roster entries yet.</p>}>
+            <Show
+              when={entries().length > 0}
+              fallback={<p class="empty-state">No roster entries yet.</p>}
+            >
               <div class="roster-table-wrap">
                 <table class="roster-table">
                   <thead>

@@ -13,14 +13,15 @@ security and storage rules.
 
 [composition.rs](../crates/server/src/composition.rs) is the executable
 authority for the production route surface. Its current entry point provides
-health, session resolution/logout, the deployment-gated seeded Live Demo
-account selector, Instructor Question Library, M6 private Question authoring
-and publication, M7 Blueprint Course lifecycle, and M8 Course Instance
-creation and initial Teaching Team, M9 Course Roster Import, invitation claim,
-and access revocation, M10 Assignment Workspace creation, authoring,
-validation, answer-free preview, and immutable release, and M11 Student
-Assignment Access and initial answer-free issuance, and M18 protected Course
-Invitation export. Route modules absent
+health, session resolution/logout, deployment-gated seeded Live Demo account
+entry, Instructor Question Library, M6 private Question authoring
+and publication, M7 Blueprint Course lifecycle, M8 Course Instance creation,
+M9 Course Roster Import, M10 Assignment Workspace and release, M11 Student
+Assignment Access and issuance, M12 native controls and asset delivery, M13
+native submission and status, M14 WeBWorK delivery and grading, M15 Gradebook,
+M16 Instructor Accounts, M17 scoped support operations, M18 protected Course
+Invitation export, and the Student course and Assignment landing routes. Route
+modules absent
 from server composition, generated DTOs, browser clients, schemas, and models
 retain product design; none establishes an available HTTP endpoint.
 
@@ -61,12 +62,18 @@ retain product design; none establishes an available HTTP endpoint.
 | Assignment Release | `POST /api/course-instances/{course_instance_reference}/assignments/{assignment_reference}/release` | Requires the exact strong Assignment Edit Number `If-Match`, validates the current selection, and atomically creates the next immutable Assignment Revision for later M11 delivery. | [assignment_release.rs](../crates/server/src/assignment_release.rs) |
 | Student Assignment Access | `GET /api/course-instances/{course_instance_reference}/assignments/{assignment_reference}/access` | Requires the authenticated Student's exact active Student Record for the Course. It returns only the server-calculated start decision for the released Assignment at authoritative time. | [assignment_delivery.rs](../crates/server/src/assignment_delivery.rs) |
 | Student Assignment start | `POST /api/course-instances/{course_instance_reference}/assignments/{assignment_reference}/start` | Requires the same exact active Student Record, refuses unavailable, closed, attempt-limit, and due/late-rejected starts before issue, and atomically starts or resumes the released Assignment Revision. It issues or resumes one full answer-free QuestionPresentation pinned to the exact Question Revision, with a 53-bit OS-random public QuestionSeed, nonce, title, prompt, and response format. The no-store response has no internal locator, source, checksum, reproduction data, answer, or grading data. | [assignment_delivery.rs](../crates/server/src/assignment_delivery.rs) |
+| Student submission and status | `POST` / `GET /api/course-instances/{course_instance_reference}/assignments/{assignment_reference}/presentations/{presentation_nonce}/submissions` | Requires the Student's exact issued Question Presentation. Submission accepts only the applicable response format. Status is bound to that nonce and returns only the presentation nonce and closed grading state; it does not return correctness, points, Answer Keys, source, private feedback, or raw grader data. | [assignment_delivery.rs](../crates/server/src/assignment_delivery.rs) |
+| Question asset delivery | `GET /api/assets/{asset_id}` | Requires the authorized Student presentation relationship before returning an immutable public-asset redirect. | [question_asset_delivery.rs](../crates/server/src/question_asset_delivery.rs) |
+| Student course landing | `GET /api/student/course-instances`, `GET /api/student/course-invitations`, `GET /api/course-instances/{course_instance_reference}/assignment-landing` | Requires the Student's exact active or pending Course relationship and returns only the safe Course or released-Assignment landing projection. | [live_student_course_landing.rs](../crates/server/src/live_student_course_landing.rs) |
+| Gradebook | `GET /api/course-instances/{course_instance_reference}/gradebook` | Requires the current Course Instructor and returns the answer-free immutable Gradebook projection. | [live_gradebook.rs](../crates/server/src/live_gradebook.rs) |
+| Instructor Accounts | `GET` / `POST /api/instructor-accounts`; `POST /api/instructor-accounts/{reference}/deactivate`; `POST /api/instructor-accounts/{reference}/reactivate` | Requires the current Sysadmin role and rechecks that authority in the Store. | [instructor_account.rs](../crates/server/src/instructor_account.rs) |
+| Scoped support | `POST /api/course-instances/{reference}/support-capabilities`; `POST /api/course-instances/{reference}/support-capabilities/{capability_id}/revoke`; `GET /api/support-capabilities/{capability_id}/course-roster` | A direct Instructor issues or revokes one Course-scoped capability; a Sysadmin reads only its registered minimal roster projection. | [support_capability.rs](../crates/server/src/support_capability.rs) |
 | Course Invitation export | `GET /api/course-instances/{course_instance_reference}/invitation-export` | Requires the current direct Instructor and returns a no-store JSON attachment of only pending, unexpired Student Course Invitations for that Course in the existing mailer shape. The browser downloads the attachment only; this route does not send mail. | [invitation_export.rs](../crates/server/src/invitation_export.rs) |
 
 The seeded routes are present when at least one valid, unambiguous deployment
 mapping survives. The five-persona set remains closed, but a configured demo
 Account can be unavailable without removing the surviving entries; the bounded
-unavailable count discloses no Account or mapping detail. The selector replaces
+unavailable count discloses no Account or mapping detail. Seeded entry replaces
 identity verification for the known demo personas. It supplies no Product Role,
 Course Membership, Student record, or authority; the server derives those facts
 from stored PLE records whenever a future route needs them.
@@ -84,22 +91,21 @@ from stored PLE records whenever a future route needs them.
 
 ## Deferred teaching routes
 
-Private imports; Course Instance operations beyond M8 creation and initial Teaching
-Team; Course Roster Import delivery beyond M9's pending invitation/claim boundary;
-Assignment policy beyond M10's fixed-question authoring and release boundary;
-Student delivery beyond M11's initial QuestionPresentation issuance and resume;
-Question submission; automated grading; Gradebook; Student-work inspection;
-object delivery beyond M18's invitation attachment; Course Retention; and iMathAS Question Backend browser
-boundaries are retained Store-backed product requirements. Server composition
-currently provides none of those later HTTP routes. M7 supplies reusable Blueprint
+Private imports; Course Instance operations beyond current creation and roster
+boundaries; Assignment policy beyond the current fixed-question authoring and
+release boundary; individual Student-work inspection; Course Retention; and
+iMathAS Question Backend browser boundaries remain retained Store-backed product
+requirements. Server composition currently provides none of those later HTTP
+routes. The current implementation supplies reusable Blueprint
 Course create, list, load, and successor-revision operations; M8 supplies only
 Course Instance creation from an exact Blueprint Revision plus its initial
 Teaching Team; M9 supplies direct-Instructor roster import, target Student
 claim, and access revocation; M10 supplies the narrow direct-Instructor
-Assignment Workspace and immutable release; and M11 supplies Student-only
-Assignment Access and initial QuestionPresentation start/resume. M18 supplies
-the direct-Instructor no-store invitation attachment only. Blueprint Operations
-and later Assignment teaching delivery remain deferred.
+Assignment Workspace and immutable release; Student-only Assignment Access,
+issuance, native submission, recovery, and supported WeBWorK delivery; the
+answer-free Gradebook; narrowly scoped account and support operations; and the
+direct-Instructor no-store invitation attachment. These current route claims do
+not establish M19's connected production-browser evidence.
 
 When implemented, each route uses the session-derived Account plus exact stored
 relationships. Course and Assignment references locate a resource only after
@@ -141,7 +147,7 @@ reproduction details remain private Question Attempt/source-binding facts, and
 resume reproduces the same public presentation. It exposes no internal locator, source,
 checksum, reproduction data, answer, grading input, feedback, submission, or
 grade; every response is `no-store`. Native response controls and submission
-remain later M12/M13 work.
+are implemented under their separate Student-only route boundary.
 
 Structural content edits that conflict with issued Student activity use the
 typed recovery contract `SuccessorAssignmentRevisionRequired`. It carries the
@@ -150,15 +156,16 @@ the outcome a **Successor Assignment Revision**. The server-owned successor
 creation command and its Server Route remain future work, so this document
 does not claim a currently available edit-recovery endpoint.
 
-### Future Student delivery and grading
+### Student delivery and grading boundary
 
-The future Student route supplies only the Question presentation and controls
+The Student route supplies only the Question presentation and controls
 authorized for the exact Assignment Attempt. An accepted submission creates one
-receipt. Status and recovery flows remain answer-free and preserve the accepted
-private response rather than asking the Student to resubmit it. Future grading
-operations expose bounded metadata and authorized recovery actions without
-revealing Student responses, Answer Keys, private feedback internals, private
-source, or raw grading input.
+receipt. Status and recovery flows preserve the accepted private response rather
+than asking the Student to resubmit it. Status is limited to its bound
+presentation nonce and grading state; Student Feedback is a separate
+policy-evaluated projection. Current grading operations do not reveal Student
+responses, Answer Keys, private feedback internals, private source, or raw
+grading input.
 
 ### Future mutation safety
 
@@ -175,11 +182,9 @@ body, verify content type and closed shape, reject unknown values, and confirm
 returned relationships before exposing a typed value. Browser types and Wasm
 represent data; they do not establish authorization.
 
-The local stack's current aggregate acceptance is service evidence. A passing
-aggregate does not prove a visible production-browser course, workspace,
-delivery, submission, or grading journey. Production browser restoration is a
-separate release-blocking requirement; see
-[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) and
+The local stack aggregate and each M12-M18 focused gate retain their narrower
+claims. M19 separately accepted the single connected production-browser journey
+on 2026-09-07; see [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) and
 [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
 
 ## Change control

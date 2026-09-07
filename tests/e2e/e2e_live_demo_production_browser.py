@@ -25,6 +25,8 @@ import e2e_browser_fault_orchestrator
 
 
 CURRENT_MILESTONE_JOURNEYS = (
+	("assignment_release", ("bash", "tests/e2e/e2e_live_demo_assignment_release.sh", "--browser")),
+	("webwork_render", ("bash", "tests/e2e/e2e_live_demo_webwork.sh", "--render")),
 	("instructor_accounts", ("bash", "tests/e2e/e2e_live_demo_instructor_accounts.sh", "--browser")),
 	("support_capability", ("bash", "tests/e2e/e2e_live_demo_support_capability.sh", "--browser")),
 	("invitation_export", ("bash", "tests/e2e/e2e_live_demo_invitation_export.sh", "--dry-run")),
@@ -154,7 +156,7 @@ def run_contract(contract: e2e_browser_scenario_contract.ScenarioContract, origi
 
 
 def run_current_milestone_journeys() -> None:
-	"""Keep current visible M16/M17 work and M18's download-only boundary serial."""
+	"""Run the supported visible-browser journeys serially."""
 	for name, argv in CURRENT_MILESTONE_JOURNEYS:
 		print("==> production-browser journey: " + name, flush=True)
 		result = subprocess.run(argv, cwd=ROOT, check=False)

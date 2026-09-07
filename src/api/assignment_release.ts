@@ -14,7 +14,7 @@ export interface AssignmentQuestionPickerEntry {
   readonly description: string;
 }
 
-export interface AuthoredAssignmentQuestion extends AssignmentQuestionPickerEntry {}
+export type AuthoredAssignmentQuestion = AssignmentQuestionPickerEntry;
 
 export interface LiveAssignmentWorkspace {
   readonly reference: AssignmentReference;

@@ -346,8 +346,7 @@ export function createSubmissionController(
       phase().kind === "recoveryPending" ||
       phase().kind === "submitted",
     canSubmit: () =>
-      props.mode !== "formatOnly" &&
-      (phase().kind === "ready" || phase().kind === "restored"),
+      props.mode !== "formatOnly" && (phase().kind === "ready" || phase().kind === "restored"),
     canReset: () =>
       phase().kind !== "submitting" &&
       phase().kind !== "recoveryPending" &&

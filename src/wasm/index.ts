@@ -138,7 +138,7 @@ export interface WasmFacade {
 }
 
 interface WasmBindgenModule {
-  readonly default: (moduleOrPath: URL) => Promise<unknown>;
+  readonly default: (options: { readonly module_or_path: URL }) => Promise<unknown>;
   readonly question_attempt_timing_decision: (evaluationJson: string) => string;
   readonly validate_assignment_config: (configJson: string) => string;
   readonly validate_response_format: (responseFormatJson: string, responseJson: string) => string;
@@ -316,7 +316,7 @@ async function initializeWasmFacade(
     if (!isWasmBindgenModule(loaded)) {
       throw new Error("Generated WebAssembly bridge has an unexpected export shape");
     }
-    await loaded.default(wasmAssetUrl("ple_bridge_bg.wasm"));
+    await loaded.default({ module_or_path: wasmAssetUrl("ple_bridge_bg.wasm") });
 
     const validateResponseFormat: ResponseFormatValidator = (responseFormat, response) => {
       const json = isQuestionPresentationResponseFormat(responseFormat)

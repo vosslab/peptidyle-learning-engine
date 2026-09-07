@@ -4,6 +4,21 @@
 
 ### Additions and New Features
 
+- Completed Live Demo restoration M19. The final fresh controller-managed fixed
+  HTTPS stack passed `./devel/run_playwright_tests.sh --build`; its serial owner
+  exercised connected authentication, Instructor authoring, Student recovery,
+  Assignment release, WeBWorK render, Sysadmin Account, scoped-support, and
+  invitation-export journeys against the production bundle. This is connected
+  browser evidence, separate from the narrower focused milestone and service receipts.
+
+- Completed Live Demo restoration M20. `./devel/capture_screenshots.sh`
+  created eight safe, manifest-listed connected captures through visible PLE
+  navigation, then stopped its owned stack. The one-time artifacts live in
+  `public/`, `instructor/`, `student/`, and `sysadmin/` screen folders; the
+  dedicated `--verify` mode validates their PNG manifest without starting a
+  stack. The current corpus includes one normal desktop Ribbon capture for
+  each Product Role and Student tablet, phone, and square responsive evidence.
+
 - Completed Live Demo restoration M15. Fresh controller-managed fixed HTTPS
   stacks passed `bash tests/e2e/e2e_live_demo_gradebook.sh --api` and
   `--browser`: the current Course Instructor receives answer-free immutable
@@ -61,13 +76,66 @@
   render-issuance boundary previously passed with `--render`; on a fresh
   controller-managed stack, `bash tests/e2e/e2e_live_demo_webwork.sh --grade`
   passed: `WeBWorK grade authority: deterministic renderer grade commit and
-  bounded renderer failure complete`; `Live Demo WeBWorK grade: PASS`. The
+bounded renderer failure complete`; `Live Demo WeBWorK grade: PASS`. The
   renderer fault is a bounded terminal local outcome. This service/browser
   cadence does not claim M19 serial production-browser acceptance.
 
+### Behavior or Interface Changes
+
+- Reconciled M21 current-boundary documentation with the Human Guidance and
+  Terminology Contract authority order. The Live Demo is now documented as the
+  connected PLE application, and M19's nonce-bound submission status continues
+  to expose only grading state while Student Feedback remains separately
+  policy-evaluated.
+
 ### Fixes and Maintenance
 
+- Corrected M14 WeBWorK issuance to return the first atomic Assignment Attempt
+  projection instead of a second call that had already resumed that attempt.
+  The one-time render proof now verifies the true initial and resume states,
+  its private replay join, and the outcome-free Student surface.
+
+- Corrected the disposable M8 Course Instance helper to select its fixed Elena
+  Instructor persona from a multi-Instructor active list. M16 may create
+  additional active Instructor Accounts; global Instructor cardinality is not
+  a Course Instance requirement.
+
 - Synchronized shared style guides, tests, and repository support files from the starter template.
+
+- Repaired the one-time screenshot rebuild boundary: it now waits for the
+  visible seeded sign-in surface after navigation commit rather than unrelated
+  document completion, then begins workflow-response privacy inspection. The
+  generated WebAssembly bridge now uses its current object-shaped initializer.
+  A fresh `./devel/capture_screenshots.sh` rebuild produced the eight declared
+  artifacts, stopped its owned stack, and passed `--verify`.
+
+- Restored the M8 Course Instance acceptance assertion that the newly Assigned
+  Instructor can retrieve the exact closed teaching-team projection. It now
+  accepts one or more active Instructors rather than encoding the retired
+  one-Instructor fixture cardinality. A fresh authority run passed and stopped
+  its owned stack.
+
+### Removals and Deprecations
+
+- Removed the retired structural Live Demo presentation route and its separate
+  screenshot directory. Current rendered evidence is role-owned rather than a
+  parallel demo gallery.
+
+### Developer Tests and Notes
+
+- M21 used a one-time manual authority reconciliation rather than adding the
+  absent planned authority-ledger script as a fragile permanent source-inventory
+  test. On the formatter-final material tree, the final aggregate passed 5,953
+  offline tests and both disposable live-service acceptance oracles; the
+  GUI-capable serial production-browser owner also passed.
+
+- Audited the restoration test changes under the repository's permanent-test
+  admission rules. Removed unused Ribbon fixture inventory and a fixed seeded
+  Account UUID assertion; retained current authorization, route/Ribbon, and
+  answer-free recovery boundaries. Disposable browser acceptance and screenshot
+  capture remain one-time evidence, not permanent fast-suite behavior tests.
+  `source source_me.sh && ./launchers/all_test.sh` passed after the audit.
+
 ## 2026-09-06
 
 ### Additions and New Features
@@ -111,8 +179,8 @@
   oracle and real Chromium journey. Student delivery, Student View Scenario
   evaluation, grading, and M19 serial-browser acceptance remain unclaimed.
 
-- Added the tracked Live Demo restoration blueprint at
-  [docs/active_plans/active/restore_live_demo.md](active_plans/active/restore_live_demo.md).
+- Added the tracked Live Demo restoration blueprint, now retained at
+  [docs/archive/restore_live_demo.md](archive/restore_live_demo.md).
   It defines the authority order, full three-persona completion contract, 22 milestone ladder,
   package ownership, security constraints, and production-browser evidence required to replace
   the present developer showcase with the actual Live Demo.

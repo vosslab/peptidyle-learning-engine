@@ -120,7 +120,10 @@ test("missing source parameters withhold a backed destination without changing i
     });
     const controls = controlsFor("assignmentAttempt", "student").controls;
     const back = controls.find((control) => control.id === entry.id);
-    assert.deepEqual(controls.map(({ id }) => id), before);
+    assert.deepEqual(
+      controls.map(({ id }) => id),
+      before,
+    );
     assert.equal(back?.href, undefined);
   } finally {
     restoreDescriptors(entry, descriptors);
@@ -142,7 +145,10 @@ test("relationship admission may check without moving schema-owned positions", (
       },
     });
     const controls = controlsFor("courseAssignments", "instructor").controls;
-    assert.deepEqual(controls.map(({ id }) => id), before);
+    assert.deepEqual(
+      controls.map(({ id }) => id),
+      before,
+    );
     assert.equal(controls.find((control) => control.id === entry.id)?.availability, "Checking");
   } finally {
     restoreDescriptors(entry, descriptors);

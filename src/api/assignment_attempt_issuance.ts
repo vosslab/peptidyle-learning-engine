@@ -33,14 +33,14 @@ export interface LiveNativePleSubmissionAcknowledgement {
   readonly gradingState: "pending";
 }
 
-export type LiveNativePleSubmissionStatus =
-  | { readonly gradingState: "pending" | "instructorAttention" }
-  | {
-      readonly gradingState: "graded";
-      readonly correct: boolean;
-      readonly pointsEarned: number;
-      readonly pointsPossible: number;
-    };
+/**
+ * Recovery status for one already-accepted response. Student Feedback remains
+ * available only through its separately policy-evaluated projection.
+ */
+export interface LiveNativePleSubmissionStatus {
+  readonly presentationNonce: string;
+  readonly gradingState: "pending" | "graded" | "instructorAttention";
+}
 
 /** Same-origin M11 Student-only access and start boundary. */
 export interface LiveAssignmentAttemptIssuanceClient {

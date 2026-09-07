@@ -40,9 +40,10 @@ disposable `ple-live-demo-browser` HTTPS session, and prints its ready origin. O
 browser, or run `./launchers/run_live_demo.sh open` to open an already-running demo automatically. Use
 `./launchers/run_live_demo.sh start --open` to create a fresh demo and open it. Select a seeded persona in the
 visible PLE sign-in flow. The server derives its Account and ordinary
-Authenticated Session from disposable seeded state, then opens the explicitly labelled populated
-Ribbon and invitation-mailer developer showcase. The Ribbon controls change preview selection only;
-teaching routes are not currently available.
+Authenticated Session from disposable seeded state, then permits the
+role- and relationship-gated product routes supported by that session. The
+browser can download protected invitation-export input but cannot send mail.
+M19 recorded fresh sealed-stack production-browser proof on 2026-09-07.
 
 Each launch first completes owner-scoped cleanup of the previous `ple-live-demo-browser` session,
 then creates a fresh seeded installation. Relaunching therefore discards records created in the
@@ -93,17 +94,16 @@ After the browser opens, use the visible **Explore this live demo** panel on the
 
 - Choose the seeded Instructor, Student, or Sysadmin persona. Current personas are Elena
   (Instructor), Mary, Jack, and Avery (Students), and Morgan (Sysadmin).
-- The resulting `/live-demo/ribbon` page is a structural developer showcase, not a teaching route.
-  It renders the real production Ribbon component and repeats the existing dry-run and attended
-  invitation-mailer commands without giving the browser permission to send mail.
+- The resulting session permits only its role- and relationship-gated product routes. The
+  browser can download protected invitation-export input without receiving permission to send
+  mail.
 - Persona selection only replaces the identity-verification ceremony. The server still resolves the
-  ordinary Account and session; later course and authorization decisions remain server-derived when
-  their routes are implemented.
+  ordinary Account and session; course and authorization decisions remain server-derived.
 - The seeded data belongs to this disposable installation. Relaunching the demo restores the
   baseline and discards changes from the prior session.
 - Email-code authentication remains future work. The passkey capability is deferred: this build has
   no passkey configuration, setup credential, installation command, Server Route, or Browser Surface.
-  The visible selector is the current local-demo entry.
+  Seeded entry is the current local-demo identity-verification path.
 
 ## Verify install
 

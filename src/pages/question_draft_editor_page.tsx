@@ -16,9 +16,11 @@ export function QuestionDraftEditorPage(): JSX.Element {
   const client = createPleQuestionJsonClient();
   const repository = createPleQuestionJsonRepository(client);
   const reference = createMemo(() => parseDraftQuestionReference(params.draftQuestionRef ?? ""));
-  const [initial, { refetch }] = createResource(reference, async (draftQuestion) =>
-    await repository.load(draftQuestion),
+  const [initial, { refetch }] = createResource(
+    reference,
+    async (draftQuestion) => await repository.load(draftQuestion),
   );
+  const initialLoadFailed = createMemo(() => initial.error !== undefined);
 
   return (
     <Show
@@ -26,7 +28,9 @@ export function QuestionDraftEditorPage(): JSX.Element {
       fallback={
         <main class="page route-error" data-route-surface="questionDraftEditorInvalid" role="alert">
           <h1>Draft Question not found</h1>
-          <A class="primary-link" href="/authoring/drafts">Return to My Question Drafts</A>
+          <A class="primary-link" href="/authoring/drafts">
+            Return to My Question Drafts
+          </A>
         </main>
       }
     >
@@ -35,12 +39,18 @@ export function QuestionDraftEditorPage(): JSX.Element {
         fallback={
           <main class="page" data-route-surface="questionDraftEditorLoading">
             <Show
-              when={initial.error}
-              fallback={<p class="calm-status" role="status">Loading private Draft Question...</p>}
+              when={initialLoadFailed()}
+              fallback={
+                <p class="calm-status" role="status">
+                  Loading private Draft Question...
+                </p>
+              }
             >
               <section class="inline-error" role="alert">
                 <p>This Draft Question is unavailable.</p>
-                <button class="quiet-action" type="button" onClick={() => void refetch()}>Retry</button>
+                <button class="quiet-action" type="button" onClick={() => void refetch()}>
+                  Retry
+                </button>
               </section>
             </Show>
           </main>

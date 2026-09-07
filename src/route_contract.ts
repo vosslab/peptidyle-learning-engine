@@ -155,7 +155,7 @@ export const ROUTE_CONTRACT = [
     id: "courseAssignments",
     path: "/courses/:courseRef",
     surface: "Course Instance teaching-team workspace before roster and Assignment delivery",
-    requiredProductRoles: [],
+    requiredProductRoles: ["instructor"],
     ribbon: { scope: "courseInstance", tab: "assignments", contentLayout: "reading" },
   },
   {

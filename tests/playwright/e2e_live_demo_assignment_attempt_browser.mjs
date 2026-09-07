@@ -30,10 +30,13 @@ try {
     "section[data-route-surface='assignmentOverview'] article.question-presentation",
   );
   if (
-    (await presentation.getByRole("button", { name: /Submit answer|submit assignment|grade|feedback/i }).count()) !==
-    0
+    (await presentation
+      .getByRole("button", { name: /Submit answer|submit assignment|grade|feedback/i })
+      .count()) !== 0
   ) {
-    throw new Error("M11 initial presentation exposed an M13 submission, grading, or feedback control");
+    throw new Error(
+      "M11 initial presentation exposed an M13 submission, grading, or feedback control",
+    );
   }
 } finally {
   await context.close();

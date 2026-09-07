@@ -1,10 +1,10 @@
 # Usage
 
-PLE's current local Live Demo is a disposable HTTPS stack with real PostgreSQL,
-MinIO, API, gateway, worker dependencies, and the private WebWork renderer. Its
-currently available Browser Surface contains the account/session entry boundary
-and an explicitly labelled Ribbon and invitation-mailer developer showcase; it
-is not a runnable course-delivery demonstration.
+PLE's local Live Demo is a disposable HTTPS stack with real PostgreSQL, MinIO,
+API, gateway, worker dependencies, and the private WebWork renderer. It serves
+the current role- and relationship-gated PLE workflow; it is not a presentation
+substitute. M19 recorded its fresh sealed-stack production-browser proof on
+2026-09-07.
 
 ## Quick start
 
@@ -40,56 +40,41 @@ Stop the disposable stack through its owner:
 Starting again replaces this project's disposable resources and seeded state. It
 does not change unrelated Podman projects.
 
-## Capture current Live Demo screenshots
+## M20 Live Demo capture
 
-Rebuild every declared current screenshot with one developer command:
+Run the dedicated capture command to rebuild M20's role-owned current corpus:
 
 ```bash
 ./devel/capture_screenshots.sh
 ```
 
-The command starts a fresh headless Live Demo through `launchers/run_live_demo.sh`, delegates
-browser installation to `devel/setup_playwright.sh`, enters as Elena Instructor
-through the visible Account selector, and writes six images under
-`docs/screenshots/live_demo/`. It leaves the ready Live Demo running for manual
-inspection. These captures are one-time visual evidence, not permanent tests or
-evidence for the unavailable teaching workflows.
+The command starts a fresh disposable stack, navigates the visible connected
+workflows, writes only the manifest-listed public and role-folder images, then
+stops that stack. Use `./devel/capture_screenshots.sh --verify` to validate the
+rendered-artifact manifest without starting a stack. Captures are one-time
+visual evidence, not permanent tests.
 
 ## Current Live Demo entry
 
-Use the visible account page. The deployment-gated seeded selector can create an
-ordinary server-owned Authenticated Session for Elena Instructor, Mary Student,
-Jack Student, Avery Student, or Morgan Sysadmin. The selector supplies a closed
-persona key only. The server resolves the configured Account and derives role,
-membership, Student ownership, and every later authorization decision from
-stored PLE state. After selection, `/live-demo/ribbon` displays the real
-production Ribbon with the populated Instructor structural model. Its controls
-change preview selection only; they do not navigate to or claim unbacked teaching
-destinations. The page also repeats the exact dry-run and attended commands for
-the separate macOS invitation mailer below.
+Use the visible seeded-entry page. It replaces only the normal
+identity-verification ceremony and can create an ordinary server-owned
+Authenticated Session for Elena Instructor, Mary Student, Jack Student, Avery
+Student, or Morgan Sysadmin. The entry supplies a closed persona key only. The
+server resolves the configured Account and derives Product Role, Course
+Membership, Student ownership, and every later authorization decision from
+stored PLE state. The resulting session uses the applicable protected product
+routes; the browser can download invitation-export input but cannot send mail.
 
-The current implemented HTTP surface is:
-
-- `GET /health`
-- `GET /api/auth/session`
-- `POST /api/auth/logout`
-- `GET` and `POST /api/auth/live-demo/accounts` when seeded demo configuration
-  is present
+The current HTTP route inventory is in [API_CONTRACTS.md](API_CONTRACTS.md).
 
 Email-code authentication remains future work. The passkey capability is deferred:
 it has no configuration, setup credential, Server Route, Browser Surface, or
 completed ceremony in the current local demo.
 
-## Retained teaching workflows
+## Teaching workflow boundaries
 
-Course navigation, Question Library, authoring workspace, Blueprint Course and
-Course Instance operations, roster and invitation handling, assignment delivery,
-Question submission, automated grading, Gradebook, worker operations, and
-course retention remain future Store-backed product workflows. Their browser
-Server Routes do not exist in the current demo, so this document does not instruct a
-reader to use them.
-
-When those workflows are implemented, their design retains these boundaries:
+The implemented Instructor, Student, and Sysadmin routes retain these
+boundaries:
 
 - exact Course Membership and Student ownership determine access;
 - Answer Keys, Question Graders, private Question Source data, and grading input
@@ -99,11 +84,11 @@ When those workflows are implemented, their design retains these boundaries:
 - Course, Assignment, and workspace references locate a record but never grant
   authority.
 
-The intended product behavior and its contracts are documented in
+The product behavior and its contracts are documented in
 [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md), and
-[API_CONTRACTS.md](API_CONTRACTS.md). A restored browser acceptance owner must
-establish a visible journey before any guide can call these workflows current.
+[API_CONTRACTS.md](API_CONTRACTS.md). The serial M19 production-browser proof
+is recorded separately from the service and permanent test lanes.
 
 ## Temporary attended signup-email tool
 

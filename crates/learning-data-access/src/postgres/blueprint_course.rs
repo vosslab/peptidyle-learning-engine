@@ -107,7 +107,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         input.validate().map_err(invalid_input)?;
         let requested = StoredBlueprintCourseContent::requested_question_ids_from_create(&input);
         let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash.clone())
+            .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let pins = resolve_current_question_pins(&mut transaction, requested).await?;
         let content = StoredBlueprintCourseContent::from_create(input, &pins)?;
@@ -139,14 +139,14 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
     ) -> Result<StoredBlueprintCourse, StoreError> {
         input.validate().map_err(invalid_input)?;
         let prior = self
-            .load_blueprint_course(session_token_hash.clone(), reference)
+            .load_blueprint_course(session_token_hash, reference)
             .await?;
         if prior.read_access != BlueprintCourseReadAccess::BlueprintCourseOwner {
             return Err(StoreError::Forbidden);
         }
         let requested = StoredBlueprintCourseContent::requested_question_ids_from_replace(&input);
         let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash.clone())
+            .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let pins = resolve_current_question_pins(&mut transaction, requested).await?;
         let content = StoredBlueprintCourseContent::from_replace(input, &prior.content, &pins)?;

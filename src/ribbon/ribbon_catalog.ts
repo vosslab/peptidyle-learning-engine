@@ -204,7 +204,16 @@ export const TAB_CATALOG = [
     presentation: "standard",
     ...textOnlyIconFlags,
   },
-  { id: "supportRoster", label: "Scoped Support", destination: { kind: "route", routeId: "supportRoster" }, requiredParams: [], role: "supporting", priority: "normal", presentation: "standard", ...textOnlyIconFlags },
+  {
+    id: "supportRoster",
+    label: "Scoped Support",
+    destination: { kind: "route", routeId: "supportRoster" },
+    requiredParams: [],
+    role: "supporting",
+    priority: "normal",
+    presentation: "standard",
+    ...textOnlyIconFlags,
+  },
 ] as const satisfies ReadonlyArray<RibbonCatalogControl<RibbonTabId>>;
 
 /**

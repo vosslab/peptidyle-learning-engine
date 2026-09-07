@@ -81,8 +81,8 @@ function blueprint(revision = "7") {
                     question_library: {
                       summary: publishedQuestion,
                       evidence: { state: "unavailable" },
-                  },
-                  selection_availability: "available",
+                    },
+                    selection_availability: "available",
                   },
                   points_possible: "2",
                   scoring_rule: "normal",

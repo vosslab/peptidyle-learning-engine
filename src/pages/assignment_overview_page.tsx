@@ -10,7 +10,12 @@ import type {
 import { useApplicationApi } from "../api/application_api";
 import { QuestionPresentationRenderer } from "../components/question_renderer";
 import { QuestionPresentationResponseControl } from "../components/question_response_controls/question_response_control";
-import { parseAssignmentReference, parseCourseInstanceReference } from "../navigation/public_route";
+import {
+  parseAssignmentReference,
+  parseCourseInstanceReference,
+  type AssignmentRouteReference,
+  type CourseInstanceRouteReference,
+} from "../navigation/public_route";
 import { useWasmFacade } from "../wasm/context";
 import type { SubmissionOutcome } from "../features/question_attempt/question_attempt_state";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
@@ -37,11 +42,7 @@ function presentationNonce(value: string | undefined): string | null {
 }
 
 function submissionHeading(status: LiveNativePleSubmissionStatus): string {
-  return status.gradingState === "graded"
-    ? status.correct
-      ? "Correct"
-      : "Not quite"
-    : "Response received";
+  return status.gradingState === "graded" ? "Graded" : "Response received";
 }
 
 function submissionMessage(status: LiveNativePleSubmissionStatus): string {
@@ -49,8 +50,7 @@ function submissionMessage(status: LiveNativePleSubmissionStatus): string {
     return "Grading is underway. You do not need to submit your response again.";
   if (status.gradingState === "instructorAttention")
     return "Your response needs instructor attention. You do not need to submit it again.";
-  if (!("pointsEarned" in status)) return "Your response is recorded.";
-  return `${status.pointsEarned} of ${status.pointsPossible} points`;
+  return "Student Feedback will appear when released.";
 }
 
 function acceptedSubmissionStorageKey(
@@ -72,10 +72,13 @@ export function AssignmentOverviewPage(): JSX.Element {
   const [submissionStatus, setSubmissionStatus] = createSignal<LiveNativePleSubmissionStatus>();
   const [checkingStatus, setCheckingStatus] = createSignal(false);
   const [statusError, setStatusError] = createSignal<string>();
-  const course = () => parseCourseInstanceReference(params["courseRef"] ?? "");
-  const assignment = () => parseAssignmentReference(params["assignmentRef"] ?? "");
-  const selectedPresentationNonce = () => presentationNonce(params["presentationNonce"]);
-  const isSubmissionScreen = () => selectedPresentationNonce() !== null;
+  const course = (): CourseInstanceRouteReference | null =>
+    parseCourseInstanceReference(params["courseRef"] ?? "");
+  const assignment = (): AssignmentRouteReference | null =>
+    parseAssignmentReference(params["assignmentRef"] ?? "");
+  const selectedPresentationNonce = (): string | null =>
+    presentationNonce(params["presentationNonce"]);
+  const isSubmissionScreen = (): boolean => selectedPresentationNonce() !== null;
   const access = createAsync(() => {
     const courseReference = course();
     const assignmentReference = assignment();
@@ -130,7 +133,10 @@ export function AssignmentOverviewPage(): JSX.Element {
         acceptedSubmissionStorageKey(courseReference, assignmentReference, presentationNonce),
         "accepted",
       );
-      setSubmissionStatus({ gradingState: acknowledgement.gradingState });
+      setSubmissionStatus({
+        presentationNonce: acknowledgement.presentationNonce,
+        gradingState: acknowledgement.gradingState,
+      });
       return { kind: "accepted" };
     } catch (_error: unknown) {
       return { kind: "rejected", message: "Your response could not be submitted. Try again." };
@@ -255,7 +261,7 @@ export function AssignmentOverviewPage(): JSX.Element {
                     </h3>
                     <QuestionPresentationRenderer
                       presentation={question}
-                      assetUrl={(asset) =>
+                      assetUrl={(asset): URL =>
                         new URL(
                           runtime.client.assetUrl(asset.questionAsset),
                           window.location.origin,
@@ -263,7 +269,10 @@ export function AssignmentOverviewPage(): JSX.Element {
                       }
                     />
                     <Show
-                      when={isSubmissionScreen() && submissionStatus()?.gradingState !== undefined}
+                      when={
+                        isSubmissionScreen() &&
+                        submissionStatus()?.presentationNonce === question.presentationNonce
+                      }
                       fallback={
                         <QuestionPresentationResponseControl
                           attemptId={question.presentationNonce}
@@ -272,7 +281,8 @@ export function AssignmentOverviewPage(): JSX.Element {
                           validator={validator}
                           onSubmit={
                             isSubmissionScreen()
-                              ? (response) => submitResponse(question.presentationNonce, response)
+                              ? (response: StudentResponse): Promise<SubmissionOutcome> =>
+                                  submitResponse(question.presentationNonce, response)
                               : undefined
                           }
                           onEscape={() =>

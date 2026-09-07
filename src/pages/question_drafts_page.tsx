@@ -1,13 +1,11 @@
 // question_drafts_page.tsx - private Authoring Workspace entry and Draft Question list.
 
 import { A, useNavigate } from "@solidjs/router";
-import { For, Show, createResource, createSignal, type JSX } from "solid-js";
+import { For, Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
 
 import type { DraftQuestionReference } from "../../generated/api/DraftQuestionReference";
 import { createDefaultPleQuestionJsonSource } from "../features/ple_question_json_authoring/question_json_defaults";
-import {
-  PLE_QUESTION_JSON_MEDIA_TYPE,
-} from "../features/ple_question_json_authoring/question_json_source";
+import { PLE_QUESTION_JSON_MEDIA_TYPE } from "../features/ple_question_json_authoring/question_json_source";
 import { serializePleQuestionJsonSource } from "../features/ple_question_json_authoring/question_json_codec";
 import { parseDraftQuestionReference } from "../navigation/public_route";
 
@@ -65,6 +63,7 @@ function createdDraftReference(value: unknown): DraftQuestionReference | null {
 export function QuestionDraftsPage(): JSX.Element {
   const navigate = useNavigate();
   const [drafts, { refetch }] = createResource(listDrafts);
+  const draftsLoadFailed = createMemo(() => drafts.error !== undefined);
   const [creating, setCreating] = createSignal(false);
   const [message, setMessage] = createSignal<string>();
 
@@ -88,7 +87,9 @@ export function QuestionDraftsPage(): JSX.Element {
       if (reference === null) throw new Error("A new private draft returned an invalid response.");
       navigate(`/authoring/drafts/${encodeURIComponent(reference)}`);
     } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : "A new private draft could not be created.");
+      setMessage(
+        error instanceof Error ? error.message : "A new private draft could not be created.",
+      );
     } finally {
       setCreating(false);
     }
@@ -99,28 +100,47 @@ export function QuestionDraftsPage(): JSX.Element {
       <header>
         <p class="eyebrow">Private instructor authoring</p>
         <h1>My Question Drafts</h1>
-        <p>Draft Questions stay in your Authoring Workspace until you publish a validated question.</p>
+        <p>
+          Draft Questions stay in your Authoring Workspace until you publish a validated question.
+        </p>
       </header>
       <p>
-        <button class="primary-action" type="button" disabled={creating()} onClick={() => void createDraft()}>
+        <button
+          class="primary-action"
+          type="button"
+          disabled={creating()}
+          onClick={() => void createDraft()}
+        >
           {creating() ? "Creating private draft..." : "New Draft Question"}
         </button>
       </p>
-      <Show when={message()}>{(value) => <p class="inline-error" role="alert">{value()}</p>}</Show>
-      <Show when={drafts.loading}>
-        <p class="calm-status" role="status">Loading your private Draft Questions...</p>
+      <Show when={message()}>
+        {(value) => (
+          <p class="inline-error" role="alert">
+            {value()}
+          </p>
+        )}
       </Show>
-      <Show when={drafts.error}>
+      <Show when={drafts.loading}>
+        <p class="calm-status" role="status">
+          Loading your private Draft Questions...
+        </p>
+      </Show>
+      <Show when={draftsLoadFailed()}>
         <section class="inline-error" role="alert">
           <p>My Question Drafts is unavailable.</p>
-          <button class="quiet-action" type="button" onClick={() => void refetch()}>Retry</button>
+          <button class="quiet-action" type="button" onClick={() => void refetch()}>
+            Retry
+          </button>
         </section>
       </Show>
       <Show when={drafts()}>
         {(items) => (
           <Show
             when={items().length > 0}
-            fallback={<p class="calm-status">Create a Draft Question to begin authoring privately.</p>}
+            fallback={
+              <p class="calm-status">Create a Draft Question to begin authoring privately.</p>
+            }
           >
             <ul class="question-library-list">
               <For each={items()}>
@@ -129,7 +149,9 @@ export function QuestionDraftsPage(): JSX.Element {
                     <A href={`/authoring/drafts/${encodeURIComponent(draft.draftQuestion)}`}>
                       <strong>{draft.questionTitle}</strong>
                       <span>{draft.questionDescription}</span>
-                      <small>{draft.draftQuestion} · Edit {draft.editNumber}</small>
+                      <small>
+                        {draft.draftQuestion} · Edit {draft.editNumber}
+                      </small>
                     </A>
                   </li>
                 )}

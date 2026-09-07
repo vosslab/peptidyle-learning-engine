@@ -64,7 +64,10 @@ export function decodeCourseRosterImportInput(
   return { entries };
 }
 
-export function decodeCourseRoster(value: unknown, path = "response"): ReadonlyArray<CourseRosterEntry> {
+export function decodeCourseRoster(
+  value: unknown,
+  path = "response",
+): ReadonlyArray<CourseRosterEntry> {
   return decodeArray(value, path, entry);
 }
 

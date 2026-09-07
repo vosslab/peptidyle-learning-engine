@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "one-time-rendered",
+  "rebuildCommand": "./devel/capture_screenshots.sh",
+  "captures": [
+    {
+      "path": "public/account/03_seeded_demo_sign_in_laptop.png",
+      "persona": "unauthenticated",
+      "viewport": "laptop",
+      "surface": "seeded Account entry"
+    },
+    {
+      "path": "instructor/question_library_discovery/04_connected_question_library_laptop.png",
+      "persona": "instructor",
+      "viewport": "laptop",
+      "surface": "Question Library"
+    },
+    {
+      "path": "instructor/assignment_workspace/03_released_assignment_workspace_laptop.png",
+      "persona": "instructor",
+      "viewport": "laptop",
+      "surface": "released Assignment workspace"
+    },
+    {
+      "path": "student/access/allowed_assignment_overview/03_connected_assignment_overview_laptop.png",
+      "persona": "student",
+      "viewport": "laptop",
+      "surface": "unanswered Assignment overview"
+    },
+    {
+      "path": "student/access/allowed_assignment_overview/02_connected_assignment_overview_tablet.png",
+      "persona": "student",
+      "viewport": "tablet",
+      "surface": "Assignment overview"
+    },
+    {
+      "path": "student/delivery/09_unanswered_question_phone.png",
+      "persona": "student",
+      "viewport": "phone",
+      "surface": "unanswered Question presentation"
+    },
+    {
+      "path": "student/delivery/10_unanswered_question_square.png",
+      "persona": "student",
+      "viewport": "square",
+      "surface": "unanswered Question presentation"
+    },
+    {
+      "path": "sysadmin/instructor_accounts/01_instructor_accounts_laptop.png",
+      "persona": "sysadmin",
+      "viewport": "laptop",
+      "surface": "Instructor Account lifecycle workspace"
+    }
+  ]
+}

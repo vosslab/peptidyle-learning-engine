@@ -3,10 +3,13 @@
 // Selector contract:
 // - src/features/ple_question_json_authoring/question_json_editor_page.tsx:535 owns question creation
 //   fields and publication controls used to seed the recovery journey.
-// - src/pages/course_list_page.tsx, course_assignments_page.tsx, assignment_workspace/, and
-//   course_roster_page.tsx own course, title-first assignment setup, and invitation controls.
-// - src/pages/course_invitation_page.tsx:62 and src/pages/assignment_overview_page.tsx:114 own
-//   student claiming and the Start assignment control.
+// - src/pages/course_list_page.tsx, course_instance_page.tsx, course_roster_page.tsx, and
+//   assignment_release_page.tsx own visible Course, roster, and direct Assignment release setup.
+// - src/pages/student_courses_page.tsx:27-33, student_course_invitations_page.tsx:31-37,
+//   student_course_invitation_page.tsx:40-58, and student_course_landing_page.tsx:61-101 own
+//   the visible Student course, invitation, acceptance, and released Assignment journey.
+// - src/pages/assignment_overview_page.tsx:114 owns the Start assignment control and its
+//   answer-free submission-status display.
 // - src/pages/assignment_attempt_page.tsx and src/components/question_response_controls/common.tsx own the attempt surface
 //   and visible Question Response Controls.
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
@@ -31,7 +34,7 @@ async function createCourseAssignment(
   page: Page,
   course: string,
   assignment: string,
-): Promise<{ readonly course: string; readonly assignment: string }> {
+): Promise<void> {
   const blueprint = `${course} blueprint`;
   await page.getByRole("link", { name: "Blueprint Courses", exact: true }).click();
   await page.getByRole("button", { name: "Create Blueprint Course", exact: true }).click();
@@ -56,8 +59,6 @@ async function createCourseAssignment(
   await expect(page.getByRole("heading", { name: course, exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Open Course Instance", exact: true }).first().click();
   await page.waitForURL(/\/courses\/C-[1-9][0-9]*$/u);
-  const courseMatch = /\/courses\/(C-[1-9][0-9]*)$/u.exec(new URL(page.url()).pathname);
-  expect(courseMatch).not.toBeNull();
   const students = page.getByRole("link", { name: "Open Students", exact: true });
   await expect(students).toBeVisible();
   await students.click();
@@ -66,36 +67,71 @@ async function createCourseAssignment(
   await page.getByLabel("Email, roster ID").fill(`${maryEmail},recovery-student`);
   await page.getByRole("button", { name: "Import roster", exact: true }).click();
   await expect(page.getByText("Roster import recorded.")).toBeVisible();
-  await page.goto(`/courses/${courseMatch![1]!}`);
+  await page.getByRole("link", { name: "Return to Course Instances", exact: true }).click();
+  const courseCard = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: course, exact: true }) });
+  await courseCard.getByRole("link", { name: "Open Course Instance", exact: true }).click();
   await expect(page.getByRole("heading", { name: course, exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Open Assignments", exact: true }).click();
   await page.getByLabel("Assignment title").fill(assignment);
   await page.getByLabel("Instructions").fill("Complete the selected published Question.");
   await page.getByRole("button", { name: "Create Assignment", exact: true }).click();
+  await page.waitForURL(
+    /\/instructor\/courses\/C-[1-9][0-9]*\/assignments\/A-[1-9][0-9]*\/release$/u,
+  );
+  await expect(
+    page.getByRole("heading", { name: "Assignment Workspace", exact: true }),
+  ).toBeVisible();
   const available = page.getByRole("group", { name: "Available Published Questions" });
   await available.getByRole("checkbox").first().check();
   await page.getByLabel("Due date").fill("2026-12-01T12:00");
   await page.getByLabel("Late-work rule").selectOption("mark_late");
   await page.getByRole("button", { name: "Save Assignment", exact: true }).click();
-  await page.getByRole("button", { name: "Validate Assignment", exact: true }).click();
+  await expect(page.getByRole("status")).toBeVisible();
+  await page.getByRole("button", { name: "Open Assignment Preview", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Assignment Preview", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("This answer-free preview does not create a Student attempt or access."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /response|submit|start assignment|student attempt/iu }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Return to Assignment Workspace", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Assignment Preview", exact: true })).toBeHidden();
   await page.getByRole("button", { name: "Release Assignment", exact: true }).click();
-  const assignmentMatch = /\/courses\/C-[1-9][0-9]*\/assignments\/(A-[1-9][0-9]*)\/release$/u.exec(
-    new URL(page.url()).pathname,
-  );
-  expect(assignmentMatch).not.toBeNull();
-  return { course: courseMatch![1]!, assignment: assignmentMatch![1]! };
 }
 
-async function startAssignmentAttempt(
+async function signInStudentAndStartAssignment(
   page: Page,
-  course: string,
-  assignment: string,
+  courseTitle: string,
+  assignmentTitle: string,
 ): Promise<void> {
-  await chooseSeededIdentity(page, /Mary Student/u);
-  await page.goto(`/courses/${course}/invitation`);
+  await page.goto("/sign-in");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Explore Peptidyle Learning Engine", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /Continue as .*Mary Student/iu }).click();
+  await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your courses", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Course invitations", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Course invitations", exact: true }),
+  ).toBeVisible();
+  const invitation = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: courseTitle, exact: true }) });
+  await invitation.getByRole("link", { name: "Review Course Invitation", exact: true }).click();
   await page.getByRole("button", { name: "Accept Course Invitation", exact: true }).click();
-  await expect(page.getByText("Course Invitation accepted.")).toBeVisible();
-  await page.goto(`/courses/${course}/assignments/${assignment}`);
+  await expect(page.getByText("Course Invitation accepted.", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Open assigned work", exact: true }).click();
+  await expect(page.getByRole("heading", { name: courseTitle, exact: true })).toBeVisible();
+  const assignment = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
+  await assignment.getByRole("link", { name: "Open Assignment", exact: true }).click();
   await page.getByRole("button", { name: "Start Assignment", exact: true }).click();
   const overview = page.locator('[data-route-surface="assignmentOverview"]');
   await expect(overview.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
@@ -149,9 +185,8 @@ test("student native PLE recovery: one accepted response survives the owner work
     configureContextAndPage(instructorContext, instructor, actionTimeoutMs);
     configureContextAndPage(learnerContext, student, actionTimeoutMs);
     await chooseSeededIdentity(instructor, /Elena Instructor/u);
-    await instructor.goto("/library");
-    const references = await createCourseAssignment(instructor, course, assignment);
-    await startAssignmentAttempt(student, references.course, references.assignment);
+    await createCourseAssignment(instructor, course, assignment);
+    await signInStudentAndStartAssignment(student, course, assignment);
     await student.getByRole("button", { name: "Submit answer" }).click();
     const pending = student
       .getByRole("heading", { name: "Response received", exact: true })
@@ -162,7 +197,7 @@ test("student native PLE recovery: one accepted response survives the owner work
     ).toBeVisible();
     handshake.notify("submission_accepted");
     await handshake.waitFor("native_ple_worker_replaced");
-    const terminal = student.getByRole("heading", { name: /^(Correct|Not quite)$/u });
+    const terminal = student.getByRole("heading", { name: "Graded", exact: true }).locator("..");
     await expect
       .poll(
         async () => {
@@ -176,6 +211,7 @@ test("student native PLE recovery: one accepted response survives the owner work
         { timeout: 150_000, intervals: [2_000] },
       )
       .toBe(true);
+    await expect(terminal.getByText(/correct|score|answer/iu)).toHaveCount(0);
     await student.reload();
     await student.getByRole("button", { name: "Start Assignment", exact: true }).click();
     await expect(terminal).toBeVisible();

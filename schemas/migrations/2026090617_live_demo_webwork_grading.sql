@@ -1,10 +1,6 @@
 -- M14 deterministic WeBWorK grading. The renderer gets a separate worker
 -- capability; it neither shares the native-PLE worker nor exposes PG input.
 
-CREATE ROLE ple_webwork_grading_worker
-    NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-REVOKE ple_webwork_grading_worker FROM ple_migrator;
-
 SET LOCAL ROLE ple_api_owner;
 GRANT CREATE ON SCHEMA ple_api TO ple_private_owner;
 RESET ROLE;

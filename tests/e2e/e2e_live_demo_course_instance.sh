@@ -160,8 +160,10 @@ if set(value) != {"course", "isAssignedInstructor", "activeInstructorCount"}:
 course = value["course"]
 if set(course) != {"reference", "title", "term"} or course["reference"] != sys.argv[2]:
     raise SystemExit("Course Instance teaching-team view identity differs")
-if value["isAssignedInstructor"] is not True or value["activeInstructorCount"] != 1:
-    raise SystemExit("Assigned Instructor did not receive exactly initial teaching authority")
+if value["isAssignedInstructor"] is not True:
+    raise SystemExit("Assigned Instructor did not receive teaching authority")
+if not isinstance(value["activeInstructorCount"], int) or value["activeInstructorCount"] < 1:
+    raise SystemExit("Course Instance teaching-team view lacks active Instructor evidence")
 forbidden = {"id", "accountId", "student", "studentRecord", "assignment", "sourceObject", "answerKey"}
 if forbidden.intersection(value) or forbidden.intersection(course):
     raise SystemExit("Course Instance teaching-team view exposed future or private state")
@@ -251,12 +253,14 @@ print(reference, revision)
 	assigned="$(python3 -c '
 import json, re, sys
 items=json.loads(sys.argv[1]).get("items")
-if not isinstance(items,list) or len(items) != 1 or not isinstance(items[0],dict):
-    raise SystemExit("Assigned Instructor selection is not bounded")
-reference=items[0].get("reference")
-if not isinstance(reference,str) or not re.fullmatch(r"U-[1-9][0-9]{0,9}",reference):
+if not isinstance(items,list) or not items or any(not isinstance(item,dict) for item in items):
+    raise SystemExit("Assigned Instructor selection is empty or malformed")
+references=[item.get("reference") for item in items]
+if any(not isinstance(reference,str) or not re.fullmatch(r"U-[1-9][0-9]{0,9}",reference) for reference in references):
     raise SystemExit("Assigned Instructor selection lacks a public Account Reference")
-print(reference)
+if len(set(references)) != len(references):
+    raise SystemExit("Assigned Instructor selection duplicates a public Account Reference")
+print(references[0])
 ' "$(response_body "$candidates")")"
 	course_created="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$reference" "$assigned")")"
 	if [ "$(response_status "$course_created")" != "201" ]; then

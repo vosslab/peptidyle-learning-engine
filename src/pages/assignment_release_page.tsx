@@ -6,10 +6,14 @@ import { For, Show, createEffect, createResource, createSignal, type JSX } from 
 import type { AssignmentPreview, LiveAssignmentWorkspace } from "../api/assignment_release";
 import type { CourseLocalDateAndTime } from "../../generated/api/CourseLocalDateAndTime";
 import type { LateWorkRule } from "../../generated/api/LateWorkRule";
-import type { QuestionId } from "../../generated/api/QuestionId";
 import { useApplicationApi } from "../api/application_api";
 import { LiveAssignmentWorkspaceConflictError } from "../api/http_client/assignment_release";
-import { parseAssignmentReference, parseCourseInstanceReference } from "../navigation/public_route";
+import {
+  type AssignmentRouteReference,
+  type CourseInstanceRouteReference,
+  parseAssignmentReference,
+  parseCourseInstanceReference,
+} from "../navigation/public_route";
 
 function issueCopy(issue: "noPublishedQuestions" | "questionUnavailable"): string {
   return issue === "noPublishedQuestions"
@@ -32,9 +36,11 @@ export function AssignmentReleasePage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const navigate = useNavigate();
   const params = useParams();
-  const course = () => parseCourseInstanceReference(params["courseRef"] ?? "");
-  const assignment = () => parseAssignmentReference(params["assignmentRef"] ?? "");
-  const isCreate = () => assignment() === null;
+  const course = (): CourseInstanceRouteReference | null =>
+    parseCourseInstanceReference(params["courseRef"] ?? "");
+  const assignment = (): AssignmentRouteReference | null =>
+    parseAssignmentReference(params["assignmentRef"] ?? "");
+  const isCreate = (): boolean => assignment() === null;
   const [workspace, { refetch }] = createResource(assignment, async (reference) => {
     const currentCourse = course();
     if (currentCourse === null || reference === null)
@@ -80,7 +86,7 @@ export function AssignmentReleasePage(): JSX.Element {
         title: title(),
         instructions: instructions(),
       });
-      await navigate(
+      navigate(
         `/instructor/courses/${reference}/assignments/${created.workspace.reference}/release`,
       );
     } catch {
@@ -110,7 +116,7 @@ export function AssignmentReleasePage(): JSX.Element {
         {
           title: title(),
           instructions: instructions(),
-          questionIds: selectedQuestionIds() as ReadonlyArray<QuestionId>,
+          questionIds: selectedQuestionIds(),
           dueAt: canonicalDueAt(dueAt()),
           lateWorkRule: lateWorkRule(),
         },
