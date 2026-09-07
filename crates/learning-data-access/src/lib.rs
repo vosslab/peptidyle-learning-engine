@@ -18,6 +18,7 @@ mod imathas_question_backend_session;
 mod instructor_account;
 mod invitation_export;
 mod live_gradebook;
+mod live_student_course_landing;
 mod native_ple_grading;
 mod native_ple_submission;
 mod object_record;
@@ -111,10 +112,14 @@ pub use invitation_export::{
     PendingInvitationExport, PendingInvitationRecipient,
 };
 pub use live_gradebook::{LiveDemoGradebook, LiveDemoGradebookStore, LiveDemoGradedStudentWork};
+pub use live_student_course_landing::{
+    LiveStudentAssignmentLandingSummary, LiveStudentCourseInvitationSummary,
+    LiveStudentCourseLandingStore, LiveStudentCourseLandingSummary,
+};
 pub use native_ple_grading::{NativePleGradingJobLease, NativePleGradingStore};
 pub use native_ple_submission::{
-    AcceptNativePleSubmission, NativePleSubmissionStore, ResolvedNativePleSubmission,
-    StudentQuestionSubmissionGradingState,
+    AcceptNativePleSubmission, NativePleSubmissionStatus, NativePleSubmissionStore,
+    ResolvedNativePleSubmission, StudentQuestionSubmissionGradingState,
 };
 pub use object_record::{
     WorkspaceQuestionSourceObjectRecordStore, validate_workspace_question_source_object_record,

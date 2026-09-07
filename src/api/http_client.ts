@@ -25,6 +25,7 @@ import { createLiveAssignmentAttemptIssuanceClient } from "./http_client/assignm
 import { createInstructorAccountClient } from "./http_client/instructor_account";
 import { createSupportCapabilityClient } from "./http_client/support_roster";
 import { createLiveDemoGradebookClient } from "./http_client/live_gradebook";
+import { createLiveStudentCourseLandingClient } from "./http_client/live_student_course_landing";
 
 export {
   ApiProtocolError,
@@ -65,6 +66,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createInstructorAccountClient(fetchImplementation, basePath),
     createSupportCapabilityClient(fetchImplementation, basePath),
     createLiveDemoGradebookClient(fetchImplementation, basePath),
+    createLiveStudentCourseLandingClient(fetchImplementation, basePath),
     createBlueprintOperationsClient(fetchImplementation, basePath),
     createGradingOperationsClient(fetchImplementation, basePath),
     createCalculatedGradebookClient(fetchImplementation, basePath),

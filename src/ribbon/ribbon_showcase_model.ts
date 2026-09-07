@@ -47,7 +47,7 @@ const ALL_CATALOG_CONTROLS: ReadonlyArray<RibbonCatalogControl<RibbonDestination
   ...RIBBON_TASK_CATALOG,
 ];
 
-const CANONICAL_SHOWCASE_PARAMS = {
+const CANONICAL_SHOWCASE_PARAMS: Readonly<Partial<Record<RouteParamName, string>>> = {
   courseRef: "C-1",
   assignmentRef: "A-1",
   assignmentAttemptRef: "R-1",
@@ -55,7 +55,7 @@ const CANONICAL_SHOWCASE_PARAMS = {
   questionRef: "7K3-M9QP",
   draftQuestionRef: "D-1",
   blueprintCourseRef: "BP-1",
-} as const;
+};
 
 function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogControl<Id> {
   const control = ALL_CATALOG_CONTROLS.find((candidate) => candidate.id === id);
@@ -69,7 +69,11 @@ function showcaseHref(control: RibbonCatalogControl<RibbonDestinationId>): strin
   if (control.destination.kind !== "route") return undefined;
 
   const values: Partial<Record<RouteParamName, string>> = {};
-  for (const name of control.requiredParams) values[name] = CANONICAL_SHOWCASE_PARAMS[name];
+  for (const name of control.requiredParams) {
+    const value = CANONICAL_SHOWCASE_PARAMS[name];
+    if (value === undefined) return undefined;
+    values[name] = value;
+  }
   const params: DeclaredRibbonRouteParams = values;
   const href = buildRoutePath(control.destination.routeId, params);
   if (href === undefined) {

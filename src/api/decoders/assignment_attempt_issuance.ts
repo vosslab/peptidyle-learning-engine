@@ -5,12 +5,14 @@ import type {
   LiveAssignmentAccess,
   LiveAssignmentAttempt,
   LiveNativePleSubmissionAcknowledgement,
+  LiveNativePleSubmissionStatus,
 } from "../assignment_attempt_issuance";
 import {
   DecodeError,
   decodeArray,
   decodeBoolean,
   decodePositiveInteger,
+  decodeFiniteNumber,
   decodeRecord,
   decodeString,
 } from "../decoder";
@@ -108,4 +110,49 @@ export function decodeLiveNativePleSubmissionAcknowledgement(
     throw new DecodeError(`${path}.gradingState`, "the pending grading state");
   }
   return { presentationNonce, gradingState: "pending" };
+}
+
+export function decodeLiveNativePleSubmissionStatus(
+  value: unknown,
+  path = "response",
+): LiveNativePleSubmissionStatus {
+  const record = decodeRecord(value, path);
+  const gradingState = decodeString(field(record, "gradingState", path), `${path}.gradingState`);
+  if (gradingState === "pending" || gradingState === "instructorAttention") {
+    requireOnlyFields(record, path, ["gradingState", "correct", "pointsEarned", "pointsPossible"]);
+    if (
+      field(record, "correct", path) !== null ||
+      field(record, "pointsEarned", path) !== null ||
+      field(record, "pointsPossible", path) !== null
+    ) {
+      throw new DecodeError(path, "an answer-free pending grading status");
+    }
+    return { gradingState };
+  }
+  if (gradingState !== "graded")
+    throw new DecodeError(`${path}.gradingState`, "a known grading state");
+  requireOnlyFields(record, path, ["gradingState", "correct", "pointsEarned", "pointsPossible"]);
+  const pointsEarned = decodeFiniteNumber(
+    field(record, "pointsEarned", path),
+    `${path}.pointsEarned`,
+  );
+  const pointsPossible = decodeFiniteNumber(
+    field(record, "pointsPossible", path),
+    `${path}.pointsPossible`,
+  );
+  if (
+    !Number.isFinite(pointsEarned) ||
+    !Number.isFinite(pointsPossible) ||
+    pointsEarned < 0 ||
+    pointsPossible < 0 ||
+    pointsEarned > pointsPossible
+  ) {
+    throw new DecodeError(path, "a finite grading summary");
+  }
+  return {
+    gradingState,
+    correct: decodeBoolean(field(record, "correct", path), `${path}.correct`),
+    pointsEarned,
+    pointsPossible,
+  };
 }

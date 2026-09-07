@@ -30,6 +30,8 @@ pub(crate) mod instructor_account;
 /// Protected direct-Instructor invitation-mailer export route.
 pub(crate) mod invitation_export;
 pub(crate) mod live_gradebook;
+/// Student-only Course and released Assignment landing routes.
+pub(crate) mod live_student_course_landing;
 /// One-shot immutable public Question Asset publisher with no HTTP surface.
 pub mod public_asset_publisher;
 /// Authorized immutable public Question Asset redirect route.

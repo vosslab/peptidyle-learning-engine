@@ -12,14 +12,13 @@ use learning_data_access::{
         PostgresAuthoringDraftStore, PostgresBlueprintCourseStore, PostgresCourseInstanceStore,
         PostgresCourseRosterStore, PostgresDraftQuestionSourceBindingStore,
         PostgresInstructorAccountStore, PostgresInvitationExportStore,
-        PostgresLiveDemoGradebookStore,
         PostgresLiveAssignmentDeliveryStore, PostgresLiveAssignmentStore,
+        PostgresLiveDemoGradebookStore, PostgresLiveStudentCourseLandingStore,
         PostgresNativePleGradingStore, PostgresNativePleSubmissionStore,
-        PostgresWebworkGradingStore,
-        PostgresWebworkSubmissionStore,
         PostgresPublicAssetPublicationStore, PostgresQuestionAssetDeliveryStore,
         PostgresQuestionLibraryStore, PostgresSessionStore, PostgresSupportCapabilityStore,
-        ProductionLoginProfile, local_development_pool, production_pool,
+        PostgresWebworkGradingStore, PostgresWebworkSubmissionStore, ProductionLoginProfile,
+        local_development_pool, production_pool,
     },
 };
 use objects::{
@@ -88,6 +87,7 @@ pub async fn production_router_from_env() -> Result<Router> {
     let support_capabilities = PostgresSupportCapabilityStore::new(pool.clone());
     let invitation_exports = PostgresInvitationExportStore::new(pool.clone());
     let gradebook = PostgresLiveDemoGradebookStore::new(pool.clone());
+    let student_course_landing = PostgresLiveStudentCourseLandingStore::new(pool.clone());
     let assignments = PostgresLiveAssignmentStore::new(pool.clone());
     let assignment_delivery = PostgresLiveAssignmentDeliveryStore::new(pool.clone());
     let native_ple_submissions = PostgresNativePleSubmissionStore::new(pool.clone());
@@ -153,6 +153,12 @@ pub async fn production_router_from_env() -> Result<Router> {
             Arc::clone(&sessions),
             gradebook,
         ))
+        .merge(
+            crate::live_student_course_landing::live_student_course_landing_router(
+                Arc::clone(&sessions),
+                student_course_landing,
+            ),
+        )
         .merge(crate::assignment_release::assignment_release_router(
             Arc::clone(&sessions),
             assignments,
@@ -340,26 +346,39 @@ pub async fn verify_native_ple_worker_database_login_from_env() -> Result<()> {
 /// private Question Source capabilities.
 pub async fn run_webwork_grading_worker_from_env() -> Result<()> {
     let database_url = required_env("DATABASE_URL")?;
-    let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local") {
+    let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local")
+    {
         local_development_pool(&database_url, ProductionLoginProfile::WebworkGradingWorker)
     } else {
         production_pool(&database_url, ProductionLoginProfile::WebworkGradingWorker)
-    }.context("could not construct the attested WeBWorK worker database pool")?;
-    pool.acquire().await.context("the attested WeBWorK worker database pool could not connect")?;
+    }
+    .context("could not construct the attested WeBWorK worker database pool")?;
+    pool.acquire()
+        .await
+        .context("the attested WeBWorK worker database pool could not connect")?;
     let objects = webwork_worker_object_store_from_env().await?;
     let adapter = webwork_adapter_from_env(objects.clone())?;
-    crate::worker::run_webwork_until_shutdown(PostgresWebworkGradingStore::new(pool), objects, adapter).await
+    crate::worker::run_webwork_until_shutdown(
+        PostgresWebworkGradingStore::new(pool),
+        objects,
+        adapter,
+    )
+    .await
 }
 
 /// Attest only the WeBWorK worker's distinct database Service Identity.
 pub async fn verify_webwork_worker_database_login_from_env() -> Result<()> {
     let database_url = required_env("DATABASE_URL")?;
-    let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local") {
+    let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local")
+    {
         local_development_pool(&database_url, ProductionLoginProfile::WebworkGradingWorker)
     } else {
         production_pool(&database_url, ProductionLoginProfile::WebworkGradingWorker)
-    }.context("could not construct the attested WeBWorK worker database pool")?;
-    pool.acquire().await.context("the attested WeBWorK worker database pool could not connect")?;
+    }
+    .context("could not construct the attested WeBWorK worker database pool")?;
+    pool.acquire()
+        .await
+        .context("the attested WeBWorK worker database pool could not connect")?;
     Ok(())
 }
 

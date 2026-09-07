@@ -15,8 +15,8 @@ def contracts() -> tuple[ScenarioContract, ...]:
 				"avery_student",
 				"morgan_sysadmin",
 			),
-			baseline_reads=("base_course", "genetics_practice_course"),
-			ui_creates=("teaching_invitation",),
-			visible_observation="seeded_entry_session_logout_and_course_boundaries",
+			baseline_reads=("seeded_accounts",),
+			ui_creates=(),
+			visible_observation="seeded_session_separation_and_no_record_boundaries",
 		),
 	)

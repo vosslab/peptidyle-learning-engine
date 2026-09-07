@@ -74,6 +74,7 @@ import type { LiveAssignmentAttemptIssuanceClient } from "./assignment_attempt_i
 import type { InstructorAccountClient } from "./instructor_account";
 import type { SupportCapabilityClient } from "./support_roster";
 import type { LiveDemoGradebookClient } from "./live_gradebook";
+import type { LiveStudentCourseLandingClient } from "./live_student_course_landing";
 import type { BlueprintOperationsClient } from "./blueprint_operations";
 import type {
   GradingOperationActionReceipt,
@@ -155,6 +156,7 @@ export interface ApiClient
     InstructorAccountClient,
     SupportCapabilityClient,
     LiveDemoGradebookClient,
+    LiveStudentCourseLandingClient,
     BlueprintOperationsClient,
     GradingOperationsClient,
     CalculatedGradebookClient {

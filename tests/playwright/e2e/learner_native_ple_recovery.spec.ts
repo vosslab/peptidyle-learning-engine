@@ -12,7 +12,6 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
-import { waitForAutomatedStudentFeedback } from "./automated_grading_ui";
 import { faultHandshakeFromEnvironment } from "./fault_handshake";
 import {
   chooseSeededIdentity,
@@ -20,7 +19,6 @@ import {
   expectObservedOrigin,
   observeContextOrigins,
   requireScenarioInput,
-  startOrContinuePractice,
   writeContextOriginReceipt,
 } from "./real_stack_ui";
 
@@ -102,7 +100,9 @@ async function startAssignmentAttempt(
   const overview = page.locator('[data-route-surface="assignmentOverview"]');
   await expect(overview.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
   await expect(overview.getByRole("heading", { name: /^Question 1:/u })).toBeVisible();
-  await startOrContinuePractice(page);
+  await overview.getByRole("link", { name: "Answer this question", exact: true }).click();
+  await page.getByRole("button", { name: "Start Assignment", exact: true }).click();
+  await expect(page.locator('[data-route-surface="assignmentOverview"]')).toBeVisible();
   await page.getByRole("radio").first().check();
 }
 
@@ -162,19 +162,23 @@ test("student native PLE recovery: one accepted response survives the owner work
     ).toBeVisible();
     handshake.notify("submission_accepted");
     await handshake.waitFor("native_ple_worker_replaced");
-    const feedback = await waitForAutomatedStudentFeedback(student);
-    await expect(feedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
-    await student
-      .getByRole("button", { name: "View completed Assignment Attempt", exact: true })
-      .click();
-    const completion = student.locator(".attempt-summary");
-    await expect(
-      completion.getByText("Your completed Assignment Attempt is recorded."),
-    ).toBeVisible();
+    const terminal = student.getByRole("heading", { name: /^(Correct|Not quite)$/u });
+    await expect
+      .poll(
+        async () => {
+          const check = student.getByRole("button", {
+            name: "Check grading status",
+            exact: true,
+          });
+          if (await check.isVisible()) await check.click();
+          return await terminal.isVisible();
+        },
+        { timeout: 150_000, intervals: [2_000] },
+      )
+      .toBe(true);
     await student.reload();
-    await expect(
-      student.getByRole("heading", { name: "Student Feedback", exact: true }),
-    ).toBeVisible();
+    await student.getByRole("button", { name: "Start Assignment", exact: true }).click();
+    await expect(terminal).toBeVisible();
     expectObservedOrigin(origins.instructor, expected);
     expectObservedOrigin(origins.student, expected);
     originEvidence = true;

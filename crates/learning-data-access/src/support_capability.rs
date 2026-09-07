@@ -69,6 +69,8 @@ pub trait SupportCapabilityStore: Send + Sync {
         capability_id: Uuid,
     ) -> Result<SupportCapabilityReceipt, StoreError>;
     async fn read_course_roster_support(
-        &self, token: SessionTokenHash, capability_id: Uuid,
+        &self,
+        token: SessionTokenHash,
+        capability_id: Uuid,
     ) -> Result<Vec<CourseRosterEntry>, StoreError>;
 }

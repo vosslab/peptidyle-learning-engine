@@ -1,402 +1,284 @@
-// Production-stack item-pool journey: all teaching state and student work use visible PLE UI.
+// Production-stack Question Pool delivery through the current Instructor and Student tasks.
 //
 // Selector contract:
-// - src/pages/assignment_workspace/ owns mixed fixed/pool creation and post-issue Questions saves.
-// - src/pages/assignment_pool_editor.tsx:109 owns Question Pool Item, selection, ordering, and preview controls.
-// - src/pages/assignment_workspace/assignment_workspace_policies_page.tsx owns publishing controls.
-// - src/pages/assignment_attempt_page.tsx owns issued student questions, feedback, and completion surfaces.
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+// - src/features/ple_question_json_authoring/question_json_editor_page.tsx:535-665 owns Draft
+//   Question publication and the answer-free published confirmation.
+// - src/features/blueprint_course/blueprint_course_create_dialog.tsx:128-190 and
+//   src/pages/course_list_page.tsx:12-25,155-219 own Blueprint Course and Course Instance creation.
+//   tests/playwright/e2e/real_stack_ui.ts:102-113 owns exact visible Course Instance selection.
+// - src/pages/course_roster_page.tsx:50-57,124-143 and
+//   src/pages/student_course_invitation_page.tsx:35-48 own roster import's pending-invitation
+//   confirmation and Student Course Invitation acceptance.
+// - src/pages/assignment_workspace/assignment_workspace_questions_page.tsx:357-467 and
+//   src/pages/assignment_pool_editor.tsx:111-281 own ordered Question Pool configuration,
+//   server previews, and the post-issue structural-change boundary.
+// - src/pages/assignment_release_page.tsx:301-332 and src/pages/assignment_overview_page.tsx:113-179
+//   own release and answer-free issued Question delivery.
+import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
 import {
-  advanceToNextIssuedQuestion,
-  waitForAutomatedStudentFeedback,
-} from "./automated_grading_ui";
-import { BIOCHEMISTRY_COURSE_TITLE } from "./helper_course_titles";
-import {
   chooseSeededIdentity,
   configureContextAndPage,
+  expectObservedOrigin,
   observeContextOrigins,
-  relativeIsoDate,
   requireScenarioInput,
   selectVisibleCourse,
-  startOrContinuePractice,
-  writeOriginReceipt,
+  writeContextOriginReceipt,
 } from "./real_stack_ui";
 
 const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 300_000;
-const maryEmail = "mary.okafor@live-demo.ple.example";
+const contextOptions = { viewport: { width: 1280, height: 800 }, ignoreHTTPSErrors: true };
 
-interface PublishedQuestion {
-  readonly id: string;
-  readonly questionTitle: string;
-  readonly correctChoice: string;
+interface CourseAssignment {
+  readonly course: string;
+  readonly assignment: string;
 }
 
-async function selectQuestionsInPicker(
-  page: Page,
-  triggerName: string,
-  dialogName: string,
-  questionTitles: ReadonlyArray<string>,
-  confirmName: string,
-): Promise<void> {
-  await page.getByRole("button", { name: triggerName, exact: true }).click();
-  const picker = page.getByRole("dialog", { name: dialogName, exact: true });
-  await expect(picker).toBeVisible();
-  for (const questionTitle of questionTitles) {
-    await picker.getByLabel("Search questions", { exact: true }).fill(questionTitle);
-    await picker.getByRole("button", { name: "Search questions", exact: true }).click();
-    await picker.getByRole("checkbox", { name: new RegExp(questionTitle) }).check();
-  }
-  await picker.getByRole("button", { name: confirmName, exact: true }).click();
-  await expect(picker).toHaveCount(0);
-}
-
-async function createPublishedQuestion(
-  page: Page,
-  questionTitle: string,
-  correctChoice: string,
-): Promise<PublishedQuestion> {
-  await page.getByRole("link", { name: "Workspace", exact: true }).click();
-  await page.getByRole("button", { name: "Create Question", exact: true }).click();
-  await page.getByLabel("Question Title").fill(questionTitle);
-  await page
-    .getByLabel("Student-facing prompt")
-    .fill(`Choose the supported statement: ${questionTitle}`);
-  await page.getByLabel("Choice text").nth(0).fill(correctChoice);
-  await page.getByLabel("Choice text").nth(1).fill(`Alternative statement for ${questionTitle}`);
-  await page
-    .getByRole("radio", { name: new RegExp(`Mark choice 1 as correct: ${correctChoice}`) })
-    .check();
+async function publishQuestion(page: Page, title: string): Promise<void> {
+  await page.getByRole("link", { name: "Question Library", exact: true }).click();
+  await page.getByRole("link", { name: "My Question Drafts", exact: true }).click();
+  await page.getByRole("button", { name: "New Draft Question", exact: true }).click();
+  await page.getByLabel("Question Title").fill(title);
+  await page.getByLabel("Question License").selectOption("CC-BY-4.0");
   await page.getByRole("button", { name: "Save private draft", exact: true }).click();
   await page.getByRole("button", { name: "Review publication changes", exact: true }).click();
-  await page.getByLabel("Question Authors").fill("Dr. Elena Rivera");
+  await page.getByLabel("Question Authors").fill("Live Demo Instructor");
   await page.getByRole("button", { name: "Confirm and publish", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Published", exact: true })).toBeVisible();
-
-  await page.getByRole("link", { name: "Question Library", exact: true }).click();
-  await page.getByLabel("Search published questions").fill(questionTitle);
-  const card = page
-    .getByRole("region", { name: "Published questions" })
-    .getByText(questionTitle, { exact: true })
-    .locator("..");
-  await expect(card).toBeVisible();
-  const id = await card.locator("code").innerText();
-  expect(id).toMatch(/^[A-Z0-9]{3}-[A-Z0-9]{4}$/u);
-  return { id, questionTitle, correctChoice };
 }
 
-async function createCourseWithMixedPool(
+async function chooseQuestions(picker: Locator, titles: ReadonlyArray<string>): Promise<void> {
+  for (const title of titles) {
+    await picker.getByLabel("Search questions", { exact: true }).fill(title);
+    await picker.getByRole("button", { name: "Search questions", exact: true }).click();
+    await picker.getByRole("checkbox", { name: new RegExp(title, "u") }).check();
+  }
+}
+
+async function createCourseAssignment(
   page: Page,
   courseTitle: string,
   assignmentTitle: string,
-  fixed: PublishedQuestion,
-  questionPoolItems: ReadonlyArray<PublishedQuestion>,
-): Promise<string> {
+  fixedTitle: string,
+  poolTitles: ReadonlyArray<string>,
+): Promise<CourseAssignment> {
+  const blueprintTitle = `${courseTitle} blueprint`;
+  await page.getByRole("link", { name: "Blueprint Courses", exact: true }).click();
+  await page.getByRole("button", { name: "Create Blueprint Course", exact: true }).click();
+  await page.getByLabel("Blueprint Course title").fill(blueprintTitle);
+  await page.getByRole("button", { name: "Choose published Questions", exact: true }).click();
+  const blueprintPicker = page.getByRole("dialog", {
+    name: "Choose the first reusable Questions",
+    exact: true,
+  });
+  await chooseQuestions(blueprintPicker, [fixedTitle]);
+  await blueprintPicker
+    .getByRole("button", { name: "Use selected Questions", exact: true })
+    .click();
+  await page
+    .getByRole("dialog", { name: "Create a Blueprint Course", exact: true })
+    .getByRole("button", { name: "Create Blueprint Course", exact: true })
+    .click();
+
   await page.getByRole("link", { name: "Courses", exact: true }).click();
-  await page.getByLabel("Course title").fill(courseTitle);
-  await page.getByLabel("Start date").fill(relativeIsoDate(-30));
-  await page.getByLabel("End date").fill(relativeIsoDate(365));
-  await page.getByLabel("Time zone (IANA)").fill("America/Chicago");
-  await page.getByRole("button", { name: "Create course", exact: true }).click();
-  const courseCard = page
-    .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: courseTitle, exact: true }) });
-  await expect(courseCard).toHaveCount(1);
-  await courseCard.getByRole("link", { name: "Open course", exact: true }).click();
-  await page.getByRole("link", { name: "Assignments", exact: true }).click();
+  await page
+    .getByLabel("Blueprint Course Revision")
+    .selectOption({ label: `${blueprintTitle} · Revision 1` });
+  await page.getByLabel("Course Instance title").fill(courseTitle);
+  await page.getByLabel("Course Term start date").fill("2026-09-01");
+  await page.getByLabel("Course Term end date").fill("2026-12-18");
+  await page.getByLabel("Course Time Zone (IANA)").fill("America/Chicago");
+  await page.getByRole("button", { name: "Create Course Instance", exact: true }).click();
+  await selectVisibleCourse(page, courseTitle);
+  const courseMatch = /\/courses\/(C-[1-9][0-9]*)$/u.exec(new URL(page.url()).pathname);
+  expect(courseMatch).not.toBeNull();
+  const course = courseMatch![1]!;
+
+  await page.getByRole("link", { name: "Open Students", exact: true }).click();
+  await page
+    .getByLabel("Email, roster ID")
+    .fill("mary.student@live-demo.invalid,item-pool-student");
+  await page.getByRole("button", { name: "Import roster", exact: true }).click();
+  await expect(
+    page.getByText(
+      "Roster import recorded. Students remain pending until they claim their Course Invitation.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Course", exact: true }).click();
+  await page.getByRole("link", { name: "Open Assignments", exact: true }).click();
   await page.getByRole("link", { name: "Create the first assignment", exact: true }).click();
   await page.getByLabel("Assignment title").fill(assignmentTitle);
+  await page.getByLabel("Instructions").fill("Complete the fixed Question and Question Pool.");
   await page.getByRole("button", { name: "Create Assignment", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
-  await selectQuestionsInPicker(
-    page,
-    "Search question library",
-    "Choose assignment questions",
-    [fixed.questionTitle],
-    "Add selected questions",
-  );
-  await expect(page.locator(".assignment-editor-list")).toContainText(fixed.questionTitle);
+
+  await page.getByRole("button", { name: "Search question library", exact: true }).click();
+  const fixedPicker = page.getByRole("dialog", {
+    name: "Choose assignment questions",
+    exact: true,
+  });
+  await chooseQuestions(fixedPicker, [fixedTitle]);
+  await fixedPicker.getByRole("button", { name: "Add selected questions", exact: true }).click();
   await page.getByRole("button", { name: "Add question pool", exact: true }).click();
-
-  const pool = page.getByRole("listitem", { name: "Question pool at position 2" });
-  await expect(pool).toBeVisible();
+  const pool = page.getByRole("listitem", { name: "Question pool 2", exact: true });
   await pool.getByRole("button", { name: "Choose Questions for pool", exact: true }).click();
-  const picker = page.getByRole("dialog", { name: "Choose Questions for pool", exact: true });
-  await expect(picker).toBeVisible();
-  for (const questionPoolItem of questionPoolItems) {
-    await picker
-      .getByLabel("Search questions", { exact: true })
-      .fill(questionPoolItem.questionTitle);
-    await picker.getByRole("button", { name: "Search questions", exact: true }).click();
-    await picker
-      .getByRole("checkbox", { name: new RegExp(questionPoolItem.questionTitle) })
-      .check();
-  }
-  await picker.getByRole("button", { name: "Add selected Questions to pool", exact: true }).click();
-  await expect(picker).toHaveCount(0);
-  for (const questionPoolItem of questionPoolItems)
-    await expect(pool).toContainText(questionPoolItem.questionTitle);
-  await pool.getByLabel("Selection count").fill("2");
-  await pool.getByLabel("Points per selected Question").fill("2");
-  await pool.getByLabel("Selected Question order").selectOption("questionPoolOrder");
-  await expect(pool).toContainText("Question Pool Selection");
+  const poolPicker = page.getByRole("dialog", { name: "Choose Questions for pool", exact: true });
+  await chooseQuestions(poolPicker, poolTitles);
+  await poolPicker
+    .getByRole("button", { name: "Add selected Questions to pool", exact: true })
+    .click();
+  await pool.getByLabel("Selection count", { exact: true }).fill("2");
+  await pool
+    .getByLabel("Selected Question order", { exact: true })
+    .selectOption("questionPoolOrder");
   await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
-  await expect(
-    page.getByRole("status").filter({ hasText: "Questions and order saved." }),
-  ).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("Questions and order saved.");
 
-  const savedPool = page.getByRole("listitem", { name: "Question pool at position 2" });
-  await savedPool.getByRole("button", { name: "Preview draw", exact: true }).click();
-  const preview = savedPool
-    .getByRole("heading", { name: "Server-sampled draw", exact: true })
+  await pool.getByRole("button", { name: "Preview selection", exact: true }).click();
+  const preview = pool
+    .getByRole("heading", { name: "Question Pool Selection", exact: true })
     .locator("..");
   await expect(preview).toBeVisible();
-  const previewQuestionPoolItems = await preview
-    .getByRole("list")
-    .nth(0)
+  await expect(
+    preview.getByRole("heading", { name: "Question Pool Items", exact: true }),
+  ).toBeVisible();
+  const previewSelection = await preview
+    .getByRole("heading", { name: "Server-selected Questions", exact: true })
+    .locator("..")
     .getByRole("listitem")
     .allTextContents();
-  const previewSample = await preview
-    .getByRole("list")
-    .nth(1)
-    .getByRole("listitem")
-    .allTextContents();
-  expect(previewQuestionPoolItems).toHaveLength(questionPoolItems.length);
-  expect(previewSample).toHaveLength(2);
-  expect(new Set(previewSample).size).toBe(2);
-  for (const sample of previewSample) {
-    expect(previewQuestionPoolItems).toContain(sample);
-  }
-  await savedPool.getByRole("button", { name: "Preview another draw", exact: true }).click();
-  await expect(
-    savedPool.getByRole("heading", { name: "Server-sampled draw", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("status").filter({ hasText: "server sample is ready" }),
-  ).toBeVisible();
+  expect(previewSelection).toHaveLength(2);
+  expect(new Set(previewSelection).size).toBe(2);
 
-  await page.getByRole("link", { name: "Policies", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
-  await page.getByLabel("Lifecycle").selectOption("released");
-  await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
-  await expect(
-    page.getByRole("status").filter({ hasText: "Assignment policies saved." }),
-  ).toBeVisible();
-  await page.getByRole("link", { name: "Students", exact: true }).click();
-  await page.getByLabel("Course roster email").fill(maryEmail);
-  await page.getByLabel("Course roster ID").fill("BIO-MARY-003");
-  await page.getByRole("button", { name: "Create invitation", exact: true }).click();
-  const invitation = page.getByLabel("Invitation link");
-  await expect(invitation).toBeVisible();
-  const invitationUrl = await invitation.inputValue();
-  expect(new URL(invitationUrl).origin).toBe(new URL(page.url()).origin);
-  return invitationUrl;
+  await page.getByRole("link", { name: "Review assignment policies", exact: true }).click();
+  await page.getByRole("button", { name: "Validate Assignment", exact: true }).click();
+  await page.getByRole("button", { name: "Release Assignment", exact: true }).click();
+  const assignmentMatch = /\/courses\/C-[1-9][0-9]*\/assignments\/(A-[1-9][0-9]*)\/release$/u.exec(
+    new URL(page.url()).pathname,
+  );
+  expect(assignmentMatch).not.toBeNull();
+  return { course, assignment: assignmentMatch![1]! };
 }
 
-async function completeDeliveredPoolRun(
+async function issueStudentWork(
   page: Page,
-  invitationUrl: string,
-  courseTitle: string,
-  assignmentTitle: string,
-  fixed: PublishedQuestion,
-  questionPoolItems: ReadonlyArray<PublishedQuestion>,
+  references: CourseAssignment,
+  fixedTitle: string,
+  poolTitles: ReadonlyArray<string>,
 ): Promise<void> {
-  await chooseSeededIdentity(page, /Mary Okafor/u);
-  await page.goto(invitationUrl);
-  await expect(page.getByRole("heading", { name: "Join your PLE course" })).toBeVisible();
-  await page.getByRole("button", { name: "Claim this course", exact: true }).click();
-  await expect(page.getByRole("heading", { name: courseTitle, exact: true })).toBeVisible();
-  const assignmentCard = page
-    .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
-  await assignmentCard.getByRole("link", { name: "Start assignment", exact: true }).click();
-  await startOrContinuePractice(page);
-
-  const itemsByTitle = new Map(questionPoolItems.map((item) => [item.questionTitle, item]));
-  await expect(page.getByRole("heading", { name: fixed.questionTitle, exact: true })).toBeVisible();
-  await expect(page.locator(".assignment-attempt-question-pool-selection")).toHaveCount(0);
-  await page.getByRole("radio", { name: fixed.correctChoice, exact: true }).check();
-  await page.getByRole("button", { name: "Submit answer", exact: true }).click();
-  const fixedFeedback = await waitForAutomatedStudentFeedback(page);
-  await expect(fixedFeedback.getByRole("heading", { name: "Correct", exact: true })).toBeVisible();
-  await advanceToNextIssuedQuestion(page);
-
-  const deliveredQuestionPoolItemIndexes: number[] = [];
-  const questionHeading = page.locator(".assignment-attempt-header h1");
-  for (let position = 0; position < 2; position += 1) {
-    await expect(page.locator(".assignment-attempt-question-pool-selection")).toHaveText(
-      `Server-selected Question ${position + 1} of 2 for this Assignment Attempt.`,
-    );
-    const questionTitle = await questionHeading.innerText();
-    const questionPoolItem = itemsByTitle.get(questionTitle);
-    expect(questionPoolItem).toBeDefined();
-    const questionPoolItemIndex = questionPoolItems.findIndex(
-      (item) => item.questionTitle === questionTitle,
-    );
-    expect(questionPoolItemIndex).toBeGreaterThanOrEqual(0);
-    deliveredQuestionPoolItemIndexes.push(questionPoolItemIndex);
-    await page.getByRole("radio", { name: questionPoolItem!.correctChoice, exact: true }).check();
-    await page.getByRole("button", { name: "Submit answer", exact: true }).click();
-    const questionPoolItemFeedback = await waitForAutomatedStudentFeedback(page);
-    await expect(
-      questionPoolItemFeedback.getByRole("heading", { name: "Correct", exact: true }),
-    ).toBeVisible();
-    if (position === 0) {
-      await advanceToNextIssuedQuestion(page);
-    } else {
-      await page
-        .getByRole("button", { name: "View completed Assignment Attempt", exact: true })
-        .click();
-    }
-  }
-  expect(deliveredQuestionPoolItemIndexes).toEqual(
-    [...deliveredQuestionPoolItemIndexes].sort((a, b) => a - b),
+  await chooseSeededIdentity(page, /Mary Student/u);
+  await page.goto(`/courses/${references.course}/invitation`);
+  await expect(
+    page.getByRole("heading", { name: "Join this Course Instance", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Accept Course Invitation", exact: true }).click();
+  await expect(page.getByText("Course Invitation accepted.", { exact: true })).toBeVisible();
+  await page.goto(`/courses/${references.course}/assignments/${references.assignment}`);
+  await page.getByRole("button", { name: "Start Assignment", exact: true }).click();
+  const overview = page.locator('[data-route-surface="assignmentOverview"]');
+  await expect(overview.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
+  const issuedTitles = (await overview.getByRole("heading", { level: 3 }).allTextContents()).map(
+    (value) => value.replace(/^Question [1-9][0-9]*: /u, ""),
   );
-  const summary = page.locator(".attempt-summary");
-  await expect(summary.getByText("Your completed Assignment Attempt is recorded.")).toBeVisible();
-  await expect(summary.getByRole("region", { name: "Assignment score" })).toContainText("100%");
+  expect(issuedTitles[0]).toBe(fixedTitle);
+  const selectedPoolTitles = issuedTitles.slice(1);
+  expect(selectedPoolTitles).toHaveLength(2);
+  expect(new Set(selectedPoolTitles).size).toBe(2);
+  const selectedIndexes = selectedPoolTitles.map((title) => poolTitles.indexOf(title));
+  expect(selectedIndexes.every((index) => index >= 0)).toBe(true);
+  expect(selectedIndexes).toEqual([...selectedIndexes].sort((left, right) => left - right));
+
   await page.reload();
-  await expect(
-    page.locator(".attempt-summary").getByText("Your completed Assignment Attempt is recorded."),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Start Assignment", exact: true }).click();
+  const reissuedTitles = (await overview.getByRole("heading", { level: 3 }).allTextContents()).map(
+    (value) => value.replace(/^Question [1-9][0-9]*: /u, ""),
+  );
+  expect(reissuedTitles).toEqual(issuedTitles);
 }
 
-async function inspectPostIssueEdits(
+async function provePostIssuePoolImmutability(
   page: Page,
   courseTitle: string,
   assignmentTitle: string,
 ): Promise<void> {
-  await chooseSeededIdentity(page, /Elena Rivera/u);
+  await chooseSeededIdentity(page, /Elena Instructor/u);
   await selectVisibleCourse(page, courseTitle);
-  await page.getByRole("link", { name: "Gradebook", exact: true }).click();
-  const gradebook = page.locator("[data-route-surface=gradebook]");
-  await expect(gradebook).toBeVisible();
-  const gradebookRow = gradebook
-    .getByRole("row")
-    .filter({ has: page.getByText("Mary Okafor", { exact: true }) });
-  await expect(gradebookRow).toBeVisible();
-  await expect(gradebookRow.locator('[data-label="Course total"]')).toContainText("100%");
-  await expect(gradebookRow.locator(`[data-label="${assignmentTitle}"]`)).toContainText("100%");
-  await page.getByRole("link", { name: "Assignments", exact: true }).click();
+  await page.getByRole("link", { name: "Open Assignments", exact: true }).click();
   const assignmentCard = page
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
-  await assignmentCard.getByRole("link", { name: assignmentTitle, exact: true }).click();
-  await page.getByRole("link", { name: "Questions", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
-  const pool = page.getByRole("listitem", { name: "Question pool at position 2" });
-  const revisedTitle = `${assignmentTitle} renamed`;
-  await page.getByLabel("Assignment title").fill(revisedTitle);
+  await assignmentCard.getByRole("link", { name: "Open assignment", exact: true }).click();
+  await page.getByRole("link", { name: "Review questions", exact: true }).click();
+  const pool = page.getByRole("listitem", { name: "Question pool 2", exact: true });
+  await pool.getByLabel("Selection count", { exact: true }).fill("1");
   await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
-  await expect(
-    page.getByRole("status").filter({ hasText: "Questions and order saved." }),
-  ).toBeVisible();
-  await expect(page.getByLabel("Assignment title")).toHaveValue(revisedTitle);
-  await expect(pool.getByLabel("Points per drawn question")).toHaveValue("2");
-
-  await pool.getByLabel("Points per selected Question").fill("3");
-  await pool.getByLabel("Selection count").fill("1");
-  await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
-  const recovery = page.getByRole("alert");
-  await expect(recovery).toContainText("Student work has already been issued");
-  await expect(recovery).toContainText("Your local question changes remain here");
-  await expect(recovery).toContainText("issued student work remains unchanged");
-  await expect(recovery.getByRole("link", { name: "Create a new assignment" })).toBeVisible();
-  await expect(pool.getByLabel("Points per selected Question")).toHaveValue("3");
-  await expect(pool.getByLabel("Selection count")).toHaveValue("1");
+  const boundary = page.getByRole("alert");
+  await expect(boundary).toContainText("Student work already pins this Assignment Revision.");
+  await expect(boundary).toContainText(
+    "a successor Assignment is required for structural changes.",
+  );
 }
 
-test.describe("item-pool delivery on the production PLE stack", () => {
-  test.skip(
-    configuredLiveDemoInputs === undefined,
-    "the disposable production browser-suite owner supplies this scenario input",
-  );
+test.describe.configure({ mode: "serial" });
 
-  test("server previews and delivers a fixed item plus an ordered immutable Question Pool Selection", async ({
-    browser,
-  }) => {
-    test.setTimeout(scenarioTimeoutMs);
-    const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
-    expect(scenarioInput.scenarioId).toBe("item_pool_delivery");
-    const courseTitle = "Biochemistry: Protein Structure Variations";
-    const assignmentTitle = "Peptide Bonds: Mixed Practice";
-    const pageOrigins = new Set<string>();
-    const requestOrigins = new Set<string>();
-    const contexts: BrowserContext[] = [];
-    let originEvidenceVerified = false;
+test("Instructor delivers an immutable ordered Question Pool to a Student", async ({ browser }) => {
+  test.setTimeout(scenarioTimeoutMs);
+  const scenarioInput = requireScenarioInput(configuredLiveDemoInputs);
+  expect(scenarioInput.scenarioId).toBe("item_pool_delivery");
+  const courseTitle = `Biochemistry: Question Pool ${scenarioInput.namespace}`;
+  const assignmentTitle = `Peptide Bond Question Pool ${scenarioInput.namespace}`;
+  const fixedTitle = `Fixed peptide question ${scenarioInput.namespace}`;
+  const poolTitles = [
+    `Peptide pool item one ${scenarioInput.namespace}`,
+    `Peptide pool item two ${scenarioInput.namespace}`,
+    `Peptide pool item three ${scenarioInput.namespace}`,
+  ];
+  const origins = {
+    instructor: { pageOrigins: new Set<string>(), requestOrigins: new Set<string>() },
+    student: { pageOrigins: new Set<string>(), requestOrigins: new Set<string>() },
+  };
+  const contexts: BrowserContext[] = [];
 
+  try {
+    const instructorContext = await browser.newContext(contextOptions);
+    const studentContext = await browser.newContext(contextOptions);
+    contexts.push(instructorContext, studentContext);
+    observeContextOrigins(
+      instructorContext,
+      origins.instructor.pageOrigins,
+      origins.instructor.requestOrigins,
+    );
+    observeContextOrigins(
+      studentContext,
+      origins.student.pageOrigins,
+      origins.student.requestOrigins,
+    );
+    const instructor = await instructorContext.newPage();
+    const student = await studentContext.newPage();
+    configureContextAndPage(instructorContext, instructor, actionTimeoutMs);
+    configureContextAndPage(studentContext, student, actionTimeoutMs);
+
+    await chooseSeededIdentity(instructor, /Elena Instructor/u);
+    for (const title of [fixedTitle, ...poolTitles]) await publishQuestion(instructor, title);
+    const references = await createCourseAssignment(
+      instructor,
+      courseTitle,
+      assignmentTitle,
+      fixedTitle,
+      poolTitles,
+    );
+    await issueStudentWork(student, references, fixedTitle, poolTitles);
+    await provePostIssuePoolImmutability(instructor, courseTitle, assignmentTitle);
+    expectObservedOrigin(origins.instructor, new URL(scenarioInput.baseUrl).origin);
+    expectObservedOrigin(origins.student, new URL(scenarioInput.baseUrl).origin);
+  } finally {
     try {
-      const elenaContext = await browser.newContext({
-        viewport: { width: 1280, height: 800 },
-        ignoreHTTPSErrors: true,
-      });
-      const maryContext = await browser.newContext({
-        viewport: { width: 1280, height: 800 },
-        ignoreHTTPSErrors: true,
-      });
-      const inspectionContext = await browser.newContext({
-        viewport: { width: 1280, height: 800 },
-        ignoreHTTPSErrors: true,
-      });
-      contexts.push(elenaContext, maryContext, inspectionContext);
-      for (const context of contexts) observeContextOrigins(context, pageOrigins, requestOrigins);
-      const elena = await elenaContext.newPage();
-      const mary = await maryContext.newPage();
-      const inspectingElena = await inspectionContext.newPage();
-      for (const [context, page] of [
-        [elenaContext, elena],
-        [maryContext, mary],
-        [inspectionContext, inspectingElena],
-      ] as const) {
-        configureContextAndPage(context, page, actionTimeoutMs);
-      }
-
-      await chooseSeededIdentity(elena, /Elena Rivera/u);
-      await selectVisibleCourse(elena, BIOCHEMISTRY_COURSE_TITLE);
-      const fixed = await createPublishedQuestion(
-        elena,
-        "Peptide Bond Geometry",
-        "Peptide bonds are usually planar",
-      );
-      const questionPoolItems: PublishedQuestion[] = [];
-      for (const label of ["one", "two", "three"]) {
-        questionPoolItems.push(
-          await createPublishedQuestion(
-            elena,
-            `Peptide Bond Variation ${label}`,
-            `Supported peptide-bond statement ${label}`,
-          ),
-        );
-      }
-      const invitationUrl = await createCourseWithMixedPool(
-        elena,
-        courseTitle,
-        assignmentTitle,
-        fixed,
-        questionPoolItems,
-      );
-      await completeDeliveredPoolRun(
-        mary,
-        invitationUrl,
-        courseTitle,
-        assignmentTitle,
-        fixed,
-        questionPoolItems,
-      );
-      await inspectPostIssueEdits(inspectingElena, courseTitle, assignmentTitle);
-
-      const expectedOrigin = new URL(scenarioInput.baseUrl).origin;
-      expect([...pageOrigins].sort()).toEqual([expectedOrigin]);
-      expect([...requestOrigins].sort()).toEqual([expectedOrigin]);
-      originEvidenceVerified = true;
+      await Promise.all(contexts.map(async (context) => await context.close()));
     } finally {
-      try {
-        await Promise.all(contexts.map(async (context) => await context.close()));
-      } finally {
-        if (originEvidenceVerified) writeOriginReceipt(pageOrigins, requestOrigins);
-      }
+      writeContextOriginReceipt(origins);
     }
-  });
+  }
 });

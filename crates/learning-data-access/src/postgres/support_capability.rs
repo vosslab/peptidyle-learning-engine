@@ -8,8 +8,9 @@ use uuid::Uuid;
 use super::{Pool, connection::map_sqlx_error};
 use crate::random_uuid::random_uuid_v4;
 use crate::{
-    CourseRosterEntry, CourseRosterEntryState, IssueSupportCapabilityInput, SessionTokenHash, StoreError, SupportCapabilityReceipt,
-    SupportCapabilityStore, SupportMinimumProjection, SupportOperationKind,
+    CourseRosterEntry, CourseRosterEntryState, IssueSupportCapabilityInput, SessionTokenHash,
+    StoreError, SupportCapabilityReceipt, SupportCapabilityStore, SupportMinimumProjection,
+    SupportOperationKind,
 };
 
 #[derive(Clone)]
@@ -77,15 +78,30 @@ impl SupportCapabilityStore for PostgresSupportCapabilityStore {
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(receipt)
     }
-    async fn read_course_roster_support(&self, token: SessionTokenHash, capability_id: Uuid) -> Result<Vec<CourseRosterEntry>, StoreError> {
+    async fn read_course_roster_support(
+        &self,
+        token: SessionTokenHash,
+        capability_id: Uuid,
+    ) -> Result<Vec<CourseRosterEntry>, StoreError> {
         let mut tx = self.begin(token).await?;
         let rows = sqlx::query("SELECT roster_id, roster_email, state FROM ple_api.list_live_demo_support_course_roster($1)")
             .bind(capability_id).fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
-        let entries = rows.iter().map(|row| {
-            let state: String = row.try_get("state").map_err(map_sqlx_error)?;
-            let state = match state.as_str() { "invitation_pending" => CourseRosterEntryState::InvitationPending, "active_student" => CourseRosterEntryState::ActiveStudent, _ => return Err(invalid("Course Roster state")) };
-            Ok(CourseRosterEntry { roster_id: row.try_get("roster_id").map_err(map_sqlx_error)?, roster_email: row.try_get("roster_email").map_err(map_sqlx_error)?, state })
-        }).collect::<Result<Vec<_>, StoreError>>()?;
+        let entries = rows
+            .iter()
+            .map(|row| {
+                let state: String = row.try_get("state").map_err(map_sqlx_error)?;
+                let state = match state.as_str() {
+                    "invitation_pending" => CourseRosterEntryState::InvitationPending,
+                    "active_student" => CourseRosterEntryState::ActiveStudent,
+                    _ => return Err(invalid("Course Roster state")),
+                };
+                Ok(CourseRosterEntry {
+                    roster_id: row.try_get("roster_id").map_err(map_sqlx_error)?,
+                    roster_email: row.try_get("roster_email").map_err(map_sqlx_error)?,
+                    state,
+                })
+            })
+            .collect::<Result<Vec<_>, StoreError>>()?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(entries)
     }

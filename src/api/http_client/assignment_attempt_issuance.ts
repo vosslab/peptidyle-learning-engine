@@ -8,6 +8,7 @@ import {
   decodeLiveAssignmentAccess,
   decodeLiveAssignmentAttempt,
   decodeLiveNativePleSubmissionAcknowledgement,
+  decodeLiveNativePleSubmissionStatus,
 } from "../decoders/assignment_attempt_issuance";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
@@ -80,7 +81,7 @@ export function createLiveAssignmentAttemptIssuanceClient(
       const result = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ response }),
+        body: { response },
       });
       requireNoStore(result, path);
       if (!result.ok) throw new ApiRequestError(result.status, path);
@@ -95,6 +96,16 @@ export function createLiveAssignmentAttemptIssuanceClient(
         throw new ApiProtocolError("Submission acknowledgement nonce does not match its request");
       }
       return acknowledgement;
+    },
+    getLiveNativePleSubmissionStatus: async (course, assignment, presentationNonce) => {
+      const path = `${assignmentPath(course, assignment)}/presentations/${presentationNoncePathSegment(presentationNonce)}/submissions`;
+      const result = await requestSameOrigin(fetchImplementation, basePath, path);
+      requireNoStore(result, path);
+      if (!result.ok) throw new ApiRequestError(result.status, path);
+      return decodeLiveNativePleSubmissionStatus(
+        await boundedResponseJson(result, path),
+        "response",
+      );
     },
   };
 }

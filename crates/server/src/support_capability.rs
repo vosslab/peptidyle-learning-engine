@@ -35,14 +35,31 @@ pub fn support_capability_router(
             "/api/course-instances/{reference}/support-capabilities/{capability_id}/revoke",
             post(revoke),
         )
-        .route("/api/support-capabilities/{capability_id}/course-roster", get(read_roster))
+        .route(
+            "/api/support-capabilities/{capability_id}/course-roster",
+            get(read_roster),
+        )
         .with_state(RouteState { sessions, support })
 }
 
-async fn read_roster(State(state): State<RouteState>, headers: HeaderMap, Path(capability_id): Path<String>) -> Response {
-    let capability_id = match Uuid::parse_str(&capability_id) { Ok(value) => value, Err(_) => return concealed() };
-    let token = match sysadmin_session_hash(&state, &headers).await { Ok(value) => value, Err(response) => return *response };
-    match state.support.read_course_roster_support(token, capability_id).await {
+async fn read_roster(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path(capability_id): Path<String>,
+) -> Response {
+    let capability_id = match Uuid::parse_str(&capability_id) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let token = match sysadmin_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .support
+        .read_course_roster_support(token, capability_id)
+        .await
+    {
         Ok(entries) if entries.is_empty() => concealed(),
         Ok(entries) => crate::auth::no_store(Json(entries).into_response()),
         Err(error) => store_error_response(error),
@@ -72,11 +89,24 @@ async fn issue(
         Err(error) => store_error_response(error),
     }
 }
-async fn sysadmin_session_hash(state: &RouteState, headers: &HeaderMap) -> Result<SessionTokenHash, Box<Response>> {
-    match resolve_session(state.sessions.as_ref(), joined_cookie_header(headers).as_deref()).await {
-        Ok(session) if session.record.product_role == ProductRole::Sysadmin => Ok(session.session_hash),
+async fn sysadmin_session_hash(
+    state: &RouteState,
+    headers: &HeaderMap,
+) -> Result<SessionTokenHash, Box<Response>> {
+    match resolve_session(
+        state.sessions.as_ref(),
+        joined_cookie_header(headers).as_deref(),
+    )
+    .await
+    {
+        Ok(session) if session.record.product_role == ProductRole::Sysadmin => {
+            Ok(session.session_hash)
+        }
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
-        Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(StatusCode::SERVICE_UNAVAILABLE, "Support capability authentication unavailable"))),
+        Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Support capability authentication unavailable",
+        ))),
     }
 }
 

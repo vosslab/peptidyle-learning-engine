@@ -33,6 +33,15 @@ export interface LiveNativePleSubmissionAcknowledgement {
   readonly gradingState: "pending";
 }
 
+export type LiveNativePleSubmissionStatus =
+  | { readonly gradingState: "pending" | "instructorAttention" }
+  | {
+      readonly gradingState: "graded";
+      readonly correct: boolean;
+      readonly pointsEarned: number;
+      readonly pointsPossible: number;
+    };
+
 /** Same-origin M11 Student-only access and start boundary. */
 export interface LiveAssignmentAttemptIssuanceClient {
   readonly getLiveAssignmentAccess: (
@@ -53,4 +62,9 @@ export interface LiveAssignmentAttemptIssuanceClient {
     presentationNonce: string,
     response: StudentResponse,
   ) => Promise<LiveNativePleSubmissionAcknowledgement>;
+  readonly getLiveNativePleSubmissionStatus: (
+    course: CourseInstanceReference,
+    assignment: AssignmentReference,
+    presentationNonce: string,
+  ) => Promise<LiveNativePleSubmissionStatus>;
 }

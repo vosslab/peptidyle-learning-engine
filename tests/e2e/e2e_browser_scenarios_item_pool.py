@@ -10,10 +10,10 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			scenario_id="item_pool_delivery",
 			spec_path="tests/playwright/e2e/item_pool_delivery.spec.ts",
 			personas=("elena_instructor", "mary_student"),
-			baseline_reads=("base_course",),
-			ui_creates=("question", "course", "assignment", "invitation", "response"),
+			baseline_reads=("seeded_accounts",),
+			ui_creates=("question", "blueprint", "course", "assignment", "invitation"),
 			visible_observation=(
-				"server_sampled_pool_draw_delivers_fixed_then_ordered_membership_and_preserves_issued_work"
+				"student_receives_fixed_then_ordered_pool_membership_and_issued_work_blocks_pool_edits"
 			),
 		),
 	)

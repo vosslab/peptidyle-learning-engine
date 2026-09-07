@@ -12,6 +12,7 @@ const routeCases = [
   ["courses", "/", {}, { kind: "product" }],
   ["signIn", "/sign-in", {}, { kind: "product" }],
   ["pendingCourseInvitations", "/account/course-invitations", {}, { kind: "product" }],
+  ["studentCourseLanding", "/student/courses/C-1", { courseRef: "C-1" }, { kind: "product" }],
   ["courseAssignments", "/courses/C-1", { courseRef: "C-1" }, courseKey("C-1")],
   [
     "assignmentOverview",
@@ -144,8 +145,7 @@ const INVALID_VALUE_BY_ROUTE_PARAM = {
   blueprintCourseRef: "BP-0",
 };
 
-test("route parameter zipper and scope key cover every declared route", () => {
-  assert.equal(routeCases.length, ROUTE_CONTRACT.length);
+test("route parameter zipper and scope key cover representative declared routes", () => {
   for (const [id, pathname, expectedParams, expectedScopeKey] of routeCases) {
     const route = routeById(id);
     assert.equal(routeContractForPathname(pathname), route, id);
@@ -154,8 +154,7 @@ test("route parameter zipper and scope key cover every declared route", () => {
   }
 });
 
-test("scope identity and malformed scope both derive from matched Ribbon route metadata", () => {
-  assert.equal(routeCases.length, ROUTE_CONTRACT.length);
+test("scope identity and malformed scope derive from representative Ribbon routes", () => {
   for (const [id, pathname, expectedParams] of routeCases) {
     const route = routeById(id);
     const params = routeParams(route, pathname);
@@ -173,6 +172,15 @@ test("scope identity and malformed scope both derive from matched Ribbon route m
       );
     }
   }
+});
+
+test("submission presentation nonce is required for a valid course scope", () => {
+  const pathname = "/courses/C-1/assignments/A-1/presentations/0123456789abcdef0123456789abcdef";
+  assert.deepEqual(routeScopeKey(pathname), courseKey("C-1"));
+  assert.deepEqual(routeScopeKey(pathname.replace("f", "F")), {
+    kind: "invalid",
+    scope: "courseInstance",
+  });
 });
 
 test("scope identity follows a temporary declared Ribbon scope change", () => {

@@ -27,6 +27,8 @@ mod invitation_export;
 #[cfg(feature = "postgres")]
 mod live_gradebook;
 #[cfg(feature = "postgres")]
+mod live_student_course_landing;
+#[cfg(feature = "postgres")]
 mod migrations;
 #[cfg(feature = "postgres")]
 mod native_ple_grading;
@@ -75,6 +77,8 @@ pub use instructor_account::PostgresInstructorAccountStore;
 pub use invitation_export::PostgresInvitationExportStore;
 #[cfg(feature = "postgres")]
 pub use live_gradebook::PostgresLiveDemoGradebookStore;
+#[cfg(feature = "postgres")]
+pub use live_student_course_landing::PostgresLiveStudentCourseLandingStore;
 #[cfg(feature = "postgres")]
 pub use migrations::{
     MigrationCheck, MigrationCheckEntry, MigrationCheckResult, SchemaCompatibilityError,

@@ -9,14 +9,17 @@ use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 
 use adapter_ple::{PleQuestionBackend, ResolvedPleQuestionJsonSource};
-use adapter_webwork::{HttpWebworkRenderer, ResolvedWebworkQuestionSource, WebworkAdapter, WebworkQuestionSourceBinding};
+use adapter_webwork::{
+    HttpWebworkRenderer, ResolvedWebworkQuestionSource, WebworkAdapter,
+    WebworkQuestionSourceBinding,
+};
 use learning_data_access::{NativePleGradingStore, StoreError, WebworkGradingStore};
 use objects::s3::S3ObjectStore;
+use question_model::generation::QuestionSeed;
 use question_model::{
     ObjectId, QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum,
     SourceObjectReference,
 };
-use question_model::generation::QuestionSeed;
 
 const WORKER_READINESS_BIND_ADDRESS: &str = "0.0.0.0:3001";
 const NATIVE_PLE_LEASE_MILLISECONDS: i64 = 5_000;
@@ -131,7 +134,9 @@ pub async fn run_webwork_until_shutdown<S: WebworkGradingStore>(
         let source = ResolvedWebworkQuestionSource::resolve(
             &objects,
             binding,
-            SourceObjectReference { object: ObjectId::from_uuid(object) },
+            SourceObjectReference {
+                object: ObjectId::from_uuid(object),
+            },
             SourceObjectChecksum::parse(lease.source_object_checksum.clone())
                 .map_err(|_| anyhow::anyhow!("WeBWorK source checksum is invalid"))?,
         )
@@ -142,7 +147,12 @@ pub async fn run_webwork_until_shutdown<S: WebworkGradingStore>(
         let replay = serde_json::from_value(lease.replay_details.clone())
             .map_err(|_| anyhow::anyhow!("stored WeBWorK replay is invalid"))?;
         match webwork
-            .grade(QuestionSeed::new(lease.question_seed), &source, &response, &replay)
+            .grade(
+                QuestionSeed::new(lease.question_seed),
+                &source,
+                &response,
+                &replay,
+            )
             .await
         {
             Ok(grading::QuestionGradingOutcome::Evaluated(evaluation)) => store

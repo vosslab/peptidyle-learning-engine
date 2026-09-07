@@ -15,10 +15,8 @@ use axum::{
     routing::{get, post},
 };
 use learning_data_access::{
-    AcceptNativePleSubmission, LiveAssignmentAttempt, LiveAssignmentDeliveryStore,
-    NativePleIssuanceSource, NativePlePresentationInput, NativePleSubmissionStore,
-    NativeWebworkIssuanceSource, NativeWebworkPresentationInput, ResolvedNativePleSubmission,
-    ResolvedWebworkSubmission, WebworkSubmissionStore,
+    LiveAssignmentAttempt, LiveAssignmentDeliveryStore, NativePleIssuanceSource,
+    NativePlePresentationInput, NativeWebworkIssuanceSource, NativeWebworkPresentationInput,
     SessionTokenHash, StoreError,
     postgres::{
         PostgresLiveAssignmentDeliveryStore, PostgresNativePleSubmissionStore,
@@ -30,27 +28,26 @@ use question_model::{
     AssignmentReference, CourseInstanceReference, ObjectId, ProductRole, QuestionAssetReference,
     QuestionAssetRendition, QuestionPresentation, QuestionPresentationBinding,
     QuestionPresentationChecksum, QuestionRevisionNumber, QuestionRevisionReference,
-    SourceObjectChecksum, SourceObjectReference, StudentResponse, Timestamp,
+    SourceObjectChecksum, SourceObjectReference, Timestamp,
 };
 use question_model::{
     generation::QuestionSeed,
-    presentation::{
-        QuestionPresentationNonce, build_question_presentation, reproduce_question_presentation,
-        translate_presentation_response_item_references,
-    },
+    presentation::{build_question_presentation, reproduce_question_presentation},
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::auth::{AuthError, resolve_session};
 
+mod submission;
+
 #[derive(Clone)]
-struct StateData {
-    sessions: Arc<PostgresSessionStore>,
-    delivery: PostgresLiveAssignmentDeliveryStore,
-    submissions: PostgresNativePleSubmissionStore,
-    webwork_submissions: PostgresWebworkSubmissionStore,
-    objects: S3ObjectStore,
-    webwork: Arc<WebworkAdapter<S3ObjectStore, HttpWebworkRenderer>>,
+pub(super) struct StateData {
+    pub(super) sessions: Arc<PostgresSessionStore>,
+    pub(super) delivery: PostgresLiveAssignmentDeliveryStore,
+    pub(super) submissions: PostgresNativePleSubmissionStore,
+    pub(super) webwork_submissions: PostgresWebworkSubmissionStore,
+    pub(super) objects: S3ObjectStore,
+    pub(super) webwork: Arc<WebworkAdapter<S3ObjectStore, HttpWebworkRenderer>>,
 }
 
 /// Registers Student-only Assignment Access and initial start routes.
@@ -73,7 +70,7 @@ pub fn assignment_delivery_router(
         )
         .route(
             "/api/course-instances/{course}/assignments/{assignment}/presentations/{presentation_nonce}/submissions",
-            post(submit_native_ple_response),
+            post(submission::submit_native_ple_response).get(submission::native_ple_submission_status),
         )
         .with_state(StateData {
             sessions,
@@ -83,201 +80,6 @@ pub fn assignment_delivery_router(
             objects,
             webwork,
         })
-}
-
-/// Narrow, allowlisted Student submission payload. The response enum itself
-/// rejects unknown variant fields before any storage or grading boundary.
-/// ASVS 1.5.1 and 4.2.1.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct NativePleSubmissionRequest {
-    response: StudentResponse,
-}
-
-/// Acknowledges acceptance without reflecting Student work or revealing a
-/// private Question Attempt or Question Submission identity.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct NativePleSubmissionAcknowledgement {
-    presentation_nonce: String,
-    grading_state: &'static str,
-}
-
-async fn submit_native_ple_response(
-    State(state): State<StateData>,
-    headers: HeaderMap,
-    Path((course, assignment, presentation_nonce)): Path<(String, String, String)>,
-    Json(request): Json<NativePleSubmissionRequest>,
-) -> Response {
-    let (course, assignment) = match refs(&course, &assignment) {
-        Ok(value) => value,
-        Err(value) => return value,
-    };
-    let nonce = match QuestionPresentationNonce::parse(&presentation_nonce) {
-        Ok(value) => value,
-        Err(_) => return concealed(),
-    };
-    let token = match student(&state, &headers).await {
-        Ok(value) => value,
-        Err(value) => return *value,
-    };
-    // ASVS 2.2.1/2.3.1/8.2.1: the definer procedure resolves this public
-    // nonce only under the exact current Student, Course, Assignment, and
-    // active native-PLE Question Attempt. No private identity enters the URL.
-    let resolved = match state
-        .submissions
-        .resolve_native_ple_submission(
-            token.clone(),
-            u64::from(course.number()),
-            u64::from(assignment.number()),
-            &nonce.to_hex(),
-        )
-        .await
-    {
-        Ok(value) => value,
-        Err(StoreError::Forbidden) => return submit_webwork_response(state, token, course, assignment, nonce, request.response).await,
-        Err(value) => return submission_store_error(value),
-    };
-    let issued = match reproduce_submission_presentation(&state.objects, &resolved).await {
-        Ok(value) => value,
-        Err(StartError::Unavailable) => {
-            return error(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Question Submission unavailable",
-            );
-        }
-        Err(StartError::Invalid | StartError::Store(_)) => {
-            return error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Student Response is invalid",
-            );
-        }
-    };
-    // ASVS 2.2.2: validate the whole response against the exact immutable,
-    // answer-free presentation before translating its scoped references to
-    // durable server-only identifiers.
-    if !domain::validation::validate_presentation_response_format(
-        &issued.presentation.response,
-        &request.response,
-    )
-    .is_valid()
-    {
-        return error(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Student Response is invalid",
-        );
-    }
-    let response = match translate_presentation_response_item_references(&request.response, &issued)
-    {
-        Ok(value) => value,
-        Err(_) => {
-            return error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Student Response is invalid",
-            );
-        }
-    };
-    let student_response = match serde_json::to_value(response) {
-        Ok(value) => value,
-        Err(_) => {
-            return error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Student Response is invalid",
-            );
-        }
-    };
-    // ASVS 2.3.3/8.3.1: acceptance locks and repeats lifecycle authorization
-    // in one database transaction, so this reconstruction cannot authorize a
-    // replay or a second submission.
-    match state
-        .submissions
-        .accept_native_ple_submission(
-            token,
-            AcceptNativePleSubmission {
-                question_attempt: resolved.question_attempt,
-                student_response,
-            },
-        )
-        .await
-    {
-        Ok(learning_data_access::StudentQuestionSubmissionGradingState::Pending) => {
-            crate::auth::no_store(
-                (
-                    StatusCode::CREATED,
-                    Json(NativePleSubmissionAcknowledgement {
-                        presentation_nonce: nonce.to_hex(),
-                        grading_state: "pending",
-                    }),
-                )
-                    .into_response(),
-            )
-        }
-        Ok(_) => error(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "Question Submission unavailable",
-        ),
-        Err(value) => submission_store_error(value),
-    }
-}
-
-/// Falls through only after the native-PLE resolver concealed this exact
-/// presentation. The WeBWorK procedure repeats Student/course authority, so
-/// this is backend dispatch rather than a privilege fallback.
-async fn submit_webwork_response(
-    state: StateData,
-    token: SessionTokenHash,
-    course: CourseInstanceReference,
-    assignment: AssignmentReference,
-    nonce: QuestionPresentationNonce,
-    response: StudentResponse,
-) -> Response {
-    let resolved = match state
-        .webwork_submissions
-        .resolve_webwork_submission(
-            token.clone(),
-            u64::from(course.number()),
-            u64::from(assignment.number()),
-            &nonce.to_hex(),
-        )
-        .await
-    {
-        Ok(value) => value,
-        Err(value) => return submission_store_error(value),
-    };
-    let issued = match reproduce_webwork_submission_presentation(&state, &resolved).await {
-        Ok(value) => value,
-        Err(StartError::Unavailable) => {
-            return error(StatusCode::SERVICE_UNAVAILABLE, "Question Submission unavailable");
-        }
-        Err(StartError::Invalid | StartError::Store(_)) => {
-            return error(StatusCode::UNPROCESSABLE_ENTITY, "Student Response is invalid");
-        }
-    };
-    if !domain::validation::validate_presentation_response_format(&issued.presentation.response, &response).is_valid() {
-        return error(StatusCode::UNPROCESSABLE_ENTITY, "Student Response is invalid");
-    }
-    let response = match translate_presentation_response_item_references(&response, &issued) {
-        Ok(value) => value,
-        Err(_) => return error(StatusCode::UNPROCESSABLE_ENTITY, "Student Response is invalid"),
-    };
-    let student_response = match serde_json::to_value(response) {
-        Ok(value) => value,
-        Err(_) => return error(StatusCode::UNPROCESSABLE_ENTITY, "Student Response is invalid"),
-    };
-    match state
-        .webwork_submissions
-        .accept_webwork_submission(
-            token,
-            AcceptNativePleSubmission { question_attempt: resolved.question_attempt, student_response },
-        )
-        .await
-    {
-        Ok(()) => crate::auth::no_store((
-            StatusCode::CREATED,
-            Json(NativePleSubmissionAcknowledgement { presentation_nonce: nonce.to_hex(), grading_state: "pending" }),
-        ).into_response()),
-        Err(value) => submission_store_error(value),
-    }
 }
 
 async fn access(
@@ -347,7 +149,7 @@ struct LiveAssignmentAttemptResponse {
     questions: Vec<QuestionPresentation>,
 }
 
-enum StartError {
+pub(super) enum StartError {
     Store(StoreError),
     Invalid,
     Unavailable,
@@ -800,74 +602,7 @@ async fn resolve_source(
     .map_err(|_| StartError::Unavailable)
 }
 
-/// Rebuilds the exact persisted native PLE presentation for a submission
-/// without serializing any of its source or binding evidence.
-async fn reproduce_submission_presentation(
-    objects: &S3ObjectStore,
-    source: &ResolvedNativePleSubmission,
-) -> Result<question_model::presentation::IssuedQuestionPresentation, StartError> {
-    let object =
-        uuid::Uuid::parse_str(&source.source_object_id).map_err(|_| StartError::Invalid)?;
-    let revision = QuestionRevisionReference {
-        question_id: source.question_id.clone(),
-        revision_number: QuestionRevisionNumber::new(source.revision_number)
-            .map_err(|_| StartError::Invalid)?,
-    };
-    let resolved = ResolvedPleQuestionJsonSource::resolve(
-        objects,
-        revision,
-        SourceObjectReference {
-            object: ObjectId::from_uuid(object),
-        },
-        SourceObjectChecksum::parse(source.source_object_checksum.clone())
-            .map_err(|_| StartError::Invalid)?,
-    )
-    .await
-    .map_err(|_| StartError::Unavailable)?;
-    let issued = PleQuestionBackend::new()
-        .issue_question_json(&resolved, QuestionSeed::new(source.question_seed))
-        .map_err(|_| StartError::Invalid)?;
-    let nonce = QuestionPresentationNonce::parse(&source.presentation_nonce)
-        .map_err(|_| StartError::Invalid)?;
-    let checksum = QuestionPresentationChecksum::parse_hex(&source.presentation_checksum)
-        .map_err(|_| StartError::Invalid)?;
-    reproduce_question_presentation(
-        &issued.presentation,
-        &question_asset_renditions_from_ready(&source.question_asset_renditions),
-        QuestionPresentationBinding::new(nonce, checksum),
-    )
-    .map_err(|_| StartError::Invalid)
-}
-
-async fn reproduce_webwork_submission_presentation(
-    state: &StateData,
-    source: &ResolvedWebworkSubmission,
-) -> Result<question_model::presentation::IssuedQuestionPresentation, StartError> {
-    let object = uuid::Uuid::parse_str(&source.source_object_id).map_err(|_| StartError::Invalid)?;
-    let revision = QuestionRevisionReference {
-        question_id: source.question_id.clone(),
-        revision_number: QuestionRevisionNumber::new(source.revision_number).map_err(|_| StartError::Invalid)?,
-    };
-    let binding = WebworkQuestionSourceBinding::new(revision, source.webwork_pg_path.clone())
-        .map_err(|_| StartError::Invalid)?;
-    let resolved = ResolvedWebworkQuestionSource::resolve(
-        &state.objects,
-        binding,
-        SourceObjectReference { object: ObjectId::from_uuid(object) },
-        SourceObjectChecksum::parse(source.source_object_checksum.clone()).map_err(|_| StartError::Invalid)?,
-    ).await.map_err(|_| StartError::Unavailable)?;
-    let issued = state.webwork.reproduce(QuestionSeed::new(source.question_seed), &resolved)
-        .await.map_err(|_| StartError::Unavailable)?;
-    let nonce = QuestionPresentationNonce::parse(&source.presentation_nonce).map_err(|_| StartError::Invalid)?;
-    let checksum = QuestionPresentationChecksum::parse_hex(&source.presentation_checksum).map_err(|_| StartError::Invalid)?;
-    reproduce_question_presentation(
-        &issued.presentation,
-        &[],
-        QuestionPresentationBinding::new(nonce, checksum),
-    ).map_err(|_| StartError::Invalid)
-}
-
-fn refs(
+pub(super) fn refs(
     course: &str,
     assignment: &str,
 ) -> Result<(CourseInstanceReference, AssignmentReference), Response> {
@@ -881,7 +616,7 @@ fn question_asset_renditions(source: &NativePleIssuanceSource) -> Vec<QuestionAs
     question_asset_renditions_from_ready(&source.question_asset_renditions)
 }
 
-fn question_asset_renditions_from_ready(
+pub(super) fn question_asset_renditions_from_ready(
     renditions: &[learning_data_access::ReadyQuestionAssetRendition],
 ) -> Vec<QuestionAssetRendition> {
     renditions
@@ -898,7 +633,7 @@ fn question_asset_renditions_from_ready(
         .collect()
 }
 
-async fn student(
+pub(super) async fn student(
     state: &StateData,
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
@@ -941,7 +676,7 @@ fn store_error(value: StoreError) -> Response {
     }
 }
 
-fn submission_store_error(value: StoreError) -> Response {
+pub(super) fn submission_store_error(value: StoreError) -> Response {
     match value {
         StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => concealed(),
         StoreError::Conflict | StoreError::AlreadyExists | StoreError::RetryableTransaction => {
@@ -963,9 +698,9 @@ fn submission_store_error(value: StoreError) -> Response {
     }
 }
 
-fn concealed() -> Response {
+pub(super) fn concealed() -> Response {
     error(StatusCode::NOT_FOUND, "Assignment not found")
 }
-fn error(status: StatusCode, message: &'static str) -> Response {
+pub(super) fn error(status: StatusCode, message: &'static str) -> Response {
     crate::auth::no_store((status, message).into_response())
 }

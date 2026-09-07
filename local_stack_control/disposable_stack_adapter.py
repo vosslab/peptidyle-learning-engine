@@ -18,7 +18,9 @@ import local_stack_control.process
 import local_stack_control.runtime_manifest
 from local_stack_control.readiness_faults import READINESS_DEPENDENCIES
 from local_stack_control.worker_lifecycle import (
+	replace_native_ple_worker_service,
 	replace_worker_service,
+	stop_native_ple_worker_service,
 	require_worker_replaced,
 	require_worker_stopped,
 	stop_worker_service,
@@ -32,10 +34,12 @@ from local_stack_control.worker_lifecycle import (
 
 __all__ = (
 	"READINESS_DEPENDENCIES",
+	"replace_native_ple_worker_service",
 	"replace_worker_service",
 	"require_worker_replaced",
 	"require_worker_stopped",
 	"stop_worker_service",
+	"stop_native_ple_worker_service",
 	"worker_replacement_command",
 	"worker_replacement_plan",
 	"worker_service",

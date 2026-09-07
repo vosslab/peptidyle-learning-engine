@@ -74,7 +74,10 @@ export function SignInPage(): JSX.Element {
         currentSession.kind === "authenticated" &&
           currentSession.session.account.productRole === "instructor"
           ? "/library"
-          : "/",
+          : currentSession.kind === "authenticated" &&
+              currentSession.session.account.productRole === "student"
+            ? "/student/courses"
+            : "/",
       );
     } catch {
       setSeededDemo({ kind: "ready", response });

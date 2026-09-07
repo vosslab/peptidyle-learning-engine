@@ -7,8 +7,8 @@ use sqlx::{Postgres, Transaction};
 use super::{Pool, connection::map_sqlx_error};
 use crate::random_uuid::random_uuid_v4;
 use crate::{
-    AcceptNativePleSubmission, NativePleSubmissionStore, ReadyQuestionAssetRendition,
-    ResolvedNativePleSubmission, SessionTokenHash, StoreError,
+    AcceptNativePleSubmission, NativePleSubmissionStatus, NativePleSubmissionStore,
+    ReadyQuestionAssetRendition, ResolvedNativePleSubmission, SessionTokenHash, StoreError,
     StudentQuestionSubmissionGradingState,
 };
 
@@ -190,6 +190,53 @@ impl NativePleSubmissionStore for PostgresNativePleSubmissionStore {
         .map_err(map_sqlx_error)?;
         let result = match grading_state.as_str() {
             "pending" => StudentQuestionSubmissionGradingState::Pending,
+            _ => {
+                return Err(StoreError::InvalidRecord(
+                    "Question Submission grading state is invalid".to_string(),
+                ));
+            }
+        };
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(result)
+    }
+
+    async fn native_ple_submission_status(
+        &self,
+        token: SessionTokenHash,
+        course_reference_number: u64,
+        assignment_reference_number: u64,
+        presentation_nonce: &str,
+    ) -> Result<NativePleSubmissionStatus, StoreError> {
+        let course = i64::try_from(course_reference_number).map_err(|_| {
+            StoreError::InvalidRecord("Course Instance reference is invalid".to_string())
+        })?;
+        let assignment = i64::try_from(assignment_reference_number).map_err(|_| {
+            StoreError::InvalidRecord("Assignment reference is invalid".to_string())
+        })?;
+        let mut transaction = self.begin(token).await?;
+        let row = sqlx::query(
+            "SELECT grading_state, correct, points_earned, points_possible \
+             FROM ple_api.read_live_demo_native_ple_submission_status($1, $2, $3)",
+        )
+        .bind(course)
+        .bind(assignment)
+        .bind(presentation_nonce)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::Forbidden)?;
+        let result = match row
+            .try_get::<String, _>("grading_state")
+            .map_err(map_sqlx_error)?
+            .as_str()
+        {
+            "pending" => NativePleSubmissionStatus::Pending,
+            "instructor_attention" => NativePleSubmissionStatus::InstructorAttention,
+            "graded" => NativePleSubmissionStatus::Graded {
+                correct: row.try_get("correct").map_err(map_sqlx_error)?,
+                points_earned: row.try_get("points_earned").map_err(map_sqlx_error)?,
+                points_possible: row.try_get("points_possible").map_err(map_sqlx_error)?,
+            },
             _ => {
                 return Err(StoreError::InvalidRecord(
                     "Question Submission grading state is invalid".to_string(),

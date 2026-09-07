@@ -1,9 +1,12 @@
 // M11 Student Assignment Access and initial issued presentation.
 
 import { A, createAsync, useParams } from "@solidjs/router";
-import { createSignal, For, Match, Show, Switch, type JSX } from "solid-js";
+import { createEffect, createSignal, For, Match, Show, Switch, untrack, type JSX } from "solid-js";
 
-import type { LiveAssignmentAttempt } from "../api/assignment_attempt_issuance";
+import type {
+  LiveAssignmentAttempt,
+  LiveNativePleSubmissionStatus,
+} from "../api/assignment_attempt_issuance";
 import { useApplicationApi } from "../api/application_api";
 import { QuestionPresentationRenderer } from "../components/question_renderer";
 import { QuestionPresentationResponseControl } from "../components/question_response_controls/question_response_control";
@@ -33,6 +36,31 @@ function presentationNonce(value: string | undefined): string | null {
   return value !== undefined && /^[0-9a-f]{32}$/u.test(value) ? value : null;
 }
 
+function submissionHeading(status: LiveNativePleSubmissionStatus): string {
+  return status.gradingState === "graded"
+    ? status.correct
+      ? "Correct"
+      : "Not quite"
+    : "Response received";
+}
+
+function submissionMessage(status: LiveNativePleSubmissionStatus): string {
+  if (status.gradingState === "pending")
+    return "Grading is underway. You do not need to submit your response again.";
+  if (status.gradingState === "instructorAttention")
+    return "Your response needs instructor attention. You do not need to submit it again.";
+  if (!("pointsEarned" in status)) return "Your response is recorded.";
+  return `${status.pointsEarned} of ${status.pointsPossible} points`;
+}
+
+function acceptedSubmissionStorageKey(
+  courseReference: string,
+  assignmentReference: string,
+  presentationNonce: string,
+): string {
+  return `live-native-ple-submission:${courseReference}:${assignmentReference}:${presentationNonce}`;
+}
+
 /** M11 uses only public C-/A- references and keeps the response boundary for M12. */
 export function AssignmentOverviewPage(): JSX.Element {
   const runtime = useApplicationApi();
@@ -41,6 +69,9 @@ export function AssignmentOverviewPage(): JSX.Element {
   const [issued, setIssued] = createSignal<LiveAssignmentAttempt>();
   const [starting, setStarting] = createSignal(false);
   const [startError, setStartError] = createSignal<string>();
+  const [submissionStatus, setSubmissionStatus] = createSignal<LiveNativePleSubmissionStatus>();
+  const [checkingStatus, setCheckingStatus] = createSignal(false);
+  const [statusError, setStatusError] = createSignal<string>();
   const course = () => parseCourseInstanceReference(params["courseRef"] ?? "");
   const assignment = () => parseAssignmentReference(params["assignmentRef"] ?? "");
   const selectedPresentationNonce = () => presentationNonce(params["presentationNonce"]);
@@ -89,17 +120,63 @@ export function AssignmentOverviewPage(): JSX.Element {
       return { kind: "rejected", message: "This Assignment is unavailable." };
     }
     try {
-      await runtime.client.submitLiveNativePleResponse(
+      const acknowledgement = await runtime.client.submitLiveNativePleResponse(
         courseReference,
         assignmentReference,
         presentationNonce,
         response,
       );
+      window.sessionStorage.setItem(
+        acceptedSubmissionStorageKey(courseReference, assignmentReference, presentationNonce),
+        "accepted",
+      );
+      setSubmissionStatus({ gradingState: acknowledgement.gradingState });
       return { kind: "accepted" };
     } catch (_error: unknown) {
       return { kind: "rejected", message: "Your response could not be submitted. Try again." };
     }
   }
+
+  async function refreshSubmissionStatus(presentationNonce: string): Promise<void> {
+    const courseReference = course();
+    const assignmentReference = assignment();
+    if (courseReference === null || assignmentReference === null || checkingStatus()) return;
+    setCheckingStatus(true);
+    setStatusError(undefined);
+    try {
+      setSubmissionStatus(
+        await runtime.client.getLiveNativePleSubmissionStatus(
+          courseReference,
+          assignmentReference,
+          presentationNonce,
+        ),
+      );
+    } catch (_error: unknown) {
+      setStatusError("Grading status could not be checked. Please try again.");
+    } finally {
+      setCheckingStatus(false);
+    }
+  }
+
+  createEffect(() => {
+    const courseReference = course();
+    const assignmentReference = assignment();
+    const nonce = selectedPresentationNonce();
+    const attempt = issued();
+    if (
+      courseReference === null ||
+      assignmentReference === null ||
+      nonce === null ||
+      attempt === undefined ||
+      !attempt.questions.some((question) => question.presentationNonce === nonce) ||
+      window.sessionStorage.getItem(
+        acceptedSubmissionStorageKey(courseReference, assignmentReference, nonce),
+      ) !== "accepted"
+    ) {
+      return;
+    }
+    untrack(() => void refreshSubmissionStatus(nonce));
+  });
 
   return (
     <section class="page" data-route-surface="assignmentOverview">
@@ -185,18 +262,45 @@ export function AssignmentOverviewPage(): JSX.Element {
                         )
                       }
                     />
-                    <QuestionPresentationResponseControl
-                      attemptId={question.presentationNonce}
-                      mode={isSubmissionScreen() ? "submission" : "formatOnly"}
-                      responseFormat={question.response}
-                      validator={validator}
-                      onSubmit={
-                        isSubmissionScreen()
-                          ? (response) => submitResponse(question.presentationNonce, response)
-                          : undefined
+                    <Show
+                      when={isSubmissionScreen() && submissionStatus()?.gradingState !== undefined}
+                      fallback={
+                        <QuestionPresentationResponseControl
+                          attemptId={question.presentationNonce}
+                          mode={isSubmissionScreen() ? "submission" : "formatOnly"}
+                          responseFormat={question.response}
+                          validator={validator}
+                          onSubmit={
+                            isSubmissionScreen()
+                              ? (response) => submitResponse(question.presentationNonce, response)
+                              : undefined
+                          }
+                          onEscape={() =>
+                            document.getElementById("issued-questions-heading")?.focus()
+                          }
+                        />
                       }
-                      onEscape={() => document.getElementById("issued-questions-heading")?.focus()}
-                    />
+                    >
+                      <section class="attempt-pending" aria-labelledby="grading-status-heading">
+                        <h2 id="grading-status-heading">
+                          {submissionHeading(submissionStatus()!)}
+                        </h2>
+                        <p>{submissionMessage(submissionStatus()!)}</p>
+                        <Show when={submissionStatus()!.gradingState !== "graded"}>
+                          <button
+                            class="primary-action"
+                            type="button"
+                            disabled={checkingStatus()}
+                            onClick={() => void refreshSubmissionStatus(question.presentationNonce)}
+                          >
+                            Check grading status
+                          </button>
+                        </Show>
+                        <Show when={statusError()}>
+                          {(message) => <p role="alert">{message()}</p>}
+                        </Show>
+                      </section>
+                    </Show>
                     <Show when={!isSubmissionScreen()}>
                       <p>
                         <A

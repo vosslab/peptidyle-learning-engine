@@ -10,6 +10,7 @@ NAMESPACE_PATTERN = re.compile(r"^bs1-[0-9a-f]{12}-[a-z][a-z0-9_]{0,31}$")
 SCENARIO_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 BASELINE_ALIASES = frozenset(
 	{
+		"seeded_accounts",
 		"base_course",
 		"genetics_practice_course",
 		"mary_completed_assignment_attempt",
@@ -47,7 +48,7 @@ REQUIRED_BASELINE_AUTHORIZATION_SCENARIOS = {
 	"auth_authorization": (
 		"tests/playwright/e2e/auth_authorization.spec.ts",
 		"elena_instructor",
-		"seeded_entry_session_logout_and_course_boundaries",
+		"seeded_session_separation_and_no_record_boundaries",
 	),
 }
 
@@ -117,7 +118,7 @@ def validate_contract(contract: ScenarioContract) -> None:
 	_validate_spec_path(contract.spec_path)
 	_validate_closed_values("persona", contract.personas, PERSONAS)
 	_validate_closed_values("baseline alias", contract.baseline_reads, BASELINE_ALIASES)
-	_validate_closed_values("resource kind", contract.ui_creates, RESOURCE_KINDS)
+	_validate_closed_values("resource kind", contract.ui_creates, RESOURCE_KINDS, allow_empty=True)
 	_validate_visible_observation(contract.visible_observation)
 	_validate_service_receipt(contract.service_receipt)
 	_validate_fault_transition(contract.fault_transition)
@@ -242,8 +243,9 @@ def _validate_closed_values(
 	name: str,
 	values: tuple[str, ...],
 	allowed: frozenset[str],
+	allow_empty: bool = False,
 ) -> None:
-	if not values or len(values) != len(set(values)):
+	if (not allow_empty and not values) or len(values) != len(set(values)):
 		raise ScenarioContractError(f"browser scenario {name} values are invalid")
 	if not set(values).issubset(allowed):
 		raise ScenarioContractError(f"browser scenario {name} values are invalid")

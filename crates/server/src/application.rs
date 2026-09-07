@@ -216,11 +216,8 @@ mod tests {
             ProcessMode::WebworkWorker
         );
         assert_eq!(
-            process_mode(&[
-                "--webwork-worker".to_string(),
-                "--health-probe".to_string()
-            ])
-            .expect("WeBWorK worker probe"),
+            process_mode(&["--webwork-worker".to_string(), "--health-probe".to_string()])
+                .expect("WeBWorK worker probe"),
             ProcessMode::WebworkWorkerHealthProbe
         );
         assert_eq!(

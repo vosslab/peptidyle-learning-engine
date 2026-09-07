@@ -70,7 +70,10 @@ export interface RouteContract {
     | "instructorAccounts"
     | "supportRoster"
     | "pendingCourseInvitations"
-    | "studentCourseInvitation";
+    | "studentCourses"
+    | "studentCourseInvitations"
+    | "studentCourseInvitation"
+    | "studentCourseLanding";
   readonly path: string;
   readonly surface: string;
   /** Product Role gate for the route; each route declares the Product Roles it serves. */
@@ -106,11 +109,32 @@ export const ROUTE_CONTRACT = [
     ribbon: { scope: "product", contentLayout: "reading" },
   },
   {
+    id: "studentCourses",
+    path: "/student/courses",
+    surface: "Student current Course Instance index",
+    requiredProductRoles: ["student"],
+    ribbon: { scope: "product", tab: "courses", contentLayout: "reading" },
+  },
+  {
+    id: "studentCourseInvitations",
+    path: "/student/course-invitations",
+    surface: "Student pending Course Invitation index",
+    requiredProductRoles: ["student"],
+    ribbon: { scope: "product", tab: "courses", contentLayout: "reading" },
+  },
+  {
     id: "studentCourseInvitation",
     path: "/courses/:courseRef/invitation",
     surface: "Student Course Invitation acceptance",
     requiredProductRoles: ["student"],
     ribbon: { scope: "product", contentLayout: "reading" },
+  },
+  {
+    id: "studentCourseLanding",
+    path: "/student/courses/:courseRef",
+    surface: "Student answer-free Course Instance and released Assignment landing",
+    requiredProductRoles: ["student"],
+    ribbon: { scope: "product", tab: "courses", contentLayout: "reading" },
   },
   {
     id: "instructorAccounts",

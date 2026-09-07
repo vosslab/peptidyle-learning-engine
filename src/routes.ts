@@ -22,6 +22,9 @@ import { CourseRosterPage } from "./pages/course_roster_page";
 import { SignInPage } from "./pages/sign_in_page";
 import { AccountPendingInvitationsPage } from "./pages/account_pending_invitations_page";
 import { StudentCourseInvitationPage } from "./pages/student_course_invitation_page";
+import { StudentCourseInvitationsPage } from "./pages/student_course_invitations_page";
+import { StudentCourseLandingPage } from "./pages/student_course_landing_page";
+import { StudentCoursesPage } from "./pages/student_courses_page";
 import { TeachingOperationsPage } from "./pages/teaching_operations_page";
 import { LiveDemoShowcasePage } from "./pages/live_demo_showcase_page";
 import { InstructorAccountsPage } from "./pages/instructor_accounts_page";
@@ -44,7 +47,10 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   courses: CourseListPage,
   signIn: SignInPage,
   pendingCourseInvitations: AccountPendingInvitationsPage,
+  studentCourses: StudentCoursesPage,
+  studentCourseInvitations: StudentCourseInvitationsPage,
   studentCourseInvitation: StudentCourseInvitationPage,
+  studentCourseLanding: StudentCourseLandingPage,
   instructorAccounts: InstructorAccountsPage,
   supportRoster: SupportRosterPage,
   courseAssignments: CourseInstancePage,

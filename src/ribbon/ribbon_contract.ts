@@ -14,6 +14,7 @@ import {
   parseCourseInstanceReference,
   parseCourseMembershipReference,
   parseDraftQuestionReference,
+  parsePresentationNonce,
   parseQuestionRouteReference,
 } from "../navigation/public_route";
 import {
@@ -163,6 +164,7 @@ const ROUTE_PARAM_PARSERS: Readonly<Record<RouteParamName, RouteParamParser>> = 
   questionRef: parseQuestionRouteReference,
   draftQuestionRef: parseDraftQuestionReference,
   blueprintCourseRef: parseBlueprintCourseReference,
+  presentationNonce: parsePresentationNonce,
 };
 
 function routeForId(routeId: string): RouteContract | undefined {

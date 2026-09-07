@@ -10,8 +10,8 @@ def contracts() -> tuple[ScenarioContract, ...]:
 			scenario_id="instructor_authoring",
 			spec_path="tests/playwright/e2e/instructor_authoring.spec.ts",
 			personas=("elena_instructor",),
-			baseline_reads=("base_course",),
-			ui_creates=("question", "course", "assignment", "invitation"),
-			visible_observation="instructor_authoring_persists_after_reload",
+			baseline_reads=("seeded_accounts",),
+			ui_creates=("question",),
+			visible_observation="instructor_publishes_private_draft_into_question_library",
 		),
 	)

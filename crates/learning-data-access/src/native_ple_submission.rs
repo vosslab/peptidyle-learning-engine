@@ -34,6 +34,18 @@ pub struct ResolvedNativePleSubmission {
     pub question_asset_renditions: Vec<ReadyQuestionAssetRendition>,
 }
 
+/// Answer-free public status projection for one already-authorized native PLE submission.
+#[derive(Debug, Clone, PartialEq)]
+pub enum NativePleSubmissionStatus {
+    Pending,
+    Graded {
+        correct: bool,
+        points_earned: f64,
+        points_possible: f64,
+    },
+    InstructorAttention,
+}
+
 /// Accepts one native PLE Student Response and prepares its separate grading
 /// work without exposing accepted response evidence or correctness.
 #[async_trait]
@@ -53,4 +65,12 @@ pub trait NativePleSubmissionStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         submission: AcceptNativePleSubmission,
     ) -> Result<StudentQuestionSubmissionGradingState, StoreError>;
+
+    async fn native_ple_submission_status(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course_reference_number: u64,
+        assignment_reference_number: u64,
+        presentation_nonce: &str,
+    ) -> Result<NativePleSubmissionStatus, StoreError>;
 }
