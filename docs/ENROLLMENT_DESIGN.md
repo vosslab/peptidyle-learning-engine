@@ -209,14 +209,17 @@ The local browser and deployed product use the same PLE-owned account contract:
 | -------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | `__Host-ple_session` | Deployment-gated seeded-persona entry today; future email or passkey ceremony only when accepted | One Authenticated Session used with exact Course, Assignment Attempt, and roster relationships |
 
-Future invitation redemption will use an authenticated Account session before
-exact course relationship resolution. In that future design, passkey
-registration begins from an authenticated PLE Account, so a passkey can shorten
-later sign-in but cannot bootstrap the first Account by itself. The seeded
-selector is disabled when its deployment settings are absent. Any future email
-start must fail closed unless both the invitation-token secret and a complete
-external SMTP configuration are present; a Server Route's existence is not
-evidence of a live email-authentication ceremony. No such email ceremony or
+M9 uses that same ordinary Authenticated Session for its constrained Live Demo
+claim: the active Student Account must already be the pending invitation target.
+It supplies neither an email-authentication ceremony nor a bearer-invitation
+link. In the future delivery design, invitation redemption will also use an
+authenticated Account session before exact course relationship resolution.
+Passkey registration begins from an authenticated PLE Account, so a passkey can
+shorten later sign-in but cannot bootstrap the first Account by itself. The
+seeded selector is disabled when its deployment settings are absent. Any future
+email start must fail closed unless both the invitation-token secret and a
+complete external SMTP configuration are present; a Server Route's existence is
+not evidence of a live email-authentication ceremony. No such email ceremony or
 route is active today.
 
 ENR6 therefore specifies email authentication to restore an existing PLE
@@ -355,26 +358,24 @@ Optional OIDC, SAML, or LTI integrations converge on the same authenticated
 `AccountId` and Store claim command. They are account-linking and course-launch
 integrations, not prerequisites for PLE registration or enrollment.
 
-## Future roster authorization contract
+## Course roster authorization contract
 
-The planned roster reads and mutations will use this course authorization
-order:
+The M9 roster reads and mutations use this course authorization order:
 
 ```text
 session -> AuthenticatedSession -> exact course lookup -> current Instructor Course Membership
 ```
 
-The future rules are:
+The current M9 rules are:
 
-- A direct course Instructor will be able to view and manage the student
-  roster.
-- A Sysadmin will be able to help an Instructor through the closed roster list,
+- A direct current Instructor can view and manage the student roster.
+- A Sysadmin support capability remains future. It will help an Instructor
+  through the closed roster list,
   invitation, policy, revoke, preview, and commit operations. The Store will
   record authenticated account/course/action/time for each Sysadmin support
   access; this capability will not include grade export, responses, Assignment
   Attempts, Assignment Analysis, or general course access.
-- A student member will be able to view the course but will not enumerate or
-  mutate the roster.
+- A Student cannot enumerate or mutate the roster.
 - A nonmember or foreign-course caller will receive the same not-found response
   as an absent course.
 - Instructor access will be manually approved after real-person validation and
@@ -382,24 +383,25 @@ The future rules are:
   promotion path.
 - A membership request will not create Sysadmin authority because `Sysadmin`
   is an operator-approved Product Role, not a Course Membership Role.
-- Invitation redemption will use the authenticated student as the target. The
+- Course Invitation claim uses the authenticated Student as the target. The
   request will never carry another user's ID.
 - Membership authority will be checked before identity-candidate, invitation,
   or roster-revision detail is disclosed.
 
-These planned rules extend, rather than replace, the course boundary in
+These rules extend, rather than replace, the course boundary in
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md#course-and-educational-records).
-When this boundary is implemented, PostgreSQL will establish the trusted role
-and authenticated Account context before any membership or educational-record
-access described in
+PostgreSQL establishes the trusted role and authenticated Account context
+before M9 membership or educational-record access described in
 [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security).
-Today, the deployment-gated seeded persona selector remains the only browser
-entry; no roster or invitation route is active.
+The deployment-gated seeded persona selector remains the only browser identity
+entry. M9 adds direct-Instructor roster import/read/revoke routes and a
+target-Student claim route; its exact public boundary is
+[API_CONTRACTS.md](API_CONTRACTS.md#current-http-boundaries). It does not add
+email delivery, a bearer-invitation link, or Sysadmin roster support.
 
 ## Store invariants
 
-The planned Store boundary owns three connected but intentionally separate
-invariants:
+The Store boundary owns three connected but intentionally separate invariants:
 
 1. Active Student Course Membership, the exact Student Record, and the Assignment's
    direct policy are the sole inputs to current Assignment Access.
@@ -413,7 +415,7 @@ The following describes the intended operations:
 
 | Operation                                                           | Atomic effect                                                                                                                        |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Claim invitation (future)                                           | Consume the invitation, resolve the authenticated account, bind the roster identifier, and create the membership episode and profile |
+| Claim pending Course Invitation (M9)                                 | Consume the target-bound invitation and create or reuse the Student Record plus active Student Course Membership; no Assignment state |
 | Create assignment                                                   | Store the assignment; create no student activity rows                                                                                |
 | Read pre-activity summary authorized by Assignment Access           | Return a key-free `no_activity` result without creating an enrollment or summary                                                     |
 | Start Assignment Attempt, grade-bearing action, or instructor issue | Re-evaluate Assignment Access and, at the planned creation boundary, atomically create or reuse the enrollment and summary receipt   |
@@ -430,18 +432,21 @@ transaction; no route or migration may hand-write only one side.
 
 ## HTTP contract
 
-Course-roster delivery is planned and unavailable. Its future Store, Server Routes, invitation workflow, and atomic
-Student Account resolve-or-create transaction; no roster, roster-import,
-invitation, or invitation-redemption Server Route currently exists.
+M9 currently ships a bounded Course Roster Import at
+`GET`/`POST /api/course-instances/{course_instance_reference}/roster`, a
+target-Student claim at `POST .../roster/claim`, and direct-Instructor access
+revocation at `POST .../roster/{roster_id}/revoke`. The exact route DTOs and
+concealment behavior are maintained in
+[API_CONTRACTS.md](API_CONTRACTS.md#current-http-boundaries).
 
-The planned Course Roster Import will receive normalized Student Authentication
-Emails and course-scoped roster metadata. Before authentication, its atomic
-transaction will resolve an existing Student Account by Student Authentication
-Email or create a new Student Account when none exists. It will then record the
+Its atomic import receives normalized Student Authentication Emails and
+course-scoped roster metadata. It resolves an existing Student Account by
+Student Authentication Email or creates one when none exists, then records the
 pending Course Invitation without creating Course relationships or Student Work
-Records. A future authentication ceremony will authenticate that existing
-Student Account. Invitation redemption will then create the Course Membership
-and Student Record relationships for the exact Course Instance.
+Records. A target Student's existing Authenticated Session can claim that
+pending invitation to create the exact Course Membership and Student Record.
+M9 does not return a bearer secret or perform email delivery; M18 owns the
+protected export used by the current dry-run mailer.
 
 The future delivery must keep roster data course-scoped and protected: a roster
 email snapshot neither replaces nor mutates a Student Authentication Email.

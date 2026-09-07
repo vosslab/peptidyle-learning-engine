@@ -66,6 +66,8 @@ import type { QuestionPresentation } from "../../generated/api/QuestionPresentat
 import type { PublicRouteReference } from "../navigation/public_route";
 import type { LiveDemoClient } from "./live_demo";
 import type { BlueprintCourseClient } from "./blueprint_course";
+import type { CourseInstanceClient } from "./course_instance";
+import type { LiveCourseRosterClient } from "./course_roster";
 import type { BlueprintOperationsClient } from "./blueprint_operations";
 import type {
   GradingOperationActionReceipt,
@@ -139,6 +141,8 @@ export interface ApiClient
   extends
     CourseRosterClient,
     BlueprintCourseClient,
+    CourseInstanceClient,
+    LiveCourseRosterClient,
     BlueprintOperationsClient,
     GradingOperationsClient,
     CalculatedGradebookClient {

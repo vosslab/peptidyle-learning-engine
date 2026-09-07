@@ -9,7 +9,7 @@ import { createPleQuestionJsonRepository } from "../features/ple_question_json_a
 import { parseDraftQuestionReference } from "../navigation/public_route";
 import { useWasmFacade } from "../wasm/context";
 
-/** Loads the private PLE Question JSON editor only after the route grammar accepts `D-…`. */
+/** Loads the private PLE Question JSON editor only after the route grammar accepts `D-...`. */
 export function QuestionDraftEditorPage(): JSX.Element {
   const params = useParams();
   const wasm = useWasmFacade();

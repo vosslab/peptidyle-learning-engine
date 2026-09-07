@@ -91,24 +91,6 @@ async function blueprintCourseJson<T>(
   return { body, response };
 }
 
-async function deleteBlueprintCourse(
-  fetchImplementation: ApiFetch,
-  basePath: string,
-  path: string,
-  etag: BlueprintCourseEtag,
-): Promise<void> {
-  const response = await requestSameOrigin(fetchImplementation, basePath, path, {
-    method: "DELETE",
-    headers: { "if-match": requestRevision(etag, path) },
-  });
-  requireNoStore(response, path);
-  if (response.status === 412) throw new BlueprintCourseConflictError(path);
-  if (!response.ok) throw new ApiRequestError(response.status, path);
-  if (response.status !== 204 || (await response.text()).length !== 0) {
-    throw new ApiProtocolError(`API response ${path} must use an empty 204 response`);
-  }
-}
-
 /** Creates the complete Blueprint Course capability without coupling it to a screen model. */
 export function createBlueprintCourseClient(
   fetchImplementation: ApiFetch,
@@ -184,7 +166,5 @@ export function createBlueprintCourseClient(
         etag: requireMatchingEtag(result.response, result.body.revision, path),
       };
     },
-    deleteBlueprintCourse: (reference, etag) =>
-      deleteBlueprintCourse(fetchImplementation, basePath, blueprintPath(reference), etag),
   };
 }

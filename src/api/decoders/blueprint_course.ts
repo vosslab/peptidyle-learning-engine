@@ -24,6 +24,7 @@ import {
 } from "../decoder";
 import { decodeStudentFeedbackReleaseRule } from "./assignment_policy";
 import { decodeQuestionSearchResult } from "./question_library";
+import { decodeQuestionAttemptLimit, decodeQuestionAttemptTimeLimit } from "./question_model";
 import { decodeBoundedArray, decodeCursor, field, requireOnlyFields } from "./shared";
 
 const MAX_PAGE_SIZE = 100;
@@ -247,7 +248,14 @@ function assignmentEntry(
   const record = decodeRecord(value, path);
   const kind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, ["fixed", "pool"]);
   if (kind === "fixed") {
-    requireOnlyFields(record, path, ["kind", "question_id", "points_possible", "scoring_rule"]);
+    requireOnlyFields(record, path, [
+      "kind",
+      "question_id",
+      "points_possible",
+      "scoring_rule",
+      "question_attempt_limit",
+      "question_attempt_time_limit",
+    ]);
     questionId(field(record, "question_id", path), `${path}.question_id`);
     pointValue(field(record, "points_possible", path), `${path}.points_possible`);
     decodeStringEnum(field(record, "scoring_rule", path), `${path}.scoring_rule`, [
@@ -256,6 +264,16 @@ function assignmentEntry(
       "extraCredit",
       "excluded",
     ]);
+    decodeQuestionAttemptLimit(
+      field(record, "question_attempt_limit", path),
+      `${path}.question_attempt_limit`,
+      true,
+    );
+    decodeQuestionAttemptTimeLimit(
+      field(record, "question_attempt_time_limit", path),
+      `${path}.question_attempt_time_limit`,
+      true,
+    );
     return { kind, questionPoolItems: [] };
   }
   requireOnlyFields(record, path, [
@@ -265,6 +283,8 @@ function assignmentEntry(
     "points_per_item",
     "scoring_rule",
     "selection_rule",
+    "question_attempt_limit",
+    "question_attempt_time_limit",
   ]);
   const questionPoolItems = decodeBoundedArray(
     field(record, "items", path),
@@ -288,6 +308,16 @@ function assignmentEntry(
   }
   pointValue(field(record, "points_per_item", path), `${path}.points_per_item`);
   selectionRule(field(record, "selection_rule", path), `${path}.selection_rule`);
+  decodeQuestionAttemptLimit(
+    field(record, "question_attempt_limit", path),
+    `${path}.question_attempt_limit`,
+    true,
+  );
+  decodeQuestionAttemptTimeLimit(
+    field(record, "question_attempt_time_limit", path),
+    `${path}.question_attempt_time_limit`,
+    true,
+  );
   return { kind, questionPoolItems };
 }
 
@@ -446,8 +476,20 @@ function contentView(value: unknown, path: string): void {
           "question",
           "points_possible",
           "scoring_rule",
+          "question_attempt_limit",
+          "question_attempt_time_limit",
         ]);
         questionView(field(entry, "question", entryPath), `${entryPath}.question`);
+        decodeQuestionAttemptLimit(
+          field(entry, "question_attempt_limit", entryPath),
+          `${entryPath}.question_attempt_limit`,
+          true,
+        );
+        decodeQuestionAttemptTimeLimit(
+          field(entry, "question_attempt_time_limit", entryPath),
+          `${entryPath}.question_attempt_time_limit`,
+          true,
+        );
       } else {
         requireOnlyFields(entry, entryPath, [
           "kind",
@@ -456,12 +498,24 @@ function contentView(value: unknown, path: string): void {
           "points_per_item",
           "scoring_rule",
           "selection_rule",
+          "question_attempt_limit",
+          "question_attempt_time_limit",
         ]);
         decodeBoundedArray(
           field(entry, "items", entryPath),
           `${entryPath}.items`,
           MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
           questionView,
+        );
+        decodeQuestionAttemptLimit(
+          field(entry, "question_attempt_limit", entryPath),
+          `${entryPath}.question_attempt_limit`,
+          true,
+        );
+        decodeQuestionAttemptTimeLimit(
+          field(entry, "question_attempt_time_limit", entryPath),
+          `${entryPath}.question_attempt_time_limit`,
+          true,
         );
       }
       return entryValue;

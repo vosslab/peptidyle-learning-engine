@@ -167,9 +167,16 @@ const NO_TEACHING_HANDLER = [
  */
 const CAPABILITY_DECLARATIONS = {
   courses: {
-    kind: "unbacked",
-    reason: "Course listing has no registered production teaching/data handler.",
-    evidence: [...NO_TEACHING_HANDLER, "src/api/application_api.tsx::ApiClient.listCourses"],
+    kind: "backed",
+    clientMethod: "ApiClient.listCourseInstances",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/course_instance.rs::course_instance_router",
+    },
+    evidence: [
+      "crates/server/src/course_instance.rs::course_instance_router",
+      "src/api/http_client/course_instance.ts::createCourseInstanceClient",
+    ],
   },
   questionLibrary: {
     kind: "backed",
@@ -184,10 +191,14 @@ const CAPABILITY_DECLARATIONS = {
     ],
   },
   blueprintCourses: {
-    kind: "unbacked",
-    reason: "Blueprint Course listing has no registered production teaching/data handler.",
+    kind: "backed",
+    clientMethod: "ApiClient.listBlueprintCourses",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/blueprint_course.rs::blueprint_course_router",
+    },
     evidence: [
-      ...NO_TEACHING_HANDLER,
+      "crates/server/src/blueprint_course.rs::blueprint_course_router",
       "src/api/application_api.tsx::ApiClient.listBlueprintCourses",
     ],
   },
@@ -197,9 +208,16 @@ const CAPABILITY_DECLARATIONS = {
     evidence: [...NO_TEACHING_HANDLER, "src/api/application_api.tsx::ApiClient.listAssignments"],
   },
   students: {
-    kind: "unbacked",
-    reason: "Course roster has no registered production teaching/data handler.",
-    evidence: [...NO_TEACHING_HANDLER, "src/api/application_api.tsx::ApiClient.listCourseRoster"],
+    kind: "backed",
+    clientMethod: "ApiClient.getLiveCourseRoster",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/course_roster.rs::course_roster_router",
+    },
+    evidence: [
+      "crates/server/src/course_roster.rs::course_roster_router",
+      "src/api/http_client/course_roster.ts::createLiveCourseRosterClient",
+    ],
   },
   gradebook: {
     kind: "unbacked",

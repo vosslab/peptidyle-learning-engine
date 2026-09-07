@@ -62,6 +62,14 @@ SEEDED_ACCOUNTS = (
 	),
 )
 
+# Private fixed Student Authentication Email bindings let M9 exercise the
+# normal Course Roster Import resolution path for the seeded Student sessions.
+SEEDED_STUDENT_AUTHENTICATION_EMAILS = (
+	("00000000-0000-0000-0000-000000000102", "mary.student@live-demo.invalid"),
+	("00000000-0000-0000-0000-000000000103", "jack.student@live-demo.invalid"),
+	("00000000-0000-0000-0000-000000000104", "avery.student@live-demo.invalid"),
+)
+
 SEEDED_PUBLISHED_QUESTIONS = (
 	SeededPublishedQuestion(
 		"PNE-0001",
@@ -187,6 +195,10 @@ def seed_sql(repo_root: pathlib.Path) -> str:
 		f"('{account.account_id}', '{account.product_role}')"
 		for account in SEEDED_ACCOUNTS
 	)
+	student_authentication_emails = ",\n\t".join(
+		f"('{account_id}', '{email}', '{email}', '{SEED_TIMESTAMP}', '{SEED_TIMESTAMP}')"
+		for account_id, email in SEEDED_STUDENT_AUTHENTICATION_EMAILS
+	)
 	question_roots = ",\n\t".join(
 		f"('{question.question_id}', '{SEED_TIMESTAMP}')"
 		for question in SEEDED_PUBLISHED_QUESTIONS
@@ -273,6 +285,12 @@ def seed_sql(repo_root: pathlib.Path) -> str:
 INSERT INTO ple_private.account (account_id, product_role, created_at)
 VALUES
 	{accounts}
+ON CONFLICT (account_id) DO NOTHING;
+INSERT INTO ple_private.account_authentication_email (
+	account_id, normalized_email, delivery_email, verified_at, updated_at
+)
+VALUES
+	{student_authentication_emails}
 ON CONFLICT (account_id) DO NOTHING;
 INSERT INTO ple_data.published_question (question_id, created_at)
 VALUES

@@ -1,804 +1,185 @@
-// Instructor course-level roster, invitation, import, and policy workflow.
+// course_roster_page.tsx - M9 Course Roster Import and protected roster projection.
 
-import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js";
+import { A, useParams } from "@solidjs/router";
+import { For, Show, createResource, createSignal, type JSX } from "solid-js";
 
-import "./instructor_data_tables.css";
 import "./course_roster_page.css";
 
-import type {
-  CourseInvitationEmailDomain,
-  CourseInvitationEmailDelivery,
-  CourseRosterPage,
-  RosterImportDelivery,
-  RosterImportPreview,
-} from "../api/enrollment";
-import { readyRosterRows } from "../api/http_client/enrollment";
+import type { CourseRosterImportEntry } from "../api/course_roster";
 import { useApplicationApi } from "../api/application_api";
-import { rosterImportTemplateCsv } from "./roster_import_template";
-import {
-  bulkDeliveryAnnouncement,
-  deliveryStatusLabel,
-  invitationDeliveryAnnouncement,
-} from "./course_roster_delivery";
-import {
-  RosterConfirmationDialog,
-  type PendingRosterConfirmation,
-} from "./roster_confirmation_dialog";
-import { courseRouteView } from "../features/course_appearance/course_theme_context";
-import { useRouteScopeData } from "../ribbon/route_scope_context";
+import { parseCourseInstanceReference } from "../navigation/public_route";
 
-type RosterState =
-  | { readonly kind: "loading" }
-  | {
-      readonly kind: "ready";
-      readonly roster: CourseRosterPage;
+function parseImportRows(value: string): ReadonlyArray<CourseRosterImportEntry> {
+  const lines = value
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (lines.length === 0) throw new Error("Enter at least one email and roster ID row.");
+  return lines.map((line) => {
+    const fields = line.split(",").map((field) => field.trim());
+    const email = fields[0];
+    const rosterId = fields[1];
+    if (fields.length !== 2 || email === undefined || rosterId === undefined || email === "" || rosterId === "") {
+      throw new Error("Use one email,roster_id pair on each row.");
     }
-  | { readonly kind: "error"; readonly message: string };
-
-interface LatestInvitationLink {
-  readonly email: string;
-  readonly url: string;
-  readonly emailDelivery: CourseInvitationEmailDelivery;
-}
-
-function rosterError(state: RosterState): string {
-  return state.kind === "error" ? state.message : "";
-}
-
-function importResultLabel(result: RosterImportPreview["rows"][number]["result"]): string {
-  switch (result) {
-    case "readyToInvite":
-      return "Ready to invite";
-    case "alreadyMember":
-      return "Already enrolled";
-    case "alreadyPending":
-      return "Invitation pending";
-    case "duplicate":
-      return "Duplicate row";
-    case "invalid":
-      return "Invalid email or roster ID";
-  }
-}
-
-function importReasonLabel(reason: RosterImportPreview["rows"][number]["reason"]): string {
-  switch (reason) {
-    case "ready":
-      return "Ready to invite";
-    case "alreadyOnRoster":
-      return "Already on this course roster";
-    case "invitationPending":
-      return "A course invitation is already pending";
-    case "duplicateInFile":
-      return "Duplicate row in this file";
-    case "correctEmailOrRosterId":
-      return "Correct the email or roster ID, then re-upload";
-  }
-}
-
-function policyLines(rules: ReadonlyArray<CourseInvitationEmailDomain>): string {
-  return rules.map((rule) => `${rule.includeSubdomains ? "*." : ""}${rule.domain}`).join("\n");
-}
-
-function parsePolicyLines(value: string): ReadonlyArray<CourseInvitationEmailDomain> {
-  const rules: Array<CourseInvitationEmailDomain> = [];
-  for (const line of value.split(/\r?\n/u)) {
-    const trimmed = line.trim();
-    if (trimmed.length === 0) continue;
-    const includeSubdomains = trimmed.startsWith("*.");
-    const domain = includeSubdomains ? trimmed.slice(2) : trimmed;
-    rules.push({ domain, includeSubdomains });
-  }
-  return rules;
-}
-
-function downloadExport(filename: string, csv: Blob): void {
-  const url = URL.createObjectURL(csv);
-  try {
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.rel = "noopener";
-    link.click();
-  } finally {
-    queueMicrotask(() => URL.revokeObjectURL(url));
-  }
-}
-
-function downloadRosterImportTemplate(): void {
-  const csv = new Blob([rosterImportTemplateCsv()], { type: "text/csv;charset=utf-8" });
-  downloadExport("ple-roster-import-template.csv", csv);
-}
-
-interface CourseRosterContentProps {
-  readonly courseId: string;
-}
-
-function CourseRosterContent(props: CourseRosterContentProps): JSX.Element {
-  const applicationApi = useApplicationApi();
-  const courseId = props.courseId;
-  const [state, setState] = createSignal<RosterState>({ kind: "loading" });
-  const [email, setEmail] = createSignal("");
-  const [rosterId, setRosterId] = createSignal("");
-  const [policyDomains, setPolicyDomains] = createSignal("");
-  const [selectedFile, setSelectedFile] = createSignal<File | null>(null);
-  const [preview, setPreview] = createSignal<RosterImportPreview | null>(null);
-  const [lastBulkDelivery, setLastBulkDelivery] = createSignal<ReadonlyArray<RosterImportDelivery>>(
-    [],
-  );
-  const [selectedRows, setSelectedRows] = createSignal<ReadonlySet<number>>(new Set());
-  const [busy, setBusy] = createSignal(false);
-  const [announcement, setAnnouncement] = createSignal("");
-  const [error, setError] = createSignal<string | null>(null);
-  const [latestInvitationLink, setLatestInvitationLink] = createSignal<LatestInvitationLink | null>(
-    null,
-  );
-  const [pendingConfirmation, setPendingConfirmation] =
-    createSignal<PendingRosterConfirmation | null>(null);
-  let rosterHeading: HTMLHeadingElement | undefined;
-
-  const ready = createMemo(() => {
-    const current = state();
-    return current.kind === "ready" ? current : null;
+    return { email, rosterId };
   });
+}
 
-  async function load(): Promise<void> {
-    setState({ kind: "loading" });
-    setError(null);
-    try {
-      const roster = await applicationApi.client.listCourseRoster(courseId);
-      setState({ kind: "ready", roster });
-      setPolicyDomains(policyLines(roster.allowedEmailDomains));
-      setAnnouncement(
-        `Roster loaded with ${roster.members.length} member${roster.members.length === 1 ? "" : "s"} and ${roster.pendingInvitations.length} pending invitation${roster.pendingInvitations.length === 1 ? "" : "s"}.`,
-      );
-    } catch {
-      setState({ kind: "error", message: "The course roster could not load." });
-    }
-  }
+function stateLabel(state: "invitationPending" | "activeStudent"): string {
+  return state === "activeStudent" ? "Active Student" : "Invitation pending";
+}
 
-  async function invite(event: SubmitEvent): Promise<void> {
+/** Current Active Instructor surface for an exact Course Instance's roster. */
+export function CourseRosterPage(): JSX.Element {
+  const applicationApi = useApplicationApi();
+  const params = useParams();
+  const reference = () => parseCourseInstanceReference(params["courseRef"] ?? "");
+  const [roster, { refetch }] = createResource(reference, async (course) => {
+    if (course === null) throw new Error("Course Instance reference is invalid");
+    return applicationApi.client.getLiveCourseRoster(course);
+  });
+  const [importText, setImportText] = createSignal("");
+  const [message, setMessage] = createSignal("");
+  const [busy, setBusy] = createSignal(false);
+
+  async function importRoster(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    const current = ready();
-    if (current === null) return;
+    const course = reference();
+    if (course === null) return;
     setBusy(true);
-    setError(null);
+    setMessage("");
     try {
-      const invitedEmail = email();
-      const accepted = await applicationApi.client.inviteCourseMember(
-        courseId,
-        invitedEmail,
-        rosterId(),
-      );
-      setLatestInvitationLink(
-        accepted.emailDelivery === "cancelled"
-          ? null
-          : {
-              email: invitedEmail,
-              url: new URL(accepted.redemptionPath, window.location.origin).toString(),
-              emailDelivery: accepted.emailDelivery,
-            },
-      );
-      setEmail("");
-      setRosterId("");
-      setAnnouncement(invitationDeliveryAnnouncement(accepted.emailDelivery));
-      await load();
-    } catch {
-      setError("The invitation could not be sent. Check the email, roster ID, and course policy.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function copyInvitationLink(): Promise<void> {
-    const invitation = latestInvitationLink();
-    if (invitation === null) return;
-    setError(null);
-    try {
-      await navigator.clipboard.writeText(invitation.url);
-      setAnnouncement("Invitation link copied.");
-    } catch {
-      setError("Automatic copy is unavailable. Select the invitation link and copy it manually.");
-    }
-  }
-
-  async function loadMoreRoster(): Promise<void> {
-    const current = ready();
-    const cursor = current?.roster.nextCursor;
-    if (current === null || cursor === null) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const next = await applicationApi.client.listCourseRoster(courseId, cursor);
-      if (next.rosterChangeNumber !== current.roster.rosterChangeNumber) {
-        setAnnouncement("The roster changed while loading. The current roster was refreshed.");
-        await load();
-        return;
-      }
-      const roster = {
-        ...next,
-        members: [...current.roster.members, ...next.members],
-        pendingInvitations: [...current.roster.pendingInvitations, ...next.pendingInvitations],
-      };
-      setState({ ...current, roster });
-      setAnnouncement(
-        `Loaded ${next.members.length + next.pendingInvitations.length} more roster entries.`,
-      );
-    } catch {
-      setError("More roster entries could not be loaded. Try again.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function revokeInvitation(invitationId: string): Promise<void> {
-    const current = ready();
-    if (current === null) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await applicationApi.client.revokeCourseInvitation(
-        courseId,
-        invitationId,
-        current.roster.rosterChangeNumber,
-      );
-      setAnnouncement("Pending invitation canceled.");
-      await load();
-      queueMicrotask(() => rosterHeading?.focus());
-    } catch {
-      setError(
-        "The roster changed before that invitation could be canceled. Reload and try again.",
+      const entries = parseImportRows(importText());
+      await applicationApi.client.importLiveCourseRoster(course, { entries });
+      setImportText("");
+      setMessage("Roster import recorded. Students remain pending until they claim their Course Invitation.");
+      await refetch();
+    } catch (error) {
+      setMessage(
+        error instanceof Error && error.message.startsWith("Use ")
+          ? error.message
+          : "The roster import could not be recorded. Check each email and roster ID.",
       );
     } finally {
       setBusy(false);
     }
   }
 
-  async function revokeMember(memberId: string): Promise<void> {
-    const current = ready();
-    if (current === null) return;
+  async function revoke(rosterId: string): Promise<void> {
+    const course = reference();
+    if (course === null) return;
     setBusy(true);
-    setError(null);
+    setMessage("");
     try {
-      await applicationApi.client.revokeCourseMember(
-        courseId,
-        memberId,
-        current.roster.rosterChangeNumber,
-      );
-      setAnnouncement("Course access revoked. Existing education records remain under retention.");
-      await load();
-      queueMicrotask(() => rosterHeading?.focus());
+      await applicationApi.client.revokeLiveCourseRosterEntry(course, rosterId);
+      setMessage("Course access was removed. Protected educational records remain under retention.");
+      await refetch();
     } catch {
-      setError("The roster changed before access could be revoked. Reload and try again.");
+      setMessage("This roster entry could not be changed. Reload and try again.");
     } finally {
       setBusy(false);
     }
   }
-
-  async function savePolicy(event: SubmitEvent): Promise<void> {
-    event.preventDefault();
-    const current = ready();
-    if (current === null) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const policy = await applicationApi.client.replaceCourseInvitationEmailRule(
-        courseId,
-        {
-          allowedEmailDomains: parsePolicyLines(policyDomains()),
-        },
-        current.roster.rosterChangeNumber,
-      );
-      setPolicyDomains(policyLines(policy.allowedEmailDomains));
-      setAnnouncement("Course invitation email rule saved.");
-      await load();
-    } catch {
-      setError(
-        "The course invitation email rule was not saved. Use exact domains such as mail.roosevelt.edu or *.example.edu.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function previewImport(event: SubmitEvent): Promise<void> {
-    event.preventDefault();
-    const current = ready();
-    const file = selectedFile();
-    if (current === null || file === null) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const report = await applicationApi.client.previewRosterImport(
-        courseId,
-        file,
-        current.roster.rosterChangeNumber,
-      );
-      setPreview(report);
-      setLastBulkDelivery([]);
-      setSelectedRows(new Set(readyRosterRows(report)));
-      setAnnouncement(
-        `Roster preview ready. ${readyRosterRows(report).length} row${readyRosterRows(report).length === 1 ? " is" : "s are"} ready to invite.`,
-      );
-    } catch {
-      setError(
-        "The roster file could not be previewed. Use UTF-8 CSV with email,roster_id headers.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function toggleRow(rowNumber: number): void {
-    setSelectedRows((current) => {
-      const next = new Set(current);
-      if (next.has(rowNumber)) next.delete(rowNumber);
-      else next.add(rowNumber);
-      return next;
-    });
-  }
-
-  function cancelConfirmation(): void {
-    const confirmation = pendingConfirmation();
-    setPendingConfirmation(null);
-    queueMicrotask(() => confirmation?.trigger.focus());
-  }
-
-  async function confirmPendingAction(): Promise<void> {
-    const confirmation = pendingConfirmation();
-    if (confirmation === null) return;
-    setPendingConfirmation(null);
-    if (confirmation.kind === "cancelInvitation") {
-      await revokeInvitation(confirmation.invitationId);
-      return;
-    }
-    await revokeMember(confirmation.memberId);
-  }
-
-  async function commitImport(): Promise<void> {
-    const report = preview();
-    if (report === null || selectedRows().size === 0) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const committed = await applicationApi.client.commitRosterImport(
-        courseId,
-        report,
-        [...selectedRows()].sort((left, right) => left - right),
-      );
-      setPreview(null);
-      setLastBulkDelivery(committed.delivery);
-      setSelectedFile(null);
-      setAnnouncement(bulkDeliveryAnnouncement(committed.delivery));
-      await load();
-    } catch {
-      setError("The preview changed or expired before commit. Preview the file again.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  onMount(() => void load());
 
   return (
     <section class="page roster-page" data-route-surface="courseRoster">
-      <p class="eyebrow">Course management</p>
-      <h1
-        ref={(element) => {
-          rosterHeading = element;
-        }}
-        tabindex={-1}
-      >
-        Students
-      </h1>
-      <p class="page-lede">Review active students, manage course invitations, and export grades.</p>
-      <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {announcement()}
+      <p class="eyebrow">Course Instance roster</p>
+      <h1>Students</h1>
+      <p class="page-lede">
+        Import reviewed Student Authentication Email and course roster ID pairs. An import creates
+        a pending Course Invitation; it does not create Assignment or Student-work records.
       </p>
-      <Show when={error()}>
-        {(message) => (
-          <p class="inline-error" role="alert">
-            {message()}
+      <Show when={message()}>
+        {(text) => (
+          <p class="inline-error" role="status" aria-live="polite">
+            {text()}
           </p>
         )}
       </Show>
 
-      <Show when={state().kind === "loading"}>
+      <form class="auth-panel auth-form roster-section" onSubmit={(event) => void importRoster(event)}>
+        <h2>Import roster</h2>
+        <label for="live-course-roster-import">Email, roster ID</label>
+        <textarea
+          id="live-course-roster-import"
+          rows={6}
+          required
+          placeholder="student@example.edu,900123456"
+          value={importText()}
+          onInput={(event) => setImportText(event.currentTarget.value)}
+          aria-describedby="live-course-roster-import-help"
+        />
+        <p id="live-course-roster-import-help" class="field-help">
+          One comma-separated pair per line, up to 50 rows. Roster IDs remain course-scoped and
+          are not sign-in credentials.
+        </p>
+        <button class="primary-action" type="submit" disabled={busy()}>
+          Import roster
+        </button>
+      </form>
+
+      <Show when={roster.loading}>
         <p class="loading-state" role="status">
           Loading course roster...
         </p>
       </Show>
-      <Show when={state().kind === "error"}>
+      <Show when={roster.error !== undefined}>
         <section class="route-error" role="alert">
           <h2>Roster unavailable</h2>
-          <p>{rosterError(state())}</p>
-          <button class="primary-action" type="button" onClick={() => void load()}>
+          <p>Your current Teaching Team membership cannot load this Course Instance roster.</p>
+          <button class="primary-action" type="button" onClick={() => void refetch()}>
             Try again
           </button>
         </section>
       </Show>
-
-      <Show when={ready()}>
-        {(current) => (
-          <>
-            <div class="roster-workflow-grid">
-              <form class="auth-panel auth-form" onSubmit={(event) => void invite(event)}>
-                <h2>Invite one student</h2>
-                <label for="roster-email">Course roster email</label>
-                <input
-                  id="roster-email"
-                  type="email"
-                  autocomplete="off"
-                  maxlength={320}
-                  required
-                  value={email()}
-                  onInput={(event) => setEmail(event.currentTarget.value)}
-                />
-                <label for="roster-id">Course roster ID</label>
-                <input
-                  id="roster-id"
-                  inputmode="text"
-                  maxlength={64}
-                  pattern="[A-Za-z0-9._-]+"
-                  required
-                  value={rosterId()}
-                  onInput={(event) => setRosterId(event.currentTarget.value)}
-                />
-                <p class="field-help">
-                  This ID is course-scoped and used for manual LMS grade matching, never sign-in.
-                </p>
-                <p class="field-help">
-                  PLE shows a one-time link after creation. You can share it through your LMS even
-                  when course-invitation email is unavailable.
-                </p>
-                <button class="primary-action" type="submit" disabled={busy()}>
-                  Create invitation
-                </button>
-              </form>
-
-              <form class="auth-panel auth-form" onSubmit={(event) => void savePolicy(event)}>
-                <h2>Course invitation email rule</h2>
-                <label for="permitted-domains">Permitted email domains</label>
-                <textarea
-                  id="permitted-domains"
-                  rows={4}
-                  value={policyDomains()}
-                  onInput={(event) => setPolicyDomains(event.currentTarget.value)}
-                  aria-describedby="permitted-domains-help"
-                />
-                <p id="permitted-domains-help" class="field-help">
-                  One exact domain per line. Prefix with *. only when subdomains are intentional.
-                </p>
-                <button class="quiet-action" type="submit" disabled={busy()}>
-                  Save invitation email rule
-                </button>
-              </form>
-            </div>
-
-            <Show when={latestInvitationLink()}>
-              {(invitation) => (
-                <section
-                  class="roster-section auth-panel auth-form"
-                  aria-labelledby="share-invitation-heading"
-                >
-                  <h2 id="share-invitation-heading">Share this invitation</h2>
-                  <p>
-                    {invitation().emailDelivery === "queued"
-                      ? "PLE saved this invitation. Its copy link is ready to share through your LMS or another trusted course channel."
-                      : invitation().emailDelivery === "sentToProvider"
-                        ? "PLE's submission server accepted the email. This does not confirm mailbox delivery; the copy link is also ready."
-                        : "Email needs attention. Use a fresh explicit resend only when available; otherwise cancel this invitation and create a new one."}
-                  </p>
-                  <label for="created-invitation-link">Invitation link</label>
-                  <input
-                    id="created-invitation-link"
-                    type="url"
-                    readonly
-                    value={invitation().url}
-                    aria-describedby="created-invitation-help"
-                    onFocus={(event) => event.currentTarget.select()}
-                  />
-                  <button
-                    class="quiet-action"
-                    type="button"
-                    disabled={busy()}
-                    onClick={() => void copyInvitationLink()}
-                  >
-                    Copy invitation link
-                  </button>
-                  <p id="created-invitation-help" class="field-help">
-                    This bearer link is shown only in this page session. Copy it now, send it only
-                    to the intended student, and cancel the pending invitation if it reaches the
-                    wrong person.
-                  </p>
-                </section>
-              )}
-            </Show>
-
-            <Show when={lastBulkDelivery().length > 0}>
-              <section class="roster-section auth-panel" aria-labelledby="bulk-delivery-heading">
-                <h2 id="bulk-delivery-heading">Bulk invitation status</h2>
-                <p>{bulkDeliveryAnnouncement(lastBulkDelivery())}</p>
-                <div class="roster-table-wrap">
-                  <table class="roster-table">
-                    <thead>
-                      <tr>
-                        <th scope="col">CSV row</th>
-                        <th scope="col">Delivery status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <For each={lastBulkDelivery()}>
-                        {(delivery) => (
-                          <tr>
-                            <td>{delivery.rowNumber}</td>
-                            <td>{deliveryStatusLabel(delivery.outcome)}</td>
-                          </tr>
-                        )}
-                      </For>
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            </Show>
-
-            <section class="roster-section" aria-labelledby="pending-invitations-heading">
-              <h2 id="pending-invitations-heading">Pending invitations</h2>
-              <Show
-                when={current().roster.pendingInvitations.length > 0}
-                fallback={<p class="empty-state">No invitations are waiting.</p>}
-              >
-                <div class="roster-table-wrap">
-                  <table class="roster-table">
-                    <thead>
-                      <tr>
-                        <th scope="col">Email</th>
-                        <th scope="col">Roster ID</th>
-                        <th scope="col">Expires</th>
-                        <th scope="col">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <For each={current().roster.pendingInvitations}>
-                        {(invitation) => (
-                          <tr>
-                            <td>{invitation.email}</td>
-                            <td>
-                              <code>{invitation.rosterId}</code>
-                            </td>
-                            <td>
-                              {new Intl.DateTimeFormat(undefined, {
-                                dateStyle: "medium",
-                              }).format(new Date(invitation.expiresAt))}
-                            </td>
-                            <td>
-                              <button
-                                class="quiet-action"
-                                type="button"
-                                disabled={busy()}
-                                onClick={(event) =>
-                                  setPendingConfirmation({
-                                    kind: "cancelInvitation",
-                                    invitationId: invitation.invitationId,
-                                    trigger: event.currentTarget,
-                                  })
-                                }
-                              >
-                                Cancel invitation
-                              </button>
-                            </td>
-                          </tr>
-                        )}
-                      </For>
-                    </tbody>
-                  </table>
-                </div>
-              </Show>
-            </section>
-
-            <section class="roster-section" aria-labelledby="course-members-heading">
-              <h2 id="course-members-heading">Course members</h2>
-              <Show
-                when={current().roster.members.length > 0}
-                fallback={<p class="empty-state">No active students are enrolled yet.</p>}
-              >
-                <div class="roster-table-wrap">
-                  <table class="roster-table">
-                    <thead>
-                      <tr>
-                        <th scope="col">Student</th>
-                        <th scope="col">Email</th>
-                        <th scope="col">Roster ID</th>
-                        <th scope="col">Status</th>
-                        <th scope="col">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <For each={current().roster.members}>
-                        {(member) => (
-                          <tr tabindex={-1}>
-                            <th scope="row">{member.displayName}</th>
-                            <td>{member.rosterEmail ?? "Not provided"}</td>
-                            <td>
-                              {member.rosterId === null ? (
-                                "Not provided"
-                              ) : (
-                                <code>{member.rosterId}</code>
-                              )}
-                            </td>
-                            <td>{member.status}</td>
-                            <td>
-                              <Show
-                                when={member.status === "active"}
-                                fallback={<span>Access revoked</span>}
-                              >
-                                <button
-                                  class="quiet-action"
-                                  type="button"
-                                  disabled={busy()}
-                                  onClick={(event) =>
-                                    setPendingConfirmation({
-                                      kind: "revokeMember",
-                                      memberId: member.memberId,
-                                      displayName: member.displayName,
-                                      trigger: event.currentTarget,
-                                    })
-                                  }
-                                >
-                                  Revoke course access
-                                </button>
-                              </Show>
-                            </td>
-                          </tr>
-                        )}
-                      </For>
-                    </tbody>
-                  </table>
-                </div>
-              </Show>
-              <Show when={current().roster.nextCursor !== null}>
-                <button
-                  class="quiet-action"
-                  type="button"
-                  disabled={busy()}
-                  onClick={() => void loadMoreRoster()}
-                >
-                  Load more roster entries
-                </button>
-              </Show>
-            </section>
-
-            <section class="roster-section auth-panel" aria-labelledby="roster-import-heading">
-              <h2 id="roster-import-heading">Import a CSV roster</h2>
-              <p>
-                Use exactly two columns: <code>email,roster_id</code>. PLE discards the raw file
-                after bounded parsing.
-              </p>
-              <div class="action-row">
-                <button class="quiet-action" type="button" onClick={downloadRosterImportTemplate}>
-                  Download CSV template
-                </button>
+      <Show when={roster()}>
+        {(entries) => (
+          <section class="roster-section" aria-labelledby="current-roster-heading">
+            <h2 id="current-roster-heading">Current roster</h2>
+            <Show when={entries().length > 0} fallback={<p class="empty-state">No roster entries yet.</p>}>
+              <div class="roster-table-wrap">
+                <table class="roster-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Course roster email</th>
+                      <th scope="col">Roster ID</th>
+                      <th scope="col">State</th>
+                      <th scope="col">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <For each={entries()}>
+                      {(entry) => (
+                        <tr>
+                          <td>{entry.rosterEmail}</td>
+                          <td>
+                            <code>{entry.rosterId}</code>
+                          </td>
+                          <td>{stateLabel(entry.state)}</td>
+                          <td>
+                            <button
+                              class="quiet-action"
+                              type="button"
+                              disabled={busy()}
+                              onClick={() => void revoke(entry.rosterId)}
+                            >
+                              Remove course access
+                            </button>
+                          </td>
+                        </tr>
+                      )}
+                    </For>
+                  </tbody>
+                </table>
               </div>
-              <p class="field-help">
-                Start with the template. If preview reports a row that needs correction, fix that
-                row in your local CSV and preview the file again. PLE never repeats malformed cells.
-              </p>
-              <form class="auth-form" onSubmit={(event) => void previewImport(event)}>
-                <label for="roster-file">Roster CSV</label>
-                <input
-                  id="roster-file"
-                  type="file"
-                  accept=".csv,text/csv"
-                  required
-                  onChange={(event) => setSelectedFile(event.currentTarget.files?.[0] ?? null)}
-                />
-                <button
-                  class="quiet-action"
-                  type="submit"
-                  disabled={busy() || selectedFile() === null}
-                >
-                  Preview roster
-                </button>
-              </form>
-              <Show when={preview()}>
-                {(report) => (
-                  <div class="roster-import-preview">
-                    <h3>Review before inviting</h3>
-                    <div class="roster-table-wrap">
-                      <table class="roster-table">
-                        <thead>
-                          <tr>
-                            <th scope="col">Invite</th>
-                            <th scope="col">CSV row</th>
-                            <th scope="col">Email</th>
-                            <th scope="col">Roster ID</th>
-                            <th scope="col">Import result</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <For each={report().rows}>
-                            {(row) => (
-                              <tr>
-                                <td>
-                                  <Show
-                                    when={row.result === "readyToInvite"}
-                                    fallback={<span>Not selectable</span>}
-                                  >
-                                    <button
-                                      class="roster-import-select"
-                                      type="button"
-                                      role="checkbox"
-                                      aria-checked={selectedRows().has(row.rowNumber)}
-                                      aria-label={`Invite CSV row ${row.rowNumber}`}
-                                      disabled={busy()}
-                                      onClick={() => toggleRow(row.rowNumber)}
-                                    >
-                                      {selectedRows().has(row.rowNumber) ? "Selected" : "Select"}
-                                    </button>
-                                  </Show>
-                                </td>
-                                <td>{row.rowNumber}</td>
-                                <td>{row.email ?? "Not retained"}</td>
-                                <td>{row.rosterId ?? "Not retained"}</td>
-                                <td>
-                                  <strong>{importResultLabel(row.result)}</strong>
-                                  <span class="roster-import-reason">
-                                    {importReasonLabel(row.reason)}
-                                  </span>
-                                </td>
-                              </tr>
-                            )}
-                          </For>
-                        </tbody>
-                      </table>
-                    </div>
-                    <button
-                      class="primary-action"
-                      type="button"
-                      disabled={busy() || selectedRows().size === 0}
-                      onClick={() => void commitImport()}
-                    >
-                      Send selected invitations
-                    </button>
-                  </div>
-                )}
-              </Show>
-            </section>
-          </>
+            </Show>
+          </section>
         )}
       </Show>
-      <Show when={pendingConfirmation()}>
-        {(confirmation) => (
-          <RosterConfirmationDialog
-            confirmation={confirmation()}
-            onCancel={cancelConfirmation}
-            onConfirm={confirmPendingAction}
-          />
-        )}
-      </Show>
+      <p>
+        <A href="/">Return to Course Instances</A>
+      </p>
     </section>
-  );
-}
-
-/** The roster loader is content-owned and cannot reject a deferred course snapshot. */
-export function CourseRosterPage(): JSX.Element {
-  const routeData = useRouteScopeData();
-  const course = (): ReturnType<typeof courseRouteView>["summary"] | undefined => {
-    const data = routeData();
-    return data?.kind === "course" ? courseRouteView(data).summary : undefined;
-  };
-  return (
-    <Show
-      when={course()}
-      keyed
-      fallback={
-        <section class="page roster-page" data-route-surface="courseRoster">
-          <p class="loading-state" role="status">
-            Loading course roster...
-          </p>
-        </section>
-      }
-    >
-      {(loadedCourse) => <CourseRosterContent courseId={loadedCourse.id} />}
-    </Show>
   );
 }

@@ -32,8 +32,4 @@ export interface BlueprintCourseClient {
     content: ReplaceBlueprintCourseContentInput,
     etag: BlueprintCourseEtag,
   ) => Promise<RevisionedBlueprintCourse>;
-  readonly deleteBlueprintCourse: (
-    reference: BlueprintCourseReference,
-    etag: BlueprintCourseEtag,
-  ) => Promise<void>;
 }

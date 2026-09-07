@@ -9,8 +9,14 @@
 pub mod auth;
 /// Private Authoring Workspace and Draft Question routes.
 pub mod authoring;
+/// Instructor-owned reusable Blueprint Course routes.
+pub(crate) mod blueprint_course;
 /// Production database/session composition.
 pub mod composition;
+/// Course Instance creation and initial teaching-team routes.
+pub(crate) mod course_instance;
+/// Course Roster Import, invitation claim, and access-revocation routes.
+pub(crate) mod course_roster;
 /// Readiness probe support for the executable process.
 pub mod health;
 /// Uniform dynamic-response security headers.

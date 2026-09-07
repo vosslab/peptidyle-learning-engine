@@ -172,8 +172,11 @@ model, or feature selector is added merely to preserve deleted behavior.
 | M3 | complete | `bash tests/e2e/e2e_live_demo_grading_lease.sh` and each named mode passed on 2026-09-06 against a fresh isolated PostgreSQL 17 runtime; procedure/lease evidence only, not a dispatcher or Student delivery |
 | M4 | complete | `bash tests/e2e/e2e_live_demo_seeded_baseline.sh --replay` passed on 2026-09-06; it proves fixed disposable Accounts and a private-source Published Question baseline replay, not Question Library or Student browser delivery |
 | M5 | complete | `bash tests/e2e/e2e_live_demo_question_library.sh` passed on 2026-09-06 against the fixed HTTPS stack; it proves Instructor Ribbon navigation, search, and answer-free detail plus Student/anonymous concealment, not later Course or Student tasks |
-| M6-M7 | planned | Instructor capability runners |
-| M8-M10 | planned | Course and Assignment runners |
+| M6 | complete | `bash tests/e2e/e2e_live_demo_authoring.sh --draft` and `--publish` passed on 2026-09-06 against the fixed HTTPS stack; the latter includes Chromium authoring, publication, and Question Library handoff, while later Course and Student tasks remain unimplemented |
+| M7 | complete | `bash tests/e2e/e2e_live_demo_blueprint_course.sh --service` and `--browser` passed on 2026-09-06 against the fixed HTTPS stack; M7 proves Blueprint Course Owner and Active Instructor read access, immutable Blueprint Revision preservation, and visible Instructor creation/publication, not Course Instance delivery |
+| M8 | complete | `bash tests/e2e/e2e_live_demo_course_instance.sh --authority` and `--browser` passed on 2026-09-06 against the fixed HTTPS stack; M8 proves exact published Blueprint Revision source, immutable Course Origin, initial Assigned Instructor Course Membership and Teaching Team, no ambient Sysadmin Course access, and visible Instructor Course Instance creation/opening, not roster, Student Record, Assignment, or delivery |
+| M9 | complete | `bash tests/e2e/e2e_live_demo_roster.sh --import` and `--browser` passed on 2026-09-06 against the fixed HTTPS stack; M9 proves idempotent Course Roster Import, Student Authentication Email resolve-or-create, pending Course Invitation, exact Student Record/Student Course Membership claim, immediate access revocation, and visible Instructor roster projection, not email delivery, Assignment delivery, grading, or M19 serial-browser acceptance |
+| M10 | planned | Assignment runner |
 | M11-M14 | planned | Student delivery and renderer runners |
 | M15-M18 | planned | Gradebook, account, support, and export runners |
 | M19 | planned | serial production-browser owner |

@@ -33,7 +33,8 @@ is only a lookup/input value; it cannot establish authority.
 | ----------------------------- | ---------------------------------------------------------------------- | ----------------------------------------- |
 | Account, session, and passkey | Global `AccountId`                                                     | Server session and PostgreSQL             |
 | Published question            | Stable `QuestionId` lineage plus immutable `QuestionRevisionReference` | Approved-Instructor Question Library      |
-| Draft or curriculum           | `WorkspaceId` plus owner/collaborators                                 | Workspace relationship                    |
+| Draft authoring               | `WorkspaceId` plus owner/collaborators                                 | Workspace relationship                    |
+| Reusable curriculum           | Blueprint Course Reference plus exact Blueprint Revision                | Blueprint Course Owner lifecycle or Active Instructor read access |
 | Course and assignment         | `CourseId` and child records                                           | Current Instructor Course Membership      |
 | Student work and grades       | Exact course plus Student owner                                        | Student self or current course Instructor |
 | Jobs and objects              | Typed target from the locked lease                                     | Store/PostgreSQL capability boundary      |
@@ -168,6 +169,78 @@ bash tests/e2e/e2e_live_demo_question_library.sh
 That command proves Instructor browse/detail success and the same concealed
 response for Student and anonymous requests. It does not claim Course,
 Student-delivery, grading, or Sysadmin workflow completion.
+
+M6 adds the separate private Instructor task `My Question Drafts`. Its browser
+route receives only an opaque Draft Question Reference and its Edit Number;
+the server resolves the Authoring Workspace and private source Object Record.
+Publication validates the private PLE Question JSON, copies it into an immutable
+Question Revision-owned source object, and hands the Instructor to the real
+Question Library without serializing a Draft Question UUID, workspace UUID,
+source address, or checksum. Prove both the API boundary and browser task with:
+
+```bash
+bash tests/e2e/e2e_live_demo_authoring.sh --draft
+bash tests/e2e/e2e_live_demo_authoring.sh --publish
+```
+
+The publication command includes the Chromium task. It does not claim a
+Blueprint Course, Course Instance, Assignment, Student delivery, grading, or
+Sysadmin workflow.
+
+M7 adds the reusable Blueprint Course lifecycle. An Instructor can create and
+publish an answer-free Blueprint Course with exact available Question Revision
+References; its Blueprint Course Owner can publish a successor Blueprint
+Revision, while another Active Instructor receives only closed Blueprint Course
+Read Access. Prove this focused disposable acceptance separately from permanent
+tests with:
+
+```bash
+bash tests/e2e/e2e_live_demo_blueprint_course.sh --service
+bash tests/e2e/e2e_live_demo_blueprint_course.sh --browser
+```
+
+The service command uses a rolling-back temporary Active Instructor only to
+prove the required non-owner read path without changing the fixed baseline.
+The browser command uses the visible Ribbon, picker, creation, publication, and
+return-to-list path. Neither command claims Course Instance creation, roster,
+Assignment delivery, Student work, grading, or Sysadmin workflow.
+
+M8 adds a Course Instance from one exact Available published Blueprint Revision.
+The creation transaction records immutable Course Origin, Course Schedule
+Revision 1 for the Course Term, the initial Assigned Instructor Course
+Membership and event, and creation audit evidence. A Sysadmin may create only
+for a named Active Instructor and gains no ambient Course access. Prove this
+focused disposable acceptance separately from permanent tests with:
+
+```bash
+bash tests/e2e/e2e_live_demo_course_instance.sh --authority
+bash tests/e2e/e2e_live_demo_course_instance.sh --browser
+```
+
+The authority command verifies source, membership, concealment, and absence of
+Student Records and Assignments. The Chromium command signs in as the Assigned
+Instructor, creates the Course Instance through the Courses Ribbon, and opens
+its Teaching Team. Neither command establishes roster, invitations, Assignment
+delivery, Student work, grading, or M19 serial-browser acceptance.
+
+M9 adds Course Roster Import for a direct current Instructor. The atomic import
+resolves or creates a Student Account by immutable Student Authentication Email
+and records a pending Course Invitation plus course-scoped roster profile. The
+authenticated invitation target separately creates or reuses its exact Student
+Record and active Student Course Membership; revocation ends access without
+deleting educational records. Prove this focused disposable acceptance
+separately from permanent tests with:
+
+```bash
+bash tests/e2e/e2e_live_demo_roster.sh --import
+bash tests/e2e/e2e_live_demo_roster.sh --browser
+```
+
+The authority command proves idempotent resolution, exact course scope, claim,
+and immediate revocation. The Chromium command creates a Course Instance,
+enters Students, imports a reviewed roster row, and sees its protected pending
+projection. These commands do not establish email delivery, Assignment
+delivery, Student work, grading, export, or M19 serial-browser acceptance.
 
 ## Startup order
 

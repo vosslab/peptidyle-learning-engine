@@ -26,6 +26,8 @@ function contentInput() {
         question_id: publishedQuestion.questionId,
         points_possible: "2",
         scoring_rule: "normal",
+        question_attempt_limit: { maxAttempts: null },
+        question_attempt_time_limit: { kind: "unlimited" },
       },
     ],
     defaults: {
@@ -79,11 +81,13 @@ function blueprint(revision = "7") {
                     question_library: {
                       summary: publishedQuestion,
                       evidence: { state: "unavailable" },
-                    },
-                    selection_availability: "available",
+                  },
+                  selection_availability: "available",
                   },
                   points_possible: "2",
                   scoring_rule: "normal",
+                  question_attempt_limit: { maxAttempts: null },
+                  question_attempt_time_limit: { kind: "unlimited" },
                 },
                 {
                   kind: "pool",
@@ -100,6 +104,8 @@ function blueprint(revision = "7") {
                   points_per_item: "2",
                   scoring_rule: "normal",
                   selection_rule: { selected_question_order: "questionPoolOrder" },
+                  question_attempt_limit: { maxAttempts: null },
+                  question_attempt_time_limit: { kind: "unlimited" },
                 },
               ],
             },
@@ -199,15 +205,12 @@ test("B1 client uses canonical Blueprint Course commands and matching ETags", as
       if (request.method === "GET" && path.endsWith("BP-7")) return noStoreJson(blueprint(), '"7"');
       if (request.method === "POST") return noStoreJson(blueprint(), '"7"', 201);
       if (request.method === "PUT") return noStoreJson(blueprint("8"), '"8"');
-      if (request.method === "DELETE")
-        return new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
       return noStoreJson({ items: [], nextCursor: null });
     },
   });
   const current = await client.getBlueprintCourse("BP-7");
   await client.createBlueprintCourse(creationInput());
-  const revised = await client.replaceBlueprintCourse("BP-7", replacementInput(), current.etag);
-  await client.deleteBlueprintCourse("BP-7", revised.etag);
+  await client.replaceBlueprintCourse("BP-7", replacementInput(), current.etag);
   const update = requests.find(
     (request) => request.method === "PUT" && request.url.endsWith("BP-7"),
   );

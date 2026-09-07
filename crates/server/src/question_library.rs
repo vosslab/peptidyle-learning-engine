@@ -310,6 +310,28 @@ async fn entries_to_summaries(
     Ok(summaries)
 }
 
+/// Resolves current answer-free Question Library rows for another Instructor
+/// content route. The input Store entries remain server-only because they
+/// contain the private source binding needed for verified PLE compilation.
+pub(crate) async fn answer_free_question_search_results(
+    objects: &S3ObjectStore,
+    entries: Vec<PublishedQuestionLibraryEntry>,
+) -> Result<BTreeMap<QuestionId, QuestionSearchResult>, ()> {
+    let mut results = BTreeMap::new();
+    for entry in entries {
+        let question_id = entry.question_revision.question_id.clone();
+        let resolved = resolved_ple_question(objects, entry).await?;
+        results.insert(
+            question_id,
+            QuestionSearchResult {
+                summary: resolved.summary,
+                evidence: QuestionStatistics::Unavailable,
+            },
+        );
+    }
+    Ok(results)
+}
+
 async fn summary_from_entry(
     objects: &S3ObjectStore,
     entry: PublishedQuestionLibraryEntry,

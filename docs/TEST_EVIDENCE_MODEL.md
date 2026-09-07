@@ -131,8 +131,38 @@ disposable real-stack browser path. M5 owns
 `bash tests/e2e/e2e_live_demo_question_library.sh --browser`, which enters the
 fixed HTTPS stack through the seeded Instructor session and proves visible
 Ribbon navigation, search, and Question Details. It is deliberately a focused
-milestone scenario, not the serial `./devel/run_playwright_tests.sh --build`
-owner required for M19 release acceptance.
+milestone scenario. M6 owns `bash tests/e2e/e2e_live_demo_authoring.sh
+--publish`, which creates and saves a private Draft Question, reviews and
+publishes it, then returns through the real Question Library to open the new
+Published Question. Those focused scenarios are not the serial
+`./devel/run_playwright_tests.sh --build` owner required for M19 release
+acceptance.
+
+M7 owns `bash tests/e2e/e2e_live_demo_blueprint_course.sh --service` and
+`--browser`. They are focused disposable acceptance, not permanent pytest
+tests: the service path proves Blueprint Course Owner and Active Instructor
+read access plus immutable successor-revision behavior, and the browser path
+proves the visible Ribbon, Question picker, creation, publication, and list
+return. Neither establishes Course Instance, roster, Assignment delivery,
+Student, grading, or M19 serial-browser acceptance.
+
+M8 owns `bash tests/e2e/e2e_live_demo_course_instance.sh --authority` and
+`--browser`. They are focused disposable acceptance, not permanent pytest
+tests: the authority path proves the exact published Blueprint Revision source,
+immutable Course Origin, initial Assigned Instructor Course Membership, and no
+ambient Sysadmin Course access or Student Record/Assignment creation. The real
+Chromium path proves visible Instructor Course Instance creation and its
+Teaching Team. Neither establishes roster, invitations, Assignment delivery,
+Student work, grading, or M19 serial-browser acceptance.
+
+M9 owns `bash tests/e2e/e2e_live_demo_roster.sh --import` and `--browser`.
+They are focused disposable acceptance, not permanent pytest tests: the
+authority path proves idempotent Student Authentication Email resolve-or-create,
+pending Course Invitation, exact Student Record and Student Course Membership
+claim, and immediate access revocation without deletion. The real Chromium
+path proves Instructor Course Roster Import and its protected pending roster
+projection. Neither establishes email delivery, Assignment delivery, Student
+work, grading, export, or M19 serial-browser acceptance.
 
 The restored owner will regenerate the fixed disposable stack, serve the
 production bundle through its HTTPS gateway, and run its selected real-stack

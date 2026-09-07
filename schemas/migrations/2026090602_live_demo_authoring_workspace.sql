@@ -4,6 +4,21 @@
 
 SET LOCAL ROLE ple_private_owner;
 
+-- The definer procedure below owns only first-workspace discovery and creation.
+-- Its private owner remains subject to forced RLS, so grant no broader runtime
+-- identity and no update/delete path for Authoring Workspaces.
+CREATE POLICY authoring_workspace_private_owner_authoring_lookup
+    ON ple_private.authoring_workspace
+    FOR SELECT TO ple_private_owner USING (true);
+CREATE POLICY authoring_workspace_private_owner_authoring_create
+    ON ple_private.authoring_workspace
+    FOR INSERT TO ple_private_owner WITH CHECK (true);
+-- Existing private publication/source procedures can read and update a Draft
+-- Question. First authoring also needs exactly the INSERT half of that path.
+CREATE POLICY draft_question_private_owner_authoring_create
+    ON ple_private.draft_question
+    FOR INSERT TO ple_private_owner WITH CHECK (true);
+
 CREATE FUNCTION ple_private.ensure_own_authoring_workspace(p_proposed_workspace_id uuid)
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$

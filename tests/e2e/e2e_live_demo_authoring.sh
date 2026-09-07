@@ -66,6 +66,7 @@ request() {
 	port="$(gateway_port)"
 	local -a curl_args=(--silent --show-error --insecure --max-time 12 --write-out $'\n%{http_code}'
 		--header "Host: localhost:$port" --request "$method")
+	if [ "$method" != "GET" ]; then curl_args+=(--header "Origin: https://localhost:$port"); fi
 	if [ -n "$cookie" ]; then curl_args+=(--header "Cookie: $cookie"); fi
 	if [ -n "$content_type" ]; then curl_args+=(--header "Content-Type: $content_type"); fi
 	if [ -n "$if_match" ]; then curl_args+=(--header "If-Match: $if_match"); fi
@@ -137,7 +138,7 @@ prove_draft() {
 	instructor_cookie="$(persona_cookie elenaInstructor)"
 	created="$(request '/api/authoring/drafts' "$instructor_cookie" POST "$(source_payload)" 'application/vnd.peptidyle.question+json')"
 	if [ "$(response_status "$created")" != "201" ]; then
-		echo "Instructor could not create a private Draft Question" >&2
+		echo "Instructor could not create a private Draft Question (HTTP $(response_status "$created"))" >&2
 		exit 1
 	fi
 	body="$(response_body "$created")"
@@ -235,16 +236,24 @@ for forbidden in ("draftQuestion", "draftQuestionUuid", "workspaceId", "objectAd
 	echo "Question Publication API: immutable Question Revision exposed through Question Library"
 }
 
+prove_browser() {
+	local port
+	port="$(gateway_port)"
+	node tests/e2e/e2e_live_demo_authoring_browser.mjs "$port"
+	echo "Authoring browser: My Question Drafts, private editing, and publication complete"
+}
+
 require_live_demo
 case "$mode" in
 	draft) prove_draft ;;
-	publish) prove_publish ;;
+	publish)
+		prove_publish
+		prove_browser
+		;;
 	all)
 		prove_draft
 		prove_publish
-		port="$(gateway_port)"
-		node tests/e2e/e2e_live_demo_authoring_browser.mjs "$port"
-		echo "Authoring browser: My Question Drafts, private editing, and publication complete"
+		prove_browser
 		;;
 esac
 

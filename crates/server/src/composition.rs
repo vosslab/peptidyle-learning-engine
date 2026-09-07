@@ -8,7 +8,8 @@ use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
     SessionLifetime,
     postgres::{
-        PostgresAuthoringDraftStore, PostgresDraftQuestionSourceBindingStore,
+        PostgresAuthoringDraftStore, PostgresBlueprintCourseStore, PostgresCourseInstanceStore,
+        PostgresCourseRosterStore, PostgresDraftQuestionSourceBindingStore,
         PostgresQuestionLibraryStore, PostgresSessionStore, ProductionLoginProfile,
         local_development_pool, production_pool,
     },
@@ -71,6 +72,9 @@ pub async fn production_router_from_env() -> Result<Router> {
         .context("could not configure API readiness checks")?;
     let sessions = Arc::new(PostgresSessionStore::new(pool.clone()));
     let question_library_store = PostgresQuestionLibraryStore::new(pool.clone());
+    let blueprint_courses = PostgresBlueprintCourseStore::new(pool.clone());
+    let course_instances = PostgresCourseInstanceStore::new(pool.clone());
+    let course_roster = PostgresCourseRosterStore::new(pool.clone());
     let authoring_drafts = PostgresAuthoringDraftStore::new(pool.clone());
     let authoring_publication = PostgresDraftQuestionSourceBindingStore::new(pool);
     let question_library_objects = question_library_object_store_from_env().await?;
@@ -89,15 +93,29 @@ pub async fn production_router_from_env() -> Result<Router> {
         ))
         .merge(crate::question_library::question_library_router(
             Arc::clone(&sessions),
-            question_library_store,
+            question_library_store.clone(),
             question_library_objects.clone(),
         ))
         .merge(crate::authoring::authoring_router(
-            sessions,
+            Arc::clone(&sessions),
             authoring_drafts,
             authoring_publication,
-            question_library_objects,
+            question_library_objects.clone(),
             question_id_issuer,
+        ))
+        .merge(crate::blueprint_course::blueprint_course_router(
+            Arc::clone(&sessions),
+            blueprint_courses,
+            question_library_store,
+            question_library_objects,
+        ))
+        .merge(crate::course_instance::course_instance_router(
+            Arc::clone(&sessions),
+            course_instances,
+        ))
+        .merge(crate::course_roster::course_roster_router(
+            Arc::clone(&sessions),
+            course_roster,
         ));
     let browser_boundary = production_browser_boundary_from_env()?;
     Ok(crate::http_security::apply_api_security_headers(

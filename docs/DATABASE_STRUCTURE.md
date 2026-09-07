@@ -9,9 +9,9 @@ authorization; and this document owns the checked-in migration sequence and forw
 
 ## Baseline and migration rules
 
-The current disposable baseline contains the 49 checked migration files from
+The current disposable baseline contains the 54 checked migration files from
 `2026082901_principal_baseline.sql` through
-`2026090401_account_creation_audit.sql`. The numbered range has no
+`2026090605_live_demo_course_roster.sql`. The numbered range has no
 `2026082905` or `2026082927` file; those numbers are not migrations. Apply the
 complete checked-in sequence only to a clean disposable database. The prior
 migration epoch was removed during the fresh pre-production migration reset; it is neither an
@@ -45,6 +45,11 @@ legacy readers, or parallel authorization model.
 | 2026090303                             | Draft Question publication source resolution                            | Session-authorized server-only read resolves the exact current Draft Question Source Object Record for verified immutable publication copying.                                                                                                                                                                                             |
 | 2026090304                             | Question Publication Validation evidence                                | Question Change Proposal Revision stores its exact calculated `question_publication_validation`; the bare predecessor column and constraint names are absent from the current schema.                                                                                                                                                      |
 | 2026090401                             | Instructor Account creation audit evidence                              | `ple_audit.instructor_account_creation_event` records the created Instructor Account, acting Sysadmin Account, role qualification, and database-authoritative occurrence time; forced RLS, a narrow writer, and immutable-event protection prevent runtime rewriting.                                                                      |
+| 2026090601                             | Live Demo Instructor Question Library                                   | Session-authorized procedures resolve bounded answer-free Published Question browse, current lookup, and detail reader data.                                                                                                                                                                                                                                           |
+| 2026090602                             | Live Demo Authoring Workspace operations                                | Session-authorized procedures resolve or create one active Instructor-owned Authoring Workspace, list/load/create/save private Draft Questions at exact Edit Numbers, and bind only typed private Workspace Question Source Object Records.                                                                                              |
+| 2026090603                             | Live Demo Blueprint Course lifecycle                                    | Session-authorized procedures create, list, load, and publish successor immutable Blueprint Revisions. They preserve exact Question Revision References and checksum-verified content, restrict updates to the Blueprint Course Owner, and provide only closed Active Instructor read access; no Course Instance is created.                                                                                              |
+| 2026090604                             | Live Demo Course Instance creation                                      | Session-authorized procedures create a Course Instance from one exact Available published Blueprint Revision and Course Term, retaining an immutable Course Origin, Course Schedule Revision 1, initial Instructor Course Membership/event, and immutable creation audit evidence. They expose the initial Teaching Team only to an active Instructor member and create no Student Record or Assignment. |
+| 2026090605                             | Live Demo Course Roster lifecycle                                       | Session-authorized procedures atomically resolve or create Student Accounts from immutable Student Authentication Emails and create pending Course Invitations plus course-scoped roster profiles. Target claim creates or reuses the exact Student Record and active Student Course Membership; revocation records ended or revoked access without deleting educational records. |
 
 ## Ownership boundaries
 

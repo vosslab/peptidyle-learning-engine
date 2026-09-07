@@ -14,6 +14,8 @@ import { createResponseClient } from "./http_client/response";
 import { createTeachingOperationsClient } from "./http_client/teaching_operations";
 import { createPreviewPlaneClient } from "./http_client/preview_plane";
 import { createBlueprintCourseClient } from "./http_client/blueprint_course";
+import { createCourseInstanceClient } from "./http_client/course_instance";
+import { createLiveCourseRosterClient } from "./http_client/course_roster";
 import { createBlueprintOperationsClient } from "./http_client/blueprint_operations";
 import { createGradingOperationsClient } from "./http_client/grading_operations";
 import { createCalculatedGradebookClient } from "./http_client/calculated_gradebook";
@@ -49,6 +51,8 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createTeachingOperationsClient(fetchImplementation, basePath),
     createPreviewPlaneClient(fetchImplementation, basePath),
     createBlueprintCourseClient(fetchImplementation, basePath),
+    createCourseInstanceClient(fetchImplementation, basePath),
+    createLiveCourseRosterClient(fetchImplementation, basePath),
     createBlueprintOperationsClient(fetchImplementation, basePath),
     createGradingOperationsClient(fetchImplementation, basePath),
     createCalculatedGradebookClient(fetchImplementation, basePath),

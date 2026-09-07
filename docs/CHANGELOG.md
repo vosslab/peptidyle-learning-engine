@@ -45,6 +45,37 @@
   anonymous requests receive the same concealment. The real browser runner enters the enabled
   Ribbon destination, searches the seeded baseline, and opens a Question Details route. This does
   not claim authoring, Course, Student delivery, grading, or Sysadmin workflows.
+- Completed Live Demo restoration M6. An Instructor can now enter My Question Drafts, create and
+  save a private canonical PLE Question JSON Draft Question through an opaque Draft Question
+  Reference and exact Edit Number, review publication changes, and publish an immutable first
+  Question Revision. PostgreSQL procedures keep Authoring Workspace UUIDs, Draft Question UUIDs,
+  private source Object Records, addresses, and checksums server-only; published DTOs carry no
+  draft identity or source path. The real Chromium gate returns through Question Library and opens
+  the newly published Question. This does not claim Blueprint Course, Course, Assignment, Student
+  delivery, grading, or Sysadmin workflows.
+- Completed Live Demo restoration M7. An Instructor can create and publish a reusable,
+  answer-free Blueprint Course whose immutable Blueprint Revision holds exact Question Revision
+  References. PostgreSQL procedures preserve immutable successor revisions; the Blueprint Course
+  Owner controls lifecycle writes, and another Active Instructor receives closed Blueprint Course
+  Read Access. The disposable service and real Chromium commands both passed against the fixed
+  HTTPS stack on 2026-09-06. This does not claim Course Instance creation, roster, Assignment
+  delivery, Student work, grading, Sysadmin workflow, or M19 serial browser acceptance.
+- Completed Live Demo restoration M8. An Active Instructor can create a Course Instance from one
+  exact Available published Blueprint Revision and Course Term through the Courses Ribbon, then
+  enter its initial Teaching Team. The atomic PostgreSQL boundary retains immutable Course Origin,
+  Course Schedule Revision 1, initial Assigned Instructor Course Membership/event, and creation
+  audit evidence; a Sysadmin creator has no ambient Course access. The disposable authority and
+  real Chromium commands passed against the fixed HTTPS stack on 2026-09-06. This does not claim
+  roster, Student Records, invitations, Assignment delivery, Student work, grading, or M19 serial
+  browser acceptance.
+- Completed Live Demo restoration M9. A direct current Instructor can import a bounded reviewed
+  Course Roster: PostgreSQL resolves or creates each Student Account by immutable Student
+  Authentication Email and records a pending Course Invitation with course-scoped roster metadata.
+  The authenticated target claim creates the exact Student Record and active Student Course
+  Membership; revocation immediately ends access without deleting protected educational records.
+  The disposable authority and real Chromium commands passed against the fixed HTTPS stack on
+  2026-09-06. This does not claim email delivery, export, Assignment delivery, Student work,
+  grading, or M19 serial browser acceptance.
 
 ### Fixes and Maintenance
 

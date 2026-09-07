@@ -26,7 +26,7 @@ def worker_service(disposable: local_stack_control.models.DisposableComposeTarge
 def worker_stop_command(
 	disposable: local_stack_control.models.DisposableComposeTarget,
 ) -> tuple[list[str], dict[str, str]]:
-	"""Form the browser owner’s fixed worker-stop command outside generic Compose."""
+	"""Form the browser owner's fixed worker-stop command outside generic Compose."""
 	argv = local_stack_control.compose.compose_argv(
 		disposable.target, ["stop", worker_service(disposable)]
 	)
@@ -182,7 +182,7 @@ def stop_worker_service(
 	runner: local_stack_control.process.CommandRunner,
 	disposable: local_stack_control.models.DisposableComposeTarget,
 ) -> local_stack_control.models.WorkerStop:
-	"""Stop only the browser owner’s worker and prove the exact postcondition."""
+	"""Stop only the browser owner's worker and prove the exact postcondition."""
 	before = adapter.require_current_resource_capability(runner, disposable)
 	plan = worker_stop_plan(disposable, before)
 	argv, environment = worker_stop_command(disposable)
@@ -203,7 +203,7 @@ def replace_worker_service(
 	runner: local_stack_control.process.CommandRunner,
 	disposable: local_stack_control.models.DisposableComposeTarget,
 ) -> local_stack_control.models.WorkerReplacement:
-	"""Recreate only the browser owner’s stopped worker and prove its replacement."""
+	"""Recreate only the browser owner's stopped worker and prove its replacement."""
 	before = adapter.require_current_resource_capability(runner, disposable)
 	plan = worker_replacement_plan(disposable, before)
 	argv, environment = worker_replacement_command(disposable)

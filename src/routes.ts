@@ -10,7 +10,7 @@ import { LibraryRoutePage } from "./pages/library_route_page";
 import { QuestionDetailPage } from "./pages/question_detail_page";
 import { QuestionDraftEditorPage } from "./pages/question_draft_editor_page";
 import { QuestionDraftsPage } from "./pages/question_drafts_page";
-import { CourseAssignmentsPage } from "./pages/course_assignments_page";
+import { CourseInstancePage } from "./pages/course_instance_page";
 import { CourseListPage } from "./pages/course_list_page";
 import { GradebookPage } from "./pages/gradebook_page";
 import { StudentWorkInspectionPage } from "./pages/student_work_inspection_page";
@@ -44,7 +44,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   courses: CourseListPage,
   signIn: SignInPage,
   pendingCourseInvitations: AccountPendingInvitationsPage,
-  courseAssignments: CourseAssignmentsPage,
+  courseAssignments: CourseInstancePage,
   assignmentOverview: AssignmentOverviewPage,
   assignmentAttempt: AssignmentAttemptPage,
   assignmentAttemptSummary: AssignmentAttemptSummaryPage,

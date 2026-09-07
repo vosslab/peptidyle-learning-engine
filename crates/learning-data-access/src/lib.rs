@@ -9,6 +9,9 @@ mod assignment_attempt;
 mod authentication_ceremony;
 mod authentication_email;
 mod authoring;
+mod blueprint_course;
+mod course_instance;
+mod course_roster;
 mod imathas_question_backend_session;
 mod object_record;
 mod pagination;
@@ -36,6 +39,19 @@ pub use authentication_email::{
 pub use authoring::{
     AuthoringDraft, AuthoringDraftStore, AuthoringDraftSummary, CreateAuthoringDraftInput,
     SaveAuthoringDraftInput,
+};
+pub use blueprint_course::{
+    BlueprintCourseStore, StoredBlueprintAssignment, StoredBlueprintAssignmentContent,
+    StoredBlueprintAssignmentEntry, StoredBlueprintCourse, StoredBlueprintCourseContent,
+    StoredBlueprintCourseSummary, StoredBlueprintModule,
+};
+pub use course_instance::{
+    CourseCreationInstructor, CourseInstanceStore, CourseInstanceSummary, CourseInstanceView,
+    CreateCourseInstanceInput, CreatedCourseInstance,
+};
+pub use course_roster::{
+    ClaimedCourseInvitation, CourseRosterEntry, CourseRosterEntryState, CourseRosterImportEntry,
+    CourseRosterImportInput, CourseRosterStore,
 };
 pub use imathas_question_backend_session::{
     AutomatedGradingReceipt, AutomatedGradingReceiptChecksum, AutomatedGradingReceiptId,
