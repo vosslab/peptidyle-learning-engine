@@ -512,28 +512,28 @@ DO $$
 BEGIN
 	IF EXISTS (
 		SELECT 1
-		  FROM (VALUES
-			{expected_accounts}
-		  ) AS expected(account_id, product_role)
-		  LEFT JOIN ple_private.account AS actual
-		    ON actual.account_id = expected.account_id::uuid
-		 WHERE actual.product_role IS DISTINCT FROM expected.product_role
+				FROM (VALUES
+				{expected_accounts}
+				) AS expected(account_id, product_role)
+				LEFT JOIN ple_private.account AS actual
+					ON actual.account_id = expected.account_id::uuid
+				WHERE actual.product_role IS DISTINCT FROM expected.product_role
 	) THEN
 		RAISE EXCEPTION USING ERRCODE = '23514',
 			MESSAGE = 'seeded Live Demo Account configuration is incompatible';
 	END IF;
 	IF EXISTS (
 		SELECT 1
-		  FROM (VALUES
+			FROM (VALUES
 			{expected_questions}
-		  ) AS expected(question_id, backend, question_title, question_description, source_object_id, source_checksum)
-		  LEFT JOIN ple_data.question_revision AS revision
-		    ON revision.question_id = expected.question_id AND revision.revision_number = 1
-		  LEFT JOIN ple_data.published_question_metadata AS metadata
-		    ON metadata.question_id = expected.question_id
-		  LEFT JOIN ple_private.question_revision_source_binding AS source_binding
-		    ON source_binding.question_id = expected.question_id AND source_binding.revision_number = 1
-		 WHERE revision.backend IS DISTINCT FROM expected.backend
+			) AS expected(question_id, backend, question_title, question_description, source_object_id, source_checksum)
+			LEFT JOIN ple_data.question_revision AS revision
+				ON revision.question_id = expected.question_id AND revision.revision_number = 1
+			LEFT JOIN ple_data.published_question_metadata AS metadata
+				ON metadata.question_id = expected.question_id
+			LEFT JOIN ple_private.question_revision_source_binding AS source_binding
+				ON source_binding.question_id = expected.question_id AND source_binding.revision_number = 1
+			WHERE revision.backend IS DISTINCT FROM expected.backend
 			OR metadata.question_title IS DISTINCT FROM expected.question_title
 			OR metadata.question_description IS DISTINCT FROM expected.question_description
 			OR source_binding.source_object_id IS DISTINCT FROM expected.source_object_id::uuid
@@ -544,26 +544,26 @@ BEGIN
 	END IF;
 	IF NOT EXISTS (
 		SELECT 1
-		  FROM ple_private.question_asset_publication AS publication
-		  JOIN ple_private.object_record AS source_record
-		    ON source_record.object_id = publication.source_object_id
-		  JOIN ple_data.object_delivery AS delivery
-		    ON delivery.delivery_id = publication.delivery_id
-		  JOIN ple_data.question_asset_delivery AS asset_delivery
-		    ON asset_delivery.delivery_id = publication.delivery_id
-		  JOIN ple_private.job AS job ON job.job_id = publication.job_id
-		 WHERE publication.question_id = '{asset.question_id}'
-		   AND publication.revision_number = {asset.revision_number}
-		   AND publication.asset_id = '{asset.asset_id}'::uuid
-		   AND publication.source_object_id = '{asset.private_object_id}'::uuid
-		   AND publication.public_object_id = '{asset.public_object_id}'::uuid
-		   AND publication.publication_state = 'pending'
-		   AND source_record.sha256 = decode('{asset.checksum}', 'hex')
-		   AND delivery.delivery_state = 'pending'
-		   AND asset_delivery.asset_id = '{asset.asset_id}'::uuid
-		   AND job.job_kind = 'publish_public_assets'
-		   AND job.job_target_kind = 'public_asset_publication'
-		   AND job.state IN ('ready', 'leased', 'completed')
+			FROM ple_private.question_asset_publication AS publication
+			JOIN ple_private.object_record AS source_record
+				ON source_record.object_id = publication.source_object_id
+			JOIN ple_data.object_delivery AS delivery
+				ON delivery.delivery_id = publication.delivery_id
+			JOIN ple_data.question_asset_delivery AS asset_delivery
+				ON asset_delivery.delivery_id = publication.delivery_id
+			JOIN ple_private.job AS job ON job.job_id = publication.job_id
+			WHERE publication.question_id = '{asset.question_id}'
+				AND publication.revision_number = {asset.revision_number}
+				AND publication.asset_id = '{asset.asset_id}'::uuid
+				AND publication.source_object_id = '{asset.private_object_id}'::uuid
+				AND publication.public_object_id = '{asset.public_object_id}'::uuid
+				AND publication.publication_state = 'pending'
+				AND source_record.sha256 = decode('{asset.checksum}', 'hex')
+				AND delivery.delivery_state = 'pending'
+				AND asset_delivery.asset_id = '{asset.asset_id}'::uuid
+				AND job.job_kind = 'publish_public_assets'
+				AND job.job_target_kind = 'public_asset_publication'
+				AND job.state IN ('ready', 'leased', 'completed')
 	) THEN
 		RAISE EXCEPTION USING ERRCODE = '23514',
 			MESSAGE = 'seeded Live Demo Question Asset publication configuration is incompatible';
@@ -606,59 +606,59 @@ def inventory_sql(repo_root: pathlib.Path) -> str:
 )
 SELECT
 	(SELECT count(*)
-	   FROM expected_accounts
-	   JOIN ple_private.account AS account
-	     ON account.account_id = expected_accounts.account_id::uuid
-	    AND account.product_role = expected_accounts.product_role),
+		FROM expected_accounts
+		JOIN ple_private.account AS account
+			ON account.account_id = expected_accounts.account_id::uuid
+			AND account.product_role = expected_accounts.product_role),
 	(SELECT count(*)
-	   FROM expected_questions
-	   JOIN ple_data.question_revision AS revision
-	     ON revision.question_id = expected_questions.question_id
-	    AND revision.revision_number = 1
-	    AND revision.backend = expected_questions.backend
-	   JOIN ple_data.published_question_metadata AS metadata
-	     ON metadata.question_id = expected_questions.question_id
-	    AND metadata.question_title = expected_questions.question_title
-	    AND metadata.question_description = expected_questions.question_description),
+		FROM expected_questions
+		JOIN ple_data.question_revision AS revision
+			ON revision.question_id = expected_questions.question_id
+			AND revision.revision_number = 1
+			AND revision.backend = expected_questions.backend
+		JOIN ple_data.published_question_metadata AS metadata
+			ON metadata.question_id = expected_questions.question_id
+			AND metadata.question_title = expected_questions.question_title
+			AND metadata.question_description = expected_questions.question_description),
 	(SELECT count(*)
-	   FROM expected_questions
-	   JOIN ple_private.question_revision_source_binding AS source_binding
-	     ON source_binding.question_id = expected_questions.question_id
-	    AND source_binding.revision_number = 1
-	    AND source_binding.source_object_id = expected_questions.source_object_id::uuid
-	    AND source_binding.source_object_checksum = expected_questions.source_checksum),
+		FROM expected_questions
+		JOIN ple_private.question_revision_source_binding AS source_binding
+			ON source_binding.question_id = expected_questions.question_id
+			AND source_binding.revision_number = 1
+			AND source_binding.source_object_id = expected_questions.source_object_id::uuid
+			AND source_binding.source_object_checksum = expected_questions.source_checksum),
 	(SELECT count(*)
-	   FROM expected_questions
-	   JOIN ple_data.question_publication_event AS publication
-	     ON publication.question_id = expected_questions.question_id
-	    AND publication.revision_number = 1),
+		FROM expected_questions
+		JOIN ple_data.question_publication_event AS publication
+			ON publication.question_id = expected_questions.question_id
+			AND publication.revision_number = 1),
 	(SELECT count(*)
-	   FROM expected_questions
-	   JOIN ple_private.object_record AS object_record
-	     ON object_record.object_id = expected_questions.source_object_id::uuid
-	    AND encode(object_record.sha256, 'hex') = expected_questions.source_checksum),
+		FROM expected_questions
+		JOIN ple_private.object_record AS object_record
+			ON object_record.object_id = expected_questions.source_object_id::uuid
+			AND encode(object_record.sha256, 'hex') = expected_questions.source_checksum),
 	(SELECT count(*)
-	   FROM ple_private.object_record
-	  WHERE object_id = '{asset.private_object_id}'::uuid
-	    AND object_storage_area = 'private-content'
-	    AND object_data_class = 'question-asset'
-	    AND sha256 = decode('{asset.checksum}', 'hex')),
+		FROM ple_private.object_record
+		WHERE object_id = '{asset.private_object_id}'::uuid
+			AND object_storage_area = 'private-content'
+			AND object_data_class = 'question-asset'
+			AND sha256 = decode('{asset.checksum}', 'hex')),
 	(SELECT count(*)
-	   FROM ple_data.object_delivery
-	  WHERE delivery_id = '{asset.delivery_id}'::uuid
-	    AND object_id = '{asset.public_object_id}'::uuid
-	    AND delivery_state = 'pending'),
+		FROM ple_data.object_delivery
+		WHERE delivery_id = '{asset.delivery_id}'::uuid
+			AND object_id = '{asset.public_object_id}'::uuid
+			AND delivery_state = 'pending'),
 	(SELECT count(*)
-	   FROM ple_private.job
-	  WHERE job_id = '{asset.job_id}'::uuid
-	    AND job_kind = 'publish_public_assets'
-	    AND job_target_kind = 'public_asset_publication'
-	    AND state IN ('ready', 'leased', 'completed')),
+		FROM ple_private.job
+		WHERE job_id = '{asset.job_id}'::uuid
+			AND job_kind = 'publish_public_assets'
+			AND job_target_kind = 'public_asset_publication'
+			AND state IN ('ready', 'leased', 'completed')),
 	(SELECT count(*)
-	   FROM ple_private.question_asset_publication
-	  WHERE question_id = '{asset.question_id}'
-	    AND revision_number = {asset.revision_number}
-	    AND asset_id = '{asset.asset_id}'::uuid
-	    AND publication_state IN ('pending', 'ready'));
+		FROM ple_private.question_asset_publication
+		WHERE question_id = '{asset.question_id}'
+			AND revision_number = {asset.revision_number}
+			AND asset_id = '{asset.asset_id}'::uuid
+			AND publication_state IN ('pending', 'ready'));
 """
 	return sql
