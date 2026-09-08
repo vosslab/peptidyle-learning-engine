@@ -104,6 +104,28 @@ test("admission withholds unavailable controls and respects declared role ceilin
   }
 });
 
+test("Student Assignment Access and its Course landing retain the role-owned Assignments tab", () => {
+  const assignmentAccess = controlsFor("assignmentOverview", "student").model;
+  const courseLanding = controlsFor("studentCourseLanding", "student").model;
+  const expectedTab = [
+    {
+      id: "studentAssignments",
+      label: "Assignments",
+      destination: { kind: "route", routeId: "studentCourseLanding" },
+      availability: "Available",
+      selected: true,
+      href: "/student/courses/C-1",
+      role: "primary",
+      priority: "critical",
+      presentation: "standard",
+      iconBearing: true,
+      iconOnlySafe: false,
+    },
+  ];
+  assert.deepEqual(assignmentAccess.tabs, expectedTab);
+  assert.deepEqual(courseLanding.tabs, expectedTab);
+});
+
 test("missing source parameters withhold a backed destination without changing its position", () => {
   const entry = CAPABILITY_REGISTRY.backToAssignments;
   const descriptors = Object.getOwnPropertyDescriptors(entry);

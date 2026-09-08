@@ -214,6 +214,19 @@ const CAPABILITY_DECLARATIONS = {
       "src/api/http_client/assignment_release.ts::createLiveAssignmentReleaseClient",
     ],
   },
+  studentAssignments: {
+    kind: "backed",
+    clientMethod: "ApiClient.listLiveStudentAssignments",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler:
+        "crates/server/src/live_student_course_landing.rs::live_student_course_landing_router",
+    },
+    evidence: [
+      "crates/server/src/live_student_course_landing.rs::live_student_course_landing_router",
+      "src/api/http_client/live_student_course_landing.ts::createLiveStudentCourseLandingClient",
+    ],
+  },
   students: {
     kind: "backed",
     clientMethod: "ApiClient.getLiveCourseRoster",

@@ -156,7 +156,7 @@ export function RibbonDesignFixture(): JSX.Element {
             {(nonNegotiable) => <li>{nonNegotiable}</li>}
           </For>
         </ul>
-        <p>{RIBBON_DESIGN_DECISION.m9bBoundary}</p>
+        <p>{RIBBON_DESIGN_DECISION.productionReadinessBoundary}</p>
       </aside>
       <section
         class="ple-ribbon-design-lab__glyph-atlas"

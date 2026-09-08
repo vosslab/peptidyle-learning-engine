@@ -132,12 +132,14 @@ browser sign-in path is the disposable Live Demo's visible seeded Account select
 ordinary server-owned Authenticated Session for the selected configured Account; it does not grant
 a Product Role or course authority. A Sysadmin can use Create Instructor Account to create an
 Active Instructor Account with its server-assigned Account ID and fixed Instructor Product Role,
-but that operation has no browser route.
+and can use the current Instructor Accounts browser task to manage that lifecycle.
 
-Email-code authentication, passkey authentication and management, Course Invitation links, and
-SMTP delivery are retained future designs, not current browser routes, Stores, or services. The
-deferred passkey capability supplies no configuration, setup credential, command, or Browser
-Surface. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md), [SECURITY_MODEL.md](SECURITY_MODEL.md), and
+Course Invitation claim is a current Student route. The browser's current
+invitation-export surface downloads protected mailer input but never sends mail.
+Email-code authentication, passkey authentication and management, and SMTP
+delivery remain future designs. The deferred passkey capability supplies no
+configuration, setup credential, command, or Browser Surface. See
+[LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md), [SECURITY_MODEL.md](SECURITY_MODEL.md), and
 [ROADMAP.md](ROADMAP.md).
 
 ## Is PLE ready for production?

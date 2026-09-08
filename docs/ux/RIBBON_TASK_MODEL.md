@@ -8,10 +8,11 @@ destination is usable today. Canonical surface names come from
 [INTERFACE_TERMINOLOGY.md](../INTERFACE_TERMINOLOGY.md); placement and responsive behavior come from
 [UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md).
 
-The current production capability registry declares every Ribbon destination `unbacked`. The current
-Live Demo stops at seeded Account session entry. Consequently, the current shell may truthfully show
-its Context, Tab, and Task Rows with no admitted navigation link. An unavailable destination is not
-a disabled promise, an empty-state substitute, or permission evidence. It remains absent until a
+The current production capability registry records a mix of backed and unavailable destinations.
+The connected Live Demo reaches role-owned Instructor, Student, and Sysadmin workflows after seeded
+Account entry. The current capability and role ceiling for each destination are generated in the
+[Ribbon destination ledger](RIBBON_DESTINATION_LEDGER.md). An unavailable destination is not a
+disabled promise, an empty-state substitute, or permission evidence. It remains absent until a
 complete usable path has backing evidence in
 [capability_registry.ts](../../src/ribbon/capability_registry.ts).
 
@@ -104,11 +105,10 @@ the Context Row names the same Course Instance; the focused `#main-content` cont
 after navigation; and no course-navigation control changes position during loading, recovery, or
 content replacement.
 
-**Current implementation boundary.** The Instructor's current Product and Course Instance schemas
-exist as catalog/schema data, but all their destinations are unbacked and omitted. No current
-Instructor Ribbon link admits a Course Instance Tab or assignment-workspace Task. This model states
-the required behavior after a future backend capability is admitted; it does not claim that course
-or assignment management is presently usable from the Live Demo.
+**Current implementation boundary.** The Instructor's backed Product and Course Instance routes
+provide current Question Library, Blueprint Course, Course Instance, Assignment Workspace, roster,
+and Gradebook workflows. The ledger names the precise backed destinations; unavailable designed
+positions remain absent rather than suggesting unfinished teaching operations are usable.
 
 **Assignment Attempt entry and exit.** An Instructor has no designed Assignment Attempt Ribbon Tab.
 Entering a Student's attempt is not an Instructor Ribbon workflow in the current model, and there is
@@ -153,12 +153,11 @@ is contextual rather than a changing Tab, and **Back to Assignments** returns to
 Assignments destination. Keyboard operation reaches identity, Ribbon Tabs, Ribbon Tasks, then the
 content target in logical order; focus and selection remain visible without depending on color alone.
 
-**Current implementation boundary.** The Student's designed Product, Course Instance, and Assignment
-Attempt schemas exist, but **Courses**, **Assignments**, **Attempt**, and **Back to Assignments** are
-currently unbacked and omitted. The current Live Demo therefore provides no admitted Student course
-or Assignment Attempt workflow. This document records the navigation behavior required once those
-capabilities have a complete backed path; it does not fabricate a current assignment, submission,
-timer, grade, or recovery workflow.
+**Current implementation boundary.** The Student's backed Course index, Course Instance
+**Assignments** landing, Assignment Access, Question Presentation, submission, and recovery routes
+are current role-owned workflows. The separate **Attempt** and **Back to Assignments** positions
+remain unavailable until their own complete path exists; this does not weaken the current delivery
+or recovery authorization boundaries.
 
 ## Sysadmin task model
 
@@ -170,8 +169,8 @@ surface, and recover from content failure without gaining unintended access to S
 
 **Decision points.**
 
-- At Product scope, choose an admitted **Courses** destination; **Instructor Accounts** remains a
-  designed future position until a route, client operation, and registered handler exist.
+- At Product scope, choose an admitted **Courses** destination or the backed **Instructor Accounts**
+  and **Scoped Support** system destinations.
 - At Course Instance scope, confirm the Course Instance label and choose admitted **Teaching
   Operations** only when it has a backed usable path.
 - Use a Context Control route when account-level work is appropriate, recognizing that no Tab may be
@@ -194,10 +193,10 @@ behavior and does not leave a false signed-out state.
 content recovery preserves the same Ribbon instance and focus target; and no general Student,
 Gradebook, or Assignment Attempt control is introduced merely because the account is Sysadmin.
 
-**Current implementation boundary.** The Sysadmin's designed **Courses**, **Instructor Accounts**,
-and **Teaching Operations** positions are all unbacked; no Sysadmin Ribbon destination is admitted
-today. The current route contract has no sysadmin-only route. This task model therefore documents a
-future backed support path, not a present course-administration or FERPA-access workflow.
+**Current implementation boundary.** The Sysadmin has backed **Instructor Accounts** and **Scoped
+Support** routes. They are separately role-gated and do not grant ambient Course, Student Record,
+Gradebook, or Assignment Attempt access. **Teaching Operations** remains unavailable until it has
+its own complete path.
 
 **Assignment Attempt entry and exit.** The Sysadmin Assignment Attempt schema intentionally has no
 Tabs, and the current product admits no attempt workflow. A request to inspect a particular Student's
@@ -222,7 +221,7 @@ current implementation checks; future capability admission must keep the same ch
 | Reflow, text resizing, and discrete responsive states | A smaller viewport or larger text changes presentation deliberately without changing navigation meaning, hiding a normal destination label, or making the selected control unreachable. | `tests/playwright/ribbon_m9_responsive_evidence.mjs` and `tests/playwright/ribbon_geometry_evidence.mjs` cover narrow, tablet, and 200% text geometry, overflow cues, and selected-control reveal.                                                                                                                             |
 | Contrast and forced colors                            | Text, selection, focus, and essential boundaries remain distinguishable for people using a course theme or a high-contrast system mode.                                                 | `tests/playwright/ribbon_m9b_density_evidence.mjs` covers contrast, forced-colors, and reduced-motion behavior; [UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md) records the ordinary-text and focus treatment requirements.                                                                                                        |
 | Motion preference                                     | Understanding the current location does not depend on an animation, and people who reduce motion do not receive unnecessary movement.                                                   | `tests/playwright/ribbon_m9b_density_evidence.mjs` checks the reduced-motion projection; `src/ribbon/app_ribbon.css` contains the `prefers-reduced-motion` treatment.                                                                                                                                                          |
-| Truthful capability admission                         | A person never spends effort activating a dead control or interpreting an unavailable feature as a role failure.                                                                        | `tests/test_ribbon_capability_registry.mjs` proves `Available` is the only visible admission state; `tests/playwright/ribbon_m10_shell_evidence.mjs` separates the truthfully empty production case from the explicitly populated structural fixture.                                                                          |
+| Truthful capability admission                         | A person never spends effort activating a dead control or interpreting an unavailable feature as a role failure.                                                                        | `tests/test_ribbon_capability_registry.mjs` proves `Available` is the only visible admission state; the generated [Ribbon destination ledger](RIBBON_DESTINATION_LEDGER.md) records the current role ceiling for each declared destination.                                                                                   |
 
 ## Maintenance rule
 

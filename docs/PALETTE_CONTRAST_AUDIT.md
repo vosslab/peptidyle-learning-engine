@@ -73,9 +73,10 @@ course-scope CSS, and component styles. The durable behavior gates are:
 - [`tests/test_course_theme_scope.mjs`](../tests/test_course_theme_scope.mjs)
   checks the exact 15 IDs, complete tokens, 5.5:1 text pairs, and 3:1
   focus/boundary pairs directly from registry values.
-- The canonical real-stack `learner_delivery` scenario saves and reloads a
-  course appearance through the production HTTPS origin. Screenshot publication
-  is a separate deliberate operation, not a parallel browser suite.
+- The current serial browser owner and screenshot rebuild provide connected
+  application evidence, but neither is a dedicated course-appearance save and
+  reload acceptance scenario. Screenshot publication remains a separate
+  deliberate operation, not a parallel browser suite.
 
 Run the durable behavior gates:
 
@@ -83,11 +84,12 @@ Run the durable behavior gates:
 node --import tsx --test tests/test_course_theme_scope.mjs
 ```
 
-The real-browser and screenshot-corpus commands named in earlier evidence are
-not present in the current tree. The earlier 15-theme rendered comparison is
-historical evidence, not a current validation command. A theme UI change needs
-a restored browser owner and fresh human visual review in addition to the
-durable behavior gate.
+The earlier dedicated course-appearance browser owner is not registered in the
+current suite. The current browser owner is `./devel/run_playwright_tests.sh
+--build`, and `./devel/capture_screenshots.sh` produces the separate current
+screenshot corpus. The earlier 15-theme rendered comparison remains historical
+evidence; a theme UI change needs a dedicated connected owner and fresh human
+visual review in addition to the durable behavior gate.
 
 This document therefore does not claim a single white-background ratio for
 every raw course swatch. The registry table preserves the source palette; the

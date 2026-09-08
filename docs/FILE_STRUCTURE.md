@@ -123,13 +123,16 @@ crates/server/src/
 `- main.rs                   Production binary entry point
 ```
 
-The current executable surface intentionally stops at global Account sessions and
-the deployment-gated seeded Live Demo entry. Course, Question Library, delivery,
-publication, and worker routes remain downstream reconstruction work. The implemented server-only
-`question_publication` Service composes the authorized draft-source read, verified immutable object
-copy, Question ID issuance, and atomic P1 Store without expanding the executable route surface.
-reference, revision, query, and body decoding. CourseInstance routes require
-the exact destination course and current equal Teaching Team Member authority.
+The deployment-gated seeded Live Demo entry performs only local identity
+verification. The executable application then exposes the current
+role- and relationship-gated Question Library, authoring, Blueprint Course,
+Course Instance, roster, Assignment, Student delivery, grading, Gradebook,
+Instructor Account, scoped-support, and invitation-export routes. See
+[API_CONTRACTS.md](API_CONTRACTS.md) for the durable route map. The server-only
+`question_publication` Service composes authorized draft-source reads, verified
+immutable object copies, Question ID issuance, and an atomic Store boundary.
+Course Instance routes require the exact destination Course and current equal
+Teaching Team Member authority.
 
 ## Browser application
 

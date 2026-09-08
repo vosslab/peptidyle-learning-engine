@@ -1,6 +1,7 @@
 // ribbon_design_models.ts - closed, hand-written Ribbon models for design review.
 
 import type { ProductRole } from "../../generated/api/ProductRole";
+import type { RouteParamName } from "../../src/navigation/route_params";
 import type { ContentLayout, RibbonScope } from "../../src/route_contract";
 import {
   buildRoutePath,
@@ -47,7 +48,7 @@ export const RIBBON_DESIGN_DECISION = {
     "All-theme signal migrates to exactly three semantic accent placements.",
     "Forced-color, focus, reduced-motion, and overflow reachability remain preserved.",
   ],
-  m9bBoundary: [
+  productionReadinessBoundary: [
     "Fieldstation is the direction, not already production-ready: literal spacing",
     "becomes tokens and accent use narrows in the final treatment.",
   ].join(" "),
@@ -56,7 +57,7 @@ export const RIBBON_DESIGN_DECISION = {
   readonly retainedAlternative: RibbonDesignTreatment;
   readonly rationale: string;
   readonly productionNonNegotiables: readonly string[];
-  readonly m9bBoundary: string;
+  readonly productionReadinessBoundary: string;
 };
 
 export const RIBBON_DESIGN_AVAILABILITIES = ["Available", "Unavailable", "Checking"] as const;
@@ -73,8 +74,10 @@ const CANONICAL_PARAMS = {
   assignmentAttemptRef: "R-1",
   membershipRef: "M-1",
   questionRef: "7K3-M9QP",
+  draftQuestionRef: "D-1",
   blueprintCourseRef: "BP-1",
-} as const;
+  presentationNonce: "0123456789abcdef0123456789abcdef",
+} as const satisfies Readonly<Record<RouteParamName, string>>;
 
 const SIGN_OUT = { kind: "action", id: "signOut", label: "Sign out" } as const;
 const SHORT_COURSE_TITLE = "Biochemistry I";
@@ -203,7 +206,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
   courseStudent: model(
     "courseInstance",
     "student",
-    [control("assignments", { selected: true })],
+    [control("studentAssignments", { selected: true })],
     [],
     "reading",
     { accountLabel: "Student account", scopeLabel: SHORT_COURSE_TITLE, signOutAction: SIGN_OUT },

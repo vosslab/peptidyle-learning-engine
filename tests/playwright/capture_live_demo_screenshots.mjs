@@ -229,12 +229,40 @@ async function assertSafeCapture(page, captureRecord, responsePrivacy) {
   }
 }
 
+function expectedRibbonTab(captureRecord) {
+  switch (captureRecord.persona) {
+    case "instructor":
+      return captureRecord.path.includes("question_library") ? "Question Library" : "Assignments";
+    case "student":
+      return "Assignments";
+    case "sysadmin":
+      return "Instructor Accounts";
+    default:
+      return undefined;
+  }
+}
+
+async function assertNormalRibbon(page, captureRecord) {
+  const tabName = expectedRibbonTab(captureRecord);
+  if (tabName === undefined) return;
+  const ribbon = page.getByRole("region", { name: "PLE application Ribbon", exact: true });
+  await ribbon.waitFor();
+  const tab = ribbon
+    .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+    .getByRole("link", { name: tabName, exact: true });
+  await tab.waitFor();
+  if ((await tab.getAttribute("aria-current")) !== "page") {
+    throw new Error(`${captureRecord.path} must show its selected ${tabName} Ribbon tab`);
+  }
+}
+
 async function capture(capturePage, captures, artifactPath, producedPaths) {
   const { page, responsePrivacy } = capturePage;
   const captureRecord = captureFor(captures, artifactPath);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.evaluate(async () => document.fonts.ready);
   await assertSafeCapture(page, captureRecord, responsePrivacy);
+  await assertNormalRibbon(page, captureRecord);
   const target = path.join(screenshotsDirectory, captureRecord.path);
   await mkdir(path.dirname(target), { recursive: true });
   await page.screenshot({

@@ -12,7 +12,7 @@ const routeCases = [
   ["courses", "/", {}, { kind: "product" }],
   ["signIn", "/sign-in", {}, { kind: "product" }],
   ["pendingCourseInvitations", "/account/course-invitations", {}, { kind: "product" }],
-  ["studentCourseLanding", "/student/courses/C-1", { courseRef: "C-1" }, { kind: "product" }],
+  ["studentCourseLanding", "/student/courses/C-1", { courseRef: "C-1" }, courseKey("C-1")],
   ["courseAssignments", "/courses/C-1", { courseRef: "C-1" }, courseKey("C-1")],
   [
     "assignmentOverview",

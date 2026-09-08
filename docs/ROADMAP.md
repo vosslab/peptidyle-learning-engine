@@ -38,22 +38,24 @@ acceptance.
 - The foundational clean-cluster baseline and its explicit migration administration boundary.
 - The forward-only migration allocation policy and accepted feature migrations recorded in
   [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
-- The real live-demo deployment and session boundary: a seeded Account selector, ordinary
-  server-owned Authenticated Session resolution, and the explicitly absent teaching routes
+- The real Live Demo deployment and session boundary: a seeded Account selector, ordinary
+  server-owned Authenticated Session resolution, and the connected role-owned browser workflows
   specified in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
-- The mounted Application Shell and its single role-aware Ribbon. Its destinations remain
-  truthfully unbacked and unavailable; this shell acceptance does not establish a Server Route,
-  Service, Browser Surface, or teaching workflow.
-- Historical automated-grading HCI evidence as contextual evidence only. It does not establish a
-  current Student, Instructor, or Gradebook browser workflow.
+- The mounted Application Shell and its single role-aware Ribbon. Its backed destinations are
+  available only through their declared Product Role routes; the registry remains a UI admission
+  ceiling rather than Server authorization.
+- The connected Instructor authoring, Student delivery and recovery, Gradebook, Sysadmin Account,
+  scoped-support, protected export, and automated-grading evidence recorded in
+  [CHANGELOG.md](CHANGELOG.md). These pre-production receipts do not establish deployment or
+  release acceptance.
 - Existing normalized operational models only where [CHANGELOG.md](CHANGELOG.md) records accepted
   evidence. This roadmap does not broaden those claims.
 
 ### Current and acceptance-open
 
-- Restore the Course, authoring, delivery, grading, Gradebook, and administration route surface,
-  then establish separate browser, visual, accessibility, and task-completion evidence. The mounted
-  shell may expose a destination only after its complete usable capability path is established.
+- Evolve the current Course, authoring, delivery, grading, Gradebook, and administration route
+  surface only with separate browser, visual, accessibility, and task-completion evidence. The
+  mounted shell may expose a destination only after its complete usable capability path is established.
 - Rerun the complete named Validation suite on each final material tree. Focused or historical
   migration counts do not establish release acceptance.
 - Keep documentation links GitHub-browsable through the material-tree Markdown-link gate.

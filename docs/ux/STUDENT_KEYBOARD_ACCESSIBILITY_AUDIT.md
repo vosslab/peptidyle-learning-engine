@@ -133,9 +133,9 @@ frontend route/session contracts. They remain permanent behavior tests under
 `docs/PYTEST_STYLE.md`, but they do not claim connected-browser, axe, or complete keyboard-journey
 acceptance.
 
-The current connected-browser owners are the declared `learner_delivery` and
-`learner_gateway_recovery` scenarios. Restoring and executing those scenarios is release work; this
-audit records no unrun Playwright pass.
+The current connected-browser owner is `./devel/run_playwright_tests.sh --build`, including the
+registered `learner_native_ple_recovery` scenario. This historical audit does not substitute for a
+new complete keyboard sweep; it records no additional Playwright pass.
 
 ## Remaining human evaluation
 

@@ -90,6 +90,12 @@ bounded renderer failure complete`; `Live Demo WeBWorK grade: PASS`. The
 
 ### Fixes and Maintenance
 
+- Restored the Student-owned Assignments Ribbon tab during Assignment Access
+  and Question Presentation, and retained that selected tab at the existing
+  Student Course landing route. Server and route authorization are unchanged.
+  The one-time screenshot rebuild now verifies a selected normal Ribbon tab
+  before writing each authenticated artifact.
+
 - Corrected M14 WeBWorK issuance to return the first atomic Assignment Attempt
   projection instead of a second call that had already resumed that attempt.
   The one-time render proof now verifies the true initial and resume states,
@@ -115,6 +121,24 @@ bounded renderer failure complete`; `Live Demo WeBWorK grade: PASS`. The
   one-Instructor fixture cardinality. A fresh authority run passed and stopped
   its owned stack.
 
+- Audited the restoration's current browser inventory. Retired unregistered
+  legacy scenario providers, specifications, helpers, and an obsolete
+  provider-only pytest rather than reviving unavailable routes for their sake.
+  The registered serial owner, focused scenario partition, and the current
+  M10/M14/M16/M17/M18 browser journeys remain the connected acceptance set.
+
+- Removed a brittle complete-inventory Ribbon assertion, replaced a capture
+  CSS selector with a role-scoped control, and corrected permanent comments to
+  use established product terminology. Current role guides and historical
+  visual references now distinguish the functional capture workflow from their
+  retained images.
+
+- Bound the disposable WeBWorK browser proof to the Assignment reference it is
+  given, preserving the accessible link interaction while avoiding an
+  accidental first-card selection. Closed the Ribbon fixture parameter maps
+  over the current declared route parameters, so a future route parameter
+  cannot silently leave shared test support untyped.
+
 ### Removals and Deprecations
 
 - Removed the retired structural Live Demo presentation route and its separate
@@ -125,7 +149,7 @@ bounded renderer failure complete`; `Live Demo WeBWorK grade: PASS`. The
 
 - M21 used a one-time manual authority reconciliation rather than adding the
   absent planned authority-ledger script as a fragile permanent source-inventory
-  test. On the formatter-final material tree, the final aggregate passed 5,953
+  test. On the formatter-final material tree, the final aggregate passed 5,844
   offline tests and both disposable live-service acceptance oracles; the
   GUI-capable serial production-browser owner also passed.
 
@@ -135,6 +159,12 @@ bounded renderer failure complete`; `Live Demo WeBWorK grade: PASS`. The
   answer-free recovery boundaries. Disposable browser acceptance and screenshot
   capture remain one-time evidence, not permanent fast-suite behavior tests.
   `source source_me.sh && ./launchers/all_test.sh` passed after the audit.
+
+- After audit remediation, `source source_me.sh && ./launchers/all_test.sh`
+  and `./devel/run_playwright_tests.sh --build` completed their current gates.
+  The serial browser owner rebuilt its fixed stack, completed its registered
+  scenarios and visible milestone journeys, and its owned stack was stopped
+  after the receipt check.
 
 ## 2026-09-06
 
@@ -183,11 +213,11 @@ bounded renderer failure complete`; `Live Demo WeBWorK grade: PASS`. The
   [docs/archive/restore_live_demo.md](archive/restore_live_demo.md).
   It defines the authority order, full three-persona completion contract, 22 milestone ladder,
   package ownership, security constraints, and production-browser evidence required to replace
-  the present developer showcase with the actual Live Demo.
+  the former developer structural preview with the actual Live Demo.
 - Completed Live Demo restoration M0 with
   [docs/active_plans/audits/live_demo_foundation_findings.md](active_plans/audits/live_demo_foundation_findings.md).
   The report records the fresh forced-RLS/default-deny baseline, classifies every retained
-  Playwright specification, assigns client and decoder handoffs, and identifies the showcase as
+  Playwright specification, assigns client and decoder handoffs, and identifies the structural preview as
   a destination M19 must retire rather than a restored product path.
 - Completed Live Demo restoration M1. The fixed disposable topology now starts exactly one
   internal `worker` Service Identity with a dedicated `ple_worker_login`, no HTTP listener,
@@ -267,16 +297,17 @@ bounded renderer failure complete`; `Live Demo WeBWorK grade: PASS`. The
 
 - Restored one developer screenshot command at `devel/capture_screenshots.sh`. It delegates the
   fresh fixed Live Demo and Playwright installation to their existing launchers, enters through the
-  visible Elena Instructor Account choice, and regenerates six current desktop, selected-state,
-  invitation-email, tablet, and phone images under `docs/screenshots/live_demo/`. The capture is
+  visible Elena Instructor Account choice, and regenerates the then-current desktop, selected-state,
+  invitation-email, tablet, and phone images. The capture is
   one-time visual evidence rather than a permanent test or a revival of the retired teaching-workflow
   corpus.
-- Added a deployment-gated `/live-demo/ribbon` developer showcase as the seeded
-  sign-in destination. It renders the real production `AppRibbon` from an
+- Added a temporary deployment-gated `/live-demo/ribbon` developer structural preview as the seeded
+  sign-in destination. It rendered the real production `AppRibbon` from an
   explicitly labelled populated Instructor structural model; activating a
   control changes fixture selection without navigating to or admitting an
-  unbacked teaching route. The same page gives the operator the existing
-  dry-run and bounded attended `launchers/send_invitations.py` commands while
+  unbacked teaching route. The later restoration removed that retired preview;
+  the same page gave the operator the existing dry-run and bounded attended
+  `launchers/send_invitations.py` commands while
   keeping Mail.app delivery outside the browser.
 - Added the temporary attended macOS invitation mailer. It reads one private JSON export,
   defaults to dry run, sends through visible Mail.app composition, throttles the batch, and keeps

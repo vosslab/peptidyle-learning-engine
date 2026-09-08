@@ -1,4 +1,4 @@
-// Disposable Chromium proof for the M14 answer-free WeBWorK render surface.
+// Disposable Chromium proof for the answer-free WeBWorK render surface.
 // Visible navigation: student_courses_page.tsx selects C- by its Course Instance
 // label; student_course_landing_page.tsx selects its rendered Assignment action.
 
@@ -29,9 +29,9 @@ try {
     .filter({ has: page.getByText(`Course Instance ${course}`, { exact: true }) });
   await courseCard.getByRole("link", { name: "Open assigned work", exact: true }).click();
   await page.waitForURL(`${origin}/student/courses/${course}`);
-  const assignmentCard = page
-    .getByRole("article")
-    .filter({ has: page.getByRole("link", { name: "Open Assignment", exact: true }) });
+  const assignmentCard = page.getByRole("article").filter({
+    has: page.locator(`a[href="/courses/${course}/assignments/${assignment}"]`),
+  });
   await assignmentCard.getByRole("link", { name: "Open Assignment", exact: true }).click();
   await page.waitForURL(`${origin}/courses/${course}/assignments/${assignment}`);
   const startResponse = page.waitForResponse(

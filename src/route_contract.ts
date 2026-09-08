@@ -14,6 +14,7 @@ export const RIBBON_TAB_IDS = [
   "questionLibrary",
   "blueprintCourses",
   "assignments",
+  "studentAssignments",
   "students",
   "gradebook",
   "teachingOperations",
@@ -134,7 +135,7 @@ export const ROUTE_CONTRACT = [
     path: "/student/courses/:courseRef",
     surface: "Student answer-free Course Instance and released Assignment landing",
     requiredProductRoles: ["student"],
-    ribbon: { scope: "product", tab: "courses", contentLayout: "reading" },
+    ribbon: { scope: "courseInstance", tab: "studentAssignments", contentLayout: "reading" },
   },
   {
     id: "instructorAccounts",
@@ -162,15 +163,17 @@ export const ROUTE_CONTRACT = [
     id: "assignmentOverview",
     path: "/courses/:courseRef/assignments/:assignmentRef",
     surface: "Student Assignment Access and initial issued presentation",
+    // ASVS 8.3.1: client admission targets the separately role-gated Student landing route;
+    // the server remains the authorization boundary for the exact Student Record.
     requiredProductRoles: ["student"],
-    ribbon: { scope: "courseInstance", tab: "assignments", contentLayout: "reading" },
+    ribbon: { scope: "courseInstance", tab: "studentAssignments", contentLayout: "reading" },
   },
   {
     id: "assignmentSubmission",
     path: "/courses/:courseRef/assignments/:assignmentRef/presentations/:presentationNonce",
     surface: "Student response screen for one issued Question Presentation",
     requiredProductRoles: ["student"],
-    ribbon: { scope: "courseInstance", tab: "assignments", contentLayout: "reading" },
+    ribbon: { scope: "courseInstance", tab: "studentAssignments", contentLayout: "reading" },
   },
   {
     id: "assignmentAttempt",

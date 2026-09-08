@@ -29,8 +29,10 @@ const CANONICAL_FIXTURE_PARAMS = {
   assignmentAttemptRef: "R-1",
   membershipRef: "M-1",
   questionRef: "7K3-M9QP",
+  draftQuestionRef: "D-1",
   blueprintCourseRef: "BP-1",
-} as const;
+  presentationNonce: "0123456789abcdef0123456789abcdef",
+} as const satisfies Readonly<Record<RouteParamName, string>>;
 
 function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogControl<Id> {
   const control = ALL_CATALOG_CONTROLS.find((candidate) => candidate.id === id);
@@ -182,7 +184,7 @@ export const M6_RIBBON_FIXTURES = {
   courseStudent: model(
     "courseInstance",
     "student",
-    [control("assignments", { selected: true })],
+    [control("studentAssignments", { selected: true })],
     [],
     "reading",
     { accountLabel: "Student account", scopeLabel: COURSE_TITLE, signOutAction: SIGN_OUT },
@@ -267,7 +269,7 @@ export const M6_RIBBON_FIXTURES = {
   loadingCourse: model(
     "courseInstance",
     "student",
-    [control("assignments", { selected: true })],
+    [control("studentAssignments", { selected: true })],
     [],
     "reading",
     {
@@ -279,7 +281,7 @@ export const M6_RIBBON_FIXTURES = {
   errorCourse: model(
     "courseInstance",
     "student",
-    [control("assignments", { selected: true })],
+    [control("studentAssignments", { selected: true })],
     [],
     "reading",
     {

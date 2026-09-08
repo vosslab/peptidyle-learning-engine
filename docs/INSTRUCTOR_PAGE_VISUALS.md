@@ -47,29 +47,29 @@ an image.
 | Live Demo sign-in         | `/sign-in`                                                   | Deployment-gated seeded Account selector for the disposable demo                                                                   |
 
 The authentication completion pages, invitation redemption, and Assignment Attempt pages are outside
-this historical Instructor-workspace gallery. The intended end-to-end teaching loop remains in
-[INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md) and [STUDENT_GUIDE.md](STUDENT_GUIDE.md); it is not a
-current local-demo journey.
+this historical Instructor-workspace gallery. Their current role-owned routes are described in
+[INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md), [STUDENT_GUIDE.md](STUDENT_GUIDE.md), and
+[LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md). This gallery remains historical visual reference rather than
+current workflow evidence.
 
 In the historical reference, Student view is an answer-free inspection surface that creates no
 Assignment Attempt, Question Attempt, submission, receipt, grade, or enrollment. Historical ordinary
-Student delivery then creates graded work that flows to the Instructor Gradebook. Neither Student
-delivery nor Gradebook is available in the current account/session-only Browser Surface, so this is
-not a current local-demo validation journey.
+Student delivery then creates graded work that flows to the Instructor Gradebook. Current Student
+delivery and Gradebook evidence are separate functional PLE workflows; these historic captures do
+not demonstrate them.
 
-The former screenshot capture workflow and its consumers are absent from the current
-tree. This retained historical screenshot reference does not claim current acceptance. Keep private
-Instructor evidence separate from public or Student evidence under
-`docs/screenshots/`; a restored browser owner must create and review fresh
-evidence before a current UI change can claim visual acceptance.
+`./devel/capture_screenshots.sh` rebuilds only manifest-listed current captures. This retained
+historical screenshot reference does not claim current acceptance. Keep Instructor evidence under
+`docs/screenshots/instructor/` and separate it from public or Student evidence; a fresh capture and
+review remain required before a current UI change can claim visual acceptance.
 
 ## Visual gallery
 
 The historical Course Instance pages use the Grass palette in standard presentation. This makes the
 gallery useful as a design reference for normal theme character, density, hierarchy, navigation, and
-page-level composition. The current available Live Demo is intentionally limited to account/session
-entry and is distinct from the historical teaching surfaces and planned email-code and passkey
-authentication adapters.
+page-level composition. The current Live Demo runs the functional Instructor teaching surfaces
+described in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md); it remains distinct from future email-code and
+passkey authentication adapters.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
@@ -90,10 +90,10 @@ authentication adapters.
 
 ## Refreshing historical screenshot references
 
-The retired screenshot capture workflow and its publication command are absent from the
-current tree. This gallery is historical screenshot reference, not current acceptance.
+The current capture command is `./devel/capture_screenshots.sh`; it rebuilds only the current
+manifest and does not republish this historical gallery. This gallery is historical reference, not
+current acceptance.
 
-Any Instructor UI, viewport, typography, theme, or navigation change requires
-a restored real-browser owner and a new human visual review before it can claim
-visual acceptance. Behavior tests remain distinct evidence for interaction,
-authorization, answer secrecy, and teaching semantics.
+Any Instructor UI, viewport, typography, theme, or navigation change requires a
+fresh current capture and human visual review before it can claim visual acceptance. Behavior tests
+remain distinct evidence for interaction, authorization, answer secrecy, and teaching semantics.

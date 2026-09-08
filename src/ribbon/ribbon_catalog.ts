@@ -135,6 +135,16 @@ export const TAB_CATALOG = [
     ...pairedIconFlags,
   },
   {
+    id: "studentAssignments",
+    label: "Assignments",
+    destination: { kind: "route", routeId: "studentCourseLanding" },
+    requiredParams: ["courseRef"],
+    role: "primary",
+    priority: "critical",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
     id: "students",
     label: "Students",
     destination: { kind: "route", routeId: "courseRoster" },

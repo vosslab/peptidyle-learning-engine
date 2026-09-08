@@ -58,10 +58,13 @@ browser acceptance.
 ## Ribbon visual evidence
 
 The Ribbon is shared application chrome and receives explicit visual coverage.
-Each Product Role keeps at least one current canonical desktop capture showing
-the normal Ribbon in a representative functional workflow. Add tablet or phone
-Ribbon captures only when responsive behavior materially changes the Ribbon.
-Ribbon captures come from real role-owned pages, not a presentation surface.
+Each Product Role keeps at least one current canonical desktop capture that
+shows the normal Ribbon in a representative functional workflow. The capture
+uses a real role-owned page and normal navigation state, so it is evidence that
+the Ribbon remains visually coherent as the application evolves. Add tablet or
+phone Ribbon captures only where responsive behavior materially changes the
+Ribbon. They remain evidence of the working application, never a separate
+presentation page.
 
 ## Privacy
 

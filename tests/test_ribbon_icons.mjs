@@ -20,6 +20,7 @@ const EXPECTED_DESTINATION_GLYPHS = {
   courses: "graduation-cap",
   questionLibrary: "book-open",
   assignments: "clipboard-list",
+  studentAssignments: "clipboard-list",
   students: "users",
   gradebook: "table-list",
   courseSetup: "gear",

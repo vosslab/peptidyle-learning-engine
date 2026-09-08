@@ -9,9 +9,10 @@ Student work, and course themes that retain their palette identity. Student prof
 across the maintained laptop, tablet, iPhone Pro aspect, and square profiles. Increased contrast is
 an optional account presentation preference rather than the visual default.
 
-It is not evidence of a current built-app teaching workflow. The current local Browser Surface is
-limited to account/session entry; the screenshots named below are historical references and require a
-restored browser owner plus fresh human review before they can support current visual acceptance.
+It is not evidence of the current built-app teaching workflow. The connected Live Demo now runs the
+real role-owned application surfaces described in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md); the
+screenshots named below remain historical references and do not replace its current browser or
+manifest-owned visual evidence.
 
 This review implements [UI_DESIGN_GUIDE.md](UI_DESIGN_GUIDE.md). It changes presentation and human
 navigation, not course content, grading, answer secrecy, course authorization, assignment behavior,
@@ -19,8 +20,9 @@ or learning semantics.
 
 ## Page-level findings and resolution
 
-Every row below records a historical intended resolution and a historical visual or test reference;
-none asserts that its teaching workflow is available in the current Browser Surface.
+Every row below records a historical intended resolution and a historical visual or test reference.
+Current functionality and visual evidence are governed by the Live Demo specification and the
+Screenshot Contract rather than these historical references.
 
 | Area                                | Historical design resolution                                                                                                                                                                                                                                                                                                                                                                                                                                               | Historical reference                                                                                                                                                                           |
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -40,8 +42,8 @@ and measured `palette_metrics.json` report; neither replaces fresh browser accep
 
 In the historical design, Student view keeps the Instructor account and course authority in place
 while presenting an answer-free student landing. It is an inspection surface, not an Assignment
-Attempt. Historical Student delivery creates graded work that appears in the Instructor Gradebook;
-that delivery-to-Gradebook flow is unavailable in the current account/session-only Browser Surface.
+Attempt. The current connected delivery and Gradebook workflows have their own role-gated contracts;
+these historical references do not describe or validate them.
 
 ## Historical measured visual contract
 

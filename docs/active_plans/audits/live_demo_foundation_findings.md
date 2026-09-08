@@ -3,7 +3,8 @@
 Status: M0 complete on 2026-09-06.
 
 This is a current-state handoff for the Live Demo restoration. It does not
-claim browser acceptance or treat the developer showcase as a product route.
+claim browser acceptance or treat the former developer structural preview as a
+product route.
 The governing terms remain [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) and
 [TERMINOLOGY_CONTRACT.md](../../TERMINOLOGY_CONTRACT.md).
 
@@ -52,7 +53,7 @@ must not grant a worker direct protected-table access.
 
 ## Browser specifications
 
-The nine current Playwright specifications have the following M19 inventory.
+The nine Playwright specifications present during this M0 audit had the following M19 inventory.
 "Retain" preserves the scenario name and scope; "rename" preserves its
 behavior but removes terminology drift; "retire" removes it from the browser
 suite while keeping any appropriate unit-level protocol coverage.
@@ -73,6 +74,11 @@ Several retained files name source components that no longer exist. M19 owns
 their selector-contract refresh against the current routed components; it must
 not revive an obsolete route or vocabulary merely to make a selector pass.
 
+M19 retired the candidates whose current routed components remained unavailable,
+including their unregistered providers and specifications. The executable
+scenario registry, rather than this historical classification table, declares
+the current serial browser owner inventory.
+
 ## Client and decoder reuse
 
 The current browser has a usable strict transport and real teaching pages.
@@ -85,8 +91,8 @@ check.
 | [src/api/application_api.tsx](../../../src/api/application_api.tsx) | Reuse its injected client and query identities for restored routes. | M5-M16, by route capability. |
 | [src/auth/browser_session_boundary.ts](../../../src/auth/browser_session_boundary.ts) and [src/auth/session_context.tsx](../../../src/auth/session_context.tsx) | Reuse unchanged. They abort stale requests and retain only browser-safe session state. | M4 verifies the seeded Session lifecycle; M19 proves it in a browser. |
 | [src/routes.ts](../../../src/routes.ts) and `src/pages/` | Reconnect existing routed page implementations only after their data capability is live. | The matching M5-M18 feature milestone. |
-| [src/api/live_demo.ts](../../../src/api/live_demo.ts), [src/api/http_client/live_demo.ts](../../../src/api/http_client/live_demo.ts), and [src/pages/sign_in_page.tsx](../../../src/pages/sign_in_page.tsx) | Keep the seeded Account selector as a deployment convenience. | M19 replaces its post-selection showcase navigation with the real persona entry route. |
-| [src/pages/live_demo_showcase_page.tsx](../../../src/pages/live_demo_showcase_page.tsx) | Do not reuse as a Live Demo destination. | M19 retires the route after the three real persona tasks are accepted. |
+| [src/api/live_demo.ts](../../../src/api/live_demo.ts), [src/api/http_client/live_demo.ts](../../../src/api/http_client/live_demo.ts), and [src/pages/sign_in_page.tsx](../../../src/pages/sign_in_page.tsx) | Keep the seeded Account selector as a deployment convenience. | M19 replaces its former post-selection structural-preview navigation with the real persona entry route. |
+| Retired Live Demo structural preview source | Do not reuse as a Live Demo destination. | M19 retires the route after the three real persona tasks are accepted. |
 
 There is no supported generic decoder facade to add. A decoder mismatch is
 owned by the milestone that owns the server payload and route: M5-M10 for
