@@ -22,7 +22,7 @@ export interface CourseInstanceSummary {
   readonly term: CourseTerm;
 }
 
-/** Initial M8 teaching-team workspace projection. */
+/** Initial Teaching Team workspace projection. */
 export interface CourseInstanceView {
   readonly course: CourseInstanceSummary;
   readonly isAssignedInstructor: boolean;

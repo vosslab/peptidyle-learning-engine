@@ -2,8 +2,8 @@
 //!
 //! Every export delegates to `domain`, which keeps parameter generation,
 //! format validation, timer verdicts, and capability validation identical on
-//! both targets. The allowlist of exports is frozen in M1; `grading` is outside
-//! this crate's dependency closure and must stay there.
+//! both targets. The export allowlist excludes `grading`, which is outside this
+//! crate's dependency closure and must stay there.
 
 use domain::{draft_preview, policy, timing, validation};
 use question_model::presentation::{

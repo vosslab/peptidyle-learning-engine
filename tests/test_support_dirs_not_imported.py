@@ -16,7 +16,7 @@ REPORT_NAME = file_utils.report_name(__file__)
 
 HEADER = "Support-directory import violations"
 
-SUPPORT_ROOTS = frozenset({"tools", "devel", "tests"})
+SUPPORT_ROOTS = frozenset({"tools", "devel", "tests", "launchers"})
 
 # Module-level dict of repo-relative POSIX key -> list of violation lines.
 # Populated by the autouse collect_report fixture before any test runs.
@@ -30,22 +30,81 @@ def module_root(module_name: str) -> str:
 
 
 #============================================
-def tool_sibling_modules(repo_root: str, importer_rel: str) -> set[str]:
-	"""Return importable flat siblings of a tools script from live tree contents."""
-	tools_dir = pathlib.Path(repo_root, "tools")
-	if not tools_dir.is_dir():
+def is_python_package_directory(directory: pathlib.Path) -> bool:
+	"""Return whether a directory is an importable Python package root."""
+	if not directory.is_dir() or not directory.name.isidentifier():
+		return False
+	return any(child.is_file() for child in directory.glob("*.py"))
+
+
+#============================================
+def importable_children(directory: pathlib.Path) -> set[str]:
+	"""Return direct Python module and package-root names below one directory."""
+	if not directory.is_dir():
 		return set()
 	modules = {
 		child.stem
-		for child in tools_dir.glob("*.py")
-		if child.name != "__init__.py"
+		for child in directory.glob("*.py")
+		if child.name != "__init__.py" and child.stem.isidentifier()
 	}
-	for child in tools_dir.iterdir():
-		if child.is_dir() and (child / "__init__.py").is_file():
+	for child in directory.iterdir():
+		if is_python_package_directory(child):
 			modules.add(child.name)
+	return modules
+
+
+#============================================
+def package_children(directory: pathlib.Path) -> set[str]:
+	"""Return direct importable package names below one directory."""
+	if not directory.is_dir():
+		return set()
+	packages = {
+		child.name
+		for child in directory.iterdir()
+		if is_python_package_directory(child)
+	}
+	return packages
+
+
+#============================================
+def tool_local_modules(repo_root: str, importer_rel: str) -> set[str]:
+	"""Return helpers owned by one self-contained tools subdirectory."""
 	importer = pathlib.PurePosixPath(importer_rel)
-	if importer.parent == pathlib.PurePosixPath("tools"):
+	if len(importer.parts) < 3 or importer.parts[0] != "tools":
+		return set()
+	tool_dir = pathlib.Path(repo_root, "tools", importer.parts[1])
+	modules = importable_children(tool_dir)
+	if importer.parent == pathlib.PurePosixPath("tools", importer.parts[1]):
 		modules.discard(importer.stem)
+	return modules
+
+
+#============================================
+def tool_sibling_modules(repo_root: str, importer_rel: str) -> set[str]:
+	"""Return other top-level tools modules outside one tool's ownership."""
+	modules = importable_children(pathlib.Path(repo_root, "tools"))
+	importer = pathlib.PurePosixPath(importer_rel)
+	if importer.parts and importer.parts[0] == "tools":
+		owner = importer.parts[1]
+		modules.discard(pathlib.PurePosixPath(owner).stem)
+	return modules
+
+
+#============================================
+def repository_package_roots(repo_root: str) -> set[str]:
+	"""Return root and packages-group repository package import roots."""
+	root = pathlib.Path(repo_root)
+	modules = package_children(root) - SUPPORT_ROOTS
+	packages_dir = root / "packages"
+	if not packages_dir.is_dir():
+		return modules
+	modules.add("packages")
+	modules.update(package_children(packages_dir))
+	for project_dir in packages_dir.iterdir():
+		if not project_dir.is_dir():
+			continue
+		modules.update(package_children(project_dir))
+		modules.update(package_children(project_dir / "src"))
 	return modules
 
 
@@ -54,7 +113,7 @@ def format_issue(rule: str, rel: str, line_no: int, module_name: str) -> str:
 	"""Format one support-directory import violation with migration guidance."""
 	return (
 		f"{rule}: {rel}:{line_no} imports {module_name}; "
-		"see tools/TOOLS_README.md for the migration direction"
+		"see docs/REPO_STYLE.md for the script-placement policy"
 	)
 
 
@@ -72,7 +131,9 @@ def imported_modules(node: ast.Import | ast.ImportFrom) -> list[str]:
 def check_tree_file(rel: str, tree: ast.Module, repo_root: str) -> list[str]:
 	"""Return R1/R2 violations for one parsed file under repo_root."""
 	issues = []
-	siblings = tool_sibling_modules(repo_root, rel)
+	tool_helpers = tool_local_modules(repo_root, rel)
+	tool_siblings = tool_sibling_modules(repo_root, rel)
+	repository_packages = repository_package_roots(repo_root)
 	for node in file_utils.iter_imports(tree):
 		line_no = getattr(node, "lineno", 0) or 0
 		for module_name in imported_modules(node):
@@ -80,7 +141,10 @@ def check_tree_file(rel: str, tree: ast.Module, repo_root: str) -> list[str]:
 			if root in SUPPORT_ROOTS:
 				issues.append(format_issue("R1", rel, line_no, module_name))
 				continue
-			if rel.startswith("tools/") and root in siblings:
+			if rel.startswith("tools/") and root in tool_siblings:
+				issues.append(format_issue("R2", rel, line_no, module_name))
+				continue
+			if rel.startswith("tools/") and root in repository_packages and root not in tool_helpers:
 				issues.append(format_issue("R2", rel, line_no, module_name))
 	return sorted(set(issues))
 
@@ -148,6 +212,10 @@ def check_synthetic(tmp_path: pathlib.Path, rel: str, source: str) -> list[str]:
 		("tools/a.py", "import tests.file_utils\n", "tests.file_utils"),
 		("devel/a.py", "from tests import file_utils\n", "tests"),
 		("tests/test_a.py", "from tests.file_utils import helper\n", "tests.file_utils"),
+		("app/main.py", "import launchers\n", "launchers"),
+		("tools/a.py", "import launchers.runner\n", "launchers.runner"),
+		("devel/a.py", "from launchers import runner\n", "launchers"),
+		("launchers/a.py", "from launchers.runner import main\n", "launchers.runner"),
 	],
 )
 def test_r1_rejects_every_support_package_import(
@@ -178,37 +246,86 @@ def test_r1_rejects_nested_support_package_imports(
 
 
 #============================================
+def test_r2_allows_tool_local_helper_directory(tmp_path: pathlib.Path) -> None:
+	"""R2 permits helpers owned by one self-contained tool directory."""
+	write_module(tmp_path, "tools/report/helpers/__init__.py", "")
+	issues = check_synthetic(
+		tmp_path,
+		"tools/report/main.py",
+		"import helpers.formatter\n",
+	)
+	assert issues == []
+
+
+#============================================
 @pytest.mark.parametrize("source", ["import b\n", "from b import helper\n"])
-def test_r2_rejects_actual_tools_siblings(
+def test_r2_rejects_top_level_tool_siblings(
 	tmp_path: pathlib.Path,
 	source: str,
 ) -> None:
-	"""R2 rejects both bare import forms when the sibling exists in tools/."""
+	"""R2 keeps separate top-level tools independent from each other."""
 	write_module(tmp_path, "tools/b.py", "VALUE = 1\n")
 	issues = check_synthetic(tmp_path, "tools/a.py", source)
 	assert any("R2" in issue and "imports b" in issue for issue in issues)
 
 
 #============================================
-def test_r2_allows_missing_tools_sibling(tmp_path: pathlib.Path) -> None:
-	"""R2 permits a bare import when no matching tools sibling exists."""
-	issues = check_synthetic(tmp_path, "tools/a.py", "import b\n")
+def test_r2_rejects_namespace_tool_sibling(tmp_path: pathlib.Path) -> None:
+	"""R2 recognizes a separate tool directory without an __init__.py file."""
+	write_module(tmp_path, "tools/report/main.py", "VALUE = 1\n")
+	write_module(tmp_path, "tools/report/helpers/formatter.py", "VALUE = 1\n")
+	issues = check_synthetic(tmp_path, "tools/a.py", "import report.helpers.formatter\n")
+	assert any("R2" in issue and "imports report.helpers.formatter" in issue for issue in issues)
+
+
+#============================================
+def test_r2_allows_missing_tool_sibling(tmp_path: pathlib.Path) -> None:
+	"""R2 ignores names outside tool and repository-package ownership."""
+	issues = check_synthetic(tmp_path, "tools/a.py", "import external_module\n")
 	assert issues == []
 
 
 #============================================
-def test_r2_ignores_non_sibling_imports(tmp_path: pathlib.Path) -> None:
-	"""R2 leaves stdlib, declared dependency, and package imports outside tools alone."""
-	write_module(
-		tmp_path,
-		"pyproject.toml",
-		"[project]\ndependencies = [\"declared-dependency\"]\n",
-	)
-	write_module(tmp_path, "package_elsewhere/__init__.py", "")
+@pytest.mark.parametrize(
+	("package_rel", "source", "module_name"),
+	[
+		(
+			"shared_helpers/formatter.py",
+			"import shared_helpers.formatter\n",
+			"shared_helpers.formatter",
+		),
+		(
+			"packages/widget/src/widget_core/cli.py",
+			"from widget_core import cli\n",
+			"widget_core",
+		),
+		(
+			"packages/grouped/__init__.py",
+			"import packages.grouped\n",
+			"packages.grouped",
+		),
+	],
+)
+def test_r2_rejects_tool_to_repository_package_import(
+	tmp_path: pathlib.Path,
+	package_rel: str,
+	source: str,
+	module_name: str,
+) -> None:
+	"""R2 keeps standalone tools independent of repository-local packages."""
+	write_module(tmp_path, package_rel, "")
+	issues = check_synthetic(tmp_path, "tools/report.py", source)
+	assert any("R2" in issue and module_name in issue for issue in issues)
+
+
+#============================================
+def test_launcher_may_delegate_to_application_package(tmp_path: pathlib.Path) -> None:
+	"""An application-facing launcher may import reusable application behavior."""
+	write_module(tmp_path, "application/__init__.py", "")
 	issues = check_synthetic(
 		tmp_path,
-		"tools/a.py",
-		"import os\nimport declared_dependency\nimport package_elsewhere\n",
+		"launchers/run_application.py",
+		"import application.cli\n",
 	)
 	assert issues == []
 

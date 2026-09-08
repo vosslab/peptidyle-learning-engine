@@ -2,14 +2,13 @@
 
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 import { mkdir, readFile, stat } from "node:fs/promises";
 
 import { chromium } from "playwright";
 
-const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
-const repositoryRoot = path.resolve(scriptDirectory, "../..");
-const screenshotsDirectory = path.join(repositoryRoot, "docs/screenshots");
+import { REPO_ROOT } from "./repo_root.mjs";
+
+const screenshotsDirectory = path.join(REPO_ROOT, "docs/screenshots");
 const manifestPath = path.join(screenshotsDirectory, "current_capture_manifest.json");
 const laptopViewport = { width: 1280, height: 800 };
 const tabletViewport = { width: 768, height: 1024 };
@@ -271,7 +270,7 @@ async function capture(capturePage, captures, artifactPath, producedPaths) {
     path: target,
   });
   producedPaths.add(captureRecord.path);
-  console.log(`Captured ${path.relative(repositoryRoot, target)}`);
+  console.log(`Captured ${path.relative(REPO_ROOT, target)}`);
 }
 
 async function enterInstructor(page) {
@@ -503,7 +502,5 @@ if (process.argv[2] === "--verify") {
   console.log("Current application screenshot manifest: PASS");
 } else {
   await captureCorpus(requireEntryUrl(process.argv[2]), captures);
-  console.log(
-    `Screenshot capture complete: ${path.relative(repositoryRoot, screenshotsDirectory)}`,
-  );
+  console.log(`Screenshot capture complete: ${path.relative(REPO_ROOT, screenshotsDirectory)}`);
 }

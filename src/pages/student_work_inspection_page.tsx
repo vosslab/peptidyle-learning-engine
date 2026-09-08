@@ -1,10 +1,10 @@
-// student_work_inspection_page.tsx - retained route with no M15 response-inspection capability.
+// student_work_inspection_page.tsx - retained route with no response-inspection capability.
 
 import { A, useParams } from "@solidjs/router";
 import type { JSX } from "solid-js";
 
 /**
- * M15 publishes aggregate Gradebook evidence only. A future Student Work inspection
+ * The Gradebook publishes aggregate evidence only. A future Student Work inspection
  * capability must arrive with its own server projection; this route never falls back
  * to the obsolete client-side response inspection surface.
  */

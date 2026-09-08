@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Disposable M9 acceptance: roster import, invitation claim, Student Record, and immediate revocation.
+# Disposable acceptance: roster import, invitation claim, Student Record, and immediate revocation.
 
 set -euo pipefail
 

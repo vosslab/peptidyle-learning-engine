@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Disposable M14 WP14-1 proof: private WeBWorK render issue and replay.
+# Disposable proof: private WeBWorK render issue and replay.
 
 set -euo pipefail
 
@@ -262,8 +262,8 @@ assert_mixed_private_replay() {
 
 prove_render() {
 	local instructor_cookie student_cookie refs course assignment mixed_assignment started resumed mixed_started port
-	# M10's service journey supplies the legitimate Course and its Instructor
-	# authority.  This runner adds one private, immutable renderer source only.
+	# The authoring journey supplies the legitimate Course and Instructor
+	# authority. This runner adds one private, immutable renderer source only.
 	bash "$repository_root/tests/e2e/e2e_live_demo_assignment_release.sh" --service >/dev/null
 	install_private_webwork_source
 	instructor_cookie="$(persona_cookie elenaInstructor)"

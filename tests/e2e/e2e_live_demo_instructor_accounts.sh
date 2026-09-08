@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Disposable M16 acceptance: Sysadmin-only Instructor Account lifecycle.
+# Disposable acceptance: Sysadmin-only Instructor Account lifecycle.
 
 set -euo pipefail
 

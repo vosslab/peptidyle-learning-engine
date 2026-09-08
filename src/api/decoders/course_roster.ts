@@ -1,4 +1,4 @@
-// Strict browser decoding for M9 Course Roster routes.
+// Strict browser decoding for Course Roster routes.
 
 import type {
   CourseRosterEntry,

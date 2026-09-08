@@ -1,4 +1,4 @@
-// Strict browser decoding for the bounded M10 Assignment Workspace routes.
+// Strict browser decoding for the bounded Assignment Workspace routes.
 
 import { MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/api/MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS";
 import type { AssignmentEditNumber } from "../../../generated/api/AssignmentEditNumber";

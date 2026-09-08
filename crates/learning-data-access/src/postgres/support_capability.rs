@@ -1,4 +1,4 @@
-//! PostgreSQL Store for the closed M17 support registry.
+//! PostgreSQL Store for the closed support registry.
 
 use async_trait::async_trait;
 use question_model::{AccountReference, CourseInstanceReference, Timestamp};

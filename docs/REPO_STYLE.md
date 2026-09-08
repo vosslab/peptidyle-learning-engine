@@ -72,7 +72,7 @@ vendored header in each file restates it, and `AGENTS.md` points here.
 
 - The first paragraph of `README.md` is the source text for the GitHub About description.
 - The first paragraph must remain readable as raw Markdown source text.
-- Repository About descriptions must stay under 250 characters.
+- Repository About descriptions must stay at or below 350 characters.
 - Agents edit only the first paragraph of `README.md`; the user copies that text into the GitHub About field.
 - Write a clear, searchable hook that helps readers quickly understand the repository.
 - Lead with the repository purpose and the main user benefit.
@@ -180,16 +180,17 @@ Preferred structure:
 ## Scripts and executables
 - Keep scripts self-contained and single-purpose.
 - Add a shebang for executable scripts and keep them runnable directly.
-- `tools/` holds optional domain-facing utilities for regular users. Their inputs and outputs are
-  user data and useful domain artifacts.
-- `devel/` holds engineering commands for highly technical maintainers. Git, versioning, release,
-  dependency refresh, builds, source generation, lint, benchmarks, captures, and diagnostics live
-  here.
-- Primary product workflows belong in the application CLI. Reusable behavior belongs in an
-  importable package. Keep `tools/` and `devel/` as thin entry-point locations; `tests/` holds tests
-  and test-only support.
-- A large support command may delegate to a native helper package. Follow the repository-structure
-  rule: one named package stays at the root, while `packages/` groups multiple native packages.
+- Use `tools/` for optional standalone user utilities. Domain input produces a useful domain result.
+  A utility may be one script or a self-contained directory with its own helpers, standard-library
+  modules, and installed dependencies declared in the repository's manifests. It remains
+  independent of repository-local packages.
+- Use `devel/` for maintainer and repository-engineering commands. Source, builds, environments,
+  diagnostics, releases, generated artifacts, and local engineering helpers belong here. Vendored
+  engineering helpers stay here too.
+- Use the application CLI or package for primary workflows and reusable application behavior.
+- Use an optional local `launchers/` directory for thin compatibility or convenience delegates
+  into the application. Create it only when a repository needs it; propagation does not require it.
+- Keep `tests/` for tests and test-only support.
 - For repo-local Python commands, use:
   - `source source_me.sh && python ...`
 - For pytest commands, use:
@@ -230,9 +231,9 @@ report.
   each repo adds the line for itself.
 - When a repo needs its repo-root modules importable while commands run from a
   subdirectory without installing the repo -- most commonly a repo-root package
-  imported package-qualified (for example `import mypackage.module`), or scripts
-  under `tools/` or `tests/` that import repo-root modules -- uncomment the
-  canonical extension block in that repo's `source_me.sh`. Use exactly this
+  imported package-qualified (for example `import mypackage.module`) from an
+  application-facing launcher, or tests that import repo-root modules -- uncomment
+  the canonical extension block in that repo's `source_me.sh`. Use exactly this
   idiom (it assumes the repo is inside a Git work tree):
   ```bash
   # Must come after sourcing ~/.bashrc, which clears PYTHONPATH.

@@ -1,8 +1,8 @@
 # Test evidence model
 
 PLE uses evidence that matches the claim being made. Fast checks protect narrow
-logic; a restored canonical browser suite will prove visible product behavior;
-service oracles prove the service boundaries that a browser cannot distinguish.
+logic; the canonical browser suite proves visible product behavior; service
+oracles prove the service boundaries that a browser cannot distinguish.
 This document classifies that evidence. Each bounded work item owns its exact command list;
 [ROADMAP.md](ROADMAP.md) owns durable release acceptance.
 
@@ -100,9 +100,9 @@ the implementation handoff or acceptance receipt, then remove the probe when
 the investigation is complete. When in doubt, remove the test.
 
 The current permanent suite contains callable unit, contract, security, and
-hygiene behavior checks, plus its declared real-service gates. The restored
-production-browser owner will be a separate required release gate. The suite
-does not preserve a superseded browser application's source inventory or a
+hygiene behavior checks, plus its declared real-service gates. The separate
+production-browser owner accepted M19 on 2026-09-07 and remains outside the
+permanent suite. The suite does not preserve a superseded browser application's source inventory or a
 dated screenshot-path inventory as a regression contract.
 
 ## Focused unit evidence
@@ -197,22 +197,24 @@ The fixed demo has one Instructor persona, so foreign-Instructor enforcement is
 procedure/catalog evidence rather than browser evidence. Neither path proves
 email delivery or M19 serial-browser acceptance.
 
-M12 has focused decoder/cardinality and asset-free native-control evidence for
-seven render-only controls. It remains active, not complete: a real issued
-HOTSPOT needs an authority-compatible managed Question Asset registry, delivery,
-and rendition path. Direct SQL/S3 seed data is not acceptance evidence.
+M12 is complete: `bash tests/e2e/e2e_live_demo_native_controls.sh` passed on
+2026-09-07 against a fresh controller-managed fixed HTTPS stack. It proves strict
+decoding and keyboard-valid local states for all eight native controls, including
+HOTSPOT, and authorized Question Asset delivery with indistinguishable concealment
+for unauthorized or malformed references. It does not claim M13 submission,
+grading, feedback, recovery, or M19's broader serial browser journey.
 
-The restored owner will regenerate the fixed disposable stack, serve the
-production bundle through its HTTPS gateway, and run its selected real-stack
-scenarios serially. The browser path will travel through the same-origin
+The M19 owner regenerated the fixed disposable stack, served the production
+bundle through its HTTPS gateway, and ran its selected real-stack scenarios
+serially on 2026-09-07. The browser path travels through the same-origin
 gateway to the real API, PostgreSQL, MinIO, worker, renderer, authentication,
 authorization, and seeded live-demo data. It will accept focused scenario,
 file, or grep selection only through that owner and its declared scenario
 contract. Each focused run will receive a fresh baseline; a complete run will
 share one fixed stack while scenario namespaces keep product state independent.
 
-The restored browser suite will create and change product state through visible
-PLE workflows and assert visible, accessible behavior. The frozen baseline,
+The browser suite creates and changes product state through visible PLE workflows
+and asserts visible, accessible behavior. The frozen baseline,
 private bootstrap inputs, and induced infrastructure faults are harness setup,
 not product-state shortcuts. Favor reload, a second authorized session, or an
 authorized observer as the persistence proof for a user-visible result.

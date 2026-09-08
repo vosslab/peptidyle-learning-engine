@@ -14,7 +14,7 @@ pub enum InstructorAccountState {
     Active,
     /// The Instructor Account remains durable but cannot authenticate.
     Deactivated,
-    /// A terminal Account State that M16 only projects, never creates.
+    /// A terminal Account State that this projection never creates.
     Closed,
 }
 

@@ -3,7 +3,7 @@
 //! This is deliberately the first small Course-owned Assignment boundary: an
 //! Instructor selects a bounded ordered set of currently Available Published
 //! Questions, saves with an Assignment Edit Number, validates, previews, and
-//! releases one immutable Assignment Revision. Student delivery remains M11.
+//! releases one immutable Assignment Revision. Student delivery uses its own boundary.
 
 use std::collections::BTreeSet;
 
@@ -137,7 +137,7 @@ pub enum AssignmentReleaseIssue {
 pub struct AssignmentReleaseValidation {
     /// True only when the current authored Assignment may create a Revision.
     pub can_release: bool,
-    /// All current release blockers in the small M10 release boundary.
+    /// All current release blockers in the small release boundary.
     pub issues: Vec<AssignmentReleaseIssue>,
 }
 
@@ -163,7 +163,7 @@ pub struct ReleasedLiveAssignment {
     pub revision_number: u64,
 }
 
-/// Store boundary for M10 Assignment Workspace and release operations.
+/// Store boundary for Assignment Workspace and release operations.
 #[async_trait]
 pub trait LiveAssignmentStore: Send + Sync {
     /// Lists answer-free currently Available Published Questions for one authorized picker.

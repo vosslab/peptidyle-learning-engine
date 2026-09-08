@@ -1,4 +1,4 @@
-//! Private M13/M14 response submission and status handlers.
+//! Private response submission and status handlers.
 
 use axum::{
     Json,

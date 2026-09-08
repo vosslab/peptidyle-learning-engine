@@ -1,4 +1,4 @@
-// Strict same-origin transport for M9 Course Roster routes.
+// Strict same-origin transport for Course Roster routes.
 
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { ApiClient } from "../client";
@@ -42,7 +42,7 @@ async function rosterJson<T>(
   return decoder(await boundedResponseJson(response, path), "response");
 }
 
-/** Composes M9 separately from the legacy generic Course Roster client. */
+/** Composes this capability separately from the legacy generic Course Roster client. */
 export function createLiveCourseRosterClient(
   fetchImplementation: ApiFetch,
   basePath: string,

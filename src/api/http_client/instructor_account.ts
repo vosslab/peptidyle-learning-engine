@@ -43,7 +43,7 @@ async function instructorAccountJson<T>(
   return decoder(await boundedResponseJson(response, path), "response");
 }
 
-/** Composes M16 independently from ordinary course-account surfaces. */
+/** Composes this capability independently from ordinary Course-account surfaces. */
 export function createInstructorAccountClient(
   fetchImplementation: ApiFetch,
   basePath: string,

@@ -1,4 +1,4 @@
-// Strict same-origin transport for the M10 Assignment Workspace and release boundary.
+// Strict same-origin transport for the Assignment Workspace and release boundary.
 
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
@@ -86,7 +86,7 @@ async function assignmentJson<T>(
   return { body: decoder(await boundedResponseJson(response, path), "response"), response };
 }
 
-/** Composes M10 separately from stale generic Assignment Workspace clients. */
+/** Composes this capability separately from stale generic Assignment Workspace clients. */
 export function createLiveAssignmentReleaseClient(
   fetchImplementation: ApiFetch,
   basePath: string,

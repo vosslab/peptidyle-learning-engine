@@ -1,6 +1,6 @@
 //! Live Course Instance creation and initial teaching-team Server Routes.
 //!
-//! M8 exposes the smallest live-teaching boundary: an exact Blueprint Revision
+//! This module exposes the smallest live-teaching boundary: an exact Blueprint Revision
 //! becomes a Course Instance with one Assigned Instructor.  Roster, Assignment,
 //! and Student delivery routes remain outside this module.
 

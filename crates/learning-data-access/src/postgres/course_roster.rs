@@ -1,4 +1,4 @@
-//! PostgreSQL implementation of the M9 Course Roster lifecycle.
+//! PostgreSQL implementation of the Course Roster lifecycle.
 
 use async_trait::async_trait;
 use question_model::CourseInstanceReference;

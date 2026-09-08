@@ -1,4 +1,4 @@
-//! M11 Student Assignment Access and answer-free Assignment start routes.
+//! Student Assignment Access and answer-free Assignment start routes.
 
 use std::{collections::BTreeMap, str::FromStr, sync::Arc};
 
@@ -379,7 +379,7 @@ async fn issue_native_webwork_presentation_from_sources(
 }
 
 /// A released Assignment may contain both supported native source backends.
-/// Build all exact pins before the single M11 locked commit; the commit's
+/// Build all exact pins before the single locked commit; the commit's
 /// set-equality check then prevents issuing a partial Assignment Attempt.
 async fn issue_mixed_native_presentation(
     state: &StateData,

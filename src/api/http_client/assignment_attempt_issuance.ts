@@ -1,4 +1,4 @@
-// Strict same-origin transport for M11 Student Assignment Access and start.
+// Strict same-origin transport for Student Assignment Access and start.
 
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
@@ -54,7 +54,7 @@ async function assignmentJson<T>(
   return decoder(await boundedResponseJson(response, path), "response");
 }
 
-/** Composes M11 separately from generic, UUID-based attempt clients. */
+/** Composes this capability separately from generic, UUID-based attempt clients. */
 export function createLiveAssignmentAttemptIssuanceClient(
   fetchImplementation: ApiFetch,
   basePath: string,

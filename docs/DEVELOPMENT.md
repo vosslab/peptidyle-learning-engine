@@ -206,7 +206,8 @@ Podman/browser execution separately as one-time evidence.
 For the first teaching set, run `cargo tools pilot-content` for the tracked
 source/compiler contract. Fixed seed/manifest and Rust behavior tests own its
 publication semantics; the canonical live-demo lifecycle installs that baseline.
-Browser scenarios remain staged source until the fresh browser owner is present.
+The fresh browser owner accepted M19 on 2026-09-07; browser scenarios remain separate from the
+permanent fast lane and should be rerun when a material change affects their declared boundary.
 
 Chapter 1 replay is manifest-resume only. The answer-free host-only manifest records the assigned
 Question IDs and exact immutable internal references from the first publication; a replay resolves

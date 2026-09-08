@@ -1,4 +1,4 @@
-//! M9 Course Roster Import, invitation claim, and access-revocation routes.
+//! Course Roster Import, invitation claim, and access-revocation routes.
 
 use std::{str::FromStr, sync::Arc};
 

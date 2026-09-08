@@ -1,4 +1,4 @@
-// Strict decoding for the answer-free M15 Gradebook projection.
+// Strict decoding for the answer-free Gradebook projection.
 
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
@@ -80,7 +80,7 @@ function gradedWork(value: unknown, path: string): LiveDemoGradedStudentWork {
   };
 }
 
-/** Rejects any field outside the declared answer-free M15 projection. */
+/** Rejects any field outside the declared answer-free projection. */
 export function decodeLiveDemoGradebook(value: unknown, path = "response"): LiveDemoGradebook {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["courseReference", "gradedStudentWork"]);

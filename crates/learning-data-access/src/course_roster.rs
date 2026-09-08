@@ -95,7 +95,7 @@ pub struct CourseRosterEntry {
     pub state: CourseRosterEntryState,
 }
 
-/// The only M9 roster states visible to the direct Teaching Team.
+/// The only roster states visible to the direct Teaching Team.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CourseRosterEntryState {
@@ -113,7 +113,7 @@ pub struct ClaimedCourseInvitation {
     pub active_student_membership: bool,
 }
 
-/// Session-authorized persistence boundary for the M9 roster lifecycle.
+/// Session-authorized persistence boundary for the roster lifecycle.
 #[async_trait]
 pub trait CourseRosterStore: Send + Sync {
     /// Lists the direct Instructor's authorized current roster projection.

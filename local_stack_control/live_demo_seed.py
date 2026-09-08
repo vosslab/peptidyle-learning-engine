@@ -80,8 +80,8 @@ SEEDED_ACCOUNTS = (
 	),
 )
 
-# Private fixed Student Authentication Email bindings let M9 exercise the
-# normal Course Roster Import resolution path for the seeded Student sessions.
+# Private fixed Student Authentication Email bindings let the seeded sessions
+# exercise the normal Course Roster Import resolution path.
 SEEDED_STUDENT_AUTHENTICATION_EMAILS = (
 	("00000000-0000-0000-0000-000000000102", "mary.student@live-demo.invalid"),
 	("00000000-0000-0000-0000-000000000103", "jack.student@live-demo.invalid"),

@@ -1,4 +1,4 @@
-// Strict decoding for the M8 Course Instance creation and teaching-team boundary.
+// Strict decoding for the Course Instance creation and Teaching Team boundary.
 
 import type { AccountReference } from "../../../generated/api/AccountReference";
 import type {
@@ -51,7 +51,7 @@ function summary(value: unknown, path: string): CourseInstanceSummary {
   };
 }
 
-/** Strictly validates the small M8 creation request before it crosses the transport boundary. */
+/** Strictly validates the creation request before it crosses the transport boundary. */
 export function decodeCreateCourseInstanceInput(
   value: unknown,
   path = "request",

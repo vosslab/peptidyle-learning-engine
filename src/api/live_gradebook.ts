@@ -1,4 +1,4 @@
-// Browser-safe M15 Instructor Gradebook evidence boundary.
+// Browser-safe Instructor Gradebook evidence boundary.
 
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
@@ -12,7 +12,7 @@ export interface LiveDemoGradedStudentWork {
   readonly pointsPossible: number;
 }
 
-/** The complete M15 browser projection for one current Instructor course. */
+/** The complete browser projection for one current Instructor Course. */
 export interface LiveDemoGradebook {
   readonly courseReference: CourseInstanceReference;
   readonly gradedStudentWork: ReadonlyArray<LiveDemoGradedStudentWork>;

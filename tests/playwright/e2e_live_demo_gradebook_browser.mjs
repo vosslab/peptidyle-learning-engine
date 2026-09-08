@@ -1,4 +1,4 @@
-// Production-browser proof for the focused answer-free M15 Gradebook.
+// Production-browser proof for the focused answer-free Gradebook.
 
 import { chromium } from "playwright";
 

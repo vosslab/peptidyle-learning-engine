@@ -1,4 +1,4 @@
-// Browser contract for M9 Course Roster Import and current roster access.
+// Browser contract for Course Roster Import and current roster access.
 
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 
@@ -20,7 +20,7 @@ export interface CourseRosterEntry {
   readonly state: "invitationPending" | "activeStudent";
 }
 
-/** Same-origin M9 roster transport boundary. */
+/** Same-origin roster transport boundary. */
 export interface LiveCourseRosterClient {
   readonly getLiveCourseRoster: (
     course: CourseInstanceReference,

@@ -1,4 +1,4 @@
-// M10 direct-Instructor Assignment Workspace and answer-free Assignment Preview.
+// Direct-Instructor Assignment Workspace and answer-free Assignment Preview.
 
 import { A, useNavigate, useParams } from "@solidjs/router";
 import { For, Show, createEffect, createResource, createSignal, type JSX } from "solid-js";
@@ -31,7 +31,7 @@ function canonicalDueAt(value: string): CourseLocalDateAndTime | null {
   return normalized;
 }
 
-/** Bounded M10 workspace: no Student identity, records, work, or answers cross this surface. */
+/** Bounded workspace: no Student identity, records, work, or answers cross this surface. */
 export function AssignmentReleasePage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const navigate = useNavigate();

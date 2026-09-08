@@ -131,7 +131,7 @@ function QuestionResponseControlBody(props: QuestionResponseControlProps): JSX.E
       );
     case "imathasQuestionBackend":
       // A dedicated iMathAS launch is a submission-capable integration, not a
-      // native format-only control. M12 deliberately does not activate it.
+      // native format-only control. It is available only through the submission integration.
       return props.mode === "formatOnly" || props.onSubmit === undefined ? (
         <p class="calm-status" role="status">
           This response format is not available for local checking.

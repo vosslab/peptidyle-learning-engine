@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Disposable M11 acceptance: Student Assignment Access and answer-free start.
+# Disposable acceptance: Student Assignment Access and answer-free start.
 
 set -euo pipefail
 
@@ -240,7 +240,7 @@ SELECT 'assignment_attempt_authority';"
 
 prove_start() {
 	local instructor_cookie student_cookie sysadmin_cookie postgres references course assignment access started resumed expired_assignment rejected
-	# M10 is the exact public authoring/release predecessor; it creates only one released fixed Question Assignment.
+	# Public authoring and release create the one released fixed Question Assignment.
 	bash "$repository_root/tests/e2e/e2e_live_demo_assignment_release.sh" --service >/dev/null
 	instructor_cookie="$(persona_cookie elenaInstructor)"; student_cookie="$(persona_cookie maryStudent)"; sysadmin_cookie="$(persona_cookie morganSysadmin)"
 	postgres="$(service_id postgres)"; references="$(released_references "$postgres")"; read -r course assignment <<<"$references"
@@ -265,7 +265,7 @@ prove_start() {
 	assert_started "$(response_body "$resumed")" true 1
 	assert_same_presentation "$(response_body "$started")" "$(response_body "$resumed")"
 	assert_database_evidence "$course" "$assignment"
-	# A second Assignment sets its policy through M10 before immutable release.
+	# A second Assignment sets its policy through public authoring before immutable release.
 	expired_assignment="$(create_reject_late_assignment "$course" "$instructor_cookie")"
 	access="$(request "/api/course-instances/$course/assignments/$expired_assignment/access" "$student_cookie")"
 	if [ "$(response_status "$access")" != "200" ]; then echo "Student could not read the due Assignment Access" >&2; exit 1; fi

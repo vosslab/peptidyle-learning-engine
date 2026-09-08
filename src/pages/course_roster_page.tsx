@@ -1,4 +1,4 @@
-// course_roster_page.tsx - M9 Course Roster Import and protected roster projection.
+// course_roster_page.tsx - Course Roster Import and protected roster projection.
 
 import { A, useParams } from "@solidjs/router";
 import { For, Show, createResource, createSignal, type JSX } from "solid-js";

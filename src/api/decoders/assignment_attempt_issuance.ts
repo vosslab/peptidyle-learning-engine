@@ -1,4 +1,4 @@
-// Strict decoders for the bounded M11 Student Assignment delivery surface.
+// Strict decoders for the bounded Student Assignment delivery surface.
 
 import type {
   AssignmentStartDecision,
@@ -91,7 +91,7 @@ export function decodeLiveAssignmentAttempt(
   };
 }
 
-/** Strictly decodes the M13 public acknowledgement, not the retained UUID attempt receipt. */
+/** Strictly decodes the public acknowledgement, not the retained UUID attempt receipt. */
 export function decodeLiveNativePleSubmissionAcknowledgement(
   value: unknown,
   path = "response",

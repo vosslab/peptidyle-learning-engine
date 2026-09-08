@@ -18,8 +18,8 @@ import type { ResponseFormatValidator } from "../../wasm/index";
 
 export type ResponseFormat = QuestionResponseFormat | QuestionPresentationResponseFormat;
 /**
- * M12 uses the same native controls as M13, but does not expose a submission
- * boundary before Question Submission exists.  Keep that distinction at the
+ * Format-only and submission modes share native controls, but only submission
+ * mode exposes the Question Submission boundary. Keep that distinction at the
  * shared controller boundary so each response-format component stays native.
  */
 export type ResponseControlMode = "submission" | "formatOnly";
@@ -69,7 +69,7 @@ export interface StudentWorkRouteScope {
 
 export interface QuestionResponseControlBaseProps {
   readonly attemptId: string;
-  /** M12 format-only controls have no Student Response submission capability. */
+  /** Format-only controls have no Student Response submission capability. */
   readonly mode?: ResponseControlMode;
   /** Question Response Controls require only the key-free local format validation capability. */
   readonly validator: { readonly validateResponseFormat: ResponseFormatValidator };

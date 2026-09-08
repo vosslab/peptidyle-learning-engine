@@ -159,7 +159,7 @@ pub struct NativeWebworkPresentationInput {
     pub replay_details: Option<serde_json::Value>,
 }
 
-/// Store boundary for Student Assignment Access and M11 initial issue.
+/// Store boundary for Student Assignment Access and initial issue.
 #[async_trait]
 pub trait LiveAssignmentDeliveryStore: Send + Sync {
     /// Resolves only the Student-authorized fixed WeBWorK source pins for the

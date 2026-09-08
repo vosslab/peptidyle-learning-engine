@@ -4,10 +4,10 @@ This page answers common orientation questions about PLE's learning model, reusa
 Courses, private Course Instances, security boundaries, and local services. It links to the
 authoritative contracts for implementation detail.
 
-The only current browser capability is the disposable Live Demo's seeded Account session entry.
-Unless an answer explicitly identifies that boundary, its course, authoring, delivery, grading,
-and administration details describe the retained product contract rather than a current Server
-Route. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the executable boundary.
+The disposable Live Demo is the current connected PLE application. Its seeded Account entry
+replaces identity verification only; the implemented role- and relationship-gated routes are
+listed in [API_CONTRACTS.md](API_CONTRACTS.md). Answers that describe deferred work say so
+explicitly. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the executable boundary.
 
 ## What is a Blueprint Course?
 
@@ -26,12 +26,11 @@ grades, and delivery settings. It is the only course type that receives student 
 
 ## How will I create a course?
 
-The retained course-creation design chooses an existing published Blueprint Course or first creates
-a minimal new Blueprint Course. Its future UI creates the Course Instance with its own teaching
-title, term, and IANA time zone. The instance receives reusable Blueprint Revision Content and
-reviewed relative schedule offsets, then resolves live dates against its term. Students, invitations,
-grades, and other delivery state are never copied from another instance. No course-creation route
-exists in the current demo.
+The current Instructor workflow can create a Course Instance from a published Blueprint Course.
+The retained design also permits first creating a minimal Blueprint Course. A Course Instance has
+its own teaching title, term, and IANA time zone; it receives reusable Blueprint Revision Content
+and reviewed relative schedule offsets, but never Students, invitations, grades, or other delivery
+state from another instance.
 
 ## How do Blueprint updates reach a Course Instance?
 
@@ -151,10 +150,10 @@ the current naming and visual/documentation close-out. Provider, mailbox, passke
 
 ## Is the live demo read-only?
 
-The current demo can establish a server-owned session, but it exposes no Course, authoring,
-roster, delivery, submission, grading, Gradebook, or administration route. It therefore cannot
-currently demonstrate a mutating teaching workflow. Its database and object storage are disposable:
-regeneration restores seeded state. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
+No. The current demo is a functional, disposable PLE installation with implemented Course,
+authoring, roster, delivery, submission, grading, Gradebook, and bounded administration workflows.
+Its database and object storage are disposable, so regeneration restores seeded state. See
+[LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
 
 ## Are live-demo roles isolated from one another?
 

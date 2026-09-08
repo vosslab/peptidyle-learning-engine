@@ -27,7 +27,7 @@ function failureCopy(): string {
   return "That Instructor Account change could not be completed. Check the account state and try again.";
 }
 
-/** Sysadmin-only M16 account creation and lifecycle actions. */
+/** Sysadmin-only Account creation and lifecycle actions. */
 export function InstructorAccountsPage(): JSX.Element {
   const runtime = useApplicationApi();
   const session = useSessionBootstrap();

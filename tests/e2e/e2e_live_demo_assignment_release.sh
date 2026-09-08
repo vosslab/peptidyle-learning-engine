@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Disposable M10 service acceptance: Assignment Workspace and immutable release.
+# Disposable service acceptance: Assignment Workspace and immutable release.
 
 set -euo pipefail
 

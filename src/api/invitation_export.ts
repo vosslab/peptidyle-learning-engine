@@ -1,4 +1,4 @@
-// Browser contract for the M18 protected Course Invitation mailer export.
+// Browser contract for the protected Course Invitation mailer export.
 
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 

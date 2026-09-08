@@ -1,4 +1,4 @@
-// gradebook_page.tsx - focused M15 answer-free Instructor Gradebook.
+// gradebook_page.tsx - focused answer-free Instructor Gradebook.
 
 import { For, Show, createResource, type JSX } from "solid-js";
 

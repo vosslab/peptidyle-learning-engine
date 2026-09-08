@@ -65,7 +65,7 @@ pub struct CourseInstanceView {
     pub course: CourseInstanceSummary,
     /// Whether the current Instructor is the required Assigned Instructor.
     pub is_assigned_instructor: bool,
-    /// Current Teaching Team size; M8 creates exactly one Instructor membership.
+    /// Current Teaching Team size; creation starts with exactly one Instructor membership.
     pub active_instructor_count: u32,
 }
 
@@ -87,7 +87,7 @@ pub struct CreatedCourseInstance {
     pub creator_is_assigned_instructor: bool,
 }
 
-/// Persistence contract for the M8 Course Instance and initial teaching-team boundary.
+/// Persistence contract for the Course Instance and initial Teaching Team boundary.
 #[async_trait]
 pub trait CourseInstanceStore: Send + Sync {
     /// Lists only Course Instances where the current Account has an active Instructor Course Membership.

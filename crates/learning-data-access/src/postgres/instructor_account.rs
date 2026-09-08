@@ -17,7 +17,7 @@ pub struct PostgresInstructorAccountStore {
 }
 
 impl PostgresInstructorAccountStore {
-    /// Binds the attested API pool to M16 procedures.
+    /// Binds the attested API pool to Instructor Account procedures.
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }

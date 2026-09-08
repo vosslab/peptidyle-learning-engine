@@ -1,5 +1,5 @@
-// Production-browser proof for M12's eight native response controls.
-// It uses only visible seeded sign-in and keyboard interaction.  M13 submission/grading is absent.
+// Production-browser proof for the eight native response controls.
+// It uses only visible seeded sign-in and keyboard interaction; submission and grading are absent.
 
 import { chromium } from "playwright";
 

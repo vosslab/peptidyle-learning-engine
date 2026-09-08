@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Disposable M13 WP13-1 acceptance: one native PLE Student Response submission.
+# Disposable acceptance: one native PLE Student Response submission.
 
 set -euo pipefail
 
@@ -113,7 +113,7 @@ nonce=question.get("presentationNonce")
 response_format=question.get("response")
 if not isinstance(nonce,str) or not re.fullmatch(r"[0-9a-f]{32}",nonce) or not isinstance(response_format,dict):
     raise SystemExit("Question Submission prerequisite is malformed")
-# M13 submits the ordinary seeded single-choice PLE question.  This derives a
+# This submits the ordinary seeded single-choice PLE question. This derives a
 # format-valid choice from the public descriptor without reading source or an answer.
 if response_format.get("kind") != "singleChoice" or set(response_format) != {"kind","choices"}:
     raise SystemExit("Question Submission prerequisite did not issue the fixed single-choice PLE format")
@@ -156,8 +156,8 @@ last_submission_nonce=""
 
 prove_submit() {
 	local student_cookie references course assignment started issued nonce body repeated path
-	# M11 is the exact predecessor: it creates and authorizes the answer-free
-	# native PLE Question Presentation through the public C-/A- routes.
+	# Assignment access creates and authorizes the answer-free native PLE
+	# Question Presentation through the public C-/A- routes.
 	bash "$repository_root/tests/e2e/e2e_live_demo_assignment_attempt.sh" --start >/dev/null
 	student_cookie="$(persona_cookie maryStudent)"
 	references="$(current_native_ple_assignment)"; read -r course assignment <<<"$references"

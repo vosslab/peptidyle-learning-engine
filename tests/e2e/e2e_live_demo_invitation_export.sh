@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Disposable M18 acceptance: protected pending-invitation export and attended-mailer dry run.
+# Disposable acceptance: protected pending-invitation export and attended-mailer dry run.
 
 set -euo pipefail
 

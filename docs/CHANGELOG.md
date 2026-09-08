@@ -90,6 +90,14 @@ bounded renderer failure complete`; `Live Demo WeBWorK grade: PASS`. The
 
 ### Fixes and Maintenance
 
+- Reconciled current implementation, evidence, and accessibility documentation
+  after an independent whole-codebase audit. Retired unreferenced browser-E2E
+  support now leaves the registered serial owner as the only active path;
+  permanent source comments describe current capability boundaries rather than
+  temporary execution labels; and screenshot capture uses the shared Git-root
+  anchor. The audit kept the fast-suite CLI-scan and selected-E2E-runner policy
+  questions explicit rather than adding speculative test machinery.
+
 - Restored the Student-owned Assignments Ribbon tab during Assignment Access
   and Question Presentation, and retained that selected tab at the existing
   Student Course landing route. Server and route authorization are unchanged.
@@ -138,6 +146,7 @@ bounded renderer failure complete`; `Live Demo WeBWorK grade: PASS`. The
   accidental first-card selection. Closed the Ribbon fixture parameter maps
   over the current declared route parameters, so a future route parameter
   cannot silently leave shared test support untyped.
+- Synchronized shared style guides, tests, and repository support files from the starter template.
 
 ### Removals and Deprecations
 

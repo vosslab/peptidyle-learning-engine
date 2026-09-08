@@ -1,4 +1,4 @@
-// M11 Student Assignment Access and initial issued presentation.
+// Student Assignment Access and initial issued presentation.
 
 import { A, createAsync, useParams } from "@solidjs/router";
 import { createEffect, createSignal, For, Match, Show, Switch, untrack, type JSX } from "solid-js";
@@ -61,7 +61,7 @@ function acceptedSubmissionStorageKey(
   return `live-native-ple-submission:${courseReference}:${assignmentReference}:${presentationNonce}`;
 }
 
-/** M11 uses only public C-/A- references and keeps the response boundary for M12. */
+/** Public Course and Assignment References locate the view; the server re-authorizes each response. */
 export function AssignmentOverviewPage(): JSX.Element {
   const runtime = useApplicationApi();
   const validator = useWasmFacade();

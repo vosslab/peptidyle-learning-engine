@@ -351,10 +351,10 @@ browser-free real-service lanes, and cleans each disposable owner exactly: the
 disposable PostgreSQL schema, authority, and persistence oracle; and the Course
 Appearance PostgreSQL and MinIO coherence oracle. The future two-API profile
 returns with the fresh implemented course-delivery Store contract. Renderer,
-database, object-store, and worker checks are service evidence, not substitute
-browser journeys. The production-browser owner is currently unavailable, so its
-visible/browser acceptance has not run; see [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)
-for that release-blocking boundary, the required evidence classes, and final gate order.
+database, object-store, and worker checks are service evidence, not substitutes for browser
+journeys. The separate serial production-browser owner, `./devel/run_playwright_tests.sh --build`,
+accepted M19 on 2026-09-07; it remains outside this two-lane service command. See
+[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for evidence classes and gate boundaries.
 
 ## Production boundary
 

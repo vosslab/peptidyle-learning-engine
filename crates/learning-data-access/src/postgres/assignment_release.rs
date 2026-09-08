@@ -1,4 +1,4 @@
-//! PostgreSQL persistence for the M10 Assignment Workspace and release boundary.
+//! PostgreSQL persistence for the Assignment Workspace and release boundary.
 
 use async_trait::async_trait;
 use question_model::{
@@ -23,7 +23,7 @@ pub struct PostgresLiveAssignmentStore {
 }
 
 impl PostgresLiveAssignmentStore {
-    /// Binds the attested API pool to M10 procedures.
+    /// Binds the attested API pool to Assignment Workspace procedures.
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }

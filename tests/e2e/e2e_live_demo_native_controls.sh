@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Disposable M12 acceptance: real native static-PLE response formats, never submission or grading.
+# Disposable acceptance: real native static-PLE response formats, never submission or grading.
 
 set -euo pipefail
 
@@ -192,7 +192,7 @@ if not isinstance(items, list) or "PNE-0004" not in {item.get("questionId") for 
 create_and_issue_native_catalog() {
 	local instructor_cookie student_cookie course created assignment edit saved released issued format
 	local -a question_ids=() formats=(singleChoice multipleAnswer fillIn multiFillIn numeric matching ordering)
-	# M10 supplies a direct-Instructor Course Instance; this runner then uses public M6/M10/M11 routes only.
+	# Authoring supplies a direct-Instructor Course Instance; this runner uses public routes only.
 	bash "$repository_root/tests/e2e/e2e_live_demo_assignment_release.sh" --service >/dev/null
 	instructor_cookie="$(persona_cookie elenaInstructor)"; student_cookie="$(persona_cookie maryStudent)"
 	course="$(latest_course_reference)"
@@ -250,7 +250,7 @@ prove_asset_route() {
 prove_format() {
 	create_and_issue_native_catalog
 	# The actual answer-free issuance is decoded by the same strict browser contract.  The malformed
-	# value is entirely in memory; this runner never calls an M13 submission or grading endpoint.
+	# value is entirely in memory; this runner never calls a submission or grading endpoint.
 	node --import tsx --input-type=module -e '
 import { decodeLiveAssignmentAttempt } from "./src/api/decoders/assignment_attempt_issuance.ts";
 const actual = JSON.parse(process.argv[1]);

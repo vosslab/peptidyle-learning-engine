@@ -121,8 +121,4 @@ learning-data-access = { path = "./crates/learning-data-access" }
 adapter_ple = { path = "./crates/adapters/ple" }
 adapter_webwork = { path = "./crates/adapters/webwork" }
 adapter_qti = { path = "./crates/adapters/qti" }
-adapter_h5p = { path = "./crates/adapters/h5p" }
 adapter_imathas = { path = "./crates/adapters/imathas" }
-export_crate = { path = "./crates/export" }
-wasm_bridge = { path = "./crates/wasm" }
-server_core = { path = "./crates/server" }

@@ -1,4 +1,4 @@
-//! PostgreSQL adapter for M11 Student Assignment Access and initial issue.
+//! PostgreSQL adapter for Student Assignment Access and initial issue.
 
 use async_trait::async_trait;
 use question_model::{AssignmentReference, CourseInstanceReference};
@@ -20,7 +20,7 @@ pub struct PostgresLiveAssignmentDeliveryStore {
 }
 
 impl PostgresLiveAssignmentDeliveryStore {
-    /// Binds the attested API pool to M11 procedures.
+    /// Binds the attested API pool to Student Assignment Access procedures.
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }

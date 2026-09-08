@@ -34,7 +34,6 @@ const browserUse = productionBrowserUse(process.env);
 
 export default defineConfig({
   testDir: "tests/playwright/e2e",
-  testIgnore: ["**/fault_handshake_worker.spec.ts"],
   timeout: 30_000,
   fullyParallel: false,
   workers: 1,

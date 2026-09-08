@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Disposable M17 WP-M17-1 acceptance: closed exact-course support issuance.
+# Disposable acceptance: closed exact-course support issuance.
 
 set -euo pipefail
 

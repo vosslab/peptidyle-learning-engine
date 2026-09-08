@@ -62,11 +62,10 @@ summary. The context exposes the authorized `CourseRouteView` to the course entr
 the scope is below the persistent shell and therefore cannot leak a prior
 course's CSS variables onto a global route.
 
-The workspace editor is browser authoring groundwork, not an implemented server capability. Its route
-guard limits the interface to Instructors and its keyed resource models a private-draft read, but
-the current `server_core` exposes no Authoring Workspace Store or editor HTTP route. The upcoming
-service must resolve the route-selected opaque Draft Question Reference under Authoring Workspace
-access before it returns any draft. The answer-free preview remains separate, and private author
+The workspace editor is an implemented bounded Instructor authoring capability. Its route guard
+and server boundary resolve the route-selected opaque Draft Question Reference under Authoring
+Workspace access before returning any draft; the current routes are listed in
+[API_CONTRACTS.md](API_CONTRACTS.md). The answer-free preview remains separate, and private author
 source does not enter Student components, URLs, browser storage, or diagnostics.
 
 QTI profile import is composed with the same browser editor model. Its future server route accepts

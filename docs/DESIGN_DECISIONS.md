@@ -724,7 +724,7 @@ authorization, Student ownership, and RLS control disclosure through separate St
 Student Course Memberships. Passkeys remain a deferred optional-convenience design for that
 Account.
 
-**Consequence.** The planned Course Roster Import transaction will use each
+**Consequence.** The current Course Roster Import transaction uses each
 institutional email to resolve an existing Student Account or create one when none exists, then
 complete its Store, route, invitation, and Course Enrollment transaction atomically. Current
 authentication ceremonies authenticate existing Accounts only. An authorized pre-activity Assignment read returns
@@ -738,10 +738,9 @@ Record, and invitation claim.
 [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md), and the course capabilities in
 `crates/learning-data-access` and `crates/server/src/course/`.
 
-**Planned closure.** Course Roster Import delivery must implement the Course Roster Import Service,
-invitation claim, and passwordless enrollment flow with their Stores, Server Routes, and transaction
-proof. The current baseline exposes none of those Server Routes. Operator-configured email-provider, optional-passkey,
-multi-replica, security, and HCI evidence remain open.
+**Current boundary and planned closure.** Course Roster Import and invitation claim are implemented
+with their Store, Server Route, and transaction evidence. Operator-configured email-provider,
+optional-passkey, multi-replica, security, and HCI evidence remain open.
 
 ### Course Roster change numbers stay exact
 

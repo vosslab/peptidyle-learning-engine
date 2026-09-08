@@ -1,4 +1,4 @@
-// Same-origin transport for the focused M15 Gradebook projection.
+// Same-origin transport for the focused Gradebook projection.
 
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { ApiClient } from "../client";
@@ -15,7 +15,7 @@ function gradebookPath(course: CourseInstanceReference): string {
   return `/api/course-instances/${encodeURIComponent(course)}/gradebook`;
 }
 
-/** Composes only the M15 registered answer-free Gradebook handler. */
+/** Composes only the registered answer-free Gradebook handler. */
 export function createLiveDemoGradebookClient(
   fetchImplementation: ApiFetch,
   basePath: string,

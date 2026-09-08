@@ -1,4 +1,4 @@
-// Strict same-origin transport for the M18 protected Course Invitation export.
+// Strict same-origin transport for the protected Course Invitation export.
 
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { ApiClient } from "../client";
@@ -31,7 +31,7 @@ function requireInvitationExportAttachment(response: Response, path: string): vo
   }
 }
 
-/** Composes M18 separately from generic Course and CSV-export clients. */
+/** Composes this capability separately from generic Course and CSV-export clients. */
 export function createLiveInvitationExportClient(
   fetchImplementation: ApiFetch,
   basePath: string,

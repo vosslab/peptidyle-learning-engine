@@ -1,4 +1,4 @@
-//! M15 current-Course Instructor Gradebook evidence route.
+//! Current-Course Instructor Gradebook evidence route.
 
 use std::{str::FromStr, sync::Arc};
 

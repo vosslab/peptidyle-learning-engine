@@ -1,4 +1,4 @@
-//! M10 direct-Instructor Assignment Workspace routes.
+//! Direct-Instructor Assignment Workspace routes.
 
 use std::{str::FromStr, sync::Arc};
 

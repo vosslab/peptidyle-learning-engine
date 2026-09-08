@@ -55,7 +55,7 @@ function BlueprintSourceSelect(props: {
   );
 }
 
-/** Live M8 Course Instance list and Instructor self-assignment creation task. */
+/** Course Instance list and Instructor self-assignment creation task. */
 export function CourseListPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const session = useSessionBootstrap();

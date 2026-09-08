@@ -1,9 +1,9 @@
-//! PLE server core for the clean single-installation baseline.
+//! PLE server core for the single-installation application.
 //!
-//! The current executable surface is deliberately small: one global Account
-//! session boundary plus the deployment-gated seeded Live Demo entry. Course,
-//! Question Library, and delivery routes return only after their fresh Store contracts
-//! and PostgreSQL capabilities are reconstructed on this foundation.
+//! The executable composes authentication, Live Demo, Question Library,
+//! authoring, Blueprint Course, Course Instance, roster, Account management,
+//! Gradebook, Assignment, asset-delivery, and support-capability routes over
+//! their typed Store contracts and PostgreSQL capabilities.
 
 /// Student Assignment Access and answer-free initial delivery routes.
 pub(crate) mod assignment_delivery;

@@ -216,9 +216,9 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
 
 Permanent tests protect stable user behavior, not today's component layout:
 
-- the built mock route completes course to assignment to question to explicit submission to
-  continued practice with the primary platform keys and no Question Response Control extension;
-- Question Type fixtures separately identify arrow, digit, Enter-to-submit, and Escape extension
+- current connected routes complete the implemented course-to-assignment-to-question workflow
+  through explicit submission and recovery with the primary platform keys;
+- Question Type evidence separately identifies arrow, digit, Enter-to-submit, and Escape extension
   regressions while operating real production components;
 - the student question and Student Feedback surfaces have no serious or critical axe findings;
 - focus management tests cover Student Feedback, summaries, route changes, recovery, and avoidance of
@@ -266,15 +266,11 @@ does not establish screen-reader comprehension, shortcut discoverability, or con
 
 ## Current evidence boundary
 
-The built mock single-choice journey proves the primary platform path. Rendered response fixtures
-prove the same Tab-and-Space path for multiple answer and ordering, then independently cover their
-arrows, native radio arrows, choice digits, Enter-to-submit, and Escape. Student Feedback and summary focus
-tests, the iMathAS Question Backend browser fixture, and the live WeBWorK browser gate are also implemented; the
-live gate exercises an extension path and does not replace the platform-key journey.
-The Chapter 1 release gate now exercises static and WeBWorK MATCH through visible keyboard controls.
-Numeric, short-text, FIB, MULTI-FIB, HOTSPOT, and unavailable-file behavior still rely partly on
-focused component/source evidence rather than a full route and must satisfy this contract as part of
-their Question Type acceptance rather than being deferred to a later generic accessibility pass.
+M12 accepted all eight native response controls, including HOTSPOT, reaching valid local states by
+keyboard on an issued Question Presentation. The M19 serial production-browser owner separately
+exercised connected Student recovery and visible workflows. Focused component and browser evidence
+continues to cover platform-key extensions such as arrows, digits, Enter, and Escape; it does not
+replace the remaining human assistive-technology acceptance below.
 
 The remaining human boundary is deliberate. Before claiming accessibility for the local Fall pilot,
 run representative VoiceOver/Safari and NVDA/browser walkthroughs through the visible local sign-in,

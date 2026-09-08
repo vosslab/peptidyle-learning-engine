@@ -11,7 +11,7 @@ use crate::{
     CreateCourseInstanceInput, CreatedCourseInstance, SessionTokenHash, StoreError,
 };
 
-/// PostgreSQL Store for M8 Course Instance creation and current teaching-team reads.
+/// PostgreSQL Store for Course Instance creation and current Teaching Team reads.
 #[derive(Clone)]
 pub struct PostgresCourseInstanceStore {
     pool: Pool,

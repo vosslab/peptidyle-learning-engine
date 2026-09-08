@@ -1,4 +1,4 @@
-// Browser contract for the M10 answer-free Assignment Workspace.
+// Browser contract for the answer-free Assignment Workspace.
 
 import type { AssignmentEditNumber } from "../../generated/api/AssignmentEditNumber";
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
@@ -62,7 +62,7 @@ export interface ReleasedLiveAssignment {
   readonly revisionNumber: number;
 }
 
-/** Same-origin M10 direct-Instructor Assignment Workspace boundary. */
+/** Same-origin direct-Instructor Assignment Workspace boundary. */
 export interface LiveAssignmentReleaseClient {
   readonly listLiveAssignmentQuestionPicker: (
     course: CourseInstanceReference,

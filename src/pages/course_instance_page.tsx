@@ -1,4 +1,4 @@
-// course_instance_page.tsx - M8 Course Instance teaching-team workspace.
+// course_instance_page.tsx - Course Instance Teaching Team workspace.
 
 import { A, useParams } from "@solidjs/router";
 import { createResource, Show, type JSX } from "solid-js";

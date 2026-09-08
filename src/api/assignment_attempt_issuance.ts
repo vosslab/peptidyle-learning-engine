@@ -1,4 +1,4 @@
-// Browser contract for the M11 Student Assignment Access and initial delivery.
+// Browser contract for Student Assignment Access and initial delivery.
 
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
@@ -13,7 +13,7 @@ export interface LiveAssignmentAccess {
   readonly startDecision: AssignmentStartDecision;
 }
 
-/** Initial or resumed Assignment Attempt presentation. M12 adds response controls. */
+/** Initial or resumed Assignment Attempt presentation with its response controls. */
 export interface LiveAssignmentAttempt {
   readonly assignment: AssignmentReference;
   readonly attemptNumber: number;
@@ -24,8 +24,7 @@ export interface LiveAssignmentAttempt {
 }
 
 /**
- * The deliberately small M13 acknowledgement for one already-issued native
- * PLE presentation. It does not disclose the private Question Attempt,
+ * Acknowledgement for one already-issued native PLE presentation. It does not disclose the private Question Attempt,
  * Question Submission, response, result, or grading receipt.
  */
 export interface LiveNativePleSubmissionAcknowledgement {
@@ -42,7 +41,7 @@ export interface LiveNativePleSubmissionStatus {
   readonly gradingState: "pending" | "graded" | "instructorAttention";
 }
 
-/** Same-origin M11 Student-only access and start boundary. */
+/** Same-origin Student-only access and start boundary. */
 export interface LiveAssignmentAttemptIssuanceClient {
   readonly getLiveAssignmentAccess: (
     course: CourseInstanceReference,

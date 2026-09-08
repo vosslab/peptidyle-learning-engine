@@ -1,8 +1,8 @@
-//! Idle worker lifecycle before typed Job execution is introduced.
+//! Typed native PLE and WebWork grading worker lifecycle.
 //!
 //! The process owns no HTTP listener and receives only its distinct database
-//! Service Identity. M3 replaces this idle loop with named claim-and-commit
-//! operations; it must not add direct protected-table access here.
+//! Service Identity. Claim-and-commit operations must not add direct
+//! protected-table access here.
 
 use anyhow::{Context, Result};
 use std::sync::Arc;

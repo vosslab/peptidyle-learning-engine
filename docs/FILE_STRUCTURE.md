@@ -221,13 +221,13 @@ Permanent tests protect behavior that can regress: tree ordering, exact pins,
 authorization, strict decoding, Blueprint-operation authorization boundaries,
 unreleased propagation, answer-free browser reader data, and deterministic Ribbon
 model behavior. Graphify and source/migration inventories are one-time evidence.
-`tests/e2e/e2e_run_all.sh` owns the current non-browser production-build E2E
-checks. The focused compiled-Chromium Ribbon scripts exercise supplied fixture
-content and are visual/structural evidence only. They do not substitute for the
-separately unclaimed human-input real-stack browser suite, which must serve the
-production bundle through the local HTTPS stack and create product state through
-visible PLE controls. PostgreSQL, process, migration, and rendered visual checks
-stay in their named E2E or human-review lanes. See
+`tests/e2e/e2e_run_all.sh` runs its explicitly selected non-browser production-build and
+service checks; it does not execute every E2E in the tree. The focused compiled-Chromium Ribbon
+scripts exercise supplied fixture content and are visual/structural evidence only. They do not
+substitute for the separate serial real-stack browser owner, which accepted M19 after serving the
+production bundle through the local HTTPS stack and creating product state through visible PLE
+controls. PostgreSQL, process, migration, and rendered visual checks stay in their named E2E or
+human-review lanes. See
 [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
 
 Build output such as dist/, dist_wasm/, target/, and test-results/ is reproducible

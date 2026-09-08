@@ -1,4 +1,4 @@
-// Production-stack M6 journey: a private Draft Question becomes a Published Question.
+// Production-stack journey: a private Draft Question becomes a Published Question.
 // Selector contract: Question Library Ribbon tab (src/ribbon/ribbon_catalog.ts:108-115),
 // Question Library heading (src/pages/library_page.tsx:163), and My Question Drafts navigation link
 // (src/ribbon/ribbon_catalog.ts:239-246); Draft Question control and My Question Drafts heading

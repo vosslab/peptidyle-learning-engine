@@ -1,4 +1,4 @@
-// Production-browser proof for M11 Student Assignment Access and initial issue.
+// Production-browser proof for Student Assignment Access and initial issue.
 
 import { chromium } from "playwright";
 

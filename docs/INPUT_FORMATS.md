@@ -1,9 +1,10 @@
 # Input and exchange formats
 
 This page is the file-I/O index for PLE. It distinguishes source-level adapter formats and
-retained future contracts from interfaces exposed by the current server. The currently executable
-server exposes only health and session-entry routes; it does not expose authoring, import, roster,
-or export routes. This page does not replace the linked schema, adapter, or API contract.
+retained future contracts from interfaces exposed by the current server. The current route table,
+including implemented authoring, roster, delivery, and invitation-export boundaries, is
+[API_CONTRACTS.md](API_CONTRACTS.md). This page does not replace the linked schema, adapter, or
+API contract.
 
 ## Browser and server boundary
 
@@ -60,11 +61,10 @@ iMathAS is a PLE-managed Question Backend, not a file format. Its iMathAS Questi
 and Result Verification tokens remain server-private; no unverified hosted MyOpenMath import is
 accepted.
 
-## Retained roster CSV import contract
+## Roster CSV import contract
 
-The retained design permits an authorized course Instructor, or an audited Sysadmin support session,
-to preview and explicitly commit UTF-8 CSV at
-`/api/courses/{course}/roster-imports/preview`. No current server route exposes this operation.
+An authorized course Instructor, or an audited Sysadmin support session, can preview and explicitly
+commit UTF-8 CSV at `/api/courses/{course}/roster-imports/preview`.
 Its exact grammar is:
 
 ```csv
@@ -78,14 +78,13 @@ student@example.edu,900123456
   and the exact Course Roster Import/revision boundary. Raw CSV bytes are not retained after normalized staging.
 - `roster_id` is course-scoped matching data, not an account key or authentication credential.
 
-When the route is restored, it must follow the ownership rules in
-[ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
+The route follows the ownership rules in [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
 
 ## Retained CSV export contract
 
 ### Course totals
 
-The retained `POST /api/courses/{course}/grade-export.csv` contract requires an empty body and
+The deferred `POST /api/courses/{course}/grade-export.csv` contract requires an empty body and
 returns synchronous, no-store `text/csv; charset=utf-8` attachment data, bounded to 500 active
 students. No current server route exposes this CSV. The response begins with `metadata` and
 `student` records and declares `totalPoints` or `weightedCategories` plus the fixed four-decimal

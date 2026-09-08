@@ -221,7 +221,7 @@ pub enum TeachingMembershipStatus {
     Revoked,
 }
 
-/// Closed M3/M4 modification behavior.
+/// Closed modification behavior.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AccommodationApplicationRuleView {
@@ -302,7 +302,7 @@ impl From<TeachingAttemptLimit> for u32 {
     }
 }
 
-/// Complete M3/M4 adjustment replacement: every adjustment state is explicit and closed.
+/// Complete adjustment replacement: every adjustment state is explicit and closed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct AccommodationAdjustmentView {

@@ -1,4 +1,4 @@
-// Strict browser boundary for the deliberately small M16 Instructor Accounts DTO.
+// Strict browser boundary for the deliberately small Instructor Accounts DTO.
 
 import type { AccountReference } from "../../../generated/api/AccountReference";
 import type {

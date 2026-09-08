@@ -1,4 +1,4 @@
-// Strict same-origin transport for M8 Course Instance creation and teaching-team reads.
+// Strict same-origin transport for Course Instance creation and Teaching Team reads.
 
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { ApiClient } from "../client";
@@ -44,7 +44,7 @@ async function courseInstanceJson<T>(
   return decoder(await boundedResponseJson(response, path), "response");
 }
 
-/** Composes the independent M8 client capability without reusing stale generic course endpoints. */
+/** Composes this client capability without reusing stale generic Course endpoints. */
 export function createCourseInstanceClient(
   fetchImplementation: ApiFetch,
   basePath: string,

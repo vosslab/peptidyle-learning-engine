@@ -68,7 +68,7 @@ https://localhost:8080 {
 	handle @api {
 		reverse_proxy api:3000 {
 			# A stopped API has no process to return its own readiness body. Map
-			# only edge-generated upstream failures to the same bounded M2 form.
+			# only edge-generated upstream failures to the same bounded availability form.
 			@api_unavailable status 502 503 504
 			handle_response @api_unavailable {
 				respond `{"status":"degraded","unavailable":["api"]}` 503

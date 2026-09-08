@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Disposable M15 WP-M15-1 acceptance: Instructor Gradebook evidence projection.
+# Disposable acceptance: Instructor Gradebook evidence projection.
 
 set -euo pipefail
 
@@ -77,7 +77,7 @@ concealed() {
     [ "$(status "$1")" = 404 ] || { echo "Gradebook access was not concealed" >&2; exit 1; }
 }
 
-# M13 is the producer of the immutable Grading Result evidence that this
+# Submission recovery produces the immutable Grading Result evidence that this
 # read-only projection consumes. It remains a separate disposable acceptance.
 bash "$repository_root/tests/e2e/e2e_live_demo_submission_recovery.sh" --fault >/dev/null
 instructor_cookie="$(persona_cookie elenaInstructor)"

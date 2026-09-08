@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Disposable M8 acceptance: exact Blueprint source, Assigned Instructor, and teaching-team browser entry.
+# Disposable acceptance: exact Blueprint source, Assigned Instructor, and teaching-team browser entry.
 
 set -euo pipefail
 
