@@ -222,7 +222,7 @@ def test_seed_inventory_is_limited_to_the_browser_profile_and_safe_projection(
 
 
 #============================================
-def test_seed_inventory_cli_emits_only_the_five_counts(
+def test_seed_inventory_cli_emits_only_the_named_counts(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
 	capsys: pytest.CaptureFixture[str],
@@ -234,11 +234,12 @@ def test_seed_inventory_cli_emits_only_the_five_counts(
 		"require_current_resource_capability",
 		lambda selected_runner, disposable: None,
 	)
+	counts = "5|4|4|4|4|1|1|1|1"
 	result = local_stack_control.disposable_stack_command.run_seed_inventory(
-		CountRunner("5|4|4|4|4\n"), target
+		CountRunner(counts + "\n"), target
 	)
 
-	assert result == 0 and capsys.readouterr().out == "5|4|4|4|4\n"
+	assert result == 0 and capsys.readouterr().out == counts + "\n"
 
 
 #============================================

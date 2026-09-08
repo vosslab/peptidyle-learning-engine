@@ -8,18 +8,19 @@ import type { CourseInstanceSummary } from "../api/course_instance";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import { courseInstanceRouteReference } from "../navigation/public_route";
+import { StudentCoursesPage } from "./student_courses_page";
 
 function CourseInstanceCard(props: { readonly course: CourseInstanceSummary }): JSX.Element {
   const reference = courseInstanceRouteReference(props.course.reference);
   return (
     <article class="course-card">
-      <p class="card-kicker">Live Course Instance</p>
+      <p class="card-kicker">Course Instance</p>
       <h2>{props.course.title}</h2>
       <p>
         {props.course.term.startDate} through {props.course.term.endDate} ·{" "}
         {props.course.term.timeZone}
       </p>
-      <p>Teaching Team access is ready. Assignment content begins in the next restoration lane.</p>
+      <p>Manage this course's Assignments, Students, and Teaching Team.</p>
       <A class="primary-link" href={`/courses/${reference}`} id={`course-open-${reference}`}>
         Open Course Instance
       </A>
@@ -56,7 +57,7 @@ function BlueprintSourceSelect(props: {
 }
 
 /** Course Instance list and Instructor self-assignment creation task. */
-export function CourseListPage(): JSX.Element {
+function TeachingCourseListPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const session = useSessionBootstrap();
   const isInstructor = createMemo(() => {
@@ -144,7 +145,7 @@ export function CourseListPage(): JSX.Element {
 
   return (
     <section class="page" data-route-surface="courses">
-      <p class="eyebrow">Live teaching</p>
+      <p class="eyebrow">Teaching</p>
       <h1>{isInstructor() ? "Course Instances you teach" : "Your Course Instances"}</h1>
       <p class="page-lede">
         A Course Instance begins from one exact reusable Blueprint Revision and one Assigned
@@ -255,5 +256,19 @@ export function CourseListPage(): JSX.Element {
         </div>
       </Show>
     </section>
+  );
+}
+
+/** Canonical Course index for the signed-in Account's Product Role. */
+export function CourseListPage(): JSX.Element {
+  const session = useSessionBootstrap();
+  const isStudent = (): boolean => {
+    const state = session.state();
+    return state.kind === "authenticated" && state.session.account.productRole === "student";
+  };
+  return (
+    <Show when={isStudent()} fallback={<TeachingCourseListPage />}>
+      <StudentCoursesPage />
+    </Show>
   );
 }

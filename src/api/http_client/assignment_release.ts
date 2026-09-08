@@ -11,6 +11,7 @@ import {
   decodeAssignmentPreview,
   decodeAssignmentQuestionPicker,
   decodeAssignmentReleaseValidation,
+  decodeCourseAssignments,
   decodeCreateLiveAssignmentInput,
   decodeLiveAssignmentWorkspace,
   decodeReleasedLiveAssignment,
@@ -92,6 +93,15 @@ export function createLiveAssignmentReleaseClient(
   basePath: string,
 ): Pick<ApiClient, keyof LiveAssignmentReleaseClient> {
   return {
+    listCourseAssignments: async (course) =>
+      (
+        await assignmentJson(
+          fetchImplementation,
+          basePath,
+          `${coursePath(course)}/assignments`,
+          decodeCourseAssignments,
+        )
+      ).body,
     listLiveAssignmentQuestionPicker: async (course) =>
       (
         await assignmentJson(

@@ -12,6 +12,17 @@ SEED_TIMESTAMP_MILLIS = 1_788_652_800_000
 PLE_QUESTION_JSON_MEDIA_TYPE = "application/vnd.peptidyle.question+json"
 PNG_MEDIA_TYPE = "image/png"
 SEED_SOURCE_DIRECTORY = pathlib.Path("local_stack_control/live_demo_seed_data")
+SEED_INVENTORY_FIELDS = (
+	"accounts",
+	"question_revisions",
+	"question_source_bindings",
+	"question_publication_events",
+	"question_source_objects",
+	"question_asset_source_objects",
+	"object_deliveries",
+	"publication_jobs",
+	"question_asset_publications",
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -648,7 +659,7 @@ SELECT
 		FROM ple_data.object_delivery
 		WHERE delivery_id = '{asset.delivery_id}'::uuid
 			AND object_id = '{asset.public_object_id}'::uuid
-			AND delivery_state = 'pending'),
+			AND delivery_state IN ('pending', 'available')),
 	(SELECT count(*)
 		FROM ple_private.job
 		WHERE job_id = '{asset.job_id}'::uuid

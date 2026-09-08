@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-repository_root="$(git rev-parse --show-toplevel)"
+repository_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 
 usage() {
   echo "Usage: ./launchers/run_live_demo.sh [--headless|start [--open|--headless]|open|--open|stop]"

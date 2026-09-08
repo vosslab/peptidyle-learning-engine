@@ -71,7 +71,6 @@ export interface RouteContract {
     | "instructorAccounts"
     | "supportRoster"
     | "pendingCourseInvitations"
-    | "studentCourses"
     | "studentCourseInvitations"
     | "studentCourseInvitation"
     | "studentCourseLanding";
@@ -108,13 +107,6 @@ export const ROUTE_CONTRACT = [
     surface: "Account-owned pending Course Invitations",
     requiredProductRoles: [],
     ribbon: { scope: "product", contentLayout: "reading" },
-  },
-  {
-    id: "studentCourses",
-    path: "/student/courses",
-    surface: "Student current Course Instance index",
-    requiredProductRoles: ["student"],
-    ribbon: { scope: "product", tab: "courses", contentLayout: "reading" },
   },
   {
     id: "studentCourseInvitations",
@@ -155,7 +147,7 @@ export const ROUTE_CONTRACT = [
   {
     id: "courseAssignments",
     path: "/courses/:courseRef",
-    surface: "Course Instance teaching-team workspace before roster and Assignment delivery",
+    surface: "Course Instance Teaching Team, roster, and Assignment delivery workspace",
     requiredProductRoles: ["instructor"],
     ribbon: { scope: "courseInstance", tab: "assignments", contentLayout: "reading" },
   },

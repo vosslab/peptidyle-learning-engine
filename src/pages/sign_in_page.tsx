@@ -76,7 +76,7 @@ export function SignInPage(): JSX.Element {
           ? "/library"
           : currentSession.kind === "authenticated" &&
               currentSession.session.account.productRole === "student"
-            ? "/student/courses"
+            ? "/"
             : "/",
       );
     } catch {

@@ -19,7 +19,9 @@
 
 set -e
 
-cd "$(git rev-parse --show-toplevel)"
+script_directory="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)"
+repository_root="$(dirname -- "$script_directory")"
+cd "$repository_root"
 
 if ! command -v npm >/dev/null 2>&1; then
 	echo "ERROR: npm not found. Install Node.js first, for example: brew install node" >&2

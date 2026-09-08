@@ -1000,15 +1000,24 @@ do not create screenshot quotas or pixel-equivalence acceptance.
 Semantic usability, accessibility, privacy, and task completion are stronger evidence than exact
 rendered dimensions.
 
-### The demo is ordinary product state
+### The Live Demo is acceptance for the real PLE
 
-**Decision.** The demo uses PostgreSQL, real migrations, RLS, persistent seeded teaching courses,
-ordinary memberships, and ordinary student work through the production-shaped browser and server
-stack. Preview, acceptance, and production behavior share this one live product model.
+**Decision.** The Live Demo establishes representative real product state through normal product
+contracts, then exercises real Instructor and Student workflows as launch-readiness evidence. It is
+an acceptance environment for PLE, not a separate demo product or presentation model.
 
-**Why.** A parallel mock product creates false assurance and cannot prove the real teaching path.
-Recognizable courses and deterministic observations make returning to the demo resemble checking
-on active teaching.
+**Why.** Parallel mock state can look convincing while bypassing the schema, authorization,
+workflow, and accumulated-state behavior that must work for real teaching.
+
+**Consequence.** The startup Course, roster, Assignment, Student work, and Gradebook state use the
+same PostgreSQL records, HTTP routes, and browser surfaces as ordinary use. Seed-specific code may
+describe the disposable fixture and its convergence recipe, but product code never branches on a
+persona, expected score, or showcase state. Future launch demonstrations follow this rule where it
+applies.
+
+**Owner.** [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md),
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md), and the fixed Developer Browser Suite
+controller.
 
 ### Teaching workspaces use task-owned composition
 
@@ -1228,6 +1237,24 @@ future capabilities, and the passkey capability is currently deferred.
 
 **Why.** SMTP is not configured for current acceptance. Bypassing only email verification keeps the
 demo accessible without replacing authorization or claiming unverified email delivery.
+
+### Seeded Students enter the Course through the roster
+
+**Decision.** Elena's roster import resolves each Student Authentication Email to an existing
+global Student Account or creates that Account when none exists. The target Student then claims the invitation,
+which creates the course-scoped Student Record and active Student Course Membership. The Live Demo
+uses this ordinary path for Mary, Jack, and Avery.
+
+**Why.** Preconstructing enrollment or a parallel display roster would not prove the Instructor
+import, Student claim, or relationship-owned Course access that real users require.
+
+**Consequence.** The disposable SQL seed precreates only the three fictional global Student Accounts
+and their authentication emails so seeded-persona sign-in is deterministic. It does not create their
+Course Invitations, Student Records, Course Memberships, Assignment Attempts, or grades; the
+convergent HTTP provisioner creates those through product contracts.
+
+**Owner.** [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md), the Course Roster API and Store contracts, and
+`local_stack_control/live_demo_course_provision.py`.
 
 ### The canonical walkthrough is a focused teaching loop
 

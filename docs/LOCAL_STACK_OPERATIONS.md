@@ -139,18 +139,27 @@ only the normal identity-verification ceremony with a known persona key. The
 server resolves the global Account and issues an ordinary session; it does not
 accept a browser role claim.
 
-The M4 baseline seeds no Course Instance, membership, roster, or Student Record.
-Its four fixed Published Questions supply the initial Instructor workflow; the
-role- and relationship-gated product routes create and use later Course,
-Assignment, and Student records. Student and Sysadmin sessions do not gain
-Instructor authority.
+Startup has two seed layers and one product write path. The foundational SQL
+seed creates the five global Accounts, their authentication facts, and four
+Published Questions with private source and asset-publication records. It
+creates no Course-domain record. After all services are ready, the convergent
+provisioner uses ordinary authenticated HTTP routes to create Elena's Blueprint
+Course, Course Instance, roster invitations and claims, released Assignment,
+Mary and Jack's real work, and their Grading Results. Avery remains enrolled
+without an Assignment Attempt.
 
-The M4 baseline installer also creates four fixed Published Questions and their
-first immutable Question Revisions. Their PLE Question JSON sources live only
-in the private object-store bucket. The sealed `seed-inventory` receipt reports
-only the aggregate counts for Accounts, Published Questions, source bindings,
-publication events, and Object Records; it never reports answer-bearing source
-content. Re-run the disposable installer and its idempotence proof with:
+The private manifest is the first identity source for the created Blueprint
+Course, Course Instance, and Assignment. Exact title matching is recovery only
+when a stored public Reference is absent or stale. Each observation produces a
+plan of missing stages; a repeated provision reports no stages and creates no
+duplicate product objects. The bounded mode-0600 report is written to
+`local_stack_state/live_demo_browser/workspace/live_demo_course_report.json`.
+
+The sealed `seed-inventory` receipt reports only named aggregate counts for the
+foundational Accounts, Published Questions, source bindings, publication
+events, source and asset Objects, delivery, Job, and asset-publication records;
+it never reports answer-bearing source content. Re-run the disposable installer
+and its idempotence proof with:
 
 ```bash
 bash tests/e2e/e2e_live_demo_seeded_baseline.sh --install
@@ -168,6 +177,24 @@ bash tests/e2e/e2e_live_demo_question_library.sh
 That command proves Instructor browse/detail success and the same concealed
 response for Student and anonymous requests. It does not claim Course,
 Student-delivery, grading, or Sysadmin workflow completion.
+
+Inspect or interrupt Course-domain convergence only while debugging the fixed
+disposable owner:
+
+```bash
+source source_me.sh && python3 -m local_stack_control.disposable_stack_command \
+  provision-course \
+  --manifest local_stack_state/live_demo_browser/workspace/disposable.manifest \
+  --report
+source source_me.sh && python3 -m local_stack_control.disposable_stack_command \
+  provision-course \
+  --manifest local_stack_state/live_demo_browser/workspace/disposable.manifest \
+  --stop-after roster
+```
+
+`--report` is read-only. `--stop-after` is a recovery harness for manufacturing
+one partial state; it is not part of normal startup. A later ordinary start
+observes that partial state and resumes from the next missing product stage.
 
 M6 adds the separate private Instructor task `My Question Drafts`. Its browser
 route receives only an opaque Draft Question Reference and its Edit Number;

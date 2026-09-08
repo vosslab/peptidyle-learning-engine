@@ -2,6 +2,18 @@
 
 ## 2026-09-08
 
+### Behavior or Interface Changes
+
+- Connected the Instructor Course Instance page to the ordinary authorized
+  Assignment-list contract. It now shows every persisted Assignment with its
+  real lifecycle status and workspace link, keeps roster and creation actions
+  available, and removes obsolete restoration-lane copy from the product UI.
+
+- Made `/` the one Product Role-aware Course index promised by the route
+  contract. Students now reach their real current Course Instances through the
+  shared Courses Ribbon destination, and the redundant Student-only index route
+  was removed instead of adding role-specific Ribbon navigation logic.
+
 ### Fixes and Maintenance
 
 - Corrected the Instructor Gradebook route to validate and use its exact Course
@@ -9,6 +21,24 @@
   Assignment surfaces. The browser now reaches the existing server-authorized,
   answer-free Gradebook HTTP contract without depending on the unrelated legacy
   route-scope lookup.
+
+- Corrected the foundational seed-inventory receipt to validate its current
+  named aggregate fields and recognize the real Pending-to-Available Question
+  Asset delivery transition. The two-start replay now proves the unchanged
+  `5|4|4|4|4|1|1|1|1` inventory after complete startup.
+
+- Anchored the Live Demo launcher and its TypeScript prerequisite helper to
+  their own filesystem locations, removing Git from the runtime launch path.
+
+- Split Student activity convergence, Browser Suite external operations, and
+  lifecycle database identity construction into focused modules. Their former
+  owners are now below the repository's source-size ceiling without overrides
+  or compressed logic, and the two runnable Course acceptance scripts have the
+  required executable mode.
+
+- Reconciled the Live Demo specification, local-stack operations, API and
+  database maps, design decisions, and cookbook with the shipped used-Course
+  baseline and its real Instructor and Student launch-readiness workflows.
 
 ## 2026-09-07
 

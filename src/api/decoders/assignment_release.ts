@@ -9,6 +9,7 @@ import type {
   AssignmentQuestionPickerEntry,
   AssignmentReleaseValidation,
   AuthoredAssignmentQuestion,
+  CourseAssignmentSummary,
   CreateLiveAssignmentInput,
   LiveAssignmentStatus,
   LiveAssignmentWorkspace,
@@ -96,6 +97,17 @@ function status(value: unknown, path: string): LiveAssignmentStatus {
   return decoded;
 }
 
+function courseAssignmentSummary(value: unknown, path: string): CourseAssignmentSummary {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["reference", "title", "status", "editNumber"]);
+  return {
+    reference: decodeAssignmentReference(field(record, "reference", path), `${path}.reference`),
+    title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
+    status: status(field(record, "status", path), `${path}.status`),
+    editNumber: editNumber(field(record, "editNumber", path), `${path}.editNumber`),
+  };
+}
+
 /** Validates authored input before it leaves the browser's bounded workspace. */
 export function decodeCreateLiveAssignmentInput(
   value: unknown,
@@ -170,6 +182,13 @@ export function decodeAssignmentQuestionPicker(
   path = "response",
 ): ReadonlyArray<AssignmentQuestionPickerEntry> {
   return decodeArray(value, path, pickerEntry);
+}
+
+export function decodeCourseAssignments(
+  value: unknown,
+  path = "response",
+): ReadonlyArray<CourseAssignmentSummary> {
+  return decodeArray(value, path, courseAssignmentSummary);
 }
 
 export function decodeAssignmentReleaseValidation(

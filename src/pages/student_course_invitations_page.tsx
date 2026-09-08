@@ -32,7 +32,7 @@ export function StudentCourseInvitationsPage(): JSX.Element {
       <p class="eyebrow">Your learning</p>
       <h1>Course invitations</h1>
       <p class="page-lede">Review a pending invitation before joining a Course Instance.</p>
-      <A class="quiet-link" href="/student/courses">
+      <A class="quiet-link" href="/">
         Your courses
       </A>
       <Show when={invitations.loading}>

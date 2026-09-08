@@ -50,7 +50,7 @@ function GradebookEvidence(props: { readonly gradebook: LiveDemoGradebook }): JS
                   </td>
                   <td>
                     {work.assignmentAttemptCompletion === null
-                      ? "—"
+                      ? "-"
                       : formatPointScore(work.pointsEarned, work.pointsPossible)}
                   </td>
                 </tr>

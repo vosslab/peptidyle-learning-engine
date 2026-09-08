@@ -9,6 +9,13 @@ import type { LateWorkRule } from "../../generated/api/LateWorkRule";
 
 export type LiveAssignmentStatus = "unreleased" | "released" | "closed" | "archived";
 
+export interface CourseAssignmentSummary {
+  readonly reference: AssignmentReference;
+  readonly title: string;
+  readonly status: LiveAssignmentStatus;
+  readonly editNumber: AssignmentEditNumber;
+}
+
 export interface AssignmentQuestionPickerEntry {
   readonly questionId: QuestionId;
   readonly description: string;
@@ -64,6 +71,9 @@ export interface ReleasedLiveAssignment {
 
 /** Same-origin direct-Instructor Assignment Workspace boundary. */
 export interface LiveAssignmentReleaseClient {
+  readonly listCourseAssignments: (
+    course: CourseInstanceReference,
+  ) => Promise<ReadonlyArray<CourseAssignmentSummary>>;
   readonly listLiveAssignmentQuestionPicker: (
     course: CourseInstanceReference,
   ) => Promise<ReadonlyArray<AssignmentQuestionPickerEntry>>;

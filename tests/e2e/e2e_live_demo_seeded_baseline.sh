@@ -50,7 +50,7 @@ require_baseline() {
 		exit 1
 	fi
 	bash tests/e2e/e2e_live_demo_readiness.sh --healthy
-	echo "Seeded baseline installed: Accounts Published Questions private sources and one pending Question Asset publication chain"
+	echo "Seeded baseline installed: Accounts Published Questions private sources and one Question Asset publication chain"
 }
 
 install_baseline() {

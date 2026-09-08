@@ -683,7 +683,7 @@ def seed_inventory_command(
 		raise local_stack_control.models.ControllerError(
 			"seed inventory target omits its database selection"
 		)
-	# ASVS 8.2.2 and 14.2.4: this sealed projection returns only five aggregate
+	# ASVS 8.2.2 and 14.2.4: this sealed projection returns only named aggregate
 	# counts. It omits source bytes, answer keys, Account identifiers, and roles.
 	argv = local_stack_control.compose.compose_argv(
 		disposable.target,

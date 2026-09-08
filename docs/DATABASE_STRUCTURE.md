@@ -9,9 +9,9 @@ authorization; and this document owns the checked-in migration sequence and forw
 
 ## Baseline and migration rules
 
-The current disposable baseline contains the 57 checked migration files from
+The current disposable baseline contains the 73 checked migration files from
 `2026082901_principal_baseline.sql` through
-`2026090608_live_demo_native_ple_presentation.sql`. The numbered range has no
+`2026090802_assignment_attempt_completion.sql`. The numbered range has no
 `2026082905` or `2026082927` file; those numbers are not migrations. Apply the
 complete checked-in sequence only to a clean disposable database. The prior
 migration epoch was removed during the fresh pre-production migration reset; it is neither an
@@ -53,6 +53,11 @@ legacy readers, or parallel authorization model.
 | 2026090606                             | Live Demo Assignment Workspace and release                              | Direct-Instructor procedures create and save Course-owned Unreleased Assignments at exact Assignment Edit Numbers, select ordered Available Published Questions, calculate release validation, and atomically create immutable Assignment Revision snapshots. The private selection is not Student work; the answer-free Assignment Preview carries no Student identity, response, answer, feedback, or delivery state. |
 | 2026090607                             | Live Demo Student Assignment Access and start skeleton                   | Student-only procedures require the active Student Record for the Course, calculate start/refusal from the released Assignment Revision at authoritative time, and atomically create or resume an Assignment Attempt. The narrow forced-RLS addition grants only the needed released-snapshot access and no private source, answer, response, grading, submission, or mutable-selection access. |
 | 2026090608                             | Live Demo native PLE QuestionPresentation issuance                       | Private persistence adds one immutable QuestionPresentation binding per Question Attempt. The binding retains only nonce and full descriptor checksum; exact source pin/S3 object resolution and reproduction details remain private Question Attempt/source-binding facts. |
+| 2026090609-2026090613                  | Invitation export, Instructor Accounts, WeBWorK presentation, and Question Asset publication | Session-authorized invitation export and Instructor Account lifecycle procedures; native WeBWorK QuestionPresentation bindings; and the private-to-public Question Asset publication and authorized delivery boundaries used by real Student presentations. |
+| 2026090614-2026090617                  | Student submission, support, and grading recovery                        | Native PLE submission persistence, exact-Course scoped support capability, recoverable native grading, and WeBWorK grading keep accepted Student responses and terminal Grading Results in their ordinary protected records. |
+| 2026090618-2026090620                  | Initial Gradebook and Student progress projections                       | Answer-free Instructor Gradebook, Student Course and Assignment landing, and nonce-bound submission status derive initial display state from real Student work. |
+| 2026090701                             | Instructor Course Assignment list                                       | `ple_api.list_course_assignments` requires the current direct Instructor Course Membership and projects only public Assignment Reference, title, lifecycle status, and Edit Number for the exact Course Instance. |
+| 2026090702, 2026090801-2026090802      | Accumulated Instructor and Student progress                              | Gradebook progress, Student-visible Assignment progress, and persisted Assignment Attempt completion distinguish completed, in-progress, and not-started work from ordinary stored facts. |
 
 ## Ownership boundaries
 

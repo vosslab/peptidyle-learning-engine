@@ -38,6 +38,12 @@ recovery, WeBWorK grading, Gradebook, Sysadmin Instructor Account management,
 scoped roster support, and Instructor-only invitation export. Each protected
 operation retains its server and Store authorization boundary.
 
+The primary success criterion is human: after `./launchers/run_live_demo.sh`, a
+reviewer can use the seeded Instructor and Student personas to exercise the
+major launch-critical workflows and decide whether PLE is ready for real users.
+Seeded data exists to expose those workflows and their accumulated product
+state; it never creates a parallel demonstration model.
+
 ## Required teaching-data baseline
 
 A successful `./launchers/run_live_demo.sh` start establishes one fictional,
@@ -72,7 +78,10 @@ grade state. Repeated starts detect each stage through its product read route
 and apply only missing operations. A retained disposable manifest identifies
 the created Blueprint Course, Course Instance, and Assignment by their public
 References; title matching is only recovery when that manifest fact is absent
-or stale.
+or stale. The current mode-0600 baseline report is
+`local_stack_state/live_demo_browser/workspace/live_demo_course_report.json`;
+its public References and outstanding-stage list are controller evidence, not a
+browser data source.
 
 This graph is launch-readiness evidence only when Elena can inspect its roster
 and Gradebook, Mary can inspect completed graded work, Jack can resume the open

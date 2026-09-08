@@ -293,14 +293,18 @@ def run_seed_inventory(
 	runner: local_stack_control.process.CommandRunner,
 	disposable: local_stack_control.models.DisposableComposeTarget,
 ) -> int:
-	"""Run and emit only the five seeded-baseline aggregate counts."""
+	"""Run and emit only the named seeded-baseline aggregate counts."""
 	local_stack_control.disposable_stack_adapter.require_current_resource_capability(runner, disposable)
 	argv, environment, sql = local_stack_control.disposable_stack_adapter.seed_inventory_command(disposable)
 	result = runner.run(argv, environment, disposable.target.repo_root, sql)
 	if not result.ok():
 		raise local_stack_control.models.ControllerError("seed inventory did not complete")
 	counts = result.stdout.strip()
-	if re.fullmatch(r"[0-9]{1,10}(?:\|[0-9]{1,10}){4}", counts) is None:
+	values = counts.split("|")
+	if (
+		len(values) != len(local_stack_control.live_demo_seed.SEED_INVENTORY_FIELDS)
+		or any(re.fullmatch(r"[0-9]{1,10}", value) is None for value in values)
+	):
 		raise local_stack_control.models.ControllerError("seed inventory returned an invalid result")
 	print(counts)
 	return 0

@@ -16,8 +16,8 @@ export function StudentWorkInspectionPage(): JSX.Element {
       <p class="eyebrow">Student Work</p>
       <h1>Student Work inspection is not available</h1>
       <p class="page-lede">
-        This Live Demo Gradebook provides answer-free immutable grading evidence. Individual Student
-        responses and grading details are not part of this browser capability.
+        The Gradebook provides answer-free immutable grading evidence. Individual Student responses
+        and grading details are not part of this browser capability.
       </p>
       <A class="primary-link" href={`/instructor/courses/${encodeURIComponent(course)}/gradebook`}>
         Return to Gradebook

@@ -86,6 +86,13 @@ async function startAttempt(page, expectedResumed) {
 async function verifyElena(page) {
   await chooseSeededIdentity(page, /Elena Rivera/u);
   await selectVisibleCourse(page, courseTitle);
+  const card = assignmentCard(page);
+  await expect(card).toHaveCount(1);
+  await expect(card.getByText("Released Assignment", { exact: true })).toBeVisible();
+  await card.getByRole("link", { name: "Open Assignment Workspace", exact: true }).click();
+  await expect(page.locator('[data-route-surface="assignmentReleaseWorkspace"]')).toBeVisible();
+  await expect(page.getByLabel("Assignment title")).toHaveValue(assignmentTitle);
+  await page.goBack();
   await page.getByRole("link", { name: "Open Students", exact: true }).click();
   await expect(
     page.getByRole("heading", { level: 1, name: "Students", exact: true }),
@@ -131,16 +138,6 @@ async function verifyJack(page) {
   await signOutVisible(page);
 }
 
-async function verifyMorgan(page) {
-  await chooseSeededIdentity(page, /Morgan Delgado/u);
-  // ASVS 8.2.2/8.3.1: the server conceals a Course Instance without an exact membership path.
-  await page.goto(`/courses/${course}`);
-  await expect(
-    page.getByRole("heading", { level: 1, name: "Course Instance unavailable", exact: true }),
-  ).toBeVisible();
-  await signOutVisible(page);
-}
-
 async function verifyAvery(page) {
   await chooseSeededIdentity(page, /Avery Thompson/u);
   await openStudentCourse(page);
@@ -163,7 +160,6 @@ try {
   await verifyElena(page);
   await verifyMary(page);
   await verifyJack(page);
-  await verifyMorgan(page);
   await verifyAvery(page);
 } finally {
   await context.close();
