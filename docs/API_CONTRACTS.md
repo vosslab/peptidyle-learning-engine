@@ -104,8 +104,9 @@ claim, and access revocation; M10 supplies the narrow direct-Instructor
 Assignment Workspace and immutable release; Student-only Assignment Access,
 issuance, native submission, recovery, and supported WeBWorK delivery; the
 answer-free Gradebook; narrowly scoped account and support operations; and the
-direct-Instructor no-store invitation attachment. These current route claims do
-not establish M19's connected production-browser evidence.
+direct-Instructor no-store invitation attachment. These current route claims
+specify the boundary exercised by M19; they do not replace the separate
+connected production-browser evidence recorded for that acceptance.
 
 When implemented, each route uses the session-derived Account plus exact stored
 relationships. Course and Assignment references locate a resource only after

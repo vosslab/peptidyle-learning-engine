@@ -90,6 +90,13 @@ bounded renderer failure complete`; `Live Demo WeBWorK grade: PASS`. The
 
 ### Fixes and Maintenance
 
+- Clarified the API-contract evidence boundary: current route claims specify
+  the behavior exercised by the separately recorded completed M19 connected
+  production-browser acceptance; they do not substitute for that receipt.
+
+- Removed the unreferenced legacy roster-delivery display helper. Its retained
+  transport contract remains a separately owned API-retirement decision.
+
 - Reconciled current implementation, evidence, and accessibility documentation
   after an independent whole-codebase audit. Retired unreferenced browser-E2E
   support now leaves the registered serial owner as the only active path;
