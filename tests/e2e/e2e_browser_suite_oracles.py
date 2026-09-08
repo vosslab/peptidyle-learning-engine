@@ -126,7 +126,7 @@ def provider_receipt(target: local_stack_control.models.DisposableComposeTarget)
 	"""Bind receipt policy to the already validated lifecycle provider selection."""
 	provider = target.target.provider
 	expected_argv = (
-		local_stack_control.models.DISPOSABLE_COMPOSE_PROVIDER,
+		*local_stack_control.models.podman_compose_argv(),
 		*local_stack_control.models.DISPOSABLE_PROVIDER_GLOBAL_ARGS,
 	)
 	if provider.name != local_stack_control.models.DISPOSABLE_COMPOSE_PROVIDER or provider.argv != expected_argv:

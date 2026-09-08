@@ -15,8 +15,8 @@ WeBWorK renderer. It establishes only the current seeded session-entry boundary.
   declared by [Brewfile](../Brewfile).
 - Python available as `python3`, with the runtime dependencies from
   [pip_requirements.txt](../pip_requirements.txt) installed.
-- Podman and a usable Compose provider for the local stack. On macOS, also start a Podman machine;
-  see [MACOS_PODMAN.md](MACOS_PODMAN.md).
+- Podman and the Python `podman-compose` provider from `pip_requirements.txt` for the local stack.
+  On macOS, also start a Podman machine; see [MACOS_PODMAN.md](MACOS_PODMAN.md).
 - `curl`, `awk`, `openssl`, `xxd`, and `lsof`, which the typed stack lifecycle uses.
 
 ## Fresh-clone success

@@ -50,7 +50,8 @@ def test_resource_capability_rejects_missing_or_foreign_digest(
 			live_demo_compose_file.resolve(strict=True),
 		),
 		provider=local_stack_control.models.ComposeProvider(
-			("podman-compose", "--in-pod", "false"), "podman-compose"
+			(*local_stack_control.models.podman_compose_argv(), "--in-pod", "false"),
+			"podman-compose",
 		),
 		with_smtp=False,
 		env_setting_names=("POSTGRES_PASSWORD", "PLE_DISPOSABLE_CAPABILITY_SHA256"),

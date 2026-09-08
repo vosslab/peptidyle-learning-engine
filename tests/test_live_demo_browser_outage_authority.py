@@ -32,7 +32,9 @@ def disposable(
 		project=local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
 		env_file=env_file,
 		compose_files=(primary, overlay),
-		provider=local_stack_control.models.ComposeProvider(("podman-compose",), "podman-compose"),
+		provider=local_stack_control.models.ComposeProvider(
+			local_stack_control.models.podman_compose_argv(), "podman-compose"
+		),
 		with_smtp=False,
 		env_setting_names=("STACK_SECRET",),
 	)
@@ -369,7 +371,7 @@ def test_gateway_outage_postcondition_rejects_a_forged_plan(tmp_path: pathlib.Pa
 	forged = local_stack_control.models.ServiceStopPlan(
 		before.project,
 		"gateway",
-		("podman-compose", "stop", "api"),
+		(*local_stack_control.models.podman_compose_argv(), "stop", "api"),
 	)
 
 	with pytest.raises(local_stack_control.models.ControllerError):

@@ -4,6 +4,7 @@ import dataclasses
 import enum
 import pathlib
 import re
+import sys
 
 
 COMPOSE_PROJECT_LABELS = (
@@ -47,6 +48,13 @@ BASE_ONE_SHOT_SERVICES = (
 CLEANUP_ONLY_SERVICES = ("postgres-major-guard",)
 RESTARTABLE_SERVICES = ("api", "gateway", "webwork-renderer", "worker")
 STOPPABLE_SERVICES = ("webwork-renderer",)
+
+
+#============================================
+def podman_compose_argv() -> tuple[str, ...]:
+	"""Run the installed Compose module through this controller's Python."""
+	result = (sys.executable, "-m", "podman_compose")
+	return result
 
 
 class ControllerError(RuntimeError):

@@ -52,7 +52,9 @@ def choose_provider(
 	)
 	candidates = (
 		local_stack_control.models.ComposeProvider(("podman", "compose"), "podman compose"),
-		local_stack_control.models.ComposeProvider(("podman-compose",), "podman-compose"),
+		local_stack_control.models.ComposeProvider(
+			local_stack_control.models.podman_compose_argv(), "podman-compose"
+		),
 	)
 	if required_name is not None and required_name not in {item.name for item in candidates}:
 		raise local_stack_control.models.ControllerError(
@@ -200,7 +202,7 @@ def require_disposable_no_pod_provider(
 ) -> None:
 	"""Require the exact provider argv that cannot create an unlabelled pod."""
 	expected_argv = (
-		local_stack_control.models.DISPOSABLE_COMPOSE_PROVIDER,
+		*local_stack_control.models.podman_compose_argv(),
 		*local_stack_control.models.DISPOSABLE_PROVIDER_GLOBAL_ARGS,
 	)
 	if (
@@ -226,7 +228,7 @@ def new_disposable_target(
 	if (
 		target.provider.name != local_stack_control.models.DISPOSABLE_COMPOSE_PROVIDER
 		or target.provider.argv
-		!= (local_stack_control.models.DISPOSABLE_COMPOSE_PROVIDER,)
+		!= local_stack_control.models.podman_compose_argv()
 	):
 		raise local_stack_control.models.ControllerError(
 			"disposable targets require the no-pod Compose provider"

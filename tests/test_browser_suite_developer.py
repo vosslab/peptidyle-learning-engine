@@ -168,11 +168,6 @@ def test_orphan_purge_removes_owned_resources_workspace_and_control_state(
 	events: list[str] = []
 	empty = local_stack_control.models.ProjectSnapshot("ple-live-demo-browser", (), (), ())
 	monkeypatch.setattr(
-		local_stack_control.process,
-		"require_rootless_local_engine",
-		lambda runner, root: events.append("engine"),
-	)
-	monkeypatch.setattr(
 		local_stack_control.browser_suite_reset,
 		"reset_live_demo_browser",
 		lambda lease, runner, root: (events.append("reset"), empty)[1],
@@ -182,7 +177,7 @@ def test_orphan_purge_removes_owned_resources_workspace_and_control_state(
 		local_stack_control.process.SubprocessRunner(),
 	)
 	assert project == "ple-live-demo-browser"
-	assert events == ["engine", "reset"]
+	assert events == ["reset"]
 	workspace = (
 		tmp_path
 		/ local_stack_control.browser_suite_lease.LIVE_DEMO_BROWSER_STATE_DIRECTORY
@@ -205,11 +200,6 @@ def test_start_early_supervisor_exit_terminates_child_then_exact_resets_fixed_ow
 	events: list[str] = []
 	empty = local_stack_control.models.ProjectSnapshot("ple-live-demo-browser", (), (), ())
 	monkeypatch.setattr(
-		local_stack_control.process,
-		"require_rootless_local_engine",
-		lambda runner, root: events.append("engine"),
-	)
-	monkeypatch.setattr(
 		local_stack_control.browser_suite_reset,
 		"reset_live_demo_browser",
 		lambda _lease, _runner, _root: (events.append("reset"), empty)[1],
@@ -229,7 +219,7 @@ def test_start_early_supervisor_exit_terminates_child_then_exact_resets_fixed_ow
 			lambda _root, _lease: child,
 			lambda observed, _timeout: events.append("terminated") if observed is child else None,
 		)
-	assert events == ["poll", "terminated", "engine", "reset"]
+	assert events == ["poll", "terminated", "reset"]
 	with local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path) as lease:
 		assert tuple(lease.reset_workspace().iterdir()) == ()
 

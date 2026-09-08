@@ -27,7 +27,9 @@ def inventory(**changes: object) -> browser_suite_oracles.SuiteInventory:
 		"private_artifacts": (),
 		"owner_processes": (),
 		"provider": browser_suite_oracles.ProviderReceipt(
-			"podman-compose", ("podman-compose", "--in-pod", "false"), False
+			"podman-compose",
+			(*local_stack_control.models.podman_compose_argv(), "--in-pod", "false"),
+			False,
 		),
 	}
 	value.update(changes)
@@ -402,7 +404,7 @@ def test_identity_output_decode_and_marker_read_failures_are_typed(
 	[
 		({"private_artifacts": (browser_suite_oracles.PrivateArtifact("leftover", 0o600, 1),)}, "private artifacts"),
 		({"owner_processes": (browser_suite_oracles.ProcessIdentity(9, 1, 9),)}, "background processes"),
-		({"provider": browser_suite_oracles.ProviderReceipt("podman-compose", ("podman-compose", "--in-pod", "true"), True)}, "pod ownership disabled"),
+		({"provider": browser_suite_oracles.ProviderReceipt("podman-compose", (*local_stack_control.models.podman_compose_argv(), "--in-pod", "true"), True)}, "pod ownership disabled"),
 	],
 )
 def test_cleanup_oracle_refuses_remaining_owned_state(change: dict[str, object], message: str) -> None:

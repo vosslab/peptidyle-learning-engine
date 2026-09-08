@@ -30,6 +30,17 @@
 - Anchored the Live Demo launcher and its TypeScript prerequisite helper to
   their own filesystem locations, removing Git from the runtime launch path.
 
+- Removed the rootless-only Podman gate from the disposable Local Stack and
+  Developer Browser Suite. The local migration and API-login verification now
+  run in a profile-only Compose job, so the active rootful or rootless
+  connection can run the Live Demo without relying on host PostgreSQL port
+  forwarding; containment remains in the Compose topology.
+
+- Bound the Local Stack's `podman-compose` provider to the Python 3.12
+  interpreter selected by `source_me.sh`, rather than Homebrew's independent
+  wrapper interpreter. The declared runtime dependency now installs that
+  provider alongside the controller.
+
 - Split Student activity convergence, Browser Suite external operations, and
   lifecycle database identity construction into focused modules. Their former
   owners are now below the repository's source-size ceiling without overrides

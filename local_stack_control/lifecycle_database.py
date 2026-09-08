@@ -52,12 +52,12 @@ def postgres_role_sql(role: str, password: str) -> str:
 
 #============================================
 def database_url(values: dict[str, str]) -> str:
-	"""Construct a child-only local PostgreSQL URL from selected private values."""
+	"""Construct a Compose-network PostgreSQL URL from selected private values."""
 	port = values.get("PLE_POSTGRES_HOST_PORT", "5432")
 	if not port.isdecimal():
 		raise local_stack_control.models.ControllerError("selected PostgreSQL port is invalid")
 	result = (
 		f"postgres://{values['POSTGRES_USER']}:{values['POSTGRES_PASSWORD']}"
-		f"@127.0.0.1:{port}/{values['POSTGRES_DB']}"
+		f"@postgres:5432/{values['POSTGRES_DB']}"
 	)
 	return result

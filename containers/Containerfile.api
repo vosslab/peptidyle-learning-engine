@@ -32,6 +32,12 @@ RUN cargo build --release --locked --bin server_core --features e2e-observabilit
 FROM builder AS live-demo-builder
 RUN cargo build --release --locked --bin server_core --features local-disposable-storage
 
+# The local controller executes migrations in a one-shot Compose job so the
+# administration client shares the database network on every supported Podman
+# connection. It is not included in the API runtime image.
+FROM builder AS database-migrator-builder
+RUN cargo build --release --locked -p project-tools
+
 # This acceptance-only target carries the feature-gated deterministic grader
 # exception process.  Neither the ordinary live-demo nor production targets
 # include the process mode or its backend.
@@ -76,6 +82,10 @@ ENTRYPOINT ["/usr/local/bin/peptidyle-api"]
 FROM runtime-base AS live-demo
 COPY --from=live-demo-builder /build/target/release/server_core /usr/local/bin/peptidyle-api
 ENTRYPOINT ["/usr/local/bin/peptidyle-api"]
+
+FROM runtime-base AS database-migrator
+COPY --from=database-migrator-builder /build/target/release/project-tools /usr/local/bin/ple-database-tools
+ENTRYPOINT ["/usr/local/bin/ple-database-tools"]
 
 FROM runtime-base AS live-demo-fault
 COPY --from=live-demo-fault-builder /build/target/release/server_core /usr/local/bin/peptidyle-api

@@ -46,7 +46,7 @@ def require_mutation_engine(
 	repo_root: pathlib.Path,
 	start_selected_machine: bool = False,
 ) -> None:
-	"""Prove a rootless default engine, optionally starting only its local machine."""
+	"""Start the default Podman machine when its active connection is unavailable."""
 	environment = local_stack_control.env_file.sanitized_runtime_environment(
 		local_stack_control.process.current_environment()
 	)
@@ -57,4 +57,11 @@ def require_mutation_engine(
 			raise local_stack_control.models.ControllerError(
 				"the selected local Podman machine could not be started"
 			)
-	local_stack_control.process.require_rootless_local_engine(runner, repo_root)
+	if result.ok() or not start_selected_machine:
+		return
+	result = runner.run(["podman", "info", "--format", "json"], environment, repo_root)
+	if not result.ok():
+		detail = result.stderr.strip() or "Podman engine is unavailable"
+		raise local_stack_control.models.ControllerError(
+			"the active default Podman connection is unavailable: " + detail
+		)

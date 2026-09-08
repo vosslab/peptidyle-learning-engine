@@ -12,6 +12,10 @@ Focused private `local_stack_control` modules and the canonical browser owner
 hold the lease through bootstrap, startup, migration, seed, Question Renderer Version,
 polling, readiness, and exact cleanup.
 
+The profile-only `database-migrator` job runs schema migration and API-login
+compatibility verification inside the Compose data network. It is a short-lived
+controller dependency, not an application service or host-facing database client.
+
 The stack includes PLE's standalone WeBWorK PG renderer. The owner serves the
 browser over HTTPS and uses production authentication; it does not select a
 alternate authentication or SMTP overlay.
@@ -50,9 +54,9 @@ Every long-running local service is non-root where its upstream image permits,
 has a read-only root filesystem, drops all Linux capabilities, sets
 `no-new-privileges`, and has bounded CPU, memory, process, and writable-tmpfs
 budgets. The exception is not a broad privilege grant: the networkless,
-one-shot `local-data-volume-permissions` helper starts as root inside the
-rootless Podman user namespace with only `CAP_CHOWN`, then exits after setting
-the PostgreSQL volume root and retained MinIO tree owners. These controls
+one-shot `local-data-volume-permissions` helper has only `CAP_CHOWN`, then exits
+after setting the PostgreSQL volume root and retained MinIO tree owners. The Live
+Demo accepts either rootless or rootful local Podman. These controls
 contain accidental service escape and resource exhaustion; they do not make a host or Podman-socket
 administrator unable to read disposable developer data.
 
@@ -68,6 +72,7 @@ permissions.
 | `postgres-major-guard`          | Reads an existing `PG_VERSION` before PostgreSQL starts.                                                                                   | Read-only volume, no network, and refusal when the retained volume is not PostgreSQL 17. It never migrates or deletes data.            |
 | `createbuckets`                 | Creates the four required MinIO buckets idempotently.                                                                                      | It exits after setup; the API does not need bucket-administration behavior.                                                            |
 | `identity-secret-init`          | Copies the host-owned invitation issuer and Question ID capabilities into an API-only runtime volume with the fixed API UID and mode 0600. | Networkless with a minimal capability set; raw host paths are not mounted into the API.                                                |
+| `database-migrator`             | Applies migrations and verifies the API login before application startup.                                                                   | Profile-only, no host port, and receives one controller-written private database URL.                                                  |
 
 Stopped successful one-shot containers may appear in `podman ps -a`. They are
 not failed daemons and consume no running CPU after completion.
@@ -90,7 +95,7 @@ and bounded non-executable temporary filesystems. PostgreSQL writes only its
 data volume plus an ephemeral Unix-socket directory; MinIO writes only its data
 volume; `createbuckets` writes only temporary client configuration. The retained
 data volumes are deliberately disposable developer state, not a host-compromise
-barrier: a user who controls the rootless Podman socket or host account can read
+barrier: a user who controls the Podman socket or host account can read
 them. Production protection is separately owned by managed database/object
 storage, IAM, and KMS controls.
 
@@ -107,7 +112,7 @@ projects or volumes with global Podman commands.
 
 | Network              | Members                                | Purpose                                                                                      |
 | -------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------- |
-| default data network | `postgres`, `minio`, `api`, setup jobs | Relational and object-storage communication.                                                 |
+| default data network | `postgres`, `minio`, `api`, setup jobs, `database-migrator` | Relational and object-storage communication.                                                 |
 | `gateway_api`        | `gateway`, `api`                       | Same-origin browser delivery without publishing the API directly.                            |
 | `renderer_private`   | `api`, `webwork-renderer`              | Private PG render/grade traffic. The browser, gateway, PostgreSQL, and MinIO do not join it. |
 

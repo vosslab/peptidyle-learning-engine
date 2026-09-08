@@ -1,4 +1,6 @@
 # Runtime dependency for the local-stack controller.
 PyYAML
+# Compose controller invoked by the selected Python 3.12 environment.
+podman-compose==1.6.0
 # macOS Mail.app bridge for the temporary attended invitation mailer.
 py-applescript

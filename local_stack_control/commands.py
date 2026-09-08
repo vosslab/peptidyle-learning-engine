@@ -194,7 +194,7 @@ def doctor(
 		checks.append(local_stack_control.models.DoctorCheck("client", "OK", str(client.get("Version", "unknown"))))
 		checks.append(local_stack_control.models.DoctorCheck("server", "OK", str(version.get("Version", "unknown"))))
 		rootless = "yes" if security["rootless"] else "no"
-		checks.append(local_stack_control.models.DoctorCheck("rootless", "OK" if rootless == "yes" else "FAIL", rootless))
+		checks.append(local_stack_control.models.DoctorCheck("rootless", "OK", rootless))
 	else:
 		detail = info_result.stderr.strip() or "engine unavailable"
 		checks.append(local_stack_control.models.DoctorCheck("podman", "FAIL", detail))
@@ -358,7 +358,6 @@ def execute_cleanup(
 	print("Command:", shlex.join(plan.argv))
 	if dry_run:
 		return 0
-	local_stack_control.process.require_rootless_local_engine(runner, target.repo_root)
 	result = runner.stream(list(plan.argv), child_environment(target), target.repo_root)
 	if result != 0:
 		return result
@@ -501,7 +500,6 @@ def service_stop(
 	repo_root: pathlib.Path,
 ) -> int:
 	"""Stop only the default renderer after label-derived authority checks."""
-	local_stack_control.process.require_rootless_local_engine(runner, repo_root)
 	target = target_from_args(args, runner, repo_root)
 	local_stack_control.compose.require_default_mutation_target(target)
 	snapshot = local_stack_control.discovery.discover_snapshot(runner, repo_root, target.project)
@@ -572,7 +570,6 @@ def acceptance(
 	repo_root: pathlib.Path,
 ) -> int:
 	"""Run aggregate browser lanes after shared read-only conflict preflight."""
-	local_stack_control.process.require_rootless_local_engine(runner, repo_root)
 	snapshots = project_snapshots(runner, repo_root)
 	preflight = local_stack_control.cleanup.aggregate_acceptance_preflight(snapshots)
 	if not preflight.ok:

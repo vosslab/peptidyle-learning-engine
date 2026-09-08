@@ -29,8 +29,10 @@ the project scope.
 - **`command not found on PATH`:** install the named prerequisite and retry
   `./launchers/run_live_demo.sh`. The wrapper requires Git, Podman, curl, awk, OpenSSL,
   xxd, and lsof.
-- **`neither 'podman compose' nor 'podman-compose' is usable`:** install one
-  supported Podman Compose provider and retry `./launchers/run_live_demo.sh`.
+- **`neither 'podman compose' nor 'podman-compose' is usable`:** install the declared
+  dependencies into the selected Python 3.12 environment with
+  `source source_me.sh && python3 -m pip install --requirement pip_requirements.txt`, then retry
+  `./launchers/run_live_demo.sh`.
 - **`a custom mutating env file must already exist and have mode 0600`:** use
   the repository's first-run path with the default environment. Do not point
   the wrapper at another environment, project, identity, SMTP configuration,

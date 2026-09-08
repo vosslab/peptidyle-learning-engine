@@ -387,8 +387,6 @@ def main() -> None:
 		# locates private files beneath its current private workspace.
 		manifest = local_stack_control.disposable_stack_adapter.load_manifest(root, args.manifest)
 		disposable = local_stack_control.disposable_stack_adapter.disposable_target(runner, root, manifest)
-		if args.action != "diagnostics":
-			local_stack_control.process.require_rootless_local_engine(runner, root)
 		if args.action == "compose":
 			local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, disposable)
 			argv, environment = local_stack_control.disposable_stack_adapter.compose_command(

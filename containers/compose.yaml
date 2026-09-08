@@ -80,6 +80,35 @@ services:
     pids_limit: 128
     restart: on-failure
 
+  # The controller runs this profile-only job before application services. It
+  # keeps migrations on the Compose data network, avoiding a host port-forward
+  # dependency while retaining the same embedded migration authority.
+  database-migrator:
+    labels: *ple-disposable-capability-label
+    profiles: ["migration"]
+    image: localhost/peptidyle-learning-engine:local-database-migrator
+    build:
+      context: ..
+      dockerfile: containers/Containerfile.api
+      target: database-migrator
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PLE_MIGRATION_DATABASE_URL: ${PLE_MIGRATION_DATABASE_URL:-}
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+    cpus: "0.50"
+    mem_limit: 256m
+    pids_limit: 64
+    restart: "no"
+
   # Invoked explicitly by local_stack_control.lifecycle before PostgreSQL starts.  A
   # PostgreSQL data directory is not forward/backward compatible across major
   # versions, so the guard refuses a populated volume whose declared major is

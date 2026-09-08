@@ -1,7 +1,6 @@
 """Typed subprocess boundary for local stack commands."""
 
 import os
-import json
 import pathlib
 import secrets
 import shutil
@@ -145,56 +144,6 @@ def current_environment() -> dict[str, str]:
 	"""Return a mutable copy of the process environment."""
 	environment = dict(os.environ)
 	return environment
-
-
-#============================================
-def rootless_from_podman_info(info_text: str) -> bool:
-	"""Decode the active Podman connection's rootless state from typed JSON."""
-	try:
-		info = json.loads(info_text)
-	except json.JSONDecodeError as error:
-		raise local_stack_control.models.ControllerError(
-			"podman info returned invalid JSON while checking the rootless engine"
-		) from error
-	if not isinstance(info, dict):
-		raise local_stack_control.models.ControllerError(
-			"podman info returned unexpected JSON while checking the rootless engine"
-		)
-	host = info.get("host")
-	if not isinstance(host, dict):
-		raise local_stack_control.models.ControllerError(
-			"podman info has no host metadata for the rootless engine check"
-		)
-	security = host.get("security")
-	if not isinstance(security, dict) or not isinstance(security.get("rootless"), bool):
-		raise local_stack_control.models.ControllerError(
-			"podman info has no rootless security metadata"
-		)
-	result = security["rootless"]
-	return result
-
-
-#============================================
-def require_rootless_local_engine(
-	runner: CommandRunner,
-	repo_root: pathlib.Path,
-) -> None:
-	"""Require the active default Podman connection to be rootless before mutation."""
-	result = runner.run(
-		["podman", "info", "--format", "json"],
-		local_stack_control.env_file.sanitized_runtime_environment(current_environment()),
-		repo_root,
-	)
-	if not result.ok():
-		detail = result.stderr.strip() or "Podman engine is unavailable"
-		raise local_stack_control.models.ControllerError(
-			"a rootless Podman engine is required before changing the local stack: " + detail
-		)
-	if not rootless_from_podman_info(result.stdout):
-		raise local_stack_control.models.ControllerError(
-			"the active default Podman connection is not rootless; select or start the "
-			"rootless local Podman machine, then retry"
-		)
 
 
 #============================================

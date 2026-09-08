@@ -374,7 +374,18 @@ pub async fn apply_migrations(pool: &PgPool) -> Result<(), sqlx::Error> {
     let connection = pool.acquire().await?;
     let mut guard = lock.acquire(connection).await?;
     let application_result = async {
-        MIGRATOR.run(&mut *guard).await?;
+        if let Err(error) = MIGRATOR.run(&mut *guard).await {
+            let error: sqlx::Error = error.into();
+            // SQLx rechecks its public-schema ledger after applying the epoch.
+            // The principal baseline deliberately removes the migrator's CREATE
+            // privilege from that schema, so PostgreSQL can reject that final
+            // idempotent ledger check after every migration was committed. The
+            // durable ledger is the authoritative outcome: accept the error
+            // only when it proves the exact embedded epoch is already present.
+            if !migration_check(pool).await?.is_compatible() {
+                return Err(error);
+            }
+        }
         Ok::<(), sqlx::Error>(())
     }
     .await;

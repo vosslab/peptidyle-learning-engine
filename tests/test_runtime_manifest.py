@@ -205,7 +205,7 @@ def test_compose_command_revalidates_its_admin_password_source(tmp_path: pathlib
 		env_file=runtime.compose_environment_path,
 		compose_files=(),
 		provider=local_stack_control.models.ComposeProvider(
-			("podman-compose", "--in-pod", "false"),
+			(*local_stack_control.models.podman_compose_argv(), "--in-pod", "false"),
 			"podman-compose",
 		),
 		with_smtp=False,

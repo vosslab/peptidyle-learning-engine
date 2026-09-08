@@ -47,10 +47,9 @@ REMOTE_ENGINE_SELECTOR_NAMES = frozenset(
 def sanitized_runtime_environment(base_environment: dict[str, str]) -> dict[str, str]:
 	"""Remove ambient selectors that could redirect Podman to another engine.
 
-	PLE intentionally uses the caller's default Podman connection.  That is the
-	rootless Podman machine on macOS, but it must not be overridden by shell
-	variables that select a remote socket, SSH target, TLS client, or Docker
-	context for an individual controller command.
+	PLE intentionally uses the caller's default Podman connection. It must not be
+	overridden by shell variables that select a remote socket, SSH target, TLS
+	client, or Docker context for an individual controller command.
 	"""
 	environment = dict(base_environment)
 	for name in REMOTE_ENGINE_SELECTOR_NAMES:

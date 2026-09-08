@@ -76,7 +76,8 @@ def disposable_profile(
 		env_file=environment,
 		compose_files=compose_files,
 		provider=local_stack_control.models.ComposeProvider(
-			("podman-compose", "--in-pod", "false"), "podman-compose"
+			(*local_stack_control.models.podman_compose_argv(), "--in-pod", "false"),
+			"podman-compose",
 		),
 		with_smtp=False,
 		env_setting_names=("SAFE",),
@@ -275,7 +276,9 @@ def test_profile_rejects_foreign_compose_files(tmp_path: pathlib.Path) -> None:
 		project="ple-live-demo-browser",
 		env_file=environment,
 		compose_files=(foreign,),
-		provider=local_stack_control.models.ComposeProvider(("podman-compose",), "podman-compose"),
+		provider=local_stack_control.models.ComposeProvider(
+			local_stack_control.models.podman_compose_argv(), "podman-compose"
+		),
 		with_smtp=False,
 		env_setting_names=("SAFE",),
 	)

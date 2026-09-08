@@ -62,6 +62,7 @@ always authoritative.
 | `minio`                | S3-compatible object storage                                           | Loopback `9000` and console `9001` |
 | `createbuckets`        | Idempotently creates four storage buckets                              | One-shot, no host port             |
 | `identity-secret-init` | Copies two host capabilities into an API-only volume                   | Networkless, one-shot              |
+| `database-migrator`   | Applies schema and checks the API database login before startup         | Profile-only, no host port         |
 | `webwork-renderer`     | Private stateless PG/PGML render and grade engine                      | No host port                       |
 
 All published ports bind to `127.0.0.1`. The API is the sole PLE application
@@ -80,10 +81,15 @@ temporary processing is never served.
 PostgreSQL, MinIO, API, gateway, and renderer use read-only container roots,
 dropped capabilities, `no-new-privileges`, bounded resources, and non-executable
 temporary filesystems. PostgreSQL runs as UID 999 and MinIO as UID 10001. The
-networkless `local-data-volume-permissions` helper runs as root inside the
-rootless Podman user namespace with only `CAP_CHOWN`, fixes retained volume
-ownership, and exits before daemons start. It does not change database or object
-content.
+networkless `local-data-volume-permissions` helper runs with only `CAP_CHOWN`,
+fixes retained volume ownership, and exits before daemons start. It does not
+change database or object content. The Live Demo accepts the active local Podman
+connection whether it is rootless or rootful.
+
+The controller runs its short-lived migration and application-schema verifier
+inside the Compose data network. The local PostgreSQL loopback port remains an
+operator diagnostic endpoint; lifecycle correctness does not depend on its
+host port-forwarding behavior.
 
 `ple_pgdata` and `ple_miniodata` are named volumes. A normal container stop or
 rebuild retains them. The read-only `postgres-major-guard` accepts an empty
@@ -92,8 +98,8 @@ verified backup, new target-major volume, restore, validation, and recovery
 acceptance. Removing a populated volume is destructive.
 
 The local hardening limits accidental exposure and confused operations. A
-person controlling the host account or rootless Podman socket can still inspect
-disposable data. Production uses managed RDS, S3, IAM, and KMS controls.
+person controlling the host account or Podman socket can still inspect disposable
+data. Production uses managed RDS, S3, IAM, and KMS controls.
 
 ## First run
 

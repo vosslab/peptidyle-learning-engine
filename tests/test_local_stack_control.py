@@ -84,36 +84,6 @@ class ProjectScopedInventoryRunner(local_stack_control.process.CommandRunner):
 
 
 #============================================
-class NonRootlessInfoRunner(local_stack_control.process.CommandRunner):
-	"""Provide typed engine metadata without allowing a real process call."""
-
-	#============================================
-	def run(
-		self,
-		argv: list[str],
-		environment: dict[str, str] | None = None,
-		cwd: pathlib.Path | None = None,
-		stdin: str | None = None,
-	) -> local_stack_control.models.CommandResult:
-		"""Report a reachable but rootful active connection."""
-		if stdin is not None:
-			raise AssertionError("engine metadata does not accept stdin")
-		return local_stack_control.models.CommandResult(
-			tuple(argv), 0, '{"host":{"security":{"rootless":false}}}', ""
-		)
-
-	#============================================
-	def stream(
-		self,
-		argv: list[str],
-		environment: dict[str, str] | None = None,
-		cwd: pathlib.Path | None = None,
-	) -> int:
-		"""Keep the engine-proof test away from subprocess execution."""
-		raise RuntimeError("stream is not used by the rootless engine proof")
-
-
-#============================================
 class ValidationLaneRunner(local_stack_control.process.CommandRunner):
 	"""Capture aggregate lane handoffs without starting an external process."""
 
@@ -378,17 +348,6 @@ def test_default_target_overrides_ambient_compose_project(tmp_path: pathlib.Path
 
 
 #============================================
-def test_rootful_engine_metadata_cannot_authorize_a_local_stack_mutation(
-	tmp_path: pathlib.Path,
-) -> None:
-	"""The active default engine must prove it is rootless before mutation."""
-	with pytest.raises(local_stack_control.models.ControllerError, match="not rootless"):
-		local_stack_control.process.require_rootless_local_engine(
-			NonRootlessInfoRunner(), tmp_path
-		)
-
-
-#============================================
 def test_explicit_read_only_project_has_its_own_semantic_status(tmp_path: pathlib.Path) -> None:
 	"""Inspection can classify a named project without granting mutation authority."""
 	selected_target = target(tmp_path, project="inspection-only")
@@ -650,7 +609,7 @@ def disposable_target(tmp_path: pathlib.Path) -> local_stack_control.models.Disp
 			live_demo_compose_file.resolve(strict=True),
 		),
 		provider=local_stack_control.models.ComposeProvider(
-			("podman-compose",), "podman-compose"
+			local_stack_control.models.podman_compose_argv(), "podman-compose"
 		),
 	)
 	raw_capability = b"a" * 32
