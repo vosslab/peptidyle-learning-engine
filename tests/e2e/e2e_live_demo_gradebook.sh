@@ -97,22 +97,28 @@ received="$(request "$path" "$instructor_cookie")"
 [ "$(status "$received")" = 200 ] || { echo "Current Course Instructor could not read Gradebook" >&2; exit 1; }
 python3 -c 'import json,re,sys
 value=json.loads(sys.argv[1]); course=sys.argv[2]
-if set(value)!={"courseReference","gradedStudentWork"} or value["courseReference"]!=course:
+if set(value)!={"courseReference","studentWork"} or value["courseReference"]!=course:
     raise SystemExit("Gradebook projection is not closed to its requested Course")
-rows=value["gradedStudentWork"]
+rows=value["studentWork"]
 if not isinstance(rows,list) or not rows:
-    raise SystemExit("Gradebook projection lacks immutable graded Student Work")
+    raise SystemExit("Gradebook projection lacks active Student Work")
 for row in rows:
-    if set(row)!={"rosterId","assignmentReference","gradedQuestionCount","pointsEarned","pointsPossible"}:
+    if set(row)!={"rosterId","assignmentReference","assignmentAttemptCompletion","gradedQuestionCount","questionCount","pointsEarned","pointsPossible"}:
         raise SystemExit("Gradebook projection exposed an unapproved field")
     if not isinstance(row["rosterId"],str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}",row["rosterId"]):
         raise SystemExit("Gradebook roster projection is invalid")
     if not isinstance(row["assignmentReference"],str) or not re.fullmatch(r"A-[1-9][0-9]{0,9}",row["assignmentReference"]):
         raise SystemExit("Gradebook Assignment projection is invalid")
-    if not isinstance(row["gradedQuestionCount"],int) or row["gradedQuestionCount"] < 1:
+    if row["assignmentAttemptCompletion"] not in (None,"inProgress","completed"):
+        raise SystemExit("Gradebook Assignment Attempt completion is invalid")
+    if not isinstance(row["gradedQuestionCount"],int) or row["gradedQuestionCount"] < 0:
         raise SystemExit("Gradebook graded Question count is invalid")
+    if not isinstance(row["questionCount"],int) or not 0 <= row["gradedQuestionCount"] <= row["questionCount"] or row["questionCount"] < 1:
+        raise SystemExit("Gradebook Question count is invalid")
     if not all(isinstance(row[k],(int,float)) and not isinstance(row[k],bool) for k in ("pointsEarned","pointsPossible")) or not 0 <= row["pointsEarned"] <= row["pointsPossible"]:
         raise SystemExit("Gradebook points projection is invalid")
+    if row["assignmentAttemptCompletion"] is None and (row["gradedQuestionCount"] != 0 or row["pointsEarned"] != 0 or row["pointsPossible"] != 0):
+        raise SystemExit("Gradebook not-started row exposes work totals")
 serialized=json.dumps(value).lower()
 if any(word in serialized for word in ("studentresponse","answerkey","sourceobject","checksum","grader")):
     raise SystemExit("Gradebook projection exposed private grading evidence")' "$(body "$received")" "$course"

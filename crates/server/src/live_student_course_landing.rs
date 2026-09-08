@@ -13,7 +13,9 @@ use learning_data_access::{
     LiveStudentCourseLandingStore, SessionTokenHash, StoreError,
     postgres::{PostgresLiveStudentCourseLandingStore, PostgresSessionStore},
 };
-use question_model::{AssignmentReference, CourseInstanceReference, ProductRole};
+use question_model::{
+    AssignmentAttemptCompletion, AssignmentReference, CourseInstanceReference, ProductRole,
+};
 use serde::Serialize;
 
 use crate::auth::{AuthError, resolve_session};
@@ -70,9 +72,16 @@ struct AssignmentListResponse {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct AssignmentSummary {
     reference: AssignmentReference,
     title: String,
+    assignment_attempt_number: Option<u32>,
+    assignment_attempt_completion: Option<AssignmentAttemptCompletion>,
+    graded_question_count: u32,
+    question_count: u32,
+    points_earned: f64,
+    points_possible: f64,
 }
 
 async fn list_courses(State(state): State<RouteState>, headers: HeaderMap) -> Response {
@@ -153,6 +162,12 @@ async fn list_assignments(
                     .map(|assignment| AssignmentSummary {
                         reference: assignment.assignment,
                         title: assignment.title,
+                        assignment_attempt_number: assignment.assignment_attempt_number,
+                        assignment_attempt_completion: assignment.assignment_attempt_completion,
+                        graded_question_count: assignment.graded_question_count,
+                        question_count: assignment.question_count,
+                        points_earned: assignment.points_earned,
+                        points_possible: assignment.points_possible,
                     })
                     .collect(),
             })

@@ -14,7 +14,7 @@ const page = await context.newPage();
 
 try {
   await page.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Continue as Elena Instructor" }).click();
+  await page.getByRole("button", { name: "Continue as Elena Rivera" }).click();
   await page.waitForURL(`${origin}/`);
 
   const gradebookResponse = page.waitForResponse((response) =>
@@ -32,20 +32,20 @@ try {
     projection === null ||
     typeof projection !== "object" ||
     Array.isArray(projection) ||
-    Object.keys(projection).sort().join(",") !== "courseReference,gradedStudentWork" ||
+    Object.keys(projection).sort().join(",") !== "courseReference,studentWork" ||
     projection.courseReference !== course ||
-    !Array.isArray(projection.gradedStudentWork) ||
-    projection.gradedStudentWork.length === 0
+    !Array.isArray(projection.studentWork) ||
+    projection.studentWork.length === 0
   ) {
     throw new Error("Gradebook browser received an unexpected projection");
   }
-  const first = projection.gradedStudentWork[0];
+  const first = projection.studentWork[0];
   if (
     first === null ||
     typeof first !== "object" ||
     Array.isArray(first) ||
     Object.keys(first).sort().join(",") !==
-      "assignmentReference,gradedQuestionCount,pointsEarned,pointsPossible,rosterId"
+      "assignmentAttemptCompletion,assignmentReference,gradedQuestionCount,pointsEarned,pointsPossible,questionCount,rosterId"
   ) {
     throw new Error("Gradebook browser received non-answer-free Student Work evidence");
   }

@@ -25,7 +25,10 @@ test("live-demo account absence remains a deployment absence and persona copy is
     isLiveDemoUnavailable(new ApiRequestError(503, "/api/auth/live-demo/accounts")),
     false,
   );
-  assert.match(seededDemoDescription("morganSysadmin"), /seeded Sysadmin account/u);
+  assert.match(
+    seededDemoDescription("morganSysadmin"),
+    /Morgan Delgado's seeded Sysadmin account/u,
+  );
   assert.match(seededDemoDescription("morganSysadmin"), /administrator tools/u);
 });
 

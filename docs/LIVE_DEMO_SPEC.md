@@ -3,8 +3,9 @@
 ## Current executable boundary
 
 The Live Demo is a disposable HTTPS deployment of the current PLE application.
-Its development entry admits the closed five-persona set: Elena Instructor;
-Mary, Jack, and Avery Student; and Morgan Sysadmin. Choosing a persona replaces
+Its development entry admits the closed five-persona set: Elena Rivera, Instructor;
+Mary Okafor, Jack Nguyen, and Avery Thompson, Students; and Morgan Delgado,
+Sysadmin. Choosing a persona replaces
 identity verification only. The server resolves the configured Account and
 issues the ordinary Authenticated Session.
 Configuration is evaluated per persona: an absent, malformed, or ambiguously
@@ -37,6 +38,51 @@ recovery, WeBWorK grading, Gradebook, Sysadmin Instructor Account management,
 scoped roster support, and Instructor-only invitation export. Each protected
 operation retains its server and Store authorization boundary.
 
+## Required teaching-data baseline
+
+A successful `./launchers/run_live_demo.sh` start establishes one fictional,
+disposable teaching graph through ordinary product HTTP contracts. The SQL
+seed remains limited to the five foundational Accounts, three Student
+Authentication Emails, and four Published Questions. After service readiness,
+Elena Rivera and the three Student Accounts create the Course-domain records
+through the same relationship-gated routes used by ordinary product workflows.
+
+The reusable source is the Blueprint Course `Biochemistry 301: Proteins and
+Peptides`. Elena Rivera owns its published Blueprint Revision. Her Fall 2026
+Course Instance has the same title, runs from 2026-08-24 through 2026-12-11 in
+`America/Chicago`, and has Elena as its Assigned Instructor. Its released
+Assignment `Peptide Structure Practice` contains PNE-0001, PNE-0002, PNE-0003,
+and PNE-0004 in that order. It has no due date, accepts late work, and tells
+Students: `Complete the four practice questions on peptide structure and
+properties.`
+
+The roster-driven import and claim workflow establishes the three active
+Student Course Memberships and course-scoped Student Records. Their declared
+startup facts are:
+
+| Student | Roster ID | Product facts after startup |
+| --- | --- | --- |
+| Mary Okafor | `BIO301-MARY` | 1 Assignment Attempt; 4 Question Submissions; 4 terminal Grading Results |
+| Jack Nguyen | `BIO301-JACK` | 1 open Assignment Attempt; 2 Question Submissions; 2 unanswered Issued Questions |
+| Avery Thompson | `BIO301-AVERY` | An available released Assignment and no Assignment Attempt |
+
+The interface derives completed, in-progress, and not-started labels from
+those records. Provisioning never writes a parallel demo-only Assignment or
+grade state. Repeated starts detect each stage through its product read route
+and apply only missing operations. A retained disposable manifest identifies
+the created Blueprint Course, Course Instance, and Assignment by their public
+References; title matching is only recovery when that manifest fact is absent
+or stale.
+
+This graph is launch-readiness evidence only when Elena can inspect its roster
+and Gradebook, Mary can inspect completed graded work, Jack can resume the open
+attempt, and Avery can start from the beginning. Authorization remains bound
+to exact Account, Course Membership, Student Record, Assignment Attempt, and
+Question Attempt relationships. Student Work Records are FERPA-sensitive, and
+Morgan Delgado's Sysadmin Product Role supplies no ambient academic access.
+The projections expose only the fields required for each workflow (ASVS
+8.1.1, 8.1.2, 14.1.1, and 14.2.6).
+
 ## Visual evidence profiles
 
 M20's current role-owned captures use the `laptop` profile (1280 by 800 CSS
@@ -65,7 +111,7 @@ it does not create ambient Course or Student-record authority.
 
 ## Instructor perspective
 
-The seeded Elena Instructor can use the implemented Question Library,
+The seeded Elena Rivera Instructor Account can use the implemented Question Library,
 authoring, Blueprint Course, Course Instance, roster, Assignment Workspace,
 release, Gradebook, and invitation-export routes subject to their stored
 relationships. The browser cannot send invitation mail.
@@ -79,7 +125,7 @@ by terminal grading state and is released only through its separate policy.
 
 ## Sysadmin perspective
 
-The seeded Morgan Sysadmin can use the Instructor Accounts task and a registered
+The seeded Morgan Delgado Sysadmin Account can use the Instructor Accounts task and a registered
 scoped roster-support operation. Those routes do not grant academic Course
 authority, Question correction, or unbounded Student-record access.
 

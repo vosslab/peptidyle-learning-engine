@@ -58,8 +58,8 @@ visual evidence, not permanent tests.
 
 Use the visible seeded-entry page. It replaces only the normal
 identity-verification ceremony and can create an ordinary server-owned
-Authenticated Session for Elena Instructor, Mary Student, Jack Student, Avery
-Student, or Morgan Sysadmin. The entry supplies a closed persona key only. The
+Authenticated Session for Elena Rivera, Mary Okafor, Jack Nguyen, Avery
+Thompson, or Morgan Delgado. The entry supplies a closed persona key only. The
 server resolves the configured Account and derives Product Role, Course
 Membership, Student ownership, and every later authorization decision from
 stored PLE state. The resulting session uses the applicable protected product

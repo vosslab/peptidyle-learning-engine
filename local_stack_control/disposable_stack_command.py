@@ -1,6 +1,7 @@
 """Private adapter for closed disposable local-stack E2E owners."""
 
 import argparse
+import json
 import pathlib
 import re
 import shlex
@@ -12,6 +13,8 @@ import local_stack_control.discovery
 import local_stack_control.models
 import local_stack_control.process
 import local_stack_control.lifecycle
+import local_stack_control.live_demo_course_provision
+import local_stack_control.live_demo_course_seed
 
 
 #============================================
@@ -30,6 +33,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	launch = actions.add_parser("launch")
 	launch.add_argument("--manifest", required=True, type=pathlib.Path)
 	launch.add_argument("--timeout-seconds", required=True, type=int)
+	launch.add_argument(
+		"--stop-after",
+		choices=tuple(stage.value for stage in local_stack_control.live_demo_course_provision.SUPPORTED_STAGES),
+	)
 	restart = actions.add_parser("restart")
 	restart.add_argument("--manifest", required=True, type=pathlib.Path)
 	restart.add_argument("--service", required=True)
@@ -75,6 +82,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	postgresql_count.add_argument("--attempt-id", required=True)
 	seed_inventory = actions.add_parser("seed-inventory")
 	seed_inventory.add_argument("--manifest", required=True, type=pathlib.Path)
+	provision_course = actions.add_parser("provision-course")
+	provision_course.add_argument("--manifest", required=True, type=pathlib.Path)
+	provision_course.add_argument(
+		"--stop-after",
+		choices=tuple(stage.value for stage in local_stack_control.live_demo_course_provision.SUPPORTED_STAGES),
+	)
+	provision_course.add_argument("--report", action="store_true")
 	args = parser.parse_args(argv)
 	if args.action == "compose":
 		if len(args.arguments) > 0 and args.arguments[0] == "--":
@@ -390,12 +404,17 @@ def main() -> None:
 			raise SystemExit(result.returncode)
 		if args.action == "launch":
 			local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, disposable)
+			provision_stop_after = (
+				local_stack_control.live_demo_course_seed.Stage(args.stop_after)
+				if args.stop_after is not None
+				else None
+			)
 			result = local_stack_control.lifecycle.start_lifecycle(
 				disposable,
 				runner,
 				root,
 				local_stack_control.disposable_stack_adapter.lifecycle_options(
-					disposable, args.timeout_seconds
+					disposable, args.timeout_seconds, provision_stop_after
 				),
 			)
 			print(f"Disposable stack ready: {result.gateway_url}")
@@ -480,6 +499,27 @@ def main() -> None:
 		if args.action == "seed-inventory":
 			result = run_seed_inventory(runner, disposable)
 			raise SystemExit(result)
+		if args.action == "provision-course":
+			local_stack_control.disposable_stack_adapter.require_mutating_capability(
+				runner, disposable
+			)
+			stop_after = (
+				local_stack_control.live_demo_course_seed.Stage(args.stop_after)
+				if args.stop_after is not None
+				else None
+			)
+			provisioned = local_stack_control.live_demo_course_provision.provision_live_demo_course(
+				runner,
+				disposable,
+				args.manifest.absolute().parent,
+				stop_after=stop_after,
+				report_only=args.report,
+			)
+			if args.report:
+				print(json.dumps([stage.value for stage in provisioned.planned_stages]))
+			else:
+				print(f"Live Demo Course provisioned: {provisioned.report_path}")
+			raise SystemExit(0)
 
 		before = local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, disposable)
 		if len(before.containers) + len(before.volumes) + len(before.networks) == 0:

@@ -65,6 +65,73 @@ class GatewayPortRunner(local_stack_control.process.CommandRunner):
 
 
 #============================================
+def test_ready_tls_live_demo_runs_course_provisioning_in_its_private_workspace(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	"""Only the owned TLS lane receives post-readiness teaching-data convergence."""
+	selected = lifecycle_target(tmp_path, "ple-live-demo-browser", "workspace/env.local")
+	disposable = local_stack_control.models.DisposableComposeTarget(
+		target=selected,
+		owner_policy="live-demo-browser",
+		capability_file=tmp_path / "capability",
+		project_prefix="ple-live-demo-browser",
+		private_environment_file=selected.env_file,
+		live_demo_profile=local_stack_control.models.LiveDemoProfile.BROWSER,
+	)
+	captured: list[tuple[object, object, pathlib.Path, object]] = []
+	monkeypatch.setattr(
+		local_stack_control.live_demo_gateway,
+		"is_tls_target",
+		lambda target: True,
+	)
+	monkeypatch.setattr(
+		local_stack_control.lifecycle,
+		"provision_live_demo_course",
+		lambda runner, target, workspace, stop_after=None: captured.append(
+			(runner, target, workspace, stop_after)
+		),
+	)
+	runner = UnexpectedRunner()
+
+	local_stack_control.lifecycle.provision_ready_live_demo(disposable, runner)
+
+	assert captured == [(runner, disposable, selected.env_file.parent, None)]
+
+
+#============================================
+def test_ready_tls_live_demo_forwards_one_debug_provisioning_checkpoint(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	"""A requested recovery checkpoint reaches only the existing provisioner harness."""
+	selected = lifecycle_target(tmp_path, "ple-live-demo-browser", "workspace/env.local")
+	disposable = local_stack_control.models.DisposableComposeTarget(
+		target=selected,
+		owner_policy="live-demo-browser",
+		capability_file=tmp_path / "capability",
+		project_prefix="ple-live-demo-browser",
+		private_environment_file=selected.env_file,
+		live_demo_profile=local_stack_control.models.LiveDemoProfile.BROWSER,
+	)
+	captured: list[object] = []
+	monkeypatch.setattr(local_stack_control.live_demo_gateway, "is_tls_target", lambda target: True)
+	monkeypatch.setattr(
+		local_stack_control.lifecycle,
+		"provision_live_demo_course",
+		lambda runner, target, workspace, stop_after=None: captured.append(stop_after),
+	)
+
+	local_stack_control.lifecycle.provision_ready_live_demo(
+		disposable,
+		UnexpectedRunner(),
+		local_stack_control.live_demo_course_seed.Stage.RELEASE,
+	)
+
+	assert captured == [local_stack_control.live_demo_course_seed.Stage.RELEASE]
+
+
+#============================================
 def lifecycle_target(tmp_path: pathlib.Path, project: str, env_name: str) -> local_stack_control.models.ComposeTarget:
 	"""Build one selected target without reading a tracked configuration file."""
 	env_file = tmp_path / env_name

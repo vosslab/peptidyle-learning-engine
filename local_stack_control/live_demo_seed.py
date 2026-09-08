@@ -82,10 +82,11 @@ SEEDED_ACCOUNTS = (
 
 # Private fixed Student Authentication Email bindings let the seeded sessions
 # exercise the normal Course Roster Import resolution path.
+# ASVS 14.2.3: the non-routable .invalid domain prevents delivery to real recipients.
 SEEDED_STUDENT_AUTHENTICATION_EMAILS = (
-	("00000000-0000-0000-0000-000000000102", "mary.student@live-demo.invalid"),
-	("00000000-0000-0000-0000-000000000103", "jack.student@live-demo.invalid"),
-	("00000000-0000-0000-0000-000000000104", "avery.student@live-demo.invalid"),
+	("00000000-0000-0000-0000-000000000102", "mary.okafor@live-demo.invalid"),
+	("00000000-0000-0000-0000-000000000103", "jack.nguyen@live-demo.invalid"),
+	("00000000-0000-0000-0000-000000000104", "avery.thompson@live-demo.invalid"),
 )
 
 SEEDED_PUBLISHED_QUESTIONS = (
@@ -370,7 +371,7 @@ def seed_sql(repo_root: pathlib.Path) -> str:
 		for question in SEEDED_PUBLISHED_QUESTIONS
 	)
 	authorship = ",\n\t".join(
-		f"('{question.question_id}', 1, 1, 'Elena Instructor', '{SEEDED_ACCOUNTS[0].account_id}')"
+		f"('{question.question_id}', 1, 1, 'Elena Rivera', '{SEEDED_ACCOUNTS[0].account_id}')"
 		for question in SEEDED_PUBLISHED_QUESTIONS
 	)
 	licenses = ",\n\t".join(

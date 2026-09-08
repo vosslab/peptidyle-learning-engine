@@ -27,11 +27,11 @@ function createLiveDemoFetch(handler) {
 test("live-demo decoders accept the closed Seeded Demo Accounts response", () => {
   const accounts = {
     accounts: [
-      { persona: "elenaInstructor", displayName: "Elena Instructor" },
-      { persona: "maryStudent", displayName: "Mary Student" },
-      { persona: "jackStudent", displayName: "Jack Student" },
-      { persona: "averyStudent", displayName: "Avery Student" },
-      { persona: "morganSysadmin", displayName: "Morgan Sysadmin" },
+      { persona: "elenaInstructor", displayName: "Elena Rivera" },
+      { persona: "maryStudent", displayName: "Mary Okafor" },
+      { persona: "jackStudent", displayName: "Jack Nguyen" },
+      { persona: "averyStudent", displayName: "Avery Thompson" },
+      { persona: "morganSysadmin", displayName: "Morgan Delgado" },
     ],
     unavailableAccountCount: 0,
   };
@@ -61,8 +61,8 @@ test("live-demo decoders accept the closed Seeded Demo Accounts response", () =>
 test("live-demo decoder retains available personas and verifies the unavailable count", () => {
   const degraded = {
     accounts: [
-      { persona: "elenaInstructor", displayName: "Elena Instructor" },
-      { persona: "morganSysadmin", displayName: "Morgan Sysadmin" },
+      { persona: "elenaInstructor", displayName: "Elena Rivera" },
+      { persona: "morganSysadmin", displayName: "Morgan Delgado" },
     ],
     unavailableAccountCount: 3,
   };
@@ -89,7 +89,7 @@ test("direct-role requests stay same-origin, no-store, and carry only persona", 
       const path = new URL(request.url).pathname.replace(/^\/ple/u, "");
       if (path === "/api/auth/live-demo/accounts" && request.method === "GET") {
         return jsonResponse({
-          accounts: [{ persona: "morganSysadmin", displayName: "Morgan Sysadmin" }],
+          accounts: [{ persona: "morganSysadmin", displayName: "Morgan Delgado" }],
           unavailableAccountCount: 4,
         });
       }

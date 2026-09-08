@@ -48,8 +48,9 @@ pub use assignment_delivery::{
 };
 pub use assignment_release::{
     AssignmentPreview, AssignmentQuestionPickerEntry, AssignmentReleaseIssue,
-    AssignmentReleaseValidation, AuthoredAssignmentQuestion, CreateLiveAssignmentInput,
-    LiveAssignmentStore, LiveAssignmentWorkspace, ReleasedLiveAssignment, SaveLiveAssignmentInput,
+    AssignmentReleaseValidation, AuthoredAssignmentQuestion, CourseAssignmentSummary,
+    CreateLiveAssignmentInput, LiveAssignmentStore, LiveAssignmentWorkspace,
+    ReleasedLiveAssignment, SaveLiveAssignmentInput,
 };
 pub use authentication_ceremony::{
     AuthenticatedAccount, AuthenticationCeremonyLifetime, AuthenticationCeremonyStore,
@@ -111,7 +112,7 @@ pub use invitation_export::{
     InvitationExportStore, InvitationMailerExport, InvitationMailerRecipient,
     PendingInvitationExport, PendingInvitationRecipient,
 };
-pub use live_gradebook::{LiveDemoGradebook, LiveDemoGradebookStore, LiveDemoGradedStudentWork};
+pub use live_gradebook::{LiveDemoGradebook, LiveDemoGradebookStore, LiveDemoStudentWork};
 pub use live_student_course_landing::{
     LiveStudentAssignmentLandingSummary, LiveStudentCourseInvitationSummary,
     LiveStudentCourseLandingStore, LiveStudentCourseLandingSummary,

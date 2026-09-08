@@ -274,7 +274,7 @@ async function capture(capturePage, captures, artifactPath, producedPaths) {
 }
 
 async function enterInstructor(page) {
-  await page.getByRole("button", { name: /Continue as Elena Instructor/u }).click();
+  await page.getByRole("button", { name: /Continue as Elena Rivera/u }).click();
   await page.getByRole("heading", { name: "Question library", exact: true }).waitFor();
 }
 
@@ -309,7 +309,7 @@ async function createReleasedAssignment(page, runId) {
   await page.getByRole("heading", { name: courseTitle, exact: true }).waitFor();
   await page.getByRole("link", { name: "Open Course Instance", exact: true }).first().click();
   await page.getByRole("link", { name: "Open Students", exact: true }).click();
-  await page.getByLabel("Email, roster ID").fill("mary.student@live-demo.invalid,m20-student");
+  await page.getByLabel("Email, roster ID").fill("mary.okafor@live-demo.invalid,m20-student");
   await page.getByRole("button", { name: "Import roster", exact: true }).click();
   await page.getByText("Roster import recorded.").waitFor();
   await page.getByRole("link", { name: "Return to Course Instances", exact: true }).click();
@@ -341,7 +341,7 @@ async function createReleasedAssignment(page, runId) {
 }
 
 async function enterStudentAssignment(page, courseTitle, assignmentTitle, acceptInvitation) {
-  await page.getByRole("button", { name: /Continue as .*Mary Student/iu }).click();
+  await page.getByRole("button", { name: /Continue as .*Mary Okafor/iu }).click();
   await page.getByRole("heading", { name: "Your courses", exact: true }).waitFor();
   if (acceptInvitation) {
     await page.getByRole("link", { name: "Course invitations", exact: true }).click();
@@ -369,7 +369,7 @@ async function enterStudentAssignment(page, courseTitle, assignmentTitle, accept
 }
 
 async function enterSysadminInstructorAccounts(page) {
-  await page.getByRole("button", { name: /Continue as Morgan Sysadmin/u }).click();
+  await page.getByRole("button", { name: /Continue as Morgan Delgado/u }).click();
   await page
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Instructor Accounts", exact: true })

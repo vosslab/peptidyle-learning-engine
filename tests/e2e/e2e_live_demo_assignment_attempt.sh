@@ -143,7 +143,7 @@ released_references() {
 
 claim_student_record() {
 	local course="$1" instructor_cookie="$2" student_cookie="$3" imported claimed
-	imported="$(request "/api/course-instances/$course/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.student@live-demo.invalid","rosterId":"m11-student"}]}')"
+	imported="$(request "/api/course-instances/$course/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@live-demo.invalid","rosterId":"m11-student"}]}')"
 	if [ "$(response_status "$imported")" != "201" ]; then echo "Instructor could not import the M11 Student roster row" >&2; exit 1; fi
 	claimed="$(request "/api/course-instances/$course/roster/claim" "$student_cookie" POST '{}')"
 	if [ "$(response_status "$claimed")" != "200" ] || [ "$(response_body "$claimed")" != '{"activeStudentMembership":true}' ]; then echo "Student could not claim the exact Course Invitation" >&2; exit 1; fi
@@ -220,7 +220,7 @@ DECLARE v_course_id uuid; v_assignment_id uuid; v_revision_id uuid; v_student_re
 BEGIN
  SELECT course_id INTO v_course_id FROM ple_data.course_instance WHERE reference_number=${course#C-};
  SELECT assignment_id,released_assignment_revision_id INTO v_assignment_id,v_revision_id FROM ple_data.assignment WHERE course_id=v_course_id AND reference_number=${assignment#A-} AND assignment_status='released';
- SELECT student_record_id INTO v_student_record_id FROM ple_data.student_record WHERE course_id=v_course_id AND student_account_id=(SELECT account_id FROM ple_private.account_authentication_email WHERE normalized_email='mary.student@live-demo.invalid');
+ SELECT student_record_id INTO v_student_record_id FROM ple_data.student_record WHERE course_id=v_course_id AND student_account_id=(SELECT account_id FROM ple_private.account_authentication_email WHERE normalized_email='mary.okafor@live-demo.invalid');
  IF v_course_id IS NULL OR v_assignment_id IS NULL OR v_revision_id IS NULL OR v_student_record_id IS NULL
     OR (SELECT count(*) FROM ple_private.assignment_attempt WHERE assignment_id=v_assignment_id AND student_record_id=v_student_record_id) <> 1
     OR (SELECT count(*) FROM ple_private.issued_question AS issued JOIN ple_private.assignment_attempt AS attempt ON attempt.assignment_attempt_id=issued.assignment_attempt_id WHERE attempt.assignment_id=v_assignment_id AND attempt.student_record_id=v_student_record_id) <> 1

@@ -33,7 +33,7 @@ async function ready(control) {
 
 try {
   await page.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Continue as Mary Student" }).click();
+  await page.getByRole("button", { name: "Continue as Mary Okafor" }).click();
   await page.goto(`${origin}/courses/${course}/assignments/${assignment}`, {
     waitUntil: "domcontentloaded",
   });

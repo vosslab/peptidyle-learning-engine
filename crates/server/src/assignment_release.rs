@@ -41,7 +41,7 @@ pub fn assignment_release_router(
         )
         .route(
             "/api/course-instances/{course}/assignments",
-            post(create_assignment),
+            get(list_assignments).post(create_assignment),
         )
         .route(
             "/api/course-instances/{course}/assignments/{assignment}",
@@ -63,6 +63,31 @@ pub fn assignment_release_router(
             sessions,
             assignments,
         })
+}
+
+async fn list_assignments(
+    State(state): State<StateData>,
+    headers: HeaderMap,
+    Path(course): Path<String>,
+) -> Response {
+    let course = match course_reference(&course) {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    let token = match instructor(&state, &headers).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match state
+        .assignments
+        .list_course_assignments(token, course)
+        .await
+    {
+        // ASVS 8.3.1 and 8.3.4: this closed projection carries no Student,
+        // response, answer, grading, or other protected educational record.
+        Ok(v) => crate::auth::no_store(Json(v).into_response()),
+        Err(e) => store_error(e),
+    }
 }
 
 async fn list_picker(

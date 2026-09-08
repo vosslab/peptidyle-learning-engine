@@ -1,6 +1,7 @@
 // Browser contract for the current Student Course Landing projection.
 
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
+import type { AssignmentAttemptCompletion } from "../../generated/api/AssignmentAttemptCompletion";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 
 /** One current Student-visible Course Instance, without membership or progress details. */
@@ -15,10 +16,16 @@ export interface LiveStudentCourseInvitationSummary {
   readonly title: string;
 }
 
-/** One current Student-visible Assignment, without delivery or Student-work details. */
+/** One current Student-visible Assignment with self-only, answer-free progress. */
 export interface LiveStudentAssignmentLandingSummary {
   readonly reference: AssignmentReference;
   readonly title: string;
+  readonly assignmentAttemptNumber: number | null;
+  readonly assignmentAttemptCompletion: AssignmentAttemptCompletion | null;
+  readonly gradedQuestionCount: number;
+  readonly questionCount: number;
+  readonly pointsEarned: number;
+  readonly pointsPossible: number;
 }
 
 /** Same-origin current-Student Course and Assignment landing capability. */

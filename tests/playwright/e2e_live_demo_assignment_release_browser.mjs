@@ -25,7 +25,7 @@ async function assertNoStudentResponseOrSubmissionControl() {
 
 try {
   await page.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Continue as Elena Instructor" }).click();
+  await page.getByRole("button", { name: "Continue as Elena Rivera" }).click();
   await page.waitForURL(`${origin}/library`);
 
   await page.getByRole("link", { name: "Blueprint Courses" }).click();

@@ -55,7 +55,7 @@ test.describe("instructor authoring on the production PLE stack", () => {
       const page = await context.newPage();
       configureContextAndPage(context, page, actionTimeoutMs);
 
-      await chooseSeededIdentity(page, /Elena Instructor/u);
+      await chooseSeededIdentity(page, /Elena Rivera/u);
       await page.getByRole("link", { name: "Question Library", exact: true }).click();
       await expect(
         page.getByRole("heading", { name: "Question library", exact: true }),

@@ -95,7 +95,9 @@ export async function chooseSeededIdentity(page: Page, name: RegExp): Promise<vo
   await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Courses", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: /^(Course Instances you teach|Your Course Instances)$/u }),
+    page.getByRole("heading", {
+      name: /^(Course Instances you teach|Your Course Instances|Your courses)$/u,
+    }),
   ).toBeVisible();
 }
 

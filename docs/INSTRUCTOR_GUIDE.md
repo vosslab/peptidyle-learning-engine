@@ -2,7 +2,7 @@
 
 ## Current local Live Demo
 
-The current local Live Demo lets a reader select the seeded Elena Instructor
+The current local Live Demo lets a reader select the seeded Elena Rivera Instructor
 persona on the visible account page. The server resolves the configured Account
 and creates the ordinary Authenticated Session. The selector supplies neither
 course authority nor a browser role claim.

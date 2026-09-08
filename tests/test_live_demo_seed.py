@@ -103,7 +103,7 @@ def test_seed_inventory_projection_contains_only_aggregate_counts(
 
 	sql = local_stack_control.live_demo_seed.inventory_sql(tmp_path).lower()
 
-	assert "select count" in sql and "correctchoice" not in sql and "elena instructor" not in sql
+	assert "select count" in sql and "correctchoice" not in sql and "elena rivera" not in sql
 
 
 #============================================

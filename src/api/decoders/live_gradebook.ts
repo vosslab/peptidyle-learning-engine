@@ -1,12 +1,26 @@
 // Strict decoding for the answer-free Gradebook projection.
 
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
+import type { AssignmentAttemptCompletion } from "../../../generated/api/AssignmentAttemptCompletion";
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
-import type { LiveDemoGradebook, LiveDemoGradedStudentWork } from "../live_gradebook";
-import { DecodeError, decodeArray, decodeRecord, decodeString } from "../decoder";
+import type { LiveDemoGradebook, LiveDemoStudentWork } from "../live_gradebook";
+import {
+  DecodeError,
+  decodeArray,
+  decodeNonnegativeInteger,
+  decodeNullable,
+  decodePositiveInteger,
+  decodeRecord,
+  decodeString,
+  decodeStringEnum,
+} from "../decoder";
 import { field, requireOnlyFields } from "./shared";
 
 const MAX_REFERENCE = 2_147_483_647;
+const ASSIGNMENT_ATTEMPT_COMPLETIONS = [
+  "inProgress",
+  "completed",
+] as const satisfies ReadonlyArray<AssignmentAttemptCompletion>;
 
 function courseReference(value: unknown, path: string): CourseInstanceReference {
   const decoded = decodeString(value, path);
@@ -41,12 +55,14 @@ function nonNegativeFinite(value: unknown, path: string): number {
   return decoded;
 }
 
-function gradedWork(value: unknown, path: string): LiveDemoGradedStudentWork {
+function studentWork(value: unknown, path: string): LiveDemoStudentWork {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "rosterId",
     "assignmentReference",
+    "assignmentAttemptCompletion",
     "gradedQuestionCount",
+    "questionCount",
     "pointsEarned",
     "pointsPossible",
   ]);
@@ -58,15 +74,27 @@ function gradedWork(value: unknown, path: string): LiveDemoGradedStudentWork {
     field(record, "pointsPossible", path),
     `${path}.pointsPossible`,
   );
-  const gradedQuestionCount = nonNegativeFinite(
+  const gradedQuestionCount = decodeNonnegativeInteger(
     field(record, "gradedQuestionCount", path),
     `${path}.gradedQuestionCount`,
   );
-  if (!Number.isSafeInteger(gradedQuestionCount) || gradedQuestionCount < 1) {
-    throw new DecodeError(`${path}.gradedQuestionCount`, "a positive whole number");
-  }
-  if (pointsEarned > pointsPossible) {
-    throw new DecodeError(path, "points earned no greater than points possible");
+  const questionCount = decodePositiveInteger(
+    field(record, "questionCount", path),
+    `${path}.questionCount`,
+  );
+  const assignmentAttemptCompletion = decodeNullable(
+    field(record, "assignmentAttemptCompletion", path),
+    `${path}.assignmentAttemptCompletion`,
+    (candidate, candidatePath) =>
+      decodeStringEnum(candidate, candidatePath, ASSIGNMENT_ATTEMPT_COMPLETIONS),
+  );
+  if (
+    gradedQuestionCount > questionCount ||
+    pointsEarned > pointsPossible ||
+    (assignmentAttemptCompletion === null &&
+      (gradedQuestionCount !== 0 || pointsEarned !== 0 || pointsPossible !== 0))
+  ) {
+    throw new DecodeError(path, "internally consistent answer-free progress totals");
   }
   return {
     rosterId: rosterId(field(record, "rosterId", path), `${path}.rosterId`),
@@ -74,7 +102,9 @@ function gradedWork(value: unknown, path: string): LiveDemoGradedStudentWork {
       field(record, "assignmentReference", path),
       `${path}.assignmentReference`,
     ),
+    assignmentAttemptCompletion,
     gradedQuestionCount,
+    questionCount,
     pointsEarned,
     pointsPossible,
   };
@@ -83,16 +113,16 @@ function gradedWork(value: unknown, path: string): LiveDemoGradedStudentWork {
 /** Rejects any field outside the declared answer-free projection. */
 export function decodeLiveDemoGradebook(value: unknown, path = "response"): LiveDemoGradebook {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["courseReference", "gradedStudentWork"]);
+  requireOnlyFields(record, path, ["courseReference", "studentWork"]);
   return {
     courseReference: courseReference(
       field(record, "courseReference", path),
       `${path}.courseReference`,
     ),
-    gradedStudentWork: decodeArray(
-      field(record, "gradedStudentWork", path),
-      `${path}.gradedStudentWork`,
-      gradedWork,
+    studentWork: decodeArray(
+      field(record, "studentWork", path),
+      `${path}.studentWork`,
+      studentWork,
     ),
   };
 }

@@ -17,7 +17,7 @@ const page = await context.newPage();
 
 try {
   await page.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Continue as Morgan Sysadmin" }).click();
+  await page.getByRole("button", { name: "Continue as Morgan Delgado" }).click();
   await page.waitForURL(`${origin}/`);
   await page
     .getByRole("navigation", { name: "Ribbon tabs" })

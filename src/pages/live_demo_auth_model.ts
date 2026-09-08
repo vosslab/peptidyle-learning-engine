@@ -12,15 +12,15 @@ export function isLiveDemoUnavailable(error: unknown): boolean {
 export function seededDemoDescription(persona: SeededDemoPersona): string {
   switch (persona) {
     case "elenaInstructor":
-      return "Explore a seeded account with instructor course work.";
+      return "Explore Elena Rivera's seeded Instructor account.";
     case "maryStudent":
-      return "Explore a seeded account with student course activity.";
+      return "Explore Mary Okafor's seeded Student account.";
     case "jackStudent":
-      return "Explore a second seeded account with student course activity.";
+      return "Explore Jack Nguyen's seeded Student account.";
     case "averyStudent":
-      return "Explore a seeded account that can later receive a course invitation.";
+      return "Explore Avery Thompson's seeded Student account.";
     case "morganSysadmin":
-      return "Explore a seeded Sysadmin account with administrator tools.";
+      return "Explore Morgan Delgado's seeded Sysadmin account with administrator tools.";
   }
 }
 

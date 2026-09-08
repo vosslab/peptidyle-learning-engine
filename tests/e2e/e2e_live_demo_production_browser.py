@@ -30,6 +30,7 @@ CURRENT_MILESTONE_JOURNEYS = (
 	("instructor_accounts", ("bash", "tests/e2e/e2e_live_demo_instructor_accounts.sh", "--browser")),
 	("support_capability", ("bash", "tests/e2e/e2e_live_demo_support_capability.sh", "--browser")),
 	("invitation_export", ("bash", "tests/e2e/e2e_live_demo_invitation_export.sh", "--dry-run")),
+	("course_seed", ("node", "--import", "tsx", "tests/playwright/e2e_live_demo_course_seed_browser.mjs")),
 )
 
 

@@ -169,7 +169,7 @@ print(value["reference"], value["editNumber"])
 
 claim_student_record() {
 	local course="$1" instructor_cookie="$2" student_cookie="$3" imported claimed
-	imported="$(request "/api/course-instances/$course/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.student@live-demo.invalid","rosterId":"m14-student"}]}')"
+	imported="$(request "/api/course-instances/$course/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@live-demo.invalid","rosterId":"m14-student"}]}')"
 	if [ "$(response_status "$imported")" != "201" ]; then echo "Instructor could not import the M14 Student roster row" >&2; exit 1; fi
 	claimed="$(request "/api/course-instances/$course/roster/claim" "$student_cookie" POST '{}')"
 	if [ "$(response_status "$claimed")" != "200" ] || [ "$(response_body "$claimed")" != '{"activeStudentMembership":true}' ]; then echo "Student could not claim the exact Course Invitation" >&2; exit 1; fi

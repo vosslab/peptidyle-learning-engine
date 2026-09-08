@@ -16,7 +16,7 @@ const page = await context.newPage();
 
 try {
   await page.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Continue as Elena Instructor" }).click();
+  await page.getByRole("button", { name: "Continue as Elena Rivera" }).click();
   await page.waitForURL(`${origin}/library`);
   await page.getByRole("link", { name: "Blueprint Courses" }).click();
   await page.waitForURL(`${origin}/blueprint-courses`);
@@ -46,9 +46,7 @@ try {
   await page.getByRole("link", { name: "Open Students" }).click();
   await page.waitForURL(/\/instructor\/courses\/C-[1-9][0-9]*\/students$/u);
   await page.getByRole("heading", { name: "Students" }).waitFor();
-  await page
-    .getByLabel("Email, roster ID")
-    .fill("mary.student@live-demo.invalid,m9-browser-seeded");
+  await page.getByLabel("Email, roster ID").fill("mary.okafor@live-demo.invalid,m9-browser-seeded");
   await page.getByRole("button", { name: "Import roster" }).click();
   await page.getByText("Roster import recorded.").waitFor();
   await page.getByText("Invitation pending").waitFor();

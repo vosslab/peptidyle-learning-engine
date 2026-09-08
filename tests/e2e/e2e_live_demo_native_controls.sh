@@ -166,7 +166,7 @@ latest_course_reference() {
 
 claim_student_record() {
 	local course="$1" instructor_cookie="$2" student_cookie="$3" imported claimed
-	imported="$(request "/api/course-instances/$course/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.student@live-demo.invalid","rosterId":"m12-student"}]}')"
+	imported="$(request "/api/course-instances/$course/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@live-demo.invalid","rosterId":"m12-student"}]}')"
 	if [ "$(response_status "$imported")" != "201" ]; then echo "Instructor could not import M12 Student roster row" >&2; exit 1; fi
 	claimed="$(request "/api/course-instances/$course/roster/claim" "$student_cookie" POST '{}')"
 	if [ "$(response_status "$claimed")" != "200" ]; then echo "Student could not claim M12 Course Invitation" >&2; exit 1; fi

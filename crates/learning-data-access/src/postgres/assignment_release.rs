@@ -11,9 +11,9 @@ use sqlx::{Postgres, Row, Transaction};
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
     AssignmentPreview, AssignmentQuestionPickerEntry, AssignmentReleaseIssue,
-    AssignmentReleaseValidation, AuthoredAssignmentQuestion, CreateLiveAssignmentInput,
-    LiveAssignmentStore, LiveAssignmentWorkspace, ReleasedLiveAssignment, SaveLiveAssignmentInput,
-    SessionTokenHash, StoreError,
+    AssignmentReleaseValidation, AuthoredAssignmentQuestion, CourseAssignmentSummary,
+    CreateLiveAssignmentInput, LiveAssignmentStore, LiveAssignmentWorkspace,
+    ReleasedLiveAssignment, SaveLiveAssignmentInput, SessionTokenHash, StoreError,
 };
 
 /// PostgreSQL Store for the direct-Instructor Assignment Workspace.
@@ -57,6 +57,43 @@ impl PostgresLiveAssignmentStore {
 
 #[async_trait]
 impl LiveAssignmentStore for PostgresLiveAssignmentStore {
+    async fn list_course_assignments(
+        &self,
+        token: SessionTokenHash,
+        course: CourseInstanceReference,
+    ) -> Result<Vec<CourseAssignmentSummary>, StoreError> {
+        let mut tx = self.begin(token).await?;
+        // ASVS 1.2.3 and 8.2.2: bind the public Course Reference and let the
+        // session-authorized database function enforce the exact Course owner.
+        let rows = sqlx::query(
+            "SELECT assignment_reference_number, assignment_title, assignment_status, \
+             assignment_edit_number FROM ple_api.list_course_assignments($1)",
+        )
+        .bind(i64::from(course.number()))
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        let assignments = rows
+            .iter()
+            .map(|row| {
+                Ok(CourseAssignmentSummary {
+                    reference: assignment_reference(
+                        row.try_get("assignment_reference_number")
+                            .map_err(map_sqlx_error)?,
+                    )?,
+                    title: title(row.try_get("assignment_title").map_err(map_sqlx_error)?)?,
+                    status: status(row.try_get("assignment_status").map_err(map_sqlx_error)?)?,
+                    edit_number: edit(
+                        row.try_get("assignment_edit_number")
+                            .map_err(map_sqlx_error)?,
+                    )?,
+                })
+            })
+            .collect::<Result<Vec<_>, StoreError>>()?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(assignments)
+    }
+
     async fn list_assignment_question_picker(
         &self,
         token: SessionTokenHash,

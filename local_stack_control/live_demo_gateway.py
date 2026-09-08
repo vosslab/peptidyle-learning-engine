@@ -1,8 +1,51 @@
 """Policy-owned HTTPS gateway details for the disposable live-demo browser lane."""
 
+# Standard Library
+import json
+import pathlib
+import urllib.parse
+
 import local_stack_control.compose
 import local_stack_control.env_file
 import local_stack_control.models
+
+
+SEEDED_DEMO_PERSONAS = (
+	"elenaInstructor",
+	"maryStudent",
+	"jackStudent",
+	"averyStudent",
+	"morganSysadmin",
+)
+
+
+#============================================
+def live_demo_origin(url: str) -> str:
+	"""Return the fixed HTTPS origin accepted by first-party demo requests."""
+	if not url.startswith("https://localhost:") or not url.endswith("/"):
+		raise local_stack_control.models.ControllerError(
+			"live-demo request requires the fixed HTTPS origin"
+		)
+	origin = url.removesuffix("/")
+	return origin
+
+
+#============================================
+def demo_request_path(path: str) -> str:
+	"""Return one bounded same-origin API path without a fragment or authority."""
+	parsed = urllib.parse.urlsplit(path)
+	# ASVS 1.2.2 and 4.2.5: accept only a bounded relative product API URI.
+	if (
+		parsed.scheme != ""
+		or parsed.netloc != ""
+		or parsed.fragment != ""
+		or not parsed.path.startswith("/api/")
+		or len(path) > 2_048
+		or "\r" in path
+		or "\n" in path
+	):
+		raise local_stack_control.models.ControllerError("live-demo API path is invalid")
+	return path
 
 
 #============================================
@@ -47,11 +90,7 @@ def health_probe_argv(url: str) -> list[str]:
 #============================================
 def seeded_session_probe_argv(url: str) -> list[str]:
 	"""Build one same-origin demo-session probe after generic health succeeds."""
-	if not url.startswith("https://localhost:") or not url.endswith("/"):
-		raise local_stack_control.models.ControllerError(
-			"live-demo session probe requires the fixed HTTPS origin"
-		)
-	origin = url.removesuffix("/")
+	origin = live_demo_origin(url)
 	return [
 		"curl", "--fail", "--silent", "--show-error", "--max-time", "2", "--insecure",
 		"--request", "POST",
@@ -62,3 +101,63 @@ def seeded_session_probe_argv(url: str) -> list[str]:
 		"--output", "/dev/null",
 		origin + "/api/auth/live-demo/accounts",
 	]
+
+
+#============================================
+def persona_session_argv(url: str, persona: str, cookie_jar_path: pathlib.Path) -> list[str]:
+	"""Build one seeded-persona session request that writes only to a cookie jar."""
+	if persona not in SEEDED_DEMO_PERSONAS:
+		raise local_stack_control.models.ControllerError("live-demo persona is invalid")
+	origin = live_demo_origin(url)
+	body = json.dumps({"persona": persona}, separators=(",", ":"))
+	# ASVS 13.3.2: the credential remains in the private jar and never enters argv.
+	argv = [
+		"curl", "--silent", "--show-error", "--max-time", "12", "--insecure",
+		"--request", "POST",
+		"--header", f"origin: {origin}",
+		"--header", "accept: application/json",
+		"--header", "content-type: application/json",
+		"--data", body,
+		"--cookie-jar", str(cookie_jar_path),
+		"--output", "/dev/null",
+		"--write-out", "\n%{http_code}",
+		origin + "/api/auth/live-demo/accounts",
+	]
+	return argv
+
+
+#============================================
+def demo_request_argv(
+	url: str,
+	path: str,
+	cookie_jar_path: pathlib.Path,
+	method: str,
+	body: dict | None = None,
+	if_match: str | None = None,
+) -> list[str]:
+	"""Build one authenticated same-origin JSON product request."""
+	if method not in ("GET", "POST", "PUT"):
+		raise local_stack_control.models.ControllerError("live-demo HTTP method is invalid")
+	if method == "GET" and body is not None:
+		raise local_stack_control.models.ControllerError("live-demo GET request must not carry a body")
+	if if_match is not None and (method == "GET" or not if_match.isdecimal() or int(if_match) < 1):
+		raise local_stack_control.models.ControllerError("live-demo If-Match value is invalid")
+	origin = live_demo_origin(url)
+	checked_path = demo_request_path(path)
+	argv = [
+		"curl", "--silent", "--show-error", "--max-time", "12", "--insecure",
+		"--request", method,
+		"--header", f"origin: {origin}",
+		"--header", "accept: application/json",
+		"--header", "content-type: application/json",
+		"--cookie", str(cookie_jar_path),
+		"--write-out", "\n%{http_code}",
+	]
+	if if_match is not None:
+		argv.extend(("--header", f'if-match: "{if_match}"'))
+	if body is not None:
+		# ASVS 1.2.3 and 1.5.2: one JSON encoder owns the request representation.
+		encoded_body = json.dumps(body, separators=(",", ":"))
+		argv.extend(("--data", encoded_body))
+	argv.append(origin + checked_path)
+	return argv

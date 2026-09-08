@@ -1,8 +1,69 @@
 # Changelog
 
+## 2026-09-08
+
+### Fixes and Maintenance
+
+- Corrected the Instructor Gradebook route to validate and use its exact Course
+  Instance Reference directly, matching the ordinary Course roster and
+  Assignment surfaces. The browser now reaches the existing server-authorized,
+  answer-free Gradebook HTTP contract without depending on the unrelated legacy
+  route-scope lookup.
+
 ## 2026-09-07
 
 ### Additions and New Features
+
+- Added disposable Live Demo Course acceptance for the complete used-teaching
+  baseline. Its four modes prove exact Course, roster, released Question set,
+  Student work, and Gradebook state; realistic anonymous, Student,
+  cross-Student, and Sysadmin concealment; repeat convergence without duplicate
+  Course objects; and recovery after every provisioning stage. The fixed stack
+  accepts a bounded `start --stop-after <stage>` debug flag solely to
+  manufacture those fresh interruption checkpoints; ordinary startup still
+  converges the full baseline.
+
+- Wired complete Live Demo Course provisioning into the fixed TLS lifecycle
+  after whole-stack readiness and before browser opening. A fresh
+  `run_live_demo.sh start --headless` now reports success only after the
+  realistic teaching baseline and its private zero-outstanding-stage report
+  exist; non-TLS and non-owned targets retain their prior lifecycle.
+
+- Completed representative Live Demo Student activity through the same
+  convergent provisioner. Mary now has four genuinely graded Question
+  Submissions with a pinned mixed `2/4` result, Jack has two genuinely graded
+  submissions in one open four-Question Assignment Attempt, and Avery remains
+  enrolled without an Assignment Attempt. Response references are derived only
+  from each answer-free Question Presentation, and interrupted grading resumes
+  from nonce-bound status plus real Gradebook facts.
+
+- Added the standalone convergent Live Demo Course provisioner and its
+  `provision-course` debug command. It resolves Blueprint Course, Course
+  Instance, roster, Assignment, selection, and release state through ordinary
+  product HTTP contracts; supports bounded `--stop-after` and read-only
+  `--report` planning; keeps sessions in transient private cookie jars; and
+  writes a mode-0600 product-fact report whose machine references make retries
+  restart-safe.
+
+- Added the ordinary Instructor Assignment list for one exact Course Instance.
+  The new product-named database function, Store operation, and HTTP route
+  return only Assignment Reference, title, status, and Edit Number; active
+  direct Course Membership is rechecked in PostgreSQL, while anonymous,
+  Student, Sysadmin, and foreign-Instructor requests receive the same `404`
+  concealment.
+
+- Added fixed-origin Live Demo gateway builders for seeded persona sessions
+  and authenticated JSON product requests. Session credentials remain in
+  private cookie-jar files rather than command arguments, while API paths,
+  methods, bodies, and Assignment Edit Number preconditions are validated and
+  encoded at one controller boundary.
+
+- Defined the required Live Demo teaching-data baseline in the authoritative
+  specification and added one I/O-free declarative Course seed with an ordered
+  convergence planner. The baseline derives its roster emails and four
+  Question IDs from the foundational seed and describes Mary, Jack, and Avery
+  through real Assignment Attempt and Question Submission facts rather than
+  display-only demo states.
 
 - Completed Live Demo restoration M19. The final fresh controller-managed fixed
   HTTPS stack passed `./devel/run_playwright_tests.sh --build`; its serial owner
@@ -81,6 +142,13 @@ bounded renderer failure complete`; `Live Demo WeBWorK grade: PASS`. The
   cadence does not claim M19 serial production-browser acceptance.
 
 ### Behavior or Interface Changes
+
+- Replaced role-suffixed Live Demo persona labels with the complete fictional
+  identities Elena Rivera, Mary Okafor, Jack Nguyen, Avery Thompson, and Morgan
+  Delgado. The seeded Student Authentication Emails now use matching
+  non-routable `.invalid` addresses while preserving the closed persona keys
+  and ordinary Account, Authenticated Session, Course Roster Import, and Course
+  Membership authority paths.
 
 - Reconciled M21 current-boundary documentation with the Human Guidance and
   Terminology Contract authority order. The Live Demo is now documented as the

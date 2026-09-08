@@ -1,7 +1,7 @@
 //! PostgreSQL adapter for the Student Course landing projections.
 
 use async_trait::async_trait;
-use question_model::{AssignmentReference, CourseInstanceReference};
+use question_model::{AssignmentAttemptCompletion, AssignmentReference, CourseInstanceReference};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::Pool;
@@ -99,7 +99,9 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
     ) -> Result<Vec<LiveStudentAssignmentLandingSummary>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query(
-            "SELECT assignment_reference_number, assignment_title \
+            "SELECT assignment_reference_number, assignment_title, assignment_attempt_number, \
+             assignment_attempt_completion, graded_question_count, question_count, \
+             points_earned, points_possible \
              FROM ple_api.list_released_live_student_assignments($1)",
         )
         .bind(i64::from(course.number()))
@@ -132,6 +134,38 @@ fn decode_course(
 fn decode_assignment(
     row: &sqlx::postgres::PgRow,
 ) -> Result<LiveStudentAssignmentLandingSummary, StoreError> {
+    let assignment_attempt_number = row
+        .try_get::<Option<i32>, _>("assignment_attempt_number")
+        .map_err(map_sqlx_error)?
+        .map(u32::try_from)
+        .transpose()
+        .map_err(|_| invalid("Assignment Attempt number"))?;
+    let assignment_attempt_completion = match row
+        .try_get::<Option<String>, _>("assignment_attempt_completion")
+        .map_err(map_sqlx_error)?
+        .as_deref()
+    {
+        None => None,
+        Some("in_progress") => Some(AssignmentAttemptCompletion::InProgress),
+        Some("completed") => Some(AssignmentAttemptCompletion::Completed),
+        Some(_) => return Err(invalid("Assignment Attempt completion")),
+    };
+    let graded_question_count = count(row, "graded_question_count")?;
+    let question_count = count(row, "question_count")?;
+    let points_earned = finite_nonnegative(row, "points_earned")?;
+    let points_possible = finite_nonnegative(row, "points_possible")?;
+    if question_count == 0
+        || graded_question_count > question_count
+        || points_earned > points_possible
+        || (assignment_attempt_completion.is_none()
+            && (assignment_attempt_number.is_some()
+                || graded_question_count != 0
+                || points_earned != 0.0
+                || points_possible != 0.0))
+        || (assignment_attempt_completion.is_some() && assignment_attempt_number.is_none())
+    {
+        return Err(invalid("Assignment progress"));
+    }
     Ok(LiveStudentAssignmentLandingSummary {
         assignment: reference(
             row.try_get::<i64, _>("assignment_reference_number")
@@ -140,6 +174,12 @@ fn decode_assignment(
             "Assignment reference",
         )?,
         title: row.try_get("assignment_title").map_err(map_sqlx_error)?,
+        assignment_attempt_number,
+        assignment_attempt_completion,
+        graded_question_count,
+        question_count,
+        points_earned,
+        points_possible,
     })
 }
 
@@ -155,6 +195,24 @@ fn decode_invitation(
         )?,
         title: row.try_get("course_title").map_err(map_sqlx_error)?,
     })
+}
+
+fn count(row: &sqlx::postgres::PgRow, column: &str) -> Result<u32, StoreError> {
+    u32::try_from(row.try_get::<i64, _>(column).map_err(map_sqlx_error)?)
+        .map_err(|_| invalid(column))
+}
+
+fn finite_nonnegative(row: &sqlx::postgres::PgRow, column: &str) -> Result<f64, StoreError> {
+    let value = row.try_get::<f64, _>(column).map_err(map_sqlx_error)?;
+    if value.is_finite() && value >= 0.0 {
+        Ok(value)
+    } else {
+        Err(invalid(column))
+    }
+}
+
+fn invalid(name: &str) -> StoreError {
+    StoreError::InvalidRecord(format!("{name} is invalid"))
 }
 
 fn reference<T>(

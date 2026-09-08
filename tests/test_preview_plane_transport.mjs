@@ -109,14 +109,14 @@ test("preview decoders accept the closed server projections", () => {
       {
         kind: "granted",
         membership: "M-9",
-        display: "Mary Student",
+        display: "Mary Okafor",
         active_student_course_membership: "active_student_course_membership",
         effective_assignment_policy: effective_assignment_policy(),
       },
       {
         kind: "denied",
         membership: "M-10",
-        display: "Jack Student",
+        display: "Jack Nguyen",
         reason: "no_active_student_course_membership",
       },
     ],

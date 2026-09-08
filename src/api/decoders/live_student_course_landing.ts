@@ -5,7 +5,17 @@ import type {
   LiveStudentCourseInvitationSummary,
   LiveStudentCourseLandingSummary,
 } from "../live_student_course_landing";
-import { decodeArray, decodeRecord } from "../decoder";
+import type { AssignmentAttemptCompletion } from "../../../generated/api/AssignmentAttemptCompletion";
+import {
+  DecodeError,
+  decodeArray,
+  decodeFiniteNumber,
+  decodeNonnegativeInteger,
+  decodeNullable,
+  decodePositiveInteger,
+  decodeRecord,
+  decodeStringEnum,
+} from "../decoder";
 import {
   decodeAssignmentReference,
   decodeAssignmentTitle,
@@ -14,6 +24,11 @@ import {
   field,
   requireOnlyFields,
 } from "./shared";
+
+const ASSIGNMENT_ATTEMPT_COMPLETIONS = [
+  "inProgress",
+  "completed",
+] as const satisfies ReadonlyArray<AssignmentAttemptCompletion>;
 
 function decodeCourseSummary(value: unknown, path: string): LiveStudentCourseLandingSummary {
   const record = decodeRecord(value, path);
@@ -38,10 +53,65 @@ function decodeAssignmentSummary(
   path: string,
 ): LiveStudentAssignmentLandingSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "title"]);
+  requireOnlyFields(record, path, [
+    "reference",
+    "title",
+    "assignmentAttemptNumber",
+    "assignmentAttemptCompletion",
+    "gradedQuestionCount",
+    "questionCount",
+    "pointsEarned",
+    "pointsPossible",
+  ]);
+  const assignmentAttemptNumber = decodeNullable(
+    field(record, "assignmentAttemptNumber", path),
+    `${path}.assignmentAttemptNumber`,
+    decodePositiveInteger,
+  );
+  const assignmentAttemptCompletion = decodeNullable(
+    field(record, "assignmentAttemptCompletion", path),
+    `${path}.assignmentAttemptCompletion`,
+    (candidate, candidatePath) =>
+      decodeStringEnum(candidate, candidatePath, ASSIGNMENT_ATTEMPT_COMPLETIONS),
+  );
+  const gradedQuestionCount = decodeNonnegativeInteger(
+    field(record, "gradedQuestionCount", path),
+    `${path}.gradedQuestionCount`,
+  );
+  const questionCount = decodePositiveInteger(
+    field(record, "questionCount", path),
+    `${path}.questionCount`,
+  );
+  const pointsEarned = decodeFiniteNumber(
+    field(record, "pointsEarned", path),
+    `${path}.pointsEarned`,
+  );
+  const pointsPossible = decodeFiniteNumber(
+    field(record, "pointsPossible", path),
+    `${path}.pointsPossible`,
+  );
+  if (
+    gradedQuestionCount > questionCount ||
+    pointsEarned < 0 ||
+    pointsPossible < pointsEarned ||
+    (assignmentAttemptCompletion === null &&
+      (assignmentAttemptNumber !== null ||
+        gradedQuestionCount !== 0 ||
+        pointsEarned !== 0 ||
+        pointsPossible !== 0)) ||
+    (assignmentAttemptCompletion !== null && assignmentAttemptNumber === null)
+  ) {
+    throw new DecodeError(path, "internally consistent self-only Assignment progress");
+  }
   return {
     reference: decodeAssignmentReference(field(record, "reference", path), `${path}.reference`),
     title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
+    assignmentAttemptNumber,
+    assignmentAttemptCompletion,
+    gradedQuestionCount,
+    questionCount,
+    pointsEarned,
+    pointsPossible,
   };
 }
 

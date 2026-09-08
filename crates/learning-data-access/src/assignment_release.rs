@@ -99,6 +99,20 @@ pub struct AuthoredAssignmentQuestion {
     pub description: String,
 }
 
+/// Browser-safe Assignment summary for one direct Course Instructor.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CourseAssignmentSummary {
+    /// Public Assignment Reference; internal Assignment identity remains server-side.
+    pub reference: AssignmentReference,
+    /// Current Instructor-authored Assignment Title.
+    pub title: AssignmentTitle,
+    /// Stable Assignment lifecycle, separate from Student Assignment Access.
+    pub status: AssignmentStatus,
+    /// Exact compare-and-swap value for the current authored content.
+    pub edit_number: AssignmentEditNumber,
+}
+
 /// Complete current Assignment Workspace projection for one direct Teaching Team Member.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -166,6 +180,13 @@ pub struct ReleasedLiveAssignment {
 /// Store boundary for Assignment Workspace and release operations.
 #[async_trait]
 pub trait LiveAssignmentStore: Send + Sync {
+    /// Lists only Assignments owned by one exact authorized Course Instance.
+    async fn list_course_assignments(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course: CourseInstanceReference,
+    ) -> Result<Vec<CourseAssignmentSummary>, StoreError>;
+
     /// Lists answer-free currently Available Published Questions for one authorized picker.
     async fn list_assignment_question_picker(
         &self,

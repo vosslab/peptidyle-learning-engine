@@ -1083,6 +1083,30 @@ and accessibility needs.
 
 ## Demonstration and release evidence
 
+### Instructor Assignment lists use product naming
+
+**Decision.** The Instructor-authorized Assignment list is the ordinary product
+capability `GET /api/course-instances/{course_instance_reference}/assignments`,
+backed by `LiveAssignmentStore::list_course_assignments` and
+`ple_api.list_course_assignments`. Its names do not carry a `live_demo_`
+prefix.
+
+**Why.** An Instructor needs to discover the Assignments owned by an exact
+Course Instance independently of seeded demonstration data. The Live Demo is
+the first consumer, not the owner of this capability. Earlier neighbouring
+Assignment Workspace functions retain historical milestone-based
+`live_demo_` names; that prefix is not a product naming pattern to extend.
+
+**Consequence.** The route requires the caller's current direct Instructor
+Course Membership and returns only Assignment Reference, Assignment Title,
+Assignment Status, and Assignment Edit Number. Anonymous, Student, Sysadmin,
+and foreign-Instructor access is concealed as `404`, and the projection carries
+no Student identity, response, answer, or grading state.
+
+**Owner.** [API_CONTRACTS.md](API_CONTRACTS.md),
+[DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md), and the Assignment Store and
+Server Route contracts.
+
 ### Exact owners bind authorization decisions
 
 **Decision.** [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) and

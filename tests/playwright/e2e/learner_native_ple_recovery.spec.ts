@@ -25,7 +25,7 @@ import {
   writeContextOriginReceipt,
 } from "./real_stack_ui";
 
-const maryEmail = "mary.student@live-demo.invalid";
+const maryEmail = "mary.okafor@live-demo.invalid";
 const timeoutMs = 600_000;
 const actionTimeoutMs = 30_000;
 const contextOptions = { viewport: { width: 1280, height: 800 }, ignoreHTTPSErrors: true };
@@ -113,7 +113,7 @@ async function signInStudentAndStartAssignment(
   await expect(
     page.getByRole("heading", { level: 1, name: "Explore Peptidyle Learning Engine", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: /Continue as .*Mary Student/iu }).click();
+  await page.getByRole("button", { name: /Continue as .*Mary Okafor/iu }).click();
   await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Your courses", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Course invitations", exact: true }).click();
@@ -184,7 +184,7 @@ test("student native PLE recovery: one accepted response survives the owner work
     const student = await learnerContext.newPage();
     configureContextAndPage(instructorContext, instructor, actionTimeoutMs);
     configureContextAndPage(learnerContext, student, actionTimeoutMs);
-    await chooseSeededIdentity(instructor, /Elena Instructor/u);
+    await chooseSeededIdentity(instructor, /Elena Rivera/u);
     await createCourseAssignment(instructor, course, assignment);
     await signInStudentAndStartAssignment(student, course, assignment);
     await student.getByRole("button", { name: "Submit answer" }).click();

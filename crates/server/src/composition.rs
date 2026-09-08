@@ -37,27 +37,27 @@ const LIVE_DEMO_ACCOUNT_ID_ENV: [(SeededDemoPersona, &str, &str); 5] = [
     (
         SeededDemoPersona::ElenaInstructor,
         "PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID",
-        "Elena Instructor",
+        "Elena Rivera",
     ),
     (
         SeededDemoPersona::MaryStudent,
         "PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID",
-        "Mary Student",
+        "Mary Okafor",
     ),
     (
         SeededDemoPersona::JackStudent,
         "PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID",
-        "Jack Student",
+        "Jack Nguyen",
     ),
     (
         SeededDemoPersona::AveryStudent,
         "PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID",
-        "Avery Student",
+        "Avery Thompson",
     ),
     (
         SeededDemoPersona::MorganSysadmin,
         "PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID",
-        "Morgan Sysadmin",
+        "Morgan Delgado",
     ),
 ];
 
@@ -589,13 +589,13 @@ mod tests {
             (
                 SeededDemoPersona::ElenaInstructor,
                 account(1),
-                "Elena Instructor",
+                "Elena Rivera",
             ),
-            (SeededDemoPersona::MaryStudent, account(1), "Mary Student"),
+            (SeededDemoPersona::MaryStudent, account(1), "Mary Okafor"),
             (
                 SeededDemoPersona::MorganSysadmin,
                 account(2),
-                "Morgan Sysadmin",
+                "Morgan Delgado",
             ),
         ])
         .expect("trusted mappings should parse")
@@ -610,9 +610,9 @@ mod tests {
             (
                 SeededDemoPersona::ElenaInstructor,
                 account(1),
-                "Elena Instructor",
+                "Elena Rivera",
             ),
-            (SeededDemoPersona::MaryStudent, account(1), "Mary Student"),
+            (SeededDemoPersona::MaryStudent, account(1), "Mary Okafor"),
         ])
         .expect("trusted mappings should parse");
 

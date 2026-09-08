@@ -12,6 +12,7 @@ import local_stack_control.browser_suite_ownership
 import local_stack_control.compose
 import local_stack_control.discovery
 import local_stack_control.env_file
+import local_stack_control.live_demo_course_seed
 import local_stack_control.live_demo_seed
 import local_stack_control.models
 import local_stack_control.process
@@ -318,6 +319,7 @@ def live_demo_profile_policy(
 def lifecycle_options(
 	disposable: local_stack_control.models.DisposableComposeTarget,
 	timeout_seconds: int,
+	provision_stop_after: local_stack_control.live_demo_course_seed.Stage | None = None,
 ) -> "local_stack_control.lifecycle.LifecycleOptions":
 	"""Form the closed lifecycle request allowed to full-stack disposable owners."""
 	policy = disposable_policy(disposable)
@@ -332,7 +334,7 @@ def lifecycle_options(
 		)
 	from local_stack_control import lifecycle
 	return lifecycle.LifecycleOptions(
-		float(timeout_seconds), True, False, False
+		float(timeout_seconds), True, False, False, provision_stop_after
 	)
 
 

@@ -78,7 +78,7 @@ test("authentication and authorization: seeded sessions and no-record boundaries
     });
 
     await test.step("Elena enters the seeded Instructor session with no Course Instance", async () => {
-      await chooseSeededIdentity(elena, /Elena Instructor/u);
+      await chooseSeededIdentity(elena, /Elena Rivera/u);
       await expectEmptyCourses(
         elena,
         "Course Instances you teach",
@@ -87,11 +87,11 @@ test("authentication and authorization: seeded sessions and no-record boundaries
     });
 
     await test.step("Mary enters and reenters an independent seeded Student session", async () => {
-      await enterThenReenterEmptyCourses(mary, /Mary Student/u);
+      await enterThenReenterEmptyCourses(mary, /Mary Okafor/u);
     });
 
     await test.step("Morgan enters the seeded Sysadmin session without ambient Course access", async () => {
-      await chooseSeededIdentity(morgan, /Morgan Sysadmin/u);
+      await chooseSeededIdentity(morgan, /Morgan Delgado/u);
       await expectEmptyCourses(
         morgan,
         "Your Course Instances",

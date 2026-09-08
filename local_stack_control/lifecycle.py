@@ -25,6 +25,8 @@ import local_stack_control.renderer
 import local_stack_control.status
 import local_stack_control.live_demo_gateway
 import local_stack_control.live_demo_bootstrap
+import local_stack_control.live_demo_course_provision
+import local_stack_control.live_demo_course_seed
 import local_stack_control.live_demo_seed
 
 
@@ -81,6 +83,7 @@ class LifecycleOptions:
 	build: bool
 	release: bool
 	open_browser: bool
+	provision_stop_after: local_stack_control.live_demo_course_seed.Stage | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -110,6 +113,9 @@ require_command = local_stack_control.lifecycle_commands.require_command
 validate_compose = local_stack_control.lifecycle_commands.validate_compose
 seed_live_demo_source_objects = local_stack_control.live_demo_bootstrap.seed_live_demo_source_objects
 seed_live_demo_baseline = local_stack_control.live_demo_bootstrap.seed_live_demo_baseline
+provision_live_demo_course = (
+	local_stack_control.live_demo_course_provision.provision_live_demo_course
+)
 
 
 #============================================
@@ -120,6 +126,28 @@ def target_of(
 	if isinstance(target, local_stack_control.models.DisposableComposeTarget):
 		return target.target
 	return target
+
+
+#============================================
+def provision_ready_live_demo(
+	target: LifecycleTarget,
+	runner: local_stack_control.process.CommandRunner,
+	stop_after: local_stack_control.live_demo_course_seed.Stage | None = None,
+) -> None:
+	"""Converge Course-domain teaching data only for the fixed TLS Live Demo."""
+	selected = target_of(target)
+	if not local_stack_control.live_demo_gateway.is_tls_target(selected):
+		return
+	if not isinstance(target, local_stack_control.models.DisposableComposeTarget):
+		raise local_stack_control.models.ControllerError(
+			"fixed TLS Live Demo provisioning requires disposable ownership"
+		)
+	provision_live_demo_course(
+		runner,
+		target,
+		selected.env_file.parent,
+		stop_after=stop_after,
+	)
 
 
 def bootstrap_default_state(
@@ -405,6 +433,7 @@ def start_lifecycle(
 		],
 	)
 	gateway_url = wait_for_complete_ready(target, runner, options)
+	provision_ready_live_demo(target, runner, options.provision_stop_after)
 	if local_stack_control.lifecycle_profiles.is_default_target(selected):
 		local_stack_control.image_cleanup.prune_superseded_images(runner, repo_root)
 	if options.open_browser:

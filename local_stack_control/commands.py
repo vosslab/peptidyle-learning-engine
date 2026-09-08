@@ -286,7 +286,13 @@ def start(
 		runner,
 	)
 	print(f"Developer Browser Suite cleared: {project}")
-	result = local_stack_control.browser_suite_developer.start_developer_browser_suite(repo_root)
+	if args.stop_after is None:
+		result = local_stack_control.browser_suite_developer.start_developer_browser_suite(repo_root)
+	else:
+		result = local_stack_control.browser_suite_developer.start_developer_browser_suite(
+			repo_root,
+			provision_stop_after=args.stop_after,
+		)
 	entry_url = live_demo_entry_url(result.origin)
 	if not args.headless:
 		open_developer_origin(runner, repo_root, entry_url)

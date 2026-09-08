@@ -56,12 +56,51 @@ def entry_url() -> str:
 
 
 #============================================
-def test_start_parser_exposes_only_the_opening_convenience() -> None:
-	"""The public start surface cannot select another environment or artifact."""
+def test_start_parser_exposes_only_presentation_and_provisioning_checkpoint() -> None:
+	"""Start cannot select another environment, project, or artifact."""
 	args = local_stack_control.cli.build_parser().parse_args(["start", "--headless"])
 	assert args.headless
+	assert args.stop_after is None
+	checkpoint = local_stack_control.cli.build_parser().parse_args([
+		"start", "--headless", "--stop-after", "release",
+	])
+	assert checkpoint.stop_after == "release"
 	with pytest.raises(SystemExit):
 		local_stack_control.cli.build_parser().parse_args(["start", "--project", "other"])
+	with pytest.raises(SystemExit):
+		local_stack_control.cli.build_parser().parse_args([
+			"start", "--stop-after", "unknown",
+		])
+
+
+#============================================
+def test_start_forwards_one_provisioning_checkpoint_to_the_fixed_owner(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	"""The recovery flag changes only where the existing provisioner stops."""
+	captured: list[tuple[pathlib.Path, str | None]] = []
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_developer,
+		"clear_developer_browser_suite",
+		lambda _root, _runner: receipt().project,
+	)
+	monkeypatch.setattr(
+		local_stack_control.browser_suite_developer,
+		"start_developer_browser_suite",
+		lambda root, provision_stop_after=None: (
+			captured.append((root, provision_stop_after)), receipt()
+		)[1],
+	)
+
+	result = local_stack_control.cli.run(
+		["start", "--headless", "--stop-after", "claims"],
+		RecordingRunner(),
+		tmp_path,
+	)
+
+	assert result == 0
+	assert captured == [(tmp_path, "claims")]
 
 
 #============================================

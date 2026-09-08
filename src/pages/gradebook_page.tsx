@@ -1,23 +1,29 @@
 // gradebook_page.tsx - focused answer-free Instructor Gradebook.
 
+import { useParams } from "@solidjs/router";
 import { For, Show, createResource, type JSX } from "solid-js";
 
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { LiveDemoGradebook } from "../api/live_gradebook";
 import { useApplicationApi } from "../api/application_api";
-import { courseRouteView } from "../features/course_appearance/course_theme_context";
-import { useRouteScopeData } from "../ribbon/route_scope_context";
+import { parseCourseInstanceReference } from "../navigation/public_route";
 import { formatPointScore } from "../score_format";
 import "./instructor_data_tables.css";
+
+function progressLabel(completion: "inProgress" | "completed" | null): string {
+  if (completion === "completed") return "Completed and scored";
+  if (completion === "inProgress") return "In progress";
+  return "Not started";
+}
 
 function GradebookEvidence(props: { readonly gradebook: LiveDemoGradebook }): JSX.Element {
   return (
     <Show
-      when={props.gradebook.gradedStudentWork.length > 0}
+      when={props.gradebook.studentWork.length > 0}
       fallback={
-        <section class="gradebook-empty" aria-label="No graded Student Work">
-          <h2>No graded Student Work yet</h2>
-          <p>Completed grading will appear here as answer-free course evidence.</p>
+        <section class="gradebook-empty" aria-label="No active Student Work">
+          <h2>No active Students yet</h2>
+          <p>Student Assignment progress will appear here as answer-free course evidence.</p>
         </section>
       }
     >
@@ -27,18 +33,26 @@ function GradebookEvidence(props: { readonly gradebook: LiveDemoGradebook }): JS
             <tr>
               <th scope="col">Roster ID</th>
               <th scope="col">Assignment</th>
+              <th scope="col">Progress</th>
               <th scope="col">Graded Questions</th>
               <th scope="col">Score</th>
             </tr>
           </thead>
           <tbody>
-            <For each={props.gradebook.gradedStudentWork}>
+            <For each={props.gradebook.studentWork}>
               {(work) => (
                 <tr>
                   <td>{work.rosterId}</td>
                   <td>{work.assignmentReference}</td>
-                  <td>{work.gradedQuestionCount}</td>
-                  <td>{formatPointScore(work.pointsEarned, work.pointsPossible)}</td>
+                  <td>{progressLabel(work.assignmentAttemptCompletion)}</td>
+                  <td>
+                    {work.gradedQuestionCount} of {work.questionCount}
+                  </td>
+                  <td>
+                    {work.assignmentAttemptCompletion === null
+                      ? "—"
+                      : formatPointScore(work.pointsEarned, work.pointsPossible)}
+                  </td>
                 </tr>
               )}
             </For>
@@ -76,13 +90,12 @@ function GradebookCoursePage(props: { readonly course: CourseInstanceReference }
   );
 }
 
-/** Resolves the course reference through the existing current-course route scope. */
+/** Loads the server-authorized Gradebook for the exact Course Instance route reference. */
 export function GradebookPage(): JSX.Element {
-  const scopedRoute = useRouteScopeData();
-  const course = (): ReturnType<typeof courseRouteView>["summary"] | undefined => {
-    const data = scopedRoute();
-    return data?.kind === "course" ? courseRouteView(data).summary : undefined;
-  };
+  const params = useParams();
+  // ASVS 2.2.1/8.3.1: validate the locator here; the server retains authorization.
+  const course = (): ReturnType<typeof parseCourseInstanceReference> =>
+    parseCourseInstanceReference(params["courseRef"] ?? "");
   return (
     <Show
       when={course()}
@@ -96,7 +109,7 @@ export function GradebookPage(): JSX.Element {
         </section>
       }
     >
-      {(loadedCourse) => <GradebookCoursePage course={loadedCourse.reference} />}
+      {(loadedCourse) => <GradebookCoursePage course={loadedCourse} />}
     </Show>
   );
 }

@@ -200,13 +200,13 @@ prove_import() {
 		echo "Course Roster did not begin empty for its exact Course Instance" >&2
 		exit 1
 	fi
-	imported="$(request "/api/course-instances/$course_reference/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.student@live-demo.invalid","rosterId":"m9-seeded"},{"email":"m9-created@live-demo.invalid","rosterId":"m9-created"}]}')"
+	imported="$(request "/api/course-instances/$course_reference/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@live-demo.invalid","rosterId":"m9-seeded"},{"email":"m9-created@live-demo.invalid","rosterId":"m9-created"}]}')"
 	if [ "$(response_status "$imported")" != "201" ]; then
 		echo "Instructor could not commit Course Roster Import" >&2
 		exit 1
 	fi
 	assert_import_projection "$(response_body "$imported")"
-	imported_again="$(request "/api/course-instances/$course_reference/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.student@live-demo.invalid","rosterId":"m9-seeded"},{"email":"m9-created@live-demo.invalid","rosterId":"m9-created"}]}')"
+	imported_again="$(request "/api/course-instances/$course_reference/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@live-demo.invalid","rosterId":"m9-seeded"},{"email":"m9-created@live-demo.invalid","rosterId":"m9-created"}]}')"
 	if [ "$(response_status "$imported_again")" != "201" ]; then
 		echo "Course Roster Import was not idempotent" >&2
 		exit 1

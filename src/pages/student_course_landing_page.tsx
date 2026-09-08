@@ -9,6 +9,13 @@ import type {
 } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
 import { parseCourseInstanceReference } from "../navigation/public_route";
+import { formatPointScore } from "../score_format";
+
+function progressLabel(assignment: LiveStudentAssignmentLandingSummary): string {
+  if (assignment.assignmentAttemptCompletion === "completed") return "Completed and scored";
+  if (assignment.assignmentAttemptCompletion === "inProgress") return "In progress";
+  return "Not started";
+}
 
 function AssignmentCard(props: {
   readonly course: LiveStudentCourseLandingSummary;
@@ -18,6 +25,17 @@ function AssignmentCard(props: {
     <article class="course-card">
       <p class="card-kicker">Released Assignment</p>
       <h2>{props.assignment.title}</h2>
+      <p>
+        <strong>{progressLabel(props.assignment)}</strong>
+      </p>
+      <Show when={props.assignment.assignmentAttemptCompletion !== null}>
+        <p>
+          {props.assignment.gradedQuestionCount} of {props.assignment.questionCount} Questions graded
+          {" · "}
+          {props.assignment.assignmentAttemptCompletion === "completed" ? "Score" : "Score so far"}{" "}
+          {formatPointScore(props.assignment.pointsEarned, props.assignment.pointsPossible)}
+        </p>
+      </Show>
       <A
         class="primary-link"
         href={`/courses/${props.course.reference}/assignments/${props.assignment.reference}`}

@@ -26,8 +26,8 @@ demo and open the new one.
 
 The command builds `dist/`, starts the `ple-live-demo-browser` stack, and prints its HTTPS origin.
 When at least one configured seeded mapping is valid, the visible selector can establish an ordinary
-session for Elena Instructor; Mary, Jack, or Avery Student; or Morgan Sysadmin. It does not grant a
-role or relationship chosen by the browser.
+session for Elena Rivera; Mary Okafor, Jack Nguyen, or Avery Thompson; or Morgan Delgado. It does
+not grant a role or relationship chosen by the browser.
 
 ## Inspect before changing state
 

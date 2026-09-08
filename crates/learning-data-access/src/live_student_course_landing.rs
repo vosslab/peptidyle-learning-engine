@@ -5,7 +5,7 @@
 //! Account and exact active Student Course Membership before it projects them.
 
 use async_trait::async_trait;
-use question_model::{AssignmentReference, CourseInstanceReference};
+use question_model::{AssignmentAttemptCompletion, AssignmentReference, CourseInstanceReference};
 use serde::Serialize;
 
 use crate::{SessionTokenHash, StoreError};
@@ -34,13 +34,25 @@ pub struct LiveStudentCourseInvitationSummary {
 }
 
 /// One released Assignment available from an authorized Student Course.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveStudentAssignmentLandingSummary {
     /// Public Assignment reference, never an internal Assignment identity.
     pub assignment: AssignmentReference,
     /// Student-facing released Assignment title.
     pub title: String,
+    /// One-based current Assignment Attempt number, or none before work starts.
+    pub assignment_attempt_number: Option<u32>,
+    /// Current Assignment Attempt completion, or none when work has not started.
+    pub assignment_attempt_completion: Option<AssignmentAttemptCompletion>,
+    /// Questions with an immutable Grading Result in the current Assignment Attempt.
+    pub graded_question_count: u32,
+    /// Total Questions in the released Assignment Revision.
+    pub question_count: u32,
+    /// Current Assignment Attempt points earned.
+    pub points_earned: f64,
+    /// Current Assignment Attempt points possible so far.
+    pub points_possible: f64,
 }
 
 /// Session-authorized persistence boundary for the Student Course landing.
