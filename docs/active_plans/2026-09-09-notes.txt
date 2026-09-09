@@ -1,0 +1,215 @@
+The main organizing rule I used is: **student sections describe what students see and do; instructor sections describe what instructors see, do, or configure.** That avoids mixing configuration controls into the student-interface design.
+
+# Student Interface
+
+## Assignment and Question Navigation
+
+- Always one display question per page. More than questions per page makes cheating easier.
+- Students should have a navigation bar to help them jump around between questions.
+- The navigation bar should show whether or not an answer was saved for each problem.
+- There should be a subtle timer so students know the time remaining, but it does not cause anxiety.
+- Question titles are not presented to students. They are for instructor organization.
+also "Released Assignment" status is not relevant to a student.
+also "Course Instance C-1" is not relevant to a student.
+
+## Starting an Assignment
+
+The Start Assignment page should show:
+
+- Number of questions
+- Points possible
+- Time limit
+- Previous scores and attempts
+- Start Assignment button
+
+Students should be able to view previous attempts, though they should not see answers unless the instructor allows it.
+
+## Course Navigation
+
+If students are enrolled in only a single active course, load that course's page rather than the Select a Course page.
+
+# Instructor Interface
+
+## Top-Level Navigation
+
+I am thinking the top-level Ribbon should be:
+
+**Courses | Questions | Assignments**
+
+I wish the top level was more full, but everything goes into three categories.
+
+Maybe move the top level to the very top:
+
+**LOGO Peptidyle | [Instructor] | Profile Name | Courses | Questions | Assignments | Edit Profile / Logout**
+
+Each item in the Ribbon should have a Font Awesome icon next to it.
+
+## Courses
+
+The second level should be:
+
+**My Blueprint Courses | My Active Courses | My Inactive Courses | Search Public Blueprint Courses**
+
+My Courses should have the list with significantly less padding. More like a spreadsheet.
+
+Course themes should be shown on the My Blueprint Courses, My Active Courses, etc. pages to differentiate the courses.
+
+## Questions
+
+The second level should be:
+
+**My Questions | My Draft Questions | Search Question Library | Browse Question Library**
+
+## Assignments
+
+The second level should be:
+
+**Assignments Due Soon | My Assignment Templates**
+
+## Assignment Editing
+
+"Assignment title" should be editable from the course page in the list of assignments. See ADAPT.
+
+"Due date" should be editable from the course page in the list of assignments. See ADAPT.
+
+I am not sure I am feeling the term **"Assignment Workspace."** More like **"Assignment Settings"** for release and scoring and **"Edit Assignment"** for problems.
+
+On the Edit Assignment page, adding and moving questions should be the primary focus. Use a separate page for settings. ADAPT has this correct.
+
+Should "Validate Assignment" be a thing? Validate a draft question before publishing, but not an assignment.
+
+"Open Assignment Preview" should open in a new browser tab.
+
+## Assignment Settings
+
+### Details & Information
+
+- Due date times should always default to 11:59 PM.
+- Late-work rule should default to reject.
+- Prohibit late submissions: In-progress attempts will be submitted automatically at the due date and time. Default: on.
+- Prohibit new attempts after due date: Students cannot start new attempts once the due date and time has passed. Default: on.
+
+### Presentation Options
+
+- Display one question at a time: always.
+- Randomize questions: optional.
+- Randomize answers: optional.
+- Randomize pages: optional.
+- Do not randomize first page: optional.
+- Instructors should have the option to shuffle the order of questions so each student can get the questions in a different order.
+- Perhaps have a learning-tree block that goes together though. I do not want to overengineer this.
+
+### Grading & Submissions
+
+- Grade category: Assignment / Quiz / Exam?
+- Attempts allowed: unlimited
+- Final grade calculation: highest grade
+
+### Assessment Results
+
+Question feedback, scores, and answer availability should be separate settings.
+
+- Submission view: available after submission.
+- Question feedback: available after submission.
+- Question scores: available after the individual grade is posted.
+- Correct answers: instructor-controlled.
+
+Students should be able to view previous attempts, though not see answers unless the instructor allows it.
+
+### Time Limit
+
+Time limit should be an Assignment Setting.
+
+Automatic submission should occur when the time limit expires.
+
+## Profile and Preferences
+
+Time Zone (IANA) should be configured in profile, not by course or assignment.
+
+What other profile preferences should there be? Instructor profile thumbnails could be one, they should be square, maximum 256 × 256 px.
+
+## Navigation
+
+I would like to see more breadcrumbs when I am down five levels in the menu.
+
+
+# Genetics
+
+I want to build the first three assignments for Genetics using the problems in:
+
+```text
+~/nsh/PROBLEMS/biology-problems-website/site_docs/genetics/topic01/
+~/nsh/PROBLEMS/biology-problems-website/site_docs/genetics/topic02/
+~/nsh/PROBLEMS/biology-problems-website/site_docs/genetics/topic03/
+```
+
+For these assignments:
+
+* Set the timer at 2 minutes per question.
+* Matching questions are worth 2 points.
+* Multiple-choice questions are worth 1 point.
+
+# Blackboard Ultra Assignment Settings Reference
+
+These are the options currently available in Blackboard Ultra. I am documenting them as a reference for thinking about PLE Assignment Settings.
+
+### Details & Information
+
+Due date
+
+Prohibit late submissions
+In progress attempts will be submitted automatically at the due date and time = default
+
+Prohibit new attempts after due date
+Students can't start new attempts once the due date and time has passed = default
+
+### Presentation Options
+
+Display one question at a time = always
+
+Randomize questions = optional
+
+Randomize answers = optional
+
+Randomize pages = optional
+
+Do not randomize first page = optional
+
+### Grading & Submissions
+
+Grade category: assignment
+
+Attempts allowed: unlimited
+
+Final grade calculation: highest grade
+
+Grade using: Points
+
+Maximum points: You can't edit the maximum points for an assessment that contains individually scored questions
+
+Anonymous grading: Hide student names
+You can't hide student names because students have started their submissions
+
+### Assessment Results
+
+Question feedback, scores and answers availability conditions will apply to the following settings.
+
+Submission View
+Available after submission
+
+Question Feedback
+Available after submission
+
+Question Scores
+Available after individual grade is posted
+
+Correct Answers
+Turn on setting
+
+### Additional Tools
+
+Time limit
+
+10 minutes
+Automatic submission
+
