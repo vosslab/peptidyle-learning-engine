@@ -220,7 +220,7 @@ def disposable_target(
 	provider = local_stack_control.compose.choose_provider(
 		runner,
 		repo_root,
-		local_stack_control.models.DISPOSABLE_COMPOSE_PROVIDER,
+		True,
 	)
 	target = local_stack_control.models.ComposeTarget(
 		repo_root=repo_root,

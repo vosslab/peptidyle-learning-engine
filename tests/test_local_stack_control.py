@@ -12,6 +12,7 @@ import local_stack_control.compose
 import local_stack_control.commands
 import local_stack_control.discovery
 import local_stack_control.env_file
+import local_stack_control.lifecycle_validation
 import local_stack_control.models
 import local_stack_control.process
 import local_stack_control.status
@@ -120,6 +121,50 @@ class ValidationLaneRunner(local_stack_control.process.CommandRunner):
 		result = next(self.result_codes)
 		self.failed = result != 0
 		return result
+
+
+#============================================
+class ScriptedRunner(local_stack_control.process.CommandRunner):
+	"""Return an exact bounded sequence of offline command results."""
+
+	def __init__(
+		self,
+		responses: tuple[tuple[tuple[str, ...], int, str, str], ...],
+	) -> None:
+		"""Store expected argv and results in their required execution order."""
+		self.responses = iter(responses)
+		self.observed: list[tuple[str, ...]] = []
+
+	#============================================
+	def run(
+		self,
+		argv: list[str],
+		environment: dict[str, str] | None = None,
+		cwd: pathlib.Path | None = None,
+		stdin: str | None = None,
+	) -> local_stack_control.models.CommandResult:
+		"""Match one expected command and return its scripted result."""
+		del environment, cwd
+		if stdin is not None:
+			raise AssertionError("scripted commands do not accept stdin")
+		expected, returncode, stdout, stderr = next(self.responses)
+		observed = tuple(argv)
+		assert observed == expected
+		self.observed.append(observed)
+		return local_stack_control.models.CommandResult(
+			observed, returncode, stdout, stderr
+		)
+
+	#============================================
+	def stream(
+		self,
+		argv: list[str],
+		environment: dict[str, str] | None = None,
+		cwd: pathlib.Path | None = None,
+	) -> int:
+		"""Reject streaming from bounded captured-command tests."""
+		del argv, environment, cwd
+		raise AssertionError("scripted commands do not stream")
 
 
 #============================================
@@ -345,6 +390,74 @@ def test_default_target_overrides_ambient_compose_project(tmp_path: pathlib.Path
 	)
 
 	assert environment == {"COMPOSE_PROJECT_NAME": "containers", "SAFE_VALUE": "kept"}
+
+
+#============================================
+def test_compose_provider_falls_back_to_the_standalone_executable(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""A working standalone provider keeps the stack usable without the Python module."""
+	module_argv = local_stack_control.models.podman_compose_argv()
+	runner = ScriptedRunner((
+		(("podman", "compose", "--in-pod", "false", "version"), 1, "", "unsupported"),
+		((*module_argv, "--in-pod", "false", "version"), 1, "", "module unavailable"),
+		(("podman-compose", "--in-pod", "false", "version"), 0, "version 1.6.0", ""),
+	))
+
+	provider = local_stack_control.compose.choose_provider(
+		runner, tmp_path, True
+	)
+
+	assert provider.argv == ("podman-compose",)
+
+
+#============================================
+def test_unavailable_default_engine_gets_one_machine_start_retry(
+	tmp_path: pathlib.Path,
+) -> None:
+	"""A stopped machine recovers without changing its configured execution mode."""
+	runner = ScriptedRunner((
+		(("podman", "info", "--format", "json"), 125, "", "connection refused"),
+		(("podman", "machine", "start"), 0, "started", ""),
+		(("podman", "info", "--format", "json"), 0, "{}", ""),
+	))
+
+	local_stack_control.lifecycle_validation.require_mutation_engine(
+		runner, tmp_path, True
+	)
+
+	assert runner.observed[-1] == ("podman", "info", "--format", "json")
+
+
+#============================================
+def test_unavailable_engine_without_recovery_is_reported(tmp_path: pathlib.Path) -> None:
+	"""A required engine never becomes an accidental successful no-op."""
+	runner = ScriptedRunner(((
+		("podman", "info", "--format", "json"), 125, "", "connection refused",
+	),))
+
+	with pytest.raises(local_stack_control.models.ControllerError, match="connection refused"):
+		local_stack_control.lifecycle_validation.require_mutation_engine(runner, tmp_path)
+
+
+#============================================
+def test_incomplete_podman_metadata_remains_a_usable_diagnostic() -> None:
+	"""Optional engine metadata warns without rejecting a reachable engine."""
+	checks = local_stack_control.commands.podman_info_checks("{}")
+
+	assert all(check.status != "FAIL" for check in checks)
+	assert any(check.name == "engine mode" and check.detail == "unknown" for check in checks)
+
+
+#============================================
+def test_machine_diagnostic_distinguishes_provider_from_guest_operating_system() -> None:
+	"""The macOS diagnostic identifies AppleHV as provider metadata."""
+	check = local_stack_control.commands.podman_machine_check(
+		'[{"Running":true,"VMType":"applehv"}]'
+	)
+
+	assert check.status == "OK"
+	assert check.detail == "running; provider applehv"
 
 
 #============================================
@@ -590,7 +703,10 @@ def test_acceptance_lanes_stop_after_the_first_nonzero_child(tmp_path: pathlib.P
 
 
 #============================================
-def disposable_target(tmp_path: pathlib.Path) -> local_stack_control.models.DisposableComposeTarget:
+def disposable_target(
+	tmp_path: pathlib.Path,
+	provider_argv: tuple[str, ...] | None = None,
+) -> local_stack_control.models.DisposableComposeTarget:
 	"""Build a private target with an opaque runner-held capability."""
 	selected_target = target(
 		tmp_path,
@@ -602,6 +718,12 @@ def disposable_target(tmp_path: pathlib.Path) -> local_stack_control.models.Disp
 	live_demo_compose_file.parent.mkdir(parents=True)
 	compose_file.write_text("services: {}\n", encoding="ascii")
 	live_demo_compose_file.write_text("services: {}\n", encoding="ascii")
+	selected_provider_argv = local_stack_control.models.podman_compose_argv()
+	if provider_argv is not None:
+		selected_provider_argv = provider_argv
+	selected_provider_name = "podman-compose"
+	if selected_provider_argv == ("podman", "compose"):
+		selected_provider_name = "podman compose"
 	selected_target = dataclasses.replace(
 		selected_target,
 		compose_files=(
@@ -609,7 +731,7 @@ def disposable_target(tmp_path: pathlib.Path) -> local_stack_control.models.Disp
 			live_demo_compose_file.resolve(strict=True),
 		),
 		provider=local_stack_control.models.ComposeProvider(
-			local_stack_control.models.podman_compose_argv(), "podman-compose"
+			selected_provider_argv, selected_provider_name
 		),
 	)
 	raw_capability = b"a" * 32
@@ -627,6 +749,23 @@ def disposable_target(tmp_path: pathlib.Path) -> local_stack_control.models.Disp
 		capability_file,
 		local_stack_control.models.LIVE_DEMO_BROWSER_OWNER,
 		local_stack_control.models.LiveDemoProfile.BROWSER,
+	)
+
+
+#============================================
+@pytest.mark.parametrize(
+	"provider_argv",
+	(("podman", "compose"), ("podman-compose",)),
+)
+def test_compose_provider_retains_no_pod_lifecycle_boundary(
+	tmp_path: pathlib.Path,
+	provider_argv: tuple[str, ...],
+) -> None:
+	"""Every selected adapter receives the same explicit no-pod behavior."""
+	disposable = disposable_target(tmp_path, provider_argv)
+
+	assert disposable.target.provider.argv == (
+		*provider_argv, "--in-pod", "false"
 	)
 
 
@@ -695,16 +834,26 @@ def test_forged_disposable_owner_policy_cannot_form_cleanup_authority(
 
 
 #============================================
+@pytest.mark.parametrize(
+	"provider",
+	(
+		local_stack_control.models.ComposeProvider(
+			("podman-compose",), "podman-compose"
+		),
+		local_stack_control.models.ComposeProvider(
+			("podman-compose", "--in-pod", "false"), "forged-provider"
+		),
+	),
+)
 def test_forged_disposable_provider_cannot_form_cleanup_authority(
 	tmp_path: pathlib.Path,
+	provider: local_stack_control.models.ComposeProvider,
 ) -> None:
-	"""A hand-built target cannot omit the mandatory no-pod provider arguments."""
+	"""A hand-built target cannot forge provider arguments or provenance."""
 	disposable = disposable_target(tmp_path)
 	forged_target = dataclasses.replace(
 		disposable.target,
-		provider=local_stack_control.models.ComposeProvider(
-			("podman-compose",), "podman-compose"
-		),
+		provider=provider,
 	)
 	forged = dataclasses.replace(disposable, target=forged_target)
 

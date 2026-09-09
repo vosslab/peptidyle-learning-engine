@@ -182,7 +182,9 @@ source source_me.sh && python3 local_stack.py logs --tail 120
 source source_me.sh && python3 local_stack.py validate
 ```
 
-`doctor` checks Podman and its Compose provider. `status` reports semantic
+`doctor` reports reachable Podman metadata, including root mode, macOS machine
+provider, and the selected Compose adapter. Missing optional metadata is a
+warning rather than a runtime gate. `status` reports semantic
 readiness. `projects` lists labelled Compose projects. `logs` prints scoped
 application logs. `validate` checks configuration and runtime availability
 without starting the stack. Add `--json`

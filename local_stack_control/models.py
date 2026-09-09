@@ -27,7 +27,6 @@ LIVE_DEMO_REPLICA_APPLICATION_IMAGE = (
 )
 DEFAULT_ENV_FILE = "containers/env.local"
 PRIMARY_COMPOSE_FILE = "containers/compose.yaml"
-DISPOSABLE_COMPOSE_PROVIDER = "podman-compose"
 DISPOSABLE_PROVIDER_GLOBAL_ARGS = ("--in-pod", "false")
 
 BASE_LONG_RUNNING_SERVICES = (
@@ -54,6 +53,16 @@ STOPPABLE_SERVICES = ("webwork-renderer",)
 def podman_compose_argv() -> tuple[str, ...]:
 	"""Run the installed Compose module through this controller's Python."""
 	result = (sys.executable, "-m", "podman_compose")
+	return result
+
+
+#============================================
+def podman_compose_provider_argvs() -> tuple[tuple[str, ...], ...]:
+	"""Return preferred and fallback direct podman-compose entry points."""
+	result = (
+		podman_compose_argv(),
+		("podman-compose",),
+	)
 	return result
 
 

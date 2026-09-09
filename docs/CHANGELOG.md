@@ -41,6 +41,15 @@
   wrapper interpreter. The declared runtime dependency now installs that
   provider alongside the controller.
 
+- Made the Podman lifecycle recover from ordinary host variation without
+  enforcing rootless or rootful execution. A stopped default machine gets one
+  bounded start retry, Compose selection falls back from Podman's dispatcher to
+  the selected Python module and then a standalone `podman-compose`, incomplete
+  diagnostic metadata remains informational, and `doctor` distinguishes the VM
+  provider from its guest operating system. The macOS guide now records the
+  AppleHV rootful initialization used by the second development machine, and
+  the one-shot database migrator no longer inherits the API health check.
+
 - Split Student activity convergence, Browser Suite external operations, and
   lifecycle database identity construction into focused modules. Their former
   owners are now below the repository's source-size ceiling without overrides

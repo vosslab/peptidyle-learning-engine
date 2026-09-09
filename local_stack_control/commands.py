@@ -164,6 +164,72 @@ def project_snapshots(
 
 
 #============================================
+def podman_info_checks(info_text: str) -> tuple[local_stack_control.models.DoctorCheck, ...]:
+	"""Decode available Podman metadata without making optional fields gates."""
+	try:
+		items = local_stack_control.discovery.json_array(f"[{info_text}]", "podman info")
+	except local_stack_control.models.ControllerError as error:
+		return (local_stack_control.models.DoctorCheck("podman metadata", "WARN", str(error)),)
+	if len(items) != 1:
+		return (local_stack_control.models.DoctorCheck("podman metadata", "WARN", "unavailable"),)
+	# ASVS 2.2.1: validate external metadata by type before using it in diagnostics.
+	info = items[0]
+	checks: list[local_stack_control.models.DoctorCheck] = []
+	client = info.get("Client")
+	if not isinstance(client, dict):
+		client = info.get("client")
+	server = info.get("version")
+	for name, metadata in (("client", client), ("server", server)):
+		value = metadata.get("Version") if isinstance(metadata, dict) else None
+		status = "OK" if isinstance(value, str) and value != "" else "WARN"
+		detail = value if status == "OK" else "unknown"
+		checks.append(local_stack_control.models.DoctorCheck(name, status, detail))
+	host = info.get("host")
+	security = host.get("security") if isinstance(host, dict) else None
+	rootless = security.get("rootless") if isinstance(security, dict) else None
+	mode = "unknown"
+	status = "WARN"
+	if isinstance(rootless, bool):
+		mode = "rootless" if rootless else "rootful"
+		status = "OK"
+	checks.append(local_stack_control.models.DoctorCheck("engine mode", status, mode))
+	distribution = host.get("distribution") if isinstance(host, dict) else None
+	if isinstance(distribution, dict):
+		name = distribution.get("distribution")
+		version = distribution.get("version")
+		if isinstance(name, str) and name != "":
+			detail = name
+			if isinstance(version, str) and version != "":
+				detail = detail + " " + version
+			checks.append(local_stack_control.models.DoctorCheck("machine guest", "OK", detail))
+	return tuple(checks)
+
+
+#============================================
+def podman_machine_check(machine_text: str) -> local_stack_control.models.DoctorCheck:
+	"""Summarize available machine state and provider without requiring either."""
+	try:
+		machines = local_stack_control.discovery.json_array(machine_text, "podman machine list")
+	except local_stack_control.models.ControllerError as error:
+		return local_stack_control.models.DoctorCheck("podman machine", "WARN", str(error))
+	if len(machines) == 0:
+		return local_stack_control.models.DoctorCheck("podman machine", "WARN", "none configured")
+	running = any(item.get("Running") is True for item in machines)
+	detail = "running" if running else "stopped"
+	providers = sorted(
+		{
+			str(item["VMType"])
+			for item in machines
+			if isinstance(item.get("VMType"), str) and item["VMType"] != ""
+		}
+	)
+	if len(providers) > 0:
+		detail = detail + "; provider " + ", ".join(providers)
+	status = "OK" if running else "WARN"
+	return local_stack_control.models.DoctorCheck("podman machine", status, detail)
+
+
+#============================================
 def doctor(
 	args: argparse.Namespace,
 	runner: local_stack_control.process.CommandRunner,
@@ -178,38 +244,25 @@ def doctor(
 		["podman", "info", "--format", "json"], runtime_environment, repo_root
 	)
 	if info_result.ok():
-		items = local_stack_control.discovery.json_array(
-			f"[{info_result.stdout}]",
-			"podman info",
-		)
-		info = items[0]
-		host = info.get("host")
-		version = info.get("version")
-		client = info.get("Client")
-		if not isinstance(host, dict) or not isinstance(version, dict) or not isinstance(client, dict):
-			raise local_stack_control.models.ControllerError("podman info has incomplete metadata")
-		security = host.get("security")
-		if not isinstance(security, dict) or not isinstance(security.get("rootless"), bool):
-			raise local_stack_control.models.ControllerError("podman info has no rootless status")
-		checks.append(local_stack_control.models.DoctorCheck("client", "OK", str(client.get("Version", "unknown"))))
-		checks.append(local_stack_control.models.DoctorCheck("server", "OK", str(version.get("Version", "unknown"))))
-		rootless = "yes" if security["rootless"] else "no"
-		checks.append(local_stack_control.models.DoctorCheck("rootless", "OK", rootless))
+		checks.append(local_stack_control.models.DoctorCheck("podman", "OK", "engine reachable"))
+		checks.extend(podman_info_checks(info_result.stdout))
 	else:
 		detail = info_result.stderr.strip() or "engine unavailable"
 		checks.append(local_stack_control.models.DoctorCheck("podman", "FAIL", detail))
 
-	provider = local_stack_control.compose.choose_provider(runner, repo_root)
-	checks.append(local_stack_control.models.DoctorCheck("compose provider", "OK", provider.name))
+	try:
+		provider = local_stack_control.compose.choose_provider(runner, repo_root)
+	except local_stack_control.models.ControllerError as error:
+		checks.append(local_stack_control.models.DoctorCheck("compose provider", "FAIL", str(error)))
+	else:
+		detail = shlex.join(provider.argv)
+		checks.append(local_stack_control.models.DoctorCheck("compose provider", "OK", detail))
 	if platform.system() == "Darwin":
 		machine_result = runner.run(
 			["podman", "machine", "list", "--format", "json"], runtime_environment, repo_root
 		)
 		if machine_result.ok():
-			machines = local_stack_control.discovery.json_array(machine_result.stdout, "podman machine list")
-			running = any(item.get("Running") is True for item in machines)
-			detail = "running" if running else "stopped"
-			checks.append(local_stack_control.models.DoctorCheck("podman machine", "OK" if running else "WARN", detail))
+			checks.append(podman_machine_check(machine_result.stdout))
 		else:
 			detail = machine_result.stderr.strip() or "metadata unavailable"
 			checks.append(local_stack_control.models.DoctorCheck("podman machine", "WARN", detail))
@@ -224,8 +277,16 @@ def doctor(
 		status = "WARN" if not env_file.exists() and not env_file.is_symlink() else "FAIL"
 		checks.append(local_stack_control.models.DoctorCheck("env file", status, "; ".join(env_errors)))
 
-	summaries = tuple(local_stack_control.status.project_summary(item) for item in project_snapshots(runner, repo_root))
-	checks.append(local_stack_control.models.DoctorCheck("compose projects", "OK", str(len(summaries))))
+	try:
+		summaries = tuple(
+			local_stack_control.status.project_summary(item)
+			for item in project_snapshots(runner, repo_root)
+		)
+	except local_stack_control.models.ControllerError as error:
+		summaries = ()
+		checks.append(local_stack_control.models.DoctorCheck("compose projects", "FAIL", str(error)))
+	else:
+		checks.append(local_stack_control.models.DoctorCheck("compose projects", "OK", str(len(summaries))))
 	output = {"checks": checks, "projects": summaries}
 	if args.json:
 		print_json(output)

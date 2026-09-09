@@ -9,6 +9,7 @@ import subprocess
 import time
 from urllib.parse import urlparse
 
+import local_stack_control.compose
 import local_stack_control.discovery
 import local_stack_control.models
 import local_stack_control.process
@@ -125,12 +126,12 @@ class ContextOriginReceipt:
 def provider_receipt(target: local_stack_control.models.DisposableComposeTarget) -> ProviderReceipt:
 	"""Bind receipt policy to the already validated lifecycle provider selection."""
 	provider = target.target.provider
-	expected_argv = (
-		*local_stack_control.models.podman_compose_argv(),
-		*local_stack_control.models.DISPOSABLE_PROVIDER_GLOBAL_ARGS,
-	)
-	if provider.name != local_stack_control.models.DISPOSABLE_COMPOSE_PROVIDER or provider.argv != expected_argv:
-		raise BrowserSuiteOracleError("browser-suite lifecycle provider does not prove the no-pod policy")
+	try:
+		local_stack_control.compose.require_disposable_no_pod_provider(target.target)
+	except local_stack_control.models.ControllerError as error:
+		raise BrowserSuiteOracleError(
+			"browser-suite lifecycle provider does not prove the no-pod policy"
+		) from error
 	result = ProviderReceipt(provider.name, provider.argv, False)
 	return result
 

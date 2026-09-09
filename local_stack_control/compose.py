@@ -41,34 +41,37 @@ def repo_root_from_entrypoint(
 
 
 #============================================
+def compose_provider_candidates() -> tuple[local_stack_control.models.ComposeProvider, ...]:
+	"""Return equivalent Compose adapters in preferred recovery order."""
+	result = (
+		local_stack_control.models.ComposeProvider(("podman", "compose"), "podman compose"),
+		*(
+			local_stack_control.models.ComposeProvider(argv, "podman-compose")
+			for argv in local_stack_control.models.podman_compose_provider_argvs()
+		),
+	)
+	return result
+
+
+#============================================
 def choose_provider(
 	runner: local_stack_control.process.CommandRunner,
 	repo_root: pathlib.Path,
-	required_name: str | None = None,
+	require_no_pod: bool = False,
 ) -> local_stack_control.models.ComposeProvider:
-	"""Select the first usable Podman Compose provider."""
+	"""Select the first adapter that demonstrates the required capability."""
 	environment = local_stack_control.env_file.sanitized_runtime_environment(
 		local_stack_control.process.current_environment()
 	)
-	candidates = (
-		local_stack_control.models.ComposeProvider(("podman", "compose"), "podman compose"),
-		local_stack_control.models.ComposeProvider(
-			local_stack_control.models.podman_compose_argv(), "podman-compose"
-		),
-	)
-	if required_name is not None and required_name not in {item.name for item in candidates}:
-		raise local_stack_control.models.ControllerError(
-			"requested Compose provider is not supported"
-		)
-	for provider in candidates:
-		if required_name is not None and provider.name != required_name:
-			continue
-		result = runner.run([*provider.argv, "version"], environment, repo_root)
+	probe_args = local_stack_control.models.DISPOSABLE_PROVIDER_GLOBAL_ARGS if require_no_pod else ()
+	for provider in compose_provider_candidates():
+		# ASVS 1.2.5: every candidate is a closed argv tuple executed without a shell.
+		result = runner.run([*provider.argv, *probe_args, "version"], environment, repo_root)
 		if result.ok():
 			return provider
-	if required_name is not None:
+	if require_no_pod:
 		raise local_stack_control.models.ControllerError(
-			f"required Compose provider '{required_name}' is unavailable"
+			"no usable Compose provider accepts the required no-pod option"
 		)
 
 	raise local_stack_control.models.ControllerError(
@@ -101,10 +104,9 @@ def resolve_target(
 	env_file: str,
 	project: str | None = None,
 	allow_missing_env: bool = False,
-	required_provider: str | None = None,
 ) -> local_stack_control.models.ComposeTarget:
 	"""Resolve an explicit target without consulting ambient project state."""
-	provider = choose_provider(runner, repo_root, required_provider)
+	provider = choose_provider(runner, repo_root)
 	selected_project = local_stack_control.models.DEFAULT_PROJECT
 	if project is not None:
 		selected_project = project
@@ -200,17 +202,20 @@ def require_disposable_target_policy(
 def require_disposable_no_pod_provider(
 	target: local_stack_control.models.ComposeTarget,
 ) -> None:
-	"""Require the exact provider argv that cannot create an unlabelled pod."""
-	expected_argv = (
-		*local_stack_control.models.podman_compose_argv(),
-		*local_stack_control.models.DISPOSABLE_PROVIDER_GLOBAL_ARGS,
+	"""Require an exact supported provider with the no-pod arguments."""
+	expected_providers = tuple(
+		local_stack_control.models.ComposeProvider(
+			argv=(
+				*provider.argv,
+				*local_stack_control.models.DISPOSABLE_PROVIDER_GLOBAL_ARGS,
+			),
+			name=provider.name,
+		)
+		for provider in compose_provider_candidates()
 	)
-	if (
-		target.provider.name != local_stack_control.models.DISPOSABLE_COMPOSE_PROVIDER
-		or target.provider.argv != expected_argv
-	):
+	if target.provider not in expected_providers:
 		raise local_stack_control.models.ControllerError(
-			"disposable targets require the exact no-pod Compose provider"
+			"disposable targets require a supported no-pod Compose provider"
 		)
 
 
@@ -225,13 +230,9 @@ def new_disposable_target(
 	policy = require_disposable_target_policy(target, owner_policy, live_demo_profile)
 	local_stack_control.env_file.require_mutation_env_file(target.env_file)
 	require_disposable_capability_file(capability_file)
-	if (
-		target.provider.name != local_stack_control.models.DISPOSABLE_COMPOSE_PROVIDER
-		or target.provider.argv
-		!= local_stack_control.models.podman_compose_argv()
-	):
+	if target.provider not in compose_provider_candidates():
 		raise local_stack_control.models.ControllerError(
-			"disposable targets require the no-pod Compose provider"
+			"disposable targets require a supported Compose provider"
 		)
 	provider = local_stack_control.models.ComposeProvider(
 		argv=(

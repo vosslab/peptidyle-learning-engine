@@ -6,36 +6,62 @@ virtual machine it manages for you. Everything in
 
 ## Install
 
+Install Podman, then create the machine with enough resources for the first Rust
+build. On Apple Silicon, this explicit rootful configuration uses Apple's native
+hypervisor and makes `/Users` available inside the VM:
+
 ```bash
 brew install podman
-podman machine init
+podman machine init \
+  --provider applehv \
+  --rootful \
+  --cpus 8 \
+  --memory 16384 \
+  --disk-size 60 \
+  -v /Users:/Users
 podman machine start
 ```
 
-`podman machine init` is a one-time step. `podman machine start` is needed
-after a reboot.
+`podman machine init` is a one-time step. Omit `--rootful` when the host should
+use Podman's rootless default. The PLE controller accepts either mode and uses
+the active default Podman connection; it does not select or change that
+operator-owned setting. `podman machine start` is needed after a reboot.
+
+AppleHV is the virtualization provider. The Fedora-based Podman Machine OS is
+the Linux guest running inside AppleHV, not a competing provider. Seeing Fedora
+in `podman info` therefore does not mean that Podman ignored `--provider applehv`.
+Podman's normal macOS configuration already shares `/Users`, but the
+explicit mount above makes this checkout requirement visible at machine
+creation.
 
 ## Check the machine
 
 ```bash
 podman machine list
+podman machine inspect
 podman info --format '{{.Host.Arch}}'
 ```
 
 A machine that is not `Currently running` is the cause of most
 "cannot connect to Podman" errors.
 
-## Resource sizing
+## Existing machines
 
-The default machine is small for a Rust build. The first container build
-compiles the whole dependency tree, and a cramped machine turns that into a
-long wait or an out-of-memory failure.
+The first container build compiles the whole dependency tree. Prefer setting
+CPU, memory, disk, provider, mount, and root mode during the one-time
+initialization above. Do not recreate a machine merely to change root mode.
+Podman can change the preferred connection on an existing stopped machine:
 
 ```bash
 podman machine stop
-podman machine set --cpus 8 --memory 16384 --disk-size 60
+podman machine set --rootful=true   # or --rootful=false
 podman machine start
 ```
+
+Rootful and rootless Podman storage are separate. Select the intended mode
+before starting PLE; changing modes does not delete either store. PLE neither
+switches modes nor searches another store automatically because doing so could
+operate on the wrong project.
 
 ## Architecture notes
 

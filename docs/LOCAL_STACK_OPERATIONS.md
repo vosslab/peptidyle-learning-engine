@@ -86,6 +86,13 @@ fixes retained volume ownership, and exits before daemons start. It does not
 change database or object content. The Live Demo accepts the active local Podman
 connection whether it is rootless or rootful.
 
+Compose execution is capability-based rather than installation-path-based. The
+controller prefers `podman compose`, then the selected Python
+`podman_compose` module, then a standalone `podman-compose` executable. A
+disposable owner keeps the selected adapter for its lifecycle and still passes
+its explicit no-pod option. It does not retry a mutating
+Compose operation through another adapter after that operation begins.
+
 The controller runs its short-lived migration and application-schema verifier
 inside the Compose data network. The local PostgreSQL loopback port remains an
 operator diagnostic endpoint; lifecycle correctness does not depend on its
@@ -111,8 +118,9 @@ Use the launcher from the repository root:
 ./launchers/run_live_demo.sh start --open
 ```
 
-The launcher resolves the checkout through Git, sources [source_me.sh](../source_me.sh),
-runs [devel/setup_typescript.sh](../devel/setup_typescript.sh), and then runs
+The launcher resolves the checkout from its own filesystem location, sources
+[source_me.sh](../source_me.sh), runs
+[devel/setup_typescript.sh](../devel/setup_typescript.sh), and then runs
 `python3 local_stack.py start`. Start always builds the production `dist/`
 bundle, creates a fresh fixed target, waits for the HTTPS gateway, and prints its URL for an operator
 to open. `open` opens the exact URL of an already-running fixed target without restarting it;

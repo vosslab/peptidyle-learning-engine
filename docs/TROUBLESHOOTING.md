@@ -29,10 +29,14 @@ the project scope.
 - **`command not found on PATH`:** install the named prerequisite and retry
   `./launchers/run_live_demo.sh`. The wrapper requires Git, Podman, curl, awk, OpenSSL,
   xxd, and lsof.
-- **`neither 'podman compose' nor 'podman-compose' is usable`:** install the declared
-  dependencies into the selected Python 3.12 environment with
-  `source source_me.sh && python3 -m pip install --requirement pip_requirements.txt`, then retry
-  `./launchers/run_live_demo.sh`.
+- **No usable Compose provider or no-pod adapter:** the controller already tried Podman's Compose
+  dispatcher, the selected Python module, and the standalone executable. Install the declared
+  provider into the selected Python 3.12 environment, then retry the launcher:
+
+  ```bash
+  source source_me.sh && python3 -m pip install --requirement pip_requirements.txt
+  ./launchers/run_live_demo.sh
+  ```
 - **`a custom mutating env file must already exist and have mode 0600`:** use
   the repository's first-run path with the default environment. Do not point
   the wrapper at another environment, project, identity, SMTP configuration,
@@ -57,8 +61,9 @@ source source_me.sh && python3 local_stack.py logs --project ple-live-demo-brows
 source source_me.sh && python3 local_stack.py validate
 ```
 
-`doctor` checks Podman, its Compose provider, the macOS machine, the selected
-environment, and labelled projects. `projects` includes retained data-only
+`doctor` reports all available Podman metadata without requiring a particular
+root mode, VM provider, or guest operating system. It also checks the selected
+Compose adapter, the macOS machine, the selected environment, and labelled projects. `projects` includes retained data-only
 projects. `status` reports semantic readiness; running containers alone are
 not sufficient. `logs` prints a private-data warning and accepts `--follow`
 only while actively diagnosing. `validate` checks initialized configuration,

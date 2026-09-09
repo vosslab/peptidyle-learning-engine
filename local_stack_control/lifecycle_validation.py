@@ -46,22 +46,22 @@ def require_mutation_engine(
 	repo_root: pathlib.Path,
 	start_selected_machine: bool = False,
 ) -> None:
-	"""Start the default Podman machine when its active connection is unavailable."""
+	"""Require the active engine, with one bounded default-machine recovery."""
 	environment = local_stack_control.env_file.sanitized_runtime_environment(
 		local_stack_control.process.current_environment()
 	)
 	result = runner.run(["podman", "info", "--format", "json"], environment, repo_root)
-	if not result.ok() and start_selected_machine:
-		started = runner.run(["podman", "machine", "start"], environment, repo_root)
-		if not started.ok():
-			raise local_stack_control.models.ControllerError(
-				"the selected local Podman machine could not be started"
-			)
-	if result.ok() or not start_selected_machine:
+	if result.ok():
 		return
-	result = runner.run(["podman", "info", "--format", "json"], environment, repo_root)
+	started: local_stack_control.models.CommandResult | None = None
+	if start_selected_machine:
+		started = runner.run(["podman", "machine", "start"], environment, repo_root)
+		result = runner.run(["podman", "info", "--format", "json"], environment, repo_root)
 	if not result.ok():
 		detail = result.stderr.strip() or "Podman engine is unavailable"
+		if started is not None and not started.ok():
+			start_detail = started.stderr.strip() or "machine start failed"
+			detail = detail + "; automatic machine start: " + start_detail
 		raise local_stack_control.models.ControllerError(
 			"the active default Podman connection is unavailable: " + detail
 		)

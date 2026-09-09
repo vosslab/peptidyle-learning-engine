@@ -85,6 +85,7 @@ ENTRYPOINT ["/usr/local/bin/peptidyle-api"]
 
 FROM runtime-base AS database-migrator
 COPY --from=database-migrator-builder /build/target/release/project-tools /usr/local/bin/ple-database-tools
+HEALTHCHECK NONE
 ENTRYPOINT ["/usr/local/bin/ple-database-tools"]
 
 FROM runtime-base AS live-demo-fault

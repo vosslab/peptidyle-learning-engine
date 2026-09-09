@@ -15,8 +15,10 @@ WeBWorK renderer. It establishes only the current seeded session-entry boundary.
   declared by [Brewfile](../Brewfile).
 - Python available as `python3`, with the runtime dependencies from
   [pip_requirements.txt](../pip_requirements.txt) installed.
-- Podman and the Python `podman-compose` provider from `pip_requirements.txt` for the local stack.
-  On macOS, also start a Podman machine; see [MACOS_PODMAN.md](MACOS_PODMAN.md).
+- Podman and a usable Compose adapter for the local stack. The controller tries `podman compose`,
+  the Python `podman-compose` provider from `pip_requirements.txt`, and a standalone
+  `podman-compose` executable in that order. On macOS, also start a Podman machine; see
+  [MACOS_PODMAN.md](MACOS_PODMAN.md).
 - `curl`, `awk`, `openssl`, `xxd`, and `lsof`, which the typed stack lifecycle uses.
 
 ## Fresh-clone success
@@ -32,8 +34,9 @@ source source_me.sh && python3 -m pip install --requirement pip_requirements.txt
 ```
 
 `./launchers/run_live_demo.sh` is the supported live-demo front door. It resolves the checkout
-through Git, sources the repository `source_me.sh`, and invokes `python3 local_stack.py`. When
-starting, it runs `devel/setup_typescript.sh`; that helper owns TypeScript dependency setup. Cargo
+from its own filesystem location, sources the repository `source_me.sh`, and invokes
+`python3 local_stack.py`. When starting, it runs `devel/setup_typescript.sh`; that helper owns
+TypeScript dependency setup. Cargo
 restores its checkout-local build artifacts during the build. The launcher then builds the
 production `dist/` bundle and creates the
 disposable `ple-live-demo-browser` HTTPS session, and prints its ready origin. Open that URL in your
