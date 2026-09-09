@@ -177,6 +177,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - **Student** workflows should be designed for laptop, portrait tablet, narrow-phone, and square displays.
 - Every **Student** browser action should be usable with the keyboard alone.
+- Each **Assignment Attempt** has a time limit so one Question set does not remain open for days.
+- **Students** may start another **Assignment Attempt** as often as needed, including practicing to a perfect score.
 - **Students** log in only with a passkey or email code; no passwords.
 - **Student** data should be collected reluctantly, used deliberately, and purged predictably.
 - **Student** course data falls under FERPA; treat it as radioactive.

@@ -63,7 +63,7 @@ historical screenshot reference does not claim current acceptance. Keep Instruct
 `docs/screenshots/instructor/` and separate it from public or Student evidence; a fresh capture and
 review remain required before a current UI change can claim visual acceptance.
 
-## Visual gallery
+## Current visual atlas
 
 The historical Course Instance pages use the Grass palette in standard presentation. This makes the
 gallery useful as a design reference for normal theme character, density, hierarchy, navigation, and
@@ -71,28 +71,16 @@ page-level composition. The current Live Demo runs the functional Instructor tea
 described in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md); it remains distinct from future email-code and
 passkey authentication adapters.
 
-<!-- screenshots:begin (managed by screenshot-docs) -->
-
-![Instructor teaching operations groups](screenshots/instructor/teaching_operations/01_teaching_operations_groups.png)
-![Instructor active roster](screenshots/instructor/course_management/01_instructor_active_roster.png)
-![Instructor Gradebook with Student progress](screenshots/instructor/grading/01_instructor_gradebook.png)
-![Instructor grade settings conflict recovery](screenshots/instructor/grade_settings_conflict/02_retry_saved.png)
-![Instructor assignment delivery preview](screenshots/instructor/assignment_preview/01_schedule_entitlement.png)
-![Instructor item pool preview](screenshots/instructor/item_pool_delivery/01_pool_preview.png)
-![Instructor assignment Policies workspace](screenshots/instructor/assignment_workspace/01_assignment_policies.png)
-![Instructor answer-free assignment Student view](screenshots/instructor/assignment_workspace/02_student_view.png)
-![Instructor Question Library discovery evidence](screenshots/instructor/question_library_discovery/01_disclosed_evidence_laptop.png)
-![Instructor Blueprint Course workspace](screenshots/instructor/reusable_curriculum/01_reusable_curriculum_workspace_laptop.png)
-<!-- Historical capture path retained as immutable evidence; the product term is Blueprint Course. -->
-
-![Instructor Blueprint adoption review](screenshots/instructor/curriculum_adoption/01_alpha_fork_review_laptop.png)
-<!-- screenshots:end -->
+[SCREENSHOT_ATLAS.md](SCREENSHOT_ATLAS.md#instructor) is the complete current
+Instructor gallery. It groups Course operations, authoring, Blueprint Course,
+Assignment release, and Gradebook states so related captures can be compared
+without relying on retired path families.
 
 ## Refreshing historical screenshot references
 
-The current capture command is `./devel/capture_screenshots.sh`; it rebuilds only the current
-manifest and does not republish this historical gallery. This gallery is historical reference, not
-current acceptance.
+The current capture command is `./devel/capture_screenshots.sh`; it rebuilds the current manifest
+and generated atlas. Git history retains retired screenshots; this document does not keep broken
+links to them as an active gallery.
 
 Any Instructor UI, viewport, typography, theme, or navigation change requires a
 fresh current capture and human visual review before it can claim visual acceptance. Behavior tests

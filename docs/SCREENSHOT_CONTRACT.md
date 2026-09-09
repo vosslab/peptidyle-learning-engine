@@ -39,21 +39,47 @@ There is no `docs/screenshots/shared/` or `docs/screenshots/live_demo/`
 namespace. Deterministic seeded data does not own presentation chrome.
 
 `docs/screenshots/current_capture_manifest.json` is the closed declaration of
-current canonical captures. The rebuild writes only manifest-listed paths and
-leaves older role-folder screenshots alone unless a separate task explicitly
-updates them.
+current canonical captures. Its records describe identity, ownership, product
+area, workflow state, scenario checkpoint, canonical viewport, privacy profile,
+and gallery presentation. They never contain selectors or executable steps.
+The TypeScript scenario registry is the one executable mapping from those
+scenario and checkpoint names to normal product workflows.
+
+The active tree is flat within exactly four role folders. A successful rebuild
+removes screenshots not declared by the manifest. The generated
+`current_capture_receipt.json` binds the manifest digest, exact path set,
+dimensions, and image hashes. [SCREENSHOT_ATLAS.md](SCREENSHOT_ATLAS.md) is the
+generated, grouped visual review surface. The manifest's route and Ribbon
+coverage ledger accounts for current captures and concrete deferred product
+capabilities.
 
 ## Rebuild and verification
 
 `./devel/capture_screenshots.sh` is the supported rebuild entry point. It
 starts the seeded stack it owns, navigates normal visible PLE workflows, checks
-capture privacy, writes every declared artifact, and stops that stack.
+route, semantic-state, privacy, page-error, origin, and dimension invariants,
+then publishes every declared artifact and stops that stack. Capture support
+must use ordinary routes, persisted product state, normal HTTP contracts, and
+visible application actions. It must not add screenshot-only routes, mocked
+responses, or fabricated backend state.
 
-`./devel/capture_screenshots.sh --verify` validates the declared PNG artifacts
-and their publication manifest without starting a stack. The rebuild produces
-one-time rendered evidence. `--verify` validates that evidence and its manifest.
-Neither command is a permanent behavior test or a replacement for connected
-browser acceptance.
+`./devel/capture_screenshots.sh --verify` first validates the manifest,
+registry, PNG set, receipt, dimensions, and atlas, then starts a clean Live Demo
+and replays the complete corpus with the same assertions. It leaves replay
+artifacts under `test-results/screenshot-corpus/verify/` and proves that the
+published images were not modified. Byte differences are reported for human
+review but are not a pass/fail pixel-equivalence gate.
+
+Publication validates staging before changing the active corpus. Portable
+filesystems cannot atomically replace four directories plus two files, so
+publication keeps a complete recovery backup while replacement is in progress,
+rolls back ordinary failures, and refuses to overwrite evidence from an
+interrupted publication. This is recoverable promotion, not a filesystem
+transaction.
+
+Neither command replaces the permanent behavioral suite. Machine-clean replay
+proves reproducible semantic states; human visual review determines whether the
+current design is launch-ready.
 
 ## Ribbon visual evidence
 
@@ -66,9 +92,16 @@ phone Ribbon captures only where responsive behavior materially changes the
 Ribbon. They remain evidence of the working application, never a separate
 presentation page.
 
+The canonical profiles are laptop 1280 by 800, portrait tablet 800 by 1280,
+phone 393 by 852, and square 800 by 800 CSS pixels. Add a non-laptop variant
+only when the responsive composition, control layout, or access outcome changes
+materially enough to need separate visual inspection.
+
 ## Privacy
 
-Current captures exclude Answer Keys, private Question Source data, protected
-Student fields, credentials, and tokens. A Student Question capture shows an
-unanswered Question Presentation unless a separately approved evidence task
-names a different safe state.
+Current captures exclude Answer Keys, correct answers, private Question Source
+data, credentials, tokens, internal bindings, and unrelated Student records.
+Each closed privacy profile is tied to a demonstrated capture state: public,
+Instructor answer-free, Student unanswered, the fictional Student's selected
+response, Student self-only status, authorization denial, Sysadmin account
+administration, or a specifically authorized scoped roster projection.

@@ -128,12 +128,20 @@ the renderer identity, and the available engine without mutating the stack.
   correcting the labelled renderer. Do not substitute an image or project at
   the command line.
 
-## Future browser and screenshot evidence
+## Browser and screenshot evidence
 
-The fresh Store-backed browser owner will publish the current browser and
-screenshot troubleshooting steps together with its executable route surface.
-Current diagnosis uses the typed local-stack controller and its available
-database/object acceptance lanes.
+- **Capture or replay fails before publication:** preserve the named artifact
+  directory under `test-results/screenshot-corpus/` and rerun the unchanged
+  `./devel/capture_screenshots.sh` command after correcting the reported
+  workflow, privacy, route, or browser failure. Staging is validated as a
+  complete corpus before tracked screenshots change.
+- **`publication-backup` already exists:** preserve that directory. It is
+  evidence from an interrupted or failed publication, and the launcher will not
+  overwrite it. Compare it with the active corpus before choosing which copy to
+  restore; do not delete it merely to make the next run start.
+- **Static verification reports a manifest, receipt, atlas, path, or dimension
+  mismatch:** regenerate with `./devel/capture_screenshots.sh`. Do not edit the
+  generated receipt or atlas by hand.
 
 ## Browser and cleanup permission failures
 

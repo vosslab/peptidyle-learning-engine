@@ -501,9 +501,8 @@ region.
   node tests/e2e/e2e_ribbon_production_styles.mjs
   ./check_codebase.sh
   source source_me.sh && pytest tests/
-  ./launchers/run_live_demo.sh start --headless
   ./devel/run_playwright_tests.sh
-  node tests/playwright/capture_live_demo_screenshots.mjs
+  ./devel/capture_screenshots.sh
   ```
 
 - Independent review gate: `reviewer` on the assembled diff, specifically checking that no geometry

@@ -49,10 +49,12 @@ Run the dedicated capture command to rebuild M20's role-owned current corpus:
 ```
 
 The command starts a fresh disposable stack, navigates the visible connected
-workflows, writes only the manifest-listed public and role-folder images, then
-stops that stack. Use `./devel/capture_screenshots.sh --verify` to validate the
-rendered-artifact manifest without starting a stack. Captures are one-time
-visual evidence, not permanent tests.
+workflows, validates a complete staging corpus, publishes the flat public and
+Product Role folders, receipt, and generated atlas, then stops that stack. Use
+`./devel/capture_screenshots.sh --verify` to validate the published corpus and
+replay every declaration through a new clean Live Demo. The temporary replay
+and atlas remain under `test-results/screenshot-corpus/verify/` for visual
+review. Neither command uses pixel equality as a pass/fail gate.
 
 ## Current Live Demo entry
 

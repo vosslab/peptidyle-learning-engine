@@ -133,15 +133,16 @@ bounded work item.
 | Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                             | The named disposable whole-system oracle.                            |
 | All named non-browser E2E checks           | `bash tests/e2e/e2e_run_all.sh`                            | The current build, CLI, contract, and named-service E2E collection.  |
 | Local stack diagnosis and lifecycle        | `source source_me.sh && python3 local_stack.py <command>`  | The scoped controller contract.                                      |
-| Current application screenshots             | `./devel/capture_screenshots.sh`                           | Rebuilds the manifest-listed role captures as one-time evidence.     |
+| Current application screenshots            | `./devel/capture_screenshots.sh`                           | Rebuilds and recoverably publishes the complete manifest corpus.     |
 
 `tests/playwright/` is browser-driven testing and `tests/e2e/` is non-browser whole-system
 orchestration. Both are intentionally excluded from `pytest tests/`; see
 [E2E_TESTS.md](E2E_TESTS.md) for the test-tier boundary. Install the browser binaries once with
 `./devel/setup_playwright.sh` (or `npm run setup:playwright`) before running Playwright.
 The current aggregate validates the active code and service contracts without claiming browser or
-visual acceptance. The screenshot rebuild command is a separate one-time developer-evidence lane;
-see [SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md).
+visual acceptance. The screenshot command is a separate reproducible visual-evidence lane; its
+`--verify` mode replays the complete manifest through a clean stack. See
+[SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md).
 `./devel/run_playwright_tests.sh --build` is the serial M19 real-stack
 production-browser owner. It remains separate from the aggregate gate; its
 fresh accepted 2026-09-07 result is recorded in the Live Demo evidence.
@@ -170,9 +171,9 @@ it satisfies the admission rules in [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL
 ### Production-browser execution
 
 M20 owns the Live Demo capture corpus after M19's fresh browser result. Its
-images are one-time rendered evidence, not task-completion proof. The declared
-current artifacts are in the public and Product Role folders named by
-`docs/screenshots/current_capture_manifest.json`.
+images are rendered visual evidence, not task-completion proof. The manifest,
+generated atlas, and receipt declare the current artifacts and coverage; the
+scenario registry owns their executable workflow checkpoints.
 
 `source source_me.sh && python3 local_stack.py acceptance` is not a Playwright command: it runs
 only the two browser-free service lanes described above. Do not use it to claim

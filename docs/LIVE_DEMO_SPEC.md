@@ -66,11 +66,11 @@ The roster-driven import and claim workflow establishes the three active
 Student Course Memberships and course-scoped Student Records. Their declared
 startup facts are:
 
-| Student | Roster ID | Product facts after startup |
-| --- | --- | --- |
-| Mary Okafor | `BIO301-MARY` | 1 Assignment Attempt; 4 Question Submissions; 4 terminal Grading Results |
-| Jack Nguyen | `BIO301-JACK` | 1 open Assignment Attempt; 2 Question Submissions; 2 unanswered Issued Questions |
-| Avery Thompson | `BIO301-AVERY` | An available released Assignment and no Assignment Attempt |
+| Student        | Roster ID      | Product facts after startup                                                      |
+| -------------- | -------------- | -------------------------------------------------------------------------------- |
+| Mary Okafor    | `BIO301-MARY`  | 1 Assignment Attempt; 4 Question Submissions; 4 terminal Grading Results         |
+| Jack Nguyen    | `BIO301-JACK`  | 1 open Assignment Attempt; 2 Question Submissions; 2 unanswered Issued Questions |
+| Avery Thompson | `BIO301-AVERY` | An available released Assignment and no Assignment Attempt                       |
 
 The interface derives completed, in-progress, and not-started labels from
 those records. Provisioning never writes a parallel demo-only Assignment or
@@ -95,11 +95,12 @@ The projections expose only the fields required for each workflow (ASVS
 ## Visual evidence profiles
 
 M20's current role-owned captures use the `laptop` profile (1280 by 800 CSS
-pixels) for Instructor, Student, and Sysadmin. Student captures also use
-`tablet` (768 by 1024), `phone` (390 by 844), and `square` (800 by 800). The
-manifest lists their exact safe surfaces in
+pixels) for Instructor, Student, and Sysadmin. Responsive captures use
+`tablet` (800 by 1280), `phone` (393 by 852), and `square` (800 by 800) where
+composition or access presentation changes materially. The manifest lists
+their exact safe surfaces in
 `docs/screenshots/current_capture_manifest.json`; rendered captures remain
-one-time evidence rather than a substitute for the serial browser owner.
+visual evidence rather than a substitute for the serial browser owner.
 [SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md) defines the role ownership: the
 Live Demo supplies seeded execution data, not separate presentation chrome.
 

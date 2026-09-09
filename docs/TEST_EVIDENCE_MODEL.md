@@ -236,16 +236,18 @@ M19 accepted fresh serial production-browser evidence before M20 rebuilt its
 safe capture corpus from the fixed disposable Browser Suite and visible
 application navigation. `./devel/capture_screenshots.sh` owns that rebuild;
 `./devel/capture_screenshots.sh --verify` checks the declared current artifacts
-without starting a stack. The manifest is
+and replays them through a clean Live Demo. The manifest is
 `docs/screenshots/current_capture_manifest.json`, whose paths place the current
 captures in public and Product Role screen folders. The
 [SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md) defines their application
 ownership and the seeded Live Demo environment boundary.
 
-Capture is one-time rendered evidence, not a permanent test or full
-product-browser-acceptance lane. Other retained images under
-`docs/screenshots/` remain historical visual reference and do not extend the
-current Live Demo acceptance claim.
+The offline corpus tests protect semantic invariants: manifest-to-registry
+closure, role/path consistency, route and Ribbon coverage accounting, PNG
+dimensions, receipts, and deterministic atlas generation. The live replay
+adds route, state, privacy, page-error, origin, and exact-output closure. It
+does not use pixel equality as a release oracle and does not replace the serial
+behavioral browser suite or human visual assessment.
 
 ## Service-only acceptance
 

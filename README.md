@@ -37,21 +37,17 @@ surfaces as the rest of PLE. See [SCREENSHOT_CONTRACT.md](docs/SCREENSHOT_CONTRA
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Seeded PLE Account entry](docs/screenshots/public/account/03_seeded_demo_sign_in_laptop.png)
-![Instructor Question Library](docs/screenshots/instructor/question_library_discovery/04_connected_question_library_laptop.png)
-![Instructor released Assignment Workspace](docs/screenshots/instructor/assignment_workspace/03_released_assignment_workspace_laptop.png)
-![Student Assignment overview on a laptop](docs/screenshots/student/access/allowed_assignment_overview/03_connected_assignment_overview_laptop.png)
-![Student Assignment overview on a tablet](docs/screenshots/student/access/allowed_assignment_overview/02_connected_assignment_overview_tablet.png)
-![Student unanswered Question presentation on a phone](docs/screenshots/student/delivery/09_unanswered_question_phone.png)
-![Student unanswered Question presentation in a square viewport](docs/screenshots/student/delivery/10_unanswered_question_square.png)
-![Sysadmin Instructor Accounts workspace](docs/screenshots/sysadmin/instructor_accounts/01_instructor_accounts_laptop.png)
+![Seeded PLE Account entry](docs/screenshots/public/sign_in_laptop.png)
+![Instructor released Assignment Workspace](docs/screenshots/instructor/assignment_release_released_laptop.png)
+![Student Question presentation](docs/screenshots/student/question_unanswered_laptop.png)
+![Sysadmin scoped support](docs/screenshots/sysadmin/scoped_support_roster_laptop.png)
 <!-- screenshots:end -->
 
 Run `./devel/capture_screenshots.sh` to rebuild the manifest-listed role captures through a fresh
-seeded capture environment. Run `./devel/capture_screenshots.sh --verify` to validate their
-manifest without starting a stack. These are one-time rendered evidence, not permanent tests; older
-images outside [current_capture_manifest.json](docs/screenshots/current_capture_manifest.json)
-remain historical visual reference.
+seeded capture environment. Run `./devel/capture_screenshots.sh --verify` to validate the published
+artifacts and replay every capture through another clean Live Demo. Browse the complete grouped
+[Screenshot atlas](docs/SCREENSHOT_ATLAS.md); its coverage tables also identify deferred product
+surfaces. These are rendered review evidence, not permanent browser tests.
 
 ## Quick start
 

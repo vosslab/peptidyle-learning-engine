@@ -2,7 +2,55 @@
 
 ## 2026-09-09
 
+### Additions and New Features
+
+- Replaced the eight-image Live Demo capture path with a 52-image, manifest-driven atlas spanning
+  Public, Instructor, Student, and Sysadmin workflows. The active corpus is flat within four
+  role-owned folders and uses the canonical laptop, tablet, phone, and square viewport profiles.
+
+- Added a generated scan-oriented Screenshot Atlas, a receipt binding the manifest digest and
+  exact PNG path/dimension/hash set, and a coverage ledger accounting for every current route and
+  Ribbon destination as captured, covered by equivalent visual evidence, or deferred for a named
+  missing product capability.
+
+- Added typed screenshot scenarios with one registry mapping manifest checkpoints to executable
+  workflows. Captures now exercise ordinary Live Demo routes and persisted mutations for Question
+  publication, Course invitation claim, Assignment release and Student response progression,
+  Instructor Account lifecycle, and scoped Sysadmin support.
+
 ### Fixes and Maintenance
+
+- Made `devel/capture_screenshots.sh` the single capture and replay operator contract. Publication
+  validates the complete staging corpus before promotion, retains a full recovery backup during
+  the portable multi-path replacement, rolls back ordinary failures, and rejects stale recovery
+  evidence instead of claiming unsupported filesystem atomicity.
+
+- Expanded screenshot validation around semantic state, same-origin navigation and transport,
+  page errors, closed privacy profiles, canonical dimensions, exact output closure, duplicate
+  bytes, manifest-to-registry closure, and deterministic gallery generation. Live verification
+  reports byte differences for review without using pixel equivalence as a machine gate.
+
+- Closed the pre-merge screenshot audit findings without adding another orchestration layer. The
+  publisher now rejects unknown root files, folders, and role-folder entries; its ordinary
+  mid-replacement rollback is fault-tested; receipt tampering and privacy-profile selection have
+  focused coverage; and the focused corpus suite is discovered by the canonical Node test lane.
+
+- Replaced the Student grading sleep with the existing state-based Playwright polling idiom. The
+  two workflows that intentionally navigate immediately after loading role data now wait for and
+  drain those exact completed responses before navigation, so privacy inspection remains strict
+  without racing response-body disposal.
+
+- Added selector-contract source citations to the four scenario-family modules and documented the
+  intentional same-origin scoped-support capability preparation. Updated screenshot troubleshooting
+  and removed a stale direct JavaScript capture command from an older active plan.
+
+- Recorded the Assignment Attempt time limit and unlimited-retry learning model redundantly in the
+  Student guidance so an independently read role section preserves the intended practice policy.
+
+- Archived the completed
+  [archive/durable_live_demo_screenshot_corpus.md](archive/durable_live_demo_screenshot_corpus.md)
+  with its final verifier summary, closeout gates, and implementation findings. The replay atlas
+  and all 52 replay PNGs remain in the ignored `test-results/screenshot-corpus/verify/` review lane.
 
 - Corrected the Assignment Attempt completion trigger's execution authority
   with forward migration `2026090901`. Authorized PLE, WeBWorK, and iMathAS
@@ -29,6 +77,17 @@
 
 ### Decisions and Failures
 
+- Closed the screenshot-corpus plan without extending its architecture from implementation-run
+  visual observations. Human review of the 52-image atlas is the next separate activity; concrete
+  UI defects or coverage gaps discovered there become focused work of their own.
+
+- Six independent Plan, Test, Style, Documentation, Legacy, and Comment audit passes found no
+  blocker or high-severity issue. Live verification then exposed a navigation race in the privacy
+  monitor: completed JSON response bodies could be discarded if a workflow immediately left the
+  page. Starting reads for every response was rejected after canceled traffic could wait
+  indefinitely; exact request-completion boundaries fixed the demonstrated cases without weakening
+  privacy checks.
+
 - Diagnosed the 2026-09-08 aggregate failure as an execution-owner mismatch:
   the accepted completion trigger ran as `ple_api_owner`, whose deliberately
   narrow Assignment Attempt privilege permits a row lock but not mutation of
@@ -37,6 +96,39 @@
   widening API and worker table grants.
 
 ### Developer Tests and Notes
+
+- `node --import tsx --test tests/test_screenshot_corpus.mjs` passed all nine focused corpus tests.
+
+- `./check_codebase.sh` passed strict TypeScript, ESLint, Prettier, and all 359 Node tests after the
+  screenshot-corpus integration.
+
+- `./devel/run_playwright_tests.sh` passed the complete serial production-browser suite against a
+  fresh stack: authorization, Instructor authoring, native Student recovery, Assignment release,
+  WeBWorK rendering, Instructor Account lifecycle, scoped support, invitation export, and Course
+  seed journeys. An initial restricted-shell launch was denied by macOS Mach-port sandboxing before
+  the first browser action; the unrestricted rerun passed without an application failure.
+
+- `./devel/capture_screenshots.sh` published all 52 captures from a clean Live Demo with role counts
+  `3/19/23/7`, no unmanaged or byte-identical active PNGs, a bound receipt and atlas, and clean
+  stack teardown.
+
+- `./devel/capture_screenshots.sh --verify` passed static validation and all 52 live replay
+  checkpoints from another clean stack, preserved the tracked corpus, reported five byte-level
+  differences for human review, retained the temporary atlas, and proved teardown.
+
+- `source source_me.sh && ./launchers/all_test.sh` passed the final closeout tree: 416 generated
+  Rust-owned TypeScript contracts, three fixture contracts, Rust formatting/checks/strict Clippy/
+  tests/doctests, the browser Wasm target, 359 Node tests, 6,004 Python tests, PostgreSQL migration/
+  authority/persistence acceptance, and PostgreSQL-plus-MinIO Course Appearance coherence. Both
+  real-service lanes removed their disposable resources, and the aggregate ended with
+  `PASS: complete live acceptance is green.`
+
+- The final post-audit `./devel/capture_screenshots.sh --verify` replayed all 52 captures, reported
+  five non-gating byte differences, preserved the tracked corpus, retained the temporary atlas,
+  and ended with a clean owned stack.
+
+- The focused Markdown-link, ASCII, and whitespace suite passed 1,886 checks, and
+  `git diff HEAD --check` passed on the mixed staged and unstaged working tree.
 
 - `source source_me.sh && python3 local_stack.py acceptance` passed the fresh
   74-migration apply, no-op replay, PostgreSQL 17 catalog and restricted-login

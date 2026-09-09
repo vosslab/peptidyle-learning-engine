@@ -233,11 +233,12 @@ human-review lanes. See
 Build output such as dist/, dist_wasm/, target/, and test-results/ is reproducible
 ignored state. `devel/capture_screenshots.sh` owns the manifest-listed current
 role captures through the fixed production HTTPS Browser Suite. The captures
-live in their public, Instructor, Student, and Sysadmin screen folders; see
+live flat within their public, Instructor, Student, and Sysadmin screen folders;
+the manifest and receipt live beside those folders, while the generated review
+gallery is `docs/SCREENSHOT_ATLAS.md`. See
 [SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md) and
-`docs/screenshots/current_capture_manifest.json`. Other committed
-screenshots are historical visual reference, not source contracts. The former
-teaching-workflow corpus and private publisher remain retired.
+`docs/screenshots/current_capture_manifest.json`. Undeclared active screenshots
+and the former teaching-workflow publisher remain retired.
 
 ## Documentation map
 

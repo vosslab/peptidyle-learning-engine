@@ -18,8 +18,9 @@
 - Instructor and Sysadmin evidence uses exactly 1280 by 800 CSS pixels (16:10) on a laptop or
   desktop. Student evidence includes an allowed student surface and fail-closed denial of
   instructor-only routes.
-- Treat retained images under `docs/screenshots/` as historical reference, organized by instructor,
-  student, and the student/access boundary; access images use `docs/screenshots/student/access/`.
+- Treat retained images under `docs/screenshots/` as historical reference. The active corpus is
+  flat within the public, instructor, student, and sysadmin role folders; access-denial images are
+  Student-owned captures in `docs/screenshots/student/`.
 - Use no-transport assertions and direct route probes to prove authorization. The route boundary is
   centrally derived and fails closed before Instructor components render or transport begins, including roster
   and gradebook.
