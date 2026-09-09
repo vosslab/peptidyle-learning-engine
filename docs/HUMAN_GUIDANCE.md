@@ -155,7 +155,6 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Assignments** are designed as practice for learning, not merely as one-time assessments.
 - Each **Assignment Attempt** has a time limit so **Students** develop an accurate sense of the expected working speed and Question sets do not remain open for days.
 - **Students** may start another **Assignment Attempt** as often as needed. Repeating an Assignment to a perfect score should build understanding and confidence.
-- **Assignments** should support collaborative learning. **Students** are encouraged to work together, help each other, and ask questions while learning the material.
 - Course orientation and in-class activities may precede regular online homework so **Students** have time to establish access and learn the assignment platform.
 
 ## Instructor philosophy
@@ -178,8 +177,6 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - **Student** workflows should be designed for laptop, portrait tablet, narrow-phone, and square displays.
 - Every **Student** browser action should be usable with the keyboard alone.
-- Each **Assignment Attempt** has a time limit; **Students** start a new attempt instead of leaving one Question set open for days.
-- **Students** may retry Assignments as often as needed, including practicing to a perfect score to build understanding and confidence.
 - **Students** log in only with a passkey or email code; no passwords.
 - **Student** data should be collected reluctantly, used deliberately, and purged predictably.
 - **Student** course data falls under FERPA; treat it as radioactive.
