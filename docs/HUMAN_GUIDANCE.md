@@ -62,7 +62,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - Dream big on the UI: choose one visual philosophy and hold that line through implementation.
 - Visual design should be pushed harder. Make the interface less bubbly and reduce excessive padding.
-- Themes should use biome and habitat names, with names removed when their themes look substantially alike.
+- Themes should use biome and habitat names, for example, forest, grass, ocean, desert, etc.
 - UUIDs should never appear in visible page content, navigation URLs, or copyable links.
 - Atkinson HyperLegible https://www.brailleinstitute.org/freefont/ is my favorite for written text and mononoki font https://madmalik.github.io/mononoki/ for monospace
 - we should not have any upload capabilities for students and all instructor content is created via text boxes
