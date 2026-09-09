@@ -2,7 +2,6 @@
 
 export const COURSE_THEME_SCOPE_STYLES = `
 .course-theme-scope {
-  min-height: var(--ple-course-scope-min-block-size, calc(100vh - 5rem));
   margin: var(--ple-course-scope-edge-offset, -0.25rem);
   padding: var(--ple-course-scope-padding, 1rem);
   border-radius: var(--ple-radius-surface, 0.9rem);

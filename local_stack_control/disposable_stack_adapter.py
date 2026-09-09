@@ -748,8 +748,12 @@ def compose_command(
 			is_postgres_ready = arguments[:4] == ["exec", "-T", "postgres", "pg_isready"]
 			is_minio_ready = arguments == ["exec", "-T", "minio", "mc", "ready", "local"]
 			is_postgres_psql = len(arguments) >= 5 and arguments[:4] == ["exec", "-T", "postgres", "psql"]
+			is_bucket_initialization = arguments == [
+				"--profile", "course-appearance-initialization",
+				"run", "--rm", "-T", "createbuckets",
+			]
 			if arguments != ["up", "-d", "postgres", "minio"] and not (
-				is_postgres_ready or is_minio_ready or is_postgres_psql or arguments == ["run", "--rm", "createbuckets"]
+				is_postgres_ready or is_minio_ready or is_postgres_psql or is_bucket_initialization
 			):
 				raise local_stack_control.models.ControllerError(
 					"cross-store Compose commands are limited to startup, readiness, bucket creation, and PostgreSQL psql"

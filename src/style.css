@@ -36,7 +36,7 @@
   --ple-reading-max-inline: 72rem;
   --ple-shell-inline-gutter: 1rem;
   --ple-header-block-size: 3.25rem;
-  --ple-shell-padding-block-start: clamp(0.75rem, 1.6vw, 1.25rem);
+  --ple-shell-padding-block-start: clamp(0.5rem, 0.9vw, 0.75rem);
   --ple-shell-padding-block-end: 1.5rem;
   --ple-layout-gap: 1rem;
   --ple-section-gap: 0.75rem;
@@ -65,18 +65,12 @@
   --ple-filter-control-min-inline: 9rem;
   --ple-gradebook-table-min-inline: 55rem;
   --ple-roster-table-min-inline: 44rem;
-  --ple-course-scope-min-block-size: calc(
-    100vh - var(--ple-header-block-size) - var(--ple-shell-padding-block-start) -
-      var(--ple-shell-padding-block-end)
-  );
   --ple-course-scope-padding: 1rem;
   --ple-course-scope-edge-offset: -0.25rem;
   --ple-course-theme-fade-start: 18rem;
   --ple-course-theme-secondary-wash: 18%;
   --ple-course-theme-accent-wash: 16%;
   --ple-course-theme-rail-size: 0.32rem;
-  --ple-mobile-nav-font-size: 0.79rem;
-  --ple-mobile-nav-inline-padding: 0.42rem;
   --ple-mobile-header-gap: 0.35rem;
   font-family:
     Inter,
@@ -199,59 +193,6 @@ a {
   font-size: 1.08rem;
 }
 
-nav {
-  display: flex;
-  align-items: center;
-  gap: 0.1rem;
-}
-
-nav a,
-.nav-action {
-  position: relative;
-  display: inline-grid;
-  min-height: var(--ple-control-min-height);
-  padding: 0 0.65rem;
-  place-items: center;
-  border: 0;
-  border-radius: var(--ple-radius-control);
-  background: transparent;
-  color: var(--ple-muted);
-  font-size: 0.92rem;
-  font-weight: 650;
-  text-decoration: none;
-}
-
-nav a::after {
-  position: absolute;
-  right: 0.65rem;
-  bottom: 0.12rem;
-  left: 0.65rem;
-  height: 2px;
-  border-radius: 2px;
-  background: transparent;
-  content: "";
-}
-
-nav a:hover,
-nav a.active,
-.nav-action:hover:not(:disabled) {
-  background: var(--ple-surface-soft);
-  color: var(--ple-accent-strong);
-}
-
-nav a.active::after {
-  background: var(--ple-accent);
-}
-
-.nav-action {
-  cursor: pointer;
-}
-
-.nav-action:disabled {
-  cursor: wait;
-  opacity: 0.65;
-}
-
 .degraded-banner {
   padding: 0.45rem 0.75rem;
   border-bottom: 1px solid var(--ple-focus);
@@ -261,10 +202,16 @@ nav a.active::after {
   text-align: center;
 }
 
+.ple-shell-frame {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-block-size: 100dvh;
+  min-inline-size: 0;
+}
+
 .shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  min-height: calc(100vh - var(--ple-header-block-size));
 }
 
 #main-content {
@@ -891,23 +838,6 @@ html[data-contrast="increased"] .course-theme-scope {
     display: none;
   }
 
-  nav {
-    width: 100%;
-    min-width: 0;
-    margin-inline-start: 0;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-    overflow-x: visible;
-  }
-
-  nav a,
-  .nav-action {
-    min-width: 0;
-    flex: 0 0 auto;
-    padding-inline: var(--ple-mobile-nav-inline-padding);
-    font-size: var(--ple-mobile-nav-font-size);
-  }
-
   .shell {
     width: min(calc(100% - 1rem), 96rem);
   }
@@ -964,12 +894,6 @@ html[data-contrast="increased"] .course-theme-scope {
 @media (max-width: 30rem) {
   .site-header {
     padding-inline: 0.5rem;
-  }
-
-  .site-header nav a,
-  .site-header .nav-action {
-    --ple-mobile-nav-font-size: 0.75rem;
-    --ple-mobile-nav-inline-padding: 0.3rem;
   }
 
   .question-card {

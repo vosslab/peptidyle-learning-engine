@@ -42,7 +42,7 @@ const studentOnlyProtectedResponseKeys = new Set([
   "score",
   "scoretotal",
   "pointsearned",
-  "pointpossible",
+  "pointspossible",
   "questionanswer",
   "questionanswerexplanation",
   "choicefeedback",
@@ -131,10 +131,6 @@ function sensitiveResponseKey(value, protectedKeys) {
 }
 
 function monitorResponsePrivacy(page, entryUrl, persona) {
-  const protectedKeys =
-    persona === "student"
-      ? new Set([...protectedResponseKeys, ...studentOnlyProtectedResponseKeys])
-      : protectedResponseKeys;
   const inspections = [];
   const violations = [];
   page.on("response", (response) => {
@@ -146,6 +142,20 @@ function monitorResponsePrivacy(page, entryUrl, persona) {
     const inspection = response
       .json()
       .then((body) => {
+        const protectedKeys =
+          persona === "student"
+            ? new Set([...protectedResponseKeys, ...studentOnlyProtectedResponseKeys])
+            : protectedResponseKeys;
+        // The exact Student landing contract is a strict, server-authorized, self-only aggregate.
+        if (
+          persona === "student" &&
+          /^\/api\/course-instances\/C-[1-9][0-9]{0,9}\/assignment-landing$/u.test(
+            responseUrl.pathname,
+          )
+        ) {
+          protectedKeys.delete("pointsearned");
+          protectedKeys.delete("pointspossible");
+        }
         const key = sensitiveResponseKey(body, protectedKeys);
         if (key !== undefined) {
           violations.push(`${responseUrl.pathname} contains protected response key ${key}`);
@@ -317,7 +327,7 @@ async function createReleasedAssignment(page, runId) {
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: courseTitle, exact: true }) });
   await courseCard.getByRole("link", { name: "Open Course Instance", exact: true }).click();
-  await page.getByRole("link", { name: "Open Assignments", exact: true }).click();
+  await page.getByRole("link", { name: "Create Assignment", exact: true }).click();
   await page.getByLabel("Assignment title").fill(assignmentTitle);
   await page.getByLabel("Instructions").fill("Complete the selected published Question.");
   await page.getByRole("button", { name: "Create Assignment", exact: true }).click();

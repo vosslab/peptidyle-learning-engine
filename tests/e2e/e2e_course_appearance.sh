@@ -134,7 +134,7 @@ compose_started=1
 compose up -d postgres minio
 wait_for_postgres
 wait_for_minio
-compose run --rm createbuckets
+compose -- --profile course-appearance-initialization run --rm -T createbuckets
 compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$bootstrap_user" -d "$postgres_database" <<'SQL'
 CREATE ROLE ple_database_owner NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
     NOREPLICATION NOBYPASSRLS;

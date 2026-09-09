@@ -1,6 +1,7 @@
 # Design decisions
 
 <!-- VENDORED HEADER: START -->
+
 Record each durable decision about how this code and repository are shaped, once it is settled, with
 the reasoning a later reader needs. Guidance Neil Voss states belongs in
 [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), dated history in `docs/CHANGELOG.md`, open discussion in
@@ -1052,9 +1053,10 @@ means private notification subscription.
 **Decision.** `src/application_shell.tsx` owns the one persistent Application Shell and Ribbon for
 every authenticated Product Role on every admitted application route. `src/ribbon/ribbon_contract.ts`
 selects the ordered Ribbon Schema from the declared route, Ribbon Scope, immutable Product Role, and
-truthful capability admission; `src/ribbon/app_ribbon.tsx` presents its fixed Context, Tab, and Task
-Rows. Route pages own their task heading, workflow content, route-specific recovery, and Page Actions
-at the point of work. Public, unknown or unmatched, and signed-out routes do not fabricate a Ribbon.
+truthful capability admission; `src/ribbon/app_ribbon.tsx` presents the Context, Tab, and optional
+Task Rows according to declared route topology. Route pages own their task heading, workflow content,
+route-specific recovery, and Page Actions at the point of work. Public, unknown or unmatched, and
+signed-out routes do not fabricate a Ribbon.
 An authenticated route that matches a declared scoped pattern but carries an invalid declared
 reference retains that declared, data-free Ribbon schema: it does not resolve scope data, fall back
 to Product scope, or expose usable controls.
@@ -1067,18 +1069,69 @@ Instructor-only course-management frame could not provide that invariant across 
 async route data.
 
 **Consequence.** The retired course-management frame, course-management navigation, and assignment
-workspace navigation do not regain a parallel navigation role. The shell's three Ribbon Rows retain
-their geometry when a route, deferred scope label, content error, theme, or capability-admission
-result changes; truthfully empty Tabs or Tasks remain reserved rather than being filled with disabled
-or invented destinations. Identity, selected-control, focus, keyboard, contrast, and responsive
-browser evidence must prove this behavior. Course Setup retains Grade Settings and Appearance as
-Ribbon Tasks, while Create Assignment remains the Assignments Page Action.
+workspace navigation do not regain a parallel navigation role. The named rows selected by route
+topology retain their geometry when a deferred scope label, content error, theme, or
+capability-admission result changes. A declared but truthfully empty Tab or Task row remains reserved
+rather than being filled with disabled or invented destinations; a route without a task group omits
+the Task Row entirely. Identity, selected-control, focus, keyboard, contrast, and responsive browser
+evidence must prove this behavior. Course Setup retains Grade Settings and Appearance as Ribbon
+Tasks, while Create Assignment remains the Assignments Page Action.
 
 **Owner.** `src/application_shell.tsx` owns persistent shell composition, focus transfer, and the
 content boundary; `src/ribbon/ribbon_contract.ts` owns route, scope, role, and capability selection;
 and `src/ribbon/app_ribbon.tsx` owns Ribbon-row presentation. The exact retirement responsibility
 map is `docs/ux/RIBBON_RETIREMENT_RESPONSIBILITY_INVENTORY.md`;
 individual route-page components own their content and Page Actions.
+
+### Authenticated identity lives in the Ribbon Context Row
+
+**Decision.** Authenticated routes with a Ribbon present one Peptidyle home identity as the leading
+Context Row anchor. They do not render the separate site header. Routes without a Ribbon retain the
+site header as their fallback identity and navigation surface.
+
+**Why.** Two persistent Peptidyle identity bands consume teaching space and create competing shell
+hierarchy without adding orientation. The Context Row already owns application and account context.
+
+**Consequence.** The brand remains a plain named home link with visible keyboard focus, a
+coarse-pointer target, and narrow-screen clipping behavior. Removing the duplicate band changes no
+route, Product Role, capability, or authorization decision.
+
+**Owner.** `src/application_shell.tsx` selects Ribbon versus fallback-header composition;
+`src/ribbon/app_ribbon.tsx` and `src/ribbon/app_ribbon.css` own the authenticated brand presentation.
+
+### The shell frame owns the viewport-height floor
+
+**Decision.** `.ple-shell-frame` is the one structural owner of the `100dvh` minimum and composes
+chrome above a `minmax(0, 1fr)` content track. The shell and course-theme canvas do not subtract
+header or Ribbon band heights from their own minimum heights.
+
+**Why.** A structural grid expresses the actual relationship between chrome and content. Repeated
+viewport arithmetic couples independent components, overflows short pages when chrome changes, and
+creates more than one owner for the same geometry.
+
+**Consequence.** Short pages fill the viewport without document overflow, tall content grows the
+document normally, and themed and unthemed canvases share the same frame contract. Ribbon row tokens
+still describe Ribbon geometry; they no longer participate in page-height subtraction.
+
+**Owner.** `src/application_shell.tsx` owns the frame structure and `src/style.css` owns its viewport
+floor. `src/features/course_appearance/course_theme_variables.tsx` paints the framed content canvas.
+
+### Declared route topology owns Task Row reservation
+
+**Decision.** Context and Tab Rows are present for every Ribbon. The Task Row is present exactly when
+the declared route has a task group. Capability admission, relationship checks, deferred data,
+loading, and errors may change Task contents but never decide whether the row exists.
+
+**Why.** Reserving an empty Task Row on routes that cannot contain tasks wastes vertical space.
+Using admission to hide it would leak authorization or asynchronous state into geometry and move the
+content origin as checks resolve.
+
+**Consequence.** A task-capable route retains its row even when every Task is unavailable; a
+taskless route omits it. Transitions are stable within each declared topology, while transitions
+between taskful and taskless routes deliberately adopt the destination route's compact geometry.
+
+**Owner.** `src/ribbon/ribbon_contract.ts` owns declared task-group topology;
+`src/application_shell.tsx` and `src/ribbon/app_ribbon.tsx` project it without consulting admission.
 
 ### Course appearance derives usable roles from three anchors
 

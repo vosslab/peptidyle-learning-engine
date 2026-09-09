@@ -182,6 +182,7 @@ psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/test
 echo "PostgreSQL Migration Acceptance Runtime E2E: Question Asset delivery authorization oracle PASS"
 echo "PostgreSQL Migration Acceptance Runtime E2E: exact principal, schema, ACL, and membership catalog"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/postgres_migration_acceptance_catalog.sql"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/assignment_attempt_completion_authority_catalog.sql"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/assignment_question_analysis_job_catalog.sql"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/imathas_question_backend_session_catalog_oracle.sql"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/postgres_migration_acceptance_instructor_account_creation.sql"

@@ -108,7 +108,7 @@ async function verifyElena(page) {
   ).toBeVisible();
   await expectGradebookRow(page, "BIO301-MARY", "Completed and scored", "4 of 4", "2 / 4");
   await expectGradebookRow(page, "BIO301-JACK", "In progress", "2 of 4", "1 / 2");
-  await expectGradebookRow(page, "BIO301-AVERY", "Not started", "0 of 4", "—");
+  await expectGradebookRow(page, "BIO301-AVERY", "Not started", "0 of 4", "-");
   await signOutVisible(page);
 }
 

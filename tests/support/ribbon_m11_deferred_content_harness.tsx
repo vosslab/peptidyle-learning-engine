@@ -150,7 +150,7 @@ export function mountRibbonM11DeferredContentHarness(target: HTMLElement): Defer
         if (property === "getAssignmentWorkspace")
           return () => unresolved("getAssignmentWorkspace");
         if (property === "listPreviewSchedule") return () => unresolved("listPreviewSchedule");
-        if (property === "listCourseRoster") return () => unresolved("listCourseRoster");
+        if (property === "getLiveCourseRoster") return () => unresolved("getLiveCourseRoster");
         if (property === "listCourseInstructors") return () => unresolved("listCourseInstructors");
         if (property === "listInstructorCourseInvitations")
           return () => unresolved("listInstructorCourseInvitations");

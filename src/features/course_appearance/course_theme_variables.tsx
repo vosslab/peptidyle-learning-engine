@@ -29,10 +29,9 @@ const COURSE_THEME_VARIABLE_SHELL_STYLES = `
   background: none;
 }
 
-.course-theme-scope > .shell,
-.course-theme-scope > .ple-ribbon-shell-grid > .shell {
-  min-height: var(--ple-course-scope-min-block-size, calc(100vh - 5rem));
-  margin: var(--ple-course-scope-edge-offset, -0.25rem);
+.course-theme-scope > .ple-shell-frame > .shell {
+  inline-size: 100%;
+  margin: 0;
   padding: var(--ple-course-scope-padding, 1rem);
   border-radius: var(--ple-radius-surface, 0.9rem);
   background-color: var(--ple-theme-canvas);
@@ -68,8 +67,7 @@ const COURSE_THEME_VARIABLE_SHELL_STYLES = `
 }
 
 @media (forced-colors: active) {
-  .course-theme-scope > .shell,
-  .course-theme-scope > .ple-ribbon-shell-grid > .shell {
+  .course-theme-scope > .ple-shell-frame > .shell {
     border: 2px solid CanvasText;
     background: Canvas;
     color: CanvasText;

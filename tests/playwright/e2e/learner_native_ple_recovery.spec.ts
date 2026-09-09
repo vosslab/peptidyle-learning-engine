@@ -73,7 +73,7 @@ async function createCourseAssignment(
     .filter({ has: page.getByRole("heading", { name: course, exact: true }) });
   await courseCard.getByRole("link", { name: "Open Course Instance", exact: true }).click();
   await expect(page.getByRole("heading", { name: course, exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Open Assignments", exact: true }).click();
+  await page.getByRole("link", { name: "Create Assignment", exact: true }).click();
   await page.getByLabel("Assignment title").fill(assignment);
   await page.getByLabel("Instructions").fill("Complete the selected published Question.");
   await page.getByRole("button", { name: "Create Assignment", exact: true }).click();
@@ -213,8 +213,10 @@ test("student native PLE recovery: one accepted response survives the owner work
       .toBe(true);
     await expect(terminal.getByText(/correct|score|answer/iu)).toHaveCount(0);
     await student.reload();
-    await student.getByRole("button", { name: "Start Assignment", exact: true }).click();
     await expect(terminal).toBeVisible();
+    await expect(
+      student.getByRole("button", { name: "Start Assignment", exact: true }),
+    ).toHaveCount(0);
     expectObservedOrigin(origins.instructor, expected);
     expectObservedOrigin(origins.student, expected);
     originEvidence = true;

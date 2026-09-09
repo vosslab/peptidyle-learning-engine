@@ -243,6 +243,7 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
   const pendingNavigation = createRibbonPendingNavigation({ routingInFlight });
   const selectedTabVisibility = new RibbonSelectedTabVisibilityController();
   const selectedTaskVisibility = new RibbonSelectedTabVisibilityController();
+  const hasReservedTaskRow = (): boolean => props.model.taskAreas.length > 0;
   const tabScrollport: { current: HTMLElement | undefined } = { current: undefined };
   const taskScrollport: { current: HTMLElement | undefined } = { current: undefined };
   const contextOverflow = createRibbonOverflowCueState();
@@ -317,6 +318,7 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
   // viewport resize can reveal a now-clipped selected task without changing
   // model state or any Ribbon box geometry.
   createEffect(() => {
+    if (!hasReservedTaskRow()) return;
     const selectedKey = selectedTask()?.id;
     taskOverflow.geometryRevision();
     const version = ++taskObservationVersion;
@@ -352,6 +354,7 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
       class="ple-app-ribbon"
       aria-label="PLE application Ribbon"
       data-ribbon-scope={props.model.scope}
+      data-ribbon-task-row={hasReservedTaskRow() ? "reserved" : "absent"}
     >
       <section class="ple-app-ribbon__row-frame" data-ribbon-row-frame="context">
         <section
@@ -361,7 +364,12 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
           ref={contextOverflow.setRow}
         >
           <div class="ple-app-ribbon__context-identity">
-            <span class="ple-app-ribbon__product-name">Peptidyle Learning Engine</span>
+            <a class="ple-app-ribbon__brand" href="/" aria-label="Peptidyle home">
+              <span class="ple-app-ribbon__brand-mark" aria-hidden="true">
+                P
+              </span>
+              <span class="ple-app-ribbon__brand-word">Peptidyle</span>
+            </a>
             <span class="ple-app-ribbon__product-role">{props.model.context.productLabel}</span>
           </div>
           <div class="ple-app-ribbon__context-details">
@@ -412,22 +420,26 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
         </nav>
         <RibbonOverflowCues state={tabOverflow} />
       </section>
-      <section class="ple-app-ribbon__row-frame" data-ribbon-row-frame="tasks">
-        <nav
-          class="ple-app-ribbon__row ple-app-ribbon__tasks"
-          aria-label="Ribbon tasks"
-          data-ribbon-row="tasks"
-          ref={(element): void => {
-            taskScrollport.current = element;
-            taskOverflow.setRow(element);
-          }}
-        >
-          <For each={props.model.taskAreas}>
-            {(area) => <TaskArea area={area} pendingNavigation={pendingNavigation} />}
-          </For>
-        </nav>
-        <RibbonOverflowCues state={taskOverflow} />
-      </section>
+      {/* taskAreas are route-topology-derived in ribbon_contract.ts:370-396, not admission state;
+          server authorization remains the trusted layer (ASVS 8.3.1). */}
+      <Show when={hasReservedTaskRow()}>
+        <section class="ple-app-ribbon__row-frame" data-ribbon-row-frame="tasks">
+          <nav
+            class="ple-app-ribbon__row ple-app-ribbon__tasks"
+            aria-label="Ribbon tasks"
+            data-ribbon-row="tasks"
+            ref={(element): void => {
+              taskScrollport.current = element;
+              taskOverflow.setRow(element);
+            }}
+          >
+            <For each={props.model.taskAreas}>
+              {(area) => <TaskArea area={area} pendingNavigation={pendingNavigation} />}
+            </For>
+          </nav>
+          <RibbonOverflowCues state={taskOverflow} />
+        </section>
+      </Show>
     </section>
   );
 }

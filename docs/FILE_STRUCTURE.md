@@ -138,8 +138,8 @@ Teaching Team Member authority.
 
 ```text
 src/
-+- application_shell.tsx                    Persistent shell, content origin, skip-link/focus boundary, and Ribbon mount
-+- ribbon/                                  Catalog/schema, capability admission, scope, selection/pending state, and fixed-row presentation
++- application_shell.tsx                    Persistent shell frame, viewport floor, content origin, skip-link/focus boundary, and Ribbon mount
++- ribbon/                                  Catalog/schema, capability admission, scope, selection/pending state, and topology-aware row presentation
 +- api/
 |  +- blueprint_course.ts                 BlueprintCourse client contract
 |  +- blueprint_operations.ts              Blueprint-operation client contract

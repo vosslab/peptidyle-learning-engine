@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { createComponent } from "solid-js";
+import { renderToString } from "solid-js/web";
+
 import { buildRoutePath, deriveRibbonModel } from "../src/ribbon/ribbon_contract.ts";
 import { routeParams } from "../src/navigation/route_params.ts";
 import { productRoleMayAccessRoute, ROUTE_CONTRACT } from "../src/route_contract.ts";
 import { CAPABILITY_REGISTRY } from "../src/ribbon/capability_registry.ts";
 import { RIBBON_TASK_CATALOG, TAB_CATALOG } from "../src/ribbon/ribbon_catalog.ts";
+import { loadAppRibbonForSsr } from "./support/ribbon_component_ssr.ts";
+import { M6_RIBBON_FIXTURES } from "./support/ribbon_model_fixtures.ts";
 
 const PRODUCT_ROLES = ["student", "instructor", "sysadmin"];
 const LABELS = { accountLabel: "Neil Voss" };
@@ -102,6 +107,72 @@ test("admission withholds unavailable controls and respects declared role ceilin
       }
     }
   }
+});
+
+test("Task Row topology is exactly the declared task-group topology for every route", () => {
+  for (const route of ROUTE_CONTRACT) {
+    for (const role of PRODUCT_ROLES) {
+      const model = deriveRibbonModel(routeStateFor(route.id), { productRole: role }, LABELS);
+      assert.equal(
+        model.taskAreas.length > 0,
+        route.ribbon.taskGroup !== undefined,
+        `${route.id}/${role}: Task Row topology follows the route contract`,
+      );
+    }
+  }
+});
+
+test("Task Row topology does not report task-control admission", () => {
+  const routeId = "assignmentWorkspaceOverview";
+  const before = controlsFor(routeId, "instructor").model.taskAreas;
+  const taskEntries = RIBBON_TASK_CATALOG.map((control) => CAPABILITY_REGISTRY[control.id]);
+  const descriptors = taskEntries.map((entry) => [entry, Object.getOwnPropertyDescriptors(entry)]);
+  try {
+    for (const entry of taskEntries) {
+      Object.assign(entry, {
+        capability: {
+          kind: "unbacked",
+          reason: "Test-only all-task admission withdrawal.",
+          evidence: ["tests/test_ribbon_contract.mjs"],
+        },
+      });
+    }
+    const unavailable = controlsFor(routeId, "instructor").model.taskAreas;
+    assert.deepEqual(
+      unavailable.map((area) => ({ id: area.id, count: area.controls.length })),
+      before.map((area) => ({ id: area.id, count: area.controls.length })),
+      "all unavailable task controls retain their route-declared areas and counts",
+    );
+    assert.equal(
+      unavailable
+        .flatMap((area) => area.controls)
+        .every((control) => control.availability === "Unavailable"),
+      true,
+      "the fixture actually withdraws every task control before comparing geometry input",
+    );
+  } finally {
+    for (const [entry, entryDescriptors] of descriptors) {
+      restoreDescriptors(entry, entryDescriptors);
+    }
+  }
+});
+
+test("Ribbon has one plain brand anchor rather than a separate product-name treatment", async () => {
+  const RealAppRibbon = await loadAppRibbonForSsr();
+  const html = renderToString(() =>
+    createComponent(RealAppRibbon, { model: M6_RIBBON_FIXTURES.courseInstructor }),
+  );
+  const brand = html.match(/<a[^>]*class="ple-app-ribbon__brand"[^>]*>([\s\S]*?)<\/a>/)?.[0];
+  assert.ok(brand, "the Context Row renders a plain brand anchor");
+  assert.match(brand, /href="\/"/);
+  assert.match(brand, /aria-label="Peptidyle home"/);
+  assert.doesNotMatch(brand, /data-ribbon-(?:control|pending)=/);
+  assert.equal(
+    (html.match(/ple-app-ribbon__brand-word/g) ?? []).length,
+    1,
+    "exactly one element in the Ribbon carries the product wordmark",
+  );
+  assert.doesNotMatch(html, /ple-app-ribbon__product-name/);
 });
 
 test("Student Assignment Access and its Course landing retain the role-owned Assignments tab", () => {

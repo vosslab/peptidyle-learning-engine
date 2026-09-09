@@ -4,18 +4,27 @@
   --ple-ribbon-context-block-size: 3rem;
   --ple-ribbon-tab-block-size: 2.5rem;
   --ple-ribbon-task-block-size: 2.5rem;
+  --ple-ribbon-reserved-task-size: var(--ple-ribbon-task-block-size);
+}
+
+.ple-app-ribbon,
+.ple-ribbon-shell-grid {
   --ple-ribbon-block-size: calc(
     var(--ple-ribbon-context-block-size) + var(--ple-ribbon-tab-block-size) +
-      var(--ple-ribbon-task-block-size)
+      var(--ple-ribbon-reserved-task-size)
   );
 }
 
-/* The persistent shell opts into this grid contract to reserve its fixed rows. */
+.ple-app-ribbon[data-ribbon-task-row="absent"],
+.ple-ribbon-shell-grid[data-ribbon-task-row="absent"] {
+  --ple-ribbon-reserved-task-size: 0px;
+}
+
+/* The shell frame owns the viewport floor. This variant only replaces its
+ * first content track with the Ribbon block declared by this component. */
 .ple-ribbon-shell-grid {
   --ple-ribbon-shell-block-size: var(--ple-ribbon-block-size);
-  display: grid;
   grid-template-rows: var(--ple-ribbon-shell-block-size) minmax(0, 1fr);
-  min-inline-size: 0;
 }
 
 .ple-app-ribbon {
@@ -55,7 +64,7 @@
   isolation: isolate;
   display: grid;
   grid-template-rows: var(--ple-ribbon-context-block-size) var(--ple-ribbon-tab-block-size) var(
-      --ple-ribbon-task-block-size
+      --ple-ribbon-reserved-task-size
     );
   block-size: var(--ple-ribbon-block-size);
   min-inline-size: 0;
@@ -198,9 +207,20 @@
   vertical-align: -0.12em;
 }
 
-.ple-app-ribbon__product-name {
-  font-weight: 790;
-  letter-spacing: -0.018em;
+.ple-app-ribbon__brand-mark {
+  display: grid;
+  inline-size: calc(var(--ple-ribbon-space-inline) + var(--ple-ribbon-space-control));
+  block-size: calc(var(--ple-ribbon-space-inline) + var(--ple-ribbon-space-control));
+  place-items: center;
+  border-radius: var(--ple-radius-control) var(--ple-radius-control) var(--ple-radius-control)
+    var(--ple-ribbon-space-tight);
+  background: linear-gradient(145deg, var(--ple-accent), var(--ple-accent-strong));
+  box-shadow: var(--ple-shadow);
+  color: var(--ple-on-action);
+}
+
+.ple-app-ribbon__brand-word {
+  font-size: 1.08rem;
 }
 
 .ple-app-ribbon__product-role {
@@ -225,7 +245,8 @@
 /* Controls remain flat in their resting state. Presentation classes are a
    catalog declaration, never a proxy for role or priority. */
 .ple-app-ribbon__sign-out,
-.ple-app-ribbon__link {
+.ple-app-ribbon__link,
+.ple-app-ribbon__brand {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -245,6 +266,12 @@
     color 110ms ease-out,
     background-color 110ms ease-out,
     box-shadow 110ms ease-out;
+}
+
+.ple-app-ribbon__brand {
+  color: var(--ple-ink);
+  font-weight: 780;
+  letter-spacing: -0.025em;
 }
 
 .ple-app-ribbon__link--standard {
@@ -345,7 +372,8 @@
 }
 
 .ple-app-ribbon__link:hover,
-.ple-app-ribbon__sign-out:hover {
+.ple-app-ribbon__sign-out:hover,
+.ple-app-ribbon__brand:hover {
   background-color: var(--ple-ribbon-interaction-surface);
 }
 
@@ -380,14 +408,16 @@
 }
 
 .ple-app-ribbon__link:focus-visible,
-.ple-app-ribbon__sign-out:focus-visible {
+.ple-app-ribbon__sign-out:focus-visible,
+.ple-app-ribbon__brand:focus-visible {
   z-index: 1;
   outline: var(--ple-ribbon-space-tight) solid var(--ple-focus);
   outline-offset: var(--ple-ribbon-space-tight);
 }
 
 .ple-app-ribbon__link:focus-visible::before,
-.ple-app-ribbon__sign-out:focus-visible::before {
+.ple-app-ribbon__sign-out:focus-visible::before,
+.ple-app-ribbon__brand:focus-visible::before {
   position: absolute;
   inset: 0;
   border: 1px solid var(--ple-focus);
@@ -424,7 +454,8 @@
   }
 
   .ple-app-ribbon__link[data-ribbon-icon-only-safe="true"] .ple-app-ribbon__control-label,
-  .ple-app-ribbon__sign-out .ple-app-ribbon__control-label {
+  .ple-app-ribbon__sign-out .ple-app-ribbon__control-label,
+  .ple-app-ribbon__brand-word {
     position: absolute;
     inline-size: 1px;
     block-size: 1px;
@@ -484,7 +515,8 @@
   }
 
   .ple-app-ribbon__sign-out,
-  .ple-app-ribbon__link {
+  .ple-app-ribbon__link,
+  .ple-app-ribbon__brand {
     min-block-size: 2.75rem;
     padding-block: var(--ple-ribbon-space-tight);
   }
@@ -553,13 +585,15 @@
   }
 
   .ple-app-ribbon__link:focus-visible,
-  .ple-app-ribbon__sign-out:focus-visible {
+  .ple-app-ribbon__sign-out:focus-visible,
+  .ple-app-ribbon__brand:focus-visible {
     outline-color: Highlight;
     outline-offset: var(--ple-ribbon-space-tight);
   }
 
   .ple-app-ribbon__link:focus-visible::before,
-  .ple-app-ribbon__sign-out:focus-visible::before {
+  .ple-app-ribbon__sign-out:focus-visible::before,
+  .ple-app-ribbon__brand:focus-visible::before {
     border-color: ButtonText;
   }
 }

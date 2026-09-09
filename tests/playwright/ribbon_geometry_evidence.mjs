@@ -9,6 +9,7 @@ import { chromium } from "playwright";
 
 import { bundledAppRibbonCss, loadAppRibbonForSsr } from "../support/ribbon_component_ssr.ts";
 import { M6_RIBBON_FIXTURES } from "../support/ribbon_model_fixtures.ts";
+import { RIBBON_RESPONSIVE_PROFILES } from "./ui_corpus_manifest.ts";
 
 const globalCss = readFileSync(new URL("../../src/style.css", import.meta.url), "utf8");
 const accessibilityCss = readFileSync(
@@ -21,8 +22,9 @@ const RealAppRibbon = await loadAppRibbonForSsr();
 const fixtureMarkup = Object.entries(M6_RIBBON_FIXTURES)
   .map(([name, model]) => {
     const ribbon = renderToString(() => createComponent(RealAppRibbon, { model }));
+    const taskRow = model.taskAreas.length > 0 ? "reserved" : "absent";
     return [
-      `<div data-fixture="${name}" class="ple-ribbon-shell-grid">`,
+      `<div data-fixture="${name}" data-ribbon-task-row="${taskRow}" class="ple-ribbon-shell-grid">`,
       ribbon,
       '<main class="ribbon-proof-content">Proof content</main>',
       "</div>",
@@ -45,6 +47,23 @@ const documentMarkup = [
   "</body></html>",
 ].join("\n");
 
+function paddingProofMarkup(name, model) {
+  const taskRow = model.taskAreas.length > 0 ? "reserved" : "absent";
+  const ribbon = renderToString(() => createComponent(RealAppRibbon, { model }));
+  return [
+    "<!doctype html><html><head><style>",
+    globalCss,
+    accessibilityCss,
+    componentCss,
+    "html,body{margin:0;inline-size:100%;}",
+    "</style></head><body>",
+    `<div class="ple-shell-frame ple-ribbon-shell-grid" data-padding-fixture="${name}" data-ribbon-task-row="${taskRow}">`,
+    ribbon,
+    '<main class="shell"><section id="main-content"><div data-content-probe>Proof content</div></section></main>',
+    "</div></body></html>",
+  ].join("\n");
+}
+
 function near(actual, expected, message) {
   assert.ok(Math.abs(actual - expected) < 0.25, `${message}: ${actual}px != ${expected}px`);
 }
@@ -56,22 +75,14 @@ async function measuredAt(page, width, scale) {
     document.documentElement.style.fontSize = `${fontScale}%`;
   }, scale);
   return page.evaluate(() => {
-    const names = [
-      "--ple-ribbon-context-block-size",
-      "--ple-ribbon-tab-block-size",
-      "--ple-ribbon-task-block-size",
-      "--ple-ribbon-block-size",
-    ];
-    const probes = Object.fromEntries(
-      names.map((name) => {
-        const probe = document.createElement("div");
-        probe.style.cssText = `position:absolute;visibility:hidden;block-size:var(${name});`;
-        document.body.append(probe);
-        const value = probe.getBoundingClientRect().height;
-        probe.remove();
-        return [name, value];
-      }),
-    );
+    const tokenSize = (element, name) => {
+      const probe = document.createElement("div");
+      probe.style.cssText = `position:absolute;visibility:hidden;block-size:var(${name});`;
+      element.append(probe);
+      const value = probe.getBoundingClientRect().height;
+      probe.remove();
+      return value;
+    };
     const entries = [...document.querySelectorAll("[data-fixture]")].map((fixture) => {
       const shell = fixture;
       const ribbon = fixture.querySelector(".ple-app-ribbon");
@@ -81,13 +92,57 @@ async function measuredAt(page, width, scale) {
         name: fixture.getAttribute("data-fixture"),
         ribbon: ribbon.getBoundingClientRect().height,
         rows: rows.map((row) => row.getBoundingClientRect().height),
+        taskRow: ribbon.getAttribute("data-ribbon-task-row"),
+        tokens: Object.fromEntries(
+          [
+            "--ple-ribbon-context-block-size",
+            "--ple-ribbon-tab-block-size",
+            "--ple-ribbon-reserved-task-size",
+            "--ple-ribbon-block-size",
+          ].map((name) => [name, tokenSize(ribbon, name)]),
+        ),
         shellFirstTrack: Number.parseFloat(getComputedStyle(shell).gridTemplateRows),
       };
     });
     return {
-      probes,
       entries,
       documentOverflow: document.documentElement.scrollWidth > window.innerWidth,
+    };
+  });
+}
+
+async function shellPaddingMeasuredAt(page, viewport, name, model) {
+  await page.setViewportSize(viewport);
+  await page.setContent(paddingProofMarkup(name, model));
+  return page.evaluate(() => {
+    const frame = document.querySelector("[data-padding-fixture]");
+    const ribbon = document.querySelector(".ple-app-ribbon");
+    const mainContent = document.querySelector("#main-content");
+    const contentProbe = document.querySelector("[data-content-probe]");
+    if (
+      !(frame instanceof HTMLElement) ||
+      !(ribbon instanceof HTMLElement) ||
+      !(mainContent instanceof HTMLElement) ||
+      !(contentProbe instanceof HTMLElement)
+    ) {
+      throw new Error("shell-padding fixture is incomplete");
+    }
+    const tokenSize = (name) => {
+      const probe = document.createElement("div");
+      probe.style.cssText = `position:absolute;visibility:hidden;block-size:var(${name});`;
+      ribbon.append(probe);
+      const value = probe.getBoundingClientRect().height;
+      probe.remove();
+      return value;
+    };
+    return {
+      paddingBlockStart: Number.parseFloat(getComputedStyle(mainContent).paddingBlockStart),
+      chromeAboveContent:
+        contentProbe.getBoundingClientRect().top - frame.getBoundingClientRect().top,
+      reservedRows:
+        tokenSize("--ple-ribbon-context-block-size") +
+        tokenSize("--ple-ribbon-tab-block-size") +
+        tokenSize("--ple-ribbon-reserved-task-size"),
     };
   });
 }
@@ -101,17 +156,27 @@ try {
     { width: 320, scale: 200 },
   ]) {
     const result = await measuredAt(page, profile.width, profile.scale);
-    const context = result.probes["--ple-ribbon-context-block-size"];
-    const tabs = result.probes["--ple-ribbon-tab-block-size"];
-    const tasks = result.probes["--ple-ribbon-task-block-size"];
-    const total = result.probes["--ple-ribbon-block-size"];
-    assert.ok(context > 0 && tabs > 0 && tasks > 0 && total > 0, "resolved named row tokens");
-    near(total, context + tabs + tasks, `${profile.width}/${profile.scale} total row token`);
     for (const entry of result.entries) {
-      assert.equal(entry.rows.length, 3, `${entry.name} has exactly three permanent rows`);
+      const context = entry.tokens["--ple-ribbon-context-block-size"];
+      const tabs = entry.tokens["--ple-ribbon-tab-block-size"];
+      const reservedTask = entry.tokens["--ple-ribbon-reserved-task-size"];
+      const total = entry.tokens["--ple-ribbon-block-size"];
+      const expectedTaskRow = entry.taskRow === "reserved";
+      assert.ok(context > 0 && tabs > 0 && total > 0, `${entry.name} resolves named row tokens`);
+      assert.equal(
+        expectedTaskRow ? reservedTask > 0 : reservedTask === 0,
+        true,
+        `${entry.name} reserves the task token only for declared topology`,
+      );
+      near(total, context + tabs + reservedTask, `${entry.name} total reserved-row token`);
+      assert.equal(
+        entry.rows.length,
+        expectedTaskRow ? 3 : 2,
+        `${entry.name} renders declared rows`,
+      );
       near(entry.rows[0], context, `${entry.name} context row token`);
       near(entry.rows[1], tabs, `${entry.name} tab row token`);
-      near(entry.rows[2], tasks, `${entry.name} task row token`);
+      if (expectedTaskRow) near(entry.rows[2], reservedTask, `${entry.name} task row token`);
       near(entry.ribbon, total, `${entry.name} Ribbon block token`);
       near(entry.shellFirstTrack, total, `${entry.name} shell first grid track`);
     }
@@ -120,6 +185,24 @@ try {
       false,
       `${profile.width}/${profile.scale} has no document overflow`,
     );
+  }
+
+  for (const profile of RIBBON_RESPONSIVE_PROFILES) {
+    const viewport = profile.contextOptions.viewport;
+    assert.ok(viewport, `${profile.id} declares a viewport`);
+    for (const [name, model] of [
+      ["taskful", M6_RIBBON_FIXTURES.courseInstructor],
+      ["taskless", M6_RIBBON_FIXTURES.courseStudent],
+    ]) {
+      const result = await shellPaddingMeasuredAt(page, viewport, name, model);
+      const expectedPadding = Math.min(12, Math.max(8, viewport.width * 0.009));
+      near(result.paddingBlockStart, expectedPadding, `${profile.id}:${name} shell padding token`);
+      near(
+        result.chromeAboveContent,
+        result.reservedRows + result.paddingBlockStart,
+        `${profile.id}:${name} chrome above content derives from reserved rows plus shell padding`,
+      );
+    }
   }
 
   await page.setViewportSize({ width: 320, height: 800 });
@@ -161,7 +244,7 @@ try {
       JSON.stringify(destinationEvidence),
   );
   process.stdout.write(
-    "Ribbon geometry evidence: production CSS, row tokens, shell grid, " +
+    "Ribbon geometry evidence: production CSS, row tokens, shell grid, responsive shell padding, " +
       "and 320px/200% focus reachability passed.\n",
   );
 } finally {

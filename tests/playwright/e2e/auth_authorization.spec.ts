@@ -1,8 +1,8 @@
-// UI-first independent seeded-session and no-record authorization-boundary proof.
+// UI-first seeded-session and authorization-boundary proof against the used-Course baseline.
 //
 // Selector contract:
 // - src/pages/sign_in_page.tsx owns seeded-demo entry.
-// - src/pages/course_list_page.tsx owns the truthful empty Course Instance states.
+// - src/pages/course_list_page.tsx owns role-scoped populated and empty Course Instance states.
 // - src/route_access_boundary.tsx owns Product Role denial before a protected route reads data.
 
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
@@ -22,23 +22,28 @@ async function expectEmptyCourses(page: Page, heading: string, message: string):
   await expect(page.getByText(message, { exact: true })).toBeVisible();
 }
 
-async function enterThenReenterEmptyCourses(page: Page, name: RegExp): Promise<void> {
-  await chooseSeededIdentity(page, name);
-  await expectEmptyCourses(
-    page,
-    "Your Course Instances",
-    "Course access begins when you hold an active Course Membership.",
-  );
-  await signOutVisible(page);
-  await chooseSeededIdentity(page, name);
-  await expectEmptyCourses(
-    page,
-    "Your Course Instances",
-    "Course access begins when you hold an active Course Membership.",
-  );
+async function expectUsedCourse(page: Page, heading: string, openLinkName: string): Promise<void> {
+  await expect(page.getByRole("heading", { level: 1, name: heading, exact: true })).toBeVisible();
+  const course = page.getByRole("article").filter({
+    has: page.getByRole("heading", {
+      level: 2,
+      name: "Biochemistry 301: Proteins and Peptides",
+      exact: true,
+    }),
+  });
+  await expect(course).toBeVisible();
+  await expect(course.getByRole("link", { name: openLinkName, exact: true })).toBeVisible();
 }
 
-test("authentication and authorization: seeded sessions and no-record boundaries", async ({
+async function enterThenReenterUsedCourse(page: Page, name: RegExp): Promise<void> {
+  await chooseSeededIdentity(page, name);
+  await expectUsedCourse(page, "Your courses", "Open assigned work");
+  await signOutVisible(page);
+  await chooseSeededIdentity(page, name);
+  await expectUsedCourse(page, "Your courses", "Open assigned work");
+}
+
+test("authentication and authorization: seeded sessions and role-owned boundaries", async ({
   browser,
 }) => {
   test.setTimeout(120_000);
@@ -77,17 +82,13 @@ test("authentication and authorization: seeded sessions and no-record boundaries
       ).toBeVisible();
     });
 
-    await test.step("Elena enters the seeded Instructor session with no Course Instance", async () => {
+    await test.step("Elena enters the seeded Instructor session with its used Course", async () => {
       await chooseSeededIdentity(elena, /Elena Rivera/u);
-      await expectEmptyCourses(
-        elena,
-        "Course Instances you teach",
-        "No Course Instances are teaching yet.",
-      );
+      await expectUsedCourse(elena, "Course Instances you teach", "Open Course Instance");
     });
 
-    await test.step("Mary enters and reenters an independent seeded Student session", async () => {
-      await enterThenReenterEmptyCourses(mary, /Mary Okafor/u);
+    await test.step("Mary enters and reenters her enrolled Student session", async () => {
+      await enterThenReenterUsedCourse(mary, /Mary Okafor/u);
     });
 
     await test.step("Morgan enters the seeded Sysadmin session without ambient Course access", async () => {

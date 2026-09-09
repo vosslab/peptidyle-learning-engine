@@ -40,10 +40,13 @@ async function ribbonEvidence(page, profileId) {
     const ribbon = document.querySelector(".ple-app-ribbon");
     if (!(ribbon instanceof HTMLElement)) throw new Error("missing compiled AppRibbon");
     const rows = [...document.querySelectorAll("[data-ribbon-row]")];
-    if (rows.length !== 3) throw new Error(`expected three Ribbon rows, found ${rows.length}`);
+    const taskRow = ribbon.dataset.ribbonTaskRow;
+    const expectedRows = taskRow === "reserved" ? 3 : 2;
+    if (rows.length !== expectedRows)
+      throw new Error(`expected ${expectedRows} Ribbon rows, found ${rows.length}`);
     const frames = [...ribbon.querySelectorAll(":scope > [data-ribbon-row-frame]")];
-    if (frames.length !== 3)
-      throw new Error(`expected three direct cue frames, found ${frames.length}`);
+    if (frames.length !== expectedRows)
+      throw new Error(`expected ${expectedRows} direct cue frames, found ${frames.length}`);
     const documentWidth = document.documentElement.scrollWidth;
     const viewportWidth = document.documentElement.clientWidth;
     const rowEvidence = rows.map((row) => {
@@ -101,6 +104,14 @@ async function ribbonEvidence(page, profileId) {
         whiteSpace: getComputedStyle(row).whiteSpace,
       };
     });
+    const tokenSize = (name) => {
+      const probe = document.createElement("div");
+      probe.style.cssText = `position:absolute;visibility:hidden;block-size:var(${name});`;
+      ribbon.append(probe);
+      const value = probe.getBoundingClientRect().height;
+      probe.remove();
+      return value;
+    };
     const computedBlockSize = getComputedStyle(ribbon).blockSize;
     return {
       computedBlockSize,
@@ -109,9 +120,59 @@ async function ribbonEvidence(page, profileId) {
       profileId: currentProfileId,
       ribbonHeight: ribbon.getBoundingClientRect().height,
       rowEvidence,
+      taskRow,
+      tokens: Object.fromEntries(
+        [
+          "--ple-ribbon-context-block-size",
+          "--ple-ribbon-tab-block-size",
+          "--ple-ribbon-reserved-task-size",
+          "--ple-ribbon-block-size",
+        ].map((name) => [name, tokenSize(name)]),
+      ),
       viewportWidth,
     };
   }, profileId);
+}
+
+async function assertBrandProjection(page, profileId) {
+  const accessibleBrand = page.getByRole("link", { name: "Peptidyle home", exact: true });
+  assert.equal(await accessibleBrand.count(), 1, `${profileId}: brand remains one named home link`);
+  const projection = await accessibleBrand.evaluate((brand) => {
+    const word = brand.querySelector(".ple-app-ribbon__brand-word");
+    if (!(word instanceof HTMLElement)) throw new Error("brand word is missing");
+    const style = getComputedStyle(word);
+    const bounds = word.getBoundingClientRect();
+    return {
+      brandHeight: brand.getBoundingClientRect().height,
+      clipPath: style.clipPath,
+      display: style.display,
+      height: bounds.height,
+      visibility: style.visibility,
+      width: bounds.width,
+    };
+  });
+  if (profileId === "narrow_phone") {
+    assert.deepEqual(
+      {
+        clipPath: projection.clipPath,
+        display: projection.display,
+        height: projection.height,
+        visibility: projection.visibility,
+        width: projection.width,
+      },
+      {
+        clipPath: "inset(50%)",
+        display: "block",
+        height: 1,
+        visibility: "visible",
+        width: 1,
+      },
+      "narrow_phone: brand word is visually clipped rather than removed from accessibility",
+    );
+    assert.ok(projection.brandHeight >= 44, "narrow_phone: brand link retains a 44px target");
+  } else {
+    assert.ok(projection.width > 1, `${profileId}: brand word remains visibly readable`);
+  }
 }
 
 function assertResponsiveRows(evidence, profile, expectedWidth) {
@@ -126,7 +187,29 @@ function assertResponsiveRows(evidence, profile, expectedWidth) {
     true,
     `${profile}: no document overflow`,
   );
-  assert.equal(evidence.rowEvidence.length, 3, `${profile}: exactly three permanent rows`);
+  const reservesTaskRow = evidence.taskRow === "reserved";
+  assert.equal(
+    evidence.rowEvidence.length,
+    reservesTaskRow ? 3 : 2,
+    `${profile}: renders only declared Ribbon rows`,
+  );
+  assert.equal(
+    reservesTaskRow
+      ? evidence.tokens["--ple-ribbon-reserved-task-size"] > 0
+      : evidence.tokens["--ple-ribbon-reserved-task-size"] === 0,
+    true,
+    `${profile}: reserved task token follows route topology`,
+  );
+  assert.equal(
+    Math.abs(
+      evidence.tokens["--ple-ribbon-block-size"] -
+        (evidence.tokens["--ple-ribbon-context-block-size"] +
+          evidence.tokens["--ple-ribbon-tab-block-size"] +
+          evidence.tokens["--ple-ribbon-reserved-task-size"]),
+    ) < 0.25,
+    true,
+    `${profile}: Ribbon token is the sum of currently reserved rows`,
+  );
   for (const row of evidence.rowEvidence) {
     assert.equal(row.whiteSpace, "nowrap", `${profile}: row remains one non-wrapping line`);
     assert.equal(
@@ -413,6 +496,7 @@ try {
     const declaredWidth = profile.contextOptions.viewport?.width;
     assert.ok(declaredWidth, `${profile.id}: manifest declares a CSS viewport width`);
     assertResponsiveRows(baseline, profile.id, declaredWidth);
+    await assertBrandProjection(page, profile.id);
     await assertPinnedOverflowCues(page, profile.id);
     await assertEveryTabReachable(page, profile.id);
     await restoreSelectedTabVisibility(page);
@@ -454,6 +538,25 @@ try {
       await assertEveryTabReachable(page, "narrow_phone:200-percent-text");
       await restoreSelectedTaskVisibility(page);
     }
+
+    await page.evaluate(() => window.ribbonM9.setFixture("courseStudent"));
+    await flush(page);
+    const taskless = await ribbonEvidence(page, `${profile.id}:taskless`);
+    assert.equal(taskless.taskRow, "absent", `${profile.id}: taskless route declares no Task Row`);
+    assertResponsiveRows(taskless, `${profile.id}:taskless`, declaredWidth);
+    await assertPinnedOverflowCues(page, `${profile.id}:taskless`);
+    await assertEveryTabReachable(page, `${profile.id}:taskless`);
+
+    await page.evaluate(() => window.ribbonM9.setFixture("courseInstructor"));
+    await flush(page);
+    const taskfulAgain = await ribbonEvidence(page, `${profile.id}:taskful-again`);
+    assert.equal(
+      taskfulAgain.taskRow,
+      "reserved",
+      `${profile.id}: taskless-to-taskful model revision restores the declared Task Row`,
+    );
+    assertResponsiveRows(taskfulAgain, `${profile.id}:taskful-again`, declaredWidth);
+    await restoreSelectedTaskVisibility(page);
 
     const disposal = await page.evaluate(async () => {
       const unhandled = [];

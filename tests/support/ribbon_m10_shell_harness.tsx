@@ -13,6 +13,8 @@ import {
   useCourseThemePresentation,
 } from "../../src/features/course_appearance/course_theme_context";
 import type { OrdinaryBrowserApiClient } from "../../src/api/client";
+import type { CourseInstanceView } from "../../src/api/course_instance";
+import type { CourseAssignmentSummary } from "../../src/api/assignment_release";
 import type {
   AuthenticatedSession,
   CourseRouteView,
@@ -57,8 +59,33 @@ interface DeferredCourseScopes {
   readonly waitForRelease: (reference: string) => Promise<void>;
 }
 
+interface DeferredSession {
+  readonly release: () => void;
+  readonly waitForSession: () => Promise<AuthenticatedSession>;
+}
+
+function deferredSession(): DeferredSession {
+  let resolveSession: (() => void) | undefined;
+  const sessionReady = new Promise<void>((resolve) => {
+    resolveSession = resolve;
+  });
+  function release(): void {
+    if (resolveSession === undefined) {
+      throw new Error("Application-shell evidence released the session more than once.");
+    }
+    const resolve = resolveSession;
+    resolveSession = undefined;
+    resolve();
+  }
+  function waitForSession(): Promise<AuthenticatedSession> {
+    return sessionReady.then(instructorSession);
+  }
+  return { release, waitForSession };
+}
+
 interface PresentationQueryCounts {
   readonly assignments: () => number;
+  readonly courseInstances: () => number;
 }
 
 function deferredCourseScopes(): DeferredCourseScopes {
@@ -97,6 +124,7 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
     nextCursor: null,
   };
   let assignmentQueries = 0;
+  let courseInstanceQueries = 0;
   const queries = {
     courses: queryFunction("courses", () => Promise.resolve(courses)),
     assignments: queryFunction("course-assignments", (_courseId: CourseId) => {
@@ -124,12 +152,40 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
       ),
     ),
   };
+  const client = {
+    getCourseInstance: (
+      reference: CourseInstanceView["course"]["reference"],
+    ): Promise<CourseInstanceView> => {
+      courseInstanceQueries += 1;
+      return Promise.resolve({
+        course: {
+          reference,
+          title: `Course ${reference}`,
+          term: {
+            startDate: "2026-01-12",
+            endDate: "2026-05-08",
+            timeZone: "America/Chicago",
+          },
+        },
+        isAssignedInstructor: true,
+        activeInstructorCount: 1,
+      });
+    },
+    listCourseAssignments: (): Promise<ReadonlyArray<CourseAssignmentSummary>> => {
+      assignmentQueries += 1;
+      return Promise.resolve([]);
+    },
+  };
   // The current-source App only reaches the typed query subset above in this
-  // controlled browser fixture. The current-source course Assignments page receives an explicit,
-  // typed empty page; other routed content has no transport methods to invoke here.
+  // controlled browser fixture. The current Course Instance surface receives
+  // explicit identity and an empty Assignment list; other routed content has
+  // no transport methods to invoke here.
   return {
-    api: { client: {}, queries } as unknown as ApplicationApi<OrdinaryBrowserApiClient>,
-    counts: { assignments: () => assignmentQueries },
+    api: { client, queries } as unknown as ApplicationApi<OrdinaryBrowserApiClient>,
+    counts: {
+      assignments: () => assignmentQueries,
+      courseInstances: () => courseInstanceQueries,
+    },
   };
 }
 
@@ -155,6 +211,8 @@ export interface RibbonM10ShellHarness {
   readonly fixturePathname: () => string;
   readonly scopeRequestCount: (reference: string) => number;
   readonly assignmentQueryCount: () => number;
+  readonly courseInstanceQueryCount: () => number;
+  readonly releaseSession: () => void;
   readonly releaseCourseScope: (reference: string) => void;
   readonly throwFixtureContent: (value: boolean) => void;
   readonly signOutActions: () => number;
@@ -180,13 +238,16 @@ function withSelectedTaskControl(
 function courseFixture(
   reference: string,
   selectedTab: "assignments" | "students" | "gradebook" = "assignments",
+  taskRowReserved = false,
 ): RibbonModel {
   const source = M6_RIBBON_FIXTURES.courseInstructor;
   return {
     ...source,
     context: { ...source.context, scopeLabel: `Course ${reference}` },
     tabs: withSelectedControl(source.tabs, selectedTab),
-    taskAreas: withSelectedTaskControl(source.taskAreas, "assignmentOverview"),
+    taskAreas: taskRowReserved
+      ? withSelectedTaskControl(source.taskAreas, "assignmentOverview")
+      : [],
   };
 }
 
@@ -197,7 +258,10 @@ function productFixture(
   return {
     ...source,
     tabs: withSelectedControl(source.tabs, selectedTab),
-    taskAreas: withSelectedTaskControl(source.taskAreas, "allQuestions"),
+    taskAreas:
+      selectedTab === "questionLibrary"
+        ? withSelectedTaskControl(source.taskAreas, "allQuestions")
+        : [],
   };
 }
 
@@ -209,7 +273,15 @@ function fixtureModelForPathname(pathname: string): RibbonModel {
   if (pathname === "/instructor/courses/C-1/students") return courseFixture("C-1", "students");
   if (pathname === "/instructor/courses/C-1/gradebook") return courseFixture("C-1", "gradebook");
   if (pathname === "/courses/C-2") return courseFixture("C-2");
-  if (pathname === "/assignment-attempts/R-1") return M6_RIBBON_FIXTURES.attemptInstructor;
+  if (pathname === "/assignment-attempts/R-1") {
+    return {
+      ...M6_RIBBON_FIXTURES.attemptInstructor,
+      taskAreas: M6_RIBBON_FIXTURES.attemptStudent.taskAreas,
+    };
+  }
+  if (pathname.startsWith("/instructor/courses/C-1/assignments/A-1")) {
+    return courseFixture("C-1", "assignments", true);
+  }
   return courseFixture("C-1");
 }
 
@@ -249,6 +321,7 @@ export function mountRibbonM10ShellHarness(target: HTMLElement): RibbonM10ShellH
   const [signOutActions, setSignOutActions] = createSignal(0);
   let logoutAttempts = 0;
   const currentDeferredScopes = deferredCourseScopes();
+  const currentSession = deferredSession();
   const currentPresentation = presentationApi(currentDeferredScopes);
 
   function fixtureNavigate(pathname: string): void {
@@ -274,7 +347,7 @@ export function mountRibbonM10ShellHarness(target: HTMLElement): RibbonM10ShellH
 
   const currentTarget = document.createElement("section");
   currentTarget.dataset.m10Case = "current-production";
-  currentTarget.setAttribute("aria-label", "Current-source empty admission");
+  currentTarget.setAttribute("aria-label", "Current-source routed application");
   const fixtureTarget = document.createElement("section");
   fixtureTarget.dataset.m10Case = "fixture-shell";
   fixtureTarget.setAttribute("aria-label", "Structural fixture shell evidence");
@@ -284,7 +357,7 @@ export function mountRibbonM10ShellHarness(target: HTMLElement): RibbonM10ShellH
     () => (
       <ApplicationApiProvider applicationApi={currentPresentation.api}>
         <SessionProvider
-          getSession={() => Promise.resolve(instructorSession())}
+          getSession={currentSession.waitForSession}
           logout={() => Promise.resolve()}
           advanceSessionBoundary={() => undefined}
         >
@@ -340,6 +413,8 @@ export function mountRibbonM10ShellHarness(target: HTMLElement): RibbonM10ShellH
     fixturePathname: fixtureHistory.get,
     scopeRequestCount: currentDeferredScopes.requestCount,
     assignmentQueryCount: currentPresentation.counts.assignments,
+    courseInstanceQueryCount: currentPresentation.counts.courseInstances,
+    releaseSession: currentSession.release,
     releaseCourseScope: currentDeferredScopes.release,
     throwFixtureContent: setFixtureShouldThrow,
     signOutActions,

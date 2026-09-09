@@ -7,6 +7,8 @@ import { useApplicationApi } from "../api/application_api";
 import type { CourseAssignmentSummary, LiveAssignmentStatus } from "../api/assignment_release";
 import { parseCourseInstanceReference } from "../navigation/public_route";
 
+import "./course_instance_page.css";
+
 function assignmentStatusLabel(status: LiveAssignmentStatus): string {
   switch (status) {
     case "unreleased":
@@ -125,7 +127,10 @@ export function CourseInstancePage(): JSX.Element {
                 </div>
               </Show>
             </section>
-            <nav class="course-card-actions" aria-label="Course actions">
+            <nav
+              class="course-card-actions course-instance-page__actions"
+              aria-label="Course actions"
+            >
               <A
                 class="primary-link"
                 href={`/instructor/courses/${view().course.reference}/students`}

@@ -143,6 +143,12 @@ claim/commit `SECURITY DEFINER` procedures and has no direct protected-table acc
 migration tooling, API Store work, workers, grading, and registered capabilities use distinct database
 credentials or roles with only their needed grants.
 
+Private invariant triggers that must run after more than one authorized writer use the protected object's
+Database Schema Owner Role as a security definer with a fixed trusted search path and no public or
+runtime-role execute grant. The Assignment Attempt completion trigger therefore applies the released
+Assignment Completion Rule and updates `completed_at` as `ple_private_owner` inside the Grading Result
+transaction; `ple_api_owner` and grading workers retain no direct privilege to update that column.
+
 ## Typed operations and objects
 
 A worker first locks a current lease. The immutable job manifest and lease derive the job's typed

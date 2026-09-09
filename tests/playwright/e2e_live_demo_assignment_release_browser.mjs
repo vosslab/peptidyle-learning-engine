@@ -56,7 +56,7 @@ try {
   await page.getByRole("link", { name: "Open Course Instance" }).first().click();
   await page.waitForURL(/\/courses\/C-[1-9][0-9]*$/u);
 
-  await page.getByRole("link", { name: "Open Assignments" }).click();
+  await page.getByRole("link", { name: "Create Assignment" }).click();
   await page.waitForURL(/\/instructor\/courses\/C-[1-9][0-9]*\/assignments\/new$/u);
   await page.getByRole("heading", { name: "Create Assignment" }).waitFor();
   await page.getByLabel("Assignment title").fill(assignmentTitle);

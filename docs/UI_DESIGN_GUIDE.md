@@ -8,11 +8,12 @@ space to the current teaching decision, keeps secondary explanation available wi
 permanent noise, and makes the next action easy to recognize.
 
 The Application Shell follows a **precision field console** philosophy: it is an instrument for
-teaching work, not a marketing surface. Context, destination, and task bands each own one distinct
-neutral plane; the course accent signals scoped identity and selection instead of decorating the
-chrome. Subtle rules, tonal depth, and immediate state paint establish hierarchy without padding,
-oversized controls, or nested cards. Even truthfully empty bands must read as reserved structure.
-Route-specific work may fill this console, but may not weaken its visual grammar.
+teaching work, not a marketing surface. Context and destination bands always own distinct neutral
+planes; a declared route task group adds the Task band. The course accent signals scoped identity
+and selection instead of decorating the chrome. Subtle rules, tonal depth, and immediate state paint
+establish hierarchy without excess padding, oversized controls, or nested cards. A band reserved by
+the declared route topology remains stable even when capability admission leaves it truthfully
+empty. Route-specific work may fill this console, but may not weaken its visual grammar.
 
 Instructor work is composed first for a 1280 by 800 CSS-pixel laptop viewport. Student work is
 composed for that same canonical laptop viewport and for the high-priority 800 by 1280 tablet
@@ -50,17 +51,17 @@ visible content already proves the state.
 Treat density as a design-system setting, not a collection of page-specific numbers. Shared CSS
 custom properties in `src/style.css` own the geometry most likely to change after observation:
 
-| Token category                                               | Controls                                                                      |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| `--ple-shell-*`                                              | Maximum application width, viewport gutters, header height, and shell padding |
-| `--ple-layout-gap`, `--ple-section-gap`, `--ple-compact-gap` | Page columns, group rhythm, and dense local rhythm                            |
-| `--ple-panel-padding`, `--ple-row-padding-*`                 | Work surfaces, Question Search rows, tables, and editor rows                  |
-| `--ple-control-min-height`, `--ple-dense-row-min-height`     | Shared controls and compact instructor records                                |
-| `--ple-reading-max-inline`, bounded-list geometry            | Reading measure and Question Library working height                           |
-| `--ple-instructor-*-min-inline`, `--ple-filter-*-min-inline` | Assignment columns and Question Search filter allocation                      |
-| `--ple-*-table-min-inline`, `--ple-*-block-size`             | Deliberate overflow thresholds for dense data and bounded lists               |
-| `--ple-course-scope-*`, `--ple-course-theme-*`               | Course canvas extent, inset, color washes, identity rail, and surface fade    |
-| `--ple-mobile-nav-*`                                         | Compact single-row phone navigation without changing its semantics            |
+| Token category                                               | Controls                                                                               |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `--ple-shell-*`                                              | Maximum application width, viewport gutters, fallback header height, and shell padding |
+| `--ple-layout-gap`, `--ple-section-gap`, `--ple-compact-gap` | Page columns, group rhythm, and dense local rhythm                                     |
+| `--ple-panel-padding`, `--ple-row-padding-*`                 | Work surfaces, Question Search rows, tables, and editor rows                           |
+| `--ple-control-min-height`, `--ple-dense-row-min-height`     | Shared controls and compact instructor records                                         |
+| `--ple-reading-max-inline`, bounded-list geometry            | Reading measure and Question Library working height                                    |
+| `--ple-instructor-*-min-inline`, `--ple-filter-*-min-inline` | Assignment columns and Question Search filter allocation                               |
+| `--ple-*-table-min-inline`, `--ple-*-block-size`             | Deliberate overflow thresholds for dense data and bounded lists                        |
+| `--ple-course-scope-*`, `--ple-course-theme-*`               | Course canvas inset, color washes, identity rail, and surface fade                     |
+| `.ple-shell-frame`                                           | The one structural viewport-height floor for Ribbon and non-Ribbon shells              |
 
 Adjust these tokens first when evidence supports a density change. Page styles may derive small
 differences with `calc()`, but should not duplicate the governing measurement. Breakpoints are
@@ -91,11 +92,12 @@ turning each local group into a card or making an ordinary state change rearrang
   evidence such as clipping, unreadable text, ambiguous state, missed target, or lost keyboard
   reachability; a preference for more empty chrome is not evidence.
 - **Spatial memory is a behavioral contract.** `src/application_shell.tsx` owns the persistent
-  shell and content origin; `src/ribbon/app_ribbon.tsx` owns the three fixed Ribbon rows. Route,
-  loading, error, theme, and label changes may update content or paint, but may not move a visible
-  control. The rows remain reserved even when truthful capability admission leaves Tabs or Tasks
-  empty. Identity and geometry evidence must prove that a deferred or recovered route does not
-  replace the shell or shift its visible controls.
+  shell frame, viewport-height floor, and content origin; `src/ribbon/app_ribbon.tsx` presents the
+  named Ribbon rows selected by declared route topology. Context and Tab remain reserved; Task is
+  reserved exactly when the route declares a task group. Loading, error, theme, label, and
+  capability-admission changes may update content or paint, but may not change that topology or move
+  a visible control. Identity and geometry evidence must prove that a deferred or recovered route
+  does not replace the shell or shift its visible controls.
 - **Contextual and asynchronous state fills a stable frame.** A page owns its heading, recovery,
   and Page Action at the point where that work occurs. `src/ribbon/ribbon_contract.ts` derives
   navigation presentation from the declared route, scope, role, and admitted capability; it does
@@ -126,7 +128,7 @@ live with the content they affect.
 names. This guide owns which Slots and Tasks exist, their order, placement, and presentation
 behavior. `src/ribbon/ribbon_contract.ts` is the executable schema/model owner;
 `src/application_shell.tsx` is the persistent composition owner; and
-`src/ribbon/app_ribbon.tsx` is the fixed-row presentation owner.
+`src/ribbon/app_ribbon.tsx` is the topology-aware row presentation owner.
 
 The catalog preserves the designed locations of future destinations, but the capability registry
 admits a control only when its complete usable path is backed. A retained future label or route
@@ -145,9 +147,11 @@ Product Role is available with the Authenticated Session, so one Account uses on
 each scope throughout its session. Exact server and Store checks continue to authorize every
 destination and operation.
 
-Place Account and Profile controls in the upper corner of the Ribbon Context Row. Account Security,
-Instructor Course Invitations, and Sign In use those Context Controls. Their routes retain the
-current Ribbon Schema and render with No Selected Ribbon Tab.
+Place the single Peptidyle home identity first in the Ribbon Context Row and Account and Profile
+controls in that row's upper corner. Authenticated Ribbon routes do not add a separate site-header
+identity band; the site header is the fallback for routes without a Ribbon. Account Security,
+Instructor Course Invitations, and Sign In use Context Controls. Their routes retain the current
+Ribbon Schema and render with No Selected Ribbon Tab.
 
 The Question Library interface area has five ordered Ribbon Tasks in two Ribbon Task Areas:
 
@@ -177,12 +181,14 @@ omit Unavailable Slots, and preserve the relative order of visible controls. A l
 result can therefore append controls without moving a visible control. This rule supports future
 Course Observer, Student Observer, and Grader relationships that are independent of Product Role.
 
-The Context, Tab, and Task Rows are always reserved as the persistent Ribbon's spatial grammar.
-When the current product truthfully admits no destination, the row stays present but empty; it is
-not replaced with disabled fiction, a placeholder link, or a shorter shell. That deliberate density
-preserves the content origin and lets the populated structural model remain the reference for full
-Ribbon hierarchy. Review reserved rows only for concrete failures such as clipping, ambiguity,
-contrast, keyboard reachability, or broken reflow.
+The Context and Tab Rows are always reserved as the persistent Ribbon's spatial grammar. The Task
+Row is reserved exactly when the declared route supplies a task group and is omitted when it does
+not. Capability admission, loading, deferred labels, and content errors never add or remove a row;
+therefore a declared Task Row remains present even when no Task is admitted. A reserved row is not
+filled with disabled fiction or a placeholder link. This topology-aware density preserves the
+content origin within each route class and keeps admission-independent geometry. Review reserved
+rows only for concrete failures such as clipping, ambiguity, contrast, keyboard reachability, or
+broken reflow.
 
 Use real links for navigation and buttons for mutations. Active navigation uses shape, position,
 text, and color together; color alone is not the indicator.
@@ -265,6 +271,7 @@ screenshots, and human inspection for geometry, density, hierarchy, theme charac
 responsive composition. Canonical evidence includes 1280 by 800 instructor pages, student pages at
 both 1280 by 800 and 800 by 1280, a narrow-phone overflow guard, and standard plus
 increased-contrast theme samples.
-The accepted implementation evidence and page-level findings live in
-[UI_DESIGN_REVIEW.md](UI_DESIGN_REVIEW.md). Historical instructor screenshot references live in
-[INSTRUCTOR_PAGE_VISUALS.md](INSTRUCTOR_PAGE_VISUALS.md).
+Current baseline screenshots are governed by [SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md) and
+enumerated in `docs/screenshots/current_capture_manifest.json`. [UI_DESIGN_REVIEW.md](UI_DESIGN_REVIEW.md)
+and [INSTRUCTOR_PAGE_VISUALS.md](INSTRUCTOR_PAGE_VISUALS.md) retain historical review context rather
+than serving as current screenshot attachment points.

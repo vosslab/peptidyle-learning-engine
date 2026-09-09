@@ -27,6 +27,7 @@ services:
       - ple_miniodata:/data
 
   createbuckets:
+    profiles: ["course-appearance-initialization"]
     labels:
       <<: [*ple-disposable-capability-label, *ple-e2e-owner-label]
     image: quay.io/minio/mc@sha256:${PLE_MINIO_MC_IMAGE_SHA256:?set by the canonical stack selection}

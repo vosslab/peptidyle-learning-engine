@@ -23,8 +23,8 @@ const fixtureParams = {
   assignmentRef: "A-1",
   assignmentAttemptRef: "R-1",
 };
-const permanentRowsTestName = [
-  "AppRibbon preserves its three permanent semantic rows",
+const topologyRowsTestName = [
+  "AppRibbon preserves every row reserved by declared topology",
   "and withholds non-admitted controls",
 ].join(" ");
 const bundledGlyphTestName = [
@@ -95,7 +95,7 @@ test("every fixture href is a canonical declared route with its catalog paramete
   }
 });
 
-test(permanentRowsTestName, async () => {
+test(topologyRowsTestName, async () => {
   const RealAppRibbon = await loadAppRibbonForSsr();
   const html = renderToString(() =>
     createComponent(RealAppRibbon, { model: M6_RIBBON_FIXTURES.courseInstructor }),
@@ -108,13 +108,21 @@ test(permanentRowsTestName, async () => {
   assert.deepEqual(
     [...html.matchAll(/data-ribbon-row-frame="([^"]+)"/g)].map((match) => match[1]),
     ["context", "tabs", "tasks"],
-    "each permanent labelled row has exactly one corresponding non-scrolling cue frame",
+    "each topology-reserved labelled row has one corresponding non-scrolling cue frame",
   );
   assert.match(html, /aria-label="Ribbon context"/);
   assert.match(html, /<nav[^>]*aria-label="Ribbon tabs"/);
   assert.match(html, /<nav[^>]*aria-label="Ribbon tasks"/);
   assert.match(html, /aria-current="page"/);
   assert.match(html, /data-ribbon-action="signOut"/);
+  assert.match(html, /data-ribbon-task-row="reserved"/);
+  assert.equal(
+    (html.match(/class="ple-app-ribbon__brand-word"/g) ?? []).length,
+    1,
+    "the compact authenticated chrome contains exactly one product wordmark",
+  );
+  assert.match(html, /<a class="ple-app-ribbon__brand" href="\/" aria-label="Peptidyle home">/);
+  assert.doesNotMatch(html, /ple-app-ribbon__product-name|Peptidyle Learning Engine/);
   assert.match(html, /Problem Set 7/);
   assert.doesNotMatch(html, /Blueprint Updates|Course Setup/);
   assert.doesNotMatch(html, /role="tab(list)?"/);
@@ -122,28 +130,18 @@ test(permanentRowsTestName, async () => {
   assert.ok(html.indexOf("Assignments") < html.indexOf("Overview"));
 });
 
-test("AppRibbon retains a real empty Ribbon task navigation row", async () => {
+test("AppRibbon omits the Task Row when declared route topology has no Task Group", async () => {
   const RealAppRibbon = await loadAppRibbonForSsr();
   const html = renderToString(() =>
     createComponent(RealAppRibbon, { model: M6_RIBBON_FIXTURES.courseStudent }),
   );
-  const taskNavigation = html.match(/<nav[^>]*aria-label="Ribbon tasks"[^>]*>(.*?)<\/nav>/);
-  assert.ok(taskNavigation, "the empty Task Row remains a labelled navigation landmark");
-  assert.doesNotMatch(
-    taskNavigation[1],
-    /<(?:a|button)\b/,
-    "empty means no Task control is invented",
-  );
-  const taskFrame = html.match(/<section[^>]*data-ribbon-row-frame="tasks"[^>]*>(.*?)<\/section>/);
-  assert.ok(taskFrame, "the empty Task row retains its direct paint-only cue frame");
-  assert.deepEqual(
-    [...taskFrame[1].matchAll(/data-ribbon-overflow-cue="([^"]+)"/g)].map((match) => match[1]),
-    ["start", "end"],
-    "the empty permanent row retains its noninteractive overflow affordance outside its scrollport",
-  );
+  assert.match(html, /data-ribbon-task-row="absent"/);
+  assert.doesNotMatch(html, /aria-label="Ribbon tasks"/);
+  assert.doesNotMatch(html, /data-ribbon-row-frame="tasks"/);
   assert.deepEqual(
     [...html.matchAll(/data-ribbon-row="([^"]+)"/g)].map((match) => match[1]),
-    ["context", "tabs", "tasks"],
+    ["context", "tabs"],
+    "taskless route topology renders only its Context and Tab Rows",
   );
 });
 
@@ -338,7 +336,8 @@ test(catalogPresentationTestName, async () => {
         [
           '.ple-app-ribbon__link[data-ribbon-icon-only-safe="true"] ',
           ".ple-app-ribbon__control-label,\n  ",
-          ".ple-app-ribbon__sign-out .ple-app-ribbon__control-label",
+          ".ple-app-ribbon__sign-out .ple-app-ribbon__control-label,\n  ",
+          ".ple-app-ribbon__brand-word",
         ].join("");
     assert.equal(
       Boolean(alias && declaredRibbonSpacingAliases.has(alias)) ||

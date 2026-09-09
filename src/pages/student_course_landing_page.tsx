@@ -30,9 +30,12 @@ function AssignmentCard(props: {
       </p>
       <Show when={props.assignment.assignmentAttemptCompletion !== null}>
         <p>
-          {props.assignment.gradedQuestionCount} of {props.assignment.questionCount} Questions graded
+          {props.assignment.gradedQuestionCount} of {props.assignment.questionCount} Questions
+          graded
           {" · "}
-          {props.assignment.assignmentAttemptCompletion === "completed" ? "Score" : "Score so far"}{" "}
+          {props.assignment.assignmentAttemptCompletion === "completed"
+            ? "Score"
+            : "Score so far"}{" "}
           {formatPointScore(props.assignment.pointsEarned, props.assignment.pointsPossible)}
         </p>
       </Show>

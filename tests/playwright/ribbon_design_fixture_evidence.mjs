@@ -193,10 +193,12 @@ async function inspect(page, profile) {
       withheld: panel("[data-ribbon-withheld]").map((item) =>
         item.getAttribute("data-ribbon-withheld"),
       ),
-      exactThreeRows: ribbons.every((ribbon) => {
+      topologyRowsValid: ribbons.every((ribbon) => {
         const frames = [...ribbon.querySelectorAll(":scope > [data-ribbon-row-frame]")];
+        const expectedFrameCount =
+          ribbon.getAttribute("data-ribbon-task-row") === "reserved" ? 3 : 2;
         return (
-          frames.length === 3 &&
+          frames.length === expectedFrameCount &&
           frames.every(
             (frame) =>
               frame.querySelectorAll(":scope > [data-ribbon-row]").length === 1 &&
@@ -327,14 +329,14 @@ try {
   assert.ok(desktop.withheld.includes("Unavailable"));
   assert.ok(desktop.withheld.includes("Checking"));
   assert.equal(
-    desktop.exactThreeRows,
+    desktop.topologyRowsValid,
     true,
     [
-      "every real Ribbon has three direct cue frames with one labelled scrollport",
+      "every real Ribbon has its topology-declared direct cue frames with one labelled scrollport",
       "and two inert cues each",
     ].join(" "),
   );
-  assert.equal(desktop.rowGeometry, true, "each real Ribbon has three measurable permanent rows");
+  assert.equal(desktop.rowGeometry, true, "each declared Ribbon row has measurable geometry");
   assert.deepEqual(
     desktop.visibleControlFailures,
     [],
@@ -467,8 +469,8 @@ try {
     false,
     "design laboratory reflows without phone document overflow",
   );
-  assert.equal(phone.exactThreeRows, true, "phone profile retains exactly three Ribbon rows");
-  assert.equal(phone.rowGeometry, true, "phone profile retains real three-row Ribbon geometry");
+  assert.equal(phone.topologyRowsValid, true, "phone profile retains declared Ribbon rows");
+  assert.equal(phone.rowGeometry, true, "phone profile retains real declared-row geometry");
   assert.deepEqual(
     phone.visibleControlFailures,
     [],
@@ -538,14 +540,14 @@ try {
     ].join(" "),
   );
   assert.equal(
-    enlargedPhone.exactThreeRows,
+    enlargedPhone.topologyRowsValid,
     true,
-    "200% phone profile retains exactly three Ribbon rows",
+    "200% phone profile retains declared Ribbon rows",
   );
   assert.equal(
     enlargedPhone.rowGeometry,
     true,
-    "200% phone profile retains real three-row Ribbon geometry",
+    "200% phone profile retains real declared-row Ribbon geometry",
   );
   assert.deepEqual(
     enlargedPhone.visibleControlFailures,

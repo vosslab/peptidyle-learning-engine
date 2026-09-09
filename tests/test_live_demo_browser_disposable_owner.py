@@ -273,7 +273,10 @@ def test_cross_store_profile_allows_only_its_two_store_oracle_commands(
 		["up", "-d", "postgres", "minio"],
 		["exec", "-T", "postgres", "pg_isready", "-U", "ple_e2e_migrator"],
 		["exec", "-T", "minio", "mc", "ready", "local"],
-		["run", "--rm", "createbuckets"],
+		[
+			"--profile", "course-appearance-initialization",
+			"run", "--rm", "-T", "createbuckets",
+		],
 		["exec", "-T", "postgres", "psql", "-d", "postgres", "-c", "SELECT 1"],
 	):
 		argv, environment = local_stack_control.disposable_stack_adapter.compose_command(selected, list(arguments))

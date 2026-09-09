@@ -107,6 +107,13 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
     // Ribbon model.
     const routeData = useRouteScopeData();
     const ribbonModel = createMemo(() => props.ribbonModel(routeData()));
+    const ribbonTaskRow = createMemo(() => {
+      const model = ribbonModel();
+      if (model === undefined) return undefined;
+      // ribbon_contract.ts derives taskAreas from declared taskGroup topology,
+      // not control admission, so this parent geometry stays admission-independent.
+      return model.taskAreas.length > 0 ? "reserved" : "absent";
+    });
 
     function ContentRegion(): JSX.Element {
       return (
@@ -135,19 +142,29 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
         <a class="skip-link" href="#main-content" onClick={() => queueMicrotask(focusMainContent)}>
           Skip to learning content
         </a>
-        <header class="site-header">
-          <A class="brand" href="/" aria-label="Peptidyle home">
-            <span class="brand-mark" aria-hidden="true">
-              P
-            </span>
-            <span>Peptidyle</span>
-          </A>
-          <span class="sr-only" role="status" aria-live="polite">
-            {signOutError()}
-          </span>
-        </header>
-        <div classList={{ "ple-ribbon-shell-grid": ribbonModel() !== undefined }}>
-          <Show when={ribbonModel()}>
+        <span class="sr-only" role="status" aria-live="polite">
+          {signOutError()}
+        </span>
+        <div
+          classList={{
+            "ple-shell-frame": true,
+            "ple-ribbon-shell-grid": ribbonModel() !== undefined,
+          }}
+          data-ribbon-task-row={ribbonTaskRow()}
+        >
+          <Show
+            when={ribbonModel()}
+            fallback={
+              <header class="site-header">
+                <A class="brand" href="/" aria-label="Peptidyle home">
+                  <span class="brand-mark" aria-hidden="true">
+                    P
+                  </span>
+                  <span>Peptidyle</span>
+                </A>
+              </header>
+            }
+          >
             {(model) => (
               <div on:ple-ribbon-action={handleRibbonAction}>
                 <AppRibbon model={model()} />

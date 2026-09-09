@@ -75,7 +75,7 @@ try {
       window.PleRibbonM11DeferredContent.mountRibbonM11DeferredContentHarness(root);
   });
   await page.waitForFunction(() => window.ribbonM11.ready());
-  const assertHarnessRibbon = async (caseName) => {
+  const assertHarnessRibbon = async (caseName, taskRowReserved) => {
     const ribbonRoot = page.locator(RIBBON_ROOT_SELECTOR);
     await ribbonRoot.waitFor({ state: "visible" });
     assert.equal(await ribbonRoot.count(), 1, `${caseName} has exactly one harness Ribbon root`);
@@ -91,11 +91,22 @@ try {
     );
     assert.equal(
       await page.getByRole("navigation", { name: "Ribbon tasks" }).count(),
-      1,
-      `${caseName} has exactly one Ribbon tasks navigation landmark`,
+      taskRowReserved ? 1 : 0,
+      `${caseName} exposes the Task Row only when declared route topology reserves it`,
+    );
+    const expectedTaskRow = taskRowReserved ? "reserved" : "absent";
+    assert.equal(
+      await ribbonRoot.getAttribute("data-ribbon-task-row"),
+      expectedTaskRow,
+      `${caseName} reports its Ribbon Task Row topology`,
+    );
+    assert.equal(
+      await page.locator(".ple-shell-frame").getAttribute("data-ribbon-task-row"),
+      expectedTaskRow,
+      `${caseName} shares the same topology with the shell frame`,
     );
   };
-  await assertHarnessRibbon("initial route");
+  await assertHarnessRibbon("initial route", false);
 
   const cases = [
     [
@@ -107,6 +118,8 @@ try {
       "scopeSummary",
       "postMountAssignmentAttemptSummary",
       0,
+      0,
+      true,
     ],
     [
       "preview",
@@ -116,7 +129,9 @@ try {
       "Assignment delivery check",
       "scopeCourse",
       "resolveNavigation",
+      0,
       1,
+      false,
     ],
     [
       "workspace",
@@ -126,7 +141,9 @@ try {
       undefined,
       "scopeCourse",
       "resolveNavigation",
+      0,
       1,
+      true,
     ],
     [
       "roster",
@@ -135,8 +152,10 @@ try {
       "Loading course roster...",
       "Students",
       "scopeCourse",
-      "listCourseRoster",
+      "getLiveCourseRoster",
       1,
+      1,
+      false,
     ],
     [
       "teaching",
@@ -146,7 +165,9 @@ try {
       "Teaching operations",
       "scopeCourse",
       "listCourseInstructors",
+      0,
       1,
+      false,
     ],
   ];
   for (const [
@@ -157,20 +178,33 @@ try {
     heading,
     scopeCounter,
     downstream,
-    expected,
+    expectedBeforeRelease,
+    expectedAfterRelease,
+    taskRowReserved,
   ] of cases) {
     await page.evaluate((name) => window.ribbonM11.navigate(name), caseName);
     const pendingStatus = page
       .locator(`[data-route-surface="${pendingSurface}"]`)
       .locator('[role="status"]')
       .filter({ hasText: pending });
-    await pendingStatus.waitFor({ state: "visible" });
+    try {
+      await pendingStatus.waitFor({ state: "visible", timeout: 5_000 });
+    } catch (error) {
+      const currentPath = await page.evaluate(() =>
+        document.querySelector("[data-current-path]")?.getAttribute("data-current-path"),
+      );
+      const visibleText = await page.locator("body").innerText();
+      throw new Error(
+        `${caseName} did not expose its deferred surface at ${String(currentPath)}: ${visibleText}`,
+        { cause: error },
+      );
+    }
     assert.equal(
       await pendingStatus.innerText(),
       pending,
       `${caseName} exposes the exact deferred status text in its current route surface`,
     );
-    await assertHarnessRibbon(`${caseName} while deferred`);
+    await assertHarnessRibbon(`${caseName} while deferred`, taskRowReserved);
     assert.equal(
       await page.locator(RETIRED_NAVIGATION_SELECTOR).count(),
       0,
@@ -186,8 +220,8 @@ try {
         ([name, counter]) => window.ribbonM11.count(name, counter),
         [caseName, downstream],
       ),
-      0,
-      `${caseName} starts no downstream page transport before scope release`,
+      expectedBeforeRelease,
+      `${caseName} starts exactly its route-owned downstream work before scope release`,
     );
     assert.equal(
       await page.evaluate(
@@ -245,14 +279,14 @@ try {
     }
     await page.waitForFunction(
       ([name, counter, expectedCount]) => window.ribbonM11.count(name, counter) === expectedCount,
-      [caseName, downstream, expected],
+      [caseName, downstream, expectedAfterRelease],
     );
     assert.equal(
       await page.evaluate(
         ([name, counter]) => window.ribbonM11.count(name, counter),
         [caseName, downstream],
       ),
-      expected,
+      expectedAfterRelease,
       `${caseName} initializes exactly its expected downstream operation after release`,
     );
     if (caseName === "teaching") {
@@ -264,7 +298,7 @@ try {
         "teaching starts its paired invitation load once",
       );
     }
-    await assertHarnessRibbon(`${caseName} after scope release`);
+    await assertHarnessRibbon(`${caseName} after scope release`, taskRowReserved);
     assert.equal(
       await page.locator(RETIRED_NAVIGATION_SELECTOR).count(),
       0,
@@ -278,8 +312,8 @@ try {
     "compiled-harness routed components produced no console errors",
   );
   console.log(
-    "Compiled-harness deferred-content evidence passed: five current-source page families " +
-      "wait for scope before one local initialization; not dist or real-stack browser acceptance.",
+    "Compiled-harness deferred-content evidence passed: current-source page families preserve " +
+      "their declared pre/post-scope initialization; not dist or real-stack browser acceptance.",
   );
 } finally {
   await browser.close();

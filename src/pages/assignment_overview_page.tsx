@@ -61,6 +61,31 @@ function acceptedSubmissionStorageKey(
   return `live-native-ple-submission:${courseReference}:${assignmentReference}:${presentationNonce}`;
 }
 
+function SubmissionStatusPanel(props: {
+  readonly status: LiveNativePleSubmissionStatus;
+  readonly checkingStatus: boolean;
+  readonly statusError: string | undefined;
+  readonly onCheck: () => void;
+}): JSX.Element {
+  return (
+    <section class="attempt-pending" aria-labelledby="grading-status-heading">
+      <h2 id="grading-status-heading">{submissionHeading(props.status)}</h2>
+      <p>{submissionMessage(props.status)}</p>
+      <Show when={props.status.gradingState !== "graded"}>
+        <button
+          class="primary-action"
+          type="button"
+          disabled={props.checkingStatus}
+          onClick={props.onCheck}
+        >
+          Check grading status
+        </button>
+      </Show>
+      <Show when={props.statusError}>{(message) => <p role="alert">{message()}</p>}</Show>
+    </section>
+  );
+}
+
 /** Public Course and Assignment References locate the view; the server re-authorizes each response. */
 export function AssignmentOverviewPage(): JSX.Element {
   const runtime = useApplicationApi();
@@ -164,17 +189,16 @@ export function AssignmentOverviewPage(): JSX.Element {
     }
   }
 
+  // ASVS 8.3.1 and 14.3.3: this answer-free marker only rehydrates the status UI;
+  // the no-store server read reauthorizes access without starting another attempt.
   createEffect(() => {
     const courseReference = course();
     const assignmentReference = assignment();
     const nonce = selectedPresentationNonce();
-    const attempt = issued();
     if (
       courseReference === null ||
       assignmentReference === null ||
       nonce === null ||
-      attempt === undefined ||
-      !attempt.questions.some((question) => question.presentationNonce === nonce) ||
       window.sessionStorage.getItem(
         acceptedSubmissionStorageKey(courseReference, assignmentReference, nonce),
       ) !== "accepted"
@@ -189,43 +213,57 @@ export function AssignmentOverviewPage(): JSX.Element {
       <Show
         when={issued()}
         fallback={
-          <>
+          <Show
+            when={isSubmissionScreen() && submissionStatus() !== undefined}
+            fallback={
+              <>
+                <h1>Assignment</h1>
+                <Show
+                  when={access()}
+                  fallback={<p class="loading-state">Loading Assignment Access...</p>}
+                >
+                  {(current) => (
+                    <>
+                      <p role="status">{startDecisionMessage(current().startDecision)}</p>
+                      <Switch>
+                        <Match when={current().startDecision === "may_start"}>
+                          <button
+                            class="primary-action"
+                            type="button"
+                            disabled={starting()}
+                            onClick={() => void startAssignment()}
+                          >
+                            {starting() ? "Starting Assignment..." : "Start Assignment"}
+                          </button>
+                        </Match>
+                        <Match when={true}>
+                          <p>
+                            Check with your Instructor if you expected this Assignment to be
+                            available.
+                          </p>
+                        </Match>
+                      </Switch>
+                      <Show when={startError()}>
+                        {(message) => (
+                          <p role="alert" class="inline-error">
+                            {message()}
+                          </p>
+                        )}
+                      </Show>
+                    </>
+                  )}
+                </Show>
+              </>
+            }
+          >
             <h1>Assignment</h1>
-            <Show
-              when={access()}
-              fallback={<p class="loading-state">Loading Assignment Access...</p>}
-            >
-              {(current) => (
-                <>
-                  <p role="status">{startDecisionMessage(current().startDecision)}</p>
-                  <Switch>
-                    <Match when={current().startDecision === "may_start"}>
-                      <button
-                        class="primary-action"
-                        type="button"
-                        disabled={starting()}
-                        onClick={() => void startAssignment()}
-                      >
-                        {starting() ? "Starting Assignment..." : "Start Assignment"}
-                      </button>
-                    </Match>
-                    <Match when={true}>
-                      <p>
-                        Check with your Instructor if you expected this Assignment to be available.
-                      </p>
-                    </Match>
-                  </Switch>
-                  <Show when={startError()}>
-                    {(message) => (
-                      <p role="alert" class="inline-error">
-                        {message()}
-                      </p>
-                    )}
-                  </Show>
-                </>
-              )}
-            </Show>
-          </>
+            <SubmissionStatusPanel
+              status={submissionStatus()!}
+              checkingStatus={checkingStatus()}
+              statusError={statusError()}
+              onCheck={() => void refreshSubmissionStatus(selectedPresentationNonce()!)}
+            />
+          </Show>
         }
       >
         {(current) => (
@@ -291,25 +329,12 @@ export function AssignmentOverviewPage(): JSX.Element {
                         />
                       }
                     >
-                      <section class="attempt-pending" aria-labelledby="grading-status-heading">
-                        <h2 id="grading-status-heading">
-                          {submissionHeading(submissionStatus()!)}
-                        </h2>
-                        <p>{submissionMessage(submissionStatus()!)}</p>
-                        <Show when={submissionStatus()!.gradingState !== "graded"}>
-                          <button
-                            class="primary-action"
-                            type="button"
-                            disabled={checkingStatus()}
-                            onClick={() => void refreshSubmissionStatus(question.presentationNonce)}
-                          >
-                            Check grading status
-                          </button>
-                        </Show>
-                        <Show when={statusError()}>
-                          {(message) => <p role="alert">{message()}</p>}
-                        </Show>
-                      </section>
+                      <SubmissionStatusPanel
+                        status={submissionStatus()!}
+                        checkingStatus={checkingStatus()}
+                        statusError={statusError()}
+                        onCheck={() => void refreshSubmissionStatus(question.presentationNonce)}
+                      />
                     </Show>
                     <Show when={!isSubmissionScreen()}>
                       <p>

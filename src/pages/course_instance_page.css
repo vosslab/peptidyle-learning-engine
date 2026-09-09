@@ -1,0 +1,22 @@
+/* Course Instance owns the presentation of its semantic Course actions nav. */
+
+/* The former bare-nav hover rule changed the primary action's label color. */
+.course-instance-page__actions .primary-link:hover {
+  color: var(--ple-accent-strong);
+}
+
+@media (max-width: 48rem) {
+  .course-instance-page__actions {
+    width: 100%;
+    min-width: 0;
+    margin-inline-start: 0;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  .course-instance-page__actions > a {
+    min-width: 0;
+    flex: 0 0 auto;
+  }
+}

@@ -111,7 +111,7 @@ async function waitForPath(page, evidenceCase, pathname) {
   await flush(page);
 }
 
-async function assertOneStableRibbon(page, evidenceCase, initialRibbon) {
+async function assertOneStableRibbon(page, evidenceCase, initialRibbon, expectedTaskRowReserved) {
   const evidence = await caseLocator(page, evidenceCase).evaluate(
     (root, initial) => ({
       sameRibbon: root.querySelector(".ple-app-ribbon") === initial,
@@ -120,19 +120,24 @@ async function assertOneStableRibbon(page, evidenceCase, initialRibbon) {
       landmarks: root.querySelectorAll('[aria-label="PLE application Ribbon"]').length,
       tabs: root.querySelectorAll('nav[aria-label="Ribbon tabs"]').length,
       tasks: root.querySelectorAll('nav[aria-label="Ribbon tasks"]').length,
+      ribbonTaskRow: root.querySelector(".ple-app-ribbon")?.getAttribute("data-ribbon-task-row"),
+      frameTaskRow: root.querySelector(".ple-shell-frame")?.getAttribute("data-ribbon-task-row"),
       legacyCourse: root.querySelectorAll('nav[aria-label="Course management"]').length,
       legacyPrimary: root.querySelectorAll('nav[aria-label="Primary navigation"]').length,
       legacyWorkspace: root.querySelectorAll('nav[aria-label="Assignment workspace"]').length,
     }),
     initialRibbon,
   );
+  const expectedTaskRow = expectedTaskRowReserved ? "reserved" : "absent";
   assert.deepEqual(evidence, {
     sameRibbon: true,
     roots: 1,
     shellGrids: 1,
     landmarks: 1,
     tabs: 1,
-    tasks: 1,
+    tasks: expectedTaskRowReserved ? 1 : 0,
+    ribbonTaskRow: expectedTaskRow,
+    frameTaskRow: expectedTaskRow,
     legacyCourse: 0,
     legacyPrimary: 0,
     legacyWorkspace: 0,
@@ -155,16 +160,63 @@ try {
   await page.evaluate(() => window.ribbonM10.currentNavigate("/"));
   await waitForPath(page, "current-production", "/");
   const currentCase = caseLocator(page, "current-production");
+  await currentCase.locator(".site-header").waitFor({ state: "visible" });
+  assert.equal(
+    await currentCase.locator(".ple-app-ribbon").count(),
+    0,
+    "the synthetic loading surface uses the no-Ribbon shell shape",
+  );
+  assert.equal(
+    await currentCase.locator(".site-header").count(),
+    1,
+    "the synthetic loading surface retains its identity header",
+  );
+  assert.equal(
+    await currentCase.locator('.sr-only[role="status"][aria-live="polite"]').count(),
+    1,
+    "the synthetic loading surface retains the sign-out live region",
+  );
+  await page.evaluate(() => window.ribbonM10.releaseSession());
   await currentCase.locator(".ple-app-ribbon").waitFor({ state: "visible" });
+  assert.equal(
+    await currentCase.locator(".ple-shell-frame.ple-ribbon-shell-grid").count(),
+    1,
+    "an authenticated route uses one Ribbon shell frame",
+  );
+  assert.equal(
+    await currentCase.locator(".site-header").count(),
+    0,
+    "an authenticated Ribbon route has no duplicate identity header",
+  );
+  assert.equal(
+    await currentCase.locator('.sr-only[role="status"][aria-live="polite"]').count(),
+    1,
+    "the sign-out live region remains mounted on an authenticated Ribbon route",
+  );
+  assert.equal(
+    await currentCase.locator('.ple-shell-frame .sr-only[role="status"]').count(),
+    0,
+    "the sign-out live region remains outside the geometry-owning shell frame",
+  );
+  const authenticatedFrame = await currentCase.locator(".ple-shell-frame").evaluate((frame) => ({
+    clientHeight: frame.clientHeight,
+    scrollHeight: frame.scrollHeight,
+  }));
+  assert.ok(
+    authenticatedFrame.scrollHeight <= authenticatedFrame.clientHeight,
+    "the resolved authenticated shell has stable short-content geometry without internal overflow",
+  );
   let currentRibbon = await currentCase.locator(".ple-app-ribbon").elementHandle();
   assert.notEqual(currentRibbon, null, "current App mounts one Ribbon on an authenticated route");
-  await assertOneStableRibbon(page, "current-production", currentRibbon);
-  assert.equal(
+  await assertOneStableRibbon(page, "current-production", currentRibbon, false);
+  assert.deepEqual(
     await currentCase
-      .locator('nav[aria-label="Ribbon tabs"] a, nav[aria-label="Ribbon tasks"] a')
-      .count(),
-    0,
-    "current all-unbacked registry truthfully omits destination controls",
+      .locator("[data-ribbon-control]")
+      .evaluateAll((controls) =>
+        controls.map((control) => control.getAttribute("data-ribbon-control")),
+      ),
+    ["courses", "questionLibrary", "blueprintCourses"],
+    "the current Instructor Product route exposes only its admitted Tabs and no Task controls",
   );
   await currentCase.screenshot({
     path: "/private/tmp/ple_ribbon_m10_current_production_empty.png",
@@ -173,7 +225,7 @@ try {
 
   await page.evaluate(() => window.ribbonM10.currentNavigate("/courses/C-1"));
   await waitForPath(page, "current-production", "/courses/C-1");
-  await assertOneStableRibbon(page, "current-production", currentRibbon);
+  await assertOneStableRibbon(page, "current-production", currentRibbon, false);
   assert.equal(
     await currentCase.locator('.ple-app-ribbon[data-ribbon-scope="courseInstance"]').count(),
     1,
@@ -195,19 +247,19 @@ try {
     1,
     "the current-source scope controller starts exactly one deferred C-1 request",
   );
-  const deferredAssignments = currentCase.locator('[role="status"].loading-state');
-  await deferredAssignments.waitFor({ state: "visible" });
+  const courseInstance = currentCase.locator('[data-route-surface="courseInstance"]');
+  await courseInstance.waitFor({ state: "visible" });
   assert.equal(
-    await deferredAssignments.innerText(),
-    "Loading assignments...",
-    "the current-source course Assignments page owns its deferred content status",
+    await page.evaluate(() => window.ribbonM10.courseInstanceQueryCount()),
+    1,
+    "the current Course Instance surface resolves its exact direct-route identity once",
   );
   assert.equal(
     await page.evaluate(() => window.ribbonM10.assignmentQueryCount()),
-    0,
-    "the deferred course boundary starts no course-assignments query before scope release",
+    1,
+    "the current Course Instance surface requests its direct-route Assignment list once",
   );
-  await assertOneStableRibbon(page, "current-production", currentRibbon);
+  await assertOneStableRibbon(page, "current-production", currentRibbon, false);
   await page.evaluate(() => window.ribbonM10.releaseCourseScope("C-1"));
   await currentCase.locator(".ple-app-ribbon__course-scope-label").waitFor({ state: "visible" });
   await page.waitForFunction(
@@ -218,57 +270,60 @@ try {
     undefined,
     { timeout: 3_000 },
   );
-  await assertOneStableRibbon(page, "current-production", currentRibbon);
+  await assertOneStableRibbon(page, "current-production", currentRibbon, false);
   assert.equal(
     await currentCase.locator(".ple-app-ribbon__course-scope-label").innerText(),
     "Course C-1",
     "released current-source harness scope supplies the truthful C-1 label " +
       "without remounting Ribbon",
   );
-  const courseAssignments = currentCase.locator('[data-route-surface="courseAssignments"]');
-  await courseAssignments.waitFor({ state: "visible" });
   assert.equal(
     await page.evaluate(() => window.ribbonM10.assignmentQueryCount()),
     1,
-    "released current-source harness course scope starts the typed course-assignments query once",
+    "route-scope label release does not restart the direct Course Assignment query",
   );
   assert.equal(
-    await courseAssignments.locator(".course-assignments-identity .eyebrow").textContent(),
-    "Instructor course",
-    "the instructor course Assignments surface owns its concise course eyebrow",
-  );
-  assert.equal(
-    await courseAssignments.getByRole("heading", { name: "Assignments", level: 1 }).count(),
+    await page.evaluate(() => window.ribbonM10.courseInstanceQueryCount()),
     1,
-    "the instructor course Assignments surface owns exactly one page h1",
+    "route-scope label release does not restart the direct Course Instance query",
   );
-  const newAssignment = courseAssignments.getByRole("link", { name: "New assignment" });
+  assert.equal(
+    await courseInstance.locator(".eyebrow").textContent(),
+    "Course Instance · C-1",
+    "the Course Instance surface owns its exact public-reference eyebrow",
+  );
+  assert.equal(
+    await courseInstance.getByRole("heading", { name: "Course C-1", level: 1 }).count(),
+    1,
+    "the Course Instance surface owns exactly one identity h1",
+  );
+  const newAssignment = courseInstance.getByRole("link", { name: "Create Assignment" });
   assert.equal(
     await newAssignment.count(),
     1,
-    "the instructor course Assignments surface has exactly one New assignment page action",
+    "the Course Instance surface has exactly one Create Assignment action",
   );
   assert.equal(
     await newAssignment.getAttribute("href"),
     "/instructor/courses/C-1/assignments/new",
-    "New assignment uses the canonical instructor course route",
+    "Create Assignment uses the canonical instructor Course route",
   );
   assert.equal(
-    await courseAssignments.locator("[data-course-title], .course-entry-identity").count(),
+    await courseInstance.locator("[data-course-title], .course-entry-identity").count(),
     0,
-    "the instructor course Assignments surface does not retain student Course home identity",
+    "the Course Instance surface does not retain student Course-home identity",
   );
   assert.equal(
-    await courseAssignments.getByText("Course home", { exact: true }).count(),
+    await courseInstance.getByText("Course home", { exact: true }).count(),
     0,
-    "the instructor course Assignments surface has no student Course home eyebrow",
+    "the Course Instance surface has no student Course-home eyebrow",
   );
   assert.equal(
-    await courseAssignments.locator("h1").count(),
+    await courseInstance.locator("h1").count(),
     1,
-    "the instructor course Assignments surface has no duplicate course-title h1",
+    "the Course Instance surface has no duplicate course-title h1",
   );
-  await assertOneStableRibbon(page, "current-production", currentRibbon);
+  await assertOneStableRibbon(page, "current-production", currentRibbon, false);
   const currentMainFocus = await currentCase.evaluate((root) => {
     const mainContent = root.querySelector("#main-content");
     if (!(mainContent instanceof HTMLElement)) {
@@ -374,7 +429,7 @@ try {
 
   await page.evaluate(() => window.ribbonM10.currentNavigate("/courses/C-0"));
   await waitForPath(page, "current-production", "/courses/C-0");
-  await assertOneStableRibbon(page, "current-production", currentRibbon);
+  await assertOneStableRibbon(page, "current-production", currentRibbon, false);
   assert.deepEqual(
     await currentRibbon.evaluate((ribbon) => ({
       scope: ribbon.getAttribute("data-ribbon-scope"),
@@ -394,7 +449,7 @@ try {
 
   await page.evaluate(() => window.ribbonM10.currentNavigate("/assignment-attempts/R-0"));
   await waitForPath(page, "current-production", "/assignment-attempts/R-0");
-  await assertOneStableRibbon(page, "current-production", currentRibbon);
+  await assertOneStableRibbon(page, "current-production", currentRibbon, true);
   assert.deepEqual(
     await currentRibbon.evaluate((ribbon) => ({
       scope: ribbon.getAttribute("data-ribbon-scope"),
@@ -420,18 +475,18 @@ try {
     null,
     "a valid scoped route restores its declared Ribbon schema after malformed scope handling",
   );
-  await assertOneStableRibbon(page, "current-production", currentRibbon);
+  await assertOneStableRibbon(page, "current-production", currentRibbon, false);
 
-  for (const pathname of [
-    "/library",
-    "/blueprint-courses",
-    "/courses/C-2",
-    "/assignment-attempts/R-1",
-    "/courses/C-1",
+  for (const [pathname, taskRowReserved] of [
+    ["/library", true],
+    ["/blueprint-courses", false],
+    ["/courses/C-2", false],
+    ["/assignment-attempts/R-1", true],
+    ["/courses/C-1", false],
   ]) {
     await page.evaluate((nextPathname) => window.ribbonM10.currentNavigate(nextPathname), pathname);
     await waitForPath(page, "current-production", pathname);
-    await assertOneStableRibbon(page, "current-production", currentRibbon);
+    await assertOneStableRibbon(page, "current-production", currentRibbon, taskRowReserved);
   }
 
   await currentSkip.focus();
@@ -456,6 +511,21 @@ try {
     await currentCase.locator(".ple-ribbon-shell-grid").count(),
     0,
     "public sign-in reserves no phantom Ribbon row",
+  );
+  assert.equal(
+    await currentCase.locator(".ple-shell-frame").count(),
+    1,
+    "the no-Ribbon sign-in surface keeps the same viewport-owning shell frame",
+  );
+  assert.equal(
+    await currentCase.locator(".site-header").count(),
+    1,
+    "the no-Ribbon sign-in surface retains its identity header",
+  );
+  assert.equal(
+    await currentCase.locator('.sr-only[role="status"][aria-live="polite"]').count(),
+    1,
+    "the no-Ribbon sign-in surface retains the sign-out live region",
   );
   await page.evaluate(() => window.ribbonM10.currentNavigate("/not-a-route"));
   await waitForPath(page, "current-production", "/not-a-route");
@@ -522,43 +592,56 @@ try {
       scope: "courseInstance",
       selected: "Assignments",
       context: "Course C-1",
+      taskRowReserved: false,
     },
     {
       pathname: "/instructor/courses/C-1/students",
       scope: "courseInstance",
       selected: "Students",
       context: "Course C-1",
+      taskRowReserved: false,
     },
     {
       pathname: "/instructor/courses/C-1/gradebook",
       scope: "courseInstance",
       selected: "Gradebook",
       context: "Course C-1",
+      taskRowReserved: false,
     },
-    { pathname: "/library", scope: "product", selected: "Question Library", context: undefined },
+    {
+      pathname: "/library",
+      scope: "product",
+      selected: "Question Library",
+      context: undefined,
+      taskRowReserved: true,
+    },
     {
       pathname: "/blueprint-courses",
       scope: "product",
       selected: "Blueprint Courses",
       context: undefined,
+      taskRowReserved: false,
     },
     {
       pathname: "/courses/C-2",
       scope: "courseInstance",
       selected: "Assignments",
       context: "Course C-2",
+      taskRowReserved: false,
     },
     {
       pathname: "/assignment-attempts/R-1",
       scope: "assignmentAttempt",
       selected: undefined,
       context: undefined,
+      taskRowReserved: true,
     },
     {
       pathname: "/courses/C-1",
       scope: "courseInstance",
       selected: "Assignments",
       context: "Course C-1",
+      taskRowReserved: false,
     },
   ];
   for (const transition of fixtureTransitions) {
@@ -567,7 +650,7 @@ try {
       transition.pathname,
     );
     await waitForPath(page, "fixture-shell", transition.pathname);
-    await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon);
+    await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, transition.taskRowReserved);
     assert.equal(
       await fixtureCase.locator(`.ple-app-ribbon[data-ribbon-scope="${transition.scope}"]`).count(),
       1,
@@ -621,33 +704,45 @@ try {
       throw new Error("presentation setter did not update the course theme variables");
     }
   });
-  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon);
+  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, false);
 
   await page.evaluate(() => window.ribbonM10.throwFixtureContent(true));
   await page.evaluate(() => window.ribbonM10.fixtureNavigate("/courses/C-2"));
   await fixtureCase.getByRole("alert").waitFor({ state: "visible" });
-  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon);
+  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, false);
 
   const tab = fixtureCase.getByRole("link", { name: "Assignments" });
-  const task = fixtureCase.getByRole("link", { name: "Overview" });
   await tab.waitFor({ state: "visible" });
-  await task.waitFor({ state: "visible" });
   await tab.click();
   assert.equal(
     await page.evaluate(() => window.ribbonM10.fixturePathname()),
     "/courses/C-1",
     "visible Tab activation changes the controlled content route while its error remains contained",
   );
-  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon);
+  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, false);
+  await page.evaluate(() =>
+    window.ribbonM10.fixtureNavigate("/instructor/courses/C-1/assignments/A-1"),
+  );
+  await page.waitForFunction(
+    () =>
+      window.ribbonM10.fixturePathname() === "/instructor/courses/C-1/assignments/A-1" &&
+      document.querySelector(
+        '[data-m10-case="fixture-shell"] [data-ribbon-task-row="reserved"]',
+      ) !== null,
+  );
+  await flush(page);
+  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, true);
+  const task = fixtureCase.getByRole("link", { name: "Questions" });
+  await task.waitFor({ state: "visible" });
   await task.focus();
   await page.keyboard.press("Enter");
   assert.equal(
     await page.evaluate(() => window.ribbonM10.fixturePathname()),
-    "/instructor/courses/C-1/assignments/A-1",
+    "/instructor/courses/C-1/assignments/A-1/questions",
     "keyboard Task activation changes the controlled content route while its " +
       "error remains contained",
   );
-  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon);
+  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, true);
   await fixtureCase.screenshot({
     path: "/private/tmp/ple_ribbon_m10_fixture_shell.png",
     fullPage: true,
@@ -656,7 +751,7 @@ try {
   await page.evaluate(() => window.ribbonM10.throwFixtureContent(false));
   await fixtureCase.getByRole("button", { name: "Try this page again" }).click();
   await fixtureCase.locator("[data-m10-fixture-content]").waitFor({ state: "visible" });
-  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon);
+  await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, true);
 
   const fixtureSignOut = fixtureCase.getByRole("button", { name: "Sign out" });
   await fixtureCase.evaluate((root) => {
@@ -706,8 +801,8 @@ try {
     "compiled-harness App and structural-shell transitions emit no console errors",
   );
   process.stdout.write(
-    "Compiled-harness application-shell evidence passed: current-source empty admission " +
-      "and populated structural fixture shell; not dist or real-stack browser acceptance.\n",
+    "Compiled-harness application-shell evidence passed: current-source routed application " +
+      "and structural fixture shell; not dist or real-stack browser acceptance.\n",
   );
 } finally {
   await browser.close();

@@ -8,6 +8,6 @@ export PYTHONDONTWRITEBYTECODE=1
 source ~/.bashrc
 
 # Make the repository's root Python packages available to subdirectory launchers.
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-export PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
-unset REPO_ROOT
+ple_repository_root="$(git rev-parse --show-toplevel)"
+export PYTHONPATH="$ple_repository_root${PYTHONPATH:+:$PYTHONPATH}"
+unset ple_repository_root

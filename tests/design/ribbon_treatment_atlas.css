@@ -60,7 +60,7 @@
   border-inline-end: 1px solid var(--atlas-rule);
 }
 
-[data-ribbon-treatment="atlas"] .ple-app-ribbon__product-name {
+[data-ribbon-treatment="atlas"] .ple-app-ribbon__brand {
   color: var(--ple-ink, #172033);
   font-size: 0.88rem;
   font-weight: 780;
@@ -243,16 +243,6 @@
 
   [data-ribbon-treatment="atlas"] .ple-app-ribbon__tabs .ple-app-ribbon__link {
     padding-inline: var(--ple-space-2, 0.5rem);
-  }
-}
-
-/* The legacy global mobile nav rule wraps every nav. Ribbon rows have their
- * own horizontal-scroll contract, so wrapping would place otherwise reachable
- * controls below the fixed Ribbon row and clip them. */
-@media (max-width: 48rem) {
-  [data-ribbon-treatment="atlas"] .ple-app-ribbon__tabs,
-  [data-ribbon-treatment="atlas"] .ple-app-ribbon__tasks {
-    flex-wrap: nowrap;
   }
 }
 

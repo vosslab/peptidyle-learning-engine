@@ -24,12 +24,13 @@ The models below therefore distinguish two states:
   has a backed route and is available to the signed-in Product Role. This is not a new workflow or
   authorization rule; it is the stable navigation behavior an admitted capability must join.
 
-The design relies on three durable spatial cues. The Context Row answers "where am I and who am I?";
-the Tab Row answers "which destination am I in?"; and the Task Row answers "which part of that work
-can I enter?". Those row roles remain in the same order while route content changes. This applies
-the supporting UI-literature survey's principles of stable geometry, proximity, discrete responsive
-states, and readable keyboard focus, touch, and contrast without turning the survey into product
-requirements.
+The design names three durable spatial roles. The Context Row answers "where am I and who am I?";
+the Tab Row answers "which destination am I in?"; and, when the declared route has a task group, the
+Task Row answers "which part of that work can I enter?". Context and Tab are always present; Task is
+conditional on declared route topology. Present row roles retain their order while route content
+changes. This applies the supporting UI-literature survey's principles of stable geometry,
+proximity, discrete responsive states, and readable keyboard focus, touch, and contrast without
+turning the survey into product requirements.
 
 ## Shared interaction model
 
@@ -37,13 +38,14 @@ requirements.
 
 An admitted Ribbon link acknowledges activation at the clicked control: the selected link receives
 `aria-current="page"` and pending feedback before route content resolves. The Application Shell stays
-mounted, the three Ribbon rows retain their geometry, and focus moves to the one `#main-content`
-target after a pathname change. A content error stays inside that target and offers recovery without
-removing the Ribbon. The skip link reaches the same target directly.
+mounted, the rows reserved by the declared route topology retain their geometry, and focus moves to
+the one `#main-content` target after a pathname change. A content error stays inside that target and
+offers recovery without removing the Ribbon. The skip link reaches the same target directly.
 
 This means a person can re-orient from the Context Row, then confirm the selected Tab or Task, then
-resume reading or working in the content area. A scoped course label and Assignment Attempt labels
-add context; they never replace the page heading or cause a row to appear, disappear, or move.
+resume reading or working in the content area. A scoped course label, Assignment Attempt label,
+admission result, loading state, or content error never replaces the page heading or changes the
+rows declared by route topology.
 
 ### Course Instance Tabs
 
@@ -56,8 +58,8 @@ destination, but the schema never changes order because loading, a title, or a p
 An Instructor's assignment-workspace Tasks are **Overview**, **Questions**, **Policies**, **Grading
 Operations**, and **Student View** when backed. **Grade Settings** and **Appearance** are Course Setup
 Tasks when backed. **Create Assignment** is a Page Action in Assignments content, not a Ribbon Tab or
-Task. The Task Row intentionally remains reserved when no task is admitted, so the content origin
-does not move.
+Task. A route declaring one of these task groups reserves the Task Row even when no Task is admitted,
+so admission never moves the content origin. A route with no declared task group omits that row.
 
 ### Assignment Attempt boundary
 
@@ -210,18 +212,18 @@ current implementation checks; future capability admission must keep the same ch
 
 | Guideline                                             | User-facing rationale                                                                                                                                                                   | Concrete acceptance check                                                                                                                                                                                                                                                                                                      |
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Stable spatial memory and visibility of system status | A person can keep their place because selection changes at the chosen control while the Context, Tabs, Tasks, and content origin remain recognizable.                                   | `tests/playwright/ribbon_m10_shell_evidence.mjs` proves one persistent Ribbon instance, stable element identity across route transitions, and content-only recovery; the non-browser E2E [pending-navigation check](../../tests/e2e/e2e_ribbon_pending_navigation.mjs) proves pending feedback is local to a link.             |
+| Stable spatial memory and visibility of system status | A person can keep their place because selection changes at the chosen control while the topology-owned Context, Tabs, optional Tasks, and content origin remain recognizable.           | `tests/playwright/ribbon_m10_shell_evidence.mjs` proves one persistent Ribbon instance, topology-aware row identity across route transitions, and content-only recovery; the non-browser E2E [pending-navigation check](../../tests/e2e/e2e_ribbon_pending_navigation.mjs) proves pending feedback is local to a link.         |
 | Nielsen: match between system and teaching task       | Course identity, **Assignments**, **Attempt**, and **Back to Assignments** use the terms a teacher or student needs to recognize work, rather than internal route or database names.    | `tests/test_ribbon_catalog.mjs` and `tests/test_ribbon_contract.mjs` assert catalog labels and declared route mapping; a documentation review checks vocabulary against [INTERFACE_TERMINOLOGY.md](../INTERFACE_TERMINOLOGY.md).                                                                                               |
 | Nielsen: user control and recovery                    | A content problem does not trap a person or erase navigation: they can retry the page, return to courses, or use an admitted destination.                                               | `tests/playwright/ribbon_m10_shell_evidence.mjs` triggers content recovery, then activates Tabs with mouse and keyboard while confirming the same Ribbon remains mounted.                                                                                                                                                      |
-| Nielsen: consistency and standards                    | The same row role and link treatment communicate the same thing across Product, Course Instance, and Assignment Attempt scopes.                                                         | `tests/test_ribbon_schema.mjs` and `tests/test_ribbon_catalog.mjs` assert closed schemas and ordered controls; the non-browser E2E [Application Shell component check](../../tests/e2e/e2e_ribbon_app_component.mjs) asserts selected-link semantics.                                                                          |
-| WCAG 2.2 SC 3.2.3 Consistent Navigation               | Repeated navigation stays in a predictable order, so a keyboard or screen-reader user does not have to relearn the shell after content changes.                                         | `tests/test_ribbon_schema.mjs` proves ordered schema positions; `tests/playwright/ribbon_m10_shell_evidence.mjs` checks persistent shell identity and one Ribbon navigation surface across transitions.                                                                                                                        |
+| Nielsen: consistency and standards                    | The same row role and link treatment communicate the same thing across scopes; the Task role appears only on routes whose declared topology contains tasks.                             | `tests/test_ribbon_schema.mjs` and `tests/test_ribbon_catalog.mjs` assert closed schemas and ordered controls; the non-browser E2E [Application Shell component check](../../tests/e2e/e2e_ribbon_app_component.mjs) asserts selected-link semantics and topology-aware rows.                                                  |
+| WCAG 2.2 SC 3.2.3 Consistent Navigation               | Repeated navigation stays in a predictable order within its declared route topology, so a keyboard or screen-reader user does not have to relearn the shell after content changes.      | `tests/test_ribbon_schema.mjs` proves ordered schema positions; `tests/playwright/ribbon_m10_shell_evidence.mjs` checks persistent shell identity and one Ribbon navigation surface across taskful and taskless transitions.                                                                                                   |
 | WCAG 2.2 SC 3.2.4 Consistent Identification           | A control with the same purpose keeps the same accessible label and visual name wherever it appears.                                                                                    | `tests/test_ribbon_catalog.mjs` and `tests/test_ribbon_icons.mjs` keep catalog labels as link names and verify icon treatment supplements rather than replaces the label; the non-browser E2E [Application Shell component check](../../tests/e2e/e2e_ribbon_app_component.mjs) verifies the rendered selected-link semantics. |
 | Keyboard operation and focus order                    | Students can reach navigation and learning content without a pointer, and a route change has one predictable content destination.                                                       | `tests/playwright/ribbon_m10_shell_evidence.mjs` checks the focused skip link and its `#main-content` target; `src/application_shell.tsx` moves focus to that target after pathname changes.                                                                                                                                   |
 | Visible focus and non-color selection                 | A keyboard user can see the active control and current location even when hue is not distinguishable.                                                                                   | `tests/playwright/ribbon_m9b_density_evidence.mjs` measures focus and selection styles; `src/ribbon/app_ribbon.css` pairs focus outline with selected weight and underline or task background treatment.                                                                                                                       |
 | Reflow, text resizing, and discrete responsive states | A smaller viewport or larger text changes presentation deliberately without changing navigation meaning, hiding a normal destination label, or making the selected control unreachable. | `tests/playwright/ribbon_m9_responsive_evidence.mjs` and `tests/playwright/ribbon_geometry_evidence.mjs` cover narrow, tablet, and 200% text geometry, overflow cues, and selected-control reveal.                                                                                                                             |
 | Contrast and forced colors                            | Text, selection, focus, and essential boundaries remain distinguishable for people using a course theme or a high-contrast system mode.                                                 | `tests/playwright/ribbon_m9b_density_evidence.mjs` covers contrast, forced-colors, and reduced-motion behavior; [UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md) records the ordinary-text and focus treatment requirements.                                                                                                        |
 | Motion preference                                     | Understanding the current location does not depend on an animation, and people who reduce motion do not receive unnecessary movement.                                                   | `tests/playwright/ribbon_m9b_density_evidence.mjs` checks the reduced-motion projection; `src/ribbon/app_ribbon.css` contains the `prefers-reduced-motion` treatment.                                                                                                                                                          |
-| Truthful capability admission                         | A person never spends effort activating a dead control or interpreting an unavailable feature as a role failure.                                                                        | `tests/test_ribbon_capability_registry.mjs` proves `Available` is the only visible admission state; the generated [Ribbon destination ledger](RIBBON_DESTINATION_LEDGER.md) records the current role ceiling for each declared destination.                                                                                   |
+| Truthful capability admission                         | A person never spends effort activating a dead control or interpreting an unavailable feature as a role failure.                                                                        | `tests/test_ribbon_capability_registry.mjs` proves `Available` is the only visible admission state; the generated [Ribbon destination ledger](RIBBON_DESTINATION_LEDGER.md) records the current role ceiling for each declared destination.                                                                                    |
 
 ## Maintenance rule
 
