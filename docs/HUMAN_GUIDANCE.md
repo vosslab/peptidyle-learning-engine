@@ -149,17 +149,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A course can have multiple co-**Instructors** with equal teaching authority for that course.
 - **Sysadmins** can create courses, but **Instructors** teach them. Every course must have an assigned **Instructor** who owns the course.
 
-## Sysadmin philosophy
+## Assignment philosophy
 
-- A **Sysadmin** must be a god-level account:
-  - **Instructor** vetting and account creation.
-  - Help for non-tech **Instructors** fixing their courses, including **Students** and content.
-- The human developer, Dr. Neil Voss, is the current **Sysadmin** and is also an **Instructor**.
-- Neil will have two logins, one for Sysadmin and one for Instructor, so the user roles remain distinct
-- Every **Instructor** is manually approved after validation that the **Instructor** is a real person.
-- A **Sysadmin** does not receive general access to FERPA course records.
-- Sysadmins stay out of Student rosters, grades, and other FERPA course records during normal
-  operation. They may access them when helping an Instructor resolve a specific course problem.
+- **Assignments** give **Students** regular practice applying course ideas outside class. They reinforce current learning and may also introduce new topics.
+- **Assignments** are designed as practice for learning, not merely as one-time assessments.
+- Each **Assignment Attempt** has a time limit so **Students** develop an accurate sense of the expected working speed and Question sets do not remain open for days.
+- **Students** may start another **Assignment Attempt** as often as needed. Repeating an Assignment to a perfect score should build understanding and confidence.
+- **Assignments** should support collaborative learning. **Students** are encouraged to work together, help each other, and ask questions while learning the material.
+- Course orientation and in-class activities may precede regular online homework so **Students** have time to establish access and learn the assignment platform.
 
 ## Instructor philosophy
 
@@ -181,6 +178,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - **Student** workflows should be designed for laptop, portrait tablet, narrow-phone, and square displays.
 - Every **Student** browser action should be usable with the keyboard alone.
+- Each **Assignment Attempt** has a time limit; **Students** start a new attempt instead of leaving one Question set open for days.
+- **Students** may retry Assignments as often as needed, including practicing to a perfect score to build understanding and confidence.
 - **Students** log in only with a passkey or email code; no passwords.
 - **Student** data should be collected reluctantly, used deliberately, and purged predictably.
 - **Student** course data falls under FERPA; treat it as radioactive.
@@ -190,6 +189,18 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - When an Instructor uploads a roster, PLE uses the institutional email to find an existing Student Account or creates one when none exists.
 - Each course creates its own course-scoped Student Record and enrollment relationship for that Student Account.
 - Course work, attempts, submissions, and grades follow the course retention policy independently of the lifetime of the Student Account.
+
+## Sysadmin philosophy
+
+- A **Sysadmin** must be a god-level account:
+  - **Instructor** vetting and account creation.
+  - Help for non-tech **Instructors** fixing their courses, including **Students** and content.
+- The human developer, Dr. Neil Voss, is the current **Sysadmin** and is also an **Instructor**.
+- Neil will have two logins, one for Sysadmin and one for Instructor, so the user roles remain distinct
+- Every **Instructor** is manually approved after validation that the **Instructor** is a real person.
+- A **Sysadmin** does not receive general access to FERPA course records.
+- Sysadmins stay out of Student rosters, grades, and other FERPA course records during normal
+  operation. They may access them when helping an Instructor resolve a specific course problem.
 
 ## Course observers, student observers, and graders philosophy
 
