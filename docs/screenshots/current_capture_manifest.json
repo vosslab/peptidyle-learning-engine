@@ -1,55 +1,1085 @@
 {
-  "schemaVersion": 1,
-  "evidenceClass": "one-time-rendered",
+  "schemaVersion": 2,
+  "evidenceClass": "reproducible-rendered",
   "rebuildCommand": "./devel/capture_screenshots.sh",
+  "viewports": {
+    "laptop": { "width": 1280, "height": 800, "mobile": false },
+    "tablet": { "width": 800, "height": 1280, "mobile": true },
+    "phone": { "width": 393, "height": 852, "mobile": true },
+    "square": { "width": 800, "height": 800, "mobile": false }
+  },
   "captures": [
     {
-      "path": "public/account/03_seeded_demo_sign_in_laptop.png",
-      "persona": "unauthenticated",
+      "id": "public_sign_in_laptop",
+      "path": "public/sign_in_laptop.png",
+      "role": "public",
+      "routeId": "signIn",
+      "area": "account",
+      "workflow": "authentication",
+      "state": "sign in",
+      "scenario": "public_entry",
+      "checkpoint": "sign_in_laptop",
       "viewport": "laptop",
-      "surface": "seeded Account entry"
+      "privacyProfile": "public",
+      "gallery": { "order": 10, "caption": "Seeded Live Demo sign-in", "featured": true }
     },
     {
-      "path": "instructor/question_library_discovery/04_connected_question_library_laptop.png",
-      "persona": "instructor",
-      "viewport": "laptop",
-      "surface": "Question Library"
-    },
-    {
-      "path": "instructor/assignment_workspace/03_released_assignment_workspace_laptop.png",
-      "persona": "instructor",
-      "viewport": "laptop",
-      "surface": "released Assignment workspace"
-    },
-    {
-      "path": "student/access/allowed_assignment_overview/03_connected_assignment_overview_laptop.png",
-      "persona": "student",
-      "viewport": "laptop",
-      "surface": "unanswered Assignment overview"
-    },
-    {
-      "path": "student/access/allowed_assignment_overview/02_connected_assignment_overview_tablet.png",
-      "persona": "student",
-      "viewport": "tablet",
-      "surface": "Assignment overview"
-    },
-    {
-      "path": "student/delivery/09_unanswered_question_phone.png",
-      "persona": "student",
+      "id": "public_sign_in_phone",
+      "path": "public/sign_in_phone.png",
+      "role": "public",
+      "routeId": "signIn",
+      "area": "account",
+      "workflow": "authentication",
+      "state": "sign in",
+      "scenario": "public_entry",
+      "checkpoint": "sign_in_phone",
       "viewport": "phone",
-      "surface": "unanswered Question presentation"
+      "privacyProfile": "public",
+      "gallery": { "order": 20, "caption": "Seeded Live Demo sign-in on a phone" }
     },
     {
-      "path": "student/delivery/10_unanswered_question_square.png",
-      "persona": "student",
-      "viewport": "square",
-      "surface": "unanswered Question presentation"
-    },
-    {
-      "path": "sysadmin/instructor_accounts/01_instructor_accounts_laptop.png",
-      "persona": "sysadmin",
+      "id": "public_session_renewal_laptop",
+      "path": "public/session_renewal_laptop.png",
+      "role": "public",
+      "routeId": "library",
+      "area": "account",
+      "workflow": "session recovery",
+      "state": "expired",
+      "scenario": "public_entry",
+      "checkpoint": "session_renewal_laptop",
       "viewport": "laptop",
-      "surface": "Instructor Account lifecycle workspace"
+      "privacyProfile": "public",
+      "gallery": { "order": 30, "caption": "Expired-session renewal" }
+    },
+
+    {
+      "id": "instructor_course_list_laptop",
+      "path": "instructor/course_list_laptop.png",
+      "role": "instructor",
+      "routeId": "courses",
+      "area": "courses",
+      "workflow": "seeded teaching course",
+      "state": "course list",
+      "scenario": "instructor_seeded",
+      "checkpoint": "course_list",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 110, "caption": "Instructor Course Instances", "featured": true }
+    },
+    {
+      "id": "instructor_course_assignment_workspace_laptop",
+      "path": "instructor/course_assignment_workspace_laptop.png",
+      "role": "instructor",
+      "routeId": "courseAssignments",
+      "area": "courses",
+      "workflow": "seeded teaching course",
+      "state": "assignment workspace",
+      "scenario": "instructor_seeded",
+      "checkpoint": "course_assignment_workspace",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 120, "caption": "Course Assignment workspace" }
+    },
+    {
+      "id": "instructor_course_roster_active_laptop",
+      "path": "instructor/course_roster_active_laptop.png",
+      "role": "instructor",
+      "routeId": "courseRoster",
+      "area": "courses",
+      "workflow": "roster",
+      "state": "active students",
+      "scenario": "instructor_seeded",
+      "checkpoint": "course_roster_active",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 130, "caption": "Active Course roster" }
+    },
+    {
+      "id": "instructor_course_roster_pending_invitation_laptop",
+      "path": "instructor/course_roster_pending_invitation_laptop.png",
+      "role": "instructor",
+      "routeId": "courseRoster",
+      "area": "courses",
+      "workflow": "roster",
+      "state": "pending invitation",
+      "scenario": "instructor_seeded",
+      "checkpoint": "course_roster_pending_invitation",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 140, "caption": "Roster with a pending invitation" }
+    },
+    {
+      "id": "instructor_gradebook_laptop",
+      "path": "instructor/gradebook_laptop.png",
+      "role": "instructor",
+      "routeId": "gradebook",
+      "area": "grading",
+      "workflow": "seeded teaching course",
+      "state": "mixed progress",
+      "scenario": "instructor_seeded",
+      "checkpoint": "gradebook",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 150, "caption": "Answer-free Gradebook", "featured": true }
+    },
+
+    {
+      "id": "instructor_question_library_laptop",
+      "path": "instructor/question_library_laptop.png",
+      "role": "instructor",
+      "routeId": "library",
+      "area": "question library",
+      "workflow": "question discovery",
+      "state": "default",
+      "scenario": "instructor_library",
+      "checkpoint": "library_default",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 210, "caption": "Question Library", "featured": true }
+    },
+    {
+      "id": "instructor_question_library_filtered_laptop",
+      "path": "instructor/question_library_filtered_laptop.png",
+      "role": "instructor",
+      "routeId": "library",
+      "area": "question library",
+      "workflow": "question discovery",
+      "state": "filtered",
+      "scenario": "instructor_library",
+      "checkpoint": "library_filtered",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 220, "caption": "Filtered Question Library" }
+    },
+    {
+      "id": "instructor_published_question_detail_laptop",
+      "path": "instructor/published_question_detail_laptop.png",
+      "role": "instructor",
+      "routeId": "questionDetail",
+      "area": "question library",
+      "workflow": "question discovery",
+      "state": "published detail",
+      "scenario": "instructor_library",
+      "checkpoint": "published_question_detail",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 230, "caption": "Published Question detail" }
+    },
+
+    {
+      "id": "instructor_question_drafts_laptop",
+      "path": "instructor/question_drafts_laptop.png",
+      "role": "instructor",
+      "routeId": "questionDrafts",
+      "area": "question authoring",
+      "workflow": "publication",
+      "state": "draft list",
+      "scenario": "instructor_authoring",
+      "checkpoint": "draft_list",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 310, "caption": "Private Question drafts" }
+    },
+    {
+      "id": "instructor_draft_editor_saved_laptop",
+      "path": "instructor/draft_editor_saved_laptop.png",
+      "role": "instructor",
+      "routeId": "questionDraftEditor",
+      "area": "question authoring",
+      "workflow": "publication",
+      "state": "saved draft",
+      "scenario": "instructor_authoring",
+      "checkpoint": "saved_editor",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 320, "caption": "Saved private Question editor" }
+    },
+    {
+      "id": "instructor_publication_review_laptop",
+      "path": "instructor/publication_review_laptop.png",
+      "role": "instructor",
+      "routeId": "questionDraftEditor",
+      "area": "question authoring",
+      "workflow": "publication",
+      "state": "review",
+      "scenario": "instructor_authoring",
+      "checkpoint": "publication_review",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 330, "caption": "Question publication review" }
+    },
+    {
+      "id": "instructor_published_question_result_laptop",
+      "path": "instructor/published_question_result_laptop.png",
+      "role": "instructor",
+      "routeId": "questionDraftEditor",
+      "area": "question authoring",
+      "workflow": "publication",
+      "state": "published",
+      "scenario": "instructor_authoring",
+      "checkpoint": "published_result",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 340, "caption": "Published Question result" }
+    },
+
+    {
+      "id": "instructor_blueprint_courses_laptop",
+      "path": "instructor/blueprint_courses_laptop.png",
+      "role": "instructor",
+      "routeId": "blueprintCourses",
+      "area": "blueprint courses",
+      "workflow": "reusable course design",
+      "state": "list",
+      "scenario": "instructor_blueprint",
+      "checkpoint": "blueprint_list",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 410, "caption": "Blueprint Courses" }
+    },
+    {
+      "id": "instructor_blueprint_course_detail_laptop",
+      "path": "instructor/blueprint_course_detail_laptop.png",
+      "role": "instructor",
+      "routeId": "blueprintCourseDetail",
+      "area": "blueprint courses",
+      "workflow": "reusable course design",
+      "state": "detail",
+      "scenario": "instructor_blueprint",
+      "checkpoint": "blueprint_detail",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 420, "caption": "Blueprint Course detail" }
+    },
+    {
+      "id": "instructor_blueprint_question_picker_laptop",
+      "path": "instructor/blueprint_question_picker_laptop.png",
+      "role": "instructor",
+      "routeId": "blueprintCourses",
+      "area": "blueprint courses",
+      "workflow": "reusable course design",
+      "state": "question picker",
+      "scenario": "instructor_blueprint",
+      "checkpoint": "blueprint_question_picker",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 430, "caption": "Blueprint Question picker" }
+    },
+
+    {
+      "id": "instructor_assignment_creation_laptop",
+      "path": "instructor/assignment_creation_laptop.png",
+      "role": "instructor",
+      "routeId": "assignmentCreate",
+      "area": "assignments",
+      "workflow": "assignment release",
+      "state": "creation",
+      "scenario": "instructor_assignment",
+      "checkpoint": "assignment_creation",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 510, "caption": "Assignment creation" }
+    },
+    {
+      "id": "instructor_assignment_release_draft_laptop",
+      "path": "instructor/assignment_release_draft_laptop.png",
+      "role": "instructor",
+      "routeId": "assignmentReleaseWorkspace",
+      "area": "assignments",
+      "workflow": "assignment release",
+      "state": "draft",
+      "scenario": "instructor_assignment",
+      "checkpoint": "assignment_release_draft",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 520, "caption": "Draft Assignment release workspace" }
+    },
+    {
+      "id": "instructor_assignment_release_preview_laptop",
+      "path": "instructor/assignment_release_preview_laptop.png",
+      "role": "instructor",
+      "routeId": "assignmentReleaseWorkspace",
+      "area": "assignments",
+      "workflow": "assignment release",
+      "state": "answer-free preview",
+      "scenario": "instructor_assignment",
+      "checkpoint": "assignment_release_preview",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 530, "caption": "Answer-free Assignment Preview" }
+    },
+    {
+      "id": "instructor_assignment_release_released_laptop",
+      "path": "instructor/assignment_release_released_laptop.png",
+      "role": "instructor",
+      "routeId": "assignmentReleaseWorkspace",
+      "area": "assignments",
+      "workflow": "assignment release",
+      "state": "released",
+      "scenario": "instructor_assignment",
+      "checkpoint": "assignment_release_released",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 540, "caption": "Released Assignment workspace", "featured": true }
+    },
+
+    {
+      "id": "student_course_list_laptop",
+      "path": "student/course_list_laptop.png",
+      "role": "student",
+      "routeId": "courses",
+      "area": "courses",
+      "workflow": "course navigation",
+      "state": "course list",
+      "scenario": "student_course_list",
+      "checkpoint": "course_list_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": { "order": 610, "caption": "Student courses", "featured": true }
+    },
+    {
+      "id": "student_course_list_phone",
+      "path": "student/course_list_phone.png",
+      "role": "student",
+      "routeId": "courses",
+      "area": "courses",
+      "workflow": "course navigation",
+      "state": "course list",
+      "scenario": "student_course_list",
+      "checkpoint": "course_list_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_self",
+      "gallery": { "order": 620, "caption": "Student courses on a phone" }
+    },
+    {
+      "id": "student_invitation_index_laptop",
+      "path": "student/invitation_index_laptop.png",
+      "role": "student",
+      "routeId": "studentCourseInvitations",
+      "area": "courses",
+      "workflow": "course invitation",
+      "state": "pending index",
+      "scenario": "student_invitation",
+      "checkpoint": "invitation_index",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": { "order": 630, "caption": "Pending Course Invitations" }
+    },
+    {
+      "id": "student_invitation_detail_laptop",
+      "path": "student/invitation_detail_laptop.png",
+      "role": "student",
+      "routeId": "studentCourseInvitation",
+      "area": "courses",
+      "workflow": "course invitation",
+      "state": "review",
+      "scenario": "student_invitation",
+      "checkpoint": "invitation_detail",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": { "order": 640, "caption": "Course Invitation review" }
+    },
+    {
+      "id": "student_invitation_accepted_laptop",
+      "path": "student/invitation_accepted_laptop.png",
+      "role": "student",
+      "routeId": "studentCourseInvitation",
+      "area": "courses",
+      "workflow": "course invitation",
+      "state": "accepted",
+      "scenario": "student_invitation",
+      "checkpoint": "invitation_accepted",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": { "order": 650, "caption": "Accepted Course Invitation" }
+    },
+
+    {
+      "id": "student_course_not_started_laptop",
+      "path": "student/course_not_started_laptop.png",
+      "role": "student",
+      "routeId": "studentCourseLanding",
+      "area": "courses",
+      "workflow": "seeded assignment progress",
+      "state": "not started",
+      "scenario": "student_landings",
+      "checkpoint": "not_started_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": { "order": 710, "caption": "Not-started Course landing" }
+    },
+    {
+      "id": "student_course_in_progress_laptop",
+      "path": "student/course_in_progress_laptop.png",
+      "role": "student",
+      "routeId": "studentCourseLanding",
+      "area": "courses",
+      "workflow": "seeded assignment progress",
+      "state": "in progress",
+      "scenario": "student_landings",
+      "checkpoint": "in_progress_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": { "order": 720, "caption": "In-progress Course landing" }
+    },
+    {
+      "id": "student_course_completed_laptop",
+      "path": "student/course_completed_laptop.png",
+      "role": "student",
+      "routeId": "studentCourseLanding",
+      "area": "courses",
+      "workflow": "seeded assignment progress",
+      "state": "completed",
+      "scenario": "student_landings",
+      "checkpoint": "completed_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": { "order": 730, "caption": "Completed Course landing", "featured": true }
+    },
+    {
+      "id": "student_course_not_started_phone",
+      "path": "student/course_not_started_phone.png",
+      "role": "student",
+      "routeId": "studentCourseLanding",
+      "area": "courses",
+      "workflow": "seeded assignment progress",
+      "state": "not started",
+      "scenario": "student_landings",
+      "checkpoint": "not_started_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_self",
+      "gallery": { "order": 740, "caption": "Not-started Course landing on a phone" }
+    },
+
+    {
+      "id": "student_assignment_overview_unanswered_laptop",
+      "path": "student/assignment_overview_unanswered_laptop.png",
+      "role": "student",
+      "routeId": "assignmentOverview",
+      "area": "assignments",
+      "workflow": "assignment entry",
+      "state": "unanswered",
+      "scenario": "student_assignment_overviews",
+      "checkpoint": "unanswered_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": { "order": 810, "caption": "Unanswered Assignment overview", "featured": true }
+    },
+    {
+      "id": "student_assignment_overview_unanswered_tablet",
+      "path": "student/assignment_overview_unanswered_tablet.png",
+      "role": "student",
+      "routeId": "assignmentOverview",
+      "area": "assignments",
+      "workflow": "assignment entry",
+      "state": "unanswered",
+      "scenario": "student_assignment_overviews",
+      "checkpoint": "unanswered_tablet",
+      "viewport": "tablet",
+      "privacyProfile": "student_unanswered",
+      "gallery": { "order": 820, "caption": "Unanswered Assignment overview on a tablet" }
+    },
+    {
+      "id": "student_assignment_overview_resumed_laptop",
+      "path": "student/assignment_overview_resumed_laptop.png",
+      "role": "student",
+      "routeId": "assignmentOverview",
+      "area": "assignments",
+      "workflow": "assignment entry",
+      "state": "resumed",
+      "scenario": "student_assignment_overviews",
+      "checkpoint": "resumed_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": { "order": 830, "caption": "Resumed in-progress Assignment" }
+    },
+
+    {
+      "id": "student_question_unanswered_laptop",
+      "path": "student/question_unanswered_laptop.png",
+      "role": "student",
+      "routeId": "assignmentOverview",
+      "area": "question delivery",
+      "workflow": "response progression",
+      "state": "unanswered",
+      "scenario": "student_question_delivery",
+      "checkpoint": "question_unanswered_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": { "order": 910, "caption": "Unanswered Question", "featured": true }
+    },
+    {
+      "id": "student_question_unanswered_phone",
+      "path": "student/question_unanswered_phone.png",
+      "role": "student",
+      "routeId": "assignmentOverview",
+      "area": "question delivery",
+      "workflow": "response progression",
+      "state": "unanswered",
+      "scenario": "student_question_delivery",
+      "checkpoint": "question_unanswered_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_unanswered",
+      "gallery": { "order": 920, "caption": "Unanswered Question on a phone" }
+    },
+    {
+      "id": "student_question_unanswered_square",
+      "path": "student/question_unanswered_square.png",
+      "role": "student",
+      "routeId": "assignmentOverview",
+      "area": "question delivery",
+      "workflow": "response progression",
+      "state": "unanswered",
+      "scenario": "student_question_delivery",
+      "checkpoint": "question_unanswered_square",
+      "viewport": "square",
+      "privacyProfile": "student_unanswered",
+      "gallery": { "order": 930, "caption": "Unanswered Question in a square viewport" }
+    },
+    {
+      "id": "student_question_response_selected_laptop",
+      "path": "student/question_response_selected_laptop.png",
+      "role": "student",
+      "routeId": "assignmentSubmission",
+      "area": "question delivery",
+      "workflow": "response progression",
+      "state": "response selected",
+      "scenario": "student_question_delivery",
+      "checkpoint": "response_selected",
+      "viewport": "laptop",
+      "privacyProfile": "student_selected_response",
+      "gallery": { "order": 940, "caption": "Selected Student response" }
+    },
+    {
+      "id": "student_question_response_received_laptop",
+      "path": "student/question_response_received_laptop.png",
+      "role": "student",
+      "routeId": "assignmentSubmission",
+      "area": "question delivery",
+      "workflow": "response progression",
+      "state": "response received",
+      "scenario": "student_question_delivery",
+      "checkpoint": "response_received",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": { "order": 950, "caption": "Response received" }
+    },
+    {
+      "id": "student_question_graded_laptop",
+      "path": "student/question_graded_laptop.png",
+      "role": "student",
+      "routeId": "assignmentSubmission",
+      "area": "question delivery",
+      "workflow": "response progression",
+      "state": "graded",
+      "scenario": "student_question_delivery",
+      "checkpoint": "graded",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": { "order": 960, "caption": "Graded response status" }
+    },
+    {
+      "id": "student_question_graded_after_reload_laptop",
+      "path": "student/question_graded_after_reload_laptop.png",
+      "role": "student",
+      "routeId": "assignmentSubmission",
+      "area": "question delivery",
+      "workflow": "response progression",
+      "state": "graded after reload",
+      "scenario": "student_question_delivery",
+      "checkpoint": "graded_after_reload",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": { "order": 970, "caption": "Graded state restored after reload" }
+    },
+    {
+      "id": "student_question_numerical_laptop",
+      "path": "student/question_numerical_laptop.png",
+      "role": "student",
+      "routeId": "assignmentOverview",
+      "area": "question delivery",
+      "workflow": "response formats",
+      "state": "numerical",
+      "scenario": "student_question_delivery",
+      "checkpoint": "numerical_response",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": { "order": 980, "caption": "Numerical response control" }
+    },
+    {
+      "id": "student_question_hotspot_laptop",
+      "path": "student/question_hotspot_laptop.png",
+      "role": "student",
+      "routeId": "assignmentOverview",
+      "area": "question delivery",
+      "workflow": "response formats",
+      "state": "hotspot",
+      "scenario": "student_question_delivery",
+      "checkpoint": "hotspot_response",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": { "order": 990, "caption": "Hotspot response control" }
+    },
+    {
+      "id": "student_authorization_denial_laptop",
+      "path": "student/authorization_denial_laptop.png",
+      "role": "student",
+      "routeId": "library",
+      "area": "authorization",
+      "workflow": "role denial",
+      "state": "denied",
+      "scenario": "student_authorization",
+      "checkpoint": "denial_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "authorization_denial",
+      "gallery": { "order": 1010, "caption": "Student authorization denial" }
+    },
+    {
+      "id": "student_authorization_denial_phone",
+      "path": "student/authorization_denial_phone.png",
+      "role": "student",
+      "routeId": "library",
+      "area": "authorization",
+      "workflow": "role denial",
+      "state": "denied",
+      "scenario": "student_authorization",
+      "checkpoint": "denial_phone",
+      "viewport": "phone",
+      "privacyProfile": "authorization_denial",
+      "gallery": { "order": 1020, "caption": "Student authorization denial on a phone" }
+    },
+
+    {
+      "id": "sysadmin_course_list_laptop",
+      "path": "sysadmin/course_list_laptop.png",
+      "role": "sysadmin",
+      "routeId": "courses",
+      "area": "courses",
+      "workflow": "role navigation",
+      "state": "course list",
+      "scenario": "sysadmin_courses",
+      "checkpoint": "course_list",
+      "viewport": "laptop",
+      "privacyProfile": "sysadmin_account",
+      "gallery": { "order": 1110, "caption": "Sysadmin Courses page", "featured": true }
+    },
+    {
+      "id": "sysadmin_instructor_accounts_initial_laptop",
+      "path": "sysadmin/instructor_accounts_initial_laptop.png",
+      "role": "sysadmin",
+      "routeId": "instructorAccounts",
+      "area": "accounts",
+      "workflow": "instructor account lifecycle",
+      "state": "initial",
+      "scenario": "sysadmin_accounts",
+      "checkpoint": "accounts_initial",
+      "viewport": "laptop",
+      "privacyProfile": "sysadmin_account",
+      "gallery": { "order": 1210, "caption": "Instructor Accounts" }
+    },
+    {
+      "id": "sysadmin_instructor_account_created_laptop",
+      "path": "sysadmin/instructor_account_created_laptop.png",
+      "role": "sysadmin",
+      "routeId": "instructorAccounts",
+      "area": "accounts",
+      "workflow": "instructor account lifecycle",
+      "state": "created",
+      "scenario": "sysadmin_accounts",
+      "checkpoint": "account_created",
+      "viewport": "laptop",
+      "privacyProfile": "sysadmin_account",
+      "gallery": { "order": 1220, "caption": "Created Instructor Account" }
+    },
+    {
+      "id": "sysadmin_instructor_account_deactivated_laptop",
+      "path": "sysadmin/instructor_account_deactivated_laptop.png",
+      "role": "sysadmin",
+      "routeId": "instructorAccounts",
+      "area": "accounts",
+      "workflow": "instructor account lifecycle",
+      "state": "deactivated",
+      "scenario": "sysadmin_accounts",
+      "checkpoint": "account_deactivated",
+      "viewport": "laptop",
+      "privacyProfile": "sysadmin_account",
+      "gallery": { "order": 1230, "caption": "Deactivated Instructor Account" }
+    },
+    {
+      "id": "sysadmin_instructor_account_validation_laptop",
+      "path": "sysadmin/instructor_account_validation_laptop.png",
+      "role": "sysadmin",
+      "routeId": "instructorAccounts",
+      "area": "accounts",
+      "workflow": "instructor account lifecycle",
+      "state": "creation validation",
+      "scenario": "sysadmin_accounts",
+      "checkpoint": "account_validation",
+      "viewport": "laptop",
+      "privacyProfile": "sysadmin_account",
+      "gallery": { "order": 1215, "caption": "Instructor Account creation validation" }
+    },
+    {
+      "id": "sysadmin_scoped_support_entry_laptop",
+      "path": "sysadmin/scoped_support_entry_laptop.png",
+      "role": "sysadmin",
+      "routeId": "supportRoster",
+      "area": "support",
+      "workflow": "scoped roster support",
+      "state": "entry",
+      "scenario": "sysadmin_support",
+      "checkpoint": "support_entry",
+      "viewport": "laptop",
+      "privacyProfile": "sysadmin_scoped_roster",
+      "gallery": { "order": 1310, "caption": "Scoped Support entry" }
+    },
+    {
+      "id": "sysadmin_scoped_support_roster_laptop",
+      "path": "sysadmin/scoped_support_roster_laptop.png",
+      "role": "sysadmin",
+      "routeId": "supportRoster",
+      "area": "support",
+      "workflow": "scoped roster support",
+      "state": "authorized projection",
+      "scenario": "sysadmin_support",
+      "checkpoint": "support_roster",
+      "viewport": "laptop",
+      "privacyProfile": "sysadmin_scoped_roster",
+      "gallery": { "order": 1320, "caption": "Authorized scoped roster projection" }
     }
-  ]
+  ],
+  "coverage": {
+    "routes": [
+      {
+        "routeId": "courses",
+        "status": "captured",
+        "captureIds": [
+          "instructor_course_list_laptop",
+          "student_course_list_laptop",
+          "sysadmin_course_list_laptop"
+        ]
+      },
+      {
+        "routeId": "courseAssignments",
+        "status": "captured",
+        "captureIds": ["instructor_course_assignment_workspace_laptop"]
+      },
+      {
+        "routeId": "assignmentOverview",
+        "status": "captured",
+        "captureIds": ["student_assignment_overview_unanswered_laptop"]
+      },
+      {
+        "routeId": "assignmentSubmission",
+        "status": "captured",
+        "captureIds": [
+          "student_question_response_received_laptop",
+          "student_question_graded_laptop"
+        ]
+      },
+      {
+        "routeId": "assignmentAttempt",
+        "status": "deferred",
+        "reason": "The default Live Demo does not expose the separate legacy one-question Assignment Attempt route."
+      },
+      {
+        "routeId": "assignmentAttemptSummary",
+        "status": "deferred",
+        "reason": "The default Live Demo has no separate legacy Assignment Attempt summary surface."
+      },
+      {
+        "routeId": "library",
+        "status": "captured",
+        "captureIds": ["instructor_question_library_laptop"]
+      },
+      {
+        "routeId": "questionDetail",
+        "status": "captured",
+        "captureIds": ["instructor_published_question_detail_laptop"]
+      },
+      {
+        "routeId": "questionDrafts",
+        "status": "captured",
+        "captureIds": ["instructor_question_drafts_laptop"]
+      },
+      {
+        "routeId": "questionDraftEditor",
+        "status": "captured",
+        "captureIds": [
+          "instructor_draft_editor_saved_laptop",
+          "instructor_publication_review_laptop",
+          "instructor_published_question_result_laptop"
+        ]
+      },
+      {
+        "routeId": "blueprintCourses",
+        "status": "captured",
+        "captureIds": [
+          "instructor_blueprint_courses_laptop",
+          "instructor_blueprint_question_picker_laptop"
+        ]
+      },
+      {
+        "routeId": "blueprintCourseDetail",
+        "status": "captured",
+        "captureIds": ["instructor_blueprint_course_detail_laptop"]
+      },
+      {
+        "routeId": "assignmentCreate",
+        "status": "captured",
+        "captureIds": ["instructor_assignment_creation_laptop"]
+      },
+      {
+        "routeId": "assignmentReleaseWorkspace",
+        "status": "captured",
+        "captureIds": [
+          "instructor_assignment_release_draft_laptop",
+          "instructor_assignment_release_preview_laptop",
+          "instructor_assignment_release_released_laptop"
+        ]
+      },
+      {
+        "routeId": "assignmentWorkspaceOverview",
+        "status": "deferred",
+        "reason": "The legacy multi-tab Assignment workspace is retired; the release workspace is the current major surface."
+      },
+      {
+        "routeId": "assignmentWorkspaceQuestions",
+        "status": "deferred",
+        "reason": "The legacy multi-tab Assignment workspace is retired; Question selection is captured in the release workspace."
+      },
+      {
+        "routeId": "assignmentWorkspacePolicies",
+        "status": "deferred",
+        "reason": "The legacy multi-tab Assignment workspace is retired; policy editing is captured in the release workspace."
+      },
+      {
+        "routeId": "assignmentWorkspaceStudentView",
+        "status": "deferred",
+        "reason": "The legacy multi-tab Assignment workspace is retired; the answer-free preview is the current Student-view surface."
+      },
+      {
+        "routeId": "assignmentWorkspaceGradingOperations",
+        "status": "deferred",
+        "reason": "The default Live Demo has no meaningful automated-grading operations state to review."
+      },
+      {
+        "routeId": "gradebook",
+        "status": "captured",
+        "captureIds": ["instructor_gradebook_laptop"]
+      },
+      {
+        "routeId": "studentWorkInspection",
+        "status": "deferred",
+        "reason": "Individual Student-work inspection needs a dedicated privacy-reviewed fixture beyond the default atlas."
+      },
+      {
+        "routeId": "courseGradeSettings",
+        "status": "deferred",
+        "reason": "Grade Settings is not an available current Product Ribbon capability."
+      },
+      {
+        "routeId": "signIn",
+        "status": "captured",
+        "captureIds": ["public_sign_in_laptop", "public_sign_in_phone"]
+      },
+      {
+        "routeId": "courseRoster",
+        "status": "captured",
+        "captureIds": [
+          "instructor_course_roster_active_laptop",
+          "instructor_course_roster_pending_invitation_laptop"
+        ]
+      },
+      {
+        "routeId": "teachingOperations",
+        "status": "deferred",
+        "reason": "Teaching Operations is not an available current Product Ribbon capability."
+      },
+      {
+        "routeId": "assignmentPreview",
+        "status": "deferred",
+        "reason": "The legacy delivery-check route is retired; the current answer-free preview is inside the release workspace."
+      },
+      {
+        "routeId": "instructorAccounts",
+        "status": "captured",
+        "captureIds": [
+          "sysadmin_instructor_accounts_initial_laptop",
+          "sysadmin_instructor_account_created_laptop",
+          "sysadmin_instructor_account_deactivated_laptop",
+          "sysadmin_instructor_account_validation_laptop"
+        ]
+      },
+      {
+        "routeId": "supportRoster",
+        "status": "captured",
+        "captureIds": [
+          "sysadmin_scoped_support_entry_laptop",
+          "sysadmin_scoped_support_roster_laptop"
+        ]
+      },
+      {
+        "routeId": "pendingCourseInvitations",
+        "status": "deferred",
+        "reason": "Pending teaching invitations are not provisioned by the current Live Demo and are not restored for screenshots."
+      },
+      {
+        "routeId": "studentCourseInvitations",
+        "status": "captured",
+        "captureIds": ["student_invitation_index_laptop"]
+      },
+      {
+        "routeId": "studentCourseInvitation",
+        "status": "captured",
+        "captureIds": ["student_invitation_detail_laptop", "student_invitation_accepted_laptop"]
+      },
+      {
+        "routeId": "studentCourseLanding",
+        "status": "captured",
+        "captureIds": [
+          "student_course_not_started_laptop",
+          "student_course_in_progress_laptop",
+          "student_course_completed_laptop"
+        ]
+      }
+    ],
+    "ribbonDestinations": [
+      {
+        "id": "tab:courses",
+        "status": "captured",
+        "captureIds": [
+          "instructor_course_list_laptop",
+          "student_course_list_laptop",
+          "sysadmin_course_list_laptop"
+        ]
+      },
+      {
+        "id": "tab:questionLibrary",
+        "status": "captured",
+        "captureIds": ["instructor_question_library_laptop"]
+      },
+      {
+        "id": "tab:blueprintCourses",
+        "status": "captured",
+        "captureIds": ["instructor_blueprint_courses_laptop"]
+      },
+      {
+        "id": "tab:assignments",
+        "status": "captured",
+        "captureIds": ["instructor_course_assignment_workspace_laptop"]
+      },
+      {
+        "id": "tab:studentAssignments",
+        "status": "captured",
+        "captureIds": ["student_course_not_started_laptop"]
+      },
+      {
+        "id": "tab:students",
+        "status": "captured",
+        "captureIds": ["instructor_course_roster_active_laptop"]
+      },
+      {
+        "id": "tab:gradebook",
+        "status": "captured",
+        "captureIds": ["instructor_gradebook_laptop"]
+      },
+      {
+        "id": "tab:teachingOperations",
+        "status": "deferred",
+        "reason": "Teaching Operations is not admitted by the current Live Demo capability registry."
+      },
+      {
+        "id": "tab:blueprintUpdates",
+        "status": "deferred",
+        "reason": "Blueprint Updates is a future Ribbon destination without a Product Route."
+      },
+      {
+        "id": "tab:courseSetup",
+        "status": "deferred",
+        "reason": "Course Setup is a future Ribbon destination without a complete current workflow."
+      },
+      {
+        "id": "tab:attempt",
+        "status": "deferred",
+        "reason": "The separate legacy Assignment Attempt Ribbon is not exposed by the default Live Demo."
+      },
+      {
+        "id": "tab:instructorAccounts",
+        "status": "captured",
+        "captureIds": ["sysadmin_instructor_accounts_initial_laptop"]
+      },
+      {
+        "id": "tab:supportRoster",
+        "status": "captured",
+        "captureIds": ["sysadmin_scoped_support_entry_laptop"]
+      },
+      {
+        "id": "task:allQuestions",
+        "status": "captured",
+        "captureIds": ["instructor_question_library_laptop"]
+      },
+      {
+        "id": "task:myQuestions",
+        "status": "deferred",
+        "reason": "My Questions is a future Ribbon destination without a Product Route."
+      },
+      {
+        "id": "task:myQuestionDrafts",
+        "status": "captured",
+        "captureIds": ["instructor_question_drafts_laptop"]
+      },
+      {
+        "id": "task:starred",
+        "status": "deferred",
+        "reason": "Starred Questions is a future Ribbon destination without a Product Route."
+      },
+      {
+        "id": "task:watched",
+        "status": "deferred",
+        "reason": "Watched Questions is a future Ribbon destination without a Product Route."
+      },
+      {
+        "id": "task:assignmentOverview",
+        "status": "deferred",
+        "reason": "The legacy multi-tab Assignment workspace is retired."
+      },
+      {
+        "id": "task:assignmentQuestions",
+        "status": "deferred",
+        "reason": "The legacy multi-tab Assignment workspace is retired."
+      },
+      {
+        "id": "task:assignmentPolicies",
+        "status": "deferred",
+        "reason": "The legacy multi-tab Assignment workspace is retired."
+      },
+      {
+        "id": "task:assignmentGradingOperations",
+        "status": "deferred",
+        "reason": "The default Live Demo has no meaningful grading-operations fixture."
+      },
+      {
+        "id": "task:assignmentStudentView",
+        "status": "deferred",
+        "reason": "The answer-free release preview is the current Student-view surface."
+      },
+      {
+        "id": "task:gradeSettings",
+        "status": "deferred",
+        "reason": "Grade Settings is not admitted by the current Live Demo capability registry."
+      },
+      {
+        "id": "task:appearance",
+        "status": "deferred",
+        "reason": "Course Appearance is a future Ribbon destination without a current Browser Surface."
+      },
+      {
+        "id": "task:backToAssignments",
+        "status": "covered_by",
+        "target": "tab:assignments",
+        "reason": "The destination is the same captured Course Assignment workspace."
+      }
+    ]
+  }
 }
