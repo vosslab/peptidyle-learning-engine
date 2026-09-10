@@ -20,11 +20,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Time should be used efficiently. Agents and tokens are cheap; wall time is not.
 - Hard work should be broken into small, independently completable tasks with one owner and one verification.
 - Requirements should avoid being overly strict or using arbitrary numeric, timing, byte, or pixel equivalence gates.
-- This codebase is not in production yet, no one is using it, so we can fix the design and not have to worry about legacy support. Use the pre-production state of the codebase to improve foundational schemas, contracts, abstractions, and ownership boundaries when that produces the stronger long-term system.
-- Prioritize positive prompting. Small LMs often mishandle negative prompting and may flip negative instructions into positive actions, producing poor code and egregious results. Phrase instructions as "Do X" or "Use Y" whenever possible, rather than "Do not do W" or "You are not allowed to do Z." Things like 'leave git to the manager' is a negative prompt in disguise, it is better to not mention git, but just encourages small LMs. Avoid naming unwanted tools unless needed. Positive prompting plus omission is often stronger than a negative boundary.
-- Classify one-time checks separately from permanent tests. Several checks are useful for proving the rebuild during implementation but may not deserve permanent residence in the suite. Use the checklist in docs/PYTEST_STYLE.md of what makes a permanent test, use it. Temporary tests are fine, but should not become permanent. When in doubt, remove the test.
-- Finish the obvious. Continue while the next safe step is defined by the plan, implied by the current task, or required to verify the work. Stop at a real blocker: missing information that cannot be inferred from the repo or plan, a risky or irreversible action, or work that changes the user's requested outcome. When one option is clearly best, take it, document the assumption, and continue.
-- Robust behavior keeps unaffected work available when data is imperfect: salvage an exact trustworthy item when possible, retry the same logical work from a clean run when that can improve the outcome, and skip or quarantine only the irrecoverable item while continuing. Security and integrity violations still fail closed at their affected boundary.
+- This codebase is not in production yet, no one is using it, so we can fix the design and not have to worry about legacy support.
+- Prioritize positive prompting. Small LMs often mishandle negative prompting and may flip negative instructions into positive actions, producing poor code and egregious results.
+- Classify one-time checks separately from permanent tests.
+- Finish the obvious. Continue while the next safe step is defined by the plan, implied by the current task, or required to verify the work.
+- Robust means the software continues to function despite imperfect inputs, data, state, or behavior.
+- Apply the Keep It Simple, Stupid (KISS) philosophy aggressively.
+- All podman images on the Mac-Studio-36G machine are from this project; you do not have to preserve the project-named
+live-stack data volumes. Since no podman image is needed, I pre-approve all image pruning when needed.
 
 ## Glossary
 
@@ -39,6 +42,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Course Observer**: A read-only course participant who can view course content and assignment completion, but not individual **Student** scores.
 - **Student Observer**: A read-only participant who can view the information associated with a particular **Student**.
 - **Grader**: A planned course role for grading workflows. It is not currently needed because PLE does not use manual grading.
+- **Assignment Question Editor**: Instructor editor for selecting, adding, removing, and ordering Questions in an Assignment.
+- **Assignment Properties Editor**: Instructor editor for Assignment-level behavior such as timing, release, scoring, attempts, question-order randomization, late work, and disclosure.
 
 ## Development philosophy
 
@@ -72,13 +77,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Questions: My Questions, My Draft Questions, Starred, Watched, Search Question Library, Browse
   Question Library.
 - Assignments: Assignments Due Soon, My Assignment Templates.
-- Assignment editing has two jobs:
-  - Edit Assignment should focus on adding, removing, and ordering questions.
-  - Assignment Settings should have timing, release, scoring, attempts, randomization, late work,
-    and disclosure.
+- Assignment editing has two editors:
+  - **Assignment Question Editor** should focus on adding, removing, and ordering Questions.
+  - **Assignment Properties Editor** should have timing, release, scoring, attempts, question-order randomization, late work, and disclosure.
 - Students should see one question at a time.
+- Student assignment navigation should show each question and whether the response is saved.
 - Instructors can randomize question order for an assignment. Randomizing answer choices belongs
   to the question, not the assignment.
+- Deep pages should show breadcrumbs so the current Course, Assignment, or other parent context is easy to follow.
 
 ## Data philosophy
 
@@ -123,6 +129,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Question writers may add Question Feedback when it helps. It remains optional Question-authored
   teaching content, and Student workflows remain complete whether or not Students read it.
 - The platform is question agnostic, but for its initial run, the primary question formats/backends are the native flat question style PLE JSON (which is compatible with QTI) and WeBWorK; IMathAS and H5P are included but are considered secondary.
+- Students should see one Question at a time during an Assignment.
 
 ## Question library philosophy
 
@@ -149,6 +156,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A **Change Proposal** must be rebased or resubmitted if the question lineage advances before acceptance.
 - Question authorship, contributor credit, history, and compatible CC licensing are preserved across edits, proposals, and forks.
 - Assignments and graded work remain pinned to exact immutable versions and are never changed automatically by later revisions.
+- Answer-choice randomization belongs to the Question.
+- PLE-native Questions can control their own answer-choice randomization.
+- External Question Backends such as WeBWorK and iMathAS own the presentation of their Questions.
 
 ## Course content philosophy
 
@@ -167,6 +177,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The reuse path lets an **Instructor** deliberately publish a **Course Instance's** reusable structure as a new **Blueprint Course** or propose controlled updates to its parent.
 - A course can have multiple co-**Instructors** with equal teaching authority for that course.
 - **Sysadmins** can create courses, but **Instructors** teach them. Every course must have an assigned **Instructor** who owns the course.
+- Active Courses are current teaching Courses.
+- Inactive Courses are previous-semester Courses with Course metadata retained after FERPA-sensitive Student data is removed.
 
 ## Assignment philosophy
 
@@ -175,6 +187,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Each **Assignment Attempt** has a time limit so **Students** develop an accurate sense of the expected working speed and Question sets do not remain open for days.
 - **Students** may start another **Assignment Attempt** as often as needed. Repeating an Assignment to a perfect score should build understanding and confidence.
 - Course orientation and in-class activities may precede regular online homework so **Students** have time to establish access and learn the assignment platform.
+- New Assignments should default to accepting submissions only through the due date.
+- New Assignments should default to starting new attempts only through the due date.
+- Late work should default to reject.
+- Question answer visibility should favor useful feedback for learning while allowing Instructors to choose more restrictive feedback when question security is more important.
+- Assignment disclosure settings in the Assignment Properties Editor should remain separate and independently configurable.
+- Assignments Due Soon should show upcoming Assignments across the Courses an Instructor teaches, with the Course and due time visible.
 
 ## Instructor philosophy
 
@@ -191,6 +209,18 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Every approved **Instructor** has the same product capabilities; course membership determines which
   course records each **Instructor** may use.
 - students might use a iphone, chrome laptop, and windows desktop, so they could need multiple. If a student loses there login the instructor should be able to reset and send a new signup code
+- Instructor Course and Assignment lists should be dense and easy to scan, more like a spreadsheet than cards.
+- Assignment title and due date should be editable directly from the Course Assignment list.
+- New Assignments should default to 11:59 PM in the Instructor's time zone.
+- Question answer visibility should be controlled by the Instructor. By default, Students should see the answer they selected and whether it was correct or incorrect. When an answer is incorrect, the correct answer should remain hidden. Instructors can choose a more restrictive setting where Students see only whether their response was correct or incorrect.
+- Instructor Profile should include the Instructor's time zone and profile image.
+- Profile images can be uploaded at any reasonable aspect ratio. Crop the image to a consistent rounded square before committing it as the Profile image.
+- Assignment Preview should open separately from the editing surface.
+- Instructors can randomize Question order for an Assignment. Default is that questions are randomly presented.
+- My Active Courses and My Inactive Courses should both be available from the Courses area.
+- The Instructor's time zone should be used to interpret dates and times the Instructor enters.
+- Changing a Instructor's time zone should update how existing deadlines are displayed while preserving the deadline itself.
+- Assignment deadlines should be stored as absolute UTC instants.
 
 ## Student philosophy
 
@@ -207,6 +237,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - When an Instructor uploads a roster, PLE uses the institutional email to find an existing Student Account or creates one when none exists.
 - Each course creates its own course-scoped Student Record and enrollment relationship for that Student Account.
 - Course work, attempts, submissions, and grades follow the course retention policy independently of the lifetime of the Student Account.
+- Student assignment navigation should show each question and whether the response is saved.
+- The assignment timer should be subtle, keep the focus on the questions, and should not add anxiety.
+- Student pages should use Student-facing language and names that are meaningful to Students. Remove instructor based language presented to the students.
+- Students enrolled in one active Course should go directly into that Course.
+- Students should see the Assignment title, question count, points possible, time limit, and previous attempts before starting an Assignment.
+- Students should see one Question at a time during an Assignment.
+- Students should have their own time zone for displaying dates and times. Students time zone will default to the instructor's time zone during the invite phase.
+- Changing a Student's time zone should update how existing deadlines are displayed while preserving the deadline itself.
 
 ## Sysadmin philosophy
 

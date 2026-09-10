@@ -1032,21 +1032,27 @@ Separating content from policy prevents unrelated fields from competing on one p
 
 ### Product navigation exposes Questions through one library surface
 
-**Decision.** The Instructor Product Ribbon has three ordered slots: Courses, Question Library,
-and Blueprint Courses. Account and Profile are Ribbon Context Controls. The Question Library
-interface area links to All Questions, My Questions, My Question Drafts, Starred, and Watched.
-All Questions and My Questions are Published Question Library Views; My Question Drafts navigates
-to the separate private Authoring Workspace Store. Starred and Watched are exact Account
-relationships to Published Questions.
+**Decision.** The Instructor Product Ribbon has three ordered Tabs: Courses, Questions, and
+Assignments. Account and Profile are Ribbon Context Controls. This is the owner's teaching-work
+taxonomy, not a derivation of the current route hierarchy. The Questions task row is My Questions,
+My Draft Questions, Starred, Watched, Search Question Library, and Browse Question Library, in that
+order. Starred and Watched retain their positions while Unavailable. My Draft Questions enters the
+separate private Authoring Workspace Store when its complete usable path is backed.
 
-**Why.** The Product Ribbon stays organized by primary object type. Ownership, publication state,
-endorsement, and notification subscription remain distinct destinations instead of becoming
-competing top-level repositories. Interface adjacency does not merge private Draft Questions into
-the Question Library.
+**Why.** Courses, Questions, and Assignments are the three things an Instructor manages. The
+taxonomy keeps primary teaching work visible without promoting a current implementation hierarchy
+into a product constraint. Ownership, publication state, endorsement, and notification subscription
+remain distinct destinations rather than competing top-level repositories.
 
-**Consequence.** Question Folders, Question Tags, Saved Question Searches, and search facets
-organize or find Questions within those views. Star means visible endorsement, and Watch
-means private notification subscription.
+**Consequence.** Courses owns Blueprint, active, inactive, and public-search task positions;
+Questions owns discovery and authored-question tasks; Assignments owns Due Soon and templates.
+Question Folders, Question Tags, Saved Question Searches, and search facets organize or find
+Questions within their applicable destination. Star means visible endorsement, and Watch means
+private notification subscription.
+
+**Owner.** `src/ribbon/ribbon_catalog.ts` declares the catalog;
+`src/ribbon/ribbon_contract.ts` selects it; [UI_DESIGN_GUIDE.md](UI_DESIGN_GUIDE.md) owns its
+order and presentation.
 
 ### The Application Shell owns one Ribbon for every Product Role
 
@@ -1082,6 +1088,132 @@ content boundary; `src/ribbon/ribbon_contract.ts` owns route, scope, role, and c
 and `src/ribbon/app_ribbon.tsx` owns Ribbon-row presentation. The exact retirement responsibility
 map is `docs/ux/RIBBON_RETIREMENT_RESPONSIBILITY_INVENTORY.md`;
 individual route-page components own their content and Page Actions.
+
+### Interface cleanup: settled Ribbon and Assignment work
+
+**Decision.** The Instructor Product Ribbon uses one dense top bar in the order Peptidyle, Product
+Role, Account name, Courses, Questions, Assignments, Profile, and Sign Out. Every visible navigation
+item has a Font Awesome glyph plus text. Courses tasks are My Blueprint Courses, My Active Courses,
+My Inactive Courses, and Search Public Blueprint Courses. Assignments tasks are Assignments Due Soon
+and My Assignment Templates. Unbacked destinations remain Unavailable without a placeholder link.
+Assignment composition and delivery are separate tasks: Edit Assignment makes selecting, adding,
+removing, and ordering Questions primary; Assignment Settings owns timing, release, scoring,
+attempts, randomization, late work, and disclosure. The labels are secondary; the five focused
+Assignment routes remain the implementation seam. Student delivery has one live lane: the
+one-Question Assignment Attempt surface.
+
+**Why.** The owner settled a compact traditional application menu and two distinct Instructor jobs.
+One Student delivery lane avoids duplicate state and recovery behavior.
+
+**Consequence.** A separate Tab Row survives only after named responsive or focus-order evidence
+requires it. The older duplicate Assignment surface retires instead of becoming another editing
+path. Question navigation and the subtle remaining-time timer stay in Attempt content. Capability
+admission never turns a reserved future position into a false link.
+
+**Owner.** `src/application_shell.tsx`, `src/ribbon/ribbon_contract.ts`, and
+`src/ribbon/app_ribbon.tsx` own shell selection and presentation; the Assignment route family owns
+the two Instructor tasks; `src/pages/assignment_attempt_page.tsx` owns Student delivery.
+
+### Interface cleanup: account-owned time zones
+
+**Decision.** An Assignment deadline is an absolute instant with no Course or Assignment time-zone
+owner. An Instructor Account owns an IANA zone for entering wall-clock values and Instructor display.
+The server interprets a plain local date and time in that zone and continues to reject DST gaps and
+ambiguities. A Student Account owns its IANA display zone, initially defaultable from the Instructor
+at enrollment. `CourseLocalDateAndTime` and the Course zone retire. Changing a profile zone changes
+only later interpretation and display; it never moves an existing stored deadline.
+
+**Why.** `timestamptz` already correctly stores deadline instants. A Course clock is fictitious for
+a distributed course and creates a second competing preference owner. The audited current
+Course-owned boundary is `crates/question_model/src/assignment/teaching_settings_local.rs:216-259,
+524-561`; its delivery read is
+`schemas/migrations/2026090606_live_demo_assignment_release.sql:160-170`.
+
+**Consequence.** Wall-clock input carries no zone; the authenticated Account supplies it. Every
+display names and uses the applicable Account zone, while countdowns continue to use server-computed
+remaining duration.
+
+**Owner.** Account preference storage and its forward migration own the zones;
+`crates/question_model/src/assignment/teaching_settings_local.rs` owns local-time interpretation;
+the due-date editor and display surfaces own their Account-zone presentation.
+
+### Interface cleanup: mutable authoring and evidence snapshots
+
+**Decision.** Assignments and Draft Questions each have one current editable state with no revision
+history or undo trail. A title, due date, timing rule, or other authoring change updates that current
+state. Immutable snapshots remain only where Student attempts, Issued Questions, or grading evidence
+concretely require exact prior content.
+
+**Why.** Pre-production authoring does not benefit from a generic revision history. The current
+snapshot consumers establish the smaller necessary evidence boundary:
+
+- **Attempt start:** `schemas/migrations/2026090607_live_demo_assignment_attempt.sql:56-59,139-164`
+  reads the released `assignment_revision` and its entries before it starts and issues an attempt.
+- **Native issuance and presentation validation:**
+  `schemas/migrations/2026090608_live_demo_native_ple_presentation.sql:82-108,272-298` reads exact
+  revision entries and validates each released fixed entry and position.
+- **Gradebook count:** `schemas/migrations/2026090702_live_demo_gradebook_progress.sql:47-67`
+  counts released entries and pools through the released revision.
+- **Retained evidence definition:** `crates/question_model/src/student_work.rs:93-99` binds an
+  Assignment Attempt to its revision, and
+  `schemas/migrations/2026082938_assignment_revision_entry_snapshots.sql:8-83,153-181` defines and
+  protects the immutable entry snapshot.
+
+**Consequence.** Later implementation removes snapshotting that has no named evidence consumer,
+while preserving the Attempt, Issued Question, and grading pins above. Released status cannot block
+ordinary current-state editing merely because it once selected a snapshot.
+
+**Owner.** The Assignment save/release path and `ple_data.assignment_revision` snapshot boundary
+own the implementation cutover; Student-work issuance and grading own the retained evidence reads.
+
+### Interface cleanup: Course activity
+
+**Decision.** An Inactive Course is a previous-semester Course whose FERPA-sensitive Student data is
+stripped while non-sensitive Course metadata remains.
+
+**Why.** Course activity is a real retention boundary. The audited retention foundation names the
+available Student-data actions at
+`schemas/migrations/2026082926_exports_retention_audit.sql:10-22`; the current policy explicitly
+records that no retention execution surface exists at `docs/RETENTION_POLICY.md:43-47`.
+
+**Consequence.** Inactive lists expose only non-sensitive metadata. The activity capability must
+add its smallest durable representation and read model without treating the existing retention
+foundation as a completed browser capability.
+
+**Owner.** Course retention and Course read models own activity.
+
+### Interface cleanup: randomization ownership
+
+**Decision.** An Assignment owns optional Question-order randomization. A PLE-native Question owns
+whether its answer choices randomize when presented; an Assignment never overrides that choice.
+
+**Why.** Question order and answer-choice order have different owners. The audited Assignment
+schema owns `assignment_question_order_rule` at
+`schemas/migrations/2026082916_course_delivery_schedule.sql:15-72`; Question presentation remains
+the stated implementation boundary in
+`docs/active_plans/active/interface_cleanup_2026_09.md:1004-1013`.
+
+**Consequence.** Assignment Settings exposes only Question-order randomization. PLE-native
+Question authoring, issuance, and presentation own the answer-choice declaration; backend
+Questions retain their backend presentation.
+
+**Owner.** Assignment policy owns Question order; Question presentation owns answer-choice order.
+
+### Interface cleanup: Blueprint provenance
+
+**Decision.** `assignment.source_blueprint_*` records the Course-level Blueprint origin copied to
+every Assignment, including hand-authored Assignments; it is not per-Assignment lineage.
+
+**Why.** The audited Assignment schema constrains the columns as a Course-origin reference at
+`schemas/migrations/2026082916_course_delivery_schedule.sql:21-24,68-72`, and the Assignment write
+copies that origin at
+`schemas/migrations/2026090606_live_demo_assignment_release.sql:195-199`.
+
+**Consequence.** No future divergence logic may use `assignment.source_blueprint_*` as a
+per-Assignment baseline.
+
+**Owner.** `ple_data.assignment` owns the provenance columns; a future per-Assignment lineage
+capability requires its own durable representation.
 
 ### Authenticated identity lives in the Ribbon Context Row
 
