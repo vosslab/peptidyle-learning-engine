@@ -244,7 +244,7 @@ returned view and grants no authority.
 
 **Resolved Assignment Schedule** is the target-term result of resolving one
 Relative Assignment Schedule. Each Resolved Assignment Schedule Moment pairs
-the resulting Course Local Date and Time with its exact absolute timestamp. The
+the resulting Local Date and Time with its exact absolute Timestamp. The
 Assignment stores the resulting current availability, due, and close instants.
 An Assignment Attempt retains any of those exact facts that its access,
 timing, or grading evidence requires.
@@ -308,9 +308,9 @@ Update Receipt, or Copy Assignment from Blueprint Receipt. A shared wrapper may
 remain ordinary implementation vocabulary; the exact qualified Receipt remains
 the PLE-owned concept.
 
-**Assignment Source Record** is immutable server-held evidence that an
-Assignment's current content was copied or updated from one exact Blueprint
-Assignment in one exact Blueprint Revision. It retains the checked Question
+**Assignment Source Record** is immutable server-held evidence that one
+Assignment copy or update operation used one exact Blueprint Assignment from
+one exact Blueprint Revision. It retains the checked Question
 Revision substitutions, Blueprint Content Checksum, resolved schedule, and
 resulting Assignment Edit Number after the operation commits. It is distinct
 from the browser-safe Assignment Source View. The record supplies provenance
@@ -328,18 +328,19 @@ Blueprint Course fork. It binds the exact source Blueprint Revision, authorizing
 Account, Request Checksum, and reserved Blueprint Course Reference;
 it creates no authority of its own.
 
-**Course Time Zone** is the one exact IANA time-zone name owned by a Course
-Term. It gives every Instructor-facing Course Local Date and Time its meaning;
-validation accepts only a case-sensitive IANA database member.
+**Account Time Zone** is the exact case-sensitive installed-IANA time-zone name
+owned by an Account. An Instructor Account uses it to interpret Local Date and
+Time inputs and display absolute Timestamps. A Student Account uses it to
+display absolute Timestamps.
 
 **Course Date** is one exact proleptic-Gregorian `YYYY-MM-DD` calendar value
 inside a Course Term. It is never an instant, UTC offset, or local date-time;
 the Course Instance stores Course Dates in database `date` columns.
 
-**Course Local Date and Time** is one Instructor-facing wall-clock value with
-millisecond precision. It is resolved only through its Course Term's Course
-Time Zone; nonexistent or ambiguous local values are refused rather than
-silently converted to an absolute time.
+**Local Date and Time** is one plain wall-clock input with millisecond
+precision. The server interprets Instructor-entered values using the
+authenticated Instructor's Account Time Zone. Validation accepts the input
+when that pairing identifies exactly one absolute Timestamp.
 
 **Course Membership** is one Account's participation episode in one Course
 Instance. Its **Course Membership Role** is Instructor or Student; its state is
@@ -980,11 +981,13 @@ generic remediation payload.
 **Assignment** is the stable Course Instance-owned teaching object and owns its
 current Instructor-authored content.
 **Assignment Status** belongs to that stable Assignment and is Unreleased,
-Released, Closed, or Archived. Unreleased limits the Assignment to the Course Teaching Team's authoring and preview workflows.
-Released records the Instructor's release decision rather than current Student
-access. Future Assignment Attempts use the current validated Assignment state;
-each started attempt retains its own exact evidence. Closed stops new Student
-work. Archived retires the Assignment from current teaching surfaces.
+Released, Closed, or Archived. Unreleased limits the Assignment to the Course
+Teaching Team's authoring and preview workflows. Released records the
+Instructor's release decision rather than current Student access. Future
+Assignment Attempts use the current validated Assignment state. Each started
+attempt retains its own exact evidence through ordinary Assignment changes,
+closing, and archiving. Closed stops new Student work. Archived retires the
+Assignment from current teaching surfaces.
 
 **Assignment Question Editor**: Instructor editor for selecting, adding, removing, and ordering Questions in an Assignment.
 
@@ -1000,10 +1003,15 @@ Ordinary saves update the Assignment and increment its **Assignment Edit
 Number**. Assignment Workspace save requests carry the reviewed Assignment Edit
 Number as their concurrency precondition. **Create Assignment** creates the
 stable Assignment with its initial authored content. Assignment Release changes
-Assignment Status after validating the current Assignment. Later accepted
-Assignment saves change the current state used by future Assignment Attempts;
-existing Student Work Records remain unchanged. Closing or archiving changes
-Assignment Status alone.
+Assignment Status after validating the current Assignment. The server accepts
+changes to a Released Assignment when the resulting current Assignment passes
+Assignment Release Validation. Future Assignment Attempts use that accepted
+current state. **Assignment Unrelease** changes a Released Assignment to
+Unreleased, removes it from Student use, and deletes the Assignment's existing
+Student Work Records, including its Assignment Attempts, submissions, and
+grades. Assignment Unrelease is a destructive Instructor action whenever those
+records exist. Closing or archiving changes Assignment Status while preserving
+Student Work Records.
 
 An **Assignment Export Manifest** is a future server-created private immutable
 typed frozen input for one export operation at one exact Assignment Edit Number.
@@ -1120,9 +1128,9 @@ additional-Attempt limit, or Closed.
 Assignment. Starting another pass creates another Assignment Attempt while
 retaining every earlier Attempt. Its **Assignment Attempt Number** sequences
 those separate records for that Student Record and Assignment. Each Assignment
-Attempt retains the exact Assignment title and instructions presented,
-effective schedule and policy values applied, Assignment Entry order and
-selections, and other start facts required to interpret that Student's work.
+Attempt retains the exact Assignment-derived facts required to interpret and
+grade that Student's work, including its effective schedule and policy values,
+Question selection, and ordering.
 It contains **Issued Questions**; each Issued Question retains its exact
 Question Revision Reference, Question Seed, point and scoring values, limits,
 and presentation evidence. A **Question Attempt** is one Student's work on an
