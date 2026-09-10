@@ -81,6 +81,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Course Instance** data defaults to notice after 30 days, archive after 100 days, and permanent deletion after 365 days.
 - Course-owned assignment definitions should be kept when **Student** records are archived or deleted.
 - Course work, attempts, submissions, and grades follow the course retention policy independently of the lifetime of the Student Account.
+- Be conservative tracking revisions, like assignments and draft question do not need revisions, their current state can be changed, but we do not need an undo option.
 
 ## Question philosophy
 
