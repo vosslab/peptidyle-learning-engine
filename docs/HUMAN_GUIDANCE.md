@@ -66,6 +66,19 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - UUIDs should never appear in visible page content, navigation URLs, or copyable links.
 - Atkinson HyperLegible https://www.brailleinstitute.org/freefont/ is my favorite for written text and mononoki font https://madmalik.github.io/mononoki/ for monospace
 - we should not have any upload capabilities for students and all instructor content is created via text boxes
+- Instructor menu: **Courses**, **Questions**, and **Assignments**, in one dense top bar with
+  Profile and Sign Out. Use an icon and text for each menu item.
+- Courses: My Blueprint Courses, My Active Courses, My Inactive Courses, Search Public Blueprint Courses.
+- Questions: My Questions, My Draft Questions, Starred, Watched, Search Question Library, Browse
+  Question Library.
+- Assignments: Assignments Due Soon, My Assignment Templates.
+- Assignment editing has two jobs:
+  - Edit Assignment should focus on adding, removing, and ordering questions.
+  - Assignment Settings should have timing, release, scoring, attempts, randomization, late work,
+    and disclosure.
+- Students should see one question at a time.
+- Instructors can randomize question order for an assignment. Randomizing answer choices belongs
+  to the question, not the assignment.
 
 ## Data philosophy
 
@@ -82,6 +95,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Course-owned assignment definitions should be kept when **Student** records are archived or deleted.
 - Course work, attempts, submissions, and grades follow the course retention policy independently of the lifetime of the Student Account.
 - Be conservative tracking revisions, like assignments and draft question do not need revisions, their current state can be changed, but we do not need an undo option.
+- Assignment deadlines are stored as instants. Instructor dates and times use the Instructor's
+  IANA time zone.
+- Students have their own IANA time zone for displaying dates and times.
+- Inactive Courses are previous-semester Courses. FERPA-sensitive Student data is removed, but
+  Course metadata is kept.
 
 ## Question philosophy
 
