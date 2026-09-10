@@ -124,6 +124,18 @@ Question Submission Grading State, Assignment Scoring State, and Student Late
 Work Status independently. Browser interaction state, process state, HTTP
 status, and visible status messages remain ordinary technical vocabulary.
 
+**Danger Zone** is a clearly separated Instructor interface area for
+high-consequence administrative actions. Its complete current action set is
+Assignment Unrelease, Archive Published Question, and Archive Blueprint Course.
+Each action presents its exact target and consequence before an explicit
+confirmation. The server verifies current action authority, target identity,
+target state, and concurrency preconditions, performs each accepted transition
+atomically, and records redacted audit evidence containing the authenticated
+Account, action, target, outcome, and Timestamp. These gates define the
+validation, transaction, authorization, and audit boundary described by ASVS
+2.1.1-2.1.2, 2.2.1-2.2.2, 2.3.1, 2.3.3-2.3.4, 8.1.1, 8.2.1-8.2.2,
+8.3.1, and 16.3.2-16.3.3.
+
 Name each temporary, proposed, eligible, or selected value by its exact relationship
 and state. Use complete names such as Question Pool Item, Course Banner Upload,
 Instructor Account, proposed value, replacement, or selected Question.
@@ -260,11 +272,14 @@ it grants neither Authoring Workspace nor Course Instance authority. A
 Blueprint Revision, makes that revision reusable by Active Instructor Accounts,
 and closes the draft's collaboration.
 **Blueprint Course Availability** is the mutable Available or Archived state of
-one stable Blueprint Course. The Blueprint Course Owner may archive or restore
-it. Available permits ordinary browsing and new selection. Archived removes the
-Blueprint Course from those workflows while exact Blueprint Revision References
-continue to resolve for existing Course origins, copies, and provenance.
-Restoring changes the current state to Available while preserving every
+one stable Blueprint Course. The Blueprint Course Owner controls this state.
+Available permits ordinary browsing and new selection. **Archive Blueprint
+Course** is the Danger Zone action that changes it to Archived after presenting
+the shared-availability consequence and receiving explicit confirmation.
+Archived removes the Blueprint Course from ordinary browsing and new selection
+while exact Blueprint Revision References continue to resolve for existing
+Course origins, copies, and provenance. Restoring uses an ordinary availability
+control and changes the current state to Available while preserving every
 Blueprint Revision.
 
 **Fork Blueprint Course** creates a new Blueprint Course from one exact
@@ -770,14 +785,14 @@ Question Search, Question Star, Question Watch, and Question Change Proposal.
 source-description information associated with a Draft Question, Published
 Question, or Question Revision. The stable Published Question lineage owns
 current discovery metadata: Question Title, Question Description, Question
-Subject, Question Subsubject, and Question Tag values. Question Bloom
+Subject, Question Subsubject, Question Tag values, and Language. Question Bloom
 Classification and Question Classification are current lineage discovery
 metadata too. Accepted edits replace those current values; use an Edit Number
 when concurrent writes require one.
 An exact Question Revision owns its Question Authorship, Question License,
-Question Citation, Language, and derived Question Type, Question Format, and
-Question Backend facts. Current discovery-metadata edits preserve every
-immutable Question Source.
+Question Citation, and derived Question Type, Question Format, and Question
+Backend facts. Current discovery-metadata edits preserve every immutable
+Question Source.
 
 Question Subject, Question Subsubject, Question Classification, and Question
 Bloom Classification remain future packages and add no current generic field,
@@ -888,7 +903,7 @@ The Published Question discovery, credit, and control facts are closed:
 | Question Owner | Required | Question lineage | My Questions relationship filter |
 | Question License | Required | Question Revision | Exact license facet |
 | Question Citation | Optional | Question Revision | Citation text and URL search |
-| Language | Required | Question Revision | Exact language facet |
+| Language | Required | Question lineage | Exact language facet |
 | Question Subject | One or more required | Question lineage | Subject text and facet |
 | Question Subsubject | Optional | Question lineage | Subsubject text and facet |
 | Question Tag | Optional | Question lineage | Tag text and facet |
@@ -976,12 +991,15 @@ references. A Question Publication Event records entry into the Question
 Library.
 
 **Published Question Availability** is the mutable Available or Archived state
-of one stable Published Question. The Question Owner may archive or restore it.
-Available permits ordinary browsing and new selection. Archived removes the
-Published Question from those workflows while exact Question Revision
-References continue to resolve for existing Assignments, forks, Student Work,
-grading, and history. Restoring changes the current state to Available while
-preserving every Question Revision.
+of one stable Published Question. The Question Owner controls this state.
+Available permits ordinary browsing and new selection. **Archive Published
+Question** is the Danger Zone action that changes it to Archived after
+presenting the shared-availability consequence and receiving explicit
+confirmation. Archived removes the Published Question from ordinary browsing
+and new selection while exact Question Revision References continue to resolve
+for existing Assignments, forks, Student Work, grading, and history. Restoring
+uses an ordinary availability control and changes the current state to Available
+while preserving every Question Revision.
 
 **Question Change Proposal** is one Instructor-owned improvement thread against
 a Published Question. It keeps one current mutable proposed change with its
@@ -1024,18 +1042,25 @@ Archived. Assignment Status remains the stable lifecycle; Assignment Access
 remains the per-Student decision.
 
 Ordinary saves update the Assignment and increment its **Assignment Edit
-Number**. Assignment Workspace save requests carry the reviewed Assignment Edit
-Number as their concurrency precondition. **Create Assignment** creates the
-stable Assignment with its initial authored content. Assignment Release changes
-Assignment Status after validating the current Assignment. The server accepts
-changes to a Released Assignment when the resulting current Assignment passes
-Assignment Release Validation. Future Assignment Attempts use that accepted
-current state. **Assignment Unrelease** changes a Released Assignment to
-Unreleased, removes it from Student use, and deletes the Assignment's existing
-Student Work Records, including its Assignment Attempts, submissions, and
-grades. Assignment Unrelease permanently deletes existing Student Work Records
-for that Assignment when those records exist. Closing or archiving changes
-Assignment Status while preserving Student Work Records.
+Number**. Assignment saves carry the reviewed Assignment Edit Number as their
+concurrency precondition. **Create Assignment** creates the stable Assignment
+with its initial authored content. Assignment Release changes Assignment Status
+after validating the current Assignment. The server accepts changes to a
+Released Assignment when the resulting current Assignment passes Assignment
+Release Validation. Future Assignment Attempts use that accepted current state.
+**Assignment Unrelease** changes a Released Assignment to Unreleased, removes it
+from Student use, and permanently deletes its existing Student Work Records,
+including its Assignment Attempts, submissions, and grades. Closing or
+archiving changes Assignment Status while preserving Student Work Records.
+The Assignment Properties Editor presents Assignment Unrelease in a clearly
+separated Danger Zone. It shows the permanent-deletion consequence and current
+affected Student Work Record counts. The Instructor enters the exact Assignment
+title and activates a dedicated confirmation. The server verifies current
+Teaching Team authority, the exact Assignment, Released status, Assignment Edit
+Number, and title confirmation before atomically changing Assignment Status and
+deleting its complete Student Work Records. Assignment Close and Assignment
+Archive use ordinary lifecycle controls because they preserve Student Work
+Records.
 
 **Base Assignment Policy** is the complete authored timing, attempt, variation,
 navigation, scoring, and Student Feedback Release configuration in that
@@ -1227,10 +1252,6 @@ set of specific available, due, close, time-limit, and attempt-limit values
 supplied by that Student Accommodation. An adjustment records a specific value,
 Unrestricted, or inheritance for each field; Assignment Attempts retain the
 exact effective values applied to their work.
-
-**Assignment Workspace** is the Instructor editing surface for an Assignment
-and its current Questions, properties, policies, readiness, and Student View.
-It is an interface name; Assignment remains the durable teaching record.
 
 **Course Appearance** is one Course Instance's current Course Theme, optional Course Banner, and
 banner alternative text. Theme and Banner are independently saved properties behind one

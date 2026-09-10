@@ -80,6 +80,13 @@ live-stack data volumes. Since no podman image is needed, I pre-approve all imag
 - Assignment editing has two editors:
   - **Assignment Question Editor** should focus on adding, removing, and ordering Questions.
   - **Assignment Properties Editor** should have timing, release, scoring, attempts, question-order randomization, late work, and disclosure.
+- Danger Zone should contain these high-consequence administrative actions: Assignment Unrelease,
+  Archive Published Question, and Archive Blueprint Course.
+- Assignment Unrelease should show the permanent Student-work deletion consequence and require the
+  Instructor to type the Assignment title before confirming.
+- Archive Published Question and Archive Blueprint Course should show the shared-availability
+  consequence and require conspicuous confirmation. Restore actions should use ordinary
+  availability controls.
 - Students should see one question at a time.
 - Student assignment navigation should show each question and whether the response is saved.
 - Instructors can randomize question order for an assignment. Randomizing answer choices belongs
