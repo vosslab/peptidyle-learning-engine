@@ -100,7 +100,7 @@ live-stack data volumes. Since no podman image is needed, I pre-approve all imag
 - **Course Instance** data defaults to notice after 30 days, archive after 100 days, and permanent deletion after 365 days.
 - Course-owned assignment definitions should be kept when **Student** records are archived or deleted.
 - Course work, attempts, submissions, and grades follow the course retention policy independently of the lifetime of the Student Account.
-- Be conservative tracking revisions, like assignments and draft question do not need revisions, their current state can be changed, but we do not need an undo option.
+- Be conservative tracking revisions, like assignments, course instances, and draft question do not need revisions, their current state can be changed, but we do not need an undo option.
 - Assignment deadlines are stored as instants. Instructor dates and times use the Instructor's
   IANA time zone.
 - Students have their own IANA time zone for displaying dates and times.

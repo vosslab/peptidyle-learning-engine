@@ -192,16 +192,17 @@ Collaborator Events. It grants only that private-authoring relationship.
 
 ## Course relationships
 
-**Blueprint Course** is reusable, answer-free course content. It has no
-Students or delivery deadlines. Its **Blueprint Draft** is the one current
-mutable working state being prepared for publication. A **Blueprint Draft Edit
-Number** supports concurrent saves. Publishing copies that state into one
-complete immutable **Blueprint Revision**. **Blueprint Revision Content** is
-the complete answer-free content held by one published Blueprint Revision: its
-structure, defaults, relative schedules, and exact Question Revision
-References. A **Blueprint Content Checksum** is the SHA-256 integrity value for
-that versioned content. A **Blueprint Content Check** compares two complete
-Blueprint Revision Content values by their checksums.
+**Blueprint Course** is the stable public lineage for reusable, answer-free
+course content. It has no Students or delivery deadlines. Blueprint Course
+Availability controls its ordinary browsing and new selection. Its **Blueprint
+Draft** is the one current mutable working state being prepared for publication.
+A **Blueprint Draft Edit Number** supports concurrent saves. Publishing copies
+that state into one complete immutable **Blueprint Revision**. **Blueprint
+Revision Content** is the complete answer-free content held by one published
+Blueprint Revision: its structure, defaults, relative schedules, and exact
+Question Revision References. A **Blueprint Content Checksum** is the SHA-256
+integrity value for that versioned content. A **Blueprint Content Check**
+compares two complete Blueprint Revision Content values by their checksums.
 
 **Blueprint Module** is one labelled, ordered reusable section in Blueprint
 Revision Content. Its ordered Blueprint Assignments are part of that immutable
@@ -224,8 +225,9 @@ separate UUID identity.
 
 **Relative Assignment Schedule** is the reusable schedule intent for one
 Blueprint Assignment. Each Relative Assignment Schedule Moment stores a signed
-calendar-day offset from Course Term start and one local time; it does not store
-an absolute delivery instant.
+calendar-day offset from Course Term start and one local time. It represents
+reusable wall-clock intent; schedule resolution supplies the Account Time Zone
+and absolute Timestamp.
 
 **Blueprint Course Owner** is the Active Instructor Account accountable for one
 Blueprint Course's publication, fork, availability, and Blueprint Draft
@@ -243,11 +245,13 @@ Account to one published Blueprint Revision. The classification describes the
 returned view and grants no authority.
 
 **Resolved Assignment Schedule** is the target-term result of resolving one
-Relative Assignment Schedule. Each Resolved Assignment Schedule Moment pairs
-the resulting Local Date and Time with its exact absolute Timestamp. The
-Assignment stores the resulting current availability, due, and close instants.
-An Assignment Attempt retains any of those exact facts that its access,
-timing, or grading evidence requires.
+Relative Assignment Schedule. An Instructor-authorized Blueprint-to-Course
+operation uses the authenticated Instructor's Account Time Zone to interpret
+each resulting Local Date and Time. Each Resolved Assignment Schedule Moment
+pairs that value with its exact absolute Timestamp. The Assignment stores the
+resulting current availability, due, and close instants. An Assignment Attempt
+retains any of those exact facts that its access, timing, or grading evidence
+requires.
 
 **Blueprint Collaborator** is an Active Instructor Account with an
 explicit, time-bounded contribution relationship to one exact Blueprint Draft;
@@ -255,10 +259,13 @@ it grants neither Authoring Workspace nor Course Instance authority. A
 **Blueprint Publication Event** copies one reviewed Blueprint Draft into a new
 Blueprint Revision, makes that revision reusable by Active Instructor Accounts,
 and closes the draft's collaboration.
-**Blueprint Revision Availability** is the current Available or Archived state
-for one published revision. It determines ordinary new selection without
-changing historical references to that revision. Availability changes preserve
-the existing Blueprint Revision.
+**Blueprint Course Availability** is the mutable Available or Archived state of
+one stable Blueprint Course. The Blueprint Course Owner may archive or restore
+it. Available permits ordinary browsing and new selection. Archived removes the
+Blueprint Course from those workflows while exact Blueprint Revision References
+continue to resolve for existing Course origins, copies, and provenance.
+Restoring changes the current state to Available while preserving every
+Blueprint Revision.
 
 **Fork Blueprint Course** creates a new Blueprint Course from one exact
 Blueprint Revision. **Create Course from Blueprint** creates a new Course
@@ -759,20 +766,27 @@ organizing, and improving Questions. It is a workflow or surface label. Its
 durable records keep their exact names, including Question Folder, Saved
 Question Search, Question Star, Question Watch, and Question Change Proposal.
 
-**Question Metadata** is the structured, answer-free discovery and credit
-information associated with a Draft Question, Published Question, or Question Revision. It
-contains only the bounded metadata fields defined below. Question Source and
-Assignment grading policy remain separate. Question Subject, Question Subsubject,
-Question Classification, and Question Bloom Classification remain future
-packages and add no current generic field, default, facet, fixture, route, or
-browser control. Question Type, Question Format, and Question Backend remain
-exact searchable Question Revision facts rather than free-form metadata.
-Each metadata fact keeps its exact canonical name, validation, and Question
-ownership. Draft Question metadata lives only in private Draft Question Metadata
-tables. Publication copies the accepted values into parallel Published Question
-Metadata tables; it never reuses a draft metadata row. A Question Title edit
-updates discovery information and does not create a Question Revision. Question
-Revision continues to supply immutable Question Source identity and lifecycle.
+**Question Metadata** is structured, answer-free discovery, credit, legal, and
+source-description information associated with a Draft Question, Published
+Question, or Question Revision. The stable Published Question lineage owns
+current discovery metadata: Question Title, Question Description, Question
+Subject, Question Subsubject, and Question Tag values. Question Bloom
+Classification and Question Classification are current lineage discovery
+metadata too. Accepted edits replace those current values; use an Edit Number
+when concurrent writes require one.
+An exact Question Revision owns its Question Authorship, Question License,
+Question Citation, Language, and derived Question Type, Question Format, and
+Question Backend facts. Current discovery-metadata edits preserve every
+immutable Question Source.
+
+Question Subject, Question Subsubject, Question Classification, and Question
+Bloom Classification remain future packages and add no current generic field,
+default, facet, fixture, route, or browser control. Each metadata fact keeps its
+exact canonical name, validation, and ownership. Draft Question metadata lives
+only in private Draft Question Metadata tables. Publication copies accepted
+Draft values into their Published Question lineage or exact Question Revision
+scope; it never reuses a Draft metadata row. Question Revision continues to
+supply immutable Question Source identity and published content.
 
 **Question Title** is the short name used to identify a Question. **Question
 Description** is a concise Instructor-facing, answer-free explanation of what
@@ -781,8 +795,8 @@ Prompt that tells a Student what to do. A Question Description is not delivered
 as Student content unless the same content is separately authored in a
 Student-visible role. After publication, Question Title and Question Description
 remain editable metadata on the stable Published Question lineage. Updating
-either value changes no Question Revision and leaves every immutable Question
-Source unchanged.
+either value replaces current lineage metadata while preserving every immutable
+Question Source.
 
 **Question Authorship** is the required ordered credit for the people who
 created the published content. Each **Question Author** has a reviewed display
@@ -815,27 +829,30 @@ Citation URL, supplies the exact PLE lineage relationship.
 discovery without partitioning the single Question Library. A **Question
 Subsubject** is an optional narrower controlled area under one Question
 Subject. A **Question Tag** is an optional free-form Instructor search term.
-A **Question Classification** is an optional mapping to one real external or
-institutional learning system. It carries a Classification System,
-Classification Code, and Classification Name. Use Question Classification for
-standards, learning objectives, or textbook alignments that need stable export
-meaning. PLE needs no authoring surface for a generic classification until a
-real system is supported. Bloom's revised taxonomy uses the dedicated Question
-Bloom Classification contract rather than this generic mapping.
+A **Question Classification** is an optional mutable discovery mapping from one
+stable Published Question to one real external or institutional learning
+system. It carries a Classification System, Classification Code, and
+Classification Name. Use Question Classification for standards, learning
+objectives, or textbook alignments that need stable export meaning. PLE needs
+no authoring surface for a generic classification until a real system is
+supported. Bloom's revised taxonomy uses the dedicated Question Bloom
+Classification contract rather than this generic mapping.
 
-**Question Bloom Classification** is the initially AI-assigned, Instructor-editable ordered pair
-describing the cognitive demand of one exact Published Question Revision. Its independent fields
-are exactly one **Bloom Cognitive Process** value and one **Bloom Knowledge Dimension** value. Bloom
-Cognitive Process is Remember, Understand, Apply, Analyze, Evaluate, or Create. Bloom Knowledge
-Dimension is Factual Knowledge, Conceptual Knowledge, Procedural Knowledge, or Metacognitive
-Knowledge. The pair alone determines its combined label and 4 by 6 matrix position. The visible
-field labels are Cognitive Process Dimension and Knowledge Dimension.
+**Question Bloom Classification** is initially AI-assigned, Instructor-editable
+discovery metadata describing the current cognitive demand of one stable
+Published Question. Its independent fields are exactly one **Bloom Cognitive
+Process** value and one **Bloom Knowledge Dimension** value. Bloom Cognitive
+Process is Remember, Understand, Apply, Analyze, Evaluate, or Create. Bloom
+Knowledge Dimension is Factual Knowledge, Conceptual Knowledge, Procedural
+Knowledge, or Metacognitive Knowledge. The pair alone determines its combined
+label and 4 by 6 matrix position. The visible field labels are Cognitive Process
+Dimension and Knowledge Dimension.
 
-Publishing creates the exact Question Revision with its Bloom classification unassigned. AI
-classification work searches for unassigned Published Question Revisions and supplies each initial
-pair. The Question remains Published and discoverable while unassigned. An Instructor may later
-record a corrected pair for the same exact Question Revision; that metadata correction changes no
-Question content and creates no Question Revision. The exact rubric, automatic assignment behavior,
+Publishing a Question lineage leaves its Bloom classification unassigned. AI
+classification work searches for unassigned Published Questions and supplies
+each initial pair. The Question remains Published and discoverable while
+unassigned. An Instructor may later replace the current pair while preserving
+every Question Revision. The exact rubric, automatic assignment behavior,
 search behavior, and color associations live in
 [QUESTION_MODEL.md](QUESTION_MODEL.md#bloom-classification).
 
@@ -863,23 +880,23 @@ cognitive demand.
 
 The Published Question discovery, credit, and control facts are closed:
 
-| Canonical term                | Publication requirement      | Owning scope      | Question Search use                           |
-| ----------------------------- | ---------------------------- | ----------------- | --------------------------------------------- |
-| Question Title                | Required                     | Question lineage  | Text search and visible result name           |
-| Question Description          | Required                     | Question lineage  | Text search and visible discovery summary     |
-| Question Authorship           | Required                     | Question Revision | Author text, facet, and Authored by Me        |
-| Question Owner                | Required                     | Question lineage  | My Questions relationship filter              |
-| Question License              | Required                     | Question Revision | Exact license facet                           |
-| Question Citation             | Optional                     | Question Revision | Citation text and URL search                  |
-| Language                      | Required                     | Question Revision | Exact language facet                          |
-| Question Subject              | One or more required         | Question Revision | Subject text and facet                        |
-| Question Subsubject           | Optional                     | Question Revision | Subsubject text and facet                     |
-| Question Tag                  | Optional                     | Question Revision | Tag text and facet                            |
-| Question Bloom Classification | Assigned after publication   | Question Revision | Both Bloom dimension facets                   |
-| Question Classification       | Future supported system only | Question Revision | Future exact system/code filter and name text |
-| Question Type                 | Required, derived            | Question Revision | Exact Question Type facet                     |
-| Question Format               | Required, derived            | Question Revision | Exact Question Format facet                   |
-| Question Backend              | Required, derived            | Question Revision | Exact Question Backend facet                  |
+| Canonical term | Publication requirement | Owning scope | Question Search use |
+| --- | --- | --- | --- |
+| Question Title | Required | Question lineage | Text search and visible result name |
+| Question Description | Required | Question lineage | Text search and visible discovery summary |
+| Question Authorship | Required | Question Revision | Author text, facet, and Authored by Me |
+| Question Owner | Required | Question lineage | My Questions relationship filter |
+| Question License | Required | Question Revision | Exact license facet |
+| Question Citation | Optional | Question Revision | Citation text and URL search |
+| Language | Required | Question Revision | Exact language facet |
+| Question Subject | One or more required | Question lineage | Subject text and facet |
+| Question Subsubject | Optional | Question lineage | Subsubject text and facet |
+| Question Tag | Optional | Question lineage | Tag text and facet |
+| Question Bloom Classification | Assigned after publication | Question lineage | Both Bloom dimension facets |
+| Question Classification | Future supported system only | Question lineage | Future system/code filter and name text |
+| Question Type | Required, derived | Question Revision source | Exact Question Type facet |
+| Question Format | Required, derived | Question Revision source | Exact Question Format facet |
+| Question Backend | Required, derived | Question Revision source | Exact Question Backend facet |
 
 **Question Search** applies normalized criteria to the current Question
 Library. Its text search covers the Question ID, Question Title, Question
@@ -911,15 +928,16 @@ Issues**. The validation result is calculated rather than stored as a lifecycle
 state. A **Question Publication Review** is the answer-free comparison prepared
 from that same saved Draft Question before publication.
 
-**Published Question** is a validated Question lineage in the Question Library,
-available to every Active Instructor Account. Its Question ID is the complete
+**Published Question** is a validated stable Question lineage in the Question
+Library. Published Question Availability controls its ordinary public browsing
+and new selection by Active Instructor Accounts. Its Question ID is the complete
 identity of that stable lineage. The Published Question owns mutable lineage
-metadata, including Question Title and Question Description. **Question Revision**
-is an immutable source-bearing historical revision identified by its complete
-**Question Revision Reference**: the Question ID together with its positive
-Question Revision Number. The Question Revision
-Number increases monotonically within that lineage. Instructor history surfaces
-use Revision and Compare Revisions. Every Question Revision owns one complete
+metadata, including Question Title and Question Description. **Question
+Revision** is an immutable source-bearing historical revision identified by its
+complete **Question Revision Reference**: the Question ID together with its
+positive Question Revision Number. The Question Revision Number increases
+monotonically within that lineage. Instructor history surfaces use Revision and
+Compare Revisions. Every Question Revision owns one complete
 immutable Question Source and records its exact parent Question Revision,
 **Question Revision Editor**, **Question Revision Accepted By**, accepted time,
 and **Question Revision Reason**. The Question Revision Editor is the Account
@@ -933,7 +951,7 @@ Instructor-language counterpart of a Git commit message. **Latest Question
 Revision** is the accepted Question Revision with the greatest Question
 Revision Number in that lineage. The stable Question owns this relationship;
 Published Question and Question Revision retain their existing identities and
-lifecycles. Latest Question Revision is independent of Question Revision
+lifecycles. Latest Question Revision is independent of Published Question
 Availability.
 
 Authorized publication validates the exact Draft Question Edit Number and
@@ -949,15 +967,21 @@ every derived or protected value needed to present and grade that source. The
 complete Question Revision remains resolvable after its Draft Question is
 purged. Draft Question retention is a separate recovery and cleanup policy.
 
-A **Question Revision Update Choice** accompanies creation of a new Question
-Revision and is either Use New Revision in My Assignments or Keep Existing
-Revisions in My Assignments. A **Question Revision Update Receipt** records the
-exact Assignments whose selected Question Revision changed. Existing Assignment
-Attempts, Issued Questions, Question Attempts, and Student Work retain their
-exact existing references. A Question Publication Event records entry into the
-Question Library. **Question Revision Availability** is the current Available
-or Archived selection state for one published revision; changing it preserves
-that revision and its existing references.
+Creating a new Question Revision preserves existing Assignment selections. An
+Instructor may explicitly update current Assignments they control from an older
+Question Revision Reference to the Latest Question Revision. The operation
+reports the exact Assignments it changed. Existing Assignment Attempts, Issued
+Questions, Question Attempts, and Student Work retain their exact existing
+references. A Question Publication Event records entry into the Question
+Library.
+
+**Published Question Availability** is the mutable Available or Archived state
+of one stable Published Question. The Question Owner may archive or restore it.
+Available permits ordinary browsing and new selection. Archived removes the
+Published Question from those workflows while exact Question Revision
+References continue to resolve for existing Assignments, forks, Student Work,
+grading, and history. Restoring changes the current state to Available while
+preserving every Question Revision.
 
 **Question Change Proposal** is one Instructor-owned improvement thread against
 a Published Question. It keeps one current mutable proposed change with its
@@ -1013,14 +1037,6 @@ grades. Assignment Unrelease permanently deletes existing Student Work Records
 for that Assignment when those records exist. Closing or archiving changes
 Assignment Status while preserving Student Work Records.
 
-An **Assignment Export Manifest** is a future server-created private immutable
-typed frozen input for one export operation at one exact Assignment Edit Number.
-When an approved Assignment Export service is introduced, its Manifest will
-copy the exact Assignment content used for the artifact and bind the ordered
-Question Revision selection, printable Question Asset Object References and
-Checksums, selected formats, component releases, and per-format private-input
-rules. The Manifest belongs to the export operation; the Assignment remains the
-current editable teaching object.
 **Base Assignment Policy** is the complete authored timing, attempt, variation,
 navigation, scoring, and Student Feedback Release configuration in that
 Assignment. **Effective Assignment Policy** is the server-calculated result for
