@@ -1,0 +1,30 @@
+Yes. This output makes the likely cleanup boundary much clearer.
+
+I would divide these into three buckets.
+
+Clearly legitimate revisions: Question Revision, Blueprint Revision, Question Change Proposal Revision, and references to exact Question Revisions inside issued work, grading, statistics, forks, assets, and backend sessions. Those all fit the policy because they are published reusable content or exact evidence tied to published content.
+
+Likely overbuilt revision machinery: course_schedule_revision, assignment_revision, assignment_revision_entry_snapshots, and probably course_retention_plan_revision. Those are the areas I would target next. They look like mutable operational state being converted into historical revision systems. Under your policy, Course Instances and Assignments should normally have current state, with an edit number only if concurrency requires one. Student attempts should capture the exact facts they actually need rather than depending on a complete Assignment or Course snapshot.
+
+Needs case-by-case inspection: things such as question_pool_selection ... revision_number, correction manifests, jobs, exports, and analysis tables. Many of these revision_number fields probably refer to a Question Revision rather than introducing their own revision history, so they are likely legitimate.
+
+The biggest architectural target is therefore 2026082916_course_delivery_schedule.sql. It appears to introduce both major questionable concepts at once:
+
+course_schedule_revision
+assignment_revision
+
+Then 2026082938_assignment_revision_entry_snapshots.sql builds another layer on top of assignment_revision, and 2026082939_authenticated_assignment_attempt_start.sql makes attempt issuance depend on it. That is the chain I would unwind first.
+
+The desired end state seems much simpler:
+
+- Course Instances have current mutable scheduling and delivery state.
+- Assignments have current mutable authored and delivery state.
+- Edit numbers may protect concurrent writes without creating history.
+- Published Questions and Blueprint Courses keep immutable revisions.
+- When an Assignment Attempt starts, it records the exact Question Revisions and the specific
+  Assignment facts required to reproduce, grade, and audit that attempt.
+- Grading evidence remains immutable where correctness or auditability requires it.
+
+That last point is important. I would not replace Assignment Revision with another generic "Attempt Snapshot" containing the whole Assignment. That risks recreating the same architecture under a different name. Start from the concrete facts the attempt actually needs and persist only those.
+
+Given the migration chain, I would inspect in this order: 2026082916_course_delivery_schedule.sql -> 2026082938_assignment_revision_entry_snapshots.sql -> 2026082939_authenticated_assignment_attempt_start.sql -> 2026090606_live_demo_assignment_release.sql -> the later attempt/presentation/grading migrations. That should reveal exactly which pieces of assignment_revision are genuine evidence and which exist only because the revision abstraction was introduced upstream.

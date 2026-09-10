@@ -13,7 +13,7 @@ cleanup.
 - Supported authenticated API checks retained only safe booleans: assignments
   page has `count: 50`, `hasNext: true`, and `currentTarget: false`; gradebook
   has the same `count: 50`, `hasNext: true`, and `currentTarget: false`.
-- [CourseAssignmentsPage](../../../src/pages/course_assignments_page.tsx) renders
+- Historical `src/pages/course_assignments_page.tsx` rendered
   only `runtime.queries.assignments(courseId)` items. It has no cursor state or
   visible next-page control.
 - [GradebookPage](../../../src/pages/gradebook_page.tsx) loads one summary page
