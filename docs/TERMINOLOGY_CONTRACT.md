@@ -1009,9 +1009,9 @@ Assignment Release Validation. Future Assignment Attempts use that accepted
 current state. **Assignment Unrelease** changes a Released Assignment to
 Unreleased, removes it from Student use, and deletes the Assignment's existing
 Student Work Records, including its Assignment Attempts, submissions, and
-grades. Assignment Unrelease is a destructive Instructor action whenever those
-records exist. Closing or archiving changes Assignment Status while preserving
-Student Work Records.
+grades. Assignment Unrelease permanently deletes existing Student Work Records
+for that Assignment when those records exist. Closing or archiving changes
+Assignment Status while preserving Student Work Records.
 
 An **Assignment Export Manifest** is a future server-created private immutable
 typed frozen input for one export operation at one exact Assignment Edit Number.
