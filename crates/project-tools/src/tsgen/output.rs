@@ -104,5 +104,29 @@ pub(super) fn render(
             type_definition.name, type_definition.body
         );
     }
+    if let Some(values) = &type_definition.runtime_values {
+        let values = values
+            .iter()
+            .map(|value| serde_json::to_string(value).expect("serializing a string cannot fail"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let _ = writeln!(
+            out,
+            "\nexport const {}_VALUES = [{values}] as const satisfies ReadonlyArray<{}>;",
+            screaming_snake_case(&type_definition.name),
+            type_definition.name
+        );
+    }
     out
+}
+
+fn screaming_snake_case(name: &str) -> String {
+    let mut output = String::new();
+    for (index, character) in name.char_indices() {
+        if character.is_ascii_uppercase() && index != 0 {
+            output.push('_');
+        }
+        output.push(character.to_ascii_uppercase());
+    }
+    output
 }

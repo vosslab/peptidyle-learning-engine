@@ -10,13 +10,16 @@ use std::io::Cursor;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
 use image::codecs::webp::WebPDecoder;
+use image::codecs::webp::WebPEncoder;
 use image::metadata::Orientation;
-use image::{DynamicImage, ImageDecoder, ImageFormat, Limits};
+use image::{DynamicImage, ExtendedColorType, ImageDecoder, ImageFormat, ImageReader, Limits};
 
 /// Maximum accepted original still-image byte length at every ingest path.
 pub const MAX_STILL_IMAGE_BYTES: usize = 8 * 1024 * 1024;
 /// Maximum decoded pixels at every ingest path.
 pub const MAX_STILL_IMAGE_DECODED_PIXELS: u64 = 20_000_000;
+/// Maximum encoded byte length for one normalized Course Banner rendition.
+pub const MAX_COURSE_BANNER_RENDITION_BYTES: usize = 2 * 1024 * 1024;
 
 /// Exact media type established from the decoded bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,6 +61,42 @@ pub enum StillImageError {
     /// polyglot or an ambiguity between parsers.
     Polyglot,
     Malformed,
+}
+
+/// Produces the exact, centered, lossless WebP rendition required by a Course
+/// Banner delivery route.  The source is decoded again at promotion time so a
+/// staged-object substitution cannot bypass the ingest validation boundary.
+// ASVS 5.2.1: decode and constrain hostile raster bytes before derived output.
+pub fn normalized_course_banner_webp(
+    bytes: &[u8],
+    width: u32,
+    height: u32,
+) -> Result<Vec<u8>, StillImageError> {
+    if width == 0 || height == 0 {
+        return Err(StillImageError::ZeroDimensions);
+    }
+    verify_still_image(bytes)?;
+    // `load_from_memory` discards the decoder's EXIF orientation.  Decode
+    // through its decoder instead so the center crop is centered in the same
+    // visual orientation that `verify_still_image` measured.
+    let mut decoder = ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .map_err(|_| StillImageError::Malformed)?
+        .into_decoder()
+        .map_err(malformed)?;
+    let orientation = decoder.orientation().map_err(malformed)?;
+    let mut source = DynamicImage::from_decoder(decoder).map_err(malformed)?;
+    source.apply_orientation(orientation);
+    let cropped = source.resize_to_fill(width, height, image::imageops::FilterType::Lanczos3);
+    let rgba = cropped.to_rgba8();
+    let mut output = Vec::new();
+    WebPEncoder::new_lossless(&mut output)
+        .encode(&rgba, width, height, ExtendedColorType::Rgba8)
+        .map_err(malformed)?;
+    if output.is_empty() || output.len() > MAX_COURSE_BANNER_RENDITION_BYTES {
+        return Err(StillImageError::ByteLimit);
+    }
+    Ok(output)
 }
 
 impl StillImageError {
@@ -377,6 +416,41 @@ mod tests {
             )
             .expect("JPEG fixture encodes");
         bytes
+    }
+
+    #[test]
+    fn course_banner_normalization_is_exact_lossless_webp() {
+        let result = normalized_course_banner_webp(&png(), 1200, 200)
+            .expect("verified still image should normalize");
+        assert!(!result.is_empty());
+        assert!(result.len() <= MAX_COURSE_BANNER_RENDITION_BYTES);
+        let verified =
+            verify_still_image(&result).expect("WebP rendition must remain a valid still");
+        assert_eq!(verified.media_type, StillImageMediaType::WebP);
+        assert_eq!((verified.width, verified.height), (1200, 200));
+    }
+
+    #[test]
+    fn course_banner_normalization_applies_exif_orientation_before_center_crop() {
+        let plain = jpeg();
+        let mut oriented = vec![0xff, 0xd8, 0xff, 0xe1, 0x00, 0x22];
+        oriented.extend_from_slice(
+            b"Exif\0\0MM\0*\0\0\0\x08\0\x01\x01\x12\0\x03\0\0\0\x01\0\x06\0\0\0\0\0\0",
+        );
+        oriented.extend_from_slice(&plain[2..]);
+
+        let actual = normalized_course_banner_webp(&oriented, 200, 100)
+            .expect("oriented JPEG should normalize");
+        let mut expected_image = image::load_from_memory(&plain).expect("JPEG fixture decodes");
+        expected_image.apply_orientation(Orientation::Rotate90);
+        let expected_image = expected_image
+            .resize_to_fill(200, 100, image::imageops::FilterType::Lanczos3)
+            .to_rgba8();
+        let mut expected = Vec::new();
+        WebPEncoder::new_lossless(&mut expected)
+            .encode(&expected_image, 200, 100, ExtendedColorType::Rgba8)
+            .expect("expected WebP encodes");
+        assert_eq!(actual, expected);
     }
 
     fn webp() -> Vec<u8> {

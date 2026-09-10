@@ -12,8 +12,10 @@ mod authentication_ceremony;
 mod authentication_email;
 mod authoring;
 mod blueprint_course;
+mod course_banner;
 mod course_instance;
 mod course_roster;
+mod course_theme;
 mod imathas_question_backend_session;
 mod instructor_account;
 mod invitation_export;
@@ -70,6 +72,12 @@ pub use blueprint_course::{
     StoredBlueprintAssignmentEntry, StoredBlueprintCourse, StoredBlueprintCourseContent,
     StoredBlueprintCourseSummary, StoredBlueprintModule,
 };
+pub use course_banner::{
+    ClaimedCourseBannerUpload, CourseBannerDeleteWork, CourseBannerObjectMetadata,
+    CourseBannerStorageCheckResult, CourseBannerStore, FinalizedCourseBannerPromotion,
+    PrepareCourseBannerPromotion, PreparedCourseBannerPromotion, PreparedCourseBannerRemoval,
+    StageCourseBannerUpload, StagedCourseBannerUpload,
+};
 pub use course_instance::{
     CourseCreationInstructor, CourseInstanceStore, CourseInstanceSummary, CourseInstanceView,
     CreateCourseInstanceInput, CreatedCourseInstance,
@@ -78,6 +86,7 @@ pub use course_roster::{
     ClaimedCourseInvitation, CourseRosterEntry, CourseRosterEntryState, CourseRosterImportEntry,
     CourseRosterImportInput, CourseRosterStore,
 };
+pub use course_theme::CourseThemeStore;
 pub use imathas_question_backend_session::{
     AutomatedGradingReceipt, AutomatedGradingReceiptChecksum, AutomatedGradingReceiptId,
     CommitStagedImathasResultGrading, GradingResultId, ImathasGradingContext,

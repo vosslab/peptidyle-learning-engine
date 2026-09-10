@@ -83,7 +83,8 @@ export { decodeCourseTerm, decodeCourseTermValidationFailure } from "./course_te
 export { decodeStudentFeedbackReleaseRule } from "./assignment_policy";
 export {
   decodeCourseAppearanceView,
-  decodeCourseAppearanceUpdate,
+  decodeCourseThemeUpdate,
+  decodeCourseBannerUpdate,
   decodeCourseBannerUploadReceipt,
 } from "./course_appearance";
 

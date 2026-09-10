@@ -7,6 +7,16 @@
 - [ ] Keep execution-only coordinates outside permanent documentation. Record durable outcomes in
       [CONTRACTS.md](CONTRACTS.md), [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md), or the focused guide.
 
+## Delivered Course Appearance
+
+- Course-scoped Theme and Banner appearance is delivered: active Course Members read one current
+  appearance, Instructor Course Members independently save Theme or Banner, and the Instructor
+  Appearance task has focused accessibility, Ribbon, and cross-member evidence.
+- [ ] Evaluate optional Course Banner visual refinement only from later Instructor use evidence;
+      preserve the fixed 6:1 hero and 5:2 card contract until a bounded replacement is accepted.
+- [ ] Route the inactive `--ple-theme-primary` token and neutralized scope-style work to their
+      separate theme-system plan; activating either remains a behavior change, not Appearance cleanup.
+
 ## Before first production deployment
 
 - Follow the release stages and external activation checks in [ROADMAP.md](ROADMAP.md). The

@@ -107,9 +107,11 @@ the planned generalization.
 
 Mutable instructor resources use positive revisions. The browser receives a
 strong ETag and returns it in `If-Match`; it does not send a revision in a JSON
-body. The future Store-backed authoring, Course Instance, and Course Appearance
-operations parse exactly one strong revision, check it against the stored row,
-and return a conflict for a stale edit.
+body. The future Store-backed authoring and Course Instance operations parse
+exactly one strong revision, check it against the stored row, and return a
+conflict for a stale edit. Course Appearance instead uses independent
+current-state theme and banner writes; it does not require a shared revision or
+`If-Match` precondition.
 
 Required behavior:
 
@@ -246,16 +248,17 @@ caller/operator outcome and repair actions are in
 [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md), and the storage identity contract
 is [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md).
 
-### Planned Course Banner Upload promotion
+### Current Course Banner promotion
 
-The future Course Banner Upload capability writes normalized, checksummed bytes
-under a temporary non-signable identity first. Its Store must bind the upload to
-one Course Instance, Account, expiry, and Object Reference before a
-revision-checked promotion can save a current Course Banner. The durable record
-will remember consumption and cleanup state so competing cleaners cannot delete
-another Course's object or undo a current pointer. [OBJECT_STORAGE.md](OBJECT_STORAGE.md)
-records the current typed-object boundary; it does not claim that durable
-promotion exists today.
+The Course Banner capability stages verified source bytes under a temporary
+non-signable identity, then prepares the source plus normalized hero and card
+objects before independent current-state promotion. Its Store binds each upload
+to one Course, Account, expiry, and Object Reference; prepared work records
+preserve consumption and cleanup state so a competing request cannot delete
+another Course's object or undo a current pointer. Promotion does not use a
+shared Course Appearance revision. An executable worker for expired uploads and
+repair-required cleanup is not yet present; the durable records retain the work
+for that missing recovery path.
 
 ### Planned Object Storage Check and Repair fence
 

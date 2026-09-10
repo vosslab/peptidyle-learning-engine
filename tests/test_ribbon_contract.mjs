@@ -109,6 +109,35 @@ test("admission withholds unavailable controls and respects declared role ceilin
   }
 });
 
+test("Appearance admits only the Instructor Course Setup task and preserves its route", async () => {
+  const instructor = controlsFor("courseAppearance", "instructor");
+  const RealAppRibbon = await loadAppRibbonForSsr();
+  const instructorHtml = renderToString(() =>
+    createComponent(RealAppRibbon, { model: instructor.model }),
+  );
+  assert.match(
+    instructorHtml,
+    /href="\/instructor\/courses\/C-1\/appearance"[^>]*data-ribbon-control="appearance"/,
+  );
+  for (const role of ["student", "sysadmin"]) {
+    const model = controlsFor("courseAppearance", role).model;
+    const control = [...model.tabs, ...model.taskAreas.flatMap((area) => area.controls)].find(
+      (candidate) => candidate.id === "appearance",
+    );
+    assert.equal(
+      control?.availability,
+      "Unavailable",
+      `${role} cannot receive Appearance admission`,
+    );
+    const html = renderToString(() => createComponent(RealAppRibbon, { model }));
+    assert.doesNotMatch(
+      html,
+      /data-ribbon-control="appearance"/,
+      `${role} Ribbon omits Appearance`,
+    );
+  }
+});
+
 test("Task Row topology is exactly the declared task-group topology for every route", () => {
   for (const route of ROUTE_CONTRACT) {
     for (const role of PRODUCT_ROLES) {

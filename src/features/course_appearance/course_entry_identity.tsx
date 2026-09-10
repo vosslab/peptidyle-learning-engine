@@ -11,6 +11,7 @@ import { courseRouteView } from "./course_theme_context";
 const COURSE_ENTRY_IDENTITY_STYLES = `
 .course-entry-identity {
   display: grid;
+  container-type: inline-size;
   gap: var(--ple-space-2, 0.5rem);
   min-width: 0;
   margin-bottom: var(--ple-space-4, 1rem);
@@ -22,9 +23,10 @@ const COURSE_ENTRY_IDENTITY_STYLES = `
 
 .course-entry-banner {
   display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 1200 / 328;
+  inline-size: min(100%, 75rem);
+  block-size: clamp(120px, calc(100cqi / 6), 200px);
+  margin-inline: auto;
+  aspect-ratio: 6 / 1;
   border: 1px solid var(--ple-border);
   border-radius: var(--ple-radius-inset, 0.5rem);
   object-fit: cover;
@@ -48,7 +50,6 @@ export function CourseEntryIdentity(): JSX.Element {
           <header class="course-entry-identity" data-course-title>
             <style>{COURSE_ENTRY_IDENTITY_STYLES}</style>
             <p class="eyebrow">Course home</p>
-            <h1>{course.summary.title}</h1>
             <Show when={banner() !== null && deliveryUrl() !== undefined}>
               <img
                 class="course-entry-banner"
@@ -59,9 +60,10 @@ export function CourseEntryIdentity(): JSX.Element {
                     : courseBannerImageAlternativeText(banner()!.alternativeText)
                 }
                 width="1200"
-                height="328"
+                height="200"
               />
             </Show>
+            <h1>{course.summary.title}</h1>
           </header>
         );
       }}

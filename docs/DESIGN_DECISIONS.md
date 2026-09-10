@@ -1135,13 +1135,26 @@ between taskful and taskless routes deliberately adopt the destination route's c
 
 ### Course appearance derives usable roles from three anchors
 
-**Decision.** A course selects one three-color biome or habitat theme and may add a centered banner
-normalized to 1200 by 328 without stretching. The default `grass` anchors are `#73C167`, `#008852`,
-and `#BDDEB1`; readable interface roles are derived without changing the stored anchors.
+**Decision.** A Course selects one three-color biome or habitat theme and may add a centered Banner.
+One verified private source produces centered, lossless WebP renditions: a 1200 by 200 (6:1) hero
+and a 1000 by 400 (5:2) card. The hero uses a responsive 120--200 pixel height rather than a fixed
+box. The default `grass` anchors are `#73C167`, `#008852`, and `#BDDEB1`; readable interface roles
+are derived without changing the stored anchors.
 
 **Why.** The owner wants Blackboard Original-like course identity, not three decorative swatches on
 otherwise identical white pages. Derived roles preserve recognizable color while meeting contrast
-and accessibility needs.
+and accessibility needs. A shorter wide hero preserves course identity without consuming the former
+large above-fold space, while a separate card crop keeps the meaningful center visible at smaller
+surfaces. Course identity text remains outside the artwork, so no scrim damages Instructor content.
+
+**Consequence.** The Instructor previews the two fixed centered crops before saving. The Banner
+source and both deliveries are server-owned; no caller selects a path, crop, or rendition. Theme
+and Banner saves remain independent behind one authorized appearance reader.
+
+**Owner.** `crates/question_model/src/course_appearance.rs` owns fixed rendition identities;
+`src/features/course_appearance/course_theme_registry.ts` owns palette roles; and
+`docs/active_plans/decisions/course_appearance_banner_storage_and_sizing.md` records the measured
+selection.
 
 ## Demonstration and release evidence
 

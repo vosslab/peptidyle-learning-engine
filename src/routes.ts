@@ -15,6 +15,7 @@ import { CourseListPage } from "./pages/course_list_page";
 import { GradebookPage } from "./pages/gradebook_page";
 import { StudentWorkInspectionPage } from "./pages/student_work_inspection_page";
 import { CourseGradeSettingsPage } from "./pages/course_grade_settings_page";
+import { CourseAppearancePage } from "./pages/course_appearance_page";
 import { withRouteAccessBoundary } from "./route_access_boundary";
 import { ROUTE_CONTRACT, type RouteId } from "./route_contract";
 import { AssignmentAttemptPage } from "./pages/assignment_attempt_page";
@@ -76,6 +77,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   gradebook: GradebookPage,
   studentWorkInspection: StudentWorkInspectionPage,
   courseGradeSettings: CourseGradeSettingsPage,
+  courseAppearance: CourseAppearancePage,
   courseRoster: CourseRosterPage,
   teachingOperations: TeachingOperationsPage,
 };

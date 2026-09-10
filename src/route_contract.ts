@@ -64,6 +64,7 @@ export interface RouteContract {
     | "gradebook"
     | "studentWorkInspection"
     | "courseGradeSettings"
+    | "courseAppearance"
     | "signIn"
     | "courseRoster"
     | "teachingOperations"
@@ -358,6 +359,18 @@ export const ROUTE_CONTRACT = [
     id: "courseGradeSettings",
     path: "/instructor/courses/:courseRef/grade-settings",
     surface: "Course grade settings and projected totals",
+    requiredProductRoles: ["instructor"],
+    ribbon: {
+      scope: "courseInstance",
+      tab: "courseSetup",
+      taskGroup: "courseSetup",
+      contentLayout: "reading",
+    },
+  },
+  {
+    id: "courseAppearance",
+    path: "/instructor/courses/:courseRef/appearance",
+    surface: "Instructor Course Appearance",
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "courseInstance",

@@ -5,6 +5,9 @@ import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { QuestionSearchPage } from "../../../generated/api/QuestionSearchPage";
 import type { QuestionSearchRequest } from "../../../generated/api/QuestionSearchRequest";
 import type { CourseAppearanceView } from "../../../generated/api/CourseAppearanceView";
+import type { CourseThemeUpdate } from "../../../generated/api/CourseThemeUpdate";
+import type { CourseBannerUpdate } from "../../../generated/api/CourseBannerUpdate";
+import type { CourseBannerUploadReceipt } from "../../../generated/api/CourseBannerUploadReceipt";
 import type { CourseGradeSchemeView } from "../../../generated/api/CourseGradeSchemeView";
 import type { CourseGradebookTotalsView } from "../../../generated/api/CourseGradebookTotalsView";
 import type { CourseId } from "../../../generated/api/CourseId";
@@ -30,6 +33,9 @@ import {
   decodeQuestionSummary,
   decodeQuestionSearchPage,
   decodeCourseAppearanceView,
+  decodeCourseThemeUpdate,
+  decodeCourseBannerUpdate,
+  decodeCourseBannerUploadReceipt,
   decodeCourseGradeSchemeView,
   decodeCourseGradebookTotalsView,
   decodeCoursePage,
@@ -61,7 +67,27 @@ async function fetchCourseBanner(
   basePath: string,
   bannerReference: CourseBannerReference,
 ): Promise<Blob> {
-  const path = `/api/course-banners/${encodedId(bannerReference)}/delivery`;
+  return fetchCourseBannerRendition(fetchImplementation, basePath, bannerReference, "hero");
+}
+
+async function fetchCourseBannerCard(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  bannerReference: CourseBannerReference,
+): Promise<Blob> {
+  return fetchCourseBannerRendition(fetchImplementation, basePath, bannerReference, "card");
+}
+
+async function fetchCourseBannerRendition(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  bannerReference: CourseBannerReference,
+  rendition: "hero" | "card",
+): Promise<Blob> {
+  const path =
+    rendition === "hero"
+      ? `/api/course-banners/${encodedId(bannerReference)}/delivery`
+      : `/api/course-banners/${encodedId(bannerReference)}/delivery/card`;
   const response = await fetchImplementation(requestPath(basePath, path), {
     method: "POST",
     headers: { accept: "image/webp" },
@@ -142,11 +168,6 @@ export async function boundedResponseJson(response: Response, path: string): Pro
 function courseAppearanceViewPath(courseId: CourseId): string {
   return `/api/courses/${encodedId(courseId)}/appearance`;
 }
-function strongAppearanceRevision(value: string): string {
-  if (!/^[1-9][0-9]*$/u.test(value) || BigInt(value) > 9_223_372_036_854_775_807n)
-    throw new ApiProtocolError("Course appearance needs a canonical positive revision");
-  return `"${value}"`;
-}
 async function courseAppearanceView(
   fetchImplementation: ApiFetch,
   basePath: string,
@@ -160,10 +181,84 @@ async function courseAppearanceView(
   });
   requireNoStore(response, path);
   if (!response.ok) throw new ApiRequestError(response.status, path);
-  const appearance = decodeCourseAppearanceView(await boundedResponseJson(response, path));
-  if (response.headers.get("etag") !== strongAppearanceRevision(appearance.revision))
-    throw new ApiProtocolError(`API response ${path} ETag does not match its appearance revision`);
-  return appearance;
+  return decodeCourseAppearanceView(await boundedResponseJson(response, path));
+}
+async function updateCourseTheme(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  courseId: CourseId,
+  update: CourseThemeUpdate,
+): Promise<CourseAppearanceView> {
+  const path = courseAppearanceViewPath(courseId);
+  // Decode at the browser boundary before dispatch so an unknown theme is
+  // refused locally and can never silently become the default palette.
+  const request = decodeCourseThemeUpdate(update, "request");
+  const response = await fetchImplementation(requestPath(basePath, path), {
+    method: "PUT",
+    headers: { accept: "application/json", "content-type": "application/json" },
+    body: JSON.stringify(request),
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  requireNoStore(response, path);
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  return decodeCourseAppearanceView(await boundedResponseJson(response, path));
+}
+
+async function uploadCourseBanner(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  courseId: CourseId,
+  image: Blob,
+): Promise<CourseBannerUploadReceipt> {
+  const path = `${courseAppearanceViewPath(courseId)}/banner-uploads`;
+  const response = await fetchImplementation(requestPath(basePath, path), {
+    method: "POST",
+    headers: { accept: "application/json", "content-type": "application/octet-stream" },
+    body: image,
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  requireNoStore(response, path);
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  return decodeCourseBannerUploadReceipt(await boundedResponseJson(response, path));
+}
+
+async function setCourseBanner(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  courseId: CourseId,
+  update: CourseBannerUpdate,
+): Promise<CourseAppearanceView> {
+  const path = `${courseAppearanceViewPath(courseId)}/banner`;
+  const request = decodeCourseBannerUpdate(update, "request");
+  const response = await fetchImplementation(requestPath(basePath, path), {
+    method: "PUT",
+    headers: { accept: "application/json", "content-type": "application/json" },
+    body: JSON.stringify(request),
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  requireNoStore(response, path);
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  return decodeCourseAppearanceView(await boundedResponseJson(response, path));
+}
+
+async function removeCourseBanner(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  courseId: CourseId,
+): Promise<CourseAppearanceView> {
+  const path = `${courseAppearanceViewPath(courseId)}/banner`;
+  const response = await fetchImplementation(requestPath(basePath, path), {
+    method: "DELETE",
+    headers: { accept: "application/json" },
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  requireNoStore(response, path);
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  return decodeCourseAppearanceView(await boundedResponseJson(response, path));
 }
 async function questionDetails(
   fetchImplementation: ApiFetch,
@@ -225,6 +320,10 @@ export function createResponseClient(
   | "listCourses"
   | "getCourse"
   | "getCourseAppearanceView"
+  | "updateCourseTheme"
+  | "uploadCourseBanner"
+  | "setCourseBanner"
+  | "removeCourseBanner"
   | "getCourseGradeScheme"
   | "getCourseGradebookTotals"
   | "listAssignments"
@@ -240,6 +339,7 @@ export function createResponseClient(
   | "getAssignmentActivitySummary"
   | "getAssignmentAttemptScreen"
   | "fetchCourseBanner"
+  | "fetchCourseBannerCard"
   | "assetUrl"
 > {
   return {
@@ -287,6 +387,13 @@ export function createResponseClient(
       ),
     getCourseAppearanceView: (courseId) =>
       courseAppearanceView(fetchImplementation, basePath, courseId),
+    updateCourseTheme: (courseId, update) =>
+      updateCourseTheme(fetchImplementation, basePath, courseId, update),
+    uploadCourseBanner: (courseId, image) =>
+      uploadCourseBanner(fetchImplementation, basePath, courseId, image),
+    setCourseBanner: (courseId, update) =>
+      setCourseBanner(fetchImplementation, basePath, courseId, update),
+    removeCourseBanner: (courseId) => removeCourseBanner(fetchImplementation, basePath, courseId),
     getCourseGradeScheme: async (
       courseId,
     ): Promise<CourseGradeSchemeView & { readonly revision: string }> => {
@@ -476,6 +583,8 @@ export function createResponseClient(
     },
     fetchCourseBanner: (bannerReference) =>
       fetchCourseBanner(fetchImplementation, basePath, bannerReference),
+    fetchCourseBannerCard: (bannerReference) =>
+      fetchCourseBannerCard(fetchImplementation, basePath, bannerReference),
     assetUrl: (assetId) => requestPath(basePath, `/api/assets/${encodedId(assetId)}`),
   };
 }

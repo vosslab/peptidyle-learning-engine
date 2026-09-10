@@ -879,6 +879,11 @@
         "reason": "Grade Settings is not an available current Product Ribbon capability."
       },
       {
+        "routeId": "courseAppearance",
+        "status": "deferred",
+        "reason": "Course Appearance is an admitted Instructor Ribbon destination; the current atlas has no dedicated Appearance capture. The completed M11 browser scenario separately proves reload, enrolled-Student propagation, and second-Course isolation."
+      },
+      {
         "routeId": "signIn",
         "status": "captured",
         "captureIds": ["public_sign_in_laptop", "public_sign_in_phone"]
@@ -1072,7 +1077,7 @@
       {
         "id": "task:appearance",
         "status": "deferred",
-        "reason": "Course Appearance is a future Ribbon destination without a current Browser Surface."
+        "reason": "Course Appearance is an admitted Instructor Ribbon task; the current atlas has no dedicated Appearance capture. The completed M11 browser scenario separately proves reload, enrolled-Student propagation, and second-Course isolation."
       },
       {
         "id": "task:backToAssignments",

@@ -16,6 +16,11 @@ pub(super) struct Generated {
     pub(super) dependencies: BTreeSet<String>,
     pub(super) docs: Vec<String>,
     pub(super) body: String,
+    /// Optional runtime values emitted beside a string-union declaration.
+    ///
+    /// Contract owners opt in with a documentation marker so ordinary enums
+    /// remain type-only browser declarations.
+    pub(super) runtime_values: Option<Vec<String>>,
 }
 
 pub(super) fn doc_lines(attrs: &[Attribute]) -> Vec<String> {
@@ -34,6 +39,9 @@ pub(super) fn doc_lines(attrs: &[Attribute]) -> Vec<String> {
             continue;
         };
         let line = text.value();
+        if line.trim() == "@tsgen-runtime-values" {
+            continue;
+        }
         let trimmed = line.trim();
         if trimmed.starts_with("# Examples") || trimmed.starts_with("# Example") {
             break;
@@ -152,6 +160,7 @@ pub(super) fn generate_struct(item: &syn::ItemStruct) -> Result<Generated> {
         dependencies,
         docs: doc_lines(&item.attrs),
         body,
+        runtime_values: None,
     })
 }
 fn option_inner_type(rust_type: &Type, dependencies: &mut BTreeSet<String>) -> Result<String> {
@@ -286,11 +295,43 @@ pub(super) fn generate_enum(item: &syn::ItemEnum) -> Result<Generated> {
             ),
         }
     }
+    let runtime_values = has_runtime_values_marker(&item.attrs)
+        .then(|| {
+            item.variants
+                .iter()
+                .filter(|variant| !is_skipped(&variant.attrs))
+                .map(|variant| {
+                    effective_name(&variant.attrs, &variant.ident.to_string(), rule.as_deref())
+                })
+                .collect::<Result<Vec<_>>>()
+        })
+        .transpose()?;
+    if runtime_values.is_some()
+        && (tag.is_some()
+            || item
+                .variants
+                .iter()
+                .any(|variant| !matches!(variant.fields, Fields::Unit)))
+    {
+        bail!("runtime enum values require an untagged unit enum");
+    }
     Ok(Generated {
         name: item.ident.to_string(),
         dependencies,
         docs: doc_lines(&item.attrs),
         body: join_union(&item.ident.to_string(), &members),
+        runtime_values,
+    })
+}
+
+fn has_runtime_values_marker(attrs: &[Attribute]) -> bool {
+    attrs.iter().any(|attr| {
+        attr.path().is_ident("doc")
+            && matches!(
+                &attr.meta,
+                Meta::NameValue(name_value)
+                    if matches!(&name_value.value, Expr::Lit(syn::ExprLit { lit: Lit::Str(text), .. }) if text.value().trim() == "@tsgen-runtime-values")
+            )
     })
 }
 

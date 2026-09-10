@@ -66,6 +66,37 @@ gate is red.
 A report identifies its class, exact claim, and environment. One evidence class
 does not gain the scope of another because it uses similar data or code.
 
+### Course Appearance check lifetime
+
+Apply the checklist in [PYTEST_STYLE.md](PYTEST_STYLE.md) to the lifetime decision separately
+from the execution lane. A useful one-time rebuild check does not become a permanent regression
+test merely because it passed or has a saved script. An explicit E2E command can own a retained
+behavior check without adding it to `pytest tests/` or `./launchers/all_test.sh`.
+
+| Checks                                                                                                                                                                                    | Classification and reason                                                                                                                                                                                                                             |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Theme/appearance decoding, invalid input refusal, no-store and same-origin transport, rendered Ribbon role visibility                                                                     | Permanent fast Rust/Node tests: maintain observable protocol and access boundaries with inline fixed inputs. No new Course Appearance pytest was added.                                                                                               |
+| Fault-injected banner preparation, completion, and repair ordering                                                                                                                        | Permanent fast Rust tests: prevent publishing partial writes or recording deletion before confirmation. Call ordering here is the behavior being protected, not a function-name inventory.                                                            |
+| PostgreSQL membership/privilege/RLS checks and MinIO promotion/cleanup saga                                                                                                               | Retained disposable service acceptance under `tests/e2e/`: proves real authorization and object/database effects; explicitly outside fast pytest.                                                                                                     |
+| Instructor save/reload, enrolled Student propagation, second-Course isolation                                                                                                             | Retained production-browser acceptance under `tests/playwright/e2e/`, invoked by its existing browser-suite owner. It is separate from the aggregate fast/service command.                                                                            |
+| Theme preview abandonment/failure, independent pending drafts, loading/error/retry, keyboard/axe/reflow                                                                                   | Retained focused browser behavior checks, explicitly invoked through their documented `node --import tsx` commands. Their component harness does not prove production-route accessibility or server persistence. No new aggregate runner is required. |
+| Palette/radio/span inventories, full Ribbon descriptor/task snapshots, exact banner heights and row/control geometry, SQL body substrings and migration default/constraint-name snapshots | One-time rebuild/sizing evidence: the earlier receipts retain the result; the assertions and unused harness inventory accessors are removed. They must not be promoted into the recurring suite.                                                      |
+| Tests that only call a response constructor and restate its supplied status                                                                                                               | Removed trivial tests: they did not exercise malformed input or authorization despite their names. The HTTP acceptance owns those behaviors.                                                                                                          |
+
+Run retained focused browser checks explicitly:
+
+```bash
+node --import tsx tests/playwright/course_appearance_m7_evidence.mjs
+node --import tsx tests/playwright/course_appearance_m8_evidence.mjs
+node --import tsx tests/playwright/course_appearance_m9_accessibility_evidence.mjs
+node --import tsx tests/playwright/course_appearance_m10_scope_recovery_evidence.mjs
+```
+
+The all-theme Ribbon survey retains visibility/contrast evidence, not exact inter-theme geometry
+equality. The fixed crop decision remains documented even though its one-time measurement probes
+are no longer permanent assertions. Absence of a canonical runner for a one-time probe is not a
+test defect; first justify retaining the behavior, then select its existing execution owner.
+
 ## Account hardening and optional passkey evidence
 
 Create Instructor Account has permanent behavior coverage for Active Sysadmin
@@ -266,10 +297,10 @@ capability; they are not current aggregate browser evidence:
 - PostgreSQL migrations, forced RLS, and disclosure semantics use a named
   database oracle or a declared ignored database test. This is a disposable
   database boundary, not deployment availability.
-- Course-appearance object storage uses the leased `course_appearance_cross_store`
-  profile. It proves typed candidate and current Course Banner addresses against real MinIO. The
-  database-backed current-pointer, promotion, and cleanup oracle is required when that Course
-  Appearance capability is implemented in the current applied schema.
+- Course Appearance object storage uses the leased `course_appearance_cross_store` profile. It
+  proves the current implementation's typed temporary, source, hero, and card Course Banner
+  addresses against real MinIO, plus the database-backed current Banner relation, promotion, and
+  cleanup/repair saga. It remains service evidence, not proof of the separate visible user journey.
 - Renderer render, grade, cache, outage, and redaction use a named renderer or
   worker oracle. This is a provider/service contract, not general
   compatibility.

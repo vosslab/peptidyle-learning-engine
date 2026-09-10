@@ -168,9 +168,10 @@ async fn exercise_object_store(store: &dyn ObjectStore) {
         "Course Banner Uploads must never be delivery targets"
     );
 
-    let course_banner_key = ObjectAddress::CourseBanner {
+    let course_banner_key = ObjectAddress::CourseBannerRendition {
         course: CourseId::from_uuid(id(51)),
         banner: CourseBannerReference::from_uuid(id(53)),
+        rendition: question_model::CourseBannerRendition::Hero,
     };
     let course_banner_record = store
         .put(PutObject {

@@ -489,10 +489,11 @@ Reuse rights come from the exact owning Question Revision, Question Source, or
 Question Asset relationship. A generic Object Record or Object write does not
 independently declare a license.
 
-A **Course Banner Upload** is validated image data bound to one Course Instance,
-Account, expiry, and Object Reference until an atomic Course Appearance update.
-The exact Course relationship authorizes the Instructor; format and image checks
-protect data integrity. Save makes it current; cancellation or expiry leaves the current Course Banner unchanged.
+A **Course Banner Upload** is validated temporary image data bound to one Course Instance, Account,
+expiry, and server-owned Object Reference. The exact Course relationship authorizes the Instructor;
+format and image checks protect data integrity. An independent Banner promotion may make it current
+only after its source and fixed delivery renditions complete; cancellation or expiry leaves the
+current Course Banner unchanged.
 
 **Question Attempt Reproduction Details** are server-held facts used to
 reproduce and verify one exact Question Attempt. They record a Question Backend
@@ -1172,9 +1173,9 @@ field; it never changes Assignment-owned late-work or Assignment Deadline Rule.
 and its exact Revisions, policies, readiness, and Student View. It is an
 interface name; Assignment and Assignment Revision remain the durable records.
 
-**Course Appearance** is one Course Instance's revisioned Course Theme, Course
-Banner, and banner alternative text. A Course Appearance name describes that
-exact visual configuration rather than a general theme registry.
+**Course Appearance** is one Course Instance's current Course Theme, optional Course Banner, and
+banner alternative text. Theme and Banner are independently saved properties behind one
+course-scoped read model; Course Appearance is not a revisioned history or a general theme registry.
 
 ## Stored Question data
 

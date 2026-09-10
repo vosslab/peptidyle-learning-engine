@@ -58,7 +58,7 @@ test("registry and catalog agree on each declared navigation destination", () =>
     const entry = CAPABILITY_REGISTRY[control.id];
     assert.ok(entry, control.id);
     assert.deepEqual(entry.destination, control.destination, control.id);
-    if (control.destination.kind === "route") {
+    if (control.destination.kind !== "future") {
       assert.equal(entry.routeId, control.destination.routeId, control.id);
       assert.equal(routeIds.has(entry.routeId), true, control.id);
     } else {

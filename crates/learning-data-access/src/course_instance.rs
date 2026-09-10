@@ -6,8 +6,8 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AccountReference, BlueprintCourseReference, BlueprintRevision, CourseInstanceReference,
-    CourseTerm,
+    AccountReference, BlueprintCourseReference, BlueprintRevision, CourseId,
+    CourseInstanceReference, CourseSummary, CourseTerm,
 };
 use serde::{Deserialize, Serialize};
 
@@ -90,6 +90,20 @@ pub struct CreatedCourseInstance {
 /// Persistence contract for the Course Instance and initial Teaching Team boundary.
 #[async_trait]
 pub trait CourseInstanceStore: Send + Sync {
+    /// Resolves one public Course reference only for the current active Course Member.
+    async fn resolve_course_navigation(
+        &self,
+        session_token_hash: SessionTokenHash,
+        reference: CourseInstanceReference,
+    ) -> Result<CourseId, StoreError>;
+
+    /// Reads one browser-safe Course Summary only for the current active Course Member.
+    async fn read_course_summary(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course: CourseId,
+    ) -> Result<CourseSummary, StoreError>;
+
     /// Lists only Course Instances where the current Account has an active Instructor Course Membership.
     async fn list_course_instances(
         &self,

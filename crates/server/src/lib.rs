@@ -17,6 +17,8 @@ pub mod authoring;
 pub(crate) mod blueprint_course;
 /// Production database/session composition.
 pub mod composition;
+/// Current Course Appearance reader for active Course Members.
+pub(crate) mod course_appearance;
 /// Course Instance creation and initial teaching-team routes.
 pub(crate) mod course_instance;
 /// Course Roster Import, invitation claim, and access-revocation routes.
@@ -32,6 +34,8 @@ pub(crate) mod invitation_export;
 pub(crate) mod live_gradebook;
 /// Student-only Course and released Assignment landing routes.
 pub(crate) mod live_student_course_landing;
+/// Authorized public Course-reference navigation route.
+pub(crate) mod navigation;
 /// One-shot immutable public Question Asset publisher with no HTTP surface.
 pub mod public_asset_publisher;
 /// Authorized immutable public Question Asset redirect route.

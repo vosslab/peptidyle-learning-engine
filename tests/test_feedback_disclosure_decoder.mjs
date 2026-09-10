@@ -144,7 +144,7 @@ test("Assignment Attempt summary decoder accepts only its compact redacted wire 
   const summary = {
     course: {
       summary: publishedQuestionFixture.course,
-      appearance: { theme: "grass", revision: "1", banner: null },
+      appearance: { theme: "grass", banner: null },
     },
     assignmentAttempt,
     summary: studentProgress,

@@ -102,6 +102,7 @@ fn generate_declarations(contract_roots: &[&Path]) -> Result<Vec<OriginGenerated
                         dependencies: BTreeSet::new(),
                         docs: doc_lines(&item.attrs),
                         body: format!("__CONST__ {}", value.base10_digits()),
+                        runtime_values: None,
                     })
                 }
                 _ => None,

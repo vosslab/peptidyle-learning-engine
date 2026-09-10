@@ -132,9 +132,9 @@ pub use crate::course::{
     StudentAssignmentDetail, StudentAssignmentLandingSummary, StudentLateWorkStatus,
 };
 pub use crate::course_appearance::{
-    CourseAppearanceRevision, CourseAppearanceUpdate, CourseAppearanceUpdateAction,
     CourseAppearanceView, CourseBanner, CourseBannerAlternativeText, CourseBannerInformativeText,
-    CourseBannerReference, CourseBannerUploadReceipt, CourseBannerUploadReference, CourseTheme,
+    CourseBannerReference, CourseBannerRendition, CourseBannerUpdate, CourseBannerUploadReceipt,
+    CourseBannerUploadReference, CourseTheme, CourseThemeUpdate,
 };
 pub use crate::course_grade::{
     CourseGradeAssignmentSetting, CourseGradeAssignmentView, CourseGradeMode,

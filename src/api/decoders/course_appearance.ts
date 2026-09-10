@@ -1,39 +1,21 @@
 // Strict decoders for the course appearance API surface.
 
 import type { CourseAppearanceView } from "../../../generated/api/CourseAppearanceView";
-import type { CourseAppearanceUpdate } from "../../../generated/api/CourseAppearanceUpdate";
 import type { CourseBannerAlternativeText } from "../../../generated/api/CourseBannerAlternativeText";
 import type { CourseBannerUploadReceipt } from "../../../generated/api/CourseBannerUploadReceipt";
 import type { CourseBanner } from "../../../generated/api/CourseBanner";
-import type { CourseTheme } from "../../../generated/api/CourseTheme";
+import type { CourseBannerUpdate } from "../../../generated/api/CourseBannerUpdate";
+import { COURSE_THEME_VALUES } from "../../../generated/api/CourseTheme";
+import type { CourseThemeUpdate } from "../../../generated/api/CourseThemeUpdate";
 import {
   DecodeError,
   decodeNullable,
   decodeNonemptyString,
   decodeRecord,
-  decodeString,
   decodeStringEnum,
   decodeUuid,
 } from "../decoder";
 import { field, requireOnlyFields } from "./shared";
-
-const COURSE_THEME_VALUES = [
-  "tundra",
-  "forest",
-  "desert",
-  "grass",
-  "arctic",
-  "ocean",
-  "tropical",
-  "coral-reef",
-  "swamp",
-  "underground",
-  "salt-marsh",
-  "wetland",
-  "sea-floor",
-  "magma",
-  "beach",
-] as const satisfies ReadonlyArray<CourseTheme>;
 
 function decodeCourseBannerAlternativeText(
   value: unknown,
@@ -74,14 +56,9 @@ export function decodeCourseAppearanceView(
   path = "response",
 ): CourseAppearanceView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["theme", "revision", "banner"]);
-  const revision = decodeString(field(record, "revision", path), `${path}.revision`);
-  if (!/^[1-9][0-9]*$/u.test(revision) || BigInt(revision) > 9_223_372_036_854_775_807n) {
-    throw new DecodeError(`${path}.revision`, "a canonical positive PostgreSQL bigint string");
-  }
+  requireOnlyFields(record, path, ["theme", "banner"]);
   return {
     theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, COURSE_THEME_VALUES),
-    revision,
     banner: decodeNullable(field(record, "banner", path), `${path}.banner`, decodeCourseBanner),
   };
 }
@@ -96,52 +73,24 @@ export function decodeCourseBannerUploadReceipt(
   return { upload: decodeUuid(field(record, "upload", path), `${path}.upload`) };
 }
 
-/** Strict atomic course-appearance update at the request decoder boundary. */
-export function decodeCourseAppearanceUpdate(
-  value: unknown,
-  path = "request",
-): CourseAppearanceUpdate {
+/** Strict promotion request; it never carries a Course, Account, or object path. */
+export function decodeCourseBannerUpdate(value: unknown, path = "request"): CourseBannerUpdate {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["theme", "banner"]);
-  const theme = decodeStringEnum(
-    field(record, "theme", path),
-    `${path}.theme`,
-    COURSE_THEME_VALUES,
-  );
-  const banner = decodeRecord(field(record, "banner", path), `${path}.banner`);
-  const kind = decodeStringEnum(field(banner, "kind", `${path}.banner`), `${path}.banner.kind`, [
-    "keep",
-    "remove",
-    "replace",
-  ]);
-  switch (kind) {
-    case "remove":
-      requireOnlyFields(banner, `${path}.banner`, ["kind"]);
-      return { theme, banner: { kind } };
-    case "keep":
-      requireOnlyFields(banner, `${path}.banner`, ["kind", "alternativeText"]);
-      return {
-        theme,
-        banner: {
-          kind,
-          alternativeText: decodeCourseBannerAlternativeText(
-            field(banner, "alternativeText", `${path}.banner`),
-            `${path}.banner.alternativeText`,
-          ),
-        },
-      };
-    case "replace":
-      requireOnlyFields(banner, `${path}.banner`, ["kind", "upload", "alternativeText"]);
-      return {
-        theme,
-        banner: {
-          kind,
-          upload: decodeUuid(field(banner, "upload", `${path}.banner`), `${path}.banner.upload`),
-          alternativeText: decodeCourseBannerAlternativeText(
-            field(banner, "alternativeText", `${path}.banner`),
-            `${path}.banner.alternativeText`,
-          ),
-        },
-      };
-  }
+  requireOnlyFields(record, path, ["upload", "alternativeText"]);
+  return {
+    upload: decodeUuid(field(record, "upload", path), `${path}.upload`),
+    alternativeText: decodeCourseBannerAlternativeText(
+      field(record, "alternativeText", path),
+      `${path}.alternativeText`,
+    ),
+  };
+}
+
+/** Strict independent Course Theme update at the request decoder boundary. */
+export function decodeCourseThemeUpdate(value: unknown, path = "request"): CourseThemeUpdate {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["theme"]);
+  return {
+    theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, COURSE_THEME_VALUES),
+  };
 }

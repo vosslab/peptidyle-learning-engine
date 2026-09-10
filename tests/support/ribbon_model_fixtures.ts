@@ -48,7 +48,7 @@ function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogCo
 function isDocumentedUnavailableFixtureControl(
   catalog: RibbonCatalogControl<RibbonDestinationId>,
 ): boolean {
-  return catalog.destination.kind === "future" || catalog.id === "backToAssignments";
+  return catalog.destination.kind !== "route" || catalog.id === "backToAssignments";
 }
 
 function fixtureHrefFor(catalog: RibbonCatalogControl<RibbonDestinationId>): string | undefined {

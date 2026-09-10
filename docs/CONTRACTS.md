@@ -88,47 +88,49 @@ must arrive with its exact Workspace Import Store and service route.
 ## Course appearance contract
 
 `crates/question_model/src/course_appearance.rs` owns the frozen browser-safe appearance vocabulary.
-It defines the 15 closed theme IDs, with `grass`
-as the only default; exact decimal-string appearance revisions; explicit decorative or validated
-informative banner text; the opaque `CourseBannerReference` and Course Banner Upload identities; the
-safe current `CourseAppearanceView`;
-and one strict theme plus keep/remove/replace update body. The generated TypeScript union is derived
+It defines the 15 closed biome and habitat theme IDs, with `grass` as the only default; explicit
+decorative or validated informative banner text; opaque Course Banner and upload references; and
+the safe current `CourseAppearanceView`. Generated TypeScript runtime values and the union derive
 from this Rust owner, including `coral-reef`, `salt-marsh`, and `sea-floor`. Unknown IDs refuse.
 
 When present, the browser-safe current Course Banner has exactly `{ reference, alternativeText }`.
 Its `reference` resolves only through the same-origin delivery route; the direct Course Banner
 contract does not use a generic `id` property or a separate presentation wrapper.
 
-`CourseAppearanceView` is exactly `{ theme, revision, banner }` for an authorized route reader.
-`CourseAppearanceRevision` remains its distinct canonical positive-decimal scalar. The View is not
-a durable `CourseAppearance` record: the future revisioned Course Appearance Store owns retained
-appearance records and the Course Instance current-revision relation.
+`CourseAppearanceView` is exactly `{ theme, banner }` for an authorized route reader. Theme and
+Banner are stored independently and have independent mutations: `CourseThemeUpdate` replaces the
+scalar Theme, while a Course Banner Upload is staged and then promoted, replaced, or removed through
+the Banner boundary. There is no appearance revision, `If-Match` precondition, combined save, or
+appearance history.
 
 The View and Course Banner Upload receipt contain no Object Address, bucket, checksum, filename, source bytes,
 upload metadata, signed URL, Answer Key, Question Feedback, Question Answer
-Explanation, Question Grading Input, or answer-bearing type. Course identity is route-owned,
-and compare-and-swap authority will use the strong `If-Match` header rather than a body field.
+Explanation, Question Grading Input, or answer-bearing type. Course identity is route-owned.
 `CourseBannerUpload` and `CourseBanner` Object Addresses have no caller-supplied paths: uploads are
 temporary and non-signable, while saved banners remain private content until an exact Course record
 authorizes delivery.
 
-There is currently no Course Appearance Store, PostgreSQL current-pointer relation, server route,
-or available browser appearance editor. The retained Question Model and typed Object Address contracts
-are preparation for that complete capability, not evidence of it. A future implementation must bind
-each Course Banner Upload to its exact Course Instance, Account, expiry, and Object Reference; validate
-the decoded JPEG, PNG, or WebP image; promote it atomically with the current-pointer revision; and
-authorize delivery only through that persisted pointer. No appearance operation is a Wasm export.
+The registered no-store reader authorizes every active Course Member; the Theme and Banner writes
+authorize only an active Instructor Course Member. Anonymous callers, nonmembers, and foreign
+Instructors receive the same concealed refusal. A Banner Upload is bound to its exact Course,
+Instructor, expiry, and server-owned object identity; decoded PNG, JPEG, or WebP bytes are validated
+before its two-phase source and derived-rendition promotion. One private source and both lossless
+WebP deliveries--a 1200 by 200 hero and 1000 by 400 card--must complete before the Course's current
+Banner changes. Uncertain external work remains in the persisted cleanup/repair saga. No appearance
+operation is a Wasm export.
 
-The existing route-scoped theme registry and safe `CourseRouteView` remain read-only
-browser foundations. They carry no Object Address, checksum, filename in JSON, signed URL, Question
-Answer, Answer Key, Question Feedback, Question Answer Explanation, or Question Grading Input.
+The route-scoped theme registry and safe `CourseRouteView` carry no Object Address, checksum,
+filename in JSON, signed URL, Question Answer, Answer Key, Question Feedback, Question Answer
+Explanation, or Question Grading Input.
 
-The browser's `CourseRouteView` pairs one authorized `CourseSummary` with that safe appearance.
-Course-ID routes load both through one route query. `AssignmentAttemptScreenData` carries the same
-pair so the Assignment Attempt page does not issue a second appearance request, while
-`AssignmentAttemptSummaryResponse` receives its course identity only from the server-authorized stored assignment before loading the safe
-`CourseRouteView`. The strict decoder accepts only the 15 generated IDs and positive decimal revisions;
-unknown theme IDs are contract failures and never silently fall back.
+Dedicated authorized C-reference navigation and member Course Summary reads are direct-route
+prerequisites; neither creates a second appearance model. The strict decoder accepts only the 15
+generated IDs; unknown theme IDs are contract failures and never silently fall back.
+
+**Owner.** `crates/question_model/src/course_appearance.rs` owns browser-safe values;
+`crates/learning-data-access/src/{course_theme.rs,course_banner.rs}` own the separate persistence
+boundaries; and `crates/server/src/course_appearance.rs` owns the registered authorization and HTTP
+routes.
 
 `AssignmentRevisionNumber` has one domain authority at
 `crates/question_model/src/assignment/revision.rs`. Its JSON wire value is a canonical positive
@@ -151,10 +153,10 @@ There is one course-term authority.
 `endDate`, and `timeZone`. C6-CR1 and QM-COURSE move the route producer, generated direct DTO, and
 strict browser decoder together to the target spelling.
 
-The image contract is also fixed: after orientation, an accepted raster must supply a 1200 by 328
-pixel center crop. The server strips metadata and emits exactly one WebP at those dimensions without
-upscaling. Browser surfaces scale that derivative down while preserving its intrinsic aspect; they do
-not stretch, recrop, or request device-specific variants.
+The Course Banner image contract accepts decoded PNG, JPEG, or WebP source bytes after orientation.
+The server preserves one private source and derives centered, lossless WebP hero and card renditions
+at 1200 by 200 and 1000 by 400 respectively. Browser surfaces select only these fixed renditions;
+they never supply a storage identity or arbitrary crop.
 
 ## Automated-grading operations contract
 

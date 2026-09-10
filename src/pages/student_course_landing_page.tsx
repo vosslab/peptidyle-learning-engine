@@ -8,6 +8,7 @@ import type {
   LiveStudentCourseLandingSummary,
 } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
+import { CourseEntryIdentity } from "../features/course_appearance/course_entry_identity";
 import { parseCourseInstanceReference } from "../navigation/public_route";
 import { formatPointScore } from "../score_format";
 
@@ -104,8 +105,7 @@ export function StudentCourseLandingPage(): JSX.Element {
       <Show when={!unavailable() ? course() : undefined}>
         {(current) => (
           <>
-            <p class="eyebrow">Course Instance {current().reference}</p>
-            <h1>{current().title}</h1>
+            <CourseEntryIdentity />
             <h2>Released Assignments</h2>
             <Show when={assignments.loading}>
               <p class="loading-state">Loading released Assignments...</p>

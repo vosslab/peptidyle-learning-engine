@@ -1,115 +1,56 @@
-# Course appearance accessibility audit
+# Course Appearance accessibility audit
 
-Status: implementation and focused acceptance complete on 2026-08-09.
+Status: component-harness evidence recorded on 2026-09-09; production-route accessibility remains
+open in the [Course Appearance audit](../active_plans/audits/course_appearance_six_pass_review.md).
 
-This audit covers the PLE-owned instructor course-appearance workflow and the student course-entry
-`CourseAppearanceView`. It combines a keyboard cognitive walkthrough, source inspection, built-browser tests,
-axe analysis, computed contrast, forced-colors and reduced-motion rendering. The original accepted
-run included 320, 480, 768, and 1920 CSS-pixel artifacts; current visual acceptance follows the
-repository's desktop-first policy and uses the canonical 1280 by 800 instructor canvas, with a
-separate narrow compatibility guard. It does not claim that an institutional identity provider,
-browser extension, assistive-technology combination, or third-party content is conformant.
+This record covers the restored Instructor Course Appearance page: independent Theme and Banner
+forms rendered from the current authorized Course Appearance view. It is page-scoped evidence, not
+a claim that the whole application or every assistive-technology/browser combination is conformant.
 
-## Task model
+## Page-owned task evidence
 
-| Step             | Instructor goal                              | Keyboard path                            | Visible completion evidence                                                     |
-| ---------------- | -------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------- |
-| Open settings    | Reach the course-owned form                  | Tab through navigation, Enter            | `Course appearance` heading and current controls load                           |
-| Choose a theme   | Identify and select by name                  | Tab into the native radio group, arrows  | Named radio and exact wide/narrow previews update                               |
-| Add a banner     | Select one local raster image                | Tab to native file input, Space or Enter | Filename, alt controls, and both image previews appear                          |
-| Describe meaning | Choose decorative or informative             | Tab and arrows; type when informative    | Selected state and, when needed, labeled text input appear                      |
-| Save once        | Commit the atomic appearance                 | Tab to Save appearance, Enter            | Busy label prevents duplicates; success status is announced                     |
-| Recover conflict | Preserve work and inspect current state      | Read focused alert, Tab to review, Enter | Local choices remain until explicit reload; current revision then replaces them |
-| Remove a banner  | Distinguish local intent from commit         | Activate remove, keep, or save           | Pending-removal text differs from saved no-banner state                         |
-| Enter a course   | Recognize the course without settings access | Navigate to course home                  | Text course title and, only when current, one authorized banner appear          |
+The explicitly invoked focused browser check builds the Solid page and support harness with esbuild,
+serves the bundle over loopback HTTP, and drives Chromium with visible native controls. It uses
+`@axe-core/playwright` against the page surface. This retained browser behavior check is outside
+fast pytest and the aggregate service gate. Its original reconstruction probes were one-time
+evidence and have been removed under [PYTEST_STYLE.md](../PYTEST_STYLE.md).
 
-## Interaction and state contract
+| Instructor task                                | Accessible behavior proved                                                                                                                                  | Evidence            |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Select a theme without color or a pointer      | Arrow-key navigation changes the checked radio and preview; the selection has an accessible name and visible text                                           | Focused check below |
+| Choose a banner without a pointer-only control | Keyboard focus plus Enter opens the named native chooser; Playwright supplies its selected local file, and the local preview and enabled save action appear | Same test           |
+| Receive save outcomes                          | A failed theme write produces an assertive `alert`; a successful write produces a polite `status`                                                           | Same test           |
+| Phone reflow                                   | The page has no horizontal overflow and its Banner save control is visible at the phone profile                                                             | Same test           |
+| Avoid serious defects detectable by axe        | No serious or critical axe violations on the rendered page                                                                                                  | Same test           |
 
-| State                         | Primary action                          | Preserved state                          | Focus or announcement                             |
-| ----------------------------- | --------------------------------------- | ---------------------------------------- | ------------------------------------------------- |
-| Unchanged                     | Save disabled                           | Current theme/banner/alt                 | Ordinary document order                           |
-| Locally edited                | Save enabled                            | Theme, selected file, alt                | Native control retains focus                      |
-| Uploading or saving           | Duplicate actions disabled              | Entire local draft                       | Button label and polite live status name progress |
-| Field error                   | Save remains available after correction | Theme, file, alt                         | First invalid field receives focus                |
-| Network/auth/permission error | Retry after recovery                    | Theme, file, alt                         | Alert heading receives focus                      |
-| Stale revision                | Review current appearance               | Theme, file, alt until review            | Conflict heading receives focus                   |
-| Removal pending               | Keep current banner or save             | Current presentation remains recoverable | Explicit pending text; no ambiguous empty frame   |
-| Successful save               | Edit again                              | New authoritative appearance             | Polite success status; route theme revalidates    |
+## Corrections found by the gate
 
-The form uses native radio, file, text, and button semantics. Theme names remain visible next to
-decorative swatches, so no task depends on distinguishing color. The theme radio order is stable and
-arrow-key selection follows the browser's native radio-group behavior. The course title is text
-outside the image. A decorative banner has `alt=""`; an informative banner uses the author-provided
-description. A missing or removed banner produces no student image element.
+The initial rebuild also checked fixed radio order and all four canonical viewport profiles.
+Those results remain implementation-time evidence. Keyboard selection and named non-color state
+remain durable behavior checks without assuming which theme follows another. Exact palette ordering, control counts, and
+full geometry snapshots do not remain in the suite. Retained checks cover user-visible behavior;
+[TEST_EVIDENCE_MODEL.md](../TEST_EVIDENCE_MODEL.md) records the lifetime classification.
 
-## Findings and corrections
+- Banner preview images transferred their 6:1 preferred width into the grid's minimum sizing, which
+  widened the document to 720 px at the phone profile. The form, preview group, and image now have
+  explicit zero minimum inline sizing, so the responsive width is authoritative.
+- Several raw decorative accent anchors did not support their palette-role label at normal text
+  contrast. The Accent role now uses a recognizable low-strength accent tint with the derived ink
+  color; the named checked native radio remains the actual selection state.
 
-| Severity | Baseline finding                                                                                 | Correction                                                                                                      | Acceptance                                                      |
-| -------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| High     | The settings route was a contract placeholder with no operable workflow.                         | Added the complete native-control form, atomic save, recovery, and explicit remove/cancel behavior.             | Keyboard Playwright workflow passes.                            |
-| High     | Secure banner delivery existed, but the authorized student course-entry page rendered no banner. | Added one context-backed entry identity with a text title and optional current banner; no extra metadata fetch. | Entry-only browser test passes.                                 |
-| Medium   | Preview images retained their HTML height at narrow widths and distorted the required ratio.     | Added explicit responsive image height and aspect containment.                                                  | Both previews measure 1200:328 at different CSS widths.         |
-| Medium   | The global header and native file input caused horizontal overflow at 320 pixels.                | Wrapped the small-screen header and allowed the grid/file control to shrink.                                    | Narrow forced-colors test reports no overflowing element.       |
-| Medium   | The plan required axe evidence, but no axe test dependency or executable gate existed.           | Added `@axe-core/playwright` and a main-content serious/critical gate.                                          | Zero serious or critical violations in the accepted form state. |
+## Deliberately reused application evidence
 
-## Accessibility Guideline Checklist
+Forced-colors and reduced-motion are application-wide invariants already exercised by the shared
+accessibility stylesheet, the production-build browser gate, and Ribbon responsive evidence. M9
+does not repeat them for this page. The focused test instead keeps durable coverage for the
+controls, content, and reflow introduced by Course Appearance.
 
-| Need                                     | Standard or method                                      | Acceptance criterion                                                                       | Evidence                                            | Status |
-| ---------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------- | ------ |
-| Complete the task without a pointer      | WCAG 2.2 SC 2.1.1 Keyboard                              | Theme, file, alt, save, conflict review, remove, and cancel all have keyboard paths        | Historical learner-delivery appearance journey      | Pass   |
-| Keep focus visible and ordered           | WCAG 2.2 SC 2.4.3 and 2.4.7                             | Native document order; selected/focused targets remain visible in normal and forced colors | Browser focus assertions and screenshots            | Pass   |
-| Name controls without color dependence   | WCAG 2.2 SC 1.4.1 and 4.1.2                             | Every radio has a text name; swatches are decorative                                       | Source inspection and axe                           | Pass   |
-| Describe informative images              | WCAG 2.2 SC 1.1.1                                       | Decorative images have empty alt; informative images require 1-160 useful characters       | Model tests and entry-only browser test             | Pass   |
-| Preserve readable color pairs            | WCAG contrast plus PLE house target                     | Normal text at least 5.5:1; focus/boundary pairs at least 3:1                              | `palette_metrics.json` and built-browser assertions | Pass   |
-| Reflow without two-dimensional scrolling | WCAG 2.2 SC 1.4.10                                      | No document overflow at 320/480 CSS pixels and 200 percent equivalent layout width         | Responsive browser test and screenshots             | Pass   |
-| Expose status and recovery               | Nielsen visibility/control; WCAG status/error semantics | Busy, success, field error, general error, and conflict are visible and announced          | State walkthrough and browser assertions            | Pass   |
-
-WCAG references: [Keyboard](https://www.w3.org/WAI/WCAG22/Understanding/keyboard),
-[Focus Order](https://www.w3.org/WAI/WCAG22/Understanding/focus-order.html),
-[Focus Visible](https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html), and
-[Non-text Content](https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html).
-
-## Heuristic result
-
-Scores use 0 for a critical failure and 4 for no material issue in the audited scope.
-
-| Nielsen heuristic               | Baseline | Accepted | Evidence                                                                 |
-| ------------------------------- | -------: | -------: | ------------------------------------------------------------------------ |
-| Visibility of system status     |        1 |        4 | Busy labels, live status, focused errors, and conflict state             |
-| Match with the real world       |        2 |        4 | Theme names, entry banner vocabulary, and exact previews                 |
-| User control and freedom        |        1 |        4 | Cancel selection, keep current, remove on save, explicit conflict review |
-| Consistency and standards       |        2 |        4 | Native radios/file input/buttons and one save action                     |
-| Error prevention                |        1 |        4 | Local raster/size/alt checks, disabled duplicate save, revision CAS      |
-| Recognition over recall         |        2 |        4 | All 15 named options and visible current selection                       |
-| Flexibility and efficiency      |        1 |        4 | Radio arrows plus ordinary Tab/Enter path                                |
-| Aesthetic and minimalist design |        2 |        4 | Three bounded sections, entry-only student banner                        |
-| Error recognition and recovery  |        1 |        4 | Preserved draft, actionable alert, explicit reload                       |
-| Help and documentation          |        1 |        4 | File policy, alt guidance, save semantics, and this owner record         |
-
-## Validation and artifacts
+## Run
 
 ```bash
-node --import tsx --test \
-  tests/test_course_appearance_settings.mjs \
-  tests/test_course_theme_scope.mjs
+node --import tsx tests/playwright/course_appearance_m9_accessibility_evidence.mjs
 ```
 
-The prior production-browser scenario and screenshot-corpus publication command
-are absent from the current tree. The historical `appearance_saved` state does
-not establish current visual acceptance. A Course Appearance UI change needs a
-restored browser owner and fresh human visual review in addition to these
-durable behavior gates.
-
-The current generated review set is under `generated/ui/course_appearance/`:
-`theme_contact_sheet.png`, `settings_1280x800.png`, `settings_forced_colors.png`, and
-`palette_metrics.json`. Generated evidence is intentionally
-gitignored; the workstream handoff records exact hashes from the accepted run.
-
-## Human-use boundary
-
-No student or instructor participant and no screen-reader user was recruited for this engineering
-pass. The fall-pilot readiness owner should include representative Roosevelt instructors and
-students in ordinary usability and VoiceOver/NVDA sessions. That evaluation improves confidence in
-the product but is not a missing implementation dependency: the PLE-owned semantics, keyboard path,
-reflow, image alternatives, status handling, contrast, and automated accessibility gate are present
-and executable now.
+The check must run where headless Chromium can create its macOS browser process. Its result is
+automated component accessibility evidence. It does not close production-route accessibility,
+and any later attended usability review remains optional.

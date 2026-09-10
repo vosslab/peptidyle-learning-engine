@@ -39,3 +39,5 @@ tokio.workspace = true
 uuid.workspace = true
 acceptance-runtime = { path = "../acceptance-runtime" }
 adapter_ple = { path = "../adapters/ple" }
+objects = { path = "../objects", features = ["s3"] }
+image.workspace = true

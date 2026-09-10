@@ -9,10 +9,13 @@ import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage"
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
+import type { CourseThemeUpdate } from "../../generated/api/CourseThemeUpdate";
 import type { CourseGradeSchemeView } from "../../generated/api/CourseGradeSchemeView";
 import type { CourseGradeSchemeUpdateView } from "../../generated/api/CourseGradeSchemeUpdateView";
 import type { CourseGradebookTotalsView } from "../../generated/api/CourseGradebookTotalsView";
 import type { CourseBannerReference } from "../../generated/api/CourseBannerReference";
+import type { CourseBannerUpdate } from "../../generated/api/CourseBannerUpdate";
+import type { CourseBannerUploadReceipt } from "../../generated/api/CourseBannerUploadReceipt";
 import type { StudentRecordId } from "../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
@@ -261,6 +264,23 @@ export interface ApiClient
   readonly getCourse: (courseId: CourseId) => Promise<CourseSummary>;
   /** Gets only the authorized current Course Appearance View. */
   readonly getCourseAppearanceView: (courseId: CourseId) => Promise<CourseAppearanceView>;
+  /** Saves one independent Course Theme and returns the current aggregate appearance. */
+  readonly updateCourseTheme: (
+    courseId: CourseId,
+    update: CourseThemeUpdate,
+  ) => Promise<CourseAppearanceView>;
+  /** Stages raw verified banner bytes for this exact Instructor and Course. */
+  readonly uploadCourseBanner: (
+    courseId: CourseId,
+    image: Blob,
+  ) => Promise<CourseBannerUploadReceipt>;
+  /** Promotes one staged banner independently of the Course Theme. */
+  readonly setCourseBanner: (
+    courseId: CourseId,
+    update: CourseBannerUpdate,
+  ) => Promise<CourseAppearanceView>;
+  /** Removes only the current Course Banner. */
+  readonly removeCourseBanner: (courseId: CourseId) => Promise<CourseAppearanceView>;
   readonly listAssignments: (
     courseId: CourseId,
     cursor?: string,
@@ -368,6 +388,8 @@ export interface ApiClient
   ) => Promise<AssignmentAttemptScreenData>;
   /** Same-origin POST that authorizes, audits, and returns one normalized course banner. */
   readonly fetchCourseBanner: (bannerReference: CourseBannerReference) => Promise<Blob>;
+  /** Fetches the fixed 5:2 course-card WebP rendition. */
+  readonly fetchCourseBannerCard: (bannerReference: CourseBannerReference) => Promise<Blob>;
   /** Public immutable Question Library asset redirect path; it never issues a capability. */
   readonly assetUrl: (assetId: QuestionAssetId) => string;
   readonly validateResponseFormatOnServer: FormatValidator;

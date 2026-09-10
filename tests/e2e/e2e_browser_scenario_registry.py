@@ -2,6 +2,7 @@
 
 from e2e_browser_scenario_contract import ScenarioContract
 import e2e_browser_scenarios_auth as auth
+import e2e_browser_scenarios_course_appearance as course_appearance
 import e2e_browser_scenarios_failure as failure
 import e2e_browser_scenarios_instructor as instructor
 
@@ -11,5 +12,6 @@ def contracts() -> tuple[ScenarioContract, ...]:
 	return (
 		auth.contracts()
 		+ instructor.contracts()
+		+ course_appearance.contracts()
 		+ failure.contracts()
 	)

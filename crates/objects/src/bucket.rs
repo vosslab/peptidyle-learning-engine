@@ -2,8 +2,8 @@
 
 use question_model::generation::QuestionSeed;
 use question_model::{
-    CourseBannerReference, CourseBannerUploadReference, CourseId, ObjectId, QuestionAssetId,
-    QuestionRevisionReference, WorkspaceId, WorkspaceImportId,
+    CourseBannerReference, CourseBannerRendition, CourseBannerUploadReference, CourseId, ObjectId,
+    QuestionAssetId, QuestionRevisionReference, WorkspaceId, WorkspaceImportId,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -172,15 +172,21 @@ pub enum ObjectAddress {
         /// Opaque upload reference returned to the authorized browser.
         upload: CourseBannerUploadReference,
     },
-    /// Immutable current-or-retained course banner bytes.
-    ///
-    /// Typed-object signing is permitted, but the asset-delivery layer must
-    /// still verify that this banner is the course's exact current pointer.
-    CourseBanner {
+    /// Immutable verified private source retained for one Course Banner.
+    CourseBannerSource {
         /// Course whose appearance may reference the banner.
         course: CourseId,
         /// Stable browser-safe banner delivery identity.
         banner: CourseBannerReference,
+    },
+    /// Immutable normalized private delivery rendition for one Course Banner.
+    CourseBannerRendition {
+        /// Course whose appearance may reference the banner.
+        course: CourseId,
+        /// Stable browser-safe banner delivery identity.
+        banner: CourseBannerReference,
+        /// Closed, server-owned rendition identity.
+        rendition: CourseBannerRendition,
     },
     /// A course-owned Student Record Object.
     StudentRecord {
@@ -207,7 +213,8 @@ impl ObjectAddress {
             | Self::PublishedImportArchive { .. }
             | Self::RestrictedQuestionAsset { .. }
             | Self::QuestionRender { .. }
-            | Self::CourseBanner { .. } => ObjectStorageArea::PrivateContent,
+            | Self::CourseBannerSource { .. }
+            | Self::CourseBannerRendition { .. } => ObjectStorageArea::PrivateContent,
             Self::QuestionAsset { .. } => ObjectStorageArea::PublicAssets,
             Self::CourseBannerUpload { .. } => ObjectStorageArea::TempProcessing,
             Self::StudentRecord { .. } => ObjectStorageArea::StudentRecords,
@@ -228,9 +235,9 @@ impl ObjectAddress {
                 ObjectDataClass::QuestionAsset
             }
             Self::QuestionRender { .. } => ObjectDataClass::QuestionRender,
-            Self::CourseBannerUpload { .. } | Self::CourseBanner { .. } => {
-                ObjectDataClass::CourseAppearance
-            }
+            Self::CourseBannerUpload { .. }
+            | Self::CourseBannerSource { .. }
+            | Self::CourseBannerRendition { .. } => ObjectDataClass::CourseAppearance,
             Self::StudentRecord { .. } => ObjectDataClass::StudentRecord,
             Self::Temporary { .. } => ObjectDataClass::TemporaryProcessing,
         }
@@ -304,9 +311,19 @@ impl ObjectAddress {
                 "courses/{course}/banners/uploads/{upload}/{}",
                 self.object_id()
             ),
-            Self::CourseBanner { course, banner } => {
-                format!("courses/{course}/banners/{banner}/{}", self.object_id())
-            }
+            Self::CourseBannerSource { course, banner } => format!(
+                "courses/{course}/banners/{banner}/source/{}",
+                self.object_id()
+            ),
+            Self::CourseBannerRendition {
+                course,
+                banner,
+                rendition,
+            } => format!(
+                "courses/{course}/banners/{banner}/renditions/{}/{}",
+                rendition.as_str(),
+                self.object_id()
+            ),
             Self::StudentRecord { course, object } => {
                 format!("courses/{course}/records/{object}")
             }
@@ -330,7 +347,14 @@ impl ObjectAddress {
             Self::CourseBannerUpload { course, upload } => {
                 course_banner_upload_object_id(*course, *upload)
             }
-            Self::CourseBanner { course, banner } => course_banner_object_id(*course, *banner),
+            Self::CourseBannerSource { course, banner } => {
+                course_banner_source_object_id(*course, *banner)
+            }
+            Self::CourseBannerRendition {
+                course,
+                banner,
+                rendition,
+            } => course_banner_rendition_object_id(*course, *banner, *rendition),
         }
     }
 
@@ -356,7 +380,8 @@ impl ObjectAddress {
             | Self::WorkspaceQuestionSource { .. }
             | Self::WorkspaceImportAsset { .. }
             | Self::CourseBannerUpload { .. }
-            | Self::CourseBanner { .. }
+            | Self::CourseBannerSource { .. }
+            | Self::CourseBannerRendition { .. }
             | Self::StudentRecord { .. }
             | Self::Temporary { .. } => None,
         }
@@ -375,7 +400,7 @@ impl ObjectAddress {
             Self::QuestionAsset { .. }
                 | Self::RestrictedQuestionAsset { .. }
                 | Self::QuestionRender { .. }
-                | Self::CourseBanner { .. }
+                | Self::CourseBannerRendition { .. }
                 | Self::StudentRecord { .. }
         )
     }
@@ -408,10 +433,26 @@ pub fn course_banner_upload_object_id(
 }
 
 /// Derives the immutable physical identity for one promoted course banner.
-pub fn course_banner_object_id(course: CourseId, banner: CourseBannerReference) -> ObjectId {
+pub fn course_banner_source_object_id(course: CourseId, banner: CourseBannerReference) -> ObjectId {
     domain_separated_object_id(
-        b"ple:course-banner:v1\0",
+        b"ple:course-banner-source:v1\0",
         [course.as_uuid(), banner.as_uuid(), uuid::Uuid::nil()],
+    )
+}
+
+/// Derives the immutable physical identity for one normalized course-banner rendition.
+pub fn course_banner_rendition_object_id(
+    course: CourseId,
+    banner: CourseBannerReference,
+    rendition: CourseBannerRendition,
+) -> ObjectId {
+    let rendition_uuid = match rendition {
+        CourseBannerRendition::Hero => uuid::Uuid::from_u128(1),
+        CourseBannerRendition::Card => uuid::Uuid::from_u128(2),
+    };
+    domain_separated_object_id(
+        b"ple:course-banner-rendition:v1\0",
+        [course.as_uuid(), banner.as_uuid(), rendition_uuid],
     )
 }
 
@@ -554,7 +595,7 @@ mod tests {
                 question_seed: QuestionSeed::new(1),
                 object,
             },
-            ObjectAddress::CourseBanner {
+            ObjectAddress::CourseBannerSource {
                 course: CourseId::from_uuid(Uuid::from_u128(10)),
                 banner: CourseBannerReference::from_uuid(Uuid::from_u128(11)),
             },
@@ -576,16 +617,23 @@ mod tests {
             course,
             upload: upload_reference,
         };
-        let banner = ObjectAddress::CourseBanner {
+        let source = ObjectAddress::CourseBannerSource {
             course,
             banner: banner_reference,
+        };
+        let banner = ObjectAddress::CourseBannerRendition {
+            course,
+            banner: banner_reference,
+            rendition: CourseBannerRendition::Hero,
         };
 
         assert_eq!(upload.storage_area(), ObjectStorageArea::TempProcessing);
         assert_eq!(upload.question_revision(), None);
         assert!(!upload.may_issue_signed_url());
+        assert_eq!(source.storage_area(), ObjectStorageArea::PrivateContent);
+        assert_eq!(source.question_revision(), None);
+        assert!(!source.may_issue_signed_url());
         assert_eq!(banner.storage_area(), ObjectStorageArea::PrivateContent);
-        assert_eq!(banner.question_revision(), None);
         assert!(banner.may_issue_signed_url());
         assert!(upload.path().contains(&course.to_string()));
         assert!(upload.path().contains(&upload_reference.to_string()));
@@ -598,14 +646,14 @@ mod tests {
     fn banner_object_identity_changes_with_course_and_route_id() {
         let course = CourseId::from_uuid(Uuid::from_u128(2));
         let banner = CourseBannerReference::from_uuid(Uuid::from_u128(3));
-        let base = course_banner_object_id(course, banner);
+        let base = course_banner_source_object_id(course, banner);
         assert_ne!(
             base,
-            course_banner_object_id(CourseId::from_uuid(Uuid::from_u128(12)), banner)
+            course_banner_source_object_id(CourseId::from_uuid(Uuid::from_u128(12)), banner)
         );
         assert_ne!(
             base,
-            course_banner_object_id(
+            course_banner_source_object_id(
                 course,
                 CourseBannerReference::from_uuid(Uuid::from_u128(13))
             )
@@ -614,9 +662,10 @@ mod tests {
 
     #[test]
     fn banner_keys_round_trip_without_a_caller_supplied_object_id() {
-        let key = ObjectAddress::CourseBanner {
+        let key = ObjectAddress::CourseBannerRendition {
             course: CourseId::from_uuid(Uuid::from_u128(2)),
             banner: CourseBannerReference::from_uuid(Uuid::from_u128(3)),
+            rendition: CourseBannerRendition::Card,
         };
         let encoded = serde_json::to_string(&key).expect("banner key should serialize");
         let decoded: ObjectAddress =

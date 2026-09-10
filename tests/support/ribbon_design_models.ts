@@ -285,6 +285,30 @@ function cloneWithCourseTitle(title: string): RibbonModel {
 /** Explicit state specimens in addition to the nine stable schemas. */
 export const RIBBON_DESIGN_STATE_SPECIMENS = {
   selectedAndUnselected: RIBBON_DESIGN_SCHEMAS.courseInstructor,
+  courseAppearance: model(
+    "courseInstance",
+    "instructor",
+    [
+      control("assignments"),
+      control("students"),
+      control("gradebook"),
+      control("teachingOperations"),
+      control("blueprintUpdates"),
+      control("courseSetup"),
+    ],
+    [
+      area("courseSetup", "Course setup", [
+        control("gradeSettings"),
+        control("appearance", { selected: true }),
+      ]),
+    ],
+    "reading",
+    {
+      accountLabel: "Instructor account",
+      scopeLabel: SHORT_COURSE_TITLE,
+      signOutAction: SIGN_OUT,
+    },
+  ),
   emptyTaskRow: RIBBON_DESIGN_SCHEMAS.courseStudent,
   populatedTaskRow: RIBBON_DESIGN_SCHEMAS.productInstructor,
   veryLongCourseTitle: cloneWithCourseTitle(VERY_LONG_COURSE_TITLE),

@@ -3,8 +3,11 @@
 import { createContext, useContext, type Accessor, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
-import type { CourseThemeRouteData } from "../features/course_appearance/course_theme_context";
-import { createRouteScopeController } from "./route_scope_controller";
+import type {
+  CourseThemeRouteData,
+  ReplaceCourseAppearance,
+} from "../features/course_appearance/course_theme_context";
+import { createRouteScopeController, type RouteScopeLoadState } from "./route_scope_controller";
 import type { RouteScopeKey } from "../navigation/route_params";
 
 /** URL-syntax scope identity only; route access and service policy remain separate. */
@@ -18,6 +21,9 @@ export interface RouteScopeProviderProps {
 interface RouteScopeContextValue {
   readonly identity: Accessor<RouteScopeIdentity>;
   readonly data: Accessor<CourseThemeRouteData | undefined>;
+  readonly loadState: Accessor<RouteScopeLoadState>;
+  readonly retry: () => void;
+  readonly replaceCourseAppearance: ReplaceCourseAppearance;
 }
 
 const RouteScopeContext = createContext<RouteScopeContextValue>();
@@ -53,4 +59,19 @@ export function useRouteScopeIdentity(): RouteScopeIdentity {
  */
 export function useRouteScopeData(): Accessor<CourseThemeRouteData | undefined> {
   return useRouteScopeContext().data;
+}
+
+/** Reads the current request state for content-owned loading and recovery copy. */
+export function useRouteScopeLoadState(): Accessor<RouteScopeLoadState> {
+  return useRouteScopeContext().loadState;
+}
+
+/** Retries only the current public route scope after a request failure. */
+export function useRetryRouteScope(): () => void {
+  return useRouteScopeContext().retry;
+}
+
+/** Updates the in-memory saved appearance returned by an authorized mutation. */
+export function useReplaceCourseAppearance(): ReplaceCourseAppearance {
+  return useRouteScopeContext().replaceCourseAppearance;
 }

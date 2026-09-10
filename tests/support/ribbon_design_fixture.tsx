@@ -133,7 +133,7 @@ function Treatment(props: { readonly treatment: RibbonDesignTreatment }): JSX.El
               kind="theme"
               name={option.id}
               label={option.tokens.name}
-              model={RIBBON_DESIGN_STATE_SPECIMENS.selectedAndUnselected}
+              model={RIBBON_DESIGN_STATE_SPECIMENS.courseAppearance}
               themeStyle={courseThemeStyle(option.tokens)}
             />
           )}

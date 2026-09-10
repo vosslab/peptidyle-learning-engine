@@ -1,4 +1,4 @@
-//! Live Course Instance creation and initial teaching-team Server Routes.
+//! Live Course Instance creation, member summary, and teaching-team Server Routes.
 //!
 //! This module exposes the smallest live-teaching boundary: an exact Blueprint Revision
 //! becomes a Course Instance with one Assigned Instructor.  Roster, Assignment,
@@ -17,8 +17,9 @@ use learning_data_access::{
     CourseInstanceStore, CreateCourseInstanceInput, SessionTokenHash, StoreError,
     postgres::{PostgresCourseInstanceStore, PostgresSessionStore},
 };
-use question_model::{CourseInstanceReference, ProductRole};
+use question_model::{CourseId, CourseInstanceReference, ProductRole};
 use serde::Serialize;
+use uuid::Uuid;
 
 use crate::auth::{AuthError, resolve_session};
 
@@ -28,7 +29,7 @@ struct CourseInstanceRouteState {
     courses: PostgresCourseInstanceStore,
 }
 
-/// Registers the active Course Instance creation and teaching-team routes.
+/// Registers the active Course Instance creation, member summary, and teaching-team routes.
 pub fn course_instance_router(
     sessions: Arc<PostgresSessionStore>,
     courses: PostgresCourseInstanceStore,
@@ -42,6 +43,7 @@ pub fn course_instance_router(
             "/api/course-instances/{reference}",
             get(load_course_instance),
         )
+        .route("/api/courses/{course}", get(read_course_summary))
         .route(
             "/api/course-instance-creation/instructors",
             get(list_course_creation_instructors),
@@ -118,6 +120,29 @@ async fn load_course_instance(
     }
 }
 
+async fn read_course_summary(
+    State(state): State<CourseInstanceRouteState>,
+    headers: HeaderMap,
+    Path(course): Path<String>,
+) -> Response {
+    let course = match Uuid::parse_str(&course) {
+        Ok(value) => CourseId::from_uuid(value),
+        Err(_) => return concealed(),
+    };
+    let session_hash = match authenticated_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .courses
+        .read_course_summary(session_hash, course)
+        .await
+    {
+        Ok(summary) => crate::auth::no_store(Json(summary).into_response()),
+        Err(error) => store_error_response(error),
+    }
+}
+
 async fn list_course_creation_instructors(
     State(state): State<CourseInstanceRouteState>,
     headers: HeaderMap,
@@ -182,6 +207,27 @@ async fn required_session_hash(
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
             StatusCode::SERVICE_UNAVAILABLE,
             "Course Instance authentication unavailable",
+        ))),
+    }
+}
+
+async fn authenticated_session_hash(
+    state: &CourseInstanceRouteState,
+    headers: &HeaderMap,
+) -> Result<SessionTokenHash, Box<Response>> {
+    match resolve_session(
+        state.sessions.as_ref(),
+        joined_cookie_header(headers).as_deref(),
+    )
+    .await
+    {
+        // ASVS 8.2.2 and 8.3.1: Product Role is not Course Membership
+        // authority. The Store applies the exact active-membership check.
+        Ok(session) => Ok(session.session_hash),
+        Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
+        Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(route_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Course Summary authentication unavailable",
         ))),
     }
 }

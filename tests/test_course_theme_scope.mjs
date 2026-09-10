@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { decodeCourseAppearanceView } from "../src/api/decoders.ts";
+import { COURSE_THEME_VALUES } from "../generated/api/CourseTheme.ts";
 import {
   courseBannerImageAlternativeText, // Decode the closed banner accessibility union.
 } from "../src/features/course_appearance/course_banner_alternative_text.ts";
@@ -13,23 +14,7 @@ import {
   courseThemeTokens,
 } from "../src/features/course_appearance/course_theme_registry.ts";
 
-const THEME_IDS = [
-  "tundra",
-  "forest",
-  "desert",
-  "grass",
-  "arctic",
-  "ocean",
-  "tropical",
-  "coral-reef",
-  "swamp",
-  "underground",
-  "salt-marsh",
-  "wetland",
-  "sea-floor",
-  "magma",
-  "beach",
-];
+const THEME_IDS = COURSE_THEME_VALUES;
 
 function mixedHex(first, second, firstShare) {
   const channels = (hex) =>
@@ -146,22 +131,17 @@ test("Grass uses the Roosevelt-inspired anchors and accessible derived actions",
 
 test("unknown theme IDs fail closed instead of selecting a default", () => {
   assert.throws(() => courseThemeTokens("woodland"), /Unknown course theme/u);
-  assert.throws(() =>
-    decodeCourseAppearanceView({ theme: "woodland", revision: "1", banner: null }),
-  );
-  assert.throws(() => decodeCourseAppearanceView({ theme: "grass", revision: "01", banner: null }));
+  assert.throws(() => decodeCourseAppearanceView({ theme: "woodland", banner: null }));
 });
 
 test("course banners preserve their closed decorative or informative treatment", () => {
   const bannerReference = "00000000-0000-0000-0000-000000000007";
   const decorative = decodeCourseAppearanceView({
     theme: "grass",
-    revision: "1",
     banner: { reference: bannerReference, alternativeText: { kind: "decorative" } },
   });
   const informative = decodeCourseAppearanceView({
     theme: "grass",
-    revision: "1",
     banner: {
       reference: bannerReference,
       alternativeText: { kind: "informative", text: "Forest canopy" },
@@ -181,7 +161,6 @@ test("course banners preserve their closed decorative or informative treatment",
     assert.throws(() =>
       decodeCourseAppearanceView({
         theme: "grass",
-        revision: "1",
         banner: { reference: bannerReference, alternativeText },
       }),
     );
@@ -189,7 +168,6 @@ test("course banners preserve their closed decorative or informative treatment",
   assert.throws(() =>
     decodeCourseAppearanceView({
       theme: "grass",
-      revision: "1",
       banner: { id: bannerReference, alternativeText: { kind: "decorative" } },
     }),
   );

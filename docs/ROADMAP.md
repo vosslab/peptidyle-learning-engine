@@ -44,6 +44,10 @@ acceptance.
 - The mounted Application Shell and its single role-aware Ribbon. Its backed destinations are
   available only through their declared Product Role routes; the registry remains a UI admission
   ceiling rather than Server authorization.
+- Course Appearance: one current course-scoped `{ theme, banner }` reader, independent Instructor
+  Theme and Banner saves, private Banner source/rendition delivery, and the admitted Instructor
+  Appearance task. Its focused accessibility and cross-member propagation evidence are complete;
+  optional visual refinement and unrelated theme-system work remain separately scoped.
 - The connected Instructor authoring, Student delivery and recovery, Gradebook, Sysadmin Account,
   scoped-support, protected export, and automated-grading evidence recorded in
   [CHANGELOG.md](CHANGELOG.md). These pre-production receipts do not establish deployment or
@@ -78,7 +82,7 @@ acceptance.
 
 - Allocate currently absent vocabulary-adjacent capabilities only when their product work becomes
   current: Watched Questions, Blueprint Updates, Course Invitation Email Delivery, a configured
-  Question Backend selector, Course Banner upload/persistence, durable Blueprint-operation replay,
+  Question Backend selector, durable Blueprint-operation replay,
   and Job Kind registration/readiness. Their reserved names do not create implementation work in
   the Vocabulary Replacement Checklist.
 - Treat further database normalization as future design work, owned by a later bounded work item
@@ -141,7 +145,7 @@ explicit E2E, Playwright, or operational gates rather than hidden fast tests.
 | Installer still applies DDL                     | Keep release acceptance open; remove the flag and migration application path.  |
 | Current source changes during evidence capture  | Refresh the inventory and rerun the affected gates on the final material tree. |
 | Recovery procedure is untested                  | Block release until a disposable restore exercise passes.                      |
-| Normalization is proposed without measured need | Defer it to a future work item with an explicit owner and allocation.           |
+| Normalization is proposed without measured need | Defer it to a future work item with an explicit owner and allocation.          |
 
 Release is not ready until [CHANGELOG.md](CHANGELOG.md) records accepted predecessors, complete
 Validation, data-only live-demo installation, clean-stack/browser evidence, recovery evidence, and

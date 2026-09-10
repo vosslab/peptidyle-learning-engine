@@ -1,7 +1,10 @@
 //! PostgreSQL persistence for Course Instance creation and initial teaching team.
 
 use async_trait::async_trait;
-use question_model::{AccountReference, CourseInstanceReference, CourseTerm};
+use question_model::{
+    AccountReference, CourseId, CourseInstanceReference, CourseMembershipRole, CourseSummary,
+    CourseTerm,
+};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::Pool;
@@ -52,6 +55,61 @@ impl PostgresCourseInstanceStore {
 
 #[async_trait]
 impl CourseInstanceStore for PostgresCourseInstanceStore {
+    async fn resolve_course_navigation(
+        &self,
+        session_token_hash: SessionTokenHash,
+        reference: CourseInstanceReference,
+    ) -> Result<CourseId, StoreError> {
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        // ASVS 1.2.3, 8.2.2, and 8.3.1: the procedure resolves an opaque
+        // reference only after binding it to the installed active membership.
+        let row = sqlx::query("SELECT course_id FROM ple_api.resolve_course_navigation($1)")
+            .bind(i64::from(reference.number()))
+            .fetch_optional(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        let course = row
+            .map(|row| {
+                row.try_get("course_id")
+                    .map(CourseId::from_uuid)
+                    .map_err(map_sqlx_error)
+            })
+            .transpose()?
+            .ok_or(StoreError::NotFound)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(course)
+    }
+
+    async fn read_course_summary(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course: CourseId,
+    ) -> Result<CourseSummary, StoreError> {
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        // ASVS 1.2.3, 8.2.2, and 8.3.1: the SECURITY DEFINER procedure binds
+        // this opaque Course ID to the installed session's active membership.
+        let row = sqlx::query(
+            "SELECT course_id, reference_number, title, term_starts_on::text AS term_starts_on, \
+             term_ends_on::text AS term_ends_on, course_time_zone, membership_role \
+             FROM ple_api.read_course_summary($1)",
+        )
+        .bind(course.as_uuid())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let summary = row
+            .as_ref()
+            .map(decode_course_summary)
+            .transpose()?
+            .ok_or(StoreError::NotFound)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(summary)
+    }
+
     async fn list_course_instances(
         &self,
         session_token_hash: SessionTokenHash,
@@ -197,6 +255,22 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceSummary, 
     })
 }
 
+fn decode_course_summary(row: &sqlx::postgres::PgRow) -> Result<CourseSummary, StoreError> {
+    let course_id = row.try_get("course_id").map_err(map_sqlx_error)?;
+    let stored_membership_role: String = row.try_get("membership_role").map_err(map_sqlx_error)?;
+    Ok(CourseSummary {
+        id: CourseId::from_uuid(course_id),
+        reference: course_reference(row.try_get("reference_number").map_err(map_sqlx_error)?)?,
+        title: row.try_get("title").map_err(map_sqlx_error)?,
+        term: term(
+            row.try_get("term_starts_on").map_err(map_sqlx_error)?,
+            row.try_get("term_ends_on").map_err(map_sqlx_error)?,
+            row.try_get("course_time_zone").map_err(map_sqlx_error)?,
+        )?,
+        role: membership_role(&stored_membership_role)?,
+    })
+}
+
 fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreError> {
     let active_instructor_count: i64 = row
         .try_get("active_instructor_count")
@@ -227,6 +301,14 @@ fn account_reference(value: i64) -> Result<AccountReference, StoreError> {
 
 fn term(start_date: String, end_date: String, time_zone: String) -> Result<CourseTerm, StoreError> {
     CourseTerm::from_parts(&start_date, &end_date, &time_zone).map_err(|_| invalid("Course Term"))
+}
+
+fn membership_role(value: &str) -> Result<CourseMembershipRole, StoreError> {
+    match value {
+        "student" => Ok(CourseMembershipRole::Student),
+        "instructor" => Ok(CourseMembershipRole::Instructor),
+        _ => Err(invalid("Course Membership Role")),
+    }
 }
 
 fn invalid(label: &str) -> StoreError {

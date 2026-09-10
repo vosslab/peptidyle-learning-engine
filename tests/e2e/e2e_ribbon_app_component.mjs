@@ -54,7 +54,7 @@ test("every fixture href is a canonical declared route with its catalog paramete
       const catalog = catalogById.get(control.id);
       assert.ok(catalog, `${fixtureName}:${control.id} is catalogued`);
       const documentedUnavailable =
-        catalog.destination.kind === "future" || catalog.id === "backToAssignments";
+        catalog.destination.kind !== "route" || catalog.id === "backToAssignments";
       if (documentedUnavailable) {
         assert.equal(
           control.availability,

@@ -9,16 +9,17 @@ use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
     SessionLifetime,
     postgres::{
-        PostgresAuthoringDraftStore, PostgresBlueprintCourseStore, PostgresCourseInstanceStore,
-        PostgresCourseRosterStore, PostgresDraftQuestionSourceBindingStore,
-        PostgresInstructorAccountStore, PostgresInvitationExportStore,
-        PostgresLiveAssignmentDeliveryStore, PostgresLiveAssignmentStore,
-        PostgresLiveDemoGradebookStore, PostgresLiveStudentCourseLandingStore,
-        PostgresNativePleGradingStore, PostgresNativePleSubmissionStore,
-        PostgresPublicAssetPublicationStore, PostgresQuestionAssetDeliveryStore,
-        PostgresQuestionLibraryStore, PostgresSessionStore, PostgresSupportCapabilityStore,
-        PostgresWebworkGradingStore, PostgresWebworkSubmissionStore, ProductionLoginProfile,
-        local_development_pool, production_pool,
+        PostgresAuthoringDraftStore, PostgresBlueprintCourseStore, PostgresCourseBannerStore,
+        PostgresCourseInstanceStore, PostgresCourseRosterStore, PostgresCourseThemeStore,
+        PostgresDraftQuestionSourceBindingStore, PostgresInstructorAccountStore,
+        PostgresInvitationExportStore, PostgresLiveAssignmentDeliveryStore,
+        PostgresLiveAssignmentStore, PostgresLiveDemoGradebookStore,
+        PostgresLiveStudentCourseLandingStore, PostgresNativePleGradingStore,
+        PostgresNativePleSubmissionStore, PostgresPublicAssetPublicationStore,
+        PostgresQuestionAssetDeliveryStore, PostgresQuestionLibraryStore, PostgresSessionStore,
+        PostgresSupportCapabilityStore, PostgresWebworkGradingStore,
+        PostgresWebworkSubmissionStore, ProductionLoginProfile, local_development_pool,
+        production_pool,
     },
 };
 use objects::{
@@ -82,6 +83,8 @@ pub async fn production_router_from_env() -> Result<Router> {
     let question_library_store = PostgresQuestionLibraryStore::new(pool.clone());
     let blueprint_courses = PostgresBlueprintCourseStore::new(pool.clone());
     let course_instances = PostgresCourseInstanceStore::new(pool.clone());
+    let course_themes = PostgresCourseThemeStore::new(pool.clone());
+    let course_banners = PostgresCourseBannerStore::new(pool.clone());
     let course_roster = PostgresCourseRosterStore::new(pool.clone());
     let instructor_accounts = PostgresInstructorAccountStore::new(pool.clone());
     let support_capabilities = PostgresSupportCapabilityStore::new(pool.clone());
@@ -128,9 +131,19 @@ pub async fn production_router_from_env() -> Result<Router> {
             question_library_store,
             question_library_objects.clone(),
         ))
+        .merge(crate::navigation::navigation_router(
+            Arc::clone(&sessions),
+            course_instances.clone(),
+        ))
         .merge(crate::course_instance::course_instance_router(
             Arc::clone(&sessions),
             course_instances,
+        ))
+        .merge(crate::course_appearance::course_appearance_router(
+            Arc::clone(&sessions),
+            course_themes,
+            course_banners,
+            question_library_objects.clone(),
         ))
         .merge(crate::course_roster::course_roster_router(
             Arc::clone(&sessions),

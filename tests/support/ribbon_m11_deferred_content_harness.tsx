@@ -62,7 +62,7 @@ function instructorCourse(reference: string): CourseRouteView {
       term: { startDate: "2026-01-12", endDate: "2026-05-08", timeZone: "America/Chicago" },
       role: "instructor",
     },
-    appearance: { theme: "grass", revision: "1", banner: null },
+    appearance: { theme: "grass", banner: null },
   };
 }
 

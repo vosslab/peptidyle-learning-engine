@@ -20,8 +20,7 @@ export type FutureRibbonDestinationId =
   | "courseSetup"
   | "myQuestions"
   | "starredQuestions"
-  | "watchedQuestions"
-  | "courseAppearance";
+  | "watchedQuestions";
 
 /** A destination is either a declared route or an honest future identity, never a URL guess. */
 export type RibbonDestination =
@@ -366,7 +365,7 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "appearance",
     label: "Appearance",
-    destination: { kind: "future", futureId: "courseAppearance" },
+    destination: { kind: "route", routeId: "courseAppearance" },
     requiredParams: ["courseRef"],
     taskGroup: "courseSetup",
     area: "courseSetup",

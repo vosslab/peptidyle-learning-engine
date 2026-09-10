@@ -161,9 +161,8 @@ run_live_cargo_test "MinIO object-store conformance" cargo test -p objects --fea
 	--test conformance minio_object_store_conforms -- --ignored --exact --test-threads=1
 
 echo "course appearance E2E: typed banner object contract"
-# The fresh PostgreSQL schema intentionally has no course-appearance current-pointer
-# capability yet.  `minio_object_store_conforms` exercises the candidate and
-# current Course Banner object addresses against real MinIO; the future
-# database-backed promotion and cleanup oracle belongs with that capability.
+run_live_cargo_test "Course Banner PostgreSQL plus MinIO saga" cargo test \
+	-p learning-data-access --features postgres --test course_banner_saga_postgres \
+	course_banner_saga_is_durable_authorized_and_cross_store -- --ignored --exact --test-threads=1
 
 echo "course appearance E2E: PASS"

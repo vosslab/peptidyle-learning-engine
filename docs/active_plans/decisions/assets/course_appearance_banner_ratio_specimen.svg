@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="950" viewBox="0 0 2000 950" role="img" aria-labelledby="title desc">
+  <title id="title">Course Appearance banner candidate renderings</title>
+  <desc id="desc">The same center-marked course artwork rendered at four candidate banner ratios for laptop, tablet, phone, and square profiles. The selected 6 to 1 row has a phone minimum height.</desc>
+  <defs>
+    <linearGradient id="art-bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#123d60"/><stop offset=".55" stop-color="#378c93"/><stop offset="1" stop-color="#e1b95b"/></linearGradient>
+    <g id="art">
+      <rect width="1200" height="500" fill="url(#art-bg)"/>
+      <path d="M0 380 C180 245 305 455 480 320 S820 440 1200 205 V500 H0Z" fill="#12313a" fill-opacity=".82"/>
+      <path d="M0 72 C245 195 355 15 555 115 S890 48 1200 185" fill="none" stroke="#f2e7bb" stroke-opacity=".7" stroke-width="28"/>
+      <circle cx="600" cy="250" r="105" fill="#f3e35a"/><circle cx="600" cy="250" r="65" fill="none" stroke="#182d47" stroke-width="12"/>
+      <path d="M600 110 V390 M460 250 H740" stroke="#182d47" stroke-width="10"/>
+      <text x="600" y="263" text-anchor="middle" fill="#182d47" font-family="system-ui, sans-serif" font-size="34" font-weight="800">CENTER</text>
+      <text x="600" y="314" text-anchor="middle" fill="#182d47" font-family="system-ui, sans-serif" font-size="22" font-weight="700">meaningful artwork</text>
+    </g>
+    <style>
+      .h { fill:#182b3a; font-family:system-ui,sans-serif; font-size:28px; font-weight:800 } .s { fill:#405366; font-family:system-ui,sans-serif; font-size:18px; font-weight:650 } .c { fill:#182b3a; font-family:system-ui,sans-serif; font-size:21px; font-weight:800 } .o { fill:#182b3a; font-family:system-ui,sans-serif; font-size:16px; font-weight:760 } .sel { fill:#17628a; font-family:system-ui,sans-serif; font-size:17px; font-weight:800 } .f { fill:#fff;stroke:#8798a6;stroke-width:3 } .sf { fill:#fff;stroke:#17628a;stroke-width:6 }
+    </style>
+  </defs>
+  <rect width="2000" height="950" fill="#fbfaf7"/>
+  <text x="36" y="42" class="h">Course Appearance: rendered banner-ratio specimen</text>
+  <text x="36" y="72" class="s">Exact page widths are shown at roughly one-half scale. Every crop uses the same 1200 by 500 center-marked artwork; course identity is below the artwork, without a scrim.</text>
+  <text x="36" y="118" class="c">Candidate</text><text x="250" y="118" class="c">Laptop - 1152px</text><text x="900" y="118" class="c">Tablet - 768px</text><text x="1345" y="118" class="c">Phone - 361px</text><text x="1565" y="118" class="c">Square - 768px</text>
+
+  <text x="36" y="170" class="c">3.66:1</text><text x="36" y="195" class="s">stale rule</text>
+  <g transform="translate(250 135)"><rect class="f" width="600" height="164"/><svg width="600" height="164" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="187" class="o">BIOL 480 - Molecular Biology * 1152 x 315px</text></g>
+  <g transform="translate(900 135)"><rect class="f" width="400" height="109"/><svg width="400" height="109" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="132" class="o">BIOL 480 * 768 x 210px</text></g>
+  <g transform="translate(1345 135)"><rect class="f" width="188" height="51"/><svg width="188" height="51" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="74" class="o">361 x 99px</text></g>
+  <g transform="translate(1565 135)"><rect class="f" width="400" height="109"/><svg width="400" height="109" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="132" class="o">768 x 210px</text></g>
+
+  <text x="36" y="378" class="c">5.5:1</text><text x="36" y="403" class="s">reference ratio</text>
+  <g transform="translate(250 342)"><rect class="f" width="600" height="109"/><svg width="600" height="109" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="132" class="o">BIOL 480 - Molecular Biology * 1152 x 209px</text></g>
+  <g transform="translate(900 342)"><rect class="f" width="400" height="73"/><svg width="400" height="73" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="96" class="o">768 x 140px</text></g>
+  <g transform="translate(1345 342)"><rect class="f" width="188" height="34"/><svg width="188" height="34" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="57" class="o">361 x 66px</text></g>
+  <g transform="translate(1565 342)"><rect class="f" width="400" height="73"/><svg width="400" height="73" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="96" class="o">768 x 140px</text></g>
+
+  <rect x="18" y="493" width="1947" height="180" rx="12" fill="#e8f3f8" stroke="#17628a" stroke-width="3"/>
+  <text x="36" y="542" class="c">6:1</text><text x="36" y="567" class="sel">SELECTED</text><text x="36" y="592" class="s">120-200px clamp</text>
+  <g transform="translate(250 510)"><rect class="sf" width="600" height="100"/><svg width="600" height="100" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="123" class="o">BIOL 480 - Molecular Biology * 1152 x 192px</text></g>
+  <g transform="translate(900 510)"><rect class="sf" width="400" height="67"/><svg width="400" height="67" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="90" class="o">768 x 128px</text></g>
+  <g transform="translate(1345 510)"><rect class="sf" width="188" height="62"/><svg width="188" height="62" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="85" class="o">361 x 120px floor</text></g>
+  <g transform="translate(1565 510)"><rect class="sf" width="400" height="67"/><svg width="400" height="67" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="90" class="o">768 x 128px</text></g>
+
+  <text x="36" y="736" class="c">7:1</text><text x="36" y="761" class="s">rejected as a strip</text>
+  <g transform="translate(250 700)"><rect class="f" width="600" height="86"/><svg width="600" height="86" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="109" class="o">BIOL 480 - Molecular Biology * 1152 x 165px</text></g>
+  <g transform="translate(900 700)"><rect class="f" width="400" height="57"/><svg width="400" height="57" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="80" class="o">768 x 110px</text></g>
+  <g transform="translate(1345 700)"><rect class="f" width="188" height="27"/><svg width="188" height="27" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="50" class="o">361 x 52px</text></g>
+  <g transform="translate(1565 700)"><rect class="f" width="400" height="57"/><svg width="400" height="57" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="80" class="o">768 x 110px</text></g>
+
+  <text x="36" y="850" class="h">Rendered result</text>
+  <text x="36" y="882" class="s"><tspan x="36" dy="0">The centered region survives all candidates. At tablet and square widths, 7:1 reads as a strip; at laptop, 5.5:1 exceeds the 200px budget.</tspan><tspan x="36" dy="28">The 6:1 row is the shortest identity-preserving choice, with the phone floor preventing a 60px strip.</tspan></text>
+</svg>

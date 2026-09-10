@@ -18,7 +18,75 @@
   publication, Course invitation claim, Assignment release and Student response progression,
   Instructor Account lifecycle, and scoped Sysadmin support.
 
+- M1 made the Rust `CourseTheme` contract the single source for the browser's generated closed
+  theme vocabulary, removing separately maintained theme-ID lists while preserving all 15
+  reviewed biome and habitat palettes.
+
+- M2 added forward migration `2026090902`: every Course Instance now owns a scalar
+  `course_theme` with the database-owned `grass` default. The current appearance contract no
+  longer carries an appearance revision or retained appearance history.
+
+### Behavior or Interface Changes
+
+- M10 admitted Appearance as the Instructor-only Course Setup Ribbon task after its complete
+  route/page/client/server/store path and M9 accessibility evidence. The catalog now names its
+  executable route, the capability registry records aggregate read plus independent theme/banner
+  mutations and the registered router, and the generated ledger records the role ceiling. Ribbon
+  visibility remains a UI ceiling; Course Membership authorization stays at the route and server.
+  The all-15-theme Ribbon oracle confirms unchanged rows/control positions and reachable,
+  unclipped Appearance controls. The page now distinguishes scope loading from a failed read and
+  offers a fresh scoped retry rather than presenting either as permanent unavailability. M11
+  cross-member propagation is recorded separately.
+
+- M11 completed the registered production-browser Course Appearance propagation gate. An
+  Instructor reaches Appearance from the visible Course actions navigation, independently saves a
+  Forest theme and server-decoded PNG banner, and reloads the same saved state. An enrolled Student
+  then opens the normal Course landing and receives the same theme scope/token plus a loaded Course
+  entry banner, while a second Instructor-created Course stays Grass with no banner.
+
+- M9 added compiled-over-HTTP Course Appearance accessibility evidence: native keyboard theme and
+  keyboard-reachable banner-input paths, named non-color theme state, status/error announcements,
+  four canonical reflow profiles, and an axe serious/critical gate. The focused gate corrected phone
+  banner-preview overflow and non-contrasting raw accent preview labels while reusing the
+  application's existing forced-colors and reduced-motion coverage.
+
+- M8 completed the Instructor Appearance page's independent Banner section: pending PNG, JPEG, and
+  WebP files remain local until explicit save; centered 6:1 Course and 5:2 Course-card previews
+  show the actual crop; alternative text is explicitly decorative or bounded informative text; and
+  saved banners can be replaced or removed without disturbing a pending theme selection.
+
+- M7 restored the Instructor Course Appearance route with a complete Theme section. All 15
+  generated biome and habitat themes now use native radio controls, named Canvas/Secondary/Accent
+  palette-role previews, live local preview, and an independent save that releases its preview on
+  success, failure, or page abandonment.
+
+- M4 implemented the no-store course appearance read model. Active Instructor and Student Course
+  Members receive one current `{ theme, banner }` response; anonymous callers, nonmembers, and
+  foreign Instructors receive the same concealed refusal.
+
+- M5 added the Instructor Course Membership-authorized theme mutation path. It persists one valid
+  closed-vocabulary theme independently and rejects unknown theme IDs without changing stored
+  appearance.
+
+- M6 added Course Banner upload, replace, remove, and authorized rendition delivery. The durable
+  PostgreSQL-plus-MinIO saga binds uploads to their Course and Instructor, validates decoded image
+  bytes, promotes one source with complete hero/card renditions, and leaves uncertain external
+  work repairable rather than exposing partial banner state.
+
 ### Fixes and Maintenance
+
+- Applied the six-pass Course Appearance audit's low-risk cleanup: named both banner previews,
+  reused the existing rendition dimensions during normalization, clarified preview URL ownership
+  and Banner Store/upload documentation, and removed execution labels from changed code comments.
+  The review also updates stale route, ownership, classification, and concurrency documentation.
+
+- Closed Course Appearance documentation and evidence ownership: the durable contract, design,
+  terminology, persistence inventory, roadmap, test-evidence model, Ribbon ledger, and screenshot
+  manifest/receipt/atlas now describe the delivered current-state model; the completed
+  [Course Appearance plan](archive/cryptic_foraging_hennessy.md) is archived. Final working-tree
+  evidence passed `./check_codebase.sh` (362/362), Rust fmt/check/test/strict Clippy, and 6,090
+  Python tests; fresh M11 production-browser, appearance HTTP plus `2026090904` migration, and M6
+  PostgreSQL-plus-MinIO saga acceptance also passed with zero project containers or volumes left.
 
 - Made `devel/capture_screenshots.sh` the single capture and replay operator contract. Publication
   validates the complete staging corpus before promotion, retains a full recovery backup during
@@ -75,7 +143,41 @@
   remove that already absent service container or emits interactive-terminal
   noise.
 
+### Removals and Deprecations
+
+- Applied the permanent-test checklist to Course Appearance evidence. Removed two trivial Rust
+  response-constructor tests, the Ribbon descriptor/task snapshot, palette/control inventories,
+  exact banner and Ribbon geometry assertions, SQL source-body matching and default/constraint-name
+  snapshots, and their unused harness accessors. Retained checks protect observable protocol,
+  authorization, state-transition, and cleanup behavior in their fast or explicit E2E lanes.
+
 ### Decisions and Failures
+
+- Classified rebuild/sizing probes as one-time evidence and withdrew the audit's demand to give
+  every focused browser script a canonical runner. Directly invoked behavioral E2E checks remain
+  separate from permanent fast tests; old rebuild receipts do not require permanent probe code.
+  The theme-response, expired-upload cleanup, and production-accessibility findings remain open.
+
+- The independent [Course Appearance audit](active_plans/audits/course_appearance_six_pass_review.md)
+  found that theme-save responses hide an existing banner from the page cache and expired abandoned
+  uploads lack an executable cleanup consumer. Production-page accessibility coverage and a maintained
+  execution owner for the focused browser checks also remain open. These findings qualify the earlier
+  completion receipt despite the passing aggregate; the audit records owners and validation criteria.
+
+- M3 selected a clean pre-production forward migration with no legacy banner backfill or
+  compatibility rendition. Measured canonical-profile specimens selected a 1200-by-200 (6:1)
+  hero and 1000-by-400 (5:2) card rendition, using server-derived centered crops and previews
+  rather than automatic focal-point detection or a crop editor.
+
+- The restored read-path investigation found that the browser had long requested Course Appearance
+  while no server handler existed. It also found that prior agent-authored revision, strong-ETag
+  compare-and-swap, and current-pointer contract prose described architecture the repository had
+  never implemented; this capability intentionally stores current theme state without appearance
+  revisions or compare-and-swap.
+
+- Connected Course Banner saga work exposed and corrected PL/pgSQL name ambiguity, a private-table
+  boundary violation, a reference to a nonexistent digest function, and repair sequencing/state
+  errors. The final fresh PostgreSQL-plus-MinIO acceptance exited successfully after those repairs.
 
 - Closed the screenshot-corpus plan without extending its architecture from implementation-run
   visual observations. Human review of the 52-image atlas is the next separate activity; concrete
@@ -96,6 +198,32 @@
   widening API and worker table grants.
 
 ### Developer Tests and Notes
+
+- After classifying and pruning implementation-only Course Appearance checks, the exact
+  `source source_me.sh && ./launchers/all_test.sh` command passed with exit code 0, including
+  fresh PostgreSQL and MinIO/Banner saga acceptance and disposable-resource cleanup. The four
+  focused browser scripts and Ribbon visibility/contrast check also passed. Independent review
+  retained keyboard theme selection and named non-color state as required durable behavior,
+  without restoring option-order or geometry snapshots. Three substantive audit findings remain
+  open; the missing-runner finding was withdrawn.
+
+- After the audit's preview-label and comment cleanup, all four focused Course Appearance browser
+  scripts passed: theme transitions, banner behavior, accessibility, and scope recovery. Chromium
+  required execution outside the filesystem sandbox because macOS denied its Mach-port startup.
+  These are component-harness checks, not production-route accessibility acceptance.
+
+- The post-audit `source source_me.sh && ./launchers/all_test.sh` rerun passed with exit code 0:
+  Rust checks, strict Clippy, tests/doctests and Wasm; all 362 Node tests; 6,091 Python checks;
+  fresh PostgreSQL acceptance; and MinIO/Banner saga acceptance. Both disposable service lanes
+  cleaned their resources. An independent review accepted the bounded cleanup; the four substantive
+  audit findings remain open because these gates do not cover their missing behaviors.
+
+- `source source_me.sh && ./launchers/all_test.sh` passed end-to-end on the current mixed working
+  tree, ending `PASS: complete live acceptance is green.` It covered 416 generated types and three
+  fixtures; default, all-target, and all-feature Rust checks; strict Clippy; workspace/all-feature
+  tests and doctests; Wasm; the frontend gate; 6,090 Python tests; fresh PostgreSQL apply/no-op,
+  catalog/restricted probes, and three iMathAS database tests; plus MinIO conformance and the real
+  Course Banner saga. Both disposable lanes cleaned their containers, volumes, and networks.
 
 - `node --import tsx --test tests/test_screenshot_corpus.mjs` passed all nine focused corpus tests.
 

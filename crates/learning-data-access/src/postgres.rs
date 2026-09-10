@@ -15,9 +15,13 @@ mod blueprint_course;
 #[cfg(feature = "postgres")]
 mod connection;
 #[cfg(feature = "postgres")]
+mod course_banner;
+#[cfg(feature = "postgres")]
 mod course_instance;
 #[cfg(feature = "postgres")]
 mod course_roster;
+#[cfg(feature = "postgres")]
+mod course_theme;
 #[cfg(feature = "postgres")]
 mod imathas_question_backend_session;
 #[cfg(feature = "postgres")]
@@ -66,9 +70,13 @@ pub use blueprint_course::PostgresBlueprintCourseStore;
 #[cfg(feature = "postgres")]
 pub use connection::{ProductionLoginProfile, lazy_pool, local_development_pool, production_pool};
 #[cfg(feature = "postgres")]
+pub use course_banner::PostgresCourseBannerStore;
+#[cfg(feature = "postgres")]
 pub use course_instance::PostgresCourseInstanceStore;
 #[cfg(feature = "postgres")]
 pub use course_roster::PostgresCourseRosterStore;
+#[cfg(feature = "postgres")]
+pub use course_theme::PostgresCourseThemeStore;
 #[cfg(feature = "postgres")]
 pub use imathas_question_backend_session::PostgresImathasQuestionBackendSessionStore;
 #[cfg(feature = "postgres")]

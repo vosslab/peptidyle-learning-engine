@@ -375,9 +375,24 @@ const CAPABILITY_DECLARATIONS = {
     ],
   },
   appearance: {
-    kind: "unbacked",
-    reason: "Appearance has no declared usable route and no registered production handler.",
-    evidence: [...NO_TEACHING_HANDLER, "src/ribbon/ribbon_catalog.ts::appearance"],
+    kind: "backed",
+    clientMethod: "ApiClient.getCourseAppearanceView",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/course_appearance.rs::course_appearance_router",
+    },
+    evidence: [
+      "src/api/application_api.tsx::createApplicationApi",
+      "src/api/http_client/response.ts::courseAppearanceView",
+      "src/api/http_client/response.ts::updateCourseTheme",
+      "src/api/http_client/response.ts::uploadCourseBanner",
+      "src/api/http_client/response.ts::setCourseBanner",
+      "src/api/http_client/response.ts::removeCourseBanner",
+      "src/pages/course_appearance_page.tsx::CourseAppearancePage",
+      "crates/server/src/course_appearance.rs::course_appearance_router",
+      "crates/learning-data-access/src/course_theme.rs::CourseThemeStore",
+      "crates/learning-data-access/src/course_banner.rs::CourseBannerStore",
+    ],
   },
   backToAssignments: {
     kind: "unbacked",

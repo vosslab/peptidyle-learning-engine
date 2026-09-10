@@ -46,7 +46,7 @@ container, or source-import path.
 | [crates/question_model/](../crates/question_model/)             | Question, identity, assignment, course-term, BlueprintCourse, Blueprint-operation, and browser-safe contract types.                                                                               |
 | [crates/domain/](../crates/domain/)                             | Pure timing, policy, disclosure, Assignment Attempt, scoring, generation, and validation.                                                                                                         |
 | [crates/grading/](../crates/grading/)                           | Answer-bearing checkers and correctness decisions; server-only.                                                                                                                                   |
-| [crates/learning-data-access/](../crates/learning-data-access/) | Focused Account Session, authentication, Assignment Attempt, Question Source, object-record, grading-operation, pagination, iMathAS Question Backend Session, and PostgreSQL persistence modules. |
+| [crates/learning-data-access/](../crates/learning-data-access/) | Focused Account Session, authentication, Assignment Attempt, Question Source, object-record, grading-operation, pagination, iMathAS Question Backend Session, independent Course Theme and Course Banner Store contracts, and PostgreSQL persistence modules. |
 | [crates/server/](../crates/server/)                             | Axum routes, authentication, authorization, worker composition, and API assembly.                                                                                                                 |
 | [crates/objects/](../crates/objects/)                           | Typed Object Addresses, checksums, image validation, and object-store backends.                                                                                                                   |
 | [crates/adapters/](../crates/adapters/)                         | PLE, iMathAS, and WeBWorK Question Backend adapters, QTI Import, and H5P Package support behind the shared Question operations.                                                                   |
@@ -89,6 +89,8 @@ The current module inventory is:
 ```text
 crates/learning-data-access/src/
 +- assignment_attempt.rs                 Assignment Attempt Store contract
++- course_banner.rs                      Course Banner Store contract and promotion work types
++- course_theme.rs                       Course Theme Store contract
 +- authentication_ceremony.rs            email and passkey ceremony contracts
 +- authentication_email.rs               normalized authentication email values
 +- grading_operations.rs                 Instructor Grading Operation Store contract
@@ -97,7 +99,7 @@ crates/learning-data-access/src/
 +- pagination.rs                         cursor and page contracts
 +- question_source.rs                    Draft source resolution and Question Publication Store contracts
 +- session.rs                            Account Session Store contract
-`- postgres/                             current PostgreSQL connection, migration, Account Session, Assignment Attempt, Question Source, object-record, and iMathAS Session modules
+`- postgres/                             current PostgreSQL connection, migration, Account Session, Assignment Attempt, Course Instance, Course Theme, Course Banner, Question Source, object-record, and iMathAS Session modules
 ```
 
 No Blueprint Course or Blueprint-operation Store implementation currently
@@ -114,9 +116,12 @@ the boundary between public Blueprint readers and private CourseInstances.
 crates/server/src/
 +- auth/                     Account session and seeded Live Demo browser boundary
 +- composition.rs            Production database and session composition
++- course_appearance.rs      Authorized Course Appearance reads, theme changes, and banner lifecycle routes
++- course_instance.rs        Course Instance routes and active-member Course summary
 +- health.rs                 Readiness probe support
 +- http_security.rs          Uniform dynamic-response security headers
 +- question_publication.rs  Server-only new-lineage Question Publication coordinator and Question ID issuer
++- navigation.rs             Authorized public Course-reference navigation resolver
 +- request_lifecycle.rs      Process-wide safe request lifecycle handling
 +- application.rs            Executable application assembly
 +- lib.rs                    Current server-core module boundary
@@ -146,13 +151,17 @@ src/
 |  +- http_client/blueprint_course.ts     Same-origin BlueprintCourse requests
 |  +- http_client/blueprint_operations.ts Preview/apply/receipt requests
 |  +- decoders/blueprint_course.ts        Strict BlueprintCourse DTO decoder
+|  +- decoders/course_appearance.ts      Strict Course Appearance DTO decoders
+|  +- http_client/response.ts            Same-origin Course Appearance and banner-delivery requests
 |  `- decoders/                           Other strict DTO decoders
 +- features/
 |  +- blueprint_course/                    One BlueprintCourse workspace/editor
+|  +- course_appearance/                  Course theme presentation and authorized banner delivery
 |  `- blueprint_operations/                Blueprint-operation workflow stylesheet
 +- pages/
 |  +- blueprint_course_route_page.tsx          Blueprint Course list route composition
 |  +- blueprint_course_detail_route_page.tsx   Blueprint Course detail route composition
+|  +- course_appearance_page.tsx               Instructor Course Appearance page
 |  `- (no Blueprint-operation Browser Surface exists)
 +- components/                                Shared answer-free and accessibility UI
 +`- routes.ts                                Executable route map

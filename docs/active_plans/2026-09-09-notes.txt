@@ -126,7 +126,7 @@ Automatic submission should occur when the time limit expires.
 
 Time Zone (IANA) should be configured in profile, not by course or assignment.
 
-What other profile preferences should there be? Instructor profile thumbnails could be one, they should be square, maximum 256 × 256 px.
+What other profile preferences should there be? Instructor profile thumbnails could be one, they should be square, maximum 256 Ã— 256 px.
 
 ## Navigation
 

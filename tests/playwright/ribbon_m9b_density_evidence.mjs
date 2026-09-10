@@ -173,6 +173,18 @@ try {
           paddingInlineStart: style.paddingInlineStart,
         };
       };
+      const relativeBox = (element, ancestor) => {
+        const rect = element.getBoundingClientRect();
+        const ancestorRect = ancestor.getBoundingClientRect();
+        return {
+          left: rect.left - ancestorRect.left,
+          top: rect.top - ancestorRect.top,
+          width: rect.width,
+          height: rect.height,
+          right: rect.right - ancestorRect.left,
+          bottom: rect.bottom - ancestorRect.top,
+        };
+      };
       // The canonical Instructor model deliberately has one Task Area. Clone
       // its real rendered area only inside this browser oracle so the
       // production separator/proximity rule is measured without teaching the
@@ -258,6 +270,25 @@ try {
         const panelRibbon = panel.querySelector(".ple-app-ribbon");
         if (!(panelRibbon instanceof HTMLElement)) throw new Error("theme panel missing Ribbon");
         ensureMultipleTaskAreas(panelRibbon);
+        const taskViewport = panelRibbon.querySelector(".ple-app-ribbon__tasks");
+        const appearanceTask = panelRibbon.querySelector('[data-ribbon-control="appearance"]');
+        if (!(taskViewport instanceof HTMLElement) || !(appearanceTask instanceof HTMLElement)) {
+          throw new Error("theme panel lacks the admitted Appearance task");
+        }
+        // Course Appearance is a task under the presently unavailable Course Setup tab, so the
+        // actual model has no selected visible Tab. Add a local selected-state specimen solely for
+        // this visual-system oracle; it neither changes the catalog nor claims a live Course Setup
+        // destination.
+        const selectedThemeTab = panelRibbon.querySelector(
+          '.ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"]',
+        );
+        if (selectedThemeTab === null) {
+          const firstThemeTab = panelRibbon.querySelector(
+            ".ple-app-ribbon__tabs .ple-app-ribbon__link",
+          );
+          if (!(firstThemeTab instanceof HTMLElement)) throw new Error("theme panel lacks a Tab");
+          firstThemeTab.setAttribute("aria-current", "page");
+        }
         const targets = {
           context: panelRibbon.querySelector(".ple-app-ribbon__course-scope-label"),
           contextDetails: panelRibbon.querySelector(".ple-app-ribbon__context-details"),
@@ -326,6 +357,18 @@ try {
           accent: getComputedStyle(panelRibbon)
             .getPropertyValue("--ple-ribbon-course-accent")
             .trim(),
+          geometry: {
+            appearanceWithinTaskViewport: (() => {
+              const task = relativeBox(appearanceTask, taskViewport);
+              const viewport = taskViewport.getBoundingClientRect();
+              return (
+                task.left >= 0 &&
+                task.right <= viewport.width &&
+                task.top >= 0 &&
+                task.bottom <= viewport.height
+              );
+            })(),
+          },
           paints: {
             scopeMarker: getComputedStyle(
               panelRibbon.querySelector(".ple-app-ribbon__course-scope-label"),
@@ -525,6 +568,11 @@ try {
       );
     }
     assert.notEqual(theme.accent, "", `${theme.id} exposes the derived Ribbon accent alias`);
+    assert.equal(
+      theme.geometry.appearanceWithinTaskViewport,
+      true,
+      `${theme.id} keeps the admitted Appearance task reachable without clipping`,
+    );
     const accentPaint = parseColor(theme.paints.scopeMarker);
     for (const [placement, paint] of Object.entries(theme.paints)) {
       assert.deepEqual(

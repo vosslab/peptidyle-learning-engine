@@ -1875,6 +1875,7 @@ dependencies = [
  "grading",
  "hmac",
  "idna",
+ "image",
  "objects",
  "question_model",
  "serde",

@@ -4,7 +4,6 @@
 //! keys, checksums, upload metadata, signed URLs, and authorization records
 //! belong to the object, persistence, and server layers.
 
-use std::num::NonZeroU64;
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
@@ -16,6 +15,7 @@ use uuid::Uuid;
 /// Palette values are design-system data rather than database identities. The
 /// browser registry must exhaustively map every value and refuse an unknown
 /// value.
+/// @tsgen-runtime-values
 #[derive(
     Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
@@ -113,76 +113,6 @@ impl FromStr for CourseTheme {
     }
 }
 
-/// Positive optimistic-concurrency token for one complete appearance state.
-///
-/// JSON carries this as a canonical decimal string so the browser cannot
-/// round a future PostgreSQL `BIGINT` value. HTTP uses the same digits inside
-/// a strong ETag.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct CourseAppearanceRevision(NonZeroU64);
-
-impl CourseAppearanceRevision {
-    /// The first appearance revision created with a course.
-    pub const INITIAL: Self = Self(NonZeroU64::MIN);
-
-    /// Builds a revision representable by a positive PostgreSQL `BIGINT`.
-    pub fn new(value: u64) -> Option<Self> {
-        (value <= i64::MAX as u64)
-            .then(|| NonZeroU64::new(value))
-            .flatten()
-            .map(Self)
-    }
-
-    /// Returns the exact positive integer used by persistence.
-    pub fn value(self) -> u64 {
-        self.0.get()
-    }
-
-    /// Advances the token without wrapping or crossing the storage boundary.
-    pub fn checked_next(self) -> Option<Self> {
-        self.value().checked_add(1).and_then(Self::new)
-    }
-}
-
-impl std::fmt::Display for CourseAppearanceRevision {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "{}", self.value())
-    }
-}
-
-impl FromStr for CourseAppearanceRevision {
-    type Err = &'static str;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        if value.is_empty()
-            || (value.len() > 1 && value.starts_with('0'))
-            || !value.bytes().all(|byte| byte.is_ascii_digit())
-        {
-            return Err("appearance revision must be a canonical positive decimal string");
-        }
-        value
-            .parse::<u64>()
-            .ok()
-            .and_then(Self::new)
-            .ok_or("appearance revision must fit a positive PostgreSQL bigint")
-    }
-}
-
-impl TryFrom<String> for CourseAppearanceRevision {
-    type Error = &'static str;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
-    }
-}
-
-impl From<CourseAppearanceRevision> for String {
-    fn from(value: CourseAppearanceRevision) -> Self {
-        value.to_string()
-    }
-}
-
 macro_rules! impl_banner_route_id {
     ($name:ident) => {
         impl $name {
@@ -222,11 +152,42 @@ impl_banner_route_id!(CourseBannerReference);
 /// Opaque reference returned after an authorized Course Banner Upload.
 ///
 /// The server binds it to the course, Account, and expiry before accepting
-/// it in an appearance update. It reveals no physical storage identity.
+/// it in a Course Banner promotion. It reveals no physical storage identity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CourseBannerUploadReference(Uuid);
 
 impl_banner_route_id!(CourseBannerUploadReference);
+
+/// A server-owned Course Banner delivery rendition.
+///
+/// This is deliberately closed: callers select neither a storage key nor an
+/// arbitrary resize.  The delivery route chooses one of these fixed values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CourseBannerRendition {
+    /// Wide course-entry image, normalized to 1200 by 200 pixels.
+    Hero,
+    /// Course-card image, normalized to 1000 by 400 pixels.
+    Card,
+}
+
+impl CourseBannerRendition {
+    /// Stable storage and database value.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Hero => "hero",
+            Self::Card => "card",
+        }
+    }
+
+    /// Exact normalized pixel dimensions for this rendition.
+    pub const fn dimensions(self) -> (u32, u32) {
+        match self {
+            Self::Hero => (1200, 200),
+            Self::Card => (1000, 400),
+        }
+    }
+}
 
 /// Validated informative text for one course banner.
 ///
@@ -298,58 +259,38 @@ pub struct CourseBannerUploadReceipt {
     pub upload: CourseBannerUploadReference,
 }
 
+/// Strict request that promotes one already-authorized Course Banner Upload.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct CourseBannerUpdate {
+    /// Opaque upload staged by this same Account for this same Course.
+    pub upload: CourseBannerUploadReference,
+    /// Explicit accessibility treatment stored with the promoted banner.
+    pub alternative_text: CourseBannerAlternativeText,
+}
+
 /// Browser-safe current Course Appearance View.
 ///
-/// A future durable `CourseAppearance` record retains revision history. This
-/// reader shape contains only the authorized current values.
+/// The reader shape contains only the authorized current values.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 // ASVS 1.5.2 and 2.2.1: allowlist the complete external reader shape.
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct CourseAppearanceView {
     /// Reviewed theme selected for the complete course route scope.
     pub theme: CourseTheme,
-    /// Strong revision shared by theme and banner state.
-    pub revision: CourseAppearanceRevision,
     /// Current course banner, or no banner frame at all.
     pub banner: Option<CourseBanner>,
 }
 
-/// Complete desired banner action in one atomic appearance update.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    deny_unknown_fields,
-    tag = "kind",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase"
-)]
-pub enum CourseAppearanceUpdateAction {
-    /// Keep the current bytes and save the supplied accessibility treatment.
-    Keep {
-        /// Explicit decorative or informative treatment for the current banner.
-        alternative_text: CourseBannerAlternativeText,
-    },
-    /// Make the course have no current banner.
-    Remove,
-    /// Promote one Account-bound upload and use it as the current banner.
-    Replace {
-        /// Opaque upload returned by the authorized upload operation.
-        upload: CourseBannerUploadReference,
-        /// Explicit decorative or informative treatment for the replacement.
-        alternative_text: CourseBannerAlternativeText,
-    },
-}
-
-/// Strict body for one compare-and-swap appearance update.
+/// Strict body for one independent Course Theme update.
 ///
-/// Course identity comes from the authenticated route and the expected
-/// revision comes from `If-Match`; neither may be supplied in this body.
+/// Course identity comes from the authenticated route; a theme write never
+/// restates or changes the separately stored Course Banner.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct CourseAppearanceUpdate {
+pub struct CourseThemeUpdate {
     /// Complete desired theme.
     pub theme: CourseTheme,
-    /// Banner action owned by this complete Course Appearance Update.
-    pub banner: CourseAppearanceUpdateAction,
 }
 
 #[cfg(test)]
@@ -385,24 +326,6 @@ mod tests {
     }
 
     #[test]
-    fn appearance_revision_is_positive_exact_and_storage_bounded() {
-        assert_eq!(
-            serde_json::to_string(&CourseAppearanceRevision::INITIAL)
-                .expect("initial revision should serialize"),
-            r#""1""#
-        );
-        assert_eq!(
-            serde_json::from_str::<CourseAppearanceRevision>(r#""2""#)
-                .expect("positive revision should deserialize")
-                .value(),
-            2
-        );
-        for invalid in [r#""0""#, r#""01""#, r#""-1""#, r#""9223372036854775808""#] {
-            assert!(serde_json::from_str::<CourseAppearanceRevision>(invalid).is_err());
-        }
-    }
-
-    #[test]
     fn informative_banner_text_is_short_nonblank_and_unicode_aware() {
         let text = CourseBannerInformativeText::try_from("A peptide chain diagram".to_string())
             .expect("informative text should validate");
@@ -416,7 +339,6 @@ mod tests {
     fn appearance_view_contains_only_safe_course_banner_data() {
         let appearance = CourseAppearanceView {
             theme: CourseTheme::Ocean,
-            revision: CourseAppearanceRevision::INITIAL,
             banner: Some(CourseBanner {
                 reference: CourseBannerReference::from_uuid(Uuid::from_u128(7)),
                 alternative_text: CourseBannerAlternativeText::Decorative,
@@ -427,7 +349,6 @@ mod tests {
             serde_json::to_value(appearance).expect("appearance should serialize"),
             serde_json::json!({
                 "theme": "ocean",
-                "revision": "1",
                 "banner": {
                     "reference": "00000000-0000-0000-0000-000000000007",
                     "alternativeText": { "kind": "decorative" }
@@ -467,27 +388,16 @@ mod tests {
 
     #[test]
     fn update_body_is_strict_and_route_bound() {
-        let upload = CourseBannerUploadReference::from_uuid(Uuid::from_u128(9));
-        let update = CourseAppearanceUpdate {
+        let update = CourseThemeUpdate {
             theme: CourseTheme::Forest,
-            banner: CourseAppearanceUpdateAction::Replace {
-                upload,
-                alternative_text: CourseBannerAlternativeText::Informative {
-                    text: CourseBannerInformativeText::try_from("Forest canopy".to_string())
-                        .expect("alt text should validate"),
-                },
-            },
         };
         let value = serde_json::to_value(update).expect("update should serialize");
         assert_eq!(value["theme"], "forest");
-        assert_eq!(value["banner"]["kind"], "replace");
         assert!(value.get("courseId").is_none());
-        assert!(value.get("revision").is_none());
 
         assert!(
-            serde_json::from_value::<CourseAppearanceUpdate>(serde_json::json!({
+            serde_json::from_value::<CourseThemeUpdate>(serde_json::json!({
                 "theme": "ocean",
-                "banner": { "kind": "remove" },
                 "objectKey": "must-not-be-accepted"
             }))
             .is_err()

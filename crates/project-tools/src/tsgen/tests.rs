@@ -147,6 +147,7 @@ fn direct_rendering_imports_only_generated_declarations() {
             .collect(),
         docs: Vec::new(),
         body: "Nested".to_string(),
+        runtime_values: None,
     };
     let declaration_names = ["Nested", "Outer", "Another"]
         .into_iter()
@@ -256,6 +257,24 @@ fn kebab_case_enums_preserve_hyphenated_wire_identifiers() {
             .body,
         "\"coral-reef\" | \"salt-marsh\""
     );
+}
+
+#[test]
+fn marked_unit_enums_emit_their_runtime_values() {
+    let item: syn::ItemEnum = syn::parse_quote! {
+        /// @tsgen-runtime-values
+        #[derive(Serialize)]
+        #[serde(rename_all = "kebab-case")]
+        pub enum CourseTheme { CoralReef, SaltMarsh }
+    };
+    let generated = generate_enum(&item).expect("generation should support runtime values");
+    assert_eq!(
+        generated.runtime_values,
+        Some(vec!["coral-reef".to_string(), "salt-marsh".to_string()])
+    );
+    let declarations = ["CourseTheme"].into_iter().map(str::to_string).collect();
+    let rendered = render(&generated, &declarations);
+    assert!(rendered.contains("export const COURSE_THEME_VALUES = [\"coral-reef\", \"salt-marsh\"] as const satisfies ReadonlyArray<CourseTheme>;"));
 }
 #[test]
 fn public_u32_constants_become_safe_typescript_constants() {

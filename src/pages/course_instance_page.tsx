@@ -143,6 +143,12 @@ export function CourseInstancePage(): JSX.Element {
               >
                 Create Assignment
               </A>
+              <A
+                class="quiet-link"
+                href={`/instructor/courses/${view().course.reference}/appearance`}
+              >
+                Appearance
+              </A>
             </nav>
           </>
         )}

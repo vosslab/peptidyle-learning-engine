@@ -3,6 +3,7 @@
 import { createEffect, createMemo, createSignal, type JSX } from "solid-js";
 
 import type { CourseAppearanceView } from "../../../generated/api/CourseAppearanceView";
+import type { CourseId } from "../../../generated/api/CourseId";
 import { useRouteScopeData } from "../../ribbon/route_scope_context";
 import {
   CourseThemePresentationContext,
@@ -15,6 +16,11 @@ import { courseInstanceRouteReference } from "../../navigation/public_route";
 
 export interface CourseThemeVariablesProps {
   readonly children: JSX.Element;
+}
+
+interface CourseThemePresentationOverride {
+  readonly courseId: CourseId;
+  readonly appearance: CourseAppearanceView;
 }
 
 /* The legacy scoped presentation was written when its wrapper enclosed only
@@ -87,11 +93,30 @@ function appearanceFor(data: CourseThemeRouteData | undefined): CourseAppearance
  */
 export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Element {
   const routeData = useRouteScopeData();
-  const [presentedAppearance, setPresentedAppearance] = createSignal<CourseAppearanceView>();
-  const appearance = createMemo(() => presentedAppearance() ?? appearanceFor(routeData()));
+  const currentCourseId = createMemo(() => {
+    const data = routeData();
+    return data === undefined ? undefined : courseRouteView(data).summary.id;
+  });
+  const [presentationOverride, setPresentationOverride] =
+    createSignal<CourseThemePresentationOverride>();
+  const presentAppearance = (appearance: CourseAppearanceView | undefined): void => {
+    if (appearance === undefined) {
+      setPresentationOverride(undefined);
+      return;
+    }
+    const courseId = currentCourseId();
+    if (courseId === undefined) return;
+    setPresentationOverride({ courseId, appearance });
+  };
+  const appearance = createMemo(() => {
+    const override = presentationOverride();
+    if (override !== undefined && override.courseId === currentCourseId())
+      return override.appearance;
+    return appearanceFor(routeData());
+  });
 
   createEffect(() => {
-    setPresentedAppearance(appearanceFor(routeData()));
+    if (presentationOverride()?.courseId !== currentCourseId()) setPresentationOverride(undefined);
   });
 
   const themeStyle = createMemo(() => {
@@ -106,7 +131,7 @@ export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Elem
   });
 
   return (
-    <CourseThemePresentationContext.Provider value={setPresentedAppearance}>
+    <CourseThemePresentationContext.Provider value={presentAppearance}>
       <style>{COURSE_THEME_SCOPE_STYLES}</style>
       <style>{COURSE_THEME_VARIABLE_SHELL_STYLES}</style>
       <div
