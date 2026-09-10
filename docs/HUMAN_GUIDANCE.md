@@ -28,6 +28,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Apply the Keep It Simple, Stupid (KISS) philosophy aggressively.
 - All podman images on the Mac-Studio-36G machine are from this project; you do not have to preserve the project-named
 live-stack data volumes. Since no podman image is needed, I pre-approve all image pruning when needed.
+- Plans should be finishable by the manager and subagents without additional human interaction.
+- Prefer more small, independently verifiable milestones over a few large milestones.
+- Fix the design that causes a problem rather than adding a workaround for its symptom.
+- Prefer durable long-term fixes when the additional cost is justified.
+- Prefer adaptable boundaries and simple domain concepts over speculative edge-case machinery.
+- Stay focused on the requested work. Complete the required work and avoid adding unrelated mechanisms, gates, or functionality.
 
 ## Glossary
 
@@ -78,7 +84,7 @@ live-stack data volumes. Since no podman image is needed, I pre-approve all imag
   Question Library.
 - Assignments: Assignments Due Soon, My Assignment Templates.
 - Assignment editing has two editors:
-  - **Assignment Question Editor** should focus on adding, removing, and ordering Questions.
+  - **Assignment Question Editor**: Instructor editor for selecting, adding, removing, and ordering Questions in an Assignment.
   - **Assignment Properties Editor** should have timing, release, scoring, attempts, question-order randomization, late work, and disclosure.
 - Danger Zone should contain these high-consequence administrative actions: Assignment Unrelease,
   Archive Published Question, and Archive Blueprint Course.
@@ -108,6 +114,7 @@ live-stack data volumes. Since no podman image is needed, I pre-approve all imag
 - Course-owned assignment definitions should be kept when **Student** records are archived or deleted.
 - Course work, attempts, submissions, and grades follow the course retention policy independently of the lifetime of the Student Account.
 - Be conservative tracking revisions, like assignments, course instances, and draft question do not need revisions, their current state can be changed, but we do not need an undo option.
+- Published reusable content gets revisions. Mutable working state gets Edit Numbers when needed for concurrency. Student attempts, issued work, submissions, and grading create their own records and retain the exact evidence they depend on.
 - Assignment deadlines are stored as instants. Instructor dates and times use the Instructor's
   IANA time zone.
 - Students have their own IANA time zone for displaying dates and times.
@@ -200,6 +207,9 @@ live-stack data volumes. Since no podman image is needed, I pre-approve all imag
 - Question answer visibility should favor useful feedback for learning while allowing Instructors to choose more restrictive feedback when question security is more important.
 - Assignment disclosure settings in the Assignment Properties Editor should remain separate and independently configurable.
 - Assignments Due Soon should show upcoming Assignments across the Courses an Instructor teaches, with the Course and due time visible.
+- Question responses should be saved as the Student works. Submission belongs to the Assignment Attempt, not to individual Questions.
+- Unreleasing an Assignment should permanently delete its Student work because the Assignment is being returned to a pre-release state.
+- Assignment randomization should be called **Randomize question order**.
 
 ## Instructor philosophy
 
