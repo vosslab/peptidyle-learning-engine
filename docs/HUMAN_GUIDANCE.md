@@ -144,6 +144,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   teaching content, and Student workflows remain complete whether or not Students read it.
 - The platform is question agnostic, but for its initial run, the primary question formats/backends are the native flat question style PLE JSON (which is compatible with QTI) and WeBWorK; IMathAS and H5P are included but are considered secondary.
 - Students should see one Question at a time during an Assignment.
+- Questions should have one canonical title. Compact interfaces may truncate that title rather than maintaining a separate short name.
 
 ## Question library philosophy
 
@@ -193,6 +194,15 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Sysadmins** can create courses, but **Instructors** teach them. Every course must have an assigned **Instructor** who owns the course.
 - Active Courses are current teaching Courses.
 - Inactive Courses are previous-semester Courses with Course metadata retained after FERPA-sensitive Student data is removed.
+- Courses and Blueprint Courses should have both a short name and a long name.
+  - The short name is for compact navigation and should stay under about 16 characters when practical, for example `BIOL 301` or `Mol Biology`.
+  - The long name is for headings, breadcrumbs, and descriptive course listings and may include section, campus, institution, or term information.
+- Short Course names should be entered or chosen deliberately by instructors
+- Blueprint Courses and Course Instances should each have their own short name and long name.
+  - A Blueprint Course might be `Biochemistry` / `Upper-Level Introductory Biochemistry`.
+  - A Course Instance might be `BCHM 355/455` / `BCHM 355/455 Section 20 Biochemistry (Roosevelt University; Spring 2026)`.
+  - Course Instance names are properties of the Course Instance, not derived from the Blueprint Course names.
+  - Short names are for space-constrained interface elements. Long names are the descriptive names used where space allows.
 
 ## Assignment philosophy
 
@@ -210,6 +220,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Question responses should be saved as the Student works. Submission belongs to the Assignment Attempt, not to individual Questions.
 - Unreleasing an Assignment should permanently delete its Student work because the Assignment is being returned to a pre-release state.
 - Assignment randomization should be called **Randomize question order**.
+- Questions should have one canonical title. Compact interfaces may truncate that title rather than maintaining a separate short name.
 
 ## Instructor philosophy
 
