@@ -37,7 +37,7 @@ export function MultiBlankResponse(
   function update(slot: string, text: string): void {
     const next = answers().map((answer) => (answer.slot === slot ? { ...answer, text } : answer));
     setAnswers(next);
-    void controller.validate({ kind: "multiBlank", answers: [...next] });
+    void controller.edit({ kind: "multiBlank", answers: [...next] });
   }
   function submit(): void {
     void controller.submit(response());
@@ -104,6 +104,7 @@ export function MultiBlankResponse(
         disabled={!controller.canSubmit() || controller.locked()}
         resetDisabled={controller.locked()}
         onSubmit={submit}
+        submitLabel={props.submitLabel}
         onReset={reset}
         onEscape={props.onEscape}
       />

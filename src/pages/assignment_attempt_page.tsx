@@ -1,101 +1,35 @@
-// assignment_attempt_page.tsx - server-issued, key-free student attempt loop.
+// assignment_attempt_page.tsx - live one-question Student Assignment Attempt delivery.
 
-import { useNavigate } from "@solidjs/router";
 import {
   createEffect,
   createSignal,
   ErrorBoundary,
-  For,
   onCleanup,
   onMount,
   Show,
   type JSX,
 } from "solid-js";
 
-import type { StudentQuestionAttemptView } from "../../generated/api/StudentQuestionAttemptView";
-import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type {
-  PrefetchedNextQuestion,
-  QuestionPoolSelectionPosition,
-  NextIssuedAttempt,
-  AssignmentAttemptScreenData,
-  AssignmentAttemptSummaryOutcome,
-  AssignmentAttemptSummaryResponse,
-} from "../api/contracts";
-import { ApiProtocolError, ApiRequestError } from "../api/http_client";
-import { useApplicationApi } from "../api/application_api";
-import { useRouteScopeData } from "../ribbon/route_scope_context";
-import {
-  assignmentRouteReference,
-  courseInstanceRouteReference,
-  assignmentAttemptRouteReference,
-} from "../navigation/public_route";
-import { QuestionPresentationRenderer } from "../components/question_renderer";
-import {
-  StudentFeedbackPanel,
-  type StudentFeedbackPresentation,
-} from "../components/student_feedback_panel";
-import { QuestionPresentationResponseControl } from "../components/question_response_controls/question_response_control";
-import { resumeSessionAndRetry } from "./assignment_attempt_page_recovery";
-import {
-  assignmentAttemptCompletionPresentation,
-  submissionAdvanceLabel,
-  type AssignmentAttemptCompletionPresentation,
-} from "./assignment_attempt_completion_presentation";
-import {
-  createQuestionAttemptStateMachine,
-  type AttemptContext,
-  type QuestionAttemptExperienceState,
-  type AttemptStorage,
-  type SubmissionOutcome,
-} from "../features/question_attempt/question_attempt_state";
-import { prefetchMatchesIssuedSuccessor } from "../features/question_attempt/prefetch_binding";
-import { projectStudentResponse } from "../features/question_attempt/student_response";
+  StudentAssignmentAttemptContext,
+  StudentAssignmentAttemptResponseState,
+} from "../api/assignment_attempt_navigation";
 import type { StudentResponseFormatCheck } from "../api/decoders/student_response_format_check";
+import { useApplicationApi } from "../api/application_api";
+import { StudentAssignmentAttemptNavigation } from "../components/student_assignment_attempt_navigation";
+import type { StudentAssignmentAttemptQuestionState } from "../components/student_assignment_attempt_navigation";
+import { QuestionPresentationRenderer } from "../components/question_renderer";
+import { QuestionPresentationResponseControl } from "../components/question_response_controls/question_response_control";
+import { AssignmentAttemptResponseState } from "./assignment_attempt_response_state";
+import {
+  useRetryRouteScope,
+  useRouteScopeData,
+  useRouteScopeLoadState,
+} from "../ribbon/route_scope_context";
 import { useWasmFacade } from "../wasm/context";
-import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
-function attemptContext(
-  assignmentAttemptId: string,
-  attempt: StudentQuestionAttemptView,
-  presentation: QuestionPresentation,
-): AttemptContext {
-  return {
-    assignmentAttemptId,
-    attemptId: attempt.id,
-    issuedQuestionId: attempt.issuedQuestion,
-    questionRevision: presentation.questionRevision,
-    questionSeed: presentation.question_seed,
-    deadline: attempt.timing.deadline,
-  };
-}
-
-function attemptStorage(): AttemptStorage {
-  return {
-    getItem(key: string): string | null {
-      return globalThis.sessionStorage.getItem(key);
-    },
-    setItem(key: string, value: string): void {
-      globalThis.sessionStorage.setItem(key, value);
-    },
-    removeItem(key: string): void {
-      globalThis.sessionStorage.removeItem(key);
-    },
-  };
-}
-
-function isSessionExpired(error: unknown): boolean {
-  return error instanceof ApiRequestError && error.status === 401;
-}
-
-/**
- * Fetch reports an unavailable browser transport as TypeError. HTTP refusals and decoded-response
- * contract failures carry their own actionable messages and must not be presented as an outage.
- */
-function isTransientTransportFailure(error: unknown): boolean {
-  return error instanceof TypeError;
-}
+type SaveState = "idle" | "saving" | "saved" | "error";
 
 function formatRemaining(milliseconds: number | null): string {
   if (milliseconds === null) return "Untimed";
@@ -105,731 +39,460 @@ function formatRemaining(milliseconds: number | null): string {
   return `${minutes}:${remainder.toString().padStart(2, "0")} remaining`;
 }
 
-function matchesIssuedSuccessor(
-  attempt: StudentQuestionAttemptView,
-  receipt: NextIssuedAttempt,
-): boolean {
-  return (
-    attempt.id === receipt.id &&
-    attempt.issuedQuestion === receipt.issuedQuestion.id &&
-    attempt.question_seed === receipt.question_seed &&
-    attempt.timing.deadline === receipt.deadline
-  );
-}
-
-/** Avoid turning an unusually image-heavy question into an unbounded background fetch. */
-const MAX_PREFETCH_ASSETS = 12;
-
-function assetIdsForPresentation(presentation: QuestionPresentation): ReadonlyArray<string> {
-  const blocks = [...presentation.prompt];
-  if (
-    presentation.response.kind === "singleChoice" ||
-    presentation.response.kind === "multipleAnswer"
-  ) {
-    blocks.push(...presentation.response.choices.flatMap((choice) => choice.body));
-  } else if (presentation.response.kind === "ordering") {
-    blocks.push(...presentation.response.items.flatMap((item) => item.body));
-  }
-  return [
-    ...new Set(
-      blocks
-        .filter((block) => block.kind === "image")
-        .map((block) => block.questionAsset.questionAsset),
-    ),
-  ].slice(0, MAX_PREFETCH_ASSETS);
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
 }
 
 function AttemptExperience(props: {
-  readonly initialScreen: AssignmentAttemptScreenData;
+  readonly context: StudentAssignmentAttemptContext;
 }): JSX.Element {
   const runtime = useApplicationApi();
   const validator = useWasmFacade();
-  const navigate = useNavigate();
-  const [screen, setScreen] = createSignal(props.initialScreen);
-  const [state, setState] = createSignal<QuestionAttemptExperienceState>();
-  const [sessionRecovery, setSessionRecovery] = createSignal(false);
-  const [summaryVisible, setSummaryVisible] = createSignal(false);
-  const [assignmentAttemptSummary, setAssignmentAttemptSummary] =
-    createSignal<AssignmentAttemptSummaryResponse>();
-  const [summaryOutcomes, setSummaryOutcomes] = createSignal<
-    ReadonlyArray<AssignmentAttemptSummaryOutcome>
-  >([]);
-  const [summaryError, setSummaryError] = createSignal<string | null>(null);
-  const [summaryLoading, setSummaryLoading] = createSignal(false);
-  const seenSummaryCursors = new Set<string>();
-  const [practiceError, setPracticeError] = createSignal<string | null>(null);
-  const [prefetched, setPrefetched] = createSignal<PrefetchedNextQuestion | null>(null);
-  const [questionPoolSelectionPosition, setQuestionPoolSelectionPosition] =
-    createSignal<QuestionPoolSelectionPosition | null>(
-      props.initialScreen.attempt.questionPoolSelectionPosition,
-    );
-  let requestedPrefetchFor: string | null = null;
-  let prefetchController: AbortController | null = null;
-  let recoveredSuccessorScreen: AssignmentAttemptScreenData | null = null;
+  const [progress, setProgress] =
+    createSignal<Awaited<ReturnType<typeof runtime.client.getStudentAssignmentAttemptProgress>>>();
+  const [position, setPosition] = createSignal<number | null>(null);
+  const [presentation, setPresentation] =
+    createSignal<
+      Awaited<ReturnType<typeof runtime.client.getStudentAssignmentAttemptPresentation>>
+    >();
+  const [loadError, setLoadError] = createSignal<string | null>(null);
+  const [response, setResponse] = createSignal<StudentResponse | null>(null);
+  const [responseValid, setResponseValid] = createSignal(false);
+  const [saveState, setSaveState] = createSignal<SaveState>("idle");
+  const [saveError, setSaveError] = createSignal<string | null>(null);
+  const [submissionState, setSubmissionState] = createSignal<
+    "idle" | "submitting" | "submitted" | "error"
+  >("idle");
+  const [submissionError, setSubmissionError] = createSignal<string | null>(null);
+  const [remainingMilliseconds, setRemainingMilliseconds] = createSignal<number | null>(
+    props.context.timerRemainingMilliseconds,
+  );
+  const [timerUnavailable, setTimerUnavailable] = createSignal(false);
+  let progressRequest = 0;
+  let presentationRequest = 0;
+  let timerRequest = 0;
+  let timerStartedAt = 0;
+  let responseRevision = 0;
+  const responseState = new AssignmentAttemptResponseState();
+  let saveTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
+  let activeSave: Promise<boolean> | undefined;
+  let finishAssignmentButton: HTMLButtonElement | undefined;
 
-  const machine = createQuestionAttemptStateMachine({
-    context: attemptContext(
-      props.initialScreen.assignmentAttempt.id,
-      props.initialScreen.attempt,
-      props.initialScreen.issuedQuestion,
-    ),
-    storage: attemptStorage(),
-    clock: { now: () => Date.now() },
-    network: { isOnline: () => navigator.onLine },
-    submitResponse: (attemptId, response) =>
-      runtime.client.submitResponse(
-        screen().course.summary.id,
-        screen().assignment.id,
-        attemptId,
-        response,
-      ),
-    getSubmissionStatus: (attemptId) =>
-      runtime.client.getSubmissionStatus(
-        screen().course.summary.id,
-        screen().assignment.id,
-        attemptId,
-      ),
-    isSessionExpired,
-    isTransientTransportFailure,
-    validateSavedResponse: validator.validateResponseFormat,
-    onStateChange: setState,
-  });
-  // Establish the first answer state during component construction so the
-  // Question Response Controls do not wait for a post-paint render callback.
-  machine.start(props.initialScreen.issuedQuestion.response);
+  const currentPosition = (): number | null => position();
+  const isSubmitted = (): boolean => submissionState() === "submitted";
 
-  function escapeToAssignment(): void {
-    navigate(
-      `/courses/${courseInstanceRouteReference(screen().course.summary.reference)}/assignments/${assignmentRouteReference(screen().assignment.reference)}`,
-    );
-  }
-
-  function responseChanged(
-    response: StudentResponse,
-    validation: StudentResponseFormatCheck,
-  ): void {
-    machine.setResponse(response, {
-      valid: validation.issues.length === 0,
-      message: validation.issues.length === 0 ? null : "Response format needs attention.",
-    });
-  }
-
-  async function submit(response: StudentResponse): Promise<SubmissionOutcome> {
-    // QuestionResponseControl reaches this callback only after its browser-local format validation.
-    // This enables delivery, never local correctness or scoring.
-    machine.setResponse(response, { valid: true, message: null });
-    return machine.submit();
-  }
-
-  async function continueAttempt(): Promise<void> {
-    const acknowledgement = feedbackState()?.acknowledgement;
-    if (acknowledgement === undefined) return;
-    if (acknowledgement.nextPending) {
-      await advanceFromCurrentAssignmentAttempt(null);
-      return;
-    }
-    const receiptNext = acknowledgement.nextIssued;
-    const cached = prefetched();
-    if (
-      receiptNext !== null &&
-      cached !== null &&
-      prefetchMatchesIssuedSuccessor(cached, receiptNext, machine.state().context.attemptId)
-    ) {
-      const current = machine.state().context;
-      await machine.advance(() =>
-        Promise.resolve({
-          context: {
-            ...current,
-            attemptId: receiptNext.id,
-            assignmentAttemptId: receiptNext.issuedQuestion.assignmentAttempt,
-            issuedQuestionId: receiptNext.issuedQuestion.id,
-            questionRevision: cached.presentation.questionRevision,
-            questionSeed: cached.presentation.question_seed,
-            deadline: receiptNext.deadline,
-          },
-          presentation: cached.presentation,
-        }),
+  async function loadProgress(): Promise<void> {
+    progressRequest += 1;
+    const request = progressRequest;
+    setLoadError(null);
+    try {
+      const next = await runtime.client.getStudentAssignmentAttemptProgress(
+        props.context.assignmentAttempt,
       );
-      setQuestionPoolSelectionPosition(cached.questionPoolSelectionPosition);
-      setPrefetched(null);
-      requestPrefetch(receiptNext.id);
-      return;
-    }
-    if (receiptNext === null) {
-      machine.finish(acknowledgement.assignmentAttemptCompletion);
-      if (acknowledgement.assignmentAttemptCompletion === "completed") {
-        navigate(
-          `/assignment-attempts/${assignmentAttemptRouteReference(screen().assignmentAttempt.reference)}/summary`,
-          { replace: true },
+      if (request !== progressRequest) return;
+      const finalized =
+        next.positions.length > 0 &&
+        next.positions.every(
+          (item) => item.responseState === "submitted" || item.responseState === "closed",
         );
+      setProgress(next);
+      if (finalized) {
+        setSubmissionState("submitted");
+        setPosition(null);
         return;
       }
-      setSummaryVisible(true);
-      void loadSummary();
-      return;
-    }
-    await advanceFromCurrentAssignmentAttempt(receiptNext);
-  }
-
-  function applyRecoveredSuccessorScreen(): void {
-    const recovered = recoveredSuccessorScreen;
-    if (
-      recovered === null ||
-      machine.state().phase !== "answering" ||
-      machine.state().context.attemptId !== recovered.attempt.id
-    ) {
-      return;
-    }
-    recoveredSuccessorScreen = null;
-    setScreen(recovered);
-    setQuestionPoolSelectionPosition(recovered.attempt.questionPoolSelectionPosition);
-    setPrefetched(null);
-    requestPrefetch(recovered.attempt.id);
-  }
-
-  async function advanceFromCurrentAssignmentAttempt(
-    expected: NextIssuedAttempt | null,
-  ): Promise<void> {
-    const predecessor = machine.state().context.attemptId;
-    recoveredSuccessorScreen = null;
-    await machine.advance(async () => {
-      // Router data may still describe the submitted predecessor while the
-      // server-owned successor becomes visible. Bind recovery to the predecessor
-      // and, when supplied, the issued successor receipt.
-      const next = await runtime.client.getAssignmentAttemptScreen(screen().assignmentAttempt.id);
-      if (next.attempt.id === predecessor) {
-        throw new ApiProtocolError(
-          "Assignment Attempt screen still describes the submitted Question Attempt",
-        );
+      const current = position();
+      const preferred = next.recommendedPosition ?? next.positions[0]?.position ?? null;
+      if (current === null || !next.positions.some((item) => item.position === current)) {
+        setPosition(preferred);
       }
-      if (expected !== null && !matchesIssuedSuccessor(next.attempt, expected)) {
-        throw new ApiProtocolError(
-          "Assignment Attempt screen does not match the issued successor receipt",
-        );
+    } catch (error: unknown) {
+      if (request !== progressRequest) return;
+      setLoadError(errorMessage(error, "Could not load your Assignment Attempt."));
+    }
+  }
+
+  async function loadPresentation(nextPosition: number): Promise<void> {
+    presentationRequest += 1;
+    const request = presentationRequest;
+    setPresentation(undefined);
+    responseState.clear();
+    responseRevision += 1;
+    setResponse(null);
+    setResponseValid(false);
+    setSaveState("idle");
+    setSaveError(null);
+    setLoadError(null);
+    try {
+      const next = await runtime.client.getStudentAssignmentAttemptPresentation(
+        props.context.assignmentAttempt,
+        nextPosition,
+      );
+      if (request !== presentationRequest) return;
+      setPresentation(next);
+      if (next.savedResponse !== null) {
+        responseRevision = responseState.restore(nextPosition, next.savedResponse);
+        setResponse(next.savedResponse);
+        setResponseValid(true);
+        setSaveState("saved");
       }
-      recoveredSuccessorScreen = next;
-      return {
-        context: attemptContext(next.assignmentAttempt.id, next.attempt, next.issuedQuestion),
-        presentation: next.issuedQuestion,
-      };
-    });
-    applyRecoveredSuccessorScreen();
+    } catch (error: unknown) {
+      if (request !== presentationRequest) return;
+      setLoadError(errorMessage(error, "Could not load this Question."));
+    }
   }
 
-  async function retryNextQuestion(): Promise<void> {
-    await machine.retryAdvance();
-    applyRecoveredSuccessorScreen();
-  }
-
-  function requestPrefetch(attemptId: string): void {
-    if (requestedPrefetchFor === attemptId) return;
-    requestedPrefetchFor = attemptId;
-    prefetchController?.abort();
-    const controller = new AbortController();
-    prefetchController = controller;
-    void runtime.client
-      .prefetchNextQuestion(
-        screen().course.summary.id,
-        screen().assignment.id,
-        attemptId,
-        controller.signal,
-      )
-      .then((value) => {
-        if (controller.signal.aborted || machine.state().context.attemptId !== attemptId) return;
-        if (
-          value !== null &&
-          value.issuedQuestion.assignmentAttempt !== machine.state().context.assignmentAttemptId
-        ) {
-          throw new ApiProtocolError(
-            "Prefetched Issued Question does not match the active Assignment Attempt",
+  async function saveCurrentResponse(): Promise<boolean> {
+    const priorSave = activeSave;
+    if (priorSave !== undefined) {
+      await priorSave;
+      return saveCurrentResponse();
+    }
+    const selected = currentPosition();
+    if (selected === null || presentation()?.position !== selected) return false;
+    const active = responseState.current(selected);
+    if (active === undefined) return response() === null;
+    const current = active.response;
+    if (!active.valid || !responseValid()) {
+      setSaveState("error");
+      setSaveError("Complete the response format before saving it.");
+      return false;
+    }
+    const revision = active.revision;
+    const save = (async (): Promise<boolean> => {
+      setSaveState("saving");
+      setSaveError(null);
+      try {
+        await runtime.client.saveStudentAssignmentAttemptResponse(
+          props.context.assignmentAttempt,
+          selected,
+          current,
+        );
+        setPresentation((existing) =>
+          existing === undefined || existing.position !== selected
+            ? existing
+            : { ...existing, savedResponse: current },
+        );
+        if (revision === responseRevision) setSaveState("saved");
+        await loadProgress();
+        return true;
+      } catch (error: unknown) {
+        if (revision === responseRevision) {
+          setSaveState("error");
+          setSaveError(
+            `Your response is still here. Save did not finish: ${errorMessage(error, "Please try again.")}`,
           );
         }
-        setPrefetched(value);
-        if (value !== null) {
-          for (const assetId of assetIdsForPresentation(value.presentation)) {
-            const assetUrl = new URL(runtime.client.assetUrl(assetId), window.location.origin);
-            if (assetUrl.origin !== window.location.origin) continue;
-            void fetch(assetUrl, {
-              credentials: "same-origin",
-              cache: "force-cache",
-              signal: controller.signal,
-            }).catch(() => undefined);
-          }
-        }
+        return false;
+      }
+    })();
+    activeSave = save;
+    const saved = await save;
+    if (activeSave === save) activeSave = undefined;
+    if (revision !== responseRevision && saved) return saveCurrentResponse();
+    return saved;
+  }
+
+  async function activatePosition(nextPosition: number): Promise<void> {
+    if (nextPosition === currentPosition() || isSubmitted()) return;
+    if (!(await saveCurrentResponse())) return;
+    setPosition(nextPosition);
+  }
+
+  async function submitAttempt(): Promise<void> {
+    if (submissionState() === "submitting" || isSubmitted()) return;
+    if (!(await saveCurrentResponse())) return;
+    setSubmissionState("submitting");
+    setSubmissionError(null);
+    try {
+      await runtime.client.submitStudentAssignmentAttempt(props.context.assignmentAttempt);
+      setSubmissionState("submitted");
+      await loadProgress();
+    } catch (error: unknown) {
+      setSubmissionState("error");
+      setSubmissionError(
+        `This Assignment Attempt was not submitted: ${errorMessage(error, "Please review your saved responses and try again.")}`,
+      );
+    }
+  }
+
+  function responseEdited(position: number, next: StudentResponse): number | undefined {
+    if (position !== currentPosition()) return undefined;
+    responseRevision = responseState.edit(position, next);
+    setResponse(next);
+    setResponseValid(false);
+    setSaveState("idle");
+    setSaveError(null);
+    return responseRevision;
+  }
+
+  function responseValidated(
+    position: number,
+    next: StudentResponse,
+    validation: StudentResponseFormatCheck,
+    editRevision?: number,
+  ): void {
+    if (!responseState.validate(position, next, editRevision, validation.issues.length === 0))
+      return;
+    if (position !== currentPosition()) return;
+    setResponseValid(validation.issues.length === 0);
+    if (validation.issues.length === 0) {
+      const selected = currentPosition();
+      if (selected !== null) {
+        const revision = responseRevision;
+        if (saveTimer !== undefined) globalThis.clearTimeout(saveTimer);
+        saveTimer = globalThis.setTimeout(() => {
+          if (selected === currentPosition() && revision === responseRevision)
+            void saveCurrentResponse();
+        }, 350);
+      }
+    }
+  }
+
+  function saveOutcome(): Promise<
+    import("../features/question_attempt/question_attempt_state").SubmissionOutcome
+  > {
+    return saveCurrentResponse().then((saved) =>
+      saved
+        ? { kind: "accepted" as const }
+        : { kind: "rejected" as const, message: saveError() ?? "Response was not saved." },
+    );
+  }
+
+  function tickTimer(): void {
+    if (timerUnavailable()) return;
+    const elapsedMilliseconds = Math.floor(Math.max(0, performance.now() - timerStartedAt));
+    timerRequest += 1;
+    const request = timerRequest;
+    void validator
+      .assignmentAttemptRemainingMilliseconds({
+        initialRemainingMilliseconds: props.context.timerRemainingMilliseconds,
+        elapsedMilliseconds,
+      })
+      .then((next) => {
+        if (request === timerRequest) setRemainingMilliseconds(next);
       })
       .catch(() => {
-        if (!controller.signal.aborted) setPrefetched(null);
-        if (requestedPrefetchFor === attemptId) requestedPrefetchFor = null;
+        if (request === timerRequest) setTimerUnavailable(true);
       });
   }
 
-  async function loadSummary(cursor?: string): Promise<void> {
-    if (summaryLoading()) return;
-    if (cursor !== undefined && seenSummaryCursors.has(cursor)) {
-      setSummaryError("This summary page was already loaded. Refresh the summary to try again.");
-      return;
-    }
-    if (cursor === undefined) {
-      seenSummaryCursors.clear();
-    }
-    setSummaryLoading(true);
-    setSummaryError(null);
-    try {
-      const page = await runtime.client.getAssignmentAttemptSummary(
-        screen().assignmentAttempt.id,
-        cursor,
-        30,
-      );
-      if (page.outcomes.nextCursor !== null && seenSummaryCursors.has(page.outcomes.nextCursor)) {
-        throw new Error("Assignment Attempt summary repeated its cursor.");
-      }
-      if (cursor !== undefined) seenSummaryCursors.add(cursor);
-      setAssignmentAttemptSummary(page);
-      setSummaryOutcomes((existing) => {
-        const prior = cursor === undefined ? [] : existing;
-        const seen = new Set(prior.map((outcome) => outcome.attempt));
-        return [...prior, ...page.outcomes.items.filter((outcome) => !seen.has(outcome.attempt))];
-      });
-    } catch {
-      setSummaryError(
-        "Could not refresh this Assignment Attempt summary. Your completed work remains recorded.",
-      );
-    } finally {
-      setSummaryLoading(false);
-    }
-  }
-
-  async function startAnotherPractice(): Promise<void> {
-    setPracticeError(null);
-    try {
-      const assignmentAttempt = await runtime.client.startAssignmentAttempt(
-        screen().course.summary.id,
-        screen().assignment.id,
-      );
-      navigate(
-        `/assignment-attempts/${assignmentAttemptRouteReference(assignmentAttempt.reference)}`,
-      );
-    } catch (error: unknown) {
-      setPracticeError(
-        error instanceof Error
-          ? error.message
-          : "Could not start another practice Assignment Attempt.",
-      );
-    }
-  }
-
-  async function restoreSession(): Promise<void> {
-    try {
-      await resumeSessionAndRetry(runtime.client.getSession, machine);
-      setSessionRecovery(false);
-    } catch {
-      setSessionRecovery(true);
-    }
-  }
-
-  function online(): void {
-    void machine.retryWhenOnline();
-    requestPrefetch(machine.state().context.attemptId);
-  }
+  createEffect(() => {
+    const selected = position();
+    if (selected !== null) void loadPresentation(selected);
+  });
 
   onMount(() => {
-    requestPrefetch(props.initialScreen.attempt.id);
-    const timer = globalThis.setInterval(() => machine.tick(), 1_000);
-    globalThis.addEventListener("online", online);
+    timerStartedAt = performance.now();
+    void loadProgress();
+    tickTimer();
+    const interval = globalThis.setInterval(tickTimer, 1_000);
     onCleanup(() => {
-      globalThis.clearInterval(timer);
-      globalThis.removeEventListener("online", online);
-      prefetchController?.abort();
-      machine.dispose();
+      globalThis.clearInterval(interval);
+      if (saveTimer !== undefined) globalThis.clearTimeout(saveTimer);
     });
   });
 
-  const recoveringState = ():
-    Extract<QuestionAttemptExperienceState, { readonly phase: "recovering" }> | undefined => {
-    const candidate = state();
-    return candidate?.phase === "recovering" ? candidate : undefined;
-  };
-  const feedbackState = ():
-    Extract<QuestionAttemptExperienceState, { readonly phase: "studentFeedback" }> | undefined => {
-    const candidate = state();
-    return candidate?.phase === "studentFeedback" ? candidate : undefined;
-  };
-  const acceptedPendingState = ():
-    Extract<QuestionAttemptExperienceState, { readonly phase: "acceptedPending" }> | undefined => {
-    const candidate = state();
-    return candidate?.phase === "acceptedPending" ? candidate : undefined;
-  };
-  const studentFeedbackPresentation = (
-    feedback: Extract<QuestionAttemptExperienceState, { readonly phase: "studentFeedback" }>,
-  ): StudentFeedbackPresentation =>
-    feedback.feedback.kind === "released"
-      ? {
-          kind: "released" as const,
-          feedback: feedback.feedback.feedback,
-          assignmentScoringState: feedback.acknowledgement.assignmentScoringState,
-        }
-      : {
-          kind: "awaiting" as const,
-          feedback: null,
-          assignmentScoringState: feedback.acknowledgement.assignmentScoringState,
-        };
+  const positions = (): ReadonlyArray<{
+    readonly position: number;
+    readonly responseState: StudentAssignmentAttemptQuestionState;
+  }> =>
+    (progress()?.positions ?? []).map((item) => ({
+      ...item,
+      responseState: responseStateForNavigation(item.responseState),
+    }));
 
-  createEffect(() => {
-    if (recoveringState()?.reason === "sessionExpired") {
-      setSessionRecovery(true);
+  function responseStateForNavigation(
+    responseState: StudentAssignmentAttemptResponseState,
+  ): StudentAssignmentAttemptQuestionState {
+    if (isSubmitted() || responseState === "submitted") return "closed";
+    return responseState;
+  }
+
+  function retryCurrentLoad(): void {
+    const selected = currentPosition();
+    if (selected === null) {
+      void loadProgress();
+      return;
     }
-  });
-
-  const currentState = (): QuestionAttemptExperienceState | undefined => state();
-  const terminalState = ():
-    Extract<QuestionAttemptExperienceState, { readonly phase: "terminal" }> | undefined => {
-    const candidate = state();
-    return candidate?.phase === "terminal" ? candidate : undefined;
-  };
-  const terminalPresentation = (): AssignmentAttemptCompletionPresentation =>
-    assignmentAttemptCompletionPresentation(
-      terminalState()?.assignmentAttemptCompletion ?? "inProgress",
-      true,
-    );
-  const currentPresentation = (): QuestionPresentation =>
-    currentState()?.presentation ?? screen().issuedQuestion;
-  const currentStudentResponse = (
-    response: StudentResponse | null,
-  ): ReadonlyArray<import("../../generated/api/QuestionContentBlock").QuestionContentBlock> =>
-    projectStudentResponse(currentPresentation(), response);
-  // A cache-hit advance has a server-issued descriptor and Question Presentation but not a
-  // complete AssignmentAttemptScreenData record. Keep Student Response Inspection Feedback bound to
-  // the attempt state, which is advanced atomically with that descriptor.
-  const currentAttemptId = (): string => currentState()?.context.attemptId ?? screen().attempt.id;
+    void loadPresentation(selected);
+  }
 
   return (
-    <section
-      class="page assignment-attempt-page"
-      data-route-surface="assignmentAttempt"
-      data-attempt-id={currentAttemptId()}
-      aria-busy={currentState()?.phase === "loading" || currentState()?.phase === "advancing"}
-    >
+    <section class="page assignment-attempt-page" data-route-surface="assignmentAttempt">
       <header class="assignment-attempt-header">
         <div>
-          <p class="eyebrow">Assignment Attempt {screen().assignmentAttempt.attemptNumber}</p>
-          <h1>{currentPresentation().questionTitle}</h1>
+          <p class="eyebrow">Assignment Attempt {props.context.attemptNumber}</p>
+          <h1>{props.context.assignment.title}</h1>
         </div>
-        <span class="calm-status" role="timer" aria-live="polite">
-          {formatRemaining(
-            currentState()?.remainingMilliseconds ?? screen().attempt.timing.deadline,
-          )}
+        <span class="calm-status" role="timer">
+          {timerUnavailable()
+            ? "Timer unavailable; the server still enforces the time limit."
+            : formatRemaining(remainingMilliseconds())}
         </span>
       </header>
-      <Show when={questionPoolSelectionPosition()}>
-        {(selection) => (
-          <p class="assignment-attempt-question-pool-selection" role="status">
-            Server-selected Question {selection().selectedQuestionNumber} of{" "}
-            {selection().selectedQuestionCount} for this Assignment Attempt.
+
+      <Show
+        when={progress()}
+        fallback={
+          <p class="loading-state" role="status">
+            Loading Questions...
           </p>
+        }
+      >
+        {(currentProgress) => (
+          <>
+            <p class="eyebrow">
+              Question {currentPosition() ?? ""} of {currentProgress().questionCount}
+            </p>
+            <StudentAssignmentAttemptNavigation
+              positions={positions()}
+              currentPosition={currentPosition()}
+              onPositionActivate={(nextPosition) => void activatePosition(nextPosition)}
+            />
+          </>
         )}
       </Show>
 
-      <Show when={summaryVisible() || currentState()?.phase === "terminal"}>
-        <section class="attempt-summary" aria-labelledby="attempt-summary-heading">
-          <p class="eyebrow">{terminalPresentation().eyebrow}</p>
-          <h2 id="attempt-summary-heading">{terminalPresentation().heading}</h2>
-          <p>{terminalPresentation().message}</p>
-          <Show when={assignmentAttemptSummary()}>
-            {(summary) => (
-              <>
-                <section aria-label="Assignment score">
-                  <h3>Assignment score</h3>
-                  <p>{studentProgressSummary(summary().summary)}</p>
-                  <Show
-                    when={summary().summary.student_assignment_grade.score_state === "available"}
-                  >
-                    <p>
-                      This Assignment Attempt:{" "}
-                      {studentScoreValue(summary().assignmentAttempt.score)}
-                    </p>
-                  </Show>
-                </section>
-                <For each={summaryOutcomes()}>
-                  {(outcome) => (
-                    <StudentFeedbackPanel
-                      disclosure={
-                        outcome.feedback === null
-                          ? {
-                              kind: "awaiting",
-                              feedback: null,
-                              assignmentScoringState: outcome.assignmentScoringState,
-                            }
-                          : {
-                              kind: "released",
-                              feedback: outcome.feedback,
-                              assignmentScoringState: outcome.assignmentScoringState,
-                            }
-                      }
-                      studentResponse={
-                        outcome.attempt === currentAttemptId()
-                          ? currentStudentResponse(outcome.response)
-                          : undefined
-                      }
-                      assetUrl={(asset) =>
-                        new URL(
-                          runtime.client.assetUrl(asset.questionAsset),
-                          window.location.origin,
-                        )
-                      }
-                    />
-                  )}
-                </For>
-                <Show when={summary().outcomes.nextCursor !== null}>
-                  <button
-                    class="quiet-action"
-                    type="button"
-                    disabled={summaryLoading()}
-                    onClick={() => void loadSummary(summary().outcomes.nextCursor ?? undefined)}
-                  >
-                    Load more responses
-                  </button>
-                </Show>
-              </>
-            )}
-          </Show>
-          <Show when={summaryError()}>
-            {(message) => (
-              <>
-                <p class="inline-error">{message()}</p>
-                <button class="quiet-action" type="button" onClick={() => void loadSummary()}>
-                  Retry summary
-                </button>
-              </>
-            )}
-          </Show>
-          <Show when={terminalState()?.assignmentAttemptCompletion === "completed"}>
-            <button
-              class="primary-action"
-              type="button"
-              onClick={() => void startAnotherPractice()}
-            >
-              Start another practice Assignment Attempt
+      <Show when={loadError()}>
+        {(message) => (
+          <section class="attempt-recovery" role="alert">
+            <p>{message()}</p>
+            <button class="quiet-action" type="button" onClick={retryCurrentLoad}>
+              Retry
             </button>
-          </Show>
-          <Show when={practiceError()}>{(message) => <p class="inline-error">{message()}</p>}</Show>
-          <button class="quiet-action" type="button" onClick={escapeToAssignment}>
-            Back to assignment
-          </button>
+          </section>
+        )}
+      </Show>
+
+      <Show when={isSubmitted()}>
+        <section class="attempt-summary" aria-labelledby="assignment-submitted-heading">
+          <h2 id="assignment-submitted-heading">Assignment submitted</h2>
+          <p>Your saved responses are now submitted for this Assignment Attempt.</p>
         </section>
       </Show>
 
-      <Show when={!summaryVisible() && currentState()?.phase !== "terminal"}>
-        <article class="question-card">
-          <div class="prompt-copy">
-            <ErrorBoundary
-              fallback={(error) => {
-                const message =
-                  error instanceof Error ? error.message : "Question rendering failed.";
-                machine.reportRendererFailure(message);
-                return <p class="inline-error">{message}</p>;
-              }}
-            >
-              <QuestionPresentationRenderer
-                presentation={currentPresentation()}
-                assetUrl={(asset) =>
-                  new URL(runtime.client.assetUrl(asset.questionAsset), window.location.origin)
-                }
-                onRetry={() => machine.retryRenderer()}
-              />
-            </ErrorBoundary>
-          </div>
-
-          <div class="attempt-response">
-            <Show when={currentState()?.storageWarning}>
-              {(warning) => <p class="saved-notice">{warning()}</p>}
-            </Show>
-            <Show when={recoveringState()}>
-              {(recovering) => (
-                <section class="attempt-recovery" role="status" aria-live="polite">
-                  <p>{recovering().message}</p>
-                  <Show when={recovering().reason === "sessionExpired" && sessionRecovery()}>
-                    <button
-                      class="primary-action"
-                      type="button"
-                      onClick={() => void restoreSession()}
-                    >
-                      Restore session and retry
-                    </button>
-                  </Show>
-                  <Show
-                    when={recovering().reason === "offline" || recovering().reason === "network"}
-                  >
-                    <button class="quiet-action" type="button" onClick={() => void machine.retry()}>
-                      Retry saved response
-                    </button>
-                  </Show>
-                  <Show when={recovering().reason === "advanceFailed"}>
-                    <button
-                      class="quiet-action"
-                      type="button"
-                      onClick={() => void retryNextQuestion()}
-                    >
-                      Retry next question
-                    </button>
-                  </Show>
-                  <Show when={recovering().reason === "renderer"}>
-                    <button
-                      class="quiet-action"
-                      type="button"
-                      onClick={() => machine.retryRenderer()}
-                    >
-                      Retry question display
-                    </button>
-                  </Show>
-                </section>
-              )}
-            </Show>
-
-            <Show
-              when={currentState()?.phase === "advancing"}
-              fallback={
-                <Show
-                  when={feedbackState()}
-                  fallback={
-                    <Show
-                      when={acceptedPendingState()}
-                      fallback={
-                        <Show
-                          // A new server-issued attempt must not inherit a locally selected response.
-                          // Key only on attempt identity so same-attempt recovery keeps local entry.
-                          when={currentState()?.context.attemptId}
-                          keyed
-                          fallback={<p class="loading-state">Restoring your saved response...</p>}
-                        >
-                          {(attemptId) => (
-                            <QuestionPresentationResponseControl
-                              attemptId={attemptId}
-                              responseFormat={currentPresentation().response}
-                              initialResponse={currentState()?.response ?? undefined}
-                              validator={validator}
-                              onResponseChange={responseChanged}
-                              onSubmit={submit}
-                              onEscape={escapeToAssignment}
-                              studentWorkRoute={{
-                                courseId: screen().course.summary.id,
-                                assignmentId: screen().assignment.id,
-                              }}
-                              beginImathasQuestionBackendLaunch={() =>
-                                runtime.client.beginImathasQuestionBackendLaunch(
-                                  screen().course.summary.id,
-                                  screen().assignment.id,
-                                  attemptId,
-                                )
-                              }
-                            />
-                          )}
-                        </Show>
-                      }
-                    >
-                      {(pending) => (
-                        <section class="attempt-pending" aria-labelledby="grading-status-heading">
-                          <h2 id="grading-status-heading">Response received</h2>
-                          <p>
-                            {pending().acknowledgement.gradingState === "pending"
-                              ? "Grading is underway. You do not need to submit your response again."
-                              : "Your response needs instructor attention. You do not need to submit it again."}
-                          </p>
-                          <p id="grading-status-message" role="status" aria-live="polite">
-                            {pending().checkingStatus
-                              ? "Checking grading status..."
-                              : (pending().statusMessage ?? "")}
-                          </p>
-                          <button
-                            class="primary-action"
-                            type="button"
-                            disabled={pending().checkingStatus}
-                            aria-describedby="grading-status-message"
-                            onClick={() => void machine.checkGradingStatus()}
-                          >
-                            Check grading status
-                          </button>
-                        </section>
-                      )}
-                    </Show>
+      <Show when={presentation()} keyed>
+        {(currentPresentation) => (
+          <Show when={!isSubmitted()}>
+            <article class="question-card">
+              <div class="prompt-copy">
+                <ErrorBoundary fallback={<p class="inline-error">Question rendering failed.</p>}>
+                  <QuestionPresentationRenderer
+                    presentation={currentPresentation.presentation}
+                    assetUrl={(asset) =>
+                      new URL(runtime.client.assetUrl(asset.questionAsset), window.location.origin)
+                    }
+                  />
+                </ErrorBoundary>
+              </div>
+              <div class="attempt-response">
+                <QuestionPresentationResponseControl
+                  attemptId={`${props.context.assignmentAttempt}-${currentPresentation.position}`}
+                  responseFormat={currentPresentation.presentation.response}
+                  initialResponse={currentPresentation.savedResponse ?? undefined}
+                  validator={validator}
+                  submitLabel="Save response"
+                  mode="save"
+                  onResponseEdit={(response) =>
+                    responseEdited(currentPresentation.position, response)
                   }
-                >
-                  {(feedback) => (
-                    <>
-                      <Show when={feedback().acknowledgement.assignmentScoringState !== "current"}>
-                        <section class="attempt-pending" aria-labelledby="score-status-heading">
-                          <h2 id="score-status-heading">
-                            {feedback().acknowledgement.assignmentScoringState === "recalculating"
-                              ? "Score is being updated"
-                              : "Score update needs attention"}
-                          </h2>
-                          <p>
-                            {feedback().acknowledgement.assignmentScoringState === "recalculating"
-                              ? "Your response is recorded. The current score will appear after grading finishes."
-                              : "Your response is recorded. Check again to see whether the score is available."}
-                          </p>
-                          <p id="score-status-message" role="status" aria-live="polite">
-                            {feedback().checkingStatus
-                              ? "Checking for an updated score..."
-                              : (feedback().statusMessage ?? "")}
-                          </p>
-                          <button
-                            class="primary-action"
-                            type="button"
-                            disabled={feedback().checkingStatus}
-                            aria-describedby="score-status-message"
-                            onClick={() => void machine.checkGradingStatus()}
-                          >
-                            Check for updated score
-                          </button>
-                        </section>
-                      </Show>
-                      <StudentFeedbackPanel
-                        disclosure={studentFeedbackPresentation(feedback())}
-                        studentResponse={currentStudentResponse(feedback().response)}
-                        assetUrl={(asset) =>
-                          new URL(
-                            runtime.client.assetUrl(asset.questionAsset),
-                            window.location.origin,
-                          )
-                        }
-                        onAdvance={() => void continueAttempt()}
-                        advanceLabel={submissionAdvanceLabel(feedback().acknowledgement)}
-                      />
-                    </>
+                  onResponseChange={(response, validation, editRevision) =>
+                    responseValidated(
+                      currentPresentation.position,
+                      response,
+                      validation,
+                      editRevision,
+                    )
+                  }
+                  onSubmit={saveOutcome}
+                  onEscape={() => finishAssignmentButton?.focus()}
+                />
+                <Show when={saveState() === "saving"}>
+                  <p class="calm-status" role="status">
+                    Saving response...
+                  </p>
+                </Show>
+                <Show when={saveState() === "saved"}>
+                  <p class="saved-notice" role="status">
+                    Response saved.
+                  </p>
+                </Show>
+                <Show when={saveError()}>
+                  {(message) => (
+                    <p class="inline-error" role="alert">
+                      {message()}
+                    </p>
                   )}
                 </Show>
-              }
-            >
-              <p class="loading-state" role="status">
-                Loading the next question...
+              </div>
+            </article>
+          </Show>
+        )}
+      </Show>
+
+      <Show when={progress() && !isSubmitted()}>
+        <section
+          class="assignment-attempt-submit"
+          aria-labelledby="assignment-attempt-submit-heading"
+        >
+          <h2 id="assignment-attempt-submit-heading">Finish Assignment</h2>
+          <p>Save each response before submitting this Assignment Attempt.</p>
+          <button
+            class="primary-action"
+            type="button"
+            ref={(element) => (finishAssignmentButton = element)}
+            disabled={submissionState() === "submitting"}
+            onClick={() => void submitAttempt()}
+          >
+            {submissionState() === "submitting" ? "Submitting Assignment..." : "Submit Assignment"}
+          </button>
+          <Show when={submissionError()}>
+            {(message) => (
+              <p class="inline-error" role="alert">
+                {message()}
               </p>
-            </Show>
-          </div>
-        </article>
+            )}
+          </Show>
+        </section>
       </Show>
     </section>
   );
 }
 
 export function AssignmentAttemptPage(): JSX.Element {
-  const scopedRoute = useRouteScopeData();
-  const screen = (): AssignmentAttemptScreenData | undefined => {
-    const data = scopedRoute();
-    return data?.kind === "assignmentAttempt" ? data.screen : undefined;
+  const routeData = useRouteScopeData();
+  const loadState = useRouteScopeLoadState();
+  const retryScope = useRetryRouteScope();
+  const context = (): StudentAssignmentAttemptContext | undefined => {
+    const data = routeData();
+    return data?.kind === "assignmentAttempt" ? data.context : undefined;
   };
   return (
     <Show
-      when={screen()}
+      when={context()}
       keyed
       fallback={
         <section class="page" data-route-surface="assignmentAttempt">
-          <p class="loading-state" role="status">
-            Loading your Assignment Attempt...
-          </p>
+          <Show
+            when={loadState() === "rejected"}
+            fallback={
+              <p class="loading-state" role="status">
+                Loading your Assignment Attempt...
+              </p>
+            }
+          >
+            <p class="inline-error" role="alert">
+              Your Assignment Attempt could not be loaded.
+            </p>
+            <button class="quiet-action" type="button" onClick={retryScope}>
+              Retry
+            </button>
+          </Show>
         </section>
       }
     >
-      {(loadedScreen) => <AttemptExperience initialScreen={loadedScreen} />}
+      {(loadedContext) => <AttemptExperience context={loadedContext} />}
     </Show>
   );
 }

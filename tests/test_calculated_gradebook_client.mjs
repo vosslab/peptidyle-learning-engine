@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
@@ -12,6 +13,7 @@ import {
 } from "../src/api/decoders/gradebook_selection.ts";
 import { ApiProtocolError } from "../src/api/http_client/error.ts";
 import { createCalculatedGradebookClient } from "../src/api/http_client/calculated_gradebook.ts";
+import { formatSubmissionTime } from "../src/pages/gradebook_assignment_attempt_chooser_model.ts";
 
 const COURSE_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -175,15 +177,18 @@ test("Gradebook selection and submitted Assignment Attempt decoders keep closed 
   assert.equal(selection.nextCursor, "next-page");
 
   const choices = decodeSubmittedAssignmentAttemptChoicesPage({
+    displayTimeZone: "America/New_York",
     rosterChangeNumber: "4",
     rows: [{ assignmentAttempt: "R-3", submittedAt: 1_700_000_000_000, scoreSelected: true }],
   });
   assert.equal(choices.nextCursor, null);
+  assert.equal(choices.displayTimeZone, "America/New_York");
   assert.equal(choices.rows[0].assignmentAttempt, "R-3");
 
   assert.throws(
     () =>
       decodeSubmittedAssignmentAttemptChoicesPage({
+        displayTimeZone: "America/New_York",
         rosterChangeNumber: "4",
         rows: [{ run: "R-3", submittedAt: 1_700_000_000_000, scoreSelected: true }],
       }),
@@ -206,10 +211,49 @@ test("Gradebook selection and submitted Assignment Attempt decoders keep closed 
   assert.throws(
     () =>
       decodeSubmittedAssignmentAttemptChoicesPage({
+        displayTimeZone: "America/New_York",
         rosterChangeNumber: "4",
         rows: [{ assignmentAttempt: "R-03", submittedAt: 1_700_000_000_000, scoreSelected: true }],
       }),
     DecodeError,
+  );
+
+  assert.throws(
+    () =>
+      decodeSubmittedAssignmentAttemptChoicesPage({
+        displayTimeZone: "America/New_York",
+        rosterChangeNumber: "4",
+        rows: [
+          {
+            assignmentAttempt: "R-3",
+            submittedAt: 1_700_000_000_000,
+            scoreSelected: true,
+            studentDisplayTimeZone: "America/Chicago",
+          },
+        ],
+      }),
+    DecodeError,
+  );
+});
+
+test("submitted Assignment Attempt chooser formats every submission in its viewer zone", () => {
+  const timestamp = Date.parse("2026-01-15T18:30:00Z");
+  const expected = new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "America/New_York",
+  }).format(new Date(timestamp));
+  const formatted = formatSubmissionTime(timestamp, "America/New_York");
+
+  assert.equal(formatted, expected);
+});
+
+test("submitted Assignment Attempt chooser visibly names its loaded Instructor time zone", () => {
+  const page = readFileSync("src/pages/gradebook_assignment_attempt_chooser.tsx", "utf8");
+
+  assert.match(
+    page,
+    /Submitted times use your Instructor time zone: \{loaded\(\)\.displayTimeZone\}\./,
   );
 });
 
@@ -260,6 +304,7 @@ test("calculated Gradebook clients use same-origin no-store lowerCamelCase route
     }
     if (path.includes("/assignment-attempts?")) {
       return jsonResponse({
+        displayTimeZone: "America/New_York",
         rosterChangeNumber: "4",
         rows: [{ assignmentAttempt: "R-3", submittedAt: 1_700_000_000_000, scoreSelected: true }],
       });

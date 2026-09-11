@@ -26,28 +26,52 @@ export const RIBBON_GLYPH_IDS = [
   "arrow-left",
   "circle-user",
   "right-from-bracket",
+  "box-archive",
+  "clock",
+  "copy",
+  "file-circle-question",
+  "layer-group",
+  "magnifying-glass",
 ] as const;
 
 export type RibbonGlyphId = (typeof RIBBON_GLYPH_IDS)[number];
 
 /**
- * The sole destination-to-glyph authority. Entries absent here are deliberately
- * text-only: a plausible-looking icon is worse than a label that tells the truth.
+ * The sole destination-to-glyph authority. Every visible Ribbon destination
+ * pairs one subsetted glyph with its text label.
  */
 export const RIBBON_DESTINATION_GLYPHS = Object.freeze({
   courses: "graduation-cap",
-  questionLibrary: "book-open",
+  questions: "book-open",
+  productAssignments: "clipboard-list",
   assignments: "clipboard-list",
   studentAssignments: "clipboard-list",
   students: "users",
   gradebook: "table-list",
+  teachingOperations: "gear",
+  blueprintUpdates: "layer-group",
   courseSetup: "gear",
   attempt: "pen-to-square",
-  myQuestionDrafts: "file-pen",
+  instructorAccounts: "circle-user",
+  supportRoster: "users",
+  myBlueprintCourses: "layer-group",
+  myActiveCourses: "graduation-cap",
+  myInactiveCourses: "box-archive",
+  searchPublicBlueprintCourses: "magnifying-glass",
+  myQuestions: "file-circle-question",
+  myDraftQuestions: "file-pen",
   starred: "star",
   watched: "eye",
+  searchQuestionLibrary: "magnifying-glass",
+  browseQuestionLibrary: "book-open",
+  assignmentsDueSoon: "clock",
+  assignmentTemplates: "copy",
+  assignmentOverview: "clipboard-list",
   assignmentQuestions: "list-check",
+  assignmentPolicies: "gear",
+  assignmentGradingOperations: "table-list",
   assignmentStudentView: "user-graduate",
+  gradeSettings: "table-list",
   appearance: "palette",
   backToAssignments: "arrow-left",
 } as const satisfies Readonly<Partial<Record<RibbonDestinationId, RibbonGlyphId>>>);
@@ -55,17 +79,18 @@ export const RIBBON_DESTINATION_GLYPHS = Object.freeze({
 export type RibbonDestinationGlyphId = keyof typeof RIBBON_DESTINATION_GLYPHS;
 
 /** Context identities are not destinations and therefore remain a separate closed vocabulary. */
-export const RIBBON_CONTEXT_GLYPH_KEYS = ["account", "signOut"] as const;
+export const RIBBON_CONTEXT_GLYPH_KEYS = ["account", "profile", "signOut"] as const;
 export type RibbonContextGlyphKey = (typeof RIBBON_CONTEXT_GLYPH_KEYS)[number];
 
 export const RIBBON_CONTEXT_GLYPHS = Object.freeze({
   account: "circle-user",
+  profile: "circle-user",
   signOut: "right-from-bracket",
 } as const satisfies Readonly<Record<RibbonContextGlyphKey, RibbonGlyphId>>);
 
 /** Returns the paired destination glyph, if this destination has earned one. */
 export function ribbonGlyphForDestination(id: RibbonDestinationId): RibbonGlyphId | undefined {
-  return RIBBON_DESTINATION_GLYPHS[id as RibbonDestinationGlyphId];
+  return RIBBON_DESTINATION_GLYPHS[id];
 }
 
 /** Returns a conventional Context glyph without fabricating a navigation destination. */

@@ -7,7 +7,6 @@ import {
   parseCourseInstanceReference,
   parseCourseMembershipReference,
   parseDraftQuestionReference,
-  parsePresentationNonce,
   parseQuestionRouteReference,
   type AssignmentAttemptRouteReference,
   type CourseInstanceRouteReference,
@@ -23,8 +22,7 @@ export type RouteParamName =
   | "membershipRef"
   | "questionRef"
   | "draftQuestionRef"
-  | "blueprintCourseRef"
-  | "presentationNonce";
+  | "blueprintCourseRef";
 
 /**
  * `undefined` means the pathname did not match this declared route. A valid
@@ -57,7 +55,6 @@ const ROUTE_PARAM_PARSERS: Readonly<Record<RouteParamName, RouteParamParser>> = 
   questionRef: parseQuestionRouteReference,
   draftQuestionRef: parseDraftQuestionReference,
   blueprintCourseRef: parseBlueprintCourseReference,
-  presentationNonce: parsePresentationNonce,
 };
 
 function isRouteParamName(value: string): value is RouteParamName {

@@ -44,8 +44,8 @@ const SCHEMAS: RibbonSchemaTable = Object.freeze({
   product: Object.freeze({
     instructor: immutableSchema(
       universalSlot("courses"),
-      universalSlot("questionLibrary"),
-      universalSlot("blueprintCourses"),
+      universalSlot("questions"),
+      universalSlot("productAssignments"),
     ),
     student: immutableSchema(universalSlot("courses")),
     sysadmin: immutableSchema(

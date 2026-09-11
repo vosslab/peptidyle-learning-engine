@@ -26,7 +26,6 @@ export type DraftQuestionRouteReference = DraftQuestionReference &
 export type BlueprintCourseRouteReference = BlueprintCourseReference &
   BrandedRouteReference<"blueprintCourse">;
 export type QuestionRouteReference = BrandedRouteReference<"question">;
-export type PresentationNonceRouteReference = BrandedRouteReference<"presentationNonce">;
 export type PublicRouteReference =
   | AssignmentAttemptRouteReference
   | CourseInstanceRouteReference
@@ -71,9 +70,6 @@ export function parseDraftQuestionReference(value: string): DraftQuestionRouteRe
 }
 export function parseBlueprintCourseReference(value: string): BlueprintCourseRouteReference | null {
   return parseExact<"blueprintCourse">(value, "BP");
-}
-export function parsePresentationNonce(value: string): PresentationNonceRouteReference | null {
-  return /^[0-9a-f]{32}$/u.test(value) ? (value as PresentationNonceRouteReference) : null;
 }
 export function courseInstanceRouteReference(
   value: CourseInstanceReference,

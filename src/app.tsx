@@ -9,8 +9,8 @@ import {
   courseRouteView,
   type CourseThemeRouteData,
 } from "./features/course_appearance/course_theme_context";
-import { routeParams } from "./navigation/route_params";
-import { routeContractForPathname } from "./route_contract";
+import { routeParams, type RouteParams } from "./navigation/route_params";
+import { routeContractForPathname, type RouteContract } from "./route_contract";
 import {
   deriveRibbonModel,
   type RibbonContextLabels,
@@ -43,17 +43,41 @@ function ribbonLabelsFor(
 ): RibbonContextLabels {
   if (routeData === undefined) return { accountLabel: accountLabelFor(state) };
 
-  const courseTitle = courseRouteView(routeData).summary.title;
-  if (routeData.kind !== "assignmentAttempt") {
-    return { accountLabel: accountLabelFor(state), courseTitle };
+  if (routeData.kind === "assignmentAttempt") {
+    const { context } = routeData;
+    return {
+      accountLabel: accountLabelFor(state),
+      courseTitle: context.course.title,
+      assignmentAttemptTitle: context.assignment.title,
+      assignmentAttemptProgress: `Attempt ${String(context.attemptNumber)}`,
+    };
   }
-  const attemptNumber = routeData.screen.assignmentAttempt.attemptNumber;
   return {
     accountLabel: accountLabelFor(state),
-    courseTitle,
-    assignmentAttemptTitle: routeData.screen.assignment.title,
-    assignmentAttemptProgress: `Attempt ${String(attemptNumber)}`,
+    courseTitle: courseRouteView(routeData).summary.title,
   };
+}
+
+/**
+ * Adds the public Assignment context already resolved for the active Attempt
+ * screen. Pending and rejected scopes retain only their URL-declared Attempt
+ * reference, so dependent Ribbon controls stay unavailable.
+ */
+export function ribbonParamsFor(
+  route: RouteContract,
+  pathname: string,
+  routeData: CourseThemeRouteData | undefined,
+): RouteParams {
+  const params = routeParams(route, pathname);
+  if (params === undefined) return undefined;
+  if (route.id !== "assignmentAttempt" || routeData?.kind !== "assignmentAttempt") {
+    return params;
+  }
+  return Object.freeze({
+    ...params,
+    courseRef: routeData.context.course.reference,
+    assignmentRef: routeData.context.assignment.reference,
+  });
 }
 
 function SessionContent(props: ScopedRouteSectionProps): JSX.Element {
@@ -142,7 +166,7 @@ export function App(props: RouteSectionProps): JSX.Element {
     // scope provider rejects resolution. `deriveRibbonModel` cannot turn those
     // raw values into navigation URLs, so the model remains data-free and all
     // affected route controls stay unavailable.
-    const params = routeParams(route, currentPathname);
+    const params = ribbonParamsFor(route, currentPathname, routeData);
     if (params === undefined) return undefined;
     return deriveRibbonModel(
       { route, params },

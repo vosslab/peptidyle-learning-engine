@@ -6,6 +6,7 @@ import {
   moveMultipleAnswerChoice,
   removeMultipleAnswerChoice,
   setMultipleAnswerChoiceText,
+  setMultipleAnswerChoiceRandomization,
   setMultipleAnswerCorrect,
   validateMultipleAnswerResponse,
 } from "../src/features/ple_question_json_authoring/question_json_multiple_answer_model.ts";
@@ -19,6 +20,7 @@ function response() {
       { id: "enzyme", text: "Enzyme", feedback: null },
     ],
     correctChoices: ["kinase", "enzyme"],
+    randomizeChoices: false,
   };
 }
 
@@ -38,6 +40,18 @@ test("multiple-answer text edits and reordering retain choice IDs and exact corr
     ["kinase", "enzyme", "lipid"],
   );
   assert.deepEqual(moved.response.correctChoices, ["kinase", "enzyme"]);
+});
+
+test("multiple-answer randomization changes presentation intent without changing answer semantics", () => {
+  const randomized = setMultipleAnswerChoiceRandomization(response(), true);
+  assert.equal(randomized.changed, true);
+  assert.equal(randomized.response.randomizeChoices, true);
+  assert.deepEqual(randomized.response.correctChoices, ["kinase", "enzyme"]);
+  assert.deepEqual(
+    randomized.response.choices.map((choice) => choice.id),
+    ["kinase", "lipid", "enzyme"],
+  );
+  assert.equal(setMultipleAnswerChoiceRandomization(randomized.response, true).changed, false);
 });
 
 test("multiple-answer correct-set changes are exact and a removed correct choice leaves actionable validation", () => {

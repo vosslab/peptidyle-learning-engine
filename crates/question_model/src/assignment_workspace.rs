@@ -8,12 +8,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::blueprint_operations::AssignmentRevisionReference;
 use crate::{
-    AssignmentActivityRules, AssignmentDeadlineRule, AssignmentEditNumber, AssignmentEntry,
-    AssignmentEntryAvailability, AssignmentEntryScoringRule, AssignmentOverview,
+    AccountTimeZone, AssignmentActivityRules, AssignmentDeadlineRule, AssignmentEditNumber,
+    AssignmentEntry, AssignmentEntryAvailability, AssignmentEntryScoringRule, AssignmentOverview,
     AssignmentPointValue, AssignmentQuestionVariationRule, AssignmentStatus, AssignmentTitle,
-    Capability, CourseTimeZone, InstructorAssignmentAuthoredContentLocal, LateWorkRule,
-    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId, QuestionPoolItemAvailability,
-    QuestionPoolReuseRule, QuestionPoolSelectionRule, StudentFeedbackReleaseRule,
+    Capability, InstructorAssignmentAuthoredContentLocal, LateWorkRule, QuestionAttemptLimit,
+    QuestionAttemptTimeLimit, QuestionId, QuestionPoolItemAvailability, QuestionPoolReuseRule,
+    QuestionPoolSelectionRule, StudentFeedbackReleaseRule,
 };
 
 /// Browser request to create one stable Assignment.
@@ -167,8 +167,8 @@ pub struct InstructorStudentView {
     pub title: AssignmentTitle,
     /// Student-facing instructions.
     pub instructions: crate::AssignmentInstructions,
-    /// Course scheduling zone used to present the delivery facts.
-    pub time_zone: CourseTimeZone,
+    /// Authenticated Instructor's IANA zone for presenting delivery facts.
+    pub display_time_zone: AccountTimeZone,
     /// Server-derived base delivery facts, without student progress or actions.
     pub delivery: InstructorStudentViewDelivery,
     /// Number of questions a student receives in one Assignment Attempt; derived by the server.
@@ -208,11 +208,12 @@ impl InstructorStudentView {
     pub fn from_landing(
         landing: AssignmentOverview,
         delivery: InstructorStudentViewDelivery,
+        display_time_zone: AccountTimeZone,
     ) -> Self {
         Self {
             title: landing.title,
             instructions: landing.instructions,
-            time_zone: landing.time_zone,
+            display_time_zone,
             delivery,
             questions_per_assignment_attempt: landing.questions_per_assignment_attempt,
             question_pool_reuse_rule: landing.question_pool_reuse_rule,
@@ -379,7 +380,6 @@ mod tests {
                 ..AssignmentActivityRules::default()
             },
             assignment_authored_content: InstructorAssignmentAuthoredContentLocal::new(
-                "America/Chicago".parse().expect("IANA zone"),
                 crate::AssignmentInstructions::default(),
                 None,
                 None,

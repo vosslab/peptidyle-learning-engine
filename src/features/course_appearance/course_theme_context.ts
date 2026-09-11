@@ -4,15 +4,12 @@ import { createContext, useContext } from "solid-js";
 
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { CourseAppearanceView } from "../../../generated/api/CourseAppearanceView";
-import type {
-  AssignmentAttemptScreenData,
-  AssignmentAttemptSummaryResponse,
-  CourseRouteView,
-} from "../../api/contracts";
+import type { AssignmentAttemptSummaryResponse, CourseRouteView } from "../../api/contracts";
+import type { StudentAssignmentAttemptContext } from "../../api/assignment_attempt_navigation";
 
 export type CourseThemeRouteData =
   | { readonly kind: "course"; readonly course: CourseRouteView }
-  | { readonly kind: "assignmentAttempt"; readonly screen: AssignmentAttemptScreenData }
+  | { readonly kind: "assignmentAttempt"; readonly context: StudentAssignmentAttemptContext }
   | {
       readonly kind: "assignmentAttemptSummary";
       readonly response: AssignmentAttemptSummaryResponse;
@@ -29,7 +26,7 @@ export function courseRouteView(data: CourseThemeRouteData): CourseRouteView {
     case "course":
       return data.course;
     case "assignmentAttempt":
-      return data.screen.course;
+      throw new Error("Assignment Attempt context has no UUID-backed Course Route View");
     case "assignmentAttemptSummary":
       return data.response.course;
   }

@@ -3,7 +3,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { RIBBON_TASK_CATALOG, TAB_CATALOG } from "../src/ribbon/ribbon_catalog.ts";
+import {
+  RIBBON_CONTEXT_CONTROL_CATALOG,
+  RIBBON_TASK_CATALOG,
+  TAB_CATALOG,
+} from "../src/ribbon/ribbon_catalog.ts";
 import {
   RIBBON_CONTEXT_GLYPH_KEYS,
   RIBBON_CONTEXT_GLYPHS,
@@ -18,18 +22,36 @@ const CATALOG = [...TAB_CATALOG, ...RIBBON_TASK_CATALOG];
 
 const EXPECTED_DESTINATION_GLYPHS = {
   courses: "graduation-cap",
-  questionLibrary: "book-open",
+  questions: "book-open",
+  productAssignments: "clipboard-list",
   assignments: "clipboard-list",
   studentAssignments: "clipboard-list",
   students: "users",
   gradebook: "table-list",
+  teachingOperations: "gear",
+  blueprintUpdates: "layer-group",
   courseSetup: "gear",
   attempt: "pen-to-square",
-  myQuestionDrafts: "file-pen",
+  instructorAccounts: "circle-user",
+  supportRoster: "users",
+  myBlueprintCourses: "layer-group",
+  myActiveCourses: "graduation-cap",
+  myInactiveCourses: "box-archive",
+  searchPublicBlueprintCourses: "magnifying-glass",
+  myQuestions: "file-circle-question",
+  myDraftQuestions: "file-pen",
   starred: "star",
   watched: "eye",
+  searchQuestionLibrary: "magnifying-glass",
+  browseQuestionLibrary: "book-open",
+  assignmentsDueSoon: "clock",
+  assignmentTemplates: "copy",
+  assignmentOverview: "clipboard-list",
   assignmentQuestions: "list-check",
+  assignmentPolicies: "gear",
+  assignmentGradingOperations: "table-list",
   assignmentStudentView: "user-graduate",
+  gradeSettings: "table-list",
   appearance: "palette",
   backToAssignments: "arrow-left",
 };
@@ -43,9 +65,10 @@ test("the glyph vocabulary is a closed same-origin semantic contract", () => {
     Object.keys(EXPECTED_DESTINATION_GLYPHS).sort(),
   );
   assert.deepEqual(RIBBON_DESTINATION_GLYPHS, EXPECTED_DESTINATION_GLYPHS);
-  assert.deepEqual(RIBBON_CONTEXT_GLYPH_KEYS, ["account", "signOut"]);
+  assert.deepEqual(RIBBON_CONTEXT_GLYPH_KEYS, ["account", "profile", "signOut"]);
   assert.deepEqual(RIBBON_CONTEXT_GLYPHS, {
     account: "circle-user",
+    profile: "circle-user",
     signOut: "right-from-bracket",
   });
 
@@ -91,18 +114,30 @@ test("catalog icon intent and the glyph map are exhaustive in both directions", 
   }
 });
 
-test("only conventional narrow-phone destinations may drop their labels", () => {
+test("every navigation destination retains its text label", () => {
   assert.deepEqual(
-    CATALOG.filter((control) => control.iconOnlySafe).map((control) => control.id),
-    ["starred", "watched", "backToAssignments"],
+    CATALOG.filter((control) => control.iconOnlySafe),
+    [],
   );
 });
 
 test("context glyphs remain closed identities rather than invented navigation controls", () => {
   assert.equal(ribbonGlyphForContext("account"), "circle-user");
   assert.equal(ribbonGlyphForContext("signOut"), "right-from-bracket");
+  assert.equal(ribbonGlyphForContext("profile"), "circle-user");
+  assert.deepEqual(RIBBON_CONTEXT_CONTROL_CATALOG, [
+    {
+      id: "profile",
+      label: "Profile",
+      productRole: "instructor",
+      availability: "Unavailable",
+      glyph: "profile",
+    },
+  ]);
   assert.equal(
-    CATALOG.some((control) => control.id === "account" || control.id === "signOut"),
+    CATALOG.some(
+      (control) => control.id === "account" || control.id === "profile" || control.id === "signOut",
+    ),
     false,
   );
 });

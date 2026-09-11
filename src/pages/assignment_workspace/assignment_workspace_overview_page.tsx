@@ -1,48 +1,24 @@
-// assignment_workspace_overview_page.tsx - compact Instructor assignment home.
-
 import { A } from "@solidjs/router";
-import { For, Show, type JSX } from "solid-js";
+import { Show, type JSX } from "solid-js";
 
-import { assignmentWorkspacePath } from "./assignment_workspace_paths";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
+import { assignmentWorkspacePath } from "./assignment_workspace_paths";
 
-function stateCopy(state: string): string {
-  return state
-    .replace(/([a-z])([A-Z])/gu, "$1 $2")
-    .replace(/^./u, (letter) => letter.toUpperCase());
-}
-
-function localTime(value: string | null): string {
-  return value === null ? "Not set" : value.replace("T", " ").replace(/\.000$/u, "");
-}
-
+/** Answer-free summary of the one direct Assignment resource. */
 export function AssignmentWorkspaceOverviewPage(): JSX.Element {
   const workspace = useAssignmentWorkspace();
-  const assignment = workspace.assignment;
-  const fixedCount = (): number =>
-    assignment().entries.filter(
-      (entry) => entry.kind === "fixedQuestion" && entry.availability === "available",
-    ).length;
-  const poolCount = (): number =>
-    assignment().entries.filter((entry) => entry.kind === "questionPool").length;
-  const questionPoolItemCount = (): number =>
-    assignment().entries.reduce(
-      (total, entry) => total + (entry.kind === "questionPool" ? entry.items.length : 0),
-      0,
-    );
-  const base = (): string =>
-    assignmentWorkspacePath(workspace.courseReference, workspace.assignmentReference);
+  const assignment = (): ReturnType<typeof workspace.assignment>["workspace"] =>
+    workspace.assignment().workspace;
+  const path = (section?: "questions" | "policies"): string =>
+    assignmentWorkspacePath(workspace.courseReference, workspace.assignmentReference, section);
 
   return (
     <section class="assignment-workspace-overview" aria-labelledby="assignment-workspace-heading">
       <header class="assignment-workspace-header">
-        <p class="eyebrow">Assignment overview</p>
+        <p class="eyebrow">Assignment workspace</p>
         <h1 id="assignment-workspace-heading">{assignment().title}</h1>
-        <p class="page-lede">
-          {workspace.course.title} {"\u00b7"} Edit {assignment().revision}
-        </p>
+        <p class="page-lede">Current edit {assignment().editNumber}</p>
       </header>
-
       <div class="assignment-workspace-grid">
         <section
           class="course-card assignment-workspace-card"
@@ -52,141 +28,53 @@ export function AssignmentWorkspaceOverviewPage(): JSX.Element {
           <dl class="assignment-facts">
             <div>
               <dt>Assignment status</dt>
-              <dd>{stateCopy(assignment().assignmentStatus)}</dd>
-            </div>
-            <div>
-              <dt>Assignment availability</dt>
-              <dd>{stateCopy(assignment().assignmentAvailability.state)}</dd>
+              <dd>{assignment().status}</dd>
             </div>
             <div>
               <dt>Questions</dt>
-              <dd>{fixedCount()}</dd>
+              <dd>{assignment().questions.length}</dd>
             </div>
             <div>
-              <dt>Pools</dt>
-              <dd>
-                {poolCount()} ({questionPoolItemCount()} items)
-              </dd>
+              <dt>Due</dt>
+              <dd>{assignment().dueAt ?? "No due date"}</dd>
+            </div>
+            <div>
+              <dt>Time zone</dt>
+              <dd>{assignment().displayTimeZone}</dd>
             </div>
           </dl>
         </section>
-
         <section
           class="course-card assignment-workspace-card"
-          aria-labelledby="assignment-readiness-heading"
+          aria-labelledby="assignment-next-heading"
         >
-          <h2 id="assignment-readiness-heading">Release requirements</h2>
-          <Show
-            when={assignment().assignmentReleaseValidation.blockingIssues.length === 0}
-            fallback={
-              <>
-                <p role="status">This Assignment is not ready to release.</p>
-                <ul class="assignment-workspace-next-actions">
-                  <For each={assignment().assignmentReleaseValidation.blockingIssues}>
-                    {(issue) => (
-                      <li>
-                        {issue.kind === "questionsRequired" ? (
-                          <A
-                            href={assignmentWorkspacePath(
-                              workspace.courseReference,
-                              workspace.assignmentReference,
-                              "questions",
-                            )}
-                          >
-                            Add at least one question
-                          </A>
-                        ) : (
-                          "Review the assignment settings"
-                        )}
-                      </li>
-                    )}
-                  </For>
-                </ul>
-              </>
-            }
-          >
-            <p role="status">The current Assignment meets the known release requirements.</p>
-          </Show>
+          <h2 id="assignment-next-heading">Edit this assignment</h2>
+          <p>
+            Questions selects and orders the fixed Questions. Policies controls delivery and
+            feedback.
+          </p>
           <p class="assignment-workspace-action-row">
-            <A
-              class="primary-link"
-              href={assignmentWorkspacePath(
-                workspace.courseReference,
-                workspace.assignmentReference,
-                "questions",
-              )}
-            >
-              Review questions
+            <A class="primary-link" href={path("questions")}>
+              Edit Questions
             </A>
-            <A
-              class="quiet-link"
-              href={assignmentWorkspacePath(
-                workspace.courseReference,
-                workspace.assignmentReference,
-                "policies",
-              )}
-            >
-              Review policies
+            <A class="quiet-link" href={path("policies")}>
+              Edit Policies
             </A>
           </p>
         </section>
-
         <section
           class="course-card assignment-workspace-card"
           aria-labelledby="assignment-instructions-heading"
         >
-          <h2 id="assignment-instructions-heading">Instructions and delivery</h2>
+          <h2 id="assignment-instructions-heading">Student instructions</h2>
           <Show
-            when={assignment().assignmentAuthoredContent.instructions.length > 0}
+            when={assignment().instructions.length > 0}
             fallback={<p>No Student instructions have been added.</p>}
           >
-            <p class="plain-text-instructions">
-              {assignment().assignmentAuthoredContent.instructions}
-            </p>
+            <p class="plain-text-instructions">{assignment().instructions}</p>
           </Show>
-          <dl class="assignment-facts">
-            <div>
-              <dt>Time zone</dt>
-              <dd>{assignment().assignmentAuthoredContent.timeZone}</dd>
-            </div>
-            <div>
-              <dt>Available</dt>
-              <dd>{localTime(assignment().assignmentAuthoredContent.available_at)}</dd>
-            </div>
-            <div>
-              <dt>Due</dt>
-              <dd>{localTime(assignment().assignmentAuthoredContent.due_at)}</dd>
-            </div>
-            <div>
-              <dt>Closes</dt>
-              <dd>{localTime(assignment().assignmentAuthoredContent.closes_at)}</dd>
-            </div>
-          </dl>
         </section>
       </div>
-
-      <section
-        class="assignment-workspace-contextual-actions"
-        aria-labelledby="assignment-tools-heading"
-      >
-        <h2 id="assignment-tools-heading">Related teaching tools</h2>
-        <A class="quiet-link" href={`${base()}/access`}>
-          Access and accommodations
-        </A>
-        <A class="quiet-link" href={`${base()}/delivery-check`}>
-          Check assignment delivery
-        </A>
-        <A
-          class="quiet-link"
-          href={assignmentWorkspacePath(
-            workspace.courseReference,
-            workspace.assignmentReference,
-            "studentView",
-          )}
-        >
-          Open Student view
-        </A>
-      </section>
     </section>
   );
 }

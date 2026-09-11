@@ -5,6 +5,8 @@ import test from "node:test";
 
 import {
   formatAssignmentAttemptTimeLimit,
+  formatAssignmentActivity,
+  formatAssignmentDeliveryTime,
   toStudentAssignmentPresentationData,
 } from "../src/components/student_assignment_presentation.tsx";
 
@@ -24,7 +26,7 @@ test("Student detail adapts available entries and Question Pool selections witho
     reference: "AS-1",
     title: "Protein structure",
     instructions: "Use your notes.",
-    time_zone: "America/Chicago",
+    display_time_zone: "America/New_York",
     delivery: {
       available_at: null,
       due_at: null,
@@ -46,6 +48,8 @@ test("Student detail adapts available entries and Question Pool selections witho
 
   assert.equal(presentation.questionsPerAssignmentAttempt, 5);
   assert.equal(presentation.delivery.studentLateWorkStatus, "on_time");
+  assert.equal(presentation.displayTimeZone, "America/New_York");
+  assert.equal("timeZone" in presentation, false);
   assert.equal("id" in presentation, false);
 });
 
@@ -53,7 +57,7 @@ test("Instructor Student view keeps its explicit Question Variation Rule and dis
   const presentation = toStudentAssignmentPresentationData({
     title: "Protein structure",
     instructions: "Use your notes.",
-    timeZone: "America/Chicago",
+    displayTimeZone: "America/Los_Angeles",
     delivery: instructorDelivery,
     questionsPerAssignmentAttempt: 4,
     questionPoolReuseRule: "selectAgain",
@@ -72,10 +76,27 @@ test("Instructor Student view keeps its explicit Question Variation Rule and dis
   assert.equal(presentation.questionPoolReuseRule, "selectAgain");
   assert.equal(presentation.questionVariationRule, "newVariation");
   assert.equal(presentation.studentFeedbackReleaseRule?.question_feedback, "after_due");
+  assert.equal(presentation.displayTimeZone, "America/Los_Angeles");
   assert.equal("studentLateWorkStatus" in presentation.delivery, false);
 });
 
 test("attempt-time copy stays readable across minute, hour, and second limits", () => {
   assert.equal(formatAssignmentAttemptTimeLimit(3_600), "1 hour per attempt");
   assert.equal(formatAssignmentAttemptTimeLimit(90), "90 seconds per attempt");
+});
+
+test("assignment instants use the supplied viewer zone instead of the browser zone", () => {
+  const timestamp = Date.parse("2026-01-15T18:30:00Z");
+  const newYork = "America/New_York";
+  const losAngeles = "America/Los_Angeles";
+  const options = { dateStyle: "medium", timeStyle: "short", timeZone: newYork };
+  const expected = new Intl.DateTimeFormat(undefined, options).format(new Date(timestamp));
+
+  assert.equal(formatAssignmentDeliveryTime(timestamp, newYork), expected);
+  assert.equal(formatAssignmentActivity(timestamp, newYork), expected);
+  assert.notEqual(
+    formatAssignmentDeliveryTime(timestamp, losAngeles),
+    expected,
+    "fixed instant must render in the supplied viewer zone",
+  );
 });

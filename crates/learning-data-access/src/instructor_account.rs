@@ -1,7 +1,7 @@
 //! Sysadmin-authorized Instructor Account management records.
 
 use async_trait::async_trait;
-use question_model::{AccountReference, Timestamp};
+use question_model::{AccountReference, AccountTimeZone, Timestamp};
 use serde::{Deserialize, Serialize};
 
 use crate::{SessionTokenHash, StoreError};
@@ -29,6 +29,16 @@ pub struct InstructorAccountSummary {
     pub state: InstructorAccountState,
     /// Most recent successful credential verification/session creation, if any.
     pub last_successful_sign_in: Option<Timestamp>,
+}
+
+/// Closed Instructor Account rows with the authenticated Sysadmin's display context.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstructorAccountList {
+    /// The intentional browser-safe target-account rows.
+    pub accounts: Vec<InstructorAccountSummary>,
+    /// Exact self-owned IANA zone for the authenticated Sysadmin viewer.
+    pub display_time_zone: AccountTimeZone,
 }
 
 /// Normalized email supplied only to Create Instructor Account.
@@ -76,11 +86,11 @@ impl DeactivateInstructorAccountInput {
 /// Sysadmin-only Store boundary for Instructor Accounts.
 #[async_trait]
 pub trait InstructorAccountStore: Send + Sync {
-    /// Lists only the intentional browser-safe Instructor Account projection.
+    /// Lists browser-safe rows with only the authenticated Sysadmin's display zone.
     async fn list_instructor_accounts(
         &self,
         session_token_hash: SessionTokenHash,
-    ) -> Result<Vec<InstructorAccountSummary>, StoreError>;
+    ) -> Result<InstructorAccountList, StoreError>;
 
     /// Creates one Active Instructor Account using the established atomic procedure.
     async fn create_instructor_account(

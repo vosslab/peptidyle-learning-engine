@@ -12,6 +12,7 @@ import {
 } from "../../src/ribbon/ribbon_contract";
 import {
   RIBBON_TASK_CATALOG,
+  RIBBON_CONTEXT_CONTROL_CATALOG,
   TAB_CATALOG,
   type RibbonCatalogControl,
   type RibbonDestinationId,
@@ -76,7 +77,6 @@ const CANONICAL_PARAMS = {
   questionRef: "7K3-M9QP",
   draftQuestionRef: "D-1",
   blueprintCourseRef: "BP-1",
-  presentationNonce: "0123456789abcdef0123456789abcdef",
 } as const satisfies Readonly<Record<RouteParamName, string>>;
 
 const SIGN_OUT = { kind: "action", id: "signOut", label: "Sign out" } as const;
@@ -149,14 +149,22 @@ function model(
   tabs: RibbonModel["tabs"],
   taskAreas: RibbonModel["taskAreas"],
   contentLayout: ContentLayout,
-  context: Omit<RibbonModel["context"], "productLabel">,
+  context: Omit<RibbonModel["context"], "productLabel" | "accountControls">,
 ): RibbonModel {
   return {
     scope,
     contentLayout,
     tabs,
     taskAreas,
-    context: { productLabel: productLabel(role), ...context },
+    context: {
+      productLabel: productLabel(role),
+      ...context,
+      accountControls: RIBBON_CONTEXT_CONTROL_CATALOG.filter(
+        (control) => control.productRole === role,
+      ),
+    },
+    breadcrumbs: [],
+    breadcrumbPreludeReserved: false,
   };
 }
 
@@ -176,20 +184,15 @@ export const RIBBON_DESIGN_SCHEMAS = {
   productInstructor: model(
     "product",
     "instructor",
+    [control("courses"), control("questions", { selected: true }), control("productAssignments")],
     [
-      control("courses"),
-      control("questionLibrary", { selected: true }),
-      control("blueprintCourses"),
-    ],
-    [
-      area("questionDestinations", "Question destinations", [
-        control("allQuestions", { selected: true }),
+      area("instructorQuestions", "Questions", [
         control("myQuestions"),
-        control("myQuestionDrafts"),
-      ]),
-      area("questionRelationships", "Question relationships", [
+        control("myDraftQuestions"),
         control("starred"),
         control("watched"),
+        control("searchQuestionLibrary", { selected: true }),
+        control("browseQuestionLibrary"),
       ]),
     ],
     "fullWidth",

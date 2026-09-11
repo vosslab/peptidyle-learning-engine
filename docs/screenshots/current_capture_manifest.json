@@ -284,26 +284,26 @@
       "id": "instructor_assignment_release_draft_laptop",
       "path": "instructor/assignment_release_draft_laptop.png",
       "role": "instructor",
-      "routeId": "assignmentReleaseWorkspace",
+      "routeId": "assignmentWorkspaceQuestions",
       "area": "assignments",
       "workflow": "assignment release",
       "state": "draft",
       "scenario": "instructor_assignment",
-      "checkpoint": "assignment_release_draft",
+      "checkpoint": "assignment_questions_draft",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
-      "gallery": { "order": 520, "caption": "Draft Assignment release workspace" }
+      "gallery": { "order": 520, "caption": "Draft Assignment Questions" }
     },
     {
       "id": "instructor_assignment_release_preview_laptop",
       "path": "instructor/assignment_release_preview_laptop.png",
       "role": "instructor",
-      "routeId": "assignmentReleaseWorkspace",
+      "routeId": "assignmentPreview",
       "area": "assignments",
       "workflow": "assignment release",
       "state": "answer-free preview",
       "scenario": "instructor_assignment",
-      "checkpoint": "assignment_release_preview",
+      "checkpoint": "assignment_delivery_check",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": { "order": 530, "caption": "Answer-free Assignment Preview" }
@@ -312,15 +312,15 @@
       "id": "instructor_assignment_release_released_laptop",
       "path": "instructor/assignment_release_released_laptop.png",
       "role": "instructor",
-      "routeId": "assignmentReleaseWorkspace",
+      "routeId": "assignmentWorkspacePolicies",
       "area": "assignments",
       "workflow": "assignment release",
       "state": "released",
       "scenario": "instructor_assignment",
-      "checkpoint": "assignment_release_released",
+      "checkpoint": "assignment_policies_released",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
-      "gallery": { "order": 540, "caption": "Released Assignment workspace", "featured": true }
+      "gallery": { "order": 540, "caption": "Released Assignment Policies", "featured": true }
     },
 
     {
@@ -480,147 +480,6 @@
       "gallery": { "order": 820, "caption": "Unanswered Assignment overview on a tablet" }
     },
     {
-      "id": "student_assignment_overview_resumed_laptop",
-      "path": "student/assignment_overview_resumed_laptop.png",
-      "role": "student",
-      "routeId": "assignmentOverview",
-      "area": "assignments",
-      "workflow": "assignment entry",
-      "state": "resumed",
-      "scenario": "student_assignment_overviews",
-      "checkpoint": "resumed_laptop",
-      "viewport": "laptop",
-      "privacyProfile": "student_unanswered",
-      "gallery": { "order": 830, "caption": "Resumed in-progress Assignment" }
-    },
-
-    {
-      "id": "student_question_unanswered_laptop",
-      "path": "student/question_unanswered_laptop.png",
-      "role": "student",
-      "routeId": "assignmentOverview",
-      "area": "question delivery",
-      "workflow": "response progression",
-      "state": "unanswered",
-      "scenario": "student_question_delivery",
-      "checkpoint": "question_unanswered_laptop",
-      "viewport": "laptop",
-      "privacyProfile": "student_unanswered",
-      "gallery": { "order": 910, "caption": "Unanswered Question", "featured": true }
-    },
-    {
-      "id": "student_question_unanswered_phone",
-      "path": "student/question_unanswered_phone.png",
-      "role": "student",
-      "routeId": "assignmentOverview",
-      "area": "question delivery",
-      "workflow": "response progression",
-      "state": "unanswered",
-      "scenario": "student_question_delivery",
-      "checkpoint": "question_unanswered_phone",
-      "viewport": "phone",
-      "privacyProfile": "student_unanswered",
-      "gallery": { "order": 920, "caption": "Unanswered Question on a phone" }
-    },
-    {
-      "id": "student_question_unanswered_square",
-      "path": "student/question_unanswered_square.png",
-      "role": "student",
-      "routeId": "assignmentOverview",
-      "area": "question delivery",
-      "workflow": "response progression",
-      "state": "unanswered",
-      "scenario": "student_question_delivery",
-      "checkpoint": "question_unanswered_square",
-      "viewport": "square",
-      "privacyProfile": "student_unanswered",
-      "gallery": { "order": 930, "caption": "Unanswered Question in a square viewport" }
-    },
-    {
-      "id": "student_question_response_selected_laptop",
-      "path": "student/question_response_selected_laptop.png",
-      "role": "student",
-      "routeId": "assignmentSubmission",
-      "area": "question delivery",
-      "workflow": "response progression",
-      "state": "response selected",
-      "scenario": "student_question_delivery",
-      "checkpoint": "response_selected",
-      "viewport": "laptop",
-      "privacyProfile": "student_selected_response",
-      "gallery": { "order": 940, "caption": "Selected Student response" }
-    },
-    {
-      "id": "student_question_response_received_laptop",
-      "path": "student/question_response_received_laptop.png",
-      "role": "student",
-      "routeId": "assignmentSubmission",
-      "area": "question delivery",
-      "workflow": "response progression",
-      "state": "response received",
-      "scenario": "student_question_delivery",
-      "checkpoint": "response_received",
-      "viewport": "laptop",
-      "privacyProfile": "student_self",
-      "gallery": { "order": 950, "caption": "Response received" }
-    },
-    {
-      "id": "student_question_graded_laptop",
-      "path": "student/question_graded_laptop.png",
-      "role": "student",
-      "routeId": "assignmentSubmission",
-      "area": "question delivery",
-      "workflow": "response progression",
-      "state": "graded",
-      "scenario": "student_question_delivery",
-      "checkpoint": "graded",
-      "viewport": "laptop",
-      "privacyProfile": "student_self",
-      "gallery": { "order": 960, "caption": "Graded response status" }
-    },
-    {
-      "id": "student_question_graded_after_reload_laptop",
-      "path": "student/question_graded_after_reload_laptop.png",
-      "role": "student",
-      "routeId": "assignmentSubmission",
-      "area": "question delivery",
-      "workflow": "response progression",
-      "state": "graded after reload",
-      "scenario": "student_question_delivery",
-      "checkpoint": "graded_after_reload",
-      "viewport": "laptop",
-      "privacyProfile": "student_self",
-      "gallery": { "order": 970, "caption": "Graded state restored after reload" }
-    },
-    {
-      "id": "student_question_numerical_laptop",
-      "path": "student/question_numerical_laptop.png",
-      "role": "student",
-      "routeId": "assignmentOverview",
-      "area": "question delivery",
-      "workflow": "response formats",
-      "state": "numerical",
-      "scenario": "student_question_delivery",
-      "checkpoint": "numerical_response",
-      "viewport": "laptop",
-      "privacyProfile": "student_unanswered",
-      "gallery": { "order": 980, "caption": "Numerical response control" }
-    },
-    {
-      "id": "student_question_hotspot_laptop",
-      "path": "student/question_hotspot_laptop.png",
-      "role": "student",
-      "routeId": "assignmentOverview",
-      "area": "question delivery",
-      "workflow": "response formats",
-      "state": "hotspot",
-      "scenario": "student_question_delivery",
-      "checkpoint": "hotspot_response",
-      "viewport": "laptop",
-      "privacyProfile": "student_unanswered",
-      "gallery": { "order": 990, "caption": "Hotspot response control" }
-    },
-    {
       "id": "student_authorization_denial_laptop",
       "path": "student/authorization_denial_laptop.png",
       "role": "student",
@@ -770,17 +629,9 @@
         "captureIds": ["student_assignment_overview_unanswered_laptop"]
       },
       {
-        "routeId": "assignmentSubmission",
-        "status": "captured",
-        "captureIds": [
-          "student_question_response_received_laptop",
-          "student_question_graded_laptop"
-        ]
-      },
-      {
         "routeId": "assignmentAttempt",
         "status": "deferred",
-        "reason": "The default Live Demo does not expose the separate legacy one-question Assignment Attempt route."
+        "reason": "M5 Student delivery moved to this route; M9 must recapture the save, reload, and whole-Attempt submission states."
       },
       {
         "routeId": "assignmentAttemptSummary",
@@ -830,33 +681,24 @@
         "captureIds": ["instructor_assignment_creation_laptop"]
       },
       {
-        "routeId": "assignmentReleaseWorkspace",
-        "status": "captured",
-        "captureIds": [
-          "instructor_assignment_release_draft_laptop",
-          "instructor_assignment_release_preview_laptop",
-          "instructor_assignment_release_released_laptop"
-        ]
-      },
-      {
         "routeId": "assignmentWorkspaceOverview",
         "status": "deferred",
-        "reason": "The legacy multi-tab Assignment workspace is retired; the release workspace is the current major surface."
+        "reason": "The legacy multi-tab Assignment workspace is retired."
       },
       {
         "routeId": "assignmentWorkspaceQuestions",
-        "status": "deferred",
-        "reason": "The legacy multi-tab Assignment workspace is retired; Question selection is captured in the release workspace."
+        "status": "captured",
+        "captureIds": ["instructor_assignment_release_draft_laptop"]
       },
       {
         "routeId": "assignmentWorkspacePolicies",
-        "status": "deferred",
-        "reason": "The legacy multi-tab Assignment workspace is retired; policy editing is captured in the release workspace."
+        "status": "captured",
+        "captureIds": ["instructor_assignment_release_released_laptop"]
       },
       {
         "routeId": "assignmentWorkspaceStudentView",
         "status": "deferred",
-        "reason": "The legacy multi-tab Assignment workspace is retired; the answer-free preview is the current Student-view surface."
+        "reason": "The legacy multi-tab Assignment workspace is retired; no separate Student-view capture remains."
       },
       {
         "routeId": "assignmentWorkspaceGradingOperations",
@@ -903,8 +745,8 @@
       },
       {
         "routeId": "assignmentPreview",
-        "status": "deferred",
-        "reason": "The legacy delivery-check route is retired; the current answer-free preview is inside the release workspace."
+        "status": "captured",
+        "captureIds": ["instructor_assignment_release_preview_laptop"]
       },
       {
         "routeId": "instructorAccounts",
@@ -960,14 +802,14 @@
         ]
       },
       {
-        "id": "tab:questionLibrary",
+        "id": "tab:questions",
         "status": "captured",
         "captureIds": ["instructor_question_library_laptop"]
       },
       {
-        "id": "tab:blueprintCourses",
-        "status": "captured",
-        "captureIds": ["instructor_blueprint_courses_laptop"]
+        "id": "tab:productAssignments",
+        "status": "deferred",
+        "reason": "Product-level Assignments destinations are not yet backed."
       },
       {
         "id": "tab:assignments",
@@ -1020,9 +862,24 @@
         "captureIds": ["sysadmin_scoped_support_entry_laptop"]
       },
       {
-        "id": "task:allQuestions",
+        "id": "task:myBlueprintCourses",
         "status": "captured",
-        "captureIds": ["instructor_question_library_laptop"]
+        "captureIds": ["instructor_blueprint_courses_laptop"]
+      },
+      {
+        "id": "task:myActiveCourses",
+        "status": "deferred",
+        "reason": "M19 Course activity is not yet backed."
+      },
+      {
+        "id": "task:myInactiveCourses",
+        "status": "deferred",
+        "reason": "M19 Course activity is not yet backed."
+      },
+      {
+        "id": "task:searchPublicBlueprintCourses",
+        "status": "deferred",
+        "reason": "Public Blueprint search is a plan non-goal without a backed route."
       },
       {
         "id": "task:myQuestions",
@@ -1030,7 +887,7 @@
         "reason": "My Questions is a future Ribbon destination without a Product Route."
       },
       {
-        "id": "task:myQuestionDrafts",
+        "id": "task:myDraftQuestions",
         "status": "captured",
         "captureIds": ["instructor_question_drafts_laptop"]
       },
@@ -1043,6 +900,26 @@
         "id": "task:watched",
         "status": "deferred",
         "reason": "Watched Questions is a future Ribbon destination without a Product Route."
+      },
+      {
+        "id": "task:searchQuestionLibrary",
+        "status": "captured",
+        "captureIds": ["instructor_question_library_filtered_laptop"]
+      },
+      {
+        "id": "task:browseQuestionLibrary",
+        "status": "captured",
+        "captureIds": ["instructor_question_library_laptop"]
+      },
+      {
+        "id": "task:assignmentsDueSoon",
+        "status": "deferred",
+        "reason": "M10 authorized cross-Course view is not yet backed."
+      },
+      {
+        "id": "task:assignmentTemplates",
+        "status": "deferred",
+        "reason": "No route or handler backs Assignment Templates."
       },
       {
         "id": "task:assignmentOverview",

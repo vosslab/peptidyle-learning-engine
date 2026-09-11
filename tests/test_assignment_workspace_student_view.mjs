@@ -27,7 +27,7 @@ test("Student view presentation stays answer-free and preserves live delivery fa
   const presentation = toStudentAssignmentPresentationData({
     title: "Protein structure",
     instructions: "Use your notes.",
-    timeZone: "America/Chicago",
+    displayTimeZone: "America/Los_Angeles",
     delivery: {
       available_at: null,
       due_at: null,
@@ -53,6 +53,8 @@ test("Student view presentation stays answer-free and preserves live delivery fa
   assert.equal(presentation.title, "Protein structure");
   assert.equal(presentation.questionsPerAssignmentAttempt, 3);
   assert.equal(presentation.delivery.lateWorkRule, "mark_late");
+  assert.equal(presentation.displayTimeZone, "America/Los_Angeles");
+  assert.equal("timeZone" in presentation, false);
   assert.equal("assignmentId" in presentation, false);
   assert.equal("run" in presentation, false);
 });

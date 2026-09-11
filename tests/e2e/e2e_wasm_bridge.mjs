@@ -117,6 +117,45 @@ const questionAttemptTimingDecision = JSON.parse(
 );
 assert.equal(questionAttemptTimingDecision, "submittedWithinGrace");
 
+assert.equal(
+  JSON.parse(
+    bridge.assignment_attempt_remaining_milliseconds(
+      JSON.stringify({ initialRemainingMilliseconds: 10_000, elapsedMilliseconds: 1_234 }),
+    ),
+  ),
+  8_766,
+  "the browser countdown uses a server snapshot and elapsed duration",
+);
+assert.equal(
+  JSON.parse(
+    bridge.assignment_attempt_remaining_milliseconds(
+      JSON.stringify({ initialRemainingMilliseconds: 1, elapsedMilliseconds: 2 }),
+    ),
+  ),
+  0,
+  "the browser countdown clamps at zero",
+);
+assert.equal(
+  JSON.parse(
+    bridge.assignment_attempt_remaining_milliseconds(
+      JSON.stringify({ initialRemainingMilliseconds: null, elapsedMilliseconds: 2 }),
+    ),
+  ),
+  null,
+  "untimed Assignment Attempts remain untimed",
+);
+assert.throws(
+  () =>
+    bridge.assignment_attempt_remaining_milliseconds(
+      JSON.stringify({
+        initialRemainingMilliseconds: 1,
+        elapsedMilliseconds: 9_007_199_254_740_992,
+      }),
+    ),
+  /^invalid assignment attempt duration:/u,
+  "unsafe browser duration values are rejected at the boundary",
+);
+
 const fixture = JSON.parse(
   fs.readFileSync(
     path.join(repoRoot, "tests", "fixtures", "published_question", "fixture_set.json"),

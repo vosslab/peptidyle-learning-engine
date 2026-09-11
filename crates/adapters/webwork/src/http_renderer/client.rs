@@ -421,6 +421,7 @@ fn project_single_radio(
                 choices,
                 selection: ResponseSelectionRule::ExactlyOne,
             },
+            native_choice_order: question_model::NativeChoiceOrder::Fixed,
         },
         replay: WebworkQuestionAttemptReplayDetails::SingleChoice {
             controls: choice_fields,
@@ -477,6 +478,7 @@ fn project_matching(
                 markdown: parsed_html.prompt_text,
             }],
             response: QuestionResponseFormat::Matching { prompts, choices },
+            native_choice_order: question_model::NativeChoiceOrder::Fixed,
         },
         replay: WebworkQuestionAttemptReplayDetails::Matching {
             prompts: replay_prompts,

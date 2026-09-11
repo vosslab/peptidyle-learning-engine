@@ -132,13 +132,13 @@ if not isinstance(students,list) or len(students) != 3:
     raise SystemExit("Course baseline report lacks the three Students")
 observed={student.get("persona"):student for student in students if isinstance(student,dict)}
 expected={
- "maryStudent":("BIO301-MARY",4,4,2.0,4.0),
- "jackStudent":("BIO301-JACK",2,2,1.0,2.0),
- "averyStudent":("BIO301-AVERY",0,0,0.0,0.0),
+ "maryStudent":("BIO301-MARY",1,4,0,4,2.0,4.0),
+ "jackStudent":("BIO301-JACK",0,0,2,0,0.0,0.0),
+ "averyStudent":("BIO301-AVERY",0,0,0,0,0.0,0.0),
 }
 if set(observed) != set(expected):
     raise SystemExit("Course baseline report contains the wrong Students")
-for persona,(roster,submissions,graded,earned,possible) in expected.items():
+for persona,(roster,assignment_submissions,graded_questions,saved,graded,earned,possible) in expected.items():
     row=observed[persona]
     attempt=row.get("assignment_attempt")
     expected_attempt={
@@ -147,8 +147,11 @@ for persona,(roster,submissions,graded,earned,possible) in expected.items():
         "averyStudent":None,
     }[persona]
     if (row.get("roster_id")!=roster or row.get("membership")!="activeStudent"
-        or attempt!=expected_attempt or row.get("submission_count")!=submissions
-        or row.get("grading_state")!={"graded":graded,"pending":0,"instructorAttention":0}
+        or attempt!=expected_attempt
+        or row.get("assignment_submission_count")!=assignment_submissions
+        or row.get("graded_question_count")!=graded_questions
+        or row.get("saved_response_count")!=saved
+        or row.get("grading_state")!={"graded_question_count":graded,"pending":0,"instructorAttention":0}
         or row.get("points_earned")!=earned or row.get("points_possible")!=possible):
         raise SystemExit("Course baseline report does not match the declared Student state")
 ' "$report_path"
@@ -204,7 +207,7 @@ if observed != expected_roster:
     raise SystemExit("Elena Course Roster does not contain the exact active Students")
 expected_grades={
  ("BIO301-MARY",assignment_reference):("completed",4,4,2.0,4.0),
- ("BIO301-JACK",assignment_reference):("inProgress",2,4,1.0,2.0),
+ ("BIO301-JACK",assignment_reference):("inProgress",0,4,0.0,0.0),
  ("BIO301-AVERY",assignment_reference):(None,0,4,0.0,0.0),
 }
 rows=gradebook.get("studentWork") if gradebook.get("courseReference")==course_reference else None
@@ -213,7 +216,7 @@ if observed_grades != expected_grades:
     raise SystemExit("Elena Gradebook does not distinguish Mary, Jack, and Avery")
 expected_student_progress={
  "mary":(1,"completed",4,4,2.0,4.0),
- "jack":(1,"inProgress",2,4,1.0,2.0),
+ "jack":(1,"inProgress",0,4,0.0,0.0),
  "avery":(None,None,0,4,0.0,0.0),
 }
 for persona,landing in (("mary",mary_landing),("jack",jack_landing),("avery",avery_landing)):
@@ -224,7 +227,7 @@ for persona,landing in (("mary",mary_landing),("jack",jack_landing),("avery",ave
     progress=(row.get("assignmentAttemptNumber"),row.get("assignmentAttemptCompletion"),row.get("gradedQuestionCount"),row.get("questionCount"),row.get("pointsEarned"),row.get("pointsPossible"))
     if row.get("reference")!=assignment_reference or row.get("title")!="Peptide Structure Practice" or progress!=expected_student_progress[persona]:
         raise SystemExit(f"{persona.title()} Assignment landing progress is wrong")
-if access != {"startDecision":"may_start"}:
+if access != {"startDecision":"may_start", "activeAssignmentAttempt":None}:
     raise SystemExit("Avery is not startable with no Assignment Attempt")
 if blueprint_reference == "":
     raise SystemExit("baseline Blueprint Reference is absent")
@@ -319,7 +322,7 @@ BEGIN
                ON result.submission_id=submission.submission_id
             WHERE attempt.assignment_id=v_assignment_id
               AND attempt.student_record_id=v_mary_record) <> 4
-       OR (SELECT count(*) FROM ple_private.question_submission AS submission
+       OR EXISTS (SELECT 1 FROM ple_private.question_submission AS submission
              JOIN ple_private.question_attempt AS question_attempt
                ON question_attempt.question_attempt_id=submission.question_attempt_id
               AND question_attempt.question_attempt_state='submission_accepted'
@@ -332,6 +335,15 @@ BEGIN
               AND grading.grading_state='graded' AND grading.completed_at IS NOT NULL
              JOIN ple_private.grading_result AS result
                ON result.submission_id=submission.submission_id
+            WHERE attempt.assignment_id=v_assignment_id
+              AND attempt.student_record_id=v_jack_record)
+       OR (SELECT count(*) FROM ple_private.assignment_attempt_saved_response AS saved_response
+             JOIN ple_private.question_attempt AS question_attempt
+               ON question_attempt.question_attempt_id=saved_response.question_attempt_id
+             JOIN ple_private.issued_question AS issued
+               ON issued.issued_question_id=question_attempt.issued_question_id
+             JOIN ple_private.assignment_attempt AS attempt
+               ON attempt.assignment_attempt_id=issued.assignment_attempt_id
             WHERE attempt.assignment_id=v_assignment_id
               AND attempt.student_record_id=v_jack_record) <> 2
     THEN
@@ -358,22 +370,19 @@ prove_state() {
 	echo "Live Demo Course state: one released four-Question Assignment; Mary graded, Jack in progress, Avery not started"
 }
 
-presentation_nonce() {
+active_attempt_reference() {
 	python3 -c '
 import json, re, sys
-value=json.loads(sys.argv[1]); questions=value.get("questions")
-if value.get("resumed") is not True or not isinstance(questions,list) or len(questions)!=4:
-    raise SystemExit("Jack Assignment resume did not return the fixed presentation")
-nonce=questions[0].get("presentationNonce") if isinstance(questions[0],dict) else None
-if not isinstance(nonce,str) or re.fullmatch(r"[0-9a-f]{32}",nonce) is None:
-    raise SystemExit("Jack Assignment resume lacks a valid Presentation Nonce")
-print(nonce)
+value=json.loads(sys.argv[1]); attempt=value.get("activeAssignmentAttempt")
+if set(value)!={"startDecision","activeAssignmentAttempt"} or not isinstance(attempt,str) or not re.fullmatch(r"R-[1-9][0-9]{0,9}",attempt):
+    raise SystemExit("Jack Assignment Access lacks an active public Assignment Attempt")
+print(attempt)
 ' "$1"
 }
 
 prove_authorization() {
 	local _blueprint course assignment mary_cookie jack_cookie morgan_cookie
-	local roster_path assignment_list_path gradebook_path workspace_path jack_start nonce other_work
+	local roster_path assignment_list_path gradebook_path workspace_path jack_access attempt other_work
 	require_live_demo
 	read -r _blueprint course assignment < <(baseline_references)
 	mary_cookie="$(persona_cookie maryStudent)"
@@ -388,12 +397,10 @@ prove_authorization() {
 		assert_concealed "Student seeded-Course access" "$(request "$path" "$mary_cookie")"
 		assert_concealed "Morgan seeded-Course access" "$(request "$path" "$morgan_cookie")"
 	done
-	jack_start="$(request "/api/course-instances/$course/assignments/$assignment/start" \
-		"$jack_cookie" POST '{}')"
-	require_status "Jack Assignment resume" "$jack_start" 201
-	nonce="$(presentation_nonce "$(response_body "$jack_start")")"
-	other_work="$(request "/api/course-instances/$course/assignments/$assignment/presentations/$nonce/submissions" \
-		"$mary_cookie")"
+	jack_access="$(request "/api/course-instances/$course/assignments/$assignment/access" "$jack_cookie")"
+	require_status "Jack Assignment Access" "$jack_access" 200
+	attempt="$(active_attempt_reference "$(response_body "$jack_access")")"
+	other_work="$(request "/api/assignment-attempts/$attempt/student-question?position=1" "$mary_cookie")"
 	assert_concealed "cross-Student work access" "$other_work"
 	echo "Live Demo Course authorization: Student, Sysadmin, cross-Student, and anonymous FERPA boundaries concealed"
 }

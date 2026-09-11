@@ -1,5 +1,4 @@
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
-import type { AssignmentAttemptId } from "../../../generated/api/AssignmentAttemptId";
 import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { QuestionSearchPage } from "../../../generated/api/QuestionSearchPage";
@@ -16,13 +15,8 @@ import type { StudentRecordId } from "../../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { ApiClient } from "../client";
-import type {
-  AssignmentAttemptScreenData,
-  AssignmentAttemptSummaryResponse,
-  StudentQuestionAttempt,
-} from "../contracts";
+import type { AssignmentAttemptSummaryResponse, StudentQuestionAttempt } from "../contracts";
 import { questionReferencePath, questionSearchPath } from "../question_search_query";
-import { assignmentRouteReference } from "../../navigation/public_route";
 import {
   decodeStudentAssignmentPage,
   decodeAssignmentAttempt,
@@ -273,43 +267,9 @@ async function questionDetails(
     );
   return detail;
 }
-async function activeAttempt(
-  client: ApiClient,
-  assignmentAttemptId: AssignmentAttemptId,
-): Promise<StudentQuestionAttempt> {
-  let cursor: string | undefined;
-  const seen = new Set<string>();
-  while (true) {
-    const page = await client.listQuestionAttempts(assignmentAttemptId, cursor);
-    const active = page.items.find((attempt) => attempt.state === "open");
-    if (active !== undefined) return active;
-    if (page.nextCursor === null)
-      throw new ApiProtocolError(
-        `Assignment Attempt ${assignmentAttemptId} has no active Question Attempt`,
-      );
-    if (seen.has(page.nextCursor))
-      throw new ApiProtocolError(
-        `Assignment Attempt ${assignmentAttemptId} repeated a Question Attempt cursor`,
-      );
-    seen.add(page.nextCursor);
-    cursor = page.nextCursor;
-  }
-}
-function verifyAssignmentAttemptScreen(screen: AssignmentAttemptScreenData): void {
-  if (screen.assignment.id !== screen.assignmentAttempt.assignment)
-    throw new ApiProtocolError(
-      "Assignment Attempt screen assignment does not match its Assignment Attempt",
-    );
-  if (screen.issuedQuestion.question_seed !== screen.attempt.question_seed)
-    throw new ApiProtocolError(
-      "Assignment Attempt screen issued presentation does not match its Question Attempt",
-    );
-}
-
 export function createResponseClient(
   fetchImplementation: ApiFetch,
   basePath: string,
-  getClient: () => ApiClient,
 ): Pick<
   ApiClient,
   | "resolveNavigation"
@@ -337,7 +297,6 @@ export function createResponseClient(
   | "getIssuedQuestion"
   | "beginImathasQuestionBackendLaunch"
   | "getAssignmentActivitySummary"
-  | "getAssignmentAttemptScreen"
   | "fetchCourseBanner"
   | "fetchCourseBannerCard"
   | "assetUrl"
@@ -546,41 +505,6 @@ export function createResponseClient(
         `/api/student-records/${encodedId(studentRecordId)}/assignment-activity-summary`,
         decodeStudentAssignmentProgress,
       ),
-    getAssignmentAttemptScreen: async (
-      assignmentAttemptId,
-    ): Promise<AssignmentAttemptScreenData> => {
-      const client = getClient();
-      const assignmentAttempt = await client.getAssignmentAttempt(assignmentAttemptId);
-      const assignment = await client.getAssignment(assignmentAttempt.assignment);
-      const attempt = await activeAttempt(client, assignmentAttemptId);
-      const assignmentRoute = await client.resolveNavigation(
-        assignmentRouteReference(assignment.reference),
-      );
-      if (assignmentRoute.kind !== "assignment")
-        throw new ApiProtocolError(
-          "Assignment Attempt screen assignment reference did not resolve to an assignment",
-        );
-      const [summary, appearance, issuedQuestion] = await Promise.all([
-        client.getCourse(assignmentRoute.courseId),
-        client.getCourseAppearanceView(assignmentRoute.courseId),
-        issuedQuestionForAttempt(
-          fetchImplementation,
-          basePath,
-          assignmentRoute.courseId,
-          assignment.id,
-          attempt,
-        ),
-      ]);
-      const screen: AssignmentAttemptScreenData = {
-        course: { summary, appearance },
-        assignment,
-        assignmentAttempt,
-        attempt,
-        issuedQuestion,
-      };
-      verifyAssignmentAttemptScreen(screen);
-      return screen;
-    },
     fetchCourseBanner: (bannerReference) =>
       fetchCourseBanner(fetchImplementation, basePath, bannerReference),
     fetchCourseBannerCard: (bannerReference) =>

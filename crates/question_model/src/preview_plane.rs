@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AccommodationAdjustmentView, AccommodationApplicationRuleView, AssignmentDeadlineRule,
-    AssignmentEditNumber, AssignmentReference, CourseLocalDateAndTime, CourseMembershipReference,
-    CourseTimeZone, LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
+    AssignmentEditNumber, AssignmentReference, CourseMembershipReference, CourseTimeZone,
+    LateWorkRule, LocalDateAndTime, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
     MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, TeachingDisplayLabel,
 };
 
@@ -18,7 +18,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct PreviewSelectedMoment {
-    pub value: CourseLocalDateAndTime,
+    pub value: LocalDateAndTime,
     pub time_zone: CourseTimeZone,
 }
 
@@ -68,7 +68,7 @@ pub enum AssignmentPolicySourceKind {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct PreviewTimeField {
-    pub value: Option<CourseLocalDateAndTime>,
+    pub value: Option<LocalDateAndTime>,
     pub source: AssignmentPolicySourceKind,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -536,7 +536,7 @@ mod direct_preview_tests {
             AssignmentReference::new(1).expect("assignment reference"),
             "1".parse().expect("edit number"),
             PreviewSelectedMoment {
-                value: CourseLocalDateAndTime::parse("2026-08-20T09:00:00.000").expect("moment"),
+                value: LocalDateAndTime::parse("2026-08-20T09:00:00.000").expect("moment"),
                 time_zone: CourseTimeZone::parse("America/Chicago").expect("zone"),
             },
             PreviewResolvedPolicy::new(

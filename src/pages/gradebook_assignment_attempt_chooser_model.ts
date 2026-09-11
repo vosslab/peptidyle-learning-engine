@@ -10,6 +10,15 @@ import type {
   SubmittedAssignmentAttemptChoicesQuery,
 } from "../api/decoders/gradebook_selection";
 
+/** Formats a server-supplied instant in the authorized Instructor's envelope zone. */
+export function formatSubmissionTime(timestamp: number, timeZone: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone,
+  }).format(new Date(timestamp));
+}
+
 /** Immutable server request scope for one exact Assignment Attempt chooser dialog. */
 export interface GradebookAssignmentAttemptChooserScope {
   readonly courseId: CourseId;
@@ -33,6 +42,7 @@ export type GradebookAssignmentAttemptChooserState =
   | { readonly kind: "error" }
   | {
       readonly kind: "ready";
+      readonly displayTimeZone: SubmittedAssignmentAttemptChoicesPage["displayTimeZone"];
       readonly rows: ReadonlyArray<SubmittedAssignmentAttemptChoice>;
       readonly nextCursor: string | null;
       readonly loadingMore: boolean;
@@ -94,8 +104,12 @@ export class GradebookAssignmentAttemptChooserSession {
       const page = await this.getChoices({ cursor });
       if (!this.isCurrentContinuation(generation, loadingState, cursor, request)) return;
       const rows = appendNewAssignmentAttempts(current.rows, page.rows);
+      if (page.displayTimeZone !== current.displayTimeZone) {
+        throw new Error("Submitted Assignment Attempt choices changed the viewing time zone");
+      }
       this.setState({
         kind: "ready",
+        displayTimeZone: current.displayTimeZone,
         rows,
         nextCursor: page.nextCursor,
         loadingMore: false,
@@ -131,6 +145,7 @@ export class GradebookAssignmentAttemptChooserSession {
       validateUniqueAssignmentAttempts(page.rows);
       this.setState({
         kind: "ready",
+        displayTimeZone: page.displayTimeZone,
         rows: page.rows,
         nextCursor: page.nextCursor,
         loadingMore: false,

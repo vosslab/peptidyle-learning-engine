@@ -29,7 +29,7 @@ import { TeachingOperationsPage } from "./pages/teaching_operations_page";
 import { InstructorAccountsPage } from "./pages/instructor_accounts_page";
 import { SupportRosterPage } from "./pages/support_roster_page";
 import { AssignmentPreviewPage } from "./pages/assignment_preview_page";
-import { AssignmentReleasePage } from "./pages/assignment_release_page";
+import { AssignmentWorkspaceCreatePage } from "./pages/assignment_workspace/assignment_workspace_create_page";
 import {
   BlueprintCourseDetailLivePage,
   BlueprintCoursesLivePage,
@@ -52,7 +52,6 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   supportRoster: SupportRosterPage,
   courseAssignments: CourseInstancePage,
   assignmentOverview: AssignmentOverviewPage,
-  assignmentSubmission: AssignmentOverviewPage,
   assignmentAttempt: AssignmentAttemptPage,
   assignmentAttemptSummary: AssignmentAttemptSummaryPage,
   library: LibraryRoutePage,
@@ -61,8 +60,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   questionDraftEditor: QuestionDraftEditorPage,
   blueprintCourses: BlueprintCoursesLivePage,
   blueprintCourseDetail: BlueprintCourseDetailLivePage,
-  assignmentCreate: AssignmentReleasePage,
-  assignmentReleaseWorkspace: AssignmentReleasePage,
+  assignmentCreate: AssignmentWorkspaceCreatePage,
   assignmentWorkspaceOverview: () =>
     createComponent(AssignmentWorkspaceLivePage, { section: "overview" }),
   assignmentWorkspaceQuestions: () =>

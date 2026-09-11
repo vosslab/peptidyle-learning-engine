@@ -7,23 +7,34 @@ import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCo
 import type { CourseInstanceSummary } from "../api/course_instance";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
+import { courseThemeTokens } from "../features/course_appearance/course_theme_registry";
 import { courseInstanceRouteReference } from "../navigation/public_route";
 import { StudentCoursesPage } from "./student_courses_page";
 
-function CourseInstanceCard(props: { readonly course: CourseInstanceSummary }): JSX.Element {
+function CourseInstanceRow(props: { readonly course: CourseInstanceSummary }): JSX.Element {
   const reference = courseInstanceRouteReference(props.course.reference);
+  const theme = courseThemeTokens(props.course.theme);
   return (
-    <article class="course-card">
-      <p class="card-kicker">Course Instance</p>
-      <h2>{props.course.title}</h2>
-      <p>
-        {props.course.term.startDate} through {props.course.term.endDate} ·{" "}
-        {props.course.term.timeZone}
+    <article
+      class="instructor-list__row instructor-list__row--course"
+      style={`--ple-instructor-list-theme-accent: ${theme.anchors.accent}`}
+    >
+      <div class="instructor-list__identity">
+        <p class="instructor-list__kind">Course Instance</p>
+        <h2>{props.course.title}</h2>
+        <p class="instructor-list__metadata">
+          {props.course.term.startDate} through {props.course.term.endDate} ·{" "}
+          {props.course.term.timeZone}
+        </p>
+      </div>
+      <p class="instructor-list__theme" aria-label={`Course theme: ${theme.name}`}>
+        Theme: {theme.name}
       </p>
-      <p>Manage this course's Assignments, Students, and Teaching Team.</p>
-      <A class="primary-link" href={`/courses/${reference}`} id={`course-open-${reference}`}>
-        Open Course Instance
-      </A>
+      <div class="instructor-list__actions">
+        <A class="primary-link" href={`/courses/${reference}`} id={`course-open-${reference}`}>
+          Open Course Instance
+        </A>
+      </div>
     </article>
   );
 }
@@ -251,8 +262,8 @@ function TeachingCourseListPage(): JSX.Element {
           </Show>
         }
       >
-        <div class="card-grid">
-          <For each={visibleCourses()}>{(course) => <CourseInstanceCard course={course} />}</For>
+        <div class="instructor-list" aria-label="Course Instances">
+          <For each={visibleCourses()}>{(course) => <CourseInstanceRow course={course} />}</For>
         </div>
       </Show>
     </section>

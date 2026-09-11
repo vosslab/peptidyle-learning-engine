@@ -4,6 +4,7 @@ import type { AccountReference } from "../../generated/api/AccountReference";
 import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
+import type { CourseTheme } from "../../generated/api/CourseTheme";
 
 /** Exact source and initial Course Term required to create one Course Instance. */
 export interface CreateCourseInstanceInput {
@@ -20,6 +21,8 @@ export interface CourseInstanceSummary {
   readonly reference: CourseInstanceReference;
   readonly title: string;
   readonly term: CourseTerm;
+  /** Row identity only; it does not apply a Course theme to the product route. */
+  readonly theme: CourseTheme;
 }
 
 /** Initial Teaching Team workspace projection. */

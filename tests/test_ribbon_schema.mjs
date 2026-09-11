@@ -26,8 +26,8 @@ test("relationship suffix validation rejects an interleaving after it has begun"
   assert.equal(
     hasAppendOnlyRelationshipSuffix([
       { id: "courses", relationshipRequirement: "none" },
-      { id: "questionLibrary", relationshipRequirement: "grader" },
-      { id: "blueprintCourses", relationshipRequirement: "none" },
+      { id: "questions", relationshipRequirement: "grader" },
+      { id: "productAssignments", relationshipRequirement: "none" },
     ]),
     false,
   );

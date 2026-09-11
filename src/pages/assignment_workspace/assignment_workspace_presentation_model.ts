@@ -133,7 +133,7 @@ function scheduleLimitsSummary(input: AssignmentPolicyDraftSummaryInput): string
         ? "late work accepted and marked"
         : "late work rejected";
   return [
-    `Course time zone ${assignmentAuthoredContent.timeZone}`,
+    "Instructor time zone",
     `Available ${assignmentAuthoredContent.available_at === null ? "now" : displayCourseLocalTime(assignmentAuthoredContent.available_at)}`,
     `due ${assignmentAuthoredContent.due_at === null ? "not set" : displayCourseLocalTime(assignmentAuthoredContent.due_at)}`,
     `closes ${assignmentAuthoredContent.closes_at === null ? "not set" : displayCourseLocalTime(assignmentAuthoredContent.closes_at)}`,
@@ -175,7 +175,7 @@ export function assignmentPolicyDraftSummary(
       value: assignmentAvailabilityCopy(
         input.assignmentStatus,
         input.savedAssignmentAvailability,
-        input.assignmentAuthoredContent.timeZone,
+        "your Instructor time zone",
       ),
     },
     {

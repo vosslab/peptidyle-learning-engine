@@ -1,13 +1,10 @@
 // route_scope_provider_fixtures.ts - type-checked presentation records for
 // RouteScopeProvider tests.
 
-import type {
-  AssignmentAttemptScreenData,
-  AssignmentAttemptSummaryResponse,
-  CourseRouteView,
-} from "../../src/api/contracts";
+import type { AssignmentAttemptSummaryResponse, CourseRouteView } from "../../src/api/contracts";
 import type { AssignmentAttempt } from "../../generated/api/AssignmentAttempt";
 import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
+import type { StudentAssignmentAttemptContext } from "../../src/api/assignment_attempt_navigation";
 
 export function courseRouteData(reference: string): CourseRouteView {
   return {
@@ -55,32 +52,19 @@ function assignmentProgress(): StudentAssignmentProgress {
   };
 }
 
-/** Complete direct-consumer record for an active Attempt route. */
-export function assignmentAttemptScreenData(reference: string): AssignmentAttemptScreenData {
+/** UUID-free display context for the live Student Assignment Attempt route. */
+export function assignmentAttemptContext(reference: string): StudentAssignmentAttemptContext {
   return {
-    course: courseRouteData(reference),
-    assignment: { id: "assignment-1", reference: "A-1", title: "Assignment one" },
-    assignmentAttempt: assignmentAttempt("R-1"),
-    attempt: {
-      id: "question-attempt-1",
-      issuedQuestion: "issued-question-1",
-      question_seed: 23,
-      submission: null,
-      state: "open",
-      timing: { issuedAt: 1_700_000_000_000, deadline: null, submittedAt: null },
-      issuedCapability: "questionPresentation",
-      assignmentScoringState: "current",
-      questionPoolSelectionPosition: null,
+    assignmentAttempt: "R-1",
+    attemptNumber: 1,
+    timerRemainingMilliseconds: 1_800_000,
+    course: {
+      reference,
+      title: `Course ${reference}`,
+      theme: "grass",
     },
-    issuedQuestion: {
-      questionRevision: { questionId: "question-1", revisionNumber: 1 },
-      question_seed: 23,
-      presentationNonce: "0123456789abcdef0123456789abcdef",
-      questionTitle: "Question one",
-      prompt: [{ kind: "text", markdown: "Prompt" }],
-      response: { kind: "fillIn", maxCharacters: 200 },
-    },
-  } satisfies AssignmentAttemptScreenData;
+    assignment: { reference: "A-1", title: "Assignment one" },
+  } satisfies StudentAssignmentAttemptContext;
 }
 
 /** Complete direct-consumer record for an Attempt summary route. */

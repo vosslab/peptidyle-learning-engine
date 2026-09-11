@@ -373,9 +373,14 @@ function defaultResponse(
 ): PleQuestionJsonDocument["response"] {
   switch (kind) {
     case "singleChoice":
-      return { kind, choices: DEFAULT_CHOICES, correctChoice: "choice_a" };
+      return { kind, choices: DEFAULT_CHOICES, correctChoice: "choice_a", randomizeChoices: false };
     case "multipleAnswer":
-      return { kind, choices: DEFAULT_CHOICES, correctChoices: ["choice_a"] };
+      return {
+        kind,
+        choices: DEFAULT_CHOICES,
+        correctChoices: ["choice_a"],
+        randomizeChoices: false,
+      };
     case "fillIn":
       return { kind, answers: ["Accepted answer"], matchMode: "caseInsensitive", maxLength: 256 };
     case "multiFillIn":
@@ -461,6 +466,20 @@ export function setCorrectChoice(
     return refused(source, "Choose one of the listed answers.");
   }
   return changed({ ...source, response: { ...source.response, correctChoice: choiceId } });
+}
+
+/** Changes only the presentation-order declaration, retaining authored choice identities. */
+export function setChoiceRandomization(
+  source: PleQuestionJsonDocument,
+  randomizeChoices: boolean,
+): SourceEditResult {
+  if (source.response.kind !== "singleChoice") {
+    return refused(source, "Choose single choice before setting choice randomization.");
+  }
+  if (source.response.randomizeChoices === randomizeChoices) {
+    return { source, changed: false, error: null };
+  }
+  return changed({ ...source, response: { ...source.response, randomizeChoices } });
 }
 
 export function addChoice(source: PleQuestionJsonDocument): SourceEditResult {

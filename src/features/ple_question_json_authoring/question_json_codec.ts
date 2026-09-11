@@ -66,6 +66,11 @@ function string(value: unknown, path: string): string {
   return value;
 }
 
+function boolean(value: unknown, path: string): boolean {
+  if (typeof value !== "boolean") throw new DecodeError(path, "a boolean");
+  return value;
+}
+
 function boundedText(value: unknown, path: string, maximum: number): string {
   const decoded = string(value, path);
   if (decoded.trim().length === 0 || Array.from(decoded).length > maximum) {
@@ -271,7 +276,7 @@ function decodeChoiceResponse(
 > {
   const record = decodeRecord(value, path);
   const correctField = multiple ? "correctChoices" : "correctChoice";
-  onlyFields(record, path, ["kind", "choices", correctField]);
+  onlyFields(record, path, ["kind", "choices", correctField, "randomizeChoices"]);
   const expectedKind = multiple
     ? PLE_QUESTION_JSON_MULTIPLE_ANSWER_RESPONSE_KIND
     : PLE_QUESTION_JSON_SINGLE_CHOICE_RESPONSE_KIND;
@@ -293,12 +298,21 @@ function decodeChoiceResponse(
   if (identifiers.size !== choices.length) {
     throw new DecodeError(`${path}.choices`, "unique choice identifiers");
   }
+  const randomizeChoices =
+    record.randomizeChoices === undefined
+      ? false
+      : boolean(record.randomizeChoices, `${path}.randomizeChoices`);
   if (!multiple) {
     const correctChoice = string(field(record, correctField, path), `${path}.${correctField}`);
     if (!identifiers.has(correctChoice)) {
       throw new DecodeError(`${path}.${correctField}`, "an identifier of an available choice");
     }
-    return { kind: PLE_QUESTION_JSON_SINGLE_CHOICE_RESPONSE_KIND, choices, correctChoice };
+    return {
+      kind: PLE_QUESTION_JSON_SINGLE_CHOICE_RESPONSE_KIND,
+      choices,
+      correctChoice,
+      randomizeChoices,
+    };
   }
   const correctValue = field(record, correctField, path);
   if (!Array.isArray(correctValue) || correctValue.length === 0) {
@@ -316,7 +330,12 @@ function decodeChoiceResponse(
   ) {
     throw new DecodeError(`${path}.${correctField}`, "unique identifiers of available choices");
   }
-  return { kind: PLE_QUESTION_JSON_MULTIPLE_ANSWER_RESPONSE_KIND, choices, correctChoices };
+  return {
+    kind: PLE_QUESTION_JSON_MULTIPLE_ANSWER_RESPONSE_KIND,
+    choices,
+    correctChoices,
+    randomizeChoices,
+  };
 }
 
 function decodeHotspotSurface(value: unknown, path: string): PleQuestionJsonHotspotSurface {

@@ -4,8 +4,6 @@ import type {
   AssignmentStartDecision,
   LiveAssignmentAccess,
   LiveAssignmentAttempt,
-  LiveNativePleSubmissionAcknowledgement,
-  LiveNativePleSubmissionStatus,
 } from "../assignment_attempt_issuance";
 import {
   DecodeError,
@@ -22,6 +20,7 @@ import {
   requireOnlyFields,
 } from "./shared";
 import { decodeIssuedQuestionPresentation } from "./presentation_delivery";
+import { parseAssignmentAttemptReference } from "../../navigation/public_route";
 
 const MAX_QUESTIONS = 25;
 const MAX_INSTRUCTIONS_UNICODE_SCALARS = 10_000;
@@ -53,8 +52,28 @@ export function decodeLiveAssignmentAccess(
   path = "response",
 ): LiveAssignmentAccess {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["startDecision"]);
-  return { startDecision: decision(field(record, "startDecision", path), `${path}.startDecision`) };
+  requireOnlyFields(record, path, ["startDecision", "activeAssignmentAttempt"]);
+  const activeAssignmentAttemptValue = field(record, "activeAssignmentAttempt", path);
+  let activeAssignmentAttempt = null;
+  if (activeAssignmentAttemptValue !== null) {
+    if (typeof activeAssignmentAttemptValue !== "string") {
+      throw new DecodeError(
+        `${path}.activeAssignmentAttempt`,
+        "an Assignment Attempt R- reference or null",
+      );
+    }
+    activeAssignmentAttempt = parseAssignmentAttemptReference(activeAssignmentAttemptValue);
+    if (activeAssignmentAttempt === null) {
+      throw new DecodeError(
+        `${path}.activeAssignmentAttempt`,
+        "an Assignment Attempt R- reference or null",
+      );
+    }
+  }
+  return {
+    startDecision: decision(field(record, "startDecision", path), `${path}.startDecision`),
+    activeAssignmentAttempt,
+  };
 }
 
 export function decodeLiveAssignmentAttempt(
@@ -63,6 +82,7 @@ export function decodeLiveAssignmentAttempt(
 ): LiveAssignmentAttempt {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
+    "assignmentAttempt",
     "assignment",
     "attemptNumber",
     "resumed",
@@ -70,6 +90,12 @@ export function decodeLiveAssignmentAttempt(
     "instructions",
     "questions",
   ]);
+  const assignmentAttemptValue = field(record, "assignmentAttempt", path);
+  if (typeof assignmentAttemptValue !== "string")
+    throw new DecodeError(`${path}.assignmentAttempt`, "an Assignment Attempt R- reference");
+  const assignmentAttempt = parseAssignmentAttemptReference(assignmentAttemptValue);
+  if (assignmentAttempt === null)
+    throw new DecodeError(`${path}.assignmentAttempt`, "an Assignment Attempt R- reference");
   const questions = decodeArray(
     field(record, "questions", path),
     `${path}.questions`,
@@ -79,6 +105,7 @@ export function decodeLiveAssignmentAttempt(
     throw new DecodeError(`${path}.questions`, "one to twenty-five issued Questions");
   }
   return {
+    assignmentAttempt,
     assignment: decodeAssignmentReference(field(record, "assignment", path), `${path}.assignment`),
     attemptNumber: decodePositiveInteger(
       field(record, "attemptNumber", path),
@@ -89,48 +116,4 @@ export function decodeLiveAssignmentAttempt(
     instructions: instructions(field(record, "instructions", path), `${path}.instructions`),
     questions,
   };
-}
-
-/** Strictly decodes the public acknowledgement, not the retained UUID attempt receipt. */
-export function decodeLiveNativePleSubmissionAcknowledgement(
-  value: unknown,
-  path = "response",
-): LiveNativePleSubmissionAcknowledgement {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["presentationNonce", "gradingState"]);
-  const presentationNonce = decodeString(
-    field(record, "presentationNonce", path),
-    `${path}.presentationNonce`,
-  );
-  if (!/^[0-9a-f]{32}$/u.test(presentationNonce)) {
-    throw new DecodeError(`${path}.presentationNonce`, "32 lowercase hexadecimal characters");
-  }
-  if (field(record, "gradingState", path) !== "pending") {
-    throw new DecodeError(`${path}.gradingState`, "the pending grading state");
-  }
-  return { presentationNonce, gradingState: "pending" };
-}
-
-export function decodeLiveNativePleSubmissionStatus(
-  value: unknown,
-  path = "response",
-): LiveNativePleSubmissionStatus {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["presentationNonce", "gradingState"]);
-  const presentationNonce = decodeString(
-    field(record, "presentationNonce", path),
-    `${path}.presentationNonce`,
-  );
-  if (!/^[0-9a-f]{32}$/u.test(presentationNonce)) {
-    throw new DecodeError(`${path}.presentationNonce`, "32 lowercase hexadecimal characters");
-  }
-  const gradingState = decodeString(field(record, "gradingState", path), `${path}.gradingState`);
-  if (
-    gradingState !== "pending" &&
-    gradingState !== "graded" &&
-    gradingState !== "instructorAttention"
-  ) {
-    throw new DecodeError(`${path}.gradingState`, "a known grading state");
-  }
-  return { presentationNonce, gradingState };
 }

@@ -10,11 +10,13 @@ const MAXIMUM_CHOICES = 100;
 export interface PleQuestionJsonChoiceListProps {
   readonly choices: ReadonlyArray<PleQuestionJsonChoice>;
   readonly correctChoice: string;
+  readonly randomizeChoices: boolean;
   readonly onChoiceChange: (
     choiceId: string,
     patch: Partial<Pick<PleQuestionJsonChoice, "text" | "feedback">>,
   ) => void;
   readonly onCorrectChoiceChange: (choiceId: string) => void;
+  readonly onRandomizeChoicesChange: (randomizeChoices: boolean) => void;
   readonly onAddChoice: () => void;
   readonly onRemoveChoice: (choiceId: string) => void;
   readonly onMoveChoice: (choiceId: string, direction: "up" | "down") => void;
@@ -36,6 +38,17 @@ export function PleQuestionJsonChoiceList(props: PleQuestionJsonChoiceListProps)
         Choose one correct answer. Students see choice text only; Choice Feedback stays in the
         authoring workflow.
       </p>
+      <label class="ple-question-json-authoring__field">
+        <span>
+          <input
+            type="checkbox"
+            checked={props.randomizeChoices}
+            disabled={props.disabled}
+            onChange={(event) => props.onRandomizeChoicesChange(event.currentTarget.checked)}
+          />{" "}
+          Randomize answer choices for each student
+        </span>
+      </label>
       <Show when={errorFor(props, "choices") !== undefined}>
         <p class="ple-question-json-authoring__error" role="alert">
           {errorFor(props, "choices")}

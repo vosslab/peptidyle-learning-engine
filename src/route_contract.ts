@@ -11,8 +11,8 @@ export type ContentLayout = "reading" | "fullWidth";
 /** Designed Ribbon tabs, including unbacked catalog positions retained for future capabilities. */
 export const RIBBON_TAB_IDS = [
   "courses",
-  "questionLibrary",
-  "blueprintCourses",
+  "questions",
+  "productAssignments",
   "assignments",
   "studentAssignments",
   "students",
@@ -28,7 +28,12 @@ export const RIBBON_TAB_IDS = [
 export type RibbonTabId = (typeof RIBBON_TAB_IDS)[number];
 
 export type RibbonTaskGroupId =
-  "questionLibrary" | "assignment" | "courseSetup" | "assignmentAttempt";
+  | "instructorCourses"
+  | "instructorQuestions"
+  | "instructorAssignments"
+  | "assignment"
+  | "courseSetup"
+  | "assignmentAttempt";
 
 /** Route-selected Ribbon state. It describes presentation, not access permission. */
 export interface RouteRibbonContract {
@@ -45,7 +50,6 @@ export interface RouteContract {
     | "courses"
     | "courseAssignments"
     | "assignmentOverview"
-    | "assignmentSubmission"
     | "assignmentAttempt"
     | "assignmentAttemptSummary"
     | "library"
@@ -55,7 +59,6 @@ export interface RouteContract {
     | "blueprintCourses"
     | "blueprintCourseDetail"
     | "assignmentCreate"
-    | "assignmentReleaseWorkspace"
     | "assignmentWorkspaceOverview"
     | "assignmentWorkspaceQuestions"
     | "assignmentWorkspacePolicies"
@@ -93,7 +96,12 @@ export const ROUTE_CONTRACT = [
     path: "/",
     surface: "Course list for the signed-in Product Role",
     requiredProductRoles: [],
-    ribbon: { scope: "product", tab: "courses", contentLayout: "reading" },
+    ribbon: {
+      scope: "product",
+      tab: "courses",
+      taskGroup: "instructorCourses",
+      contentLayout: "reading",
+    },
   },
   {
     id: "signIn",
@@ -155,16 +163,9 @@ export const ROUTE_CONTRACT = [
   {
     id: "assignmentOverview",
     path: "/courses/:courseRef/assignments/:assignmentRef",
-    surface: "Student Assignment Access and initial issued presentation",
+    surface: "Student Assignment Access",
     // ASVS 8.3.1: client admission targets the separately role-gated Student landing route;
     // the server remains the authorization boundary for the exact Student Record.
-    requiredProductRoles: ["student"],
-    ribbon: { scope: "courseInstance", tab: "studentAssignments", contentLayout: "reading" },
-  },
-  {
-    id: "assignmentSubmission",
-    path: "/courses/:courseRef/assignments/:assignmentRef/presentations/:presentationNonce",
-    surface: "Student response screen for one issued Question Presentation",
     requiredProductRoles: ["student"],
     ribbon: { scope: "courseInstance", tab: "studentAssignments", contentLayout: "reading" },
   },
@@ -172,7 +173,7 @@ export const ROUTE_CONTRACT = [
     id: "assignmentAttempt",
     path: "/assignment-attempts/:assignmentAttemptRef",
     surface: "One-question-at-a-time attempt loop",
-    requiredProductRoles: [],
+    requiredProductRoles: ["student"],
     ribbon: {
       scope: "assignmentAttempt",
       tab: "attempt",
@@ -184,7 +185,7 @@ export const ROUTE_CONTRACT = [
     id: "assignmentAttemptSummary",
     path: "/assignment-attempts/:assignmentAttemptRef/summary",
     surface: "Assignment Attempt result and practice re-entry",
-    requiredProductRoles: [],
+    requiredProductRoles: ["student"],
     ribbon: {
       scope: "assignmentAttempt",
       tab: "attempt",
@@ -199,8 +200,8 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "questionLibrary",
-      taskGroup: "questionLibrary",
+      tab: "questions",
+      taskGroup: "instructorQuestions",
       contentLayout: "fullWidth",
     },
   },
@@ -211,8 +212,8 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "questionLibrary",
-      taskGroup: "questionLibrary",
+      tab: "questions",
+      taskGroup: "instructorQuestions",
       contentLayout: "reading",
     },
   },
@@ -223,8 +224,8 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "questionLibrary",
-      taskGroup: "questionLibrary",
+      tab: "questions",
+      taskGroup: "instructorQuestions",
       contentLayout: "fullWidth",
     },
   },
@@ -235,8 +236,8 @@ export const ROUTE_CONTRACT = [
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "questionLibrary",
-      taskGroup: "questionLibrary",
+      tab: "questions",
+      taskGroup: "instructorQuestions",
       contentLayout: "fullWidth",
     },
   },
@@ -245,14 +246,24 @@ export const ROUTE_CONTRACT = [
     path: "/blueprint-courses",
     surface: "Blueprint Course workspace",
     requiredProductRoles: ["instructor"],
-    ribbon: { scope: "product", tab: "blueprintCourses", contentLayout: "reading" },
+    ribbon: {
+      scope: "product",
+      tab: "courses",
+      taskGroup: "instructorCourses",
+      contentLayout: "reading",
+    },
   },
   {
     id: "blueprintCourseDetail",
     path: "/blueprint-courses/:blueprintCourseRef",
     surface: "Blueprint Course inspection and editor",
     requiredProductRoles: ["instructor"],
-    ribbon: { scope: "product", tab: "blueprintCourses", contentLayout: "reading" },
+    ribbon: {
+      scope: "product",
+      tab: "courses",
+      taskGroup: "instructorCourses",
+      contentLayout: "reading",
+    },
   },
   {
     id: "assignmentCreate",
@@ -260,18 +271,6 @@ export const ROUTE_CONTRACT = [
     surface: "Create persisted Assignment and enter Questions",
     requiredProductRoles: ["instructor"],
     ribbon: { scope: "courseInstance", tab: "assignments", contentLayout: "reading" },
-  },
-  {
-    id: "assignmentReleaseWorkspace",
-    path: "/instructor/courses/:courseRef/assignments/:assignmentRef/release",
-    surface: "Instructor Assignment Workspace and answer-free Assignment Preview",
-    requiredProductRoles: ["instructor"],
-    ribbon: {
-      scope: "courseInstance",
-      tab: "assignments",
-      taskGroup: "assignment",
-      contentLayout: "fullWidth",
-    },
   },
   {
     id: "assignmentWorkspaceOverview",

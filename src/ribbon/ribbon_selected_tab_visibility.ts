@@ -42,6 +42,23 @@ function revealOptions(preference: ReducedMotionPreference): ScrollIntoViewOptio
 }
 
 /**
+ * A browser may quantize a fractional scroll request to a device-independent
+ * pixel. Round outward so the selected control clears, rather than merely
+ * contacts, the cue-safe viewport edge after that quantization.
+ */
+function cueSafeRevealDelta(
+  tabBounds: RibbonHorizontalBounds,
+  scrollportBounds: RibbonHorizontalBounds,
+): number {
+  const delta =
+    tabBounds.left < scrollportBounds.left
+      ? tabBounds.left - scrollportBounds.left
+      : tabBounds.right - scrollportBounds.right;
+  const roundedDelta = delta < 0 ? Math.floor(delta) : Math.ceil(delta);
+  return roundedDelta;
+}
+
+/**
  * A row may call `observe` after either a model selection or a geometry
  * revision. An already-visible control never moves; a selected control that
  * becomes clipped after a text-size or viewport change is eligible again.
@@ -100,11 +117,8 @@ export class RibbonSelectedTabVisibilityController {
     if (scrollport.scrollBy !== undefined) {
       // `scrollIntoView` is permitted to treat the physical edge as visible
       // even when our pinned fade reserves that edge for paint. A real row
-      // can therefore make the cue-safe delta explicit.
-      const delta =
-        tabBounds.left < scrollportBounds.left
-          ? tabBounds.left - scrollportBounds.left
-          : tabBounds.right - scrollportBounds.right;
+      // therefore uses an outward-rounded cue-safe delta.
+      const delta = cueSafeRevealDelta(tabBounds, scrollportBounds);
       scrollport.scrollBy({ behavior: options.behavior, left: delta });
     } else if (tab.scrollIntoView !== undefined) {
       tab.scrollIntoView(options);

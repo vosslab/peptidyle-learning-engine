@@ -27,7 +27,6 @@ const baseInput = {
     class_statistics: "never",
   },
   assignmentAuthoredContent: {
-    timeZone: "America/Chicago",
     instructions: "Use a clear structural drawing.",
     available_at: "2026-09-01T09:00:00.000",
     due_at: "2026-09-08T17:00:00.000",
@@ -57,7 +56,7 @@ test("Assignment policy summary covers every Policies-owned decision in readable
   assert.match(schedule, /2026-09-01 09:00/);
   assert.match(schedule, /900s time limit/);
   assert.match(schedule, /2 attempts/);
-  assert.match(schedule, /America\/Chicago/);
+  assert.match(schedule, /Instructor time zone/);
   assert.match(schedule, /auto-submits.*effective deadline/);
   const disclosure = valueFor("disclosure");
   for (const category of [
@@ -105,7 +104,7 @@ test("summary keeps saved Assignment Availability distinct from Assignment Statu
   const valueFor = (key) => summary.find((item) => item.key === key)?.value ?? "";
 
   assert.match(valueFor("savedDelivery"), /scheduled to open/);
-  assert.match(valueFor("savedDelivery"), /America\/Chicago/);
+  assert.match(valueFor("savedDelivery"), /Instructor time zone/);
   assert.match(valueFor("assignmentStatus"), /Archived/);
   assert.doesNotMatch(valueFor("savedDelivery"), /Archived/);
 });

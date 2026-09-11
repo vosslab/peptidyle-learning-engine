@@ -210,6 +210,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
                 question_title: safe.question_title,
                 prompt: safe.prompt,
                 response: question_model::QuestionResponseFormat::ImathasQuestionBackend {},
+                native_choice_order: question_model::NativeChoiceOrder::Fixed,
             },
         };
         validate_cache(&record, question_revision, seed, source)?;

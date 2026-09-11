@@ -140,6 +140,29 @@ test("a cue-safe scrollport receives the precise reveal delta", () => {
   assert.equal(selected.calls.length, 0);
 });
 
+test("a cue-safe reveal rounds outward past fractional clipped edges", () => {
+  const rightController = new RibbonSelectedTabVisibilityController();
+  const leftController = new RibbonSelectedTabVisibilityController();
+  const rightCalls = [];
+  const leftCalls = [];
+  const rightRow = {
+    getBoundingClientRect: () => bounds(0, 100),
+    scrollBy: (options) => rightCalls.push(options),
+  };
+  const leftRow = {
+    getBoundingClientRect: () => bounds(0, 100),
+    scrollBy: (options) => leftCalls.push(options),
+  };
+
+  assert.equal(
+    rightController.observe("overview", tab(80.5, 130.484).element, rightRow, true),
+    true,
+  );
+  assert.equal(leftController.observe("questions", tab(-0.484, 40).element, leftRow, true), true);
+  assert.deepEqual(rightCalls, [{ behavior: "auto", left: 31 }]);
+  assert.deepEqual(leftCalls, [{ behavior: "auto", left: -1 }]);
+});
+
 test("reduced-motion preference switches the reveal behavior to auto", () => {
   const controller = new RibbonSelectedTabVisibilityController();
   const selected = tab(101, 160);

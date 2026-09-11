@@ -17,6 +17,7 @@ const expectedExports = [
   { name: "__wbindgen_malloc", kind: "function" },
   { name: "__wbindgen_realloc", kind: "function" },
   { name: "__wbindgen_start", kind: "function" },
+  { name: "assignment_attempt_remaining_milliseconds", kind: "function" },
   { name: "bridge_version", kind: "function" },
   { name: "memory", kind: "memory" },
   { name: "preview_ple_draft", kind: "function" },

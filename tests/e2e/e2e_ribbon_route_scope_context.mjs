@@ -10,7 +10,7 @@ import {
   walkPathnamesThroughMountedApp,
 } from "../support/ribbon_test_support.ts";
 import {
-  assignmentAttemptScreenData,
+  assignmentAttemptContext,
   assignmentAttemptSummaryData,
   courseRouteData,
 } from "../support/route_scope_provider_fixtures.ts";
@@ -49,7 +49,7 @@ function createDeferredQueries() {
   const courseResolvers = new Map();
   const attemptResolvers = new Map();
   const courseViews = new Map();
-  const screens = new Map();
+  const attemptContexts = new Map();
   const summaries = new Map();
   const deferred = (map, key, label) => {
     if (map.has(key)) throw new Error(`redundant ${label} query for ${key}`);
@@ -61,7 +61,7 @@ function createDeferredQueries() {
     courseResolvers,
     attemptResolvers,
     courseViews,
-    screens,
+    attemptContexts,
     summaries,
     queries: {
       resolveCourse(reference) {
@@ -73,8 +73,8 @@ function createDeferredQueries() {
       courseScope(courseId) {
         return deferred(courseViews, courseId, "Course scope").promise;
       },
-      assignmentAttemptScreen(attemptId) {
-        return deferred(screens, attemptId, "Attempt screen").promise;
+      assignmentAttemptScope(reference) {
+        return deferred(attemptContexts, reference, "Attempt context").promise;
       },
       assignmentAttemptSummary(attemptId) {
         return deferred(summaries, attemptId, "Attempt summary").promise;
@@ -158,9 +158,9 @@ test(
           "test-resolve-attempt",
         ),
         courseScope: queryFunction(fixture.queries.courseScope, "test-course-scope"),
-        assignmentAttemptScreen: queryFunction(
-          fixture.queries.assignmentAttemptScreen,
-          "test-attempt-screen",
+        assignmentAttemptScope: queryFunction(
+          fixture.queries.assignmentAttemptScope,
+          "test-attempt-context",
         ),
         assignmentAttemptSummary: queryFunction(
           fixture.queries.assignmentAttemptSummary,
@@ -203,12 +203,12 @@ test(
       identity: { kind: "assignmentAttempt", assignmentAttemptReference: "R-1" },
       data: undefined,
     });
-    fixture.attemptResolvers.get("R-1").resolve({ assignmentAttemptId: "attempt-one" });
+    assert.ok(fixture.attemptContexts.has("R-1"));
+    assert.equal(fixture.attemptResolvers.has("R-1"), false);
+    const context = assignmentAttemptContext("C-1");
+    fixture.attemptContexts.get("R-1").resolve(context);
     await nextTurn();
-    const screen = assignmentAttemptScreenData("C-1");
-    fixture.screens.get("attempt-one").resolve(screen);
-    await nextTurn();
-    assert.deepEqual(app.latest().data, { kind: "assignmentAttempt", screen });
+    assert.deepEqual(app.latest().data, { kind: "assignmentAttempt", context });
     app.navigate("/courses/C-1");
     await nextTurn();
     assert.deepEqual(app.latest().data, { kind: "course", course: courseOne });
@@ -220,21 +220,52 @@ test(
 test("stable controller retains separate Attempt views", async () => {
   const fixture = createDeferredQueries();
   const app = mountedController(fixture.queries, "/assignment-attempts/R-1");
-  fixture.attemptResolvers.get("R-1").resolve({ assignmentAttemptId: "attempt-one" });
+  assert.ok(fixture.attemptContexts.has("R-1"));
+  const context = assignmentAttemptContext("C-1");
+  fixture.attemptContexts.get("R-1").resolve(context);
   await nextTurn();
-  const screen = assignmentAttemptScreenData("C-1");
-  fixture.screens.get("attempt-one").resolve(screen);
-  await nextTurn();
-  assert.deepEqual(app.controller.data(), { kind: "assignmentAttempt", screen });
+  assert.deepEqual(app.controller.data(), { kind: "assignmentAttempt", context });
   app.navigate("/assignment-attempts/R-1/summary");
   await nextTurn();
   assert.equal(app.controller.data(), undefined);
+  assert.ok(fixture.attemptResolvers.has("R-1"));
+  fixture.attemptResolvers.get("R-1").resolve({ assignmentAttemptId: "attempt-one" });
+  await nextTurn();
   const summary = assignmentAttemptSummaryData("C-1");
   fixture.summaries.get("attempt-one").resolve(summary);
   await nextTurn();
   assert.deepEqual(app.controller.data(), {
     kind: "assignmentAttemptSummary",
     response: summary,
+  });
+  app.dispose();
+});
+
+test("active Student Attempt retry replaces only its rejected R-reference context request", async () => {
+  const attempts = [];
+  const app = mountedController(
+    {
+      assignmentAttemptScope() {
+        const deferred = createDeferredResolution();
+        attempts.push(deferred);
+        return deferred.promise;
+      },
+    },
+    "/assignment-attempts/R-1",
+  );
+  assert.equal(attempts.length, 1);
+  attempts[0].reject(new Error("temporary context failure"));
+  await nextTurn();
+  assert.equal(app.controller.loadState(), "rejected");
+  assert.equal(app.controller.data(), undefined);
+  app.controller.retry();
+  assert.equal(attempts.length, 2);
+  attempts[1].resolve(assignmentAttemptContext("C-1"));
+  await nextTurn();
+  assert.equal(app.controller.loadState(), "resolved");
+  assert.deepEqual(app.controller.data(), {
+    kind: "assignmentAttempt",
+    context: assignmentAttemptContext("C-1"),
   });
   app.dispose();
 });

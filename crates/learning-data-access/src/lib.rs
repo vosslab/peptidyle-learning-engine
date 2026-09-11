@@ -5,6 +5,7 @@
 
 use domain::assignment_activity::AssignmentActivityError;
 
+mod account_time_zone;
 mod assignment_attempt;
 mod assignment_delivery;
 mod assignment_release;
@@ -38,6 +39,7 @@ mod support_capability;
 mod webwork_grading;
 mod webwork_submission;
 
+pub use account_time_zone::AccountTimeZoneStore;
 pub use assignment_attempt::{
     AssignmentAttemptStart, AssignmentAttemptStartResult, AssignmentAttemptStore,
     PreparedIssuedQuestion, PreparedQuestionPoolSelection,
@@ -46,7 +48,9 @@ pub use assignment_delivery::{
     IssuedQuestionPresentation, LiveAssignmentAccess, LiveAssignmentAttempt,
     LiveAssignmentDeliveryStore, LiveAssignmentStartDecision, NativePleIssuanceSource,
     NativePlePresentationInput, NativeWebworkIssuanceSource, NativeWebworkPresentationInput,
-    ReadyQuestionAssetRendition,
+    ReadyQuestionAssetRendition, StudentAssignmentAttemptContext,
+    StudentAssignmentAttemptFinalization, StudentAssignmentAttemptPresentationSource,
+    StudentAssignmentAttemptSavedResponse,
 };
 pub use assignment_release::{
     AssignmentPreview, AssignmentQuestionPickerEntry, AssignmentReleaseIssue,
@@ -114,8 +118,8 @@ pub(crate) use imathas_question_backend_session::{
     automated_grading_receipt_checksum_v1,
 };
 pub use instructor_account::{
-    CreateInstructorAccountInput, DeactivateInstructorAccountInput, InstructorAccountState,
-    InstructorAccountStore, InstructorAccountSummary,
+    CreateInstructorAccountInput, DeactivateInstructorAccountInput, InstructorAccountList,
+    InstructorAccountState, InstructorAccountStore, InstructorAccountSummary,
 };
 pub use invitation_export::{
     InvitationExportStore, InvitationMailerExport, InvitationMailerRecipient,

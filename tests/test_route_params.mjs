@@ -174,13 +174,10 @@ test("scope identity and malformed scope derive from representative Ribbon route
   }
 });
 
-test("submission presentation nonce is required for a valid course scope", () => {
+test("retired per-presentation submission paths are not declared routes", () => {
   const pathname = "/courses/C-1/assignments/A-1/presentations/0123456789abcdef0123456789abcdef";
-  assert.deepEqual(routeScopeKey(pathname), courseKey("C-1"));
-  assert.deepEqual(routeScopeKey(pathname.replace("f", "F")), {
-    kind: "invalid",
-    scope: "courseInstance",
-  });
+  assert.equal(routeContractForPathname(pathname), undefined);
+  assert.deepEqual(routeScopeKey(pathname), { kind: "invalid", scope: undefined });
 });
 
 test("scope identity follows a temporary declared Ribbon scope change", () => {

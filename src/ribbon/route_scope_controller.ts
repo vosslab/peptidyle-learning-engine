@@ -19,7 +19,7 @@ export type RouteScopeQueries = Pick<
   | "resolveCourse"
   | "resolveAssignmentAttempt"
   | "courseScope"
-  | "assignmentAttemptScreen"
+  | "assignmentAttemptScope"
   | "assignmentAttemptSummary"
 >;
 
@@ -74,7 +74,7 @@ function withCourseAppearance(
     case "course":
       return { ...data, course: { ...data.course, appearance } };
     case "assignmentAttempt":
-      return { ...data, screen: { ...data.screen, course: { ...data.screen.course, appearance } } };
+      return data;
     case "assignmentAttemptSummary":
       return {
         ...data,
@@ -85,7 +85,7 @@ function withCourseAppearance(
 
 /**
  * Caches presentation data by canonical public reference, retaining separate
- * Attempt screen/summary views while sharing the Attempt identity lookup.
+ * active-Attempt and summary views without fabricating an Attempt UUID.
  */
 export function createRouteScopeController(
   pathname: Accessor<string> | string,
@@ -99,6 +99,10 @@ export function createRouteScopeController(
   const assignmentAttemptIdentities = new Map<
     string,
     ReturnType<RouteScopeQueries["resolveAssignmentAttempt"]>
+  >();
+  const assignmentAttemptScopes = new Map<
+    string,
+    ReturnType<RouteScopeQueries["assignmentAttemptScope"]>
   >();
 
   const resolveCourse = (
@@ -121,6 +125,16 @@ export function createRouteScopeController(
     return request;
   };
 
+  const assignmentAttemptScope = (
+    reference: Parameters<RouteScopeQueries["assignmentAttemptScope"]>[0],
+  ): ReturnType<RouteScopeQueries["assignmentAttemptScope"]> => {
+    const cached = assignmentAttemptScopes.get(reference);
+    if (cached !== undefined) return cached;
+    const request = queries.assignmentAttemptScope(reference);
+    assignmentAttemptScopes.set(reference, request);
+    return request;
+  };
+
   const load = (scope: RouteScopeKey, pathnameForScope: string, key: string): void => {
     entries.set(key, { state: "pending" });
     setCacheVersion((version) => version + 1);
@@ -132,16 +146,15 @@ export function createRouteScopeController(
           .then((course) => ({ kind: "course", course }));
         break;
       case "assignmentAttempt":
-        request = resolveAssignmentAttempt(scope.assignmentAttemptReference).then((resolved) => {
-          if (isAssignmentAttemptSummary(pathnameForScope)) {
-            return queries
-              .assignmentAttemptSummary(resolved.assignmentAttemptId)
-              .then((response) => ({ kind: "assignmentAttemptSummary", response }) as const);
-          }
-          return queries
-            .assignmentAttemptScreen(resolved.assignmentAttemptId)
-            .then((screen) => ({ kind: "assignmentAttempt", screen }) as const);
-        });
+        if (!isAssignmentAttemptSummary(pathnameForScope)) {
+          request = assignmentAttemptScope(scope.assignmentAttemptReference).then(
+            (context) => ({ kind: "assignmentAttempt", context }) as const,
+          );
+          break;
+        }
+        request = resolveAssignmentAttempt(scope.assignmentAttemptReference)
+          .then((resolved) => queries.assignmentAttemptSummary(resolved.assignmentAttemptId))
+          .then((response) => ({ kind: "assignmentAttemptSummary", response }) as const);
         break;
       case "product":
       case "invalid":
@@ -199,7 +212,11 @@ export function createRouteScopeController(
         courseIdentities.delete(scope.courseReference);
         break;
       case "assignmentAttempt":
-        assignmentAttemptIdentities.delete(scope.assignmentAttemptReference);
+        if (isAssignmentAttemptSummary(pathnameForScope)) {
+          assignmentAttemptIdentities.delete(scope.assignmentAttemptReference);
+        } else {
+          assignmentAttemptScopes.delete(scope.assignmentAttemptReference);
+        }
         break;
       case "product":
       case "invalid":
@@ -216,7 +233,11 @@ export function createRouteScopeController(
   ): void => {
     let changed = false;
     for (const [key, entry] of entries) {
-      if (entry.state !== "resolved" || courseRouteView(entry.data).summary.id !== courseId)
+      if (
+        entry.state !== "resolved" ||
+        entry.data.kind === "assignmentAttempt" ||
+        courseRouteView(entry.data).summary.id !== courseId
+      )
         continue;
       entries.set(key, { state: "resolved", data: withCourseAppearance(entry.data, appearance) });
       changed = true;

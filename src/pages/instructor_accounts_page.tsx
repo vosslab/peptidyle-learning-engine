@@ -2,9 +2,15 @@
 
 import { For, Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
 
-import type { InstructorAccountSummary } from "../api/instructor_account";
+import type { InstructorAccountList, InstructorAccountSummary } from "../api/instructor_account";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
+import { formatSignInLabel } from "./instructor_account_model";
+
+const unavailableAccountList: InstructorAccountList = {
+  accounts: [],
+  displayTimeZone: "UTC",
+};
 
 function stateLabel(state: InstructorAccountSummary["state"]): string {
   switch (state) {
@@ -15,12 +21,6 @@ function stateLabel(state: InstructorAccountSummary["state"]): string {
     case "closed":
       return "Closed";
   }
-}
-
-function signInLabel(timestamp: number | null): string {
-  if (timestamp === null) return "No successful sign-in recorded";
-  const date = new Date(timestamp);
-  return Number.isNaN(date.getTime()) ? "Sign-in time unavailable" : date.toLocaleString();
 }
 
 function failureCopy(): string {
@@ -35,8 +35,9 @@ export function InstructorAccountsPage(): JSX.Element {
     const current = session.state();
     return current.kind === "authenticated" && current.session.account.productRole === "sysadmin";
   });
-  const [accounts, { refetch, mutate }] = createResource(isSysadmin, async (allowed) =>
-    allowed ? runtime.client.listInstructorAccounts() : [],
+  const [accounts, { refetch, mutate }] = createResource<InstructorAccountList, boolean>(
+    isSysadmin,
+    async (allowed) => (allowed ? runtime.client.listInstructorAccounts() : unavailableAccountList),
   );
   const [email, setEmail] = createSignal("");
   const [reasonByReference, setReasonByReference] = createSignal<Record<string, string>>({});
@@ -47,9 +48,14 @@ export function InstructorAccountsPage(): JSX.Element {
 
   function updateAccount(updated: InstructorAccountSummary): void {
     mutate((current) =>
-      (current ?? []).map((account) =>
-        account.reference === updated.reference ? updated : account,
-      ),
+      current === undefined
+        ? current
+        : {
+            ...current,
+            accounts: current.accounts.map((account) =>
+              account.reference === updated.reference ? updated : account,
+            ),
+          },
     );
   }
 
@@ -69,7 +75,11 @@ export function InstructorAccountsPage(): JSX.Element {
     setError(null);
     try {
       const created = await runtime.client.createInstructorAccount({ normalizedEmail });
-      mutate((current) => [created, ...(current ?? [])]);
+      mutate((current) => {
+        if (current === undefined) return current;
+        const accounts = [created, ...current.accounts];
+        return { ...current, accounts };
+      });
       setEmail("");
       setAnnouncement("Instructor Account created.");
     } catch {
@@ -176,59 +186,71 @@ export function InstructorAccountsPage(): JSX.Element {
         </section>
       </Show>
       <Show when={accounts() !== undefined && accounts.error === undefined}>
-        <section aria-label="Instructor Accounts">
-          <For
-            each={accounts() ?? []}
-            fallback={<p class="empty-state">No Instructor Accounts are available.</p>}
-          >
-            {(account) => (
-              <article class="auth-panel">
-                <h2>{account.reference}</h2>
-                <p>State: {stateLabel(account.state)}</p>
-                <p>Last successful sign-in: {signInLabel(account.lastSuccessfulSignIn)}</p>
-                <Show when={account.state === "active"}>
-                  <label for={`deactivate-reason-${account.reference}`}>
-                    Deactivation reason
-                    <input
-                      id={`deactivate-reason-${account.reference}`}
-                      name={`deactivationReason-${account.reference}`}
-                      type="text"
-                      value={reasonByReference()[account.reference] ?? ""}
-                      onInput={(event) => setReason(account.reference, event.currentTarget.value)}
-                      maxlength={1000}
-                      required
-                    />
-                  </label>
-                  <button
-                    class="quiet-action"
-                    type="button"
-                    disabled={busyReference() === account.reference}
-                    onClick={() => void deactivate(account)}
-                  >
-                    {busyReference() === account.reference
-                      ? "Updating..."
-                      : "Deactivate Instructor Account"}
-                  </button>
-                </Show>
-                <Show when={account.state === "deactivated"}>
-                  <button
-                    class="primary-action"
-                    type="button"
-                    disabled={busyReference() === account.reference}
-                    onClick={() => void reactivate(account)}
-                  >
-                    {busyReference() === account.reference
-                      ? "Updating..."
-                      : "Reactivate Instructor Account"}
-                  </button>
-                </Show>
-                <Show when={account.state === "closed"}>
-                  <p>This Instructor Account is closed and cannot be changed here.</p>
-                </Show>
-              </article>
-            )}
-          </For>
-        </section>
+        <Show when={accounts()} keyed>
+          {(list) => (
+            <section aria-label="Instructor Accounts">
+              <p class="page-lede">
+                Last successful sign-in times use your time zone: {list.displayTimeZone}.
+              </p>
+              <For
+                each={list.accounts}
+                fallback={<p class="empty-state">No Instructor Accounts are available.</p>}
+              >
+                {(account) => (
+                  <article class="auth-panel">
+                    <h2>{account.reference}</h2>
+                    <p>State: {stateLabel(account.state)}</p>
+                    <p>
+                      Last successful sign-in:{" "}
+                      {formatSignInLabel(account.lastSuccessfulSignIn, list.displayTimeZone)}
+                    </p>
+                    <Show when={account.state === "active"}>
+                      <label for={`deactivate-reason-${account.reference}`}>
+                        Deactivation reason
+                        <input
+                          id={`deactivate-reason-${account.reference}`}
+                          name={`deactivationReason-${account.reference}`}
+                          type="text"
+                          value={reasonByReference()[account.reference] ?? ""}
+                          onInput={(event) =>
+                            setReason(account.reference, event.currentTarget.value)
+                          }
+                          maxlength={1000}
+                          required
+                        />
+                      </label>
+                      <button
+                        class="quiet-action"
+                        type="button"
+                        disabled={busyReference() === account.reference}
+                        onClick={() => void deactivate(account)}
+                      >
+                        {busyReference() === account.reference
+                          ? "Updating..."
+                          : "Deactivate Instructor Account"}
+                      </button>
+                    </Show>
+                    <Show when={account.state === "deactivated"}>
+                      <button
+                        class="primary-action"
+                        type="button"
+                        disabled={busyReference() === account.reference}
+                        onClick={() => void reactivate(account)}
+                      >
+                        {busyReference() === account.reference
+                          ? "Updating..."
+                          : "Reactivate Instructor Account"}
+                      </button>
+                    </Show>
+                    <Show when={account.state === "closed"}>
+                      <p>This Instructor Account is closed and cannot be changed here.</p>
+                    </Show>
+                  </article>
+                )}
+              </For>
+            </section>
+          )}
+        </Show>
       </Show>
     </section>
   );

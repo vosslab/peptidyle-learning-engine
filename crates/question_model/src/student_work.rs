@@ -31,6 +31,35 @@ use crate::identity::ObjectId;
 use crate::response::StudentResponse;
 use crate::{AssignmentAttemptReference, AssignmentRevisionReference};
 
+/// Answer-free, server-authorized navigation state for an issued Assignment
+/// Attempt. This is a projection, never a mutable "current question" record.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudentAssignmentAttemptProgress {
+    pub assignment_attempt: AssignmentAttemptReference,
+    pub question_count: u32,
+    pub recommended_position: Option<u32>,
+    pub positions: Vec<StudentAssignmentAttemptPosition>,
+}
+
+/// One 1-based issued position in an answer-free Student navigation projection.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudentAssignmentAttemptPosition {
+    pub position: u32,
+    pub response_state: StudentAssignmentAttemptResponseState,
+}
+
+/// The only persistence states exposed by Assignment navigation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StudentAssignmentAttemptResponseState {
+    Unanswered,
+    Saved,
+    Submitted,
+    Closed,
+}
+
 mod identifiers;
 
 pub use identifiers::{
@@ -667,7 +696,6 @@ mod tests {
         assert_eq!(attempt.assignment.as_uuid(), Uuid::from_u128(3));
         assert_eq!(attempt.assignment_revision.revision_number.value(), 1);
     }
-
     #[test]
     fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
         let selection_id = QuestionPoolSelectionId::from_uuid(Uuid::from_u128(10));
@@ -723,7 +751,6 @@ mod tests {
         );
         assert_eq!(reused.selected_items, selection.selected_items);
     }
-
     #[test]
     fn question_pool_selection_refuses_reuse_for_a_different_entry_or_same_attempt() {
         let selection = QuestionPoolSelection {
@@ -959,5 +986,14 @@ mod tests {
             Some(&serde_json::json!(attempt.issued_question.to_string()))
         );
         assert!(wire.get("issuedCapability").is_some());
+    }
+
+    #[test]
+    fn saved_assignment_attempt_navigation_state_serializes() {
+        assert_eq!(
+            serde_json::to_value(StudentAssignmentAttemptResponseState::Saved)
+                .expect("saved response state serializes"),
+            serde_json::json!("saved")
+        );
     }
 }

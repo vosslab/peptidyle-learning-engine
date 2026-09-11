@@ -125,6 +125,8 @@ export type PleQuestionJsonSingleChoiceResponse = {
   readonly kind: typeof PLE_QUESTION_JSON_SINGLE_CHOICE_RESPONSE_KIND;
   readonly choices: ReadonlyArray<PleQuestionJsonChoice>;
   readonly correctChoice: string;
+  /** Whether each issued presentation uses a nonce-derived choice order. */
+  readonly randomizeChoices: boolean;
 };
 
 export type PleQuestionJsonMatchingResponse = {
@@ -138,6 +140,8 @@ export type PleQuestionJsonMultipleAnswerResponse = {
   readonly kind: typeof PLE_QUESTION_JSON_MULTIPLE_ANSWER_RESPONSE_KIND;
   readonly choices: ReadonlyArray<PleQuestionJsonChoice>;
   readonly correctChoices: ReadonlyArray<string>;
+  /** Whether each issued presentation uses a nonce-derived choice order. */
+  readonly randomizeChoices: boolean;
 };
 
 export type PleQuestionJsonFillInResponse = {

@@ -137,37 +137,49 @@ identity does not claim a Browser Surface, Service, Server Route, or authorizati
 Use one ordered Ribbon Schema for each Ribbon Scope and immutable Product Role pair. Every role uses
 the same Application Shell and Ribbon architecture with a completely distinct menu:
 
-| Ribbon Scope       | Instructor                                                                             | Student     | Sysadmin            |
-| ------------------ | -------------------------------------------------------------------------------------- | ----------- | ------------------- |
-| Product            | Courses, Question Library, Blueprint Courses                                           | Courses     | Courses             |
-| Course Instance    | Assignments, Students, Gradebook, Teaching Operations, Blueprint Updates, Course Setup | Assignments | Teaching Operations |
-| Assignment Attempt | None                                                                                   | Attempt     | None                |
+| Ribbon Scope | Instructor | Student | Sysadmin |
+| --- | --- | --- | --- |
+| Product | **Courses**, **Questions**, **Assignments** | **Courses** | **Courses** |
+| Course Instance | **Assignments**, **Students**, **Gradebook**, **Teaching Operations**, **Blueprint Updates**, **Course Setup** | **Assignments** | **Teaching Operations** |
+| Assignment Attempt | No Slots | **Attempt** | No Slots |
+
+The Instructor Product Schema's three Tabs are the owner's taxonomy of teaching work, not a
+derivation from the present route hierarchy. Blueprint Courses, active Courses, rosters, and Course
+settings belong below Courses; Question discovery and owned Draft Questions belong below Questions;
+templates, due-soon work, editing, release, and grading belong below Assignments. The Student and
+Sysadmin Product and Course Instance schemas above remain structural rules even when an individual
+destination is not yet backed.
 
 Product Role is available with the Authenticated Session, so one Account uses one stable schema for
 each scope throughout its session. Exact server and Store checks continue to authorize every
 destination and operation.
 
-Place the single Peptidyle home identity first in the Ribbon Context Row and Account and Profile
-controls in that row's upper corner. Authenticated Ribbon routes do not add a separate site-header
-identity band; the site header is the fallback for routes without a Ribbon. Account Security,
-Instructor Course Invitations, and Sign In use Context Controls. Their routes retain the current
-Ribbon Schema and render with No Selected Ribbon Tab.
+Place the single Peptidyle home identity, Product Role, Account name, Instructor Product Tabs,
+Profile, and Sign Out in one information-dense top bar at a desktop 1280 by 800 viewport. Every
+visible Ribbon navigation item has a same-origin Font Awesome glyph and text. Build that single bar
+first; retain a separate Tab Row only when responsive or focus-order evidence demonstrates a named
+failure at a named viewport. Authenticated Ribbon routes do not add a separate site-header identity
+band; the site header is the fallback for routes without a Ribbon. Account Security, Instructor
+Course Invitations, and Sign In use Context Controls. Their routes retain the current Ribbon Schema
+and render with No Selected Ribbon Tab.
 
-The Question Library interface area has five ordered Ribbon Tasks in two Ribbon Task Areas:
+The Instructor task rows are ordered as follows:
 
-- **Question destinations**: **All Questions**, **My Questions**, **My Question Drafts**.
-- **Question Relationships**: **Starred**, **Watched**.
+- **Courses:** **My Blueprint Courses**, **My Active Courses**, **My Inactive Courses**, **Search
+  Public Blueprint Courses**. Active/Inactive and public Blueprint search remain Unavailable until
+  their complete capabilities exist; their positions are retained without a placeholder link.
+- **Questions:** **My Questions**, **My Draft Questions**, **Starred**, **Watched**, **Search
+  Question Library**, **Browse Question Library**. Starred and Watched remain Unavailable until
+  backed. Draft Questions remain private authoring rather than Question Library membership.
+- **Assignments:** **Assignments Due Soon**, **My Assignment Templates**. Due Soon remains
+  Unavailable until its authorized cross-course view exists; templates retain their named position.
 
-Library means Published Question discovery, My means ownership, Draft means private authoring
-state, Starred means endorsement, and Watched means a private subscription. When its complete
-usable path is backed, My Question Drafts will enter the separate Authoring Workspace Store; its
-retained placement here does not make drafts part of the Question Library. Question Folders,
-Question Tags, Saved Question Searches, and search
-facets organize or find Questions in their applicable destination.
-
-Course Setup has the ordered Ribbon Tasks **Grade Settings** and **Appearance**. Create Assignment is
-a Page Action on Assignments. Add a future dashboard when it answers a distinct cross-course
-monitoring task that these object-centered surfaces cannot answer directly.
+Within a Course, **Assignments**, **Students**, **Gradebook**, **Teaching Operations**, **Blueprint
+Updates**, and **Course Setup** remain Course navigation. Course Setup has **Grade Settings** and
+**Appearance** Tasks. Create Assignment is a Page Action. Assignment composition and delivery are
+separate Instructor tasks: the composition surface makes selecting, adding, removing, and ordering
+Questions primary; the settings surface owns timing, release, scoring, attempts, randomization,
+late-work, and disclosure. Their visible names are secondary and do not require a route-wide rename.
 
 Assignment Attempt uses one Student Ribbon Slot, **Attempt**, and one Ribbon Task, **Back to
 Assignments**. Reserve a fixed-width, tabular-numeral position in the Ribbon Context Row for

@@ -33,7 +33,7 @@ const ADMIN_DATABASE_URL_ENV: &str = "PLE_IMATHAS_QUESTION_BACKEND_SESSION_ADMIN
 const STUDENT_ACCOUNT: u128 = 0x101;
 const STUDENT_MEMBERSHIP: u128 = 0x108;
 const COURSE: u128 = 0x105;
-const ASSIGNMENT: u128 = 0x110;
+const ASSIGNMENT: u128 = 0xf215;
 const QUESTION_ATTEMPT: u128 = 0xf205;
 const PERSISTENCE_QUESTION_ATTEMPT: u128 = 0xf207;
 const ELIGIBLE_STATISTICS_QUESTION_ATTEMPT: u128 = 0xf214;
@@ -129,7 +129,7 @@ fn facts(
         ImathasGradingContext::new(
             QuestionAttemptId::from_uuid(Uuid::from_u128(QUESTION_ATTEMPT)),
             QuestionRevisionReference {
-                question_id: "ABC-DEF0".parse::<QuestionId>().expect("question ID"),
+                question_id: "QBH-0001".parse::<QuestionId>().expect("question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
             },
             QuestionSeed::new(seed),
@@ -240,7 +240,7 @@ fn create_for_attempt(
         account,
         issued_at,
         expires_at,
-        grading_context(question_attempt, "ABC-DEF0", 1, 1),
+        grading_context(question_attempt, "QBH-0001", 1, 1),
         "oracle-item",
         "imathas_remote_grading_v1",
         'c',
@@ -290,7 +290,7 @@ fn transition_with_score(
 #[ignore = "requires the disposable PostgreSQL 17 iMathAS Question Backend Session oracle"]
 async fn postgres_store_persists_opens_and_consumes_one_exact_session() {
     let oracle = oracle().await;
-    oracle.admin.execute("UPDATE ple_private.issued_question SET point_value = 2.5, scoring_rule = 'full_credit', question_statistics_eligibility = false WHERE issued_question_id = '00000000-0000-5000-8000-000000000115'").await.expect("set Full Credit issued scoring fixture");
+    oracle.admin.execute("UPDATE ple_private.issued_question SET point_value = 2.5, scoring_rule = 'full_credit', question_statistics_eligibility = false WHERE issued_question_id = '00000000-0000-0000-0000-00000000f219'").await.expect("set Full Credit issued scoring fixture");
     let issued_at = Timestamp::from_unix_millis(now().as_unix_millis() - 5_000);
     let expires_at = Timestamp::from_unix_millis(issued_at.as_unix_millis() + 180_000);
     let (baseline_create, expectation) = create_for_attempt(
@@ -424,7 +424,7 @@ async fn postgres_store_commits_statistics_from_the_stored_grade_exactly_once() 
     let eligible_counts: (i64, i64) = sqlx::query_as(
         "SELECT accepted_graded_attempt_count, correct_count \
          FROM ple_data.question_revision_statistics \
-         WHERE question_id = 'ABC-DEF0' AND revision_number = 1",
+         WHERE question_id = 'QBH-0001' AND revision_number = 1",
     )
     .fetch_one(&oracle.admin)
     .await
@@ -444,7 +444,7 @@ async fn postgres_store_commits_statistics_from_the_stored_grade_exactly_once() 
         "SELECT statistics.accepted_graded_attempt_count, statistics.correct_count, \
                 (SELECT count(*) FROM ple_private.question_statistics_observation_receipt) \
          FROM ple_data.question_revision_statistics AS statistics \
-         WHERE statistics.question_id = 'ABC-DEF0' AND statistics.revision_number = 1",
+         WHERE statistics.question_id = 'QBH-0001' AND statistics.revision_number = 1",
     )
     .fetch_one(&oracle.admin)
     .await
@@ -501,7 +501,7 @@ async fn postgres_store_commits_statistics_from_the_stored_grade_exactly_once() 
         "SELECT statistics.accepted_graded_attempt_count, statistics.correct_count, \
                 (SELECT count(*) FROM ple_private.question_statistics_observation_receipt) \
          FROM ple_data.question_revision_statistics AS statistics \
-         WHERE statistics.question_id = 'ABC-DEF0' AND statistics.revision_number = 1",
+         WHERE statistics.question_id = 'QBH-0001' AND statistics.revision_number = 1",
     )
     .fetch_one(&oracle.admin)
     .await
@@ -529,7 +529,7 @@ async fn postgres_store_rejects_context_lifecycle_and_authority_bypasses() {
                 oracle.account,
                 issued_at,
                 expires_at,
-                grading_context(0xf206, "ABC-DEF0", 1, 1),
+                grading_context(0xf206, "QBH-0001", 1, 1),
                 "oracle-item",
                 "imathas_remote_grading_v1",
                 'c',
@@ -555,7 +555,7 @@ async fn postgres_store_rejects_context_lifecycle_and_authority_bypasses() {
                 oracle.account,
                 issued_at,
                 expires_at,
-                grading_context(QUESTION_ATTEMPT, "ABC-DEF0", 2, 1),
+                grading_context(QUESTION_ATTEMPT, "QBH-0001", 2, 1),
                 "oracle-item",
                 "imathas_remote_grading_v1",
                 'c',
@@ -861,7 +861,7 @@ async fn postgres_store_rejects_context_lifecycle_and_authority_bypasses() {
             "ple_api_owner can write unrelated Question Revision Source Bindings".to_string(),
         );
     }
-    oracle.admin.execute("UPDATE ple_private.issued_question SET point_value = 2.5, scoring_rule = 'extra_credit', question_statistics_eligibility = false WHERE issued_question_id = '00000000-0000-5000-8000-000000000115'").await.expect("set Extra Credit issued scoring fixture");
+    oracle.admin.execute("UPDATE ple_private.issued_question SET point_value = 2.5, scoring_rule = 'extra_credit', question_statistics_eligibility = false WHERE issued_question_id = '00000000-0000-0000-0000-00000000f219'").await.expect("set Extra Credit issued scoring fixture");
     let (contention_create, contention_expectation) = create(oracle.account, issued_at, expires_at);
     let contention_reference = oracle
         .store

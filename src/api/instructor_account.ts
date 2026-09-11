@@ -11,6 +11,12 @@ export interface InstructorAccountSummary {
   readonly lastSuccessfulSignIn: number | null;
 }
 
+/** Sysadmin-owned display context for the closed Instructor Account list. */
+export interface InstructorAccountList {
+  readonly accounts: ReadonlyArray<InstructorAccountSummary>;
+  readonly displayTimeZone: string;
+}
+
 /** Create input is sent once and is never reflected by any browser-safe DTO. */
 export interface CreateInstructorAccountInput {
   readonly normalizedEmail: string;
@@ -22,7 +28,7 @@ export interface DeactivateInstructorAccountInput {
 
 /** Same-origin, Sysadmin-only Instructor Account lifecycle boundary. */
 export interface InstructorAccountClient {
-  readonly listInstructorAccounts: () => Promise<ReadonlyArray<InstructorAccountSummary>>;
+  readonly listInstructorAccounts: () => Promise<InstructorAccountList>;
   readonly createInstructorAccount: (
     input: CreateInstructorAccountInput,
   ) => Promise<InstructorAccountSummary>;

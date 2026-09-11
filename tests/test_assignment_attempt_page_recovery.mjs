@@ -175,3 +175,32 @@ test("the response controller exposes 422 and receipt failures for correction be
     assert.equal(submissions, 2);
   }
 });
+
+test("durable response save keeps the Student control editable before Assignment submission", async () => {
+  const controller = createRoot(() =>
+    createSubmissionController({
+      attemptId: "attempt-a",
+      mode: "save",
+      responseFormat: { kind: "numeric", tolerance: { kind: "exact" }, unit: null },
+      validator: {
+        mode: "wasm",
+        validateResponseFormat: async () => ({ issues: [] }),
+      },
+      onEscape: () => undefined,
+      onSubmit: async () => ({ kind: "accepted" }),
+    }),
+  );
+  const firstResponse = { kind: "numeric", value: 7 };
+  const revisedResponse = { kind: "numeric", value: 8 };
+
+  await controller.validate(firstResponse);
+  await controller.submit(firstResponse);
+
+  assert.equal(controller.phase().kind, "restored");
+  assert.equal(controller.locked(), false);
+  assert.equal(controller.canSubmit(), true);
+
+  await controller.validate(revisedResponse);
+  await controller.submit(revisedResponse);
+  assert.equal(controller.phase().kind, "restored");
+});

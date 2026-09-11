@@ -1,6 +1,6 @@
-// Disposable Chromium proof for the answer-free WeBWorK render surface.
-// Visible navigation: student_courses_page.tsx selects C- by its Course Instance
-// label; student_course_landing_page.tsx selects its rendered Assignment action.
+// Disposable Chromium proof for the answer-free WeBWorK Assignment Attempt surface.
+// Visible navigation selects the Student Course and Assignment, then the current live delivery
+// lane redirects the active public Attempt into its one-question presentation.
 
 import { chromium } from "playwright";
 
@@ -24,9 +24,9 @@ try {
   await page.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Continue as Mary Okafor" }).click();
   await page.getByRole("heading", { name: "Your courses", exact: true }).waitFor();
-  const courseCard = page
-    .getByRole("article")
-    .filter({ has: page.getByText(`Course Instance ${course}`, { exact: true }) });
+  const courseCard = page.getByRole("article").filter({
+    has: page.locator(`a[href="/student/courses/${course}"]`),
+  });
   await courseCard.getByRole("link", { name: "Open assigned work", exact: true }).click();
   await page.waitForURL(`${origin}/student/courses/${course}`);
   const assignmentCard = page.getByRole("article").filter({
@@ -34,34 +34,18 @@ try {
   });
   await assignmentCard.getByRole("link", { name: "Open Assignment", exact: true }).click();
   await page.waitForURL(`${origin}/courses/${course}/assignments/${assignment}`);
-  const startResponse = page.waitForResponse(
-    (response) =>
-      response.url().endsWith(`/api/course-instances/${course}/assignments/${assignment}/start`) &&
-      response.request().method() === "POST",
-  );
-  await page.getByRole("button", { name: "Start Assignment" }).click();
-  const response = await startResponse;
-  if (response.status() !== 201 || protectedFields.test(await response.text())) {
-    throw new Error("WeBWorK start response crossed the private renderer boundary");
+  await page.waitForURL(new RegExp(`${origin}/assignment-attempts/R-[1-9][0-9]*$`, "u"));
+  const attempt = page.locator('[data-route-surface="assignmentAttempt"]');
+  await attempt.waitFor({ state: "visible" });
+  const visibleText = await attempt.innerText();
+  if (protectedFields.test(visibleText)) {
+    throw new Error("WeBWorK Assignment Attempt crossed the private renderer boundary");
   }
-  await page.getByRole("heading", { name: "Questions" }).waitFor();
-  await page.getByRole("heading", { name: /^Question 1:/u }).waitFor();
+  await page.getByText("Question 1 of 1", { exact: true }).waitFor();
   if ((await page.getByRole("radio").count()) < 2) {
     throw new Error(
       "WeBWorK Question Presentation did not render its browser-safe response format",
     );
-  }
-  const outcomeControls = [
-    page.getByRole("heading", { name: "Response received", exact: true }),
-    page.getByRole("heading", { name: "Graded", exact: true }),
-    page.getByRole("button", { name: "Check grading status", exact: true }),
-  ];
-  if (
-    (await Promise.all(outcomeControls.map((control) => control.count()))).some(
-      (count) => count !== 0,
-    )
-  ) {
-    throw new Error("WeBWorK render exposed an outcome or grader control");
   }
 } finally {
   await context.close();

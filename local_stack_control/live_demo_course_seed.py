@@ -90,9 +90,11 @@ class ObservedState:
 	mary_attempt_exists: bool = False
 	jack_attempt_exists: bool = False
 	avery_attempt_exists: bool = False
-	mary_terminal_submission_count: int = 0
-	jack_terminal_submission_count: int = 0
-	avery_terminal_submission_count: int = 0
+	mary_attempt_completed: bool = False
+	mary_graded_question_count: int = 0
+	jack_graded_question_count: int = 0
+	avery_graded_question_count: int = 0
+	jack_saved_response_count: int = 0
 
 	@property
 	def attempts_complete(self) -> bool:
@@ -106,11 +108,13 @@ class ObservedState:
 
 	@property
 	def work_complete(self) -> bool:
-		"""Return whether terminal submissions match the declared Student work."""
+		"""Return whether completed and graded work matches the declared baseline."""
 		complete = (
-			self.mary_terminal_submission_count == 4
-			and self.jack_terminal_submission_count == 2
-			and self.avery_terminal_submission_count == 0
+			self.mary_attempt_completed
+			and self.mary_graded_question_count == 4
+			and self.jack_graded_question_count == 0
+			and self.avery_graded_question_count == 0
+			and self.jack_saved_response_count == 2
 		)
 		return complete
 

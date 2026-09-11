@@ -6,7 +6,11 @@ import { renderToString } from "solid-js/web";
 
 import { buildRoutePath, deriveRibbonModel } from "../src/ribbon/ribbon_contract.ts";
 import { routeParams } from "../src/navigation/route_params.ts";
-import { productRoleMayAccessRoute, ROUTE_CONTRACT } from "../src/route_contract.ts";
+import {
+  productRoleMayAccessRoute,
+  routeContractForPathname,
+  ROUTE_CONTRACT,
+} from "../src/route_contract.ts";
 import { CAPABILITY_REGISTRY } from "../src/ribbon/capability_registry.ts";
 import { RIBBON_TASK_CATALOG, TAB_CATALOG } from "../src/ribbon/ribbon_catalog.ts";
 import { loadAppRibbonForSsr } from "./support/ribbon_component_ssr.ts";
@@ -22,7 +26,6 @@ const PARAMETER_VALUES = {
   questionRef: "7K3M9QP",
   draftQuestionRef: "D-1",
   blueprintCourseRef: "BP-1",
-  presentationNonce: "0123456789abcdef0123456789abcdef",
 };
 const CATALOG = [...TAB_CATALOG, ...RIBBON_TASK_CATALOG];
 
@@ -109,6 +112,22 @@ test("admission withholds unavailable controls and respects declared role ceilin
   }
 });
 
+test("Instructor Profile retains an unavailable account-endcap position without a DOM control", async () => {
+  const model = controlsFor("courses", "instructor").model;
+  assert.deepEqual(model.context.accountControls, [
+    {
+      id: "profile",
+      label: "Profile",
+      availability: "Unavailable",
+      glyph: "profile",
+    },
+  ]);
+  const RealAppRibbon = await loadAppRibbonForSsr();
+  const html = renderToString(() => createComponent(RealAppRibbon, { model }));
+  assert.doesNotMatch(html, /data-ribbon-context-control="profile"/);
+  assert.doesNotMatch(html, />Profile</);
+});
+
 test("Appearance admits only the Instructor Course Setup task and preserves its route", async () => {
   const instructor = controlsFor("courseAppearance", "instructor");
   const RealAppRibbon = await loadAppRibbonForSsr();
@@ -142,9 +161,15 @@ test("Task Row topology is exactly the declared task-group topology for every ro
   for (const route of ROUTE_CONTRACT) {
     for (const role of PRODUCT_ROLES) {
       const model = deriveRibbonModel(routeStateFor(route.id), { productRole: role }, LABELS);
+      const instructorProductTaskGroup = [
+        "instructorCourses",
+        "instructorQuestions",
+        "instructorAssignments",
+      ].includes(route.ribbon.taskGroup);
       assert.equal(
         model.taskAreas.length > 0,
-        route.ribbon.taskGroup !== undefined,
+        route.ribbon.taskGroup !== undefined &&
+          (!instructorProductTaskGroup || role === "instructor"),
         `${route.id}/${role}: Task Row topology follows the route contract`,
       );
     }
@@ -183,6 +208,41 @@ test("Task Row topology does not report task-control admission", () => {
     for (const [entry, entryDescriptors] of descriptors) {
       restoreDescriptors(entry, entryDescriptors);
     }
+  }
+});
+
+test("Instructor Product routes reserve owner-ordered task groups despite unavailable entries", () => {
+  const courses = controlsFor("courses", "instructor").model;
+  const questions = controlsFor("library", "instructor").model;
+  assert.deepEqual(
+    courses.tabs.map((control) => control.label),
+    ["Courses", "Questions", "Assignments"],
+  );
+  assert.deepEqual(
+    courses.taskAreas.flatMap((area) => area.controls).map((control) => control.label),
+    [
+      "My Blueprint Courses",
+      "My Active Courses",
+      "My Inactive Courses",
+      "Search Public Blueprint Courses",
+    ],
+  );
+  assert.deepEqual(
+    questions.taskAreas.flatMap((area) => area.controls).map((control) => control.label),
+    [
+      "My Questions",
+      "My Draft Questions",
+      "Starred",
+      "Watched",
+      "Search Question Library",
+      "Browse Question Library",
+    ],
+  );
+  for (const control of courses.taskAreas.flatMap((area) => area.controls)) {
+    if (control.availability === "Unavailable") assert.equal(control.href, undefined, control.id);
+  }
+  for (const control of questions.taskAreas.flatMap((area) => area.controls)) {
+    if (control.availability === "Unavailable") assert.equal(control.href, undefined, control.id);
   }
 });
 
@@ -275,4 +335,75 @@ test("relationship admission may check without moving schema-owned positions", (
   } finally {
     restoreDescriptors(entry, descriptors);
   }
+});
+
+test("breadcrumb trails are canonical route projections with one current terminal", () => {
+  const labels = {
+    accountLabel: "Neil Voss",
+    courseTitle: "Biochemistry I",
+    assignmentTitle: "Problem Set 7",
+    assignmentAttemptTitle: "Problem Set 7",
+  };
+  const cases = [
+    ["courses", []],
+    ["courseAssignments", ["Courses", "Biochemistry I"]],
+    ["courseAppearance", ["Courses", "Biochemistry I", "Appearance"]],
+    ["assignmentWorkspaceQuestions", ["Courses", "Biochemistry I", "Problem Set 7", "Questions"]],
+    ["questionDetail", ["Questions", "Question Library", "Question"]],
+    ["questionDraftEditor", ["Questions", "My Draft Questions", "Draft Question"]],
+    ["blueprintCourseDetail", ["Courses", "My Blueprint Courses", "Blueprint Course"]],
+    ["assignmentAttempt", ["Courses", "Biochemistry I", "Problem Set 7", "Assignment attempt"]],
+  ];
+  for (const [routeId, expectedLabels] of cases) {
+    const routeState = routeStateFor(routeId);
+    const model = deriveRibbonModel(
+      routeId === "assignmentAttempt"
+        ? {
+            ...routeState,
+            params: { ...routeState.params, courseRef: "C-1", assignmentRef: "A-1" },
+          }
+        : routeState,
+      { productRole: "instructor" },
+      labels,
+    );
+    assert.deepEqual(
+      model.breadcrumbs.map((item) => item.label),
+      expectedLabels,
+      routeId,
+    );
+    assert.equal(
+      model.breadcrumbs.filter((item) => item.current).length,
+      expectedLabels.length === 0 ? 0 : 1,
+      `${routeId} has exactly one current terminal`,
+    );
+    for (const item of model.breadcrumbs.filter((candidate) => candidate.href !== undefined)) {
+      assert.ok(
+        routeContractForPathname(item.href),
+        `${routeId}:${item.label} has a declared href`,
+      );
+    }
+  }
+  const malformed = ROUTE_CONTRACT.find((route) => route.id === "courseAppearance");
+  assert.ok(malformed);
+  const invalid = deriveRibbonModel(
+    { route: malformed, params: { courseRef: "C-1/not-a-reference" } },
+    { productRole: "instructor" },
+    labels,
+  );
+  assert.deepEqual(invalid.breadcrumbs, [], "malformed scope fails closed without identifier copy");
+  assert.equal(
+    invalid.breadcrumbPreludeReserved,
+    true,
+    "declared deep-route geometry remains stable",
+  );
+});
+
+test("Student Course Invitation acceptance stays outside Course breadcrumb context", () => {
+  const model = deriveRibbonModel(
+    routeStateFor("studentCourseInvitation"),
+    { productRole: "student" },
+    LABELS,
+  );
+  assert.deepEqual(model.breadcrumbs, []);
+  assert.equal(model.breadcrumbPreludeReserved, false);
 });

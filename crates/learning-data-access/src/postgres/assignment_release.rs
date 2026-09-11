@@ -2,9 +2,13 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AssignmentAuthoredContentField, AssignmentEditNumber, AssignmentInstructions,
-    AssignmentReference, AssignmentStatus, AssignmentTitle, CourseInstanceReference,
-    CourseLocalDateAndTime, CourseTerm, LateWorkRule, QuestionId, Timestamp,
+    AccountTimeZone, AssignmentActivityRules, AssignmentAttemptContinuationRule,
+    AssignmentAttemptGradeRule, AssignmentAttemptResumeRule, AssignmentAuthoredContentField,
+    AssignmentCompletionRule, AssignmentEditNumber, AssignmentInstructions,
+    AssignmentNavigationRule, AssignmentQuestionDisplayRule, AssignmentQuestionOrderRule,
+    AssignmentQuestionVariationRule, AssignmentReference, AssignmentStatus, AssignmentTitle,
+    CourseInstanceReference, CourseTerm, LateWorkRule, LocalDateAndTime, QuestionId,
+    QuestionPoolReuseRule, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -144,9 +148,9 @@ impl LiveAssignmentStore for PostgresLiveAssignmentStore {
         assignment: AssignmentReference,
     ) -> Result<LiveAssignmentWorkspace, StoreError> {
         let mut tx = self.begin(token).await?;
-        let term = course_term(&mut tx, course).await?;
+        let context = schedule_context(&mut tx, course).await?;
         let rows = workspace_rows(&mut tx, course, assignment).await?;
-        let result = decode_workspace(&rows, &term)?.ok_or(StoreError::NotFound)?;
+        let result = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
     }
@@ -160,13 +164,17 @@ impl LiveAssignmentStore for PostgresLiveAssignmentStore {
     ) -> Result<LiveAssignmentWorkspace, StoreError> {
         input.validate()?;
         let mut tx = self.begin(token).await?;
-        let term = course_term(&mut tx, course).await?;
+        let context = schedule_context(&mut tx, course).await?;
         let due_at_millis = input
             .due_at
             .as_ref()
             .map(|value| {
                 value
-                    .resolve_for_course(&term, AssignmentAuthoredContentField::DueAt)
+                    .resolve_in_account_time_zone(
+                        &context.term,
+                        &context.account_time_zone,
+                        AssignmentAuthoredContentField::DueAt,
+                    )
                     .map(|timestamp| timestamp.as_unix_millis())
                     .map_err(|_| invalid("Course-local Due at"))
             })
@@ -177,7 +185,7 @@ impl LiveAssignmentStore for PostgresLiveAssignmentStore {
             .map(ToString::to_string)
             .collect::<Vec<_>>();
         sqlx::query(
-            "SELECT * FROM ple_api.save_live_demo_assignment($1, $2, $3, $4, $5, $6, $7, $8)",
+            "SELECT * FROM ple_api.save_live_demo_assignment($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)",
         )
         .bind(i64::from(course.number()))
         .bind(i64::from(assignment.number()))
@@ -190,11 +198,30 @@ impl LiveAssignmentStore for PostgresLiveAssignmentStore {
         .bind(ids)
         .bind(due_at_millis)
         .bind(late_work_rule(&input.late_work_rule))
+        .bind(input.assignment_attempt_time_limit_seconds.map(|value| i32::try_from(value.get())).transpose().map_err(|_| invalid("Assignment Attempt Time Limit"))?)
+        .bind(input.attempt_limit.map(|value| i32::try_from(value.get())).transpose().map_err(|_| invalid("Assignment Attempt Limit"))?)
+        .bind(activity_rule_values(&input.activity_rules)[0])
+        .bind(activity_rule_values(&input.activity_rules)[1])
+        .bind(activity_rule_values(&input.activity_rules)[2])
+        .bind(activity_rule_values(&input.activity_rules)[3])
+        .bind(activity_rule_values(&input.activity_rules)[4])
+        .bind(activity_rule_values(&input.activity_rules)[5])
+        .bind(activity_rule_values(&input.activity_rules)[6])
+        .bind(activity_rule_values(&input.activity_rules)[7])
+        .bind(activity_rule_values(&input.activity_rules)[8])
+        .bind(activity_rule_extras(&input.activity_rules).0)
+        .bind(activity_rule_extras(&input.activity_rules).1)
+        .bind(feedback_rule_values(&input.student_feedback_release_rule)[0])
+        .bind(feedback_rule_values(&input.student_feedback_release_rule)[1])
+        .bind(feedback_rule_values(&input.student_feedback_release_rule)[2])
+        .bind(feedback_rule_values(&input.student_feedback_release_rule)[3])
+        .bind(feedback_rule_values(&input.student_feedback_release_rule)[4])
+        .bind(feedback_rule_values(&input.student_feedback_release_rule)[5])
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
         let rows = workspace_rows(&mut tx, course, assignment).await?;
-        let result = decode_workspace(&rows, &term)?.ok_or(StoreError::NotFound)?;
+        let result = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
     }
@@ -241,9 +268,9 @@ impl LiveAssignmentStore for PostgresLiveAssignmentStore {
         assignment: AssignmentReference,
     ) -> Result<AssignmentPreview, StoreError> {
         let mut tx = self.begin(token).await?;
-        let term = course_term(&mut tx, course).await?;
+        let context = schedule_context(&mut tx, course).await?;
         let rows = workspace_rows(&mut tx, course, assignment).await?;
-        let workspace = decode_workspace(&rows, &term)?.ok_or(StoreError::NotFound)?;
+        let workspace = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(AssignmentPreview {
             title: workspace.title,
@@ -294,13 +321,18 @@ async fn workspace_rows(
         .map_err(map_sqlx_error)
 }
 
-async fn course_term(
+struct AssignmentScheduleContext {
+    term: CourseTerm,
+    account_time_zone: AccountTimeZone,
+}
+
+async fn schedule_context(
     tx: &mut Transaction<'_, Postgres>,
     course: CourseInstanceReference,
-) -> Result<CourseTerm, StoreError> {
+) -> Result<AssignmentScheduleContext, StoreError> {
     let row = sqlx::query(
         "SELECT term_starts_on::text AS term_starts_on, term_ends_on::text AS term_ends_on, \
-         course_time_zone FROM ple_api.load_live_demo_assignment_course_term($1)",
+         account_time_zone FROM ple_api.load_live_demo_assignment_schedule_context($1)",
     )
     .bind(i64::from(course.number()))
     .fetch_optional(&mut **tx)
@@ -309,8 +341,18 @@ async fn course_term(
     .ok_or(StoreError::NotFound)?;
     let starts_on: String = row.try_get("term_starts_on").map_err(map_sqlx_error)?;
     let ends_on: String = row.try_get("term_ends_on").map_err(map_sqlx_error)?;
-    let time_zone: String = row.try_get("course_time_zone").map_err(map_sqlx_error)?;
-    CourseTerm::from_parts(&starts_on, &ends_on, &time_zone).map_err(|_| invalid("Course Term"))
+    let account_time_zone: String = row.try_get("account_time_zone").map_err(map_sqlx_error)?;
+    let account_time_zone =
+        AccountTimeZone::parse(&account_time_zone).map_err(|_| invalid("Account Time Zone"))?;
+    // CourseTerm remains the smallest existing holder for inclusive calendar dates.
+    // Its zone is populated only to satisfy the legacy container invariant and
+    // is never consulted: resolution below takes the Account zone explicitly.
+    let term = CourseTerm::from_parts(&starts_on, &ends_on, account_time_zone.as_str())
+        .map_err(|_| invalid("Course Term"))?;
+    Ok(AssignmentScheduleContext {
+        term,
+        account_time_zone,
+    })
 }
 
 fn workspace_without_questions(
@@ -329,13 +371,19 @@ fn workspace_without_questions(
                 .map_err(map_sqlx_error)?,
         )?,
         due_at: None,
-        late_work_rule: LateWorkRule::Accept,
+        late_work_rule: LateWorkRule::Reject,
+        assignment_attempt_time_limit_seconds: None,
+        attempt_limit: None,
+        activity_rules: AssignmentActivityRules::default(),
+        student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
+        display_time_zone: AccountTimeZone::parse("UTC")
+            .map_err(|_| invalid("Account Time Zone"))?,
         questions: vec![],
     })
 }
 fn decode_workspace(
     rows: &[sqlx::postgres::PgRow],
-    term: &CourseTerm,
+    context: &AssignmentScheduleContext,
 ) -> Result<Option<LiveAssignmentWorkspace>, StoreError> {
     let Some(first) = rows.first() else {
         return Ok(None);
@@ -345,9 +393,10 @@ fn decode_workspace(
         .try_get::<Option<i64>, _>("due_at_millis")
         .map_err(map_sqlx_error)?
         .map(|millis| {
-            CourseLocalDateAndTime::from_activity_timestamp(
+            LocalDateAndTime::from_activity_timestamp_in_account_time_zone(
                 Timestamp::from_unix_millis(millis),
-                term,
+                &context.term,
+                &context.account_time_zone,
                 AssignmentAuthoredContentField::DueAt,
             )
             .map_err(|_| invalid("Course-local Due at"))
@@ -355,6 +404,19 @@ fn decode_workspace(
         .transpose()?;
     workspace.late_work_rule =
         parse_late_work_rule(first.try_get("late_work_rule").map_err(map_sqlx_error)?)?;
+    workspace.assignment_attempt_time_limit_seconds = nonzero_optional(
+        first
+            .try_get("assignment_attempt_time_limit_seconds")
+            .map_err(map_sqlx_error)?,
+        "Assignment Attempt Time Limit",
+    )?;
+    workspace.attempt_limit = nonzero_optional(
+        first.try_get("attempt_limit").map_err(map_sqlx_error)?,
+        "Assignment Attempt Limit",
+    )?;
+    workspace.activity_rules = activity_rules(first)?;
+    workspace.student_feedback_release_rule = feedback_rules(first)?;
+    workspace.display_time_zone = context.account_time_zone.clone();
     workspace.questions = rows
         .iter()
         .filter_map(|row| {
@@ -418,6 +480,200 @@ fn late_work_rule(value: &LateWorkRule) -> &'static str {
         LateWorkRule::Accept => "accept",
         LateWorkRule::MarkLate => "mark_late",
         LateWorkRule::Reject => "reject",
+    }
+}
+fn nonzero_optional(
+    value: Option<i32>,
+    label: &str,
+) -> Result<Option<std::num::NonZeroU32>, StoreError> {
+    value
+        .map(|value| {
+            u32::try_from(value)
+                .ok()
+                .and_then(std::num::NonZeroU32::new)
+                .ok_or_else(|| invalid(label))
+        })
+        .transpose()
+}
+fn activity_rules(row: &sqlx::postgres::PgRow) -> Result<AssignmentActivityRules, StoreError> {
+    let value = |column| row.try_get::<String, _>(column).map_err(map_sqlx_error);
+    Ok(AssignmentActivityRules {
+        assignment_completion_rule: match value("assignment_completion_rule")?.as_str() {
+            "answer_all" => AssignmentCompletionRule::AnswerAll,
+            "all_correct" => AssignmentCompletionRule::AllCorrect,
+            "score_at_least" => AssignmentCompletionRule::ScoreAtLeast {
+                fraction: row
+                    .try_get::<Option<f64>, _>("assignment_completion_score_threshold")
+                    .map_err(map_sqlx_error)?
+                    .ok_or_else(|| invalid("Assignment Completion Score Threshold"))?,
+            },
+            _ => return Err(invalid("Assignment Completion Rule")),
+        },
+        assignment_attempt_grade_rule: match value("assignment_attempt_grade_rule")?.as_str() {
+            "first" => AssignmentAttemptGradeRule::First,
+            "latest" => AssignmentAttemptGradeRule::Latest,
+            "highest" => AssignmentAttemptGradeRule::Highest,
+            "instructor_selected" => AssignmentAttemptGradeRule::InstructorSelected,
+            _ => return Err(invalid("Assignment Attempt Grade Rule")),
+        },
+        assignment_attempt_continuation_rule: match value("assignment_attempt_continuation_rule")?
+            .as_str()
+        {
+            "unlimited" => AssignmentAttemptContinuationRule::Unlimited,
+            "closed" => AssignmentAttemptContinuationRule::Closed,
+            "capped" => AssignmentAttemptContinuationRule::Capped {
+                max_additional_assignment_attempts: u32::try_from(
+                    row.try_get::<Option<i32>, _>("max_additional_assignment_attempts")
+                        .map_err(map_sqlx_error)?
+                        .ok_or_else(|| invalid("Maximum Additional Assignment Attempts"))?,
+                )
+                .map_err(|_| invalid("Maximum Additional Assignment Attempts"))?,
+            },
+            _ => return Err(invalid("Assignment Attempt Continuation Rule")),
+        },
+        question_pool_reuse_rule: match value("question_pool_reuse_rule")?.as_str() {
+            "reuse_selection" => QuestionPoolReuseRule::ReuseSelection,
+            "select_again" => QuestionPoolReuseRule::SelectAgain,
+            _ => return Err(invalid("Question Pool Reuse Rule")),
+        },
+        question_variation_rule: match value("question_variation_rule")?.as_str() {
+            "reuse_variation" => AssignmentQuestionVariationRule::ReuseVariation,
+            "new_variation" => AssignmentQuestionVariationRule::NewVariation,
+            _ => return Err(invalid("Question Variation Rule")),
+        },
+        assignment_attempt_resume_rule: match value("assignment_attempt_resume_rule")?.as_str() {
+            "resumable" => AssignmentAttemptResumeRule::Resumable,
+            "single_session" => AssignmentAttemptResumeRule::SingleSession,
+            _ => return Err(invalid("Assignment Attempt Resume Rule")),
+        },
+        assignment_question_display_rule: match value("assignment_question_display_rule")?.as_str()
+        {
+            "one_question_at_a_time" => AssignmentQuestionDisplayRule::OneQuestionAtATime,
+            "all_questions" => AssignmentQuestionDisplayRule::AllQuestions,
+            _ => return Err(invalid("Assignment Question Display Rule")),
+        },
+        assignment_navigation_rule: match value("assignment_navigation_rule")?.as_str() {
+            "free_navigation" => AssignmentNavigationRule::FreeNavigation,
+            "forward_only" => AssignmentNavigationRule::ForwardOnly,
+            _ => return Err(invalid("Assignment Navigation Rule")),
+        },
+        assignment_question_order_rule: match value("assignment_question_order_rule")?.as_str() {
+            "authored_order" => AssignmentQuestionOrderRule::AuthoredOrder,
+            "shuffled" => AssignmentQuestionOrderRule::Shuffled,
+            _ => return Err(invalid("Assignment Question Order Rule")),
+        },
+    })
+}
+fn feedback_timing(value: String) -> Result<StudentFeedbackReleaseTiming, StoreError> {
+    match value.as_str() {
+        "during_attempt" => Ok(StudentFeedbackReleaseTiming::DuringAttempt),
+        "after_submit" => Ok(StudentFeedbackReleaseTiming::AfterSubmit),
+        "after_due" => Ok(StudentFeedbackReleaseTiming::AfterDue),
+        "after_close" => Ok(StudentFeedbackReleaseTiming::AfterClose),
+        "never" => Ok(StudentFeedbackReleaseTiming::Never),
+        _ => Err(invalid("Student Feedback Release Timing")),
+    }
+}
+fn feedback_rules(row: &sqlx::postgres::PgRow) -> Result<StudentFeedbackReleaseRule, StoreError> {
+    Ok(StudentFeedbackReleaseRule {
+        score: feedback_timing(row.try_get("feedback_score").map_err(map_sqlx_error)?)?,
+        per_item_correctness: feedback_timing(
+            row.try_get("feedback_per_item_correctness")
+                .map_err(map_sqlx_error)?,
+        )?,
+        question_feedback: feedback_timing(
+            row.try_get("feedback_question_feedback")
+                .map_err(map_sqlx_error)?,
+        )?,
+        question_answer: feedback_timing(
+            row.try_get("feedback_question_answer")
+                .map_err(map_sqlx_error)?,
+        )?,
+        question_answer_explanation: feedback_timing(
+            row.try_get("feedback_question_answer_explanation")
+                .map_err(map_sqlx_error)?,
+        )?,
+        class_statistics: feedback_timing(
+            row.try_get("feedback_class_statistics")
+                .map_err(map_sqlx_error)?,
+        )?,
+    })
+}
+fn activity_rule_values(rules: &AssignmentActivityRules) -> [&'static str; 9] {
+    [
+        match rules.assignment_completion_rule {
+            AssignmentCompletionRule::AnswerAll => "answer_all",
+            AssignmentCompletionRule::AllCorrect => "all_correct",
+            AssignmentCompletionRule::ScoreAtLeast { .. } => "score_at_least",
+        },
+        match rules.assignment_attempt_grade_rule {
+            AssignmentAttemptGradeRule::First => "first",
+            AssignmentAttemptGradeRule::Latest => "latest",
+            AssignmentAttemptGradeRule::Highest => "highest",
+            AssignmentAttemptGradeRule::InstructorSelected => "instructor_selected",
+        },
+        match rules.assignment_attempt_continuation_rule {
+            AssignmentAttemptContinuationRule::Unlimited => "unlimited",
+            AssignmentAttemptContinuationRule::Capped { .. } => "capped",
+            AssignmentAttemptContinuationRule::Closed => "closed",
+        },
+        match rules.question_pool_reuse_rule {
+            QuestionPoolReuseRule::ReuseSelection => "reuse_selection",
+            QuestionPoolReuseRule::SelectAgain => "select_again",
+        },
+        match rules.question_variation_rule {
+            AssignmentQuestionVariationRule::ReuseVariation => "reuse_variation",
+            AssignmentQuestionVariationRule::NewVariation => "new_variation",
+        },
+        match rules.assignment_attempt_resume_rule {
+            AssignmentAttemptResumeRule::Resumable => "resumable",
+            AssignmentAttemptResumeRule::SingleSession => "single_session",
+        },
+        match rules.assignment_question_display_rule {
+            AssignmentQuestionDisplayRule::AllQuestions => "all_questions",
+            AssignmentQuestionDisplayRule::OneQuestionAtATime => "one_question_at_a_time",
+        },
+        match rules.assignment_navigation_rule {
+            AssignmentNavigationRule::FreeNavigation => "free_navigation",
+            AssignmentNavigationRule::ForwardOnly => "forward_only",
+        },
+        match rules.assignment_question_order_rule {
+            AssignmentQuestionOrderRule::AuthoredOrder => "authored_order",
+            AssignmentQuestionOrderRule::Shuffled => "shuffled",
+        },
+    ]
+}
+fn activity_rule_extras(rules: &AssignmentActivityRules) -> (Option<f64>, Option<i32>) {
+    (
+        match rules.assignment_completion_rule {
+            AssignmentCompletionRule::ScoreAtLeast { fraction } => Some(fraction),
+            _ => None,
+        },
+        match rules.assignment_attempt_continuation_rule {
+            AssignmentAttemptContinuationRule::Capped {
+                max_additional_assignment_attempts,
+            } => i32::try_from(max_additional_assignment_attempts).ok(),
+            _ => None,
+        },
+    )
+}
+fn feedback_rule_values(rule: &StudentFeedbackReleaseRule) -> [&'static str; 6] {
+    [
+        feedback_value(rule.score),
+        feedback_value(rule.per_item_correctness),
+        feedback_value(rule.question_feedback),
+        feedback_value(rule.question_answer),
+        feedback_value(rule.question_answer_explanation),
+        feedback_value(rule.class_statistics),
+    ]
+}
+fn feedback_value(value: StudentFeedbackReleaseTiming) -> &'static str {
+    match value {
+        StudentFeedbackReleaseTiming::DuringAttempt => "during_attempt",
+        StudentFeedbackReleaseTiming::AfterSubmit => "after_submit",
+        StudentFeedbackReleaseTiming::AfterDue => "after_due",
+        StudentFeedbackReleaseTiming::AfterClose => "after_close",
+        StudentFeedbackReleaseTiming::Never => "never",
     }
 }
 fn invalid(label: &str) -> StoreError {

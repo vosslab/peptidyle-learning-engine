@@ -23,6 +23,7 @@ import {
   setMultipleAnswerChoiceFeedback,
   setMultipleAnswerChoiceText,
   setMultipleAnswerCorrect,
+  setMultipleAnswerChoiceRandomization,
 } from "./question_json_multiple_answer_model";
 import { PleQuestionJsonNumericEditor } from "./question_json_numeric_editor";
 import { numericResponseFromAuthoring } from "./question_json_numeric_model";
@@ -157,6 +158,10 @@ export function PleQuestionJsonAdvancedResponseFields(
             }}
             onCorrectChoiceChange={(id, correct) => {
               const next = setMultipleAnswerCorrect(response(), id, correct);
+              if (next.changed) editResponse(next.response);
+            }}
+            onRandomizeChoicesChange={(randomizeChoices) => {
+              const next = setMultipleAnswerChoiceRandomization(response(), randomizeChoices);
               if (next.changed) editResponse(next.response);
             }}
             onAddChoice={() => {

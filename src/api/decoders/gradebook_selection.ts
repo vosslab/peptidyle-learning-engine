@@ -2,6 +2,7 @@
 
 import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
+import type { AccountTimeZone } from "../../../generated/api/AccountTimeZone";
 import type { CourseMembershipReference } from "../../../generated/api/CourseMembershipReference";
 import type { CourseRosterChangeNumber } from "../../../generated/api/CourseRosterChangeNumber";
 import type { InstructorGradingOperationReference } from "../../../generated/api/InstructorGradingOperationReference";
@@ -83,6 +84,8 @@ export interface SubmittedAssignmentAttemptChoicesQuery {
 }
 
 export interface SubmittedAssignmentAttemptChoicesPage {
+  /** Authenticated Instructor-owned rendering zone for this whole response. */
+  readonly displayTimeZone: AccountTimeZone;
   readonly rosterChangeNumber: CourseRosterChangeNumber;
   readonly nextCursor: string | null;
   readonly rows: ReadonlyArray<SubmittedAssignmentAttemptChoice>;
@@ -101,6 +104,19 @@ function closed(
 
 function optionalField(record: Record<string, unknown>, key: string): unknown {
   return Object.prototype.hasOwnProperty.call(record, key) ? record[key] : undefined;
+}
+
+function decodeDisplayTimeZone(value: unknown, path: string): AccountTimeZone {
+  const timeZone = decodeString(value, path);
+  if (timeZone.length === 0 || timeZone.length > 255 || timeZone.trim() !== timeZone) {
+    throw new DecodeError(path, "a bounded exact IANA time-zone name");
+  }
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone });
+  } catch {
+    throw new DecodeError(path, "a supported IANA time-zone name");
+  }
+  return timeZone;
 }
 
 function publicReference(value: unknown, path: string, prefix: "A" | "M" | "R"): string {
@@ -256,9 +272,14 @@ export function decodeSubmittedAssignmentAttemptChoicesPage(
   path = "response",
 ): SubmittedAssignmentAttemptChoicesPage {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["rosterChangeNumber", "nextCursor", "rows"]);
+  requireOnlyFields(record, path, ["displayTimeZone", "rosterChangeNumber", "nextCursor", "rows"]);
   const nextCursor = optionalField(record, "nextCursor");
   return {
+    // ASVS 8.2.3/14.2.6: this is viewer-owned envelope metadata, never a row field.
+    displayTimeZone: decodeDisplayTimeZone(
+      field(record, "displayTimeZone", path),
+      `${path}.displayTimeZone`,
+    ),
     rosterChangeNumber: decodeCourseRosterChangeNumber(
       field(record, "rosterChangeNumber", path),
       `${path}.rosterChangeNumber`,

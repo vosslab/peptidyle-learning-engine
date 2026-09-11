@@ -12,7 +12,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AccountReference, CourseInvitationReference, CourseLocalDateAndTime, CourseMembershipReference,
+    AccountReference, CourseInvitationReference, CourseMembershipReference, LocalDateAndTime,
     MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, Timestamp,
 };
 
@@ -234,7 +234,7 @@ pub enum AccommodationApplicationRuleView {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum TeachingTimeFieldPatch {
     Inherit,
-    Set { value: CourseLocalDateAndTime },
+    Set { value: LocalDateAndTime },
     Unrestricted,
 }
 
@@ -342,6 +342,8 @@ pub struct InstructorCourseInvitationView {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InstructorCourseInvitationsPage {
+    /// Authenticated Instructor's own IANA zone for rendering this page's instants.
+    pub display_time_zone: crate::AccountTimeZone,
     pub invitations: Vec<InstructorCourseInvitationView>,
     pub next_cursor: Option<String>,
 }
@@ -374,6 +376,8 @@ pub enum CourseInvitationStateView {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PendingCourseInvitationsPage {
+    /// Authenticated Instructor's own IANA zone for rendering this page's instants.
+    pub display_time_zone: crate::AccountTimeZone,
     pub invitations: Vec<PendingCourseInvitationView>,
     pub next_cursor: Option<String>,
 }
@@ -498,5 +502,28 @@ mod tests {
         let value = serde_json::to_value(row).unwrap();
         assert_eq!(value["expiresAt"], 2_592_000_000_i64);
         assert!(value.get("invitedBy").is_none());
+    }
+
+    #[test]
+    fn invitation_pages_keep_the_viewer_zone_at_the_page_envelope() {
+        let display_time_zone: crate::AccountTimeZone = "America/New_York".parse().unwrap();
+        let instructor_page = InstructorCourseInvitationsPage {
+            display_time_zone: display_time_zone.clone(),
+            invitations: vec![],
+            next_cursor: None,
+        };
+        let pending_page = PendingCourseInvitationsPage {
+            display_time_zone,
+            invitations: vec![],
+            next_cursor: None,
+        };
+
+        for page in [
+            serde_json::to_value(instructor_page).unwrap(),
+            serde_json::to_value(pending_page).unwrap(),
+        ] {
+            assert_eq!(page["displayTimeZone"], "America/New_York");
+            assert_eq!(page["invitations"], serde_json::json!([]));
+        }
     }
 }

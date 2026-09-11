@@ -9,6 +9,56 @@ use question_model::assignment_activity_rules::QuestionAttemptTimeLimit;
 use question_model::{QuestionAttemptTiming, Timestamp};
 use serde::{Deserialize, Serialize};
 
+/// Largest whole millisecond value JavaScript can represent exactly.
+pub const MAX_BROWSER_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
+
+/// Clock-free browser countdown input.
+///
+/// The server supplies `initial_remaining_milliseconds` in a progress
+/// projection. The browser supplies only elapsed time from a monotonic clock;
+/// it never derives a deadline from its wall clock.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssignmentAttemptRemainingDurationInput {
+    pub initial_remaining_milliseconds: Option<u64>,
+    pub elapsed_milliseconds: u64,
+}
+
+/// Invalid browser countdown input.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AssignmentAttemptRemainingDurationError {
+    /// A JavaScript number would lose integer precision at this magnitude.
+    UnsafeInteger,
+}
+
+impl std::fmt::Display for AssignmentAttemptRemainingDurationError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("assignment attempt duration must be a JavaScript safe integer")
+    }
+}
+
+impl std::error::Error for AssignmentAttemptRemainingDurationError {}
+
+/// Calculates the displayed remaining duration without reading any clock.
+///
+/// `None` remains untimed. Timed values are clamped at zero, so a delayed
+/// browser frame cannot produce a negative timer display.
+pub fn assignment_attempt_remaining_milliseconds(
+    input: AssignmentAttemptRemainingDurationInput,
+) -> Result<Option<u64>, AssignmentAttemptRemainingDurationError> {
+    if input.elapsed_milliseconds > MAX_BROWSER_SAFE_INTEGER
+        || input
+            .initial_remaining_milliseconds
+            .is_some_and(|milliseconds| milliseconds > MAX_BROWSER_SAFE_INTEGER)
+    {
+        return Err(AssignmentAttemptRemainingDurationError::UnsafeInteger);
+    }
+
+    Ok(input
+        .initial_remaining_milliseconds
+        .map(|milliseconds| milliseconds.saturating_sub(input.elapsed_milliseconds)))
+}
+
 /// Complete clock-free input to one timer evaluation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -200,6 +250,64 @@ mod tests {
             },
             evaluated_at: timestamp(evaluated_at),
             pause_extension_millis,
+        }
+    }
+
+    #[test]
+    fn assignment_attempt_remaining_duration_is_clock_free_and_clamped() {
+        let cases = [
+            (
+                "untimed",
+                AssignmentAttemptRemainingDurationInput {
+                    initial_remaining_milliseconds: None,
+                    elapsed_milliseconds: 123,
+                },
+                Ok(None),
+            ),
+            (
+                "counts down",
+                AssignmentAttemptRemainingDurationInput {
+                    initial_remaining_milliseconds: Some(10_000),
+                    elapsed_milliseconds: 1_234,
+                },
+                Ok(Some(8_766)),
+            ),
+            (
+                "clamps after expiry",
+                AssignmentAttemptRemainingDurationInput {
+                    initial_remaining_milliseconds: Some(10_000),
+                    elapsed_milliseconds: 10_001,
+                },
+                Ok(Some(0)),
+            ),
+        ];
+
+        for (name, input, expected) in cases {
+            assert_eq!(
+                assignment_attempt_remaining_milliseconds(input),
+                expected,
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn assignment_attempt_remaining_duration_rejects_unsafe_integers() {
+        let unsafe_integer = MAX_BROWSER_SAFE_INTEGER + 1;
+        for input in [
+            AssignmentAttemptRemainingDurationInput {
+                initial_remaining_milliseconds: Some(unsafe_integer),
+                elapsed_milliseconds: 0,
+            },
+            AssignmentAttemptRemainingDurationInput {
+                initial_remaining_milliseconds: Some(1),
+                elapsed_milliseconds: unsafe_integer,
+            },
+        ] {
+            assert_eq!(
+                assignment_attempt_remaining_milliseconds(input),
+                Err(AssignmentAttemptRemainingDurationError::UnsafeInteger)
+            );
         }
     }
 

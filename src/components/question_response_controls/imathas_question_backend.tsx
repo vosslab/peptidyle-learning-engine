@@ -31,9 +31,46 @@ export interface ImathasQuestionBackendResponseProps {
   readonly onResponseChange?: (
     response: StudentResponse,
     validation: StudentResponseFormatCheck,
+    editRevision?: number,
   ) => void;
+  readonly onResponseEdit?: (response: StudentResponse) => number | undefined;
   readonly studentWorkRoute?: StudentWorkRouteScope;
   readonly beginImathasQuestionBackendLaunch?: () => Promise<ImathasQuestionBackendLaunch>;
+}
+
+/**
+ * iMathAS owns the rendered activity, while the Student response remains this
+ * exact marker. Route the marker through the same synchronous edit boundary as
+ * native controls so a durable-save validator receives its current revision.
+ */
+export function persistImathasQuestionBackendMarker(props: {
+  readonly onResponseEdit?: (response: StudentResponse) => number | undefined;
+  readonly onResponseChange?: (
+    response: StudentResponse,
+    validation: StudentResponseFormatCheck,
+    editRevision?: number,
+  ) => void;
+}): void {
+  const response: StudentResponse = { kind: "imathasQuestionBackend" };
+  const editRevision = props.onResponseEdit?.(response);
+  props.onResponseChange?.(response, { issues: [] }, editRevision);
+}
+
+/** Persist one marker per Question Attempt; retrying its launch retains that response. */
+export function createImathasQuestionBackendMarkerPersistence(props: {
+  readonly onResponseEdit?: (response: StudentResponse) => number | undefined;
+  readonly onResponseChange?: (
+    response: StudentResponse,
+    validation: StudentResponseFormatCheck,
+    editRevision?: number,
+  ) => void;
+}): () => void {
+  let persisted = false;
+  return (): void => {
+    if (persisted) return;
+    persisted = true;
+    persistImathasQuestionBackendMarker(props);
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -111,6 +148,7 @@ export function ImathasQuestionBackendResponse(
   let frame: HTMLIFrameElement | undefined;
   let submitButton: HTMLButtonElement | undefined;
   let launchRequest = 0;
+  let persistMarker = createImathasQuestionBackendMarkerPersistence(props);
 
   function marker(): StudentResponse {
     return { kind: "imathasQuestionBackend" };
@@ -124,12 +162,9 @@ export function ImathasQuestionBackendResponse(
     submitButton = element;
   }
 
-  function persistMarker(): void {
-    props.onResponseChange?.(marker(), { issues: [] });
-  }
-
   function resetForAttempt(): void {
     launchRequest += 1;
+    persistMarker = createImathasQuestionBackendMarkerPersistence(props);
     frame = undefined;
     setLaunchUrl(null);
     setPhase({ kind: "idle" });

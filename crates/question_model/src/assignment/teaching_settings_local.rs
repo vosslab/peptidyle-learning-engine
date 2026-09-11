@@ -8,7 +8,7 @@ use super::{
     BaseAssignmentPolicy, LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
     MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
 };
-use crate::{AssignmentActivityRules, CourseTerm, CourseTimeZone, Timestamp};
+use crate::{AccountTimeZone, AssignmentActivityRules, CourseTerm, Timestamp};
 
 /// Server-derived Instructor Assignment Availability View at one authoritative instant.
 ///
@@ -23,13 +23,9 @@ use crate::{AssignmentActivityRules, CourseTerm, CourseTimeZone, Timestamp};
 )]
 pub enum InstructorAssignmentAvailabilityView {
     Unreleased,
-    Scheduled {
-        available_at: CourseLocalDateAndTime,
-    },
+    Scheduled { available_at: LocalDateAndTime },
     Available,
-    Closed {
-        closed_at: Option<CourseLocalDateAndTime>,
-    },
+    Closed { closed_at: Option<LocalDateAndTime> },
     Archived,
 }
 
@@ -78,10 +74,11 @@ pub fn derive_instructor_assignment_availability(
     }
 }
 
-/// Exact browser `datetime-local` wire value in the course's authoritative zone.
+/// Exact browser `datetime-local` wire value without a time-zone claim.
 ///
 /// This is deliberately a local wall-clock value, not a stored instant. The
-/// server resolves it with [`CourseTerm`] before persisting the resulting
+/// authenticated server resolves it in its trusted Account zone, using
+/// authorized Course calendar bounds, before persisting the resulting
 /// [`AssignmentAuthoredContent`]. Its wire form is exactly
 /// `YYYY-MM-DDTHH:MM:SS.sss`, which is accepted by HTML `datetime-local`
 /// controls with `step="0.001"`. A browser may initialize its form at whole
@@ -89,11 +86,11 @@ pub fn derive_instructor_assignment_availability(
 /// timestamp's supported millisecond precision.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct CourseLocalDateAndTime(String);
+pub struct LocalDateAndTime(String);
 
-impl CourseLocalDateAndTime {
+impl LocalDateAndTime {
     /// Parses one exact millisecond-precision local wall-clock string.
-    pub fn parse(value: &str) -> Result<Self, CourseLocalDateAndTimeError> {
+    pub fn parse(value: &str) -> Result<Self, LocalDateAndTimeError> {
         let bytes = value.as_bytes();
         let exact_shape = bytes.len() == 23
             && bytes[4] == b'-'
@@ -106,7 +103,7 @@ impl CourseLocalDateAndTime {
                 matches!(index, 4 | 7 | 10 | 13 | 16 | 19) || byte.is_ascii_digit()
             });
         if !exact_shape || NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S%.3f").is_err() {
-            return Err(CourseLocalDateAndTimeError);
+            return Err(LocalDateAndTimeError);
         }
         Ok(Self(value.to_string()))
     }
@@ -119,10 +116,13 @@ impl CourseLocalDateAndTime {
     fn naive(&self) -> NaiveDateTime {
         // `parse` is the only constructor, including deserialization.
         NaiveDateTime::parse_from_str(&self.0, "%Y-%m-%dT%H:%M:%S%.3f")
-            .expect("validated course-local date time")
+            .expect("validated local date time")
     }
 
-    /// Resolves this wall-clock value in the course's authoritative IANA zone.
+    /// Compatibility resolver for the separate Course-zone availability view.
+    ///
+    /// Assignment authoring resolves with [`Self::resolve_in_account_time_zone`]
+    /// and the authenticated Account zone plus authorized calendar bounds.
     ///
     /// The supplied field identifies the exact correction target for DST,
     /// term, and range refusals at the server boundary.
@@ -134,7 +134,19 @@ impl CourseLocalDateAndTime {
         resolve_course_local_timestamp(self, course_term, field)
     }
 
-    /// Projects one server-resolved instant into this course's local wire form.
+    /// Resolves this zone-free wall-clock input only in the authenticated
+    /// Account's exact IANA zone. The caller supplies calendar bounds from
+    /// the authorized Course context; no browser-selected zone is accepted.
+    pub fn resolve_in_account_time_zone(
+        &self,
+        course_term: &CourseTerm,
+        account_time_zone: &AccountTimeZone,
+        field: AssignmentAuthoredContentField,
+    ) -> Result<Timestamp, AssignmentAuthoredContentLocalError> {
+        resolve_local_timestamp_in_account_time_zone(self, course_term, account_time_zone, field)
+    }
+
+    /// Compatibility projection for the separate Course-zone availability view.
     ///
     /// The supplied field identifies the exact correction target if an instant
     /// cannot round-trip through the course calendar and zone.
@@ -145,56 +157,71 @@ impl CourseLocalDateAndTime {
     ) -> Result<Self, AssignmentAuthoredContentLocalError> {
         project_course_local_timestamp(value, course_term, field)
     }
+
+    /// Projects an instant through the authenticated Account's exact IANA zone.
+    pub fn from_activity_timestamp_in_account_time_zone(
+        value: Timestamp,
+        course_term: &CourseTerm,
+        account_time_zone: &AccountTimeZone,
+        field: AssignmentAuthoredContentField,
+    ) -> Result<Self, AssignmentAuthoredContentLocalError> {
+        project_local_timestamp_in_account_time_zone(value, course_term, account_time_zone, field)
+    }
 }
 
-impl TryFrom<String> for CourseLocalDateAndTime {
-    type Error = CourseLocalDateAndTimeError;
+/// Compatibility name for unrelated Course-zone projection consumers.
+/// Assignment authoring input uses [`LocalDateAndTime`] directly.
+pub type CourseLocalDateAndTime = LocalDateAndTime;
+
+impl TryFrom<String> for LocalDateAndTime {
+    type Error = LocalDateAndTimeError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::parse(&value)
     }
 }
 
-impl From<CourseLocalDateAndTime> for String {
-    fn from(value: CourseLocalDateAndTime) -> Self {
+impl From<LocalDateAndTime> for String {
+    fn from(value: LocalDateAndTime) -> Self {
         value.0
     }
 }
 
 /// A local wall-clock string is not exact `YYYY-MM-DDTHH:MM:SS.sss` calendar time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CourseLocalDateAndTimeError;
+pub struct LocalDateAndTimeError;
 
-impl std::fmt::Display for CourseLocalDateAndTimeError {
+impl std::fmt::Display for LocalDateAndTimeError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("course-local date time must be exact YYYY-MM-DDTHH:MM:SS.sss")
+        formatter.write_str("local date time must be exact YYYY-MM-DDTHH:MM:SS.sss")
     }
 }
 
-impl std::error::Error for CourseLocalDateAndTimeError {}
+impl std::error::Error for LocalDateAndTimeError {}
+/// Compatibility error name for unrelated Course-zone consumers.
+pub type CourseLocalDateAndTimeError = LocalDateAndTimeError;
 
 /// Browser-facing Instructor Assignment Authored Content Local.
 ///
-/// This is an edit/display boundary only. It contains local strings plus the
-/// course-owned IANA zone so a browser never consults its own machine zone.
+/// This is an edit/display boundary only. It contains zone-free local strings;
+/// the server supplies its trusted Account zone so a browser never consults
+/// its own machine zone.
 /// [`AssignmentAuthoredContent`] and its [`BaseAssignmentPolicy`] remain the
 /// only stored and effective-policy authority.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct InstructorAssignmentAuthoredContentLocal {
-    /// Authoritative course IANA zone shown beside local form controls.
-    pub time_zone: CourseTimeZone,
     /// Validated student-facing plain-text instructions.
     pub instructions: AssignmentInstructions,
-    /// First local course time at which students may open the assignment.
+    /// First local wall-clock time at which students may open the assignment.
     #[serde(rename = "available_at")]
-    pub available_at: Option<CourseLocalDateAndTime>,
-    /// Ordinary local course due time.
+    pub available_at: Option<LocalDateAndTime>,
+    /// Ordinary local wall-clock due time.
     #[serde(rename = "due_at")]
-    pub due_at: Option<CourseLocalDateAndTime>,
-    /// Hard local course time after which new work is closed.
+    pub due_at: Option<LocalDateAndTime>,
+    /// Hard local wall-clock time after which new work is closed.
     #[serde(rename = "closes_at")]
-    pub closes_at: Option<CourseLocalDateAndTime>,
+    pub closes_at: Option<LocalDateAndTime>,
     /// Whole Assignment Attempt limit when one applies.
     #[serde(rename = "assignment_attempt_time_limit_seconds")]
     pub assignment_attempt_time_limit_seconds: Option<NonZeroU32>,
@@ -213,11 +240,10 @@ impl InstructorAssignmentAuthoredContentLocal {
     /// Builds the browser value after validating limits and local ordering.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        time_zone: CourseTimeZone,
         instructions: AssignmentInstructions,
-        available_at: Option<CourseLocalDateAndTime>,
-        due_at: Option<CourseLocalDateAndTime>,
-        closes_at: Option<CourseLocalDateAndTime>,
+        available_at: Option<LocalDateAndTime>,
+        due_at: Option<LocalDateAndTime>,
+        closes_at: Option<LocalDateAndTime>,
         assignment_attempt_time_limit_seconds: Option<NonZeroU32>,
         attempt_limit: Option<NonZeroU32>,
         late_work_rule: LateWorkRule,
@@ -233,7 +259,6 @@ impl InstructorAssignmentAuthoredContentLocal {
         }
         validate_local_ordering(&available_at, &due_at, &closes_at)?;
         Ok(Self {
-            time_zone,
             instructions,
             available_at,
             due_at,
@@ -245,34 +270,50 @@ impl InstructorAssignmentAuthoredContentLocal {
         })
     }
 
-    /// Resolves this local instructor input against the course-owned IANA zone.
+    /// Resolves this local instructor input in a trusted Account IANA zone.
     ///
-    /// The server calls this before a store mutation. It refuses a zone mismatch,
-    /// course-calendar escape, DST gap, DST ambiguity, and invalid ordering.
+    /// The server calls this before a store mutation. It refuses a calendar
+    /// escape, DST gap, DST ambiguity, and invalid ordering.
     pub fn into_absolute(
         self,
         course_term: &CourseTerm,
+        account_time_zone: &AccountTimeZone,
         activity_rules: AssignmentActivityRules,
     ) -> Result<AssignmentAuthoredContent, AssignmentAuthoredContentLocalError> {
         self.validate()?;
-        if self.time_zone != *course_term.time_zone() {
-            return Err(AssignmentAuthoredContentLocalError::CourseTimeZoneMismatch);
-        }
-        let available_at = resolve_optional_course_local_timestamp(
-            self.available_at.as_ref(),
-            course_term,
-            AssignmentAuthoredContentField::AvailableAt,
-        )?;
-        let due_at = resolve_optional_course_local_timestamp(
-            self.due_at.as_ref(),
-            course_term,
-            AssignmentAuthoredContentField::DueAt,
-        )?;
-        let closes_at = resolve_optional_course_local_timestamp(
-            self.closes_at.as_ref(),
-            course_term,
-            AssignmentAuthoredContentField::ClosesAt,
-        )?;
+        let available_at = self
+            .available_at
+            .as_ref()
+            .map(|value| {
+                value.resolve_in_account_time_zone(
+                    course_term,
+                    account_time_zone,
+                    AssignmentAuthoredContentField::AvailableAt,
+                )
+            })
+            .transpose()?;
+        let due_at = self
+            .due_at
+            .as_ref()
+            .map(|value| {
+                value.resolve_in_account_time_zone(
+                    course_term,
+                    account_time_zone,
+                    AssignmentAuthoredContentField::DueAt,
+                )
+            })
+            .transpose()?;
+        let closes_at = self
+            .closes_at
+            .as_ref()
+            .map(|value| {
+                value.resolve_in_account_time_zone(
+                    course_term,
+                    account_time_zone,
+                    AssignmentAuthoredContentField::ClosesAt,
+                )
+            })
+            .transpose()?;
         validate_absolute_ordering(available_at, due_at, closes_at)?;
         Ok(AssignmentAuthoredContent {
             instructions: self.instructions,
@@ -305,28 +346,49 @@ impl InstructorAssignmentAuthoredContentLocal {
         validate_local_ordering(&self.available_at, &self.due_at, &self.closes_at)
     }
 
-    /// Projects stored absolute settings into exact local course wall-clock values.
+    /// Projects stored absolute settings into the trusted Account-zone wall-clock form.
     pub fn from_absolute(
         course_term: &CourseTerm,
+        account_time_zone: &AccountTimeZone,
         settings: &AssignmentAuthoredContent,
     ) -> Result<Self, AssignmentAuthoredContentLocalError> {
-        let available_at = project_optional_course_local_timestamp(
-            settings.base_policy.available_at,
-            course_term,
-            AssignmentAuthoredContentField::AvailableAt,
-        )?;
-        let due_at = project_optional_course_local_timestamp(
-            settings.base_policy.due_at,
-            course_term,
-            AssignmentAuthoredContentField::DueAt,
-        )?;
-        let closes_at = project_optional_course_local_timestamp(
-            settings.base_policy.closes_at,
-            course_term,
-            AssignmentAuthoredContentField::ClosesAt,
-        )?;
+        let available_at = settings
+            .base_policy
+            .available_at
+            .map(|value| {
+                LocalDateAndTime::from_activity_timestamp_in_account_time_zone(
+                    value,
+                    course_term,
+                    account_time_zone,
+                    AssignmentAuthoredContentField::AvailableAt,
+                )
+            })
+            .transpose()?;
+        let due_at = settings
+            .base_policy
+            .due_at
+            .map(|value| {
+                LocalDateAndTime::from_activity_timestamp_in_account_time_zone(
+                    value,
+                    course_term,
+                    account_time_zone,
+                    AssignmentAuthoredContentField::DueAt,
+                )
+            })
+            .transpose()?;
+        let closes_at = settings
+            .base_policy
+            .closes_at
+            .map(|value| {
+                LocalDateAndTime::from_activity_timestamp_in_account_time_zone(
+                    value,
+                    course_term,
+                    account_time_zone,
+                    AssignmentAuthoredContentField::ClosesAt,
+                )
+            })
+            .transpose()?;
         Self::new(
-            course_term.time_zone().clone(),
             settings.instructions.clone(),
             available_at,
             due_at,
@@ -352,7 +414,6 @@ pub enum AssignmentAuthoredContentFailureCode {
 #[serde(rename_all = "camelCase")]
 pub enum AssignmentAuthoredContentField {
     AssignmentAuthoredContent,
-    TimeZone,
     AvailableAt,
     DueAt,
     ClosesAt,
@@ -367,7 +428,6 @@ pub enum AssignmentAuthoredContentField {
 #[serde(rename_all = "camelCase")]
 pub enum AssignmentAuthoredContentFailureReason {
     InvalidInput,
-    CourseTimeZoneMismatch,
     OutsideCourseTerm,
     NonexistentLocalTime,
     AmbiguousLocalTime,
@@ -391,8 +451,6 @@ pub struct AssignmentAuthoredContentValidationFailure {
 /// Refusal reason while translating an instructor local schedule at the server boundary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AssignmentAuthoredContentLocalError {
-    /// The browser repeated a zone other than the course's authoritative IANA zone.
-    CourseTimeZoneMismatch,
     /// A local schedule timestamp lies outside the inclusive course calendar.
     OutsideCourseTerm(AssignmentAuthoredContentField),
     /// A local wall-clock time never occurred because DST skipped it.
@@ -412,7 +470,6 @@ pub enum AssignmentAuthoredContentLocalError {
 impl AssignmentAuthoredContentLocalError {
     pub fn field(self) -> AssignmentAuthoredContentField {
         match self {
-            Self::CourseTimeZoneMismatch => AssignmentAuthoredContentField::TimeZone,
             Self::OutsideCourseTerm(field)
             | Self::NonexistentLocalTime(field)
             | Self::AmbiguousLocalTime(field)
@@ -427,9 +484,6 @@ impl AssignmentAuthoredContentLocalError {
 
     pub fn reason(self) -> AssignmentAuthoredContentFailureReason {
         match self {
-            Self::CourseTimeZoneMismatch => {
-                AssignmentAuthoredContentFailureReason::CourseTimeZoneMismatch
-            }
             Self::OutsideCourseTerm(_) => AssignmentAuthoredContentFailureReason::OutsideCourseTerm,
             Self::NonexistentLocalTime(_) => {
                 AssignmentAuthoredContentFailureReason::NonexistentLocalTime
@@ -454,9 +508,6 @@ impl AssignmentAuthoredContentLocalError {
 impl std::fmt::Display for AssignmentAuthoredContentLocalError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(match self {
-            Self::CourseTimeZoneMismatch => {
-                "Assignment-authored content time zone must match the course time zone"
-            }
             Self::OutsideCourseTerm(_) => "teaching schedule must be inside the course calendar",
             Self::NonexistentLocalTime(_) => {
                 "teaching schedule uses a nonexistent daylight-saving local time"
@@ -529,14 +580,28 @@ fn course_time_zone(course_term: &CourseTerm) -> chrono_tz::Tz {
         .expect("CourseTerm contains an exact known IANA zone")
 }
 
-fn resolve_optional_course_local_timestamp(
-    value: Option<&CourseLocalDateAndTime>,
+fn parsed_account_time_zone(account_time_zone: &AccountTimeZone) -> chrono_tz::Tz {
+    account_time_zone
+        .as_str()
+        .parse()
+        .expect("AccountTimeZone contains an exact known IANA zone")
+}
+
+/// Resolves an authoring wall-clock value in the authenticated Account zone.
+/// ASVS 2.2.1 and 8.2.2: the Account zone is validated and authorized before
+/// this boundary; callers never accept an Account ID or zone from the browser.
+pub fn resolve_local_timestamp_in_account_time_zone(
+    value: &LocalDateAndTime,
     course_term: &CourseTerm,
+    account_time_zone: &AccountTimeZone,
     field: AssignmentAuthoredContentField,
-) -> Result<Option<Timestamp>, AssignmentAuthoredContentLocalError> {
-    value
-        .map(|value| resolve_course_local_timestamp(value, course_term, field))
-        .transpose()
+) -> Result<Timestamp, AssignmentAuthoredContentLocalError> {
+    resolve_local_timestamp(
+        value,
+        course_term,
+        parsed_account_time_zone(account_time_zone),
+        field,
+    )
 }
 
 /// Resolves one exact course-local wall-clock value at the server boundary.
@@ -549,6 +614,15 @@ pub fn resolve_course_local_timestamp(
     course_term: &CourseTerm,
     field: AssignmentAuthoredContentField,
 ) -> Result<Timestamp, AssignmentAuthoredContentLocalError> {
+    resolve_local_timestamp(value, course_term, course_time_zone(course_term), field)
+}
+
+fn resolve_local_timestamp(
+    value: &LocalDateAndTime,
+    course_term: &CourseTerm,
+    time_zone: chrono_tz::Tz,
+    field: AssignmentAuthoredContentField,
+) -> Result<Timestamp, AssignmentAuthoredContentLocalError> {
     let naive = value.naive();
     let date = naive.date().format("%Y-%m-%d").to_string();
     if date.as_str() < course_term.start_date().as_str()
@@ -558,7 +632,7 @@ pub fn resolve_course_local_timestamp(
             field,
         ));
     }
-    match course_time_zone(course_term).from_local_datetime(&naive) {
+    match time_zone.from_local_datetime(&naive) {
         LocalResult::Single(value) => Ok(Timestamp::from_unix_millis(value.timestamp_millis())),
         LocalResult::None => Err(AssignmentAuthoredContentLocalError::NonexistentLocalTime(
             field,
@@ -567,6 +641,21 @@ pub fn resolve_course_local_timestamp(
             AssignmentAuthoredContentLocalError::AmbiguousLocalTime(field),
         ),
     }
+}
+
+/// Projects an instant into the authenticated Account zone without changing it.
+pub fn project_local_timestamp_in_account_time_zone(
+    value: Timestamp,
+    course_term: &CourseTerm,
+    account_time_zone: &AccountTimeZone,
+    field: AssignmentAuthoredContentField,
+) -> Result<LocalDateAndTime, AssignmentAuthoredContentLocalError> {
+    project_local_timestamp(
+        value,
+        course_term,
+        parsed_account_time_zone(account_time_zone),
+        field,
+    )
 }
 
 fn project_optional_course_local_timestamp(
@@ -589,14 +678,23 @@ pub fn project_course_local_timestamp(
     course_term: &CourseTerm,
     field: AssignmentAuthoredContentField,
 ) -> Result<CourseLocalDateAndTime, AssignmentAuthoredContentLocalError> {
+    project_local_timestamp(value, course_term, course_time_zone(course_term), field)
+}
+
+fn project_local_timestamp(
+    value: Timestamp,
+    course_term: &CourseTerm,
+    time_zone: chrono_tz::Tz,
+    field: AssignmentAuthoredContentField,
+) -> Result<LocalDateAndTime, AssignmentAuthoredContentLocalError> {
     let utc = DateTime::<Utc>::from_timestamp_millis(value.as_unix_millis()).ok_or(
         AssignmentAuthoredContentLocalError::TimestampOutOfRange(field),
     )?;
-    let local = course_time_zone(course_term).from_utc_datetime(&utc.naive_utc());
+    let local = time_zone.from_utc_datetime(&utc.naive_utc());
     let wall_clock =
         CourseLocalDateAndTime::parse(&local.format("%Y-%m-%dT%H:%M:%S%.3f").to_string())
             .expect("formatted course-local timestamp is valid");
-    match course_time_zone(course_term).from_local_datetime(&wall_clock.naive()) {
+    match time_zone.from_local_datetime(&wall_clock.naive()) {
         LocalResult::Single(round_trip)
             if round_trip.timestamp_millis() == value.as_unix_millis() => {}
         LocalResult::Single(_) | LocalResult::Ambiguous(_, _) => {

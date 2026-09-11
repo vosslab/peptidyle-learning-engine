@@ -38,6 +38,20 @@ test("route contracts fail closed and reserve declared teaching routes for instr
     routeContractForPathname("/instructor/courses/C-1/assignments/A-1/grading-operations")?.id,
     "assignmentWorkspaceGradingOperations",
   );
+  assert.equal(
+    routeContractForPathname("/instructor/courses/C-1/assignments/A-1/delivery-check")?.id,
+    "assignmentPreview",
+  );
+  assert.equal(
+    routeContractForPathname("/instructor/courses/C-1/assignments/A-1/release"),
+    undefined,
+  );
+  assert.equal(
+    routeContractForPathname(
+      "/courses/C-1/assignments/A-1/presentations/0123456789abcdef0123456789abcdef",
+    ),
+    undefined,
+  );
   assert.equal(routeContractForPathname("/instructor/courses/C-1/assignments/A-1/edit"), undefined);
   assert.equal(productRoleMayAccessRoute("assignmentOverview", "student"), true);
   assert.equal(productRoleMayAccessRoute("assignmentOverview", "instructor"), false);

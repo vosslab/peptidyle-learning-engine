@@ -15,9 +15,9 @@ const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ ignoreHTTPSErrors: true });
 const page = await context.newPage();
 
-async function assertNoStudentResponseOrSubmissionControl() {
+async function assertNoStudentResponseOrSubmissionControl(target) {
   for (const name of [/response/i, /submit/i, /start assignment/i, /student attempt/i]) {
-    if ((await page.getByRole("button", { name }).count()) !== 0) {
+    if ((await target.getByRole("button", { name }).count()) !== 0) {
       throw new Error("Assignment Preview exposed a Student response or submission control");
     }
   }
@@ -28,7 +28,12 @@ try {
   await page.getByRole("button", { name: "Continue as Elena Rivera" }).click();
   await page.waitForURL(`${origin}/library`);
 
-  await page.getByRole("link", { name: "Blueprint Courses" }).click();
+  const coursesTab = page.getByRole("link", { name: "Courses", exact: true });
+  if ((await coursesTab.getAttribute("aria-current")) !== "page") {
+    await coursesTab.click();
+    await page.waitForURL(`${origin}/`);
+  }
+  await page.getByRole("link", { name: "My Blueprint Courses", exact: true }).click();
   await page.waitForURL(`${origin}/blueprint-courses`);
   await page.getByRole("button", { name: "Create Blueprint Course" }).click();
   await page.getByRole("heading", { name: "Create a Blueprint Course" }).waitFor();
@@ -58,38 +63,54 @@ try {
 
   await page.getByRole("link", { name: "Create Assignment" }).click();
   await page.waitForURL(/\/instructor\/courses\/C-[1-9][0-9]*\/assignments\/new$/u);
-  await page.getByRole("heading", { name: "Create Assignment" }).waitFor();
+  await page.getByRole("heading", { name: "Create an Assignment" }).waitFor();
   await page.getByLabel("Assignment title").fill(assignmentTitle);
-  await page.getByLabel("Instructions").fill("Complete the selected published Question.");
   await page.getByRole("button", { name: "Create Assignment" }).click();
   await page.waitForURL(
-    /\/instructor\/courses\/C-[1-9][0-9]*\/assignments\/A-[1-9][0-9]*\/release$/u,
+    /\/instructor\/courses\/C-[1-9][0-9]*\/assignments\/A-[1-9][0-9]*\/questions$/u,
   );
-  await page.getByRole("heading", { name: "Assignment Workspace" }).waitFor();
+  await page.getByRole("heading", { name: "Questions", exact: true }).waitFor();
 
-  const availableQuestions = page.getByRole("group", { name: "Available Published Questions" });
-  await availableQuestions.getByRole("checkbox").first().check();
+  await page.getByRole("button", { name: "Search question library", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "Choose assignment questions", exact: true });
+  await picker.getByRole("button", { name: "Search questions", exact: true }).click();
+  await picker.locator(".question-picker-result input").first().check();
+  await picker.getByRole("button", { name: "Add selected questions", exact: true }).click();
+  await page.getByRole("button", { name: "Save Questions and order", exact: true }).click();
+  await page
+    .getByText("Questions and order saved. Review assignment policies when you are ready.")
+    .waitFor();
+  await page.getByRole("link", { name: "Review assignment policies", exact: true }).click();
+  await page.getByRole("heading", { name: "Policies", exact: true }).waitFor();
   await page.getByLabel("Due date").fill("2026-12-01T12:00");
   await page.getByLabel("Late-work rule").selectOption("mark_late");
-  await page.getByRole("button", { name: "Save Assignment" }).click();
-  await page.getByText("Assignment saved. Validate it before release.").waitFor();
-  await page.getByRole("button", { name: "Validate Assignment" }).click();
+  await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
   await page
-    .getByText(
-      "Assignment validation passed. You can review the answer-free Assignment Preview or release it.",
-    )
+    .getByText("Assignment policies saved. The current assignment now uses the new revision.")
     .waitFor();
-  await page.getByRole("button", { name: "Open Assignment Preview" }).click();
-  await page.getByRole("heading", { name: "Assignment Preview" }).waitFor();
+  const deliveryCheckPage = context.waitForEvent("page");
+  await page.getByRole("link", { name: "Check assignment delivery", exact: true }).click();
+  const deliveryCheck = await deliveryCheckPage;
+  await deliveryCheck
+    .getByRole("heading", { name: "Assignment delivery check", exact: true })
+    .waitFor();
+  await deliveryCheck
+    .getByText("Preview only - no Student work or grades are created.", { exact: true })
+    .waitFor();
+  await assertNoStudentResponseOrSubmissionControl(deliveryCheck);
+  await deliveryCheck
+    .getByRole("link", { name: "Return to assignment policies", exact: true })
+    .waitFor();
+  await deliveryCheck.close();
+  const readiness = page.getByRole("button", { name: "Check release readiness", exact: true });
+  await readiness.focus();
+  await page.keyboard.press("Enter");
+  await page.getByRole("heading", { name: "Ready to release", exact: true }).waitFor();
   await page
-    .getByText("This answer-free preview does not create a Student attempt or access.")
+    .getByText("Release readiness checked. This saved assignment is ready to release.")
     .waitFor();
-  await assertNoStudentResponseOrSubmissionControl();
-  await page.getByRole("button", { name: "Return to Assignment Workspace" }).click();
-  await page.getByRole("heading", { name: "Assignment Preview" }).waitFor({ state: "hidden" });
-  await page.getByRole("button", { name: "Release Assignment" }).click();
-  await page.getByText("Released Assignment Revision 1.").waitFor();
-  await page.getByText(/Released state · current edit [1-9][0-9]*/u).waitFor();
+  await page.getByRole("button", { name: "Release assignment", exact: true }).click();
+  await page.getByText("Assignment released as revision 1.").waitFor();
 } finally {
   await context.close();
   await browser.close();

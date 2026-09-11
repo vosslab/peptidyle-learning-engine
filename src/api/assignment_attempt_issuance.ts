@@ -1,9 +1,9 @@
 // Browser contract for Student Assignment Access and initial delivery.
 
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
+import type { AssignmentAttemptReference } from "../../generated/api/AssignmentAttemptReference";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
-import type { StudentResponse } from "../../generated/api/StudentResponse";
 
 export type AssignmentStartDecision =
   "may_start" | "not_yet_available" | "closed" | "attempt_limit_reached" | "late_work_refused";
@@ -11,34 +11,19 @@ export type AssignmentStartDecision =
 /** Server-calculated access for the signed-in Student only. */
 export interface LiveAssignmentAccess {
   readonly startDecision: AssignmentStartDecision;
+  /** Authorized unfinished Assignment Attempt, if the Student can resume one. */
+  readonly activeAssignmentAttempt: AssignmentAttemptReference | null;
 }
 
 /** Initial or resumed Assignment Attempt presentation with its response controls. */
 export interface LiveAssignmentAttempt {
+  readonly assignmentAttempt: AssignmentAttemptReference;
   readonly assignment: AssignmentReference;
   readonly attemptNumber: number;
   readonly resumed: boolean;
   readonly title: string;
   readonly instructions: string;
   readonly questions: ReadonlyArray<QuestionPresentation>;
-}
-
-/**
- * Acknowledgement for one already-issued native PLE presentation. It does not disclose the private Question Attempt,
- * Question Submission, response, result, or grading receipt.
- */
-export interface LiveNativePleSubmissionAcknowledgement {
-  readonly presentationNonce: string;
-  readonly gradingState: "pending";
-}
-
-/**
- * Recovery status for one already-accepted response. Student Feedback remains
- * available only through its separately policy-evaluated projection.
- */
-export interface LiveNativePleSubmissionStatus {
-  readonly presentationNonce: string;
-  readonly gradingState: "pending" | "graded" | "instructorAttention";
 }
 
 /** Same-origin Student-only access and start boundary. */
@@ -51,19 +36,4 @@ export interface LiveAssignmentAttemptIssuanceClient {
     course: CourseInstanceReference,
     assignment: AssignmentReference,
   ) => Promise<LiveAssignmentAttempt>;
-  /**
-   * Submits one format-valid response through the public issued-presentation
-   * capability. Course, Assignment, and nonce are all re-authorized server-side.
-   */
-  readonly submitLiveNativePleResponse: (
-    course: CourseInstanceReference,
-    assignment: AssignmentReference,
-    presentationNonce: string,
-    response: StudentResponse,
-  ) => Promise<LiveNativePleSubmissionAcknowledgement>;
-  readonly getLiveNativePleSubmissionStatus: (
-    course: CourseInstanceReference,
-    assignment: AssignmentReference,
-    presentationNonce: string,
-  ) => Promise<LiveNativePleSubmissionStatus>;
 }

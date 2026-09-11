@@ -60,21 +60,6 @@ export async function openStudentAssignment(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Start Assignment", exact: true }).waitFor();
 }
 
-export async function startStudentAssignment(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Start Assignment", exact: true }).click();
-  await page.getByRole("heading", { level: 2, name: "Questions", exact: true }).waitFor();
-  await page.getByRole("heading", { name: /^Question 1:/u }).waitFor();
-}
-
-export async function enterStudentAssignment(
-  page: Page,
-  persona: Extract<SeededPersona, "Mary Okafor" | "Jack Nguyen" | "Avery Thompson">,
-): Promise<void> {
-  await choosePersona(page, persona);
-  await openStudentCourse(page);
-  await openStudentAssignment(page);
-}
-
 export async function enterInstructor(page: Page): Promise<void> {
   await choosePersona(page, "Elena Rivera");
   await page.getByRole("heading", { name: "Question library", exact: true }).waitFor();

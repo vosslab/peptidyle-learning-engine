@@ -13,6 +13,7 @@ import {
   reorderChoices,
   reorderMatchingSide,
   setChoiceText,
+  setChoiceRandomization,
   setCorrectChoice,
   setPleQuestionJsonQuestionTitle,
   setLanguage,
@@ -125,6 +126,21 @@ test("choice edits retain semantic IDs and enforce choices and correct-answer in
     setChoiceText(source(), "choice_a", "Edited").source.response.choices[0].text,
     "Edited",
   );
+});
+
+test("single-choice randomization changes presentation intent without changing choice identities", () => {
+  const randomized = setChoiceRandomization(source(), true);
+  assert.equal(randomized.changed, true);
+  assert.equal(randomized.source.response.kind, "singleChoice");
+  if (randomized.source.response.kind !== "singleChoice") {
+    throw new Error("Expected single-choice source.");
+  }
+  assert.equal(randomized.source.response.randomizeChoices, true);
+  assert.deepEqual(
+    randomized.source.response.choices.map((choice) => choice.id),
+    ["choice_a", "choice_b"],
+  );
+  assert.equal(setChoiceRandomization(randomized.source, true).changed, false);
 });
 
 test("metadata helpers are immutable and validation gives safe author guidance", () => {

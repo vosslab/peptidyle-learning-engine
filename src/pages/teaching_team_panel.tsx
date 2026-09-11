@@ -6,6 +6,7 @@ import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseInvitationTargetView } from "../../generated/api/CourseInvitationTargetView";
 import type { InstructorCourseInvitationView } from "../../generated/api/InstructorCourseInvitationView";
+import type { InstructorCourseInvitationsPage } from "../../generated/api/InstructorCourseInvitationsPage";
 import type { InstructorMembershipView } from "../../generated/api/InstructorMembershipView";
 import type { CourseRosterChangeNumber } from "../../generated/api/CourseRosterChangeNumber";
 import { ApiRequestError } from "../api/http_client/error";
@@ -25,6 +26,7 @@ interface TeachingTeamPanelProps {
 }
 
 interface TeachingTeamData {
+  readonly displayTimeZone: InstructorCourseInvitationsPage["displayTimeZone"];
   readonly instructors: ReadonlyArray<InstructorMembershipView>;
   readonly invitations: ReadonlyArray<InstructorCourseInvitationView>;
   readonly rosterChangeNumber: CourseRosterChangeNumber;
@@ -76,6 +78,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
       ]);
       setData({
         instructors: instructors.instructors,
+        displayTimeZone: invitations.displayTimeZone,
         invitations: invitations.invitations,
         rosterChangeNumber: instructors.rosterChangeNumber,
         instructorCursor: instructors.nextCursor,
@@ -187,6 +190,9 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
           cursor,
           25,
         );
+        if (next.displayTimeZone !== current.displayTimeZone) {
+          throw new Error("Teaching-team invitations changed the viewing time zone");
+        }
         setData({
           ...current,
           invitations: appendTeachingTeamPage(current.invitations, next.invitations),
@@ -405,7 +411,7 @@ export function TeachingTeamPanel(props: TeachingTeamPanelProps): JSX.Element {
                         <strong>{invitation.target.account.display}</strong>
                         <p class="teaching-team-meta">
                           {invitationStateLabel(invitation.state)}.{" "}
-                          {serverExpiryCopy(invitation.expiresAt)}
+                          {serverExpiryCopy(invitation.expiresAt, current().displayTimeZone)}
                         </p>
                       </div>
                       <Show when={invitation.state === "pending"}>

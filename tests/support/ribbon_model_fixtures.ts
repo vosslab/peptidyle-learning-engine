@@ -6,6 +6,7 @@ import type { ContentLayout, RibbonScope } from "../../src/route_contract";
 import { buildRoutePath, type DeclaredRibbonRouteParams } from "../../src/ribbon/ribbon_contract";
 import {
   RIBBON_TASK_CATALOG,
+  RIBBON_CONTEXT_CONTROL_CATALOG,
   TAB_CATALOG,
   type RibbonCatalogControl,
   type RibbonDestinationId,
@@ -31,7 +32,6 @@ const CANONICAL_FIXTURE_PARAMS = {
   questionRef: "7K3-M9QP",
   draftQuestionRef: "D-1",
   blueprintCourseRef: "BP-1",
-  presentationNonce: "0123456789abcdef0123456789abcdef",
 } as const satisfies Readonly<Record<RouteParamName, string>>;
 
 function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogControl<Id> {
@@ -116,7 +116,7 @@ function model(
   tabs: RibbonModel["tabs"],
   taskAreas: RibbonModel["taskAreas"],
   contentLayout: ContentLayout,
-  context: Omit<RibbonModel["context"], "productLabel">,
+  context: Omit<RibbonModel["context"], "productLabel" | "accountControls">,
 ): RibbonModel {
   return {
     scope,
@@ -129,9 +129,14 @@ function model(
             ? "Instructor"
             : "Sysadmin",
       ...context,
+      accountControls: RIBBON_CONTEXT_CONTROL_CATALOG.filter(
+        (control) => control.productRole === productRole,
+      ),
     },
     tabs,
     taskAreas,
+    breadcrumbs: [],
+    breadcrumbPreludeReserved: false,
   };
 }
 
@@ -154,20 +159,15 @@ export const M6_RIBBON_FIXTURES = {
   productInstructor: model(
     "product",
     "instructor",
+    [control("courses"), control("questions", { selected: true }), control("productAssignments")],
     [
-      control("courses"),
-      control("questionLibrary", { selected: true }),
-      control("blueprintCourses"),
-    ],
-    [
-      area("questionDestinations", "Question destinations", [
-        control("allQuestions", { selected: true }),
+      area("instructorQuestions", "Questions", [
         control("myQuestions"),
-        control("myQuestionDrafts"),
-      ]),
-      area("questionRelationships", "Question relationships", [
+        control("myDraftQuestions"),
         control("starred"),
         control("watched"),
+        control("searchQuestionLibrary", { selected: true }),
+        control("browseQuestionLibrary"),
       ]),
     ],
     "fullWidth",

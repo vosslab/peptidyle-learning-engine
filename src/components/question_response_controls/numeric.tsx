@@ -26,7 +26,7 @@ export function NumericResponse(
   const response = (): StudentResponse => numericResponseFromInput(value());
   function update(next: string): void {
     setValue(next);
-    void controller.validate(numericResponseFromInput(next));
+    void controller.edit(numericResponseFromInput(next));
   }
   function submit(): void {
     void controller.submit(response());
@@ -69,6 +69,7 @@ export function NumericResponse(
         disabled={!controller.canSubmit() || controller.locked()}
         resetDisabled={controller.locked()}
         onSubmit={submit}
+        submitLabel={props.submitLabel}
         onReset={reset}
         onEscape={props.onEscape}
       />

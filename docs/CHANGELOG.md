@@ -1,5 +1,233 @@
 # Changelog
 
+## 2026-09-10
+
+### Fixes and Maintenance
+
+- Kept the Questions-to-Policies link visible after a saved Assignment reload. The Questions
+  workspace retains its post-save status message while its Policies route remains keyboard
+  reachable from every successfully loaded Questions page.
+
+- Corrected Assignment Workspace's strict display-zone decoder to accept exact browser-supported
+  IANA names, including the valid account default `UTC`, while continuing to reject malformed and
+  unsupported values. This restores successful handling of the live Assignment-create `201` body.
+
+- Corrected the M1 Create Assignment page to use the existing Course Instance-reference Assignment
+  creation client. Title-only creation now posts through the live
+  `/api/course-instances/C-n/assignments` contract and enters the new Assignment's Questions task
+  without exposing internal Course UUIDs or adding a legacy route alias.
+
+- Completed the M0 documentation-ownership receipt for the active Interface Cleanup plan:
+  terminology now owns names and semantic ownership, the design guide owns Ribbon structure, and
+  durable decisions record the settled Ribbon, time-zone, mutable-authoring, Course-activity,
+  randomization, and Blueprint-provenance direction. This records documentation scope only; later
+  interface milestones remain pending.
+
+- Corrected the terminology authority's revision model. Question Revision and Blueprint Revision
+  are the two content Revision concepts. Assignments, Course Instances, Draft Questions, Question
+  Change Proposals, invitation rules, accommodations, and Course Retention Plans use current state
+  with Edit Numbers where concurrency needs them. Assignment Attempts, Issued Questions, grading
+  records, and qualified operation evidence retain their exact dependencies directly.
+  Repeated activities create separate records or Events; each new Student pass creates a distinct
+  Assignment Attempt while earlier Attempts remain retained under the Student Work retention policy.
+  Repository-wide schema and code migration remains separate follow-up work.
+
+- Tightened the mutable Assignment terminology. Assignment Unrelease stops new Assignment Attempts
+  and permanently deletes that Assignment's existing Student Work; closing and archiving preserve it.
+  Changes accepted while Released keep the Assignment release-valid.
+  Assignment Source Records describe one copy or update operation, Assignment Attempts retain only
+  the facts required to interpret and grade the work, and plain Local Date and Time inputs use the
+  authenticated Instructor's Account Time Zone.
+
+- Completed the narrow revision-policy follow-up. Published Questions and Blueprint Courses now own
+  mutable Available or Archived state while their exact revisions remain resolvable. Question Title,
+  Description, Subject, Subsubject, Tags, Bloom Classification, Classification, and Language are
+  current lineage discovery metadata; Authorship, License, Citation, Type, Format, and Backend retain their
+  exact Question Revision scope. Assignment adoption of a new Question Revision is described directly
+  without Update Choice or Update Receipt nouns. Blueprint schedule resolution names the authenticated
+  Instructor's Account Time Zone. Assignment Export terminology is removed because the product has no
+  intended compatible Assignment export workflow.
+
+- Completed the final Assignment terminology cleanup. Assignment Question Editor and Assignment
+  Properties Editor are the named editing surfaces, and Assignment saves carry the reviewed Assignment
+  Edit Number directly. Assignment Unrelease now states once that it removes Student access and
+  permanently deletes the Assignment's existing Student Work Records.
+
+- Defined Danger Zone as the closed set of high-consequence administrative actions: Assignment
+  Unrelease, Archive Published Question, and Archive Blueprint Course. Assignment Unrelease shows
+  affected Student-work counts and requires the exact Assignment title; the reversible Archive actions
+  show their shared-availability consequence and require conspicuous confirmation. Restore, Assignment
+  Close, and Assignment Archive use ordinary controls. Trusted server checks, atomic transitions, and
+  redacted audit evidence define the corresponding ASVS validation and authorization boundary.
+
+- Completed M6 Student vocabulary and Course entry: Student-visible surfaces no longer expose
+  Instructor-only Course or release nouns, typed Course references, or authored library Question
+  Titles. A Student with one current Course enters it automatically while zero and multiple Course
+  states retain an empty state and chooser, including a usable return path. A source-guided sweep
+  of the changed Student course, invitation, access, attempt, summary, and navigation surfaces
+  found no visible `Course Instance`, `Released Assignment`, `Question Title`, or `C-n` label;
+  the compiled M6 evidence passed zero, one, chooser, many, and return states. M5 supplies the
+  live Student access and Attempt proof for the surviving delivery lane; invitation wording remains
+  source-reviewed in the M6 receipt.
+
+### Behavior or Interface Changes
+
+- Added the focused Student Assignment question navigation component. It renders ordered native
+  Question controls with visible and announced Not answered, Saved, or Closed states; the current
+  Question is marked beyond color, and the compact layout adapts for narrow phones.
+
+- Completed M5 Student delivery. The public one-question Attempt route has Student-only entry, and
+  Start replaces the access URL with its returned `R-n` Attempt. A supported Live Demo browser
+  journey passed keyboard Start, autosave, truthful reload restoration, question navigation, manual
+  save, responsive views, whole-Attempt submission, terminal reload, and axe without serious or
+  critical findings. Native PLE leased-job interruption/replacement and WeBWorK deterministic,
+  renderer-outage, and replacement recovery also passed.
+
+- Completed the M5 resume path. Assignment Access now returns only the authorized active public
+  `R-n` Attempt reference or `null`; returning Students replace-navigate directly into that
+  Attempt with a brief resume state instead of receiving another Start control.
+
+- Completed the Student Attempt Ribbon return projection. The active resolved Attempt screen now
+  supplies its public Course and Assignment references to the existing Student Assignment Access
+  route; loading, rejected, and summary scopes retain no return link.
+
+- Completed M3 Instructor list density and identity. Instructor Course and Assignment lists now
+  use semantic, title-first dense rows with bounded actions, while Student Course cards retain
+  their existing presentation. An Instructor-authorized Course summary provides only a closed
+  Theme value for each Course row, shown with text and a local accent boundary rather than a
+  Product-wide Course appearance scope.
+
+- Completed M12 Question-owned answer randomization. PLE-native Question authoring owns the private
+  `randomizeChoices` declaration: legacy omission remains false, new declarations serialize
+  explicitly, and non-choice declarations are rejected. Native issuance ranks stable authored
+  choice IDs from the durable nonce before opaque binding minting, so recovered and graded attempts
+  retain the presented semantic order. Generated and issued public response contracts do not expose
+  the policy; Question Backend presentation remains backend-owned.
+
+- Completed M13 account-owned time-zone storage. Every Account receives an exact installed-IANA
+  preference in a private forced-RLS relation; self-only reads expose no Account-ID capability. A
+  new Student receives the authorized Instructor's zone once at enrollment, while later claim,
+  import, and re-enrollment preserve the Student-owned preference. Stored deadline instants remain
+  unchanged because they carry no zone.
+
+- Completed M14 wall-clock input interpretation. Assignment Workspace now sends a zone-free local
+  value; the authenticated Instructor's account zone resolves and projects it within the authorized
+  Store transaction, while persisted deadlines remain `timestamptz` instants. Course-zone retirement
+  and account-zone display remain separate milestones.
+
+- Completed M15 account-zone display. Every production browser wall-clock formatter receives an
+  explicit authenticated viewer or account time zone: Student delivery and activity share and name
+  one Student zone, Gradebook submission times name the Instructor zone, Sysadmin sign-in times name
+  the viewer zone, and Teaching Team and pending-invitation timestamps append the exact viewer IANA
+  zone. The due-date editor names the Instructor zone that interprets local entry. The Attempt timer
+  continues from server-supplied `timerRemainingMilliseconds` using monotonic `performance.now()`
+  elapsed time and the existing Wasm timing calculation. A targeted final review found no findings
+  and 28/28 focused tests passed. Student presentation mounting remains M7 and Course-zone
+  retirement remains M16.
+
+- Completed M2 Ribbon, dense top bar, and breadcrumbs. The one dense top bar holds identity, role,
+  account, backed Product tabs, and Sign Out; visible Product and task navigation uses icon plus
+  text. Unbacked destinations remain truthfully Unavailable without placeholder links. Shell-owned
+  breadcrumbs provide real ancestors and a current terminal below the Ribbon without adding a
+  Ribbon row, including deferred-route geometry. Keyboard traversal, responsive profiles through
+  200% zoom, sprite and ledger checks, and routed-shell visual review passed. M9 retains the final
+  static screenshot-corpus refresh.
+
+### Developer Tests and Notes
+
+- The current exact `./launchers/all_test.sh` checkpoint passed end to end: Rust, the frontend
+  gate (409 Node tests), 6,252 pytest tests, and both connected acceptance lanes (PostgreSQL
+  baseline and PostgreSQL-plus-MinIO Course Appearance). Supported cleanup completed after the
+  run. Supported Live Demo startup, the real keyboard/browser/axe journey, and native/WeBWorK
+  recovery acceptance completed M5 separately.
+
+- M2's exact final `./launchers/all_test.sh` checkpoint passed with 414 Node tests, 6,252 pytest
+  tests, connected PostgreSQL baseline and PostgreSQL-plus-MinIO Course Appearance acceptance, and
+  a clean final diff. A fresh six-pass audit and final rereview closed the concrete M2 findings;
+  M3 already has its receipt, so M16 is next in dependency order.
+
+- M5 retired the duplicate frontend per-presentation route and nonce browser client, and retired
+  the server's old nonce `POST`; the retained status route is GET-only and its focused server
+  regression suite passed 45 tests. The Attempt context was extracted into a focused module to
+  satisfy the repository source-size gate. The navigation SQL oracle now finalizes before its
+  separate stable reads and proves the exact two-position submitted state. Live Demo provisioning
+  uses current public Attempt APIs: Mary remains finalized and graded, Jack remains open with two
+  saved responses, and replay waits for Mary's pending grade without creating another Attempt.
+
+- The screenshot manifest removed ten obsolete Student-delivery captures and the retired coverage
+  row without changing their historical PNGs or receipt. Current Attempt capture, receipt, and
+  atlas replacement remain explicit M9 work; static corpus replay is intentionally pending that
+  replacement. iMathAS end-to-end Student issuance and launch was unbacked before this plan and is
+  recorded as a separate backend-delivery follow-on, rather than M5 scope.
+
+- Audit remediation refreshed the durable database, contract, architecture, and
+  usage maps for the checked-in `2026091011` saved-response/submission and
+  `2026091012` Attempt-context migrations. Their focused SQL oracles pass.
+  The initial aggregate `launchers/all_test.sh` run passed Rust and then failed
+  in the frontend gate; focused fixes and tests followed. The clean rerun passed
+  Rust, `check_codebase.sh` (408 Node tests), 6,246 pytest tests, and both
+  connected acceptance lanes: PostgreSQL baseline and PostgreSQL plus MinIO
+  Course Appearance.
+
+- Six fresh checkpoint reviews (Plan, Test, Style, Documentation, Legacy, and
+  Comment) found and led to repairs for syntax and stale tests, missing Attempt-context
+  registration, the response validation/save recovery path, and shared SQL fixture
+  leakage. Focused independent re-reviews accepted those repairs. The open M5 browser
+  journey and remaining frontend route/client cleanup retain their own acceptance work.
+
+- Rotated the complete 2026-09-08 and 2026-09-07 day blocks into
+  `CHANGELOG-2026-09f.md`; the active changelog retains its two newest day blocks.
+
+- The focused navigation repair passed 9/9 Node tests with `node --import tsx --test
+  tests/test_assignment_attempt_navigation.mjs tests/test_student_assignment_attempt_navigation.mjs`.
+  `git diff --check HEAD` also passed.
+
+- M3, M12, M13, and M14 work was recorded ahead of the patch-reporting order. Those receipts retain
+  their existing evidence; after M5 closes, remaining closure follows the original sequence beginning
+  M12, M13, M14, M15, M2, and the subsequent listed patches.
+
+- M1 acceptance passed: `./check_codebase.sh` reported 389/389 Node tests; the exact Markdown,
+  ASCII, and whitespace Python gate reported 1,948 tests; `git diff --check`, the Ribbon E2E gate,
+  and service-only plus browser-only Assignment Release gates passed. Composition image review and
+  keyboard ordering/save/reload evidence passed, and fresh independent review found no blocker or
+  major finding. Final screenshot recapture, receipt, and atlas publication remain M9 work.
+
+- M2 test maintenance aligned the static Ribbon design and compiled-shell fixtures with the current
+  catalog, glyph vocabulary, and Course summary theme contract. The remaining M2 router and
+  pending-navigation failures are recorded separately; this fixture-only change does not alter
+  production Ribbon behavior.
+
+- M3's 11 focused Node summary/theme/scope tests, learning-data-access and server-core Cargo
+  checks, TypeScript check before concurrent M2 Ribbon drift, format, diff, and source-line checks
+  passed. Independent code review passed, and browser-rendered visual evidence passed at desktop,
+  tablet, and narrow-phone profiles plus forced colors: no row clipping or row-originated overflow,
+  44px narrow actions, visible focus, and text-plus-boundary Theme identity.
+
+- M0's narrow documentation gate passed: `source source_me.sh && python3 -m pytest
+  tests/test_markdown_links.py` reported 228 passed, `git diff --check` passed, and an independent
+  M0 re-review found no blocker, major, or minor plan-conformance finding.
+
+- M6 focused TypeScript, attempt-recovery, Prettier, and diff checks passed; its initial
+  repository gate passed typecheck, lint, format, and 362 Node tests. The compiled browser proof
+  `node --import tsx tests/playwright/student_course_entry_m6_evidence.mjs` passed on rerun for
+  zero, one, chooser, many, and back-navigation states, and the independent M6 re-review passed.
+
+- M12's independent re-review passed. Rust presentation and PLE Question JSON tests, 37 Node
+  authoring tests, unchanged `cargo tools tsgen` output, `npx tsc --noEmit`, a 966-line
+  presentation builder check, and both diff checks passed. The repository-wide source-file limit
+  failure was isolated to concurrent `src/style.css` at 1008 lines.
+
+- M13's clean PostgreSQL 17 migration acceptance and compatible second no-op run passed. Its
+  connected oracle covered direct-table and RLS denial, self-only reads, every-Account defaults,
+  and the Student roster lifecycle; the disposable container, volume, and network were removed.
+  Focused Rust tests passed, the full Python suite reported 6120 passed, and independent
+  architecture and security reviews both passed.
+
+- M14's 38 focused Rust tests, 25 focused Node tests, generated TypeScript, TypeScript check, and
+  independent re-review passed. Its disposable connected acceptance used a zone different from the
+  Course's former zone to verify CAS save/reload, the stored instant, exact local projection, and
+  foreign or missing-context concealment; fresh and compatible no-op runs both passed.
+
 ## 2026-09-09
 
 ### Additions and New Features
@@ -268,375 +496,3 @@
   contracts, Rust formatting/checks/strict Clippy/tests/doctests, 350 Node
   tests, 5,969 pytest cases, the disposable PostgreSQL 17 schema/authority/
   persistence lane, and PostgreSQL-plus-MinIO Course Appearance coherence.
-
-## 2026-09-08
-
-### Behavior or Interface Changes
-
-- Compacted authenticated Application Shell chrome by moving the single
-  Peptidyle home identity into the Ribbon Context Row and removing the
-  redundant authenticated site-header band. Context and Tab Rows remain
-  persistent, while the Task Row now appears exactly when the declared route
-  topology contains a task group.
-
-- Preserved admission-independent Ribbon geometry. A task-capable route keeps
-  its Task Row even when every Task is unavailable, while loading, deferred
-  labels, content errors, relationship checks, and authorization outcomes do
-  not add or remove rows.
-
-- Restored an accepted Student response's answer-free grading-status panel
-  directly after reload. The existing private browser marker now triggers the
-  server-authorized status read without starting a new Assignment Attempt or
-  exposing a response, answer, correctness, or score.
-
-- Connected the Instructor Course Instance page to the ordinary authorized
-  Assignment-list contract. It now shows every persisted Assignment with its
-  real lifecycle status and workspace link, keeps roster and creation actions
-  available, and removes obsolete restoration-lane copy from the product UI.
-
-- Made `/` the one Product Role-aware Course index promised by the route
-  contract. Students now reach their real current Course Instances through the
-  shared Courses Ribbon destination, and the redundant Student-only index route
-  was removed instead of adding role-specific Ribbon navigation logic.
-
-### Fixes and Maintenance
-
-- Rotated the complete 2026-09-06 through 2026-09-04 day blocks into
-  `docs/CHANGELOG-2026-09e.md` after the active changelog crossed its
-  repository line threshold; the two newest day blocks remain active.
-
-- Centralized the viewport-height floor in `.ple-shell-frame`, replacing
-  per-shell and course-theme height subtraction with structural grid tracks.
-  Short themed and unthemed pages now fill the viewport without chrome-induced
-  document overflow, and tall pages continue to grow normally.
-
-- Removed global `nav` and `nav a` presentation leakage from the shared style
-  sheet. Ribbon navigation is component-owned, while the Course Instance page
-  now owns the only retained course-action navigation treatment. Shared shell
-  top padding was also tightened for the compact frame.
-
-- Expanded offline and Chromium evidence for taskful and taskless topology,
-  admission-stable geometry, live topology transitions, branded narrow-screen
-  behavior, shell-height ownership, course-canvas extent, focus, and local CSS
-  ownership.
-
-- Reconciled connected-browser navigation and seeded-state oracles with the
-  current used-Course baseline and direct Course Instance Assignment action.
-  The canonical fresh-stack production-browser suite now passes its complete
-  authorization, authoring, recovery, release, render, administration,
-  support, invitation, and seeded-Course journey set.
-
-- Rebuilt all eight manifest-owned current screenshots with the compact
-  authenticated chrome and passed the screenshot manifest verifier. Capture
-  privacy continues to reject protected Student fields while recognizing the
-  exact assignment-landing endpoint's contract-approved self-only aggregate
-  points as safe response data.
-
-- Corrected the Instructor Gradebook route to validate and use its exact Course
-  Instance Reference directly, matching the ordinary Course roster and
-  Assignment surfaces. The browser now reaches the existing server-authorized,
-  answer-free Gradebook HTTP contract without depending on the unrelated legacy
-  route-scope lookup.
-
-- Corrected the foundational seed-inventory receipt to validate its current
-  named aggregate fields and recognize the real Pending-to-Available Question
-  Asset delivery transition. The two-start replay now proves the unchanged
-  `5|4|4|4|4|1|1|1|1` inventory after complete startup.
-
-- Anchored the Live Demo launcher and its TypeScript prerequisite helper to
-  their own filesystem locations, removing Git from the runtime launch path.
-
-- Removed the rootless-only Podman gate from the disposable Local Stack and
-  Developer Browser Suite. The local migration and API-login verification now
-  run in a profile-only Compose job, so the active rootful or rootless
-  connection can run the Live Demo without relying on host PostgreSQL port
-  forwarding; containment remains in the Compose topology.
-
-- Bound the Local Stack's `podman-compose` provider to the Python 3.12
-  interpreter selected by `source_me.sh`, rather than Homebrew's independent
-  wrapper interpreter. The declared runtime dependency now installs that
-  provider alongside the controller.
-
-- Made the Podman lifecycle recover from ordinary host variation without
-  enforcing rootless or rootful execution. A stopped default machine gets one
-  bounded start retry, Compose selection falls back from Podman's dispatcher to
-  the selected Python module and then a standalone `podman-compose`, incomplete
-  diagnostic metadata remains informational, and `doctor` distinguishes the VM
-  provider from its guest operating system. The macOS guide now records the
-  AppleHV rootful initialization used by the second development machine, and
-  the one-shot database migrator no longer inherits the API health check.
-
-- Split Student activity convergence, Browser Suite external operations, and
-  lifecycle database identity construction into focused modules. Their former
-  owners are now below the repository's source-size ceiling without overrides
-  or compressed logic, and the two runnable Course acceptance scripts have the
-  required executable mode.
-
-- Reconciled the Live Demo specification, local-stack operations, API and
-  database maps, design decisions, and cookbook with the shipped used-Course
-  baseline and its real Instructor and Student launch-readiness workflows.
-
-### Decisions and Failures
-
-- An additional `./launchers/all_test.sh` run passed generated contracts,
-  Rust formatting/checks/Clippy/unit tests/doctests, codebase checks, 5,949
-  pytest cases, and the preceding PostgreSQL migration/authority probes, then
-  stopped in the isolated iMathAS database oracle because
-  `postgres_store_commits_statistics_from_the_stored_grade_exactly_once`
-  received `Forbidden`. This isolated database authorization failure was
-  untriaged at that checkpoint; the narrower Ribbon evidence and complete fresh-stack
-  production-browser suite are green and are not represented as aggregate acceptance.
-
-- Retired the former rule that reserved an empty Task Row on every Ribbon.
-  Route topology, not capability admission, now owns whether that row exists:
-  this removes unused chrome without making authorization or asynchronous state
-  observable through geometry.
-
-- Retired viewport-height calculations distributed across the ordinary shell
-  and course-theme canvas. They encoded chrome knowledge in multiple owners and
-  could overflow a short page after chrome changed; the shell frame now owns
-  the one structural viewport floor.
-
-- Kept current screenshot ownership with `docs/SCREENSHOT_CONTRACT.md` and its
-  capture manifest. The older UI design review remains historical and was not
-  repurposed as an attachment ledger.
-
-## 2026-09-07
-
-### Additions and New Features
-
-- Added disposable Live Demo Course acceptance for the complete used-teaching
-  baseline. Its four modes prove exact Course, roster, released Question set,
-  Student work, and Gradebook state; realistic anonymous, Student,
-  cross-Student, and Sysadmin concealment; repeat convergence without duplicate
-  Course objects; and recovery after every provisioning stage. The fixed stack
-  accepts a bounded `start --stop-after <stage>` debug flag solely to
-  manufacture those fresh interruption checkpoints; ordinary startup still
-  converges the full baseline.
-
-- Wired complete Live Demo Course provisioning into the fixed TLS lifecycle
-  after whole-stack readiness and before browser opening. A fresh
-  `run_live_demo.sh start --headless` now reports success only after the
-  realistic teaching baseline and its private zero-outstanding-stage report
-  exist; non-TLS and non-owned targets retain their prior lifecycle.
-
-- Completed representative Live Demo Student activity through the same
-  convergent provisioner. Mary now has four genuinely graded Question
-  Submissions with a pinned mixed `2/4` result, Jack has two genuinely graded
-  submissions in one open four-Question Assignment Attempt, and Avery remains
-  enrolled without an Assignment Attempt. Response references are derived only
-  from each answer-free Question Presentation, and interrupted grading resumes
-  from nonce-bound status plus real Gradebook facts.
-
-- Added the standalone convergent Live Demo Course provisioner and its
-  `provision-course` debug command. It resolves Blueprint Course, Course
-  Instance, roster, Assignment, selection, and release state through ordinary
-  product HTTP contracts; supports bounded `--stop-after` and read-only
-  `--report` planning; keeps sessions in transient private cookie jars; and
-  writes a mode-0600 product-fact report whose machine references make retries
-  restart-safe.
-
-- Added the ordinary Instructor Assignment list for one exact Course Instance.
-  The new product-named database function, Store operation, and HTTP route
-  return only Assignment Reference, title, status, and Edit Number; active
-  direct Course Membership is rechecked in PostgreSQL, while anonymous,
-  Student, Sysadmin, and foreign-Instructor requests receive the same `404`
-  concealment.
-
-- Added fixed-origin Live Demo gateway builders for seeded persona sessions
-  and authenticated JSON product requests. Session credentials remain in
-  private cookie-jar files rather than command arguments, while API paths,
-  methods, bodies, and Assignment Edit Number preconditions are validated and
-  encoded at one controller boundary.
-
-- Defined the required Live Demo teaching-data baseline in the authoritative
-  specification and added one I/O-free declarative Course seed with an ordered
-  convergence planner. The baseline derives its roster emails and four
-  Question IDs from the foundational seed and describes Mary, Jack, and Avery
-  through real Assignment Attempt and Question Submission facts rather than
-  display-only demo states.
-
-- Completed Live Demo restoration M19. The final fresh controller-managed fixed
-  HTTPS stack passed `./devel/run_playwright_tests.sh --build`; its serial owner
-  exercised connected authentication, Instructor authoring, Student recovery,
-  Assignment release, WeBWorK render, Sysadmin Account, scoped-support, and
-  invitation-export journeys against the production bundle. This is connected
-  browser evidence, separate from the narrower focused milestone and service receipts.
-
-- Completed Live Demo restoration M20. `./devel/capture_screenshots.sh`
-  created eight safe, manifest-listed connected captures through visible PLE
-  navigation, then stopped its owned stack. The one-time artifacts live in
-  `public/`, `instructor/`, `student/`, and `sysadmin/` screen folders; the
-  dedicated `--verify` mode validates their PNG manifest without starting a
-  stack. The current corpus includes one normal desktop Ribbon capture for
-  each Product Role and Student tablet, phone, and square responsive evidence.
-
-- Completed Live Demo restoration M15. Fresh controller-managed fixed HTTPS
-  stacks passed `bash tests/e2e/e2e_live_demo_gradebook.sh --api` and
-  `--browser`: the current Course Instructor receives answer-free immutable
-  Gradebook evidence, foreign-Course access receives 404 concealment, and the
-  visible Gradebook task completes. Individual Student Work remains
-  unavailable; M19 serial-browser acceptance remains unclaimed. This is
-  whole-system plan acceptance/live browser evidence, not a new pytest.
-
-- Completed Live Demo restoration M16. A fresh controller-managed fixed HTTPS
-  stack passed `bash tests/e2e/e2e_live_demo_instructor_accounts.sh`: the
-  service proves the Sysadmin-only Instructor Account lifecycle, concealment,
-  and session revocation, while the visible Sysadmin Ribbon task creates an
-  Instructor Account and deactivates then reactivates it. The disposable M16
-  migration correction grants only `ple_private_owner` the Instructor-only
-  lock policy needed by the existing `SELECT ... FOR UPDATE` boundary; no
-  direct application/API table access was granted. This is plan
-  acceptance/live browser evidence, not a new pytest. Course or Student Record
-  access, passkey feature work, and M19
-  serial-browser acceptance remain unclaimed.
-
-- Completed Live Demo restoration M17. A fresh controller-managed fixed HTTPS
-  stack passed `bash tests/e2e/e2e_live_demo_support_capability.sh --issue` and
-  `--browser`: an Instructor issues and revokes exact-Course registered
-  roster-support capability while foreign or unregistered state remains
-  concealed, and the visible Sysadmin scoped roster task completes. It grants
-  no ambient Sysadmin Course or Student Record access. This is whole-system
-  plan acceptance/live browser evidence, not a new pytest; M19 serial-browser
-  acceptance remains unclaimed.
-
-- Completed Live Demo restoration M13. A fresh controller-managed fixed HTTPS
-  stack passed `bash tests/e2e/e2e_live_demo_submission_recovery.sh`: one
-  format-valid Student Response is accepted once with closed pending grading
-  state, and an interrupted leased native PLE evaluation recovers one terminal
-  result and receipt. This is whole-system plan acceptance evidence, not a new
-  pytest. M15 Gradebook/Student Work and M19 serial-browser acceptance remain
-  unclaimed.
-
-- Completed Live Demo restoration M12. The final fresh controller-managed fixed
-  HTTPS stack passed `bash tests/e2e/e2e_live_demo_native_controls.sh`:
-  authorized Question Asset retrieval returns an immutable redirect while
-  anonymous, foreign-Student, absent, and malformed references have
-  indistinguishable concealment; all eight issued native PLE response formats
-  strictly decode; and all eight controls, including the fixed HOTSPOT, reach
-  valid local states by keyboard without submission. This is plan
-  acceptance/live browser evidence, not a new pytest. Student Response
-  persistence, submission, grading, feedback, recovery, and M19
-  serial-browser acceptance remain unclaimed.
-
-- Revalidated M11 on the same fresh controller-managed fixed HTTPS stack with
-  `bash tests/e2e/e2e_live_demo_assignment_attempt.sh`. The format-only M12
-  presentation now omits M13 submission, grading, and feedback controls; this
-  does not implement any M13 behavior.
-
-- Completed Live Demo restoration M14. WP-M14-1's answer-free WeBWorK
-  render-issuance boundary previously passed with `--render`; on a fresh
-  controller-managed stack, `bash tests/e2e/e2e_live_demo_webwork.sh --grade`
-  passed: `WeBWorK grade authority: deterministic renderer grade commit and
-bounded renderer failure complete`; `Live Demo WeBWorK grade: PASS`. The
-  renderer fault is a bounded terminal local outcome. This service/browser
-  cadence does not claim M19 serial production-browser acceptance.
-
-### Behavior or Interface Changes
-
-- Replaced role-suffixed Live Demo persona labels with the complete fictional
-  identities Elena Rivera, Mary Okafor, Jack Nguyen, Avery Thompson, and Morgan
-  Delgado. The seeded Student Authentication Emails now use matching
-  non-routable `.invalid` addresses while preserving the closed persona keys
-  and ordinary Account, Authenticated Session, Course Roster Import, and Course
-  Membership authority paths.
-
-- Reconciled M21 current-boundary documentation with the Human Guidance and
-  Terminology Contract authority order. The Live Demo is now documented as the
-  connected PLE application, and M19's nonce-bound submission status continues
-  to expose only grading state while Student Feedback remains separately
-  policy-evaluated.
-
-### Fixes and Maintenance
-
-- Clarified the API-contract evidence boundary: current route claims specify
-  the behavior exercised by the separately recorded completed M19 connected
-  production-browser acceptance; they do not substitute for that receipt.
-
-- Removed the unreferenced legacy roster-delivery display helper. Its retained
-  transport contract remains a separately owned API-retirement decision.
-
-- Reconciled current implementation, evidence, and accessibility documentation
-  after an independent whole-codebase audit. Retired unreferenced browser-E2E
-  support now leaves the registered serial owner as the only active path;
-  permanent source comments describe current capability boundaries rather than
-  temporary execution labels; and screenshot capture uses the shared Git-root
-  anchor. The audit kept the fast-suite CLI-scan and selected-E2E-runner policy
-  questions explicit rather than adding speculative test machinery.
-
-- Restored the Student-owned Assignments Ribbon tab during Assignment Access
-  and Question Presentation, and retained that selected tab at the existing
-  Student Course landing route. Server and route authorization are unchanged.
-  The one-time screenshot rebuild now verifies a selected normal Ribbon tab
-  before writing each authenticated artifact.
-
-- Corrected M14 WeBWorK issuance to return the first atomic Assignment Attempt
-  projection instead of a second call that had already resumed that attempt.
-  The one-time render proof now verifies the true initial and resume states,
-  its private replay join, and the outcome-free Student surface.
-
-- Corrected the disposable M8 Course Instance helper to select its fixed Elena
-  Instructor persona from a multi-Instructor active list. M16 may create
-  additional active Instructor Accounts; global Instructor cardinality is not
-  a Course Instance requirement.
-
-- Synchronized shared style guides, tests, and repository support files from the starter template.
-
-- Repaired the one-time screenshot rebuild boundary: it now waits for the
-  visible seeded sign-in surface after navigation commit rather than unrelated
-  document completion, then begins workflow-response privacy inspection. The
-  generated WebAssembly bridge now uses its current object-shaped initializer.
-  A fresh `./devel/capture_screenshots.sh` rebuild produced the eight declared
-  artifacts, stopped its owned stack, and passed `--verify`.
-
-- Restored the M8 Course Instance acceptance assertion that the newly Assigned
-  Instructor can retrieve the exact closed teaching-team projection. It now
-  accepts one or more active Instructors rather than encoding the retired
-  one-Instructor fixture cardinality. A fresh authority run passed and stopped
-  its owned stack.
-
-- Audited the restoration's current browser inventory. Retired unregistered
-  legacy scenario providers, specifications, helpers, and an obsolete
-  provider-only pytest rather than reviving unavailable routes for their sake.
-  The registered serial owner, focused scenario partition, and the current
-  M10/M14/M16/M17/M18 browser journeys remain the connected acceptance set.
-
-- Removed a brittle complete-inventory Ribbon assertion, replaced a capture
-  CSS selector with a role-scoped control, and corrected permanent comments to
-  use established product terminology. Current role guides and historical
-  visual references now distinguish the functional capture workflow from their
-  retained images.
-
-- Bound the disposable WeBWorK browser proof to the Assignment reference it is
-  given, preserving the accessible link interaction while avoiding an
-  accidental first-card selection. Closed the Ribbon fixture parameter maps
-  over the current declared route parameters, so a future route parameter
-  cannot silently leave shared test support untyped.
-- Synchronized shared style guides, tests, and repository support files from the starter template.
-
-### Removals and Deprecations
-
-- Removed the retired structural Live Demo presentation route and its separate
-  screenshot directory. Current rendered evidence is role-owned rather than a
-  parallel demo gallery.
-
-### Developer Tests and Notes
-
-- M21 used a one-time manual authority reconciliation rather than adding the
-  absent planned authority-ledger script as a fragile permanent source-inventory
-  test. On the formatter-final material tree, the final aggregate passed 5,844
-  offline tests and both disposable live-service acceptance oracles; the
-  GUI-capable serial production-browser owner also passed.
-
-- Audited the restoration test changes under the repository's permanent-test
-  admission rules. Removed unused Ribbon fixture inventory and a fixed seeded
-  Account UUID assertion; retained current authorization, route/Ribbon, and
-  answer-free recovery boundaries. Disposable browser acceptance and screenshot
-  capture remain one-time evidence, not permanent fast-suite behavior tests.
-  `source source_me.sh && ./launchers/all_test.sh` passed after the audit.
-
-- After audit remediation, `source source_me.sh && ./launchers/all_test.sh`
-  and `./devel/run_playwright_tests.sh --build` completed their current gates.
-  The serial browser owner rebuilt its fixed stack, completed its registered
-  scenarios and visible milestone journeys, and its owned stack was stopped
-  after the receipt check.

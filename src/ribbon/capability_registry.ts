@@ -178,7 +178,7 @@ const CAPABILITY_DECLARATIONS = {
       "src/api/http_client/course_instance.ts::createCourseInstanceClient",
     ],
   },
-  questionLibrary: {
+  questions: {
     kind: "backed",
     clientMethod: "ApiClient.searchQuestionLibrary",
     serverEvidence: {
@@ -190,17 +190,10 @@ const CAPABILITY_DECLARATIONS = {
       "src/api/application_api.tsx::ApiClient.searchQuestionLibrary",
     ],
   },
-  blueprintCourses: {
-    kind: "backed",
-    clientMethod: "ApiClient.listBlueprintCourses",
-    serverEvidence: {
-      kind: "registeredHandler",
-      handler: "crates/server/src/blueprint_course.rs::blueprint_course_router",
-    },
-    evidence: [
-      "crates/server/src/blueprint_course.rs::blueprint_course_router",
-      "src/api/application_api.tsx::ApiClient.listBlueprintCourses",
-    ],
+  productAssignments: {
+    kind: "unbacked",
+    reason: "Product-level Assignments has no complete cross-Course destination yet.",
+    evidence: ["src/ribbon/ribbon_catalog.ts::productAssignments"],
   },
   assignments: {
     kind: "backed",
@@ -270,11 +263,16 @@ const CAPABILITY_DECLARATIONS = {
     evidence: [...NO_TEACHING_HANDLER, "src/ribbon/ribbon_catalog.ts::courseSetup"],
   },
   attempt: {
-    kind: "unbacked",
-    reason: "Assignment Attempt screen has no registered production teaching/data handler.",
+    kind: "backed",
+    clientMethod: "ApiClient.startLiveAssignment",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/assignment_delivery.rs::assignment_delivery_router",
+    },
     evidence: [
-      ...NO_TEACHING_HANDLER,
-      "src/api/application_api.tsx::ApiClient.getAssignmentAttemptScreen",
+      "crates/server/src/assignment_delivery.rs::assignment_delivery_router",
+      "src/api/http_client/assignment_attempt_issuance.ts::createLiveAssignmentAttemptIssuanceClient",
+      "src/pages/assignment_attempt_page.tsx::AssignmentAttemptPage",
     ],
   },
   instructorAccounts: {
@@ -301,24 +299,39 @@ const CAPABILITY_DECLARATIONS = {
       "src/api/http_client/support_roster.ts::createSupportCapabilityClient",
     ],
   },
-  allQuestions: {
+  myBlueprintCourses: {
     kind: "backed",
-    clientMethod: "ApiClient.searchQuestionLibrary",
+    clientMethod: "ApiClient.listBlueprintCourses",
     serverEvidence: {
       kind: "registeredHandler",
-      handler: "crates/server/src/question_library.rs::question_library_router",
+      handler: "crates/server/src/blueprint_course.rs::blueprint_course_router",
     },
     evidence: [
-      "crates/server/src/question_library.rs::question_library_router",
-      "src/api/application_api.tsx::ApiClient.searchQuestionLibrary",
+      "crates/server/src/blueprint_course.rs::blueprint_course_router",
+      "src/api/application_api.tsx::ApiClient.listBlueprintCourses",
     ],
+  },
+  myActiveCourses: {
+    kind: "unbacked",
+    reason: "My Active Courses remains unavailable until the Course activity capability lands.",
+    evidence: ["src/ribbon/ribbon_catalog.ts::myActiveCourses"],
+  },
+  myInactiveCourses: {
+    kind: "unbacked",
+    reason: "My Inactive Courses remains unavailable until retention derives inactive Courses.",
+    evidence: ["src/ribbon/ribbon_catalog.ts::myInactiveCourses"],
+  },
+  searchPublicBlueprintCourses: {
+    kind: "unbacked",
+    reason: "Public Blueprint Course search has no declared route or authorized handler.",
+    evidence: ["src/ribbon/ribbon_catalog.ts::searchPublicBlueprintCourses"],
   },
   myQuestions: {
     kind: "unbacked",
     reason: "My Questions has no declared route state or registered production handler.",
     evidence: [...NO_TEACHING_HANDLER, "src/ribbon/ribbon_catalog.ts::myQuestions"],
   },
-  myQuestionDrafts: {
+  myDraftQuestions: {
     kind: "backed",
     clientMethod: "QuestionDraftsPage::listDrafts",
     serverEvidence: {
@@ -339,6 +352,40 @@ const CAPABILITY_DECLARATIONS = {
     kind: "unbacked",
     reason: "Watched has no declared route, page, client method, or registered handler.",
     evidence: [...NO_TEACHING_HANDLER, "src/ribbon/ribbon_catalog.ts::watched"],
+  },
+  searchQuestionLibrary: {
+    kind: "backed",
+    clientMethod: "ApiClient.searchQuestionLibrary",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/question_library.rs::question_library_router",
+    },
+    evidence: [
+      "crates/server/src/question_library.rs::question_library_router",
+      "src/api/application_api.tsx::ApiClient.searchQuestionLibrary",
+    ],
+  },
+  browseQuestionLibrary: {
+    kind: "backed",
+    clientMethod: "ApiClient.searchQuestionLibrary",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/question_library.rs::question_library_router",
+    },
+    evidence: [
+      "crates/server/src/question_library.rs::question_library_router",
+      "src/api/application_api.tsx::ApiClient.searchQuestionLibrary",
+    ],
+  },
+  assignmentsDueSoon: {
+    kind: "unbacked",
+    reason: "Assignments Due Soon has no authorized cross-Course view yet.",
+    evidence: ["src/ribbon/ribbon_catalog.ts::assignmentsDueSoon"],
+  },
+  assignmentTemplates: {
+    kind: "unbacked",
+    reason: "My Assignment Templates has no declared route or registered handler.",
+    evidence: ["src/ribbon/ribbon_catalog.ts::assignmentTemplates"],
   },
   assignmentOverview: {
     kind: "unbacked",
@@ -395,9 +442,18 @@ const CAPABILITY_DECLARATIONS = {
     ],
   },
   backToAssignments: {
-    kind: "unbacked",
-    reason: "Back to Assignments leads to a surface without a registered production handler.",
-    evidence: [...NO_TEACHING_HANDLER, "src/api/application_api.tsx::ApiClient.listAssignments"],
+    kind: "backed",
+    clientMethod: "ApiClient.getLiveAssignmentAccess",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/assignment_delivery.rs::assignment_delivery_router",
+    },
+    evidence: [
+      "crates/server/src/assignment_delivery.rs::assignment_delivery_router",
+      "src/api/http_client/assignment_attempt_issuance.ts::createLiveAssignmentAttemptIssuanceClient",
+      "src/pages/assignment_overview_page.tsx::AssignmentOverviewPage",
+      "src/app.tsx::ribbonParamsFor",
+    ],
   },
 } as const satisfies RibbonCapabilityDeclarations;
 

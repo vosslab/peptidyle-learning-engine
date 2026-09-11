@@ -13,19 +13,26 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-function page(assignmentAttempt) {
+function page(assignmentAttempt, displayTimeZone = "America/New_York") {
   return {
+    displayTimeZone,
     rosterChangeNumber: "1",
     nextCursor: null,
     rows: [{ assignmentAttempt, submittedAt: 1_700_000_000_000, scoreSelected: true }],
   };
 }
 
-function pageWithAssignmentAttempts(assignmentAttempts, nextCursor = null) {
+function pageWithAssignmentAttempts(
+  assignmentAttempts,
+  nextCursor = null,
+  displayTimeZone = "America/New_York",
+) {
   return {
-    ...page(assignmentAttempts[0]),
+    ...page(assignmentAttempts[0], displayTimeZone),
     nextCursor,
-    rows: assignmentAttempts.map((assignmentAttempt) => page(assignmentAttempt).rows[0]),
+    rows: assignmentAttempts.map(
+      (assignmentAttempt) => page(assignmentAttempt, displayTimeZone).rows[0],
+    ),
   };
 }
 
@@ -135,6 +142,34 @@ test("chooser rejects duplicate Assignment Attempts on its initial page before r
     states.map((state) => state.kind),
     ["loading", "error"],
   );
+});
+
+test("chooser preserves its authenticated viewer zone when a later page disagrees", async () => {
+  const initial = deferred();
+  const continuation = deferred();
+  const requests = [initial, continuation];
+  const session = new GradebookAssignmentAttemptChooserSession(
+    scope(),
+    { getSubmittedAssignmentAttemptChoices: () => requests.shift().promise },
+    () => undefined,
+  );
+
+  const initialLoad = session.start();
+  initial.resolve(pageWithAssignmentAttempts(["R-1"], "cursor", "America/New_York"));
+  await initialLoad;
+  const continuationLoad = session.loadMore();
+  continuation.resolve(pageWithAssignmentAttempts(["R-2"], null, "America/Chicago"));
+  await continuationLoad;
+
+  assert.deepEqual(
+    session.state.kind === "ready" ? session.state.rows.map((row) => row.assignmentAttempt) : [],
+    ["R-1"],
+  );
+  assert.equal(
+    session.state.kind === "ready" ? session.state.displayTimeZone : undefined,
+    "America/New_York",
+  );
+  assert.equal(session.state.kind === "ready" ? session.state.moreError : false, true);
 });
 
 test("chooser retains rows on a current continuation error and disposes pending retry or continuation", async () => {

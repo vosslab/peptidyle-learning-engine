@@ -1,6 +1,7 @@
 // Pure presentation helpers for the bounded teaching-team API projections.
 
 import type { CourseInvitationStateView } from "../../generated/api/CourseInvitationStateView";
+import type { AccountTimeZone } from "../../generated/api/AccountTimeZone";
 
 export interface ReferenceRow {
   readonly reference: string;
@@ -40,9 +41,14 @@ export function invitationStateLabel(state: CourseInvitationStateView): string {
   }
 }
 
-/** The server timestamp is displayed as an absolute value; no browser clock decides actionability. */
-export function serverExpiryCopy(expiresAt: number): string {
-  return `Expires at ${new Date(expiresAt).toLocaleString()} (server supplied)`;
+/** The server instant is rendered in the authorized viewer zone; it never decides actionability. */
+export function serverExpiryCopy(expiresAt: number, displayTimeZone: AccountTimeZone): string {
+  const rendered = new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: displayTimeZone,
+  }).format(new Date(expiresAt));
+  return `Expires at ${rendered} (${displayTimeZone})`;
 }
 
 export function isPendingInvitation(state: CourseInvitationStateView): boolean {

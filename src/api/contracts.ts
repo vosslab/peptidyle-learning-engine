@@ -68,7 +68,7 @@ export interface CourseRouteView {
 export interface AssignmentEditorDetail extends AssignmentSummary {
   /** Stable Assignment Status; release selection stays outside editable content. */
   readonly assignmentStatus: AssignmentStatus;
-  /** Course-local Instructor Assignment Authored Content Local; the server owns time-zone resolution. */
+  /** Zone-free Instructor Assignment Authored Content Local; the server owns trusted-zone resolution. */
   readonly assignmentAuthoredContent: InstructorAssignmentAuthoredContentLocal;
   /** Server-derived Assignment Availability View at the response's authoritative instant. */
   readonly assignmentAvailability: InstructorAssignmentAvailabilityView;
@@ -291,15 +291,4 @@ export interface StudentFeedbackReleaseResponse {
  */
 export interface ImathasQuestionBackendLaunch {
   readonly launchUrl: string;
-}
-
-/** Everything the reference Assignment Attempt screen needs from one cached query. */
-export interface AssignmentAttemptScreenData {
-  readonly course: CourseRouteView;
-  /** Student-safe Student Assignment Landing Summary; no policy or ownership inputs. */
-  readonly assignment: StudentAssignmentLandingSummary;
-  readonly assignmentAttempt: AssignmentAttempt;
-  readonly attempt: StudentQuestionAttempt;
-  /** Server-regenerated, key-free delivery bound to this issued attempt. */
-  readonly issuedQuestion: QuestionPresentation;
 }

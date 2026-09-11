@@ -4,6 +4,7 @@ import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 
 import type { CourseInvitationTerminalAction } from "../../generated/api/CourseInvitationTerminalAction";
 import type { PendingCourseInvitationView } from "../../generated/api/PendingCourseInvitationView";
+import type { PendingCourseInvitationsPage } from "../../generated/api/PendingCourseInvitationsPage";
 import { ApiRequestError } from "../api/http_client/error";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
@@ -17,6 +18,7 @@ import {
 import "./teaching_team_panel.css";
 
 interface PendingInvitationData {
+  readonly displayTimeZone: PendingCourseInvitationsPage["displayTimeZone"];
   readonly invitations: ReadonlyArray<PendingCourseInvitationView>;
   readonly nextCursor: string | null;
 }
@@ -57,7 +59,11 @@ export function AccountPendingInvitationsPage(): JSX.Element {
     setError(null);
     try {
       const page = await runtime.client.listPendingCourseInvitations(undefined, 25);
-      setData({ invitations: page.invitations, nextCursor: page.nextCursor });
+      setData({
+        displayTimeZone: page.displayTimeZone,
+        invitations: page.invitations,
+        nextCursor: page.nextCursor,
+      });
     } catch {
       setError("Your pending invitations could not load. Check your connection and try again.");
     }
@@ -70,7 +76,11 @@ export function AccountPendingInvitationsPage(): JSX.Element {
     setError(null);
     try {
       const page = await runtime.client.listPendingCourseInvitations(current.nextCursor, 25);
+      if (page.displayTimeZone !== current.displayTimeZone) {
+        throw new Error("Pending invitations changed the viewing time zone");
+      }
       setData({
+        displayTimeZone: current.displayTimeZone,
         invitations: appendTeachingTeamPage(current.invitations, page.invitations),
         nextCursor: page.nextCursor,
       });
@@ -172,7 +182,9 @@ export function AccountPendingInvitationsPage(): JSX.Element {
                     <div>
                       <h2>{invitation.courseLabel}</h2>
                       <p class="teaching-team-meta">{invitationStateLabel(invitation.state)}</p>
-                      <p class="teaching-team-meta">{serverExpiryCopy(invitation.expiresAt)}</p>
+                      <p class="teaching-team-meta">
+                        {serverExpiryCopy(invitation.expiresAt, current().displayTimeZone)}
+                      </p>
                     </div>
                     <Show
                       when={isPendingInvitation(invitation.state)}

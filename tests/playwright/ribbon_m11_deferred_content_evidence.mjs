@@ -17,6 +17,7 @@ const css = [
 ].join("\n");
 const bundle = await bundleM11Harness();
 const RIBBON_ROOT_SELECTOR = ".ple-app-ribbon";
+const WORKSPACE_CASES = new Set(["policies", "workspace"]);
 const RETIRED_NAVIGATION_SELECTOR = [
   '[aria-label="Course management"]',
   '[aria-label="Assignment workspace"]',
@@ -46,6 +47,7 @@ if (address === null || typeof address === "string")
 const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  page.setDefaultTimeout(5_000);
   const pageErrors = [];
   const consoleErrors = [];
   page.on("pageerror", (error) => {
@@ -106,19 +108,20 @@ try {
       `${caseName} shares the same topology with the shell frame`,
     );
   };
-  await assertHarnessRibbon("initial route", false);
+  // The settled M2 Product Courses route reserves its declared task row.
+  await assertHarnessRibbon("initial route", true);
 
   const cases = [
     [
-      "summary",
-      "assignmentAttemptSummary",
-      "assignmentAttemptSummary",
-      "Loading your recorded responses...",
-      "Assignment Attempt summary",
-      "scopeSummary",
-      "postMountAssignmentAttemptSummary",
-      0,
-      0,
+      "policies",
+      "assignmentWorkspaceGate",
+      "assignmentWorkspaceGate",
+      "Loading assignment workspace...",
+      undefined,
+      "scopeCourse",
+      "getLiveAssignmentWorkspace",
+      1,
+      1,
       true,
     ],
     [
@@ -136,12 +139,12 @@ try {
     [
       "workspace",
       "assignmentWorkspaceGate",
-      "assignmentWorkspace",
+      "assignmentWorkspaceGate",
       "Loading assignment workspace...",
       undefined,
       "scopeCourse",
-      "resolveNavigation",
-      0,
+      "getLiveAssignmentWorkspace",
+      1,
       1,
       true,
     ],
@@ -231,16 +234,11 @@ try {
       1,
       `${caseName} has one explicitly deferred scope request`,
     );
-    if (caseName === "workspace") {
-      assert.equal(
-        await page.locator('[data-route-surface="assignmentWorkspaceGate"]').count(),
-        0,
-        "workspace does not mount its inner workspace gate before the course scope releases",
-      );
-    }
+    // Workspace content owns its loader independently of the deferred Course
+    // presentation scope; the stable shell must tolerate both loads together.
     await page.evaluate((name) => window.ribbonM11.release(name), caseName);
     await page.locator(`[data-route-surface="${surface}"]`).first().waitFor({ state: "attached" });
-    if (caseName === "workspace") {
+    if (WORKSPACE_CASES.has(caseName)) {
       const workspaceGate = page.locator('[data-route-surface="assignmentWorkspaceGate"]');
       const workspaceStatus = workspaceGate.getByRole("status");
       const workspaceEyebrow = workspaceGate.locator(".eyebrow");
@@ -248,31 +246,29 @@ try {
       assert.equal(
         await workspaceStatus.innerText(),
         pending,
-        "workspace exposes the exact inner workspace-gate status after course scope release",
+        `${caseName} exposes the exact inner workspace-gate status after course scope release`,
       );
       assert.equal(
         await workspaceEyebrow.textContent(),
         "Instructor assignment workspace",
-        "workspace exposes the exact inner workspace-gate eyebrow after course scope release",
+        `${caseName} exposes the exact inner workspace-gate eyebrow after course scope release`,
       );
       assert.equal(
         await page.locator('[data-route-surface="assignmentWorkspace"] [role="status"]').count(),
         0,
-        "workspace replaces the outer deferred scope fallback with its inner workspace gate",
+        `${caseName} replaces the outer deferred scope fallback with its inner workspace gate`,
       );
       await page.waitForFunction(
-        (name) =>
-          window.ribbonM11.count(name, "resolveNavigation") === 1 &&
-          window.ribbonM11.count(name, "getAssignmentWorkspace") === 1,
+        (name) => window.ribbonM11.count(name, "getLiveAssignmentWorkspace") === 1,
         caseName,
       );
       assert.equal(
         await page.evaluate(
-          (name) => window.ribbonM11.count(name, "getAssignmentWorkspace"),
+          (name) => window.ribbonM11.count(name, "getLiveAssignmentWorkspace"),
           caseName,
         ),
         1,
-        "workspace starts exactly one workspace-detail request after its route identity resolves",
+        `${caseName} starts exactly one workspace-detail request after its route identity resolves`,
       );
     } else {
       await page.getByRole("heading", { name: heading }).first().waitFor({ state: "visible" });

@@ -34,7 +34,8 @@ export interface StudentAssignmentPresentationDelivery {
 export interface StudentAssignmentPresentationData {
   readonly title: string;
   readonly instructions: string;
-  readonly timeZone: string;
+  /** Authenticated viewer's server-provided IANA display zone. */
+  readonly displayTimeZone: string;
   readonly delivery: StudentAssignmentPresentationDelivery;
   readonly questionsPerAssignmentAttempt: number;
   readonly questionPoolReuseRule?: QuestionPoolReuseRule;
@@ -59,7 +60,7 @@ export function toStudentAssignmentPresentationData(
     return {
       title: assignment.title,
       instructions: assignment.instructions,
-      timeZone: assignment.timeZone,
+      displayTimeZone: assignment.displayTimeZone,
       delivery: {
         availableAt: assignment.delivery.available_at,
         dueAt: assignment.delivery.due_at,
@@ -80,7 +81,7 @@ export function toStudentAssignmentPresentationData(
   return {
     title: assignment.title,
     instructions: assignment.instructions,
-    timeZone: assignment.time_zone,
+    displayTimeZone: assignment.display_time_zone,
     delivery: {
       availableAt: assignment.delivery.available_at,
       dueAt: assignment.delivery.due_at,
@@ -101,13 +102,14 @@ export function toStudentAssignmentPresentationData(
   };
 }
 
-export function formatAssignmentActivity(timestamp: number | null): string {
+export function formatAssignmentActivity(timestamp: number | null, timeZone: string): string {
   if (timestamp === null) {
     return "No activity yet";
   }
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone,
   }).format(new Date(timestamp));
 }
 
@@ -245,14 +247,14 @@ export function StudentAssignmentPresentation(
       </Show>
       <section aria-labelledby="delivery-details-heading">
         <h2 id="delivery-details-heading">Delivery details</h2>
-        <p>Times are shown in the course time zone: {props.assignment.timeZone}.</p>
+        <p>Times are shown in your time zone: {props.assignment.displayTimeZone}.</p>
         <dl class="assignment-facts">
           <div>
             <dt>Available</dt>
             <dd>
               {formatAssignmentDeliveryTime(
                 props.assignment.delivery.availableAt,
-                props.assignment.timeZone,
+                props.assignment.displayTimeZone,
               )}
             </dd>
           </div>
@@ -261,7 +263,7 @@ export function StudentAssignmentPresentation(
             <dd>
               {formatAssignmentDeliveryTime(
                 props.assignment.delivery.dueAt,
-                props.assignment.timeZone,
+                props.assignment.displayTimeZone,
               )}
             </dd>
           </div>
@@ -270,7 +272,7 @@ export function StudentAssignmentPresentation(
             <dd>
               {formatAssignmentDeliveryTime(
                 props.assignment.delivery.closesAt,
-                props.assignment.timeZone,
+                props.assignment.displayTimeZone,
               )}
             </dd>
           </div>
@@ -362,7 +364,12 @@ export function StudentAssignmentPresentation(
               </div>
               <div>
                 <dt>Last activity</dt>
-                <dd>{formatAssignmentActivity(progress().assignment_progress.last_activity_at)}</dd>
+                <dd>
+                  {formatAssignmentActivity(
+                    progress().assignment_progress.last_activity_at,
+                    props.assignment.displayTimeZone,
+                  )}
+                </dd>
               </div>
               <Show when={progress().student_assignment_grade.class_statistics}>
                 {(statistics) => (

@@ -10,9 +10,8 @@ import { SessionProvider } from "../../src/auth/session_context";
 import { App } from "../../src/app";
 import { routeScopeKey } from "../../src/navigation/route_params";
 import { appRoutes, notFoundRoute } from "../../src/routes";
-import { assignmentAttemptSummaryData } from "./route_scope_provider_fixtures";
 
-type EvidenceCase = "summary" | "preview" | "workspace" | "roster" | "teaching";
+type EvidenceCase = "policies" | "preview" | "workspace" | "roster" | "teaching";
 
 interface DeferredContentHarness {
   readonly dispose: () => void;
@@ -23,8 +22,9 @@ interface DeferredContentHarness {
 }
 
 const PATHS: Readonly<Record<EvidenceCase, string>> = {
-  // R-1 is the public Attempt reference carried by assignmentAttemptSummaryData.
-  summary: "/assignment-attempts/R-1/summary",
+  // This is a role-authorized Instructor route; the fixture's session remains
+  // Instructor for every routed case in this harness.
+  policies: "/instructor/courses/C-1/assignments/A-1/policies",
   preview: "/instructor/courses/C-2/assignments/A-2/delivery-check",
   workspace: "/instructor/courses/C-3/assignments/A-3",
   roster: "/instructor/courses/C-4/students",
@@ -46,7 +46,8 @@ function assertFixturePathsHaveValidScope(): void {
   }
 }
 
-const COURSE_REFERENCE: Readonly<Record<Exclude<EvidenceCase, "summary">, string>> = {
+const COURSE_REFERENCE: Readonly<Record<EvidenceCase, string>> = {
+  policies: "C-1",
   preview: "C-2",
   workspace: "C-3",
   roster: "C-4",
@@ -96,10 +97,10 @@ export function mountRibbonM11DeferredContentHarness(target: HTMLElement): Defer
   const history = createMemoryHistory();
   const counts = new Map<EvidenceCase, Map<string, number>>();
   const releases = new Map<EvidenceCase, () => void>();
-  const scopeCaseByCourseId = new Map<string, Exclude<EvidenceCase, "summary">>(
+  const scopeCaseByCourseId = new Map<string, EvidenceCase>(
     Object.entries(COURSE_REFERENCE).map(([caseName, reference]) => [
       `course-${reference}`,
-      caseName as Exclude<EvidenceCase, "summary">,
+      caseName as EvidenceCase,
     ]),
   );
   let activeCase: EvidenceCase | undefined;
@@ -133,29 +134,20 @@ export function mountRibbonM11DeferredContentHarness(target: HTMLElement): Defer
             if (reference.startsWith("A-")) {
               return Promise.resolve({
                 kind: "assignment",
-                courseId: `course-${
-                  COURSE_REFERENCE[activeTransportCase() as Exclude<EvidenceCase, "summary">]
-                }`,
+                courseId: `course-${COURSE_REFERENCE[activeTransportCase()]}`,
                 assignmentId: `assignment-${reference}`,
               });
             }
-            return Promise.resolve({
-              kind: "assignmentAttempt",
-              courseId: "course-C-6",
-              assignmentId: "assignment-A-1",
-              assignmentAttemptId: "attempt-R-1",
-            });
+            return undefined;
           };
         }
-        if (property === "getAssignmentWorkspace")
-          return () => unresolved("getAssignmentWorkspace");
+        if (property === "getLiveAssignmentWorkspace")
+          return () => unresolved("getLiveAssignmentWorkspace");
         if (property === "listPreviewSchedule") return () => unresolved("listPreviewSchedule");
         if (property === "getLiveCourseRoster") return () => unresolved("getLiveCourseRoster");
         if (property === "listCourseInstructors") return () => unresolved("listCourseInstructors");
         if (property === "listInstructorCourseInvitations")
           return () => unresolved("listInstructorCourseInvitations");
-        if (property === "getAssignmentAttemptSummary")
-          return () => unresolved("postMountAssignmentAttemptSummary");
         if (property === "assetUrl") return () => "/asset";
         return () =>
           Promise.reject(
@@ -178,17 +170,6 @@ export function mountRibbonM11DeferredContentHarness(target: HTMLElement): Defer
     resolveCourse: queryFunction("resolve-course", (reference: string) =>
       Promise.resolve({ courseId: `course-${reference}` }),
     ),
-    resolveAssignmentAttempt: queryFunction("resolve-attempt", (reference: string) => {
-      if (reference !== "R-1")
-        return Promise.reject(
-          new Error(`Deferred-content summary scope resolved unexpected Attempt ${reference}`),
-        );
-      return Promise.resolve({
-        courseId: "course-C-6",
-        assignmentId: "assignment-A-1",
-        assignmentAttemptId: "attempt-R-1",
-      });
-    }),
     courseScope: queryFunction("course-scope", (courseId: string) => {
       const caseName = scopeCaseByCourseId.get(courseId);
       if (caseName === undefined)
@@ -197,13 +178,6 @@ export function mountRibbonM11DeferredContentHarness(target: HTMLElement): Defer
         );
       increment(caseName, "scopeCourse");
       return deferred(caseName).then(() => instructorCourse(COURSE_REFERENCE[caseName]));
-    }),
-    assignmentAttemptScreen: queryFunction("attempt-screen", () =>
-      Promise.reject(new Error("unused")),
-    ),
-    assignmentAttemptSummary: queryFunction("attempt-summary", () => {
-      increment("summary", "scopeSummary");
-      return deferred("summary").then(() => assignmentAttemptSummaryData("C-6"));
     }),
   };
   const applicationApi = { client, queries } as unknown as ApplicationApi<OrdinaryBrowserApiClient>;

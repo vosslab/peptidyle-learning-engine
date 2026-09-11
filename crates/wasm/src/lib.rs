@@ -108,6 +108,31 @@ pub fn question_attempt_timing_decision(evaluation_json: &str) -> Result<String,
         .map_err(|error| JsValue::from_str(&format!("could not serialize timer verdict: {error}")))
 }
 
+/// Calculates the displayed Assignment Attempt countdown from a server snapshot
+/// and monotonic browser elapsed duration.
+///
+/// Both values are whole JavaScript-safe milliseconds. This adapter reads no
+/// clock and returns `null` for an untimed Assignment Attempt.
+///
+/// # Errors
+///
+/// Returns a JavaScript error for malformed, unsafe, or unrepresentable input.
+#[wasm_bindgen]
+pub fn assignment_attempt_remaining_milliseconds(input_json: &str) -> Result<String, JsValue> {
+    let input: timing::AssignmentAttemptRemainingDurationInput = serde_json::from_str(input_json)
+        .map_err(|error| {
+        JsValue::from_str(&format!("invalid assignment attempt duration: {error}"))
+    })?;
+    let remaining = timing::assignment_attempt_remaining_milliseconds(input).map_err(|error| {
+        JsValue::from_str(&format!("invalid assignment attempt duration: {error}"))
+    })?;
+    serde_json::to_string(&remaining).map_err(|error| {
+        JsValue::from_str(&format!(
+            "could not serialize assignment attempt remaining duration: {error}"
+        ))
+    })
+}
+
 /// Reports every backend capability missing from an assignment configuration.
 ///
 /// The Assignment Configuration and Question Backend capability inputs are

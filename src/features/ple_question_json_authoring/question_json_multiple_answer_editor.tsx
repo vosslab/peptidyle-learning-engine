@@ -18,6 +18,7 @@ export interface PleQuestionJsonMultipleAnswerEditorProps {
   readonly onChoiceTextChange: (choiceId: string, text: string) => void;
   readonly onChoiceFeedbackChange: (choiceId: string, feedback: string | null) => void;
   readonly onCorrectChoiceChange: (choiceId: string, correct: boolean) => void;
+  readonly onRandomizeChoicesChange: (randomizeChoices: boolean) => void;
   readonly onAddChoice: () => void;
   readonly onRemoveChoice: (choiceId: string) => void;
   readonly onMoveChoice: (choiceId: string, direction: "earlier" | "later") => void;
@@ -59,6 +60,17 @@ export function PleQuestionJsonMultipleAnswerEditor(
         Mark every answer a student must select. Each checkbox is private authoring information;
         students receive only the choice text.
       </p>
+      <label class="ple-question-json-authoring__field">
+        <span>
+          <input
+            type="checkbox"
+            checked={props.response().randomizeChoices}
+            disabled={props.disabled}
+            onChange={(event) => props.onRandomizeChoicesChange(event.currentTarget.checked)}
+          />{" "}
+          Randomize answer choices for each student
+        </span>
+      </label>
       <Show when={choicesError() !== undefined}>
         <p class="ple-question-json-authoring__error" role="alert">
           {choicesError()}

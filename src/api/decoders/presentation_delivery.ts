@@ -31,6 +31,12 @@ import {
 } from "./shared";
 import { decodeQuestionContentBlock } from "./question_response_format";
 
+/** Renderable Student fields from a server-selected, pinned presentation. */
+export interface StudentQuestionPresentation {
+  readonly prompt: QuestionPresentation["prompt"];
+  readonly response: QuestionPresentation["response"];
+}
+
 const MAX_PRESENTED_ITEMS = 32;
 const PRESENTATION_RESPONSE_ITEM_REFERENCE = /^[0-9a-f]{4}$/u;
 const PRESENTATION_NONCE = /^[0-9a-f]{32}$/u;
@@ -352,4 +358,22 @@ export function decodeIssuedQuestionPresentation(
     response: issuedQuestionResponseFormat(field(record, "response", path), `${path}.response`),
   } satisfies QuestionPresentation;
   return presentation;
+}
+
+/** Decode the selected Student delivery projection without replay evidence. */
+export function decodeStudentQuestionPresentation(
+  value: unknown,
+  path = "response",
+): StudentQuestionPresentation {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["prompt", "response"]);
+  return {
+    prompt: decodeBoundedArray(
+      field(record, "prompt", path),
+      `${path}.prompt`,
+      32,
+      (block, blockPath) => decodeQuestionContentBlock(block, blockPath, true),
+    ),
+    response: issuedQuestionResponseFormat(field(record, "response", path), `${path}.response`),
+  };
 }

@@ -8,16 +8,19 @@
 use std::collections::BTreeSet;
 
 use async_trait::async_trait;
+use std::num::NonZeroU32;
+
 use question_model::{
-    AssignmentEditNumber, AssignmentInstructions, AssignmentReference, AssignmentStatus,
-    AssignmentTitle, CourseInstanceReference, CourseLocalDateAndTime, LateWorkRule, QuestionId,
+    AccountTimeZone, AssignmentActivityRules, AssignmentEditNumber, AssignmentInstructions,
+    AssignmentReference, AssignmentStatus, AssignmentTitle, CourseInstanceReference, LateWorkRule,
+    LocalDateAndTime, QuestionId, StudentFeedbackReleaseRule,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{SessionTokenHash, StoreError};
 
 /// Bounded initial authored content for one new Course-owned Assignment.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CreateLiveAssignmentInput {
     /// Instructor-facing Assignment Title.
@@ -27,7 +30,7 @@ pub struct CreateLiveAssignmentInput {
 }
 
 /// Complete current authored Assignment content saved with an exact Edit Number.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SaveLiveAssignmentInput {
     /// Compare-and-swap precondition for the current authored Assignment.
@@ -37,12 +40,24 @@ pub struct SaveLiveAssignmentInput {
     pub title: AssignmentTitle,
     /// Plain-text Student-facing instructions.
     pub instructions: AssignmentInstructions,
-    /// Optional strict local Due at in the Course's authoritative IANA zone.
+    /// Optional exact local Due at; the Store resolves it in the authenticated Instructor zone.
     #[serde(default)]
-    pub due_at: Option<CourseLocalDateAndTime>,
+    pub due_at: Option<LocalDateAndTime>,
     /// Student-work rule captured by a later immutable Assignment Revision.
     #[serde(default = "default_late_work_rule")]
     pub late_work_rule: LateWorkRule,
+    /// Whole-attempt limit in seconds, when the Assignment is timed.
+    #[serde(default)]
+    pub assignment_attempt_time_limit_seconds: Option<NonZeroU32>,
+    /// Maximum Assignment Attempts, when bounded.
+    #[serde(default)]
+    pub attempt_limit: Option<NonZeroU32>,
+    /// The nine independent Assignment activity rules.
+    #[serde(default)]
+    pub activity_rules: AssignmentActivityRules,
+    /// The six independently configured Student feedback timings.
+    #[serde(default)]
+    pub student_feedback_release_rule: StudentFeedbackReleaseRule,
     /// Ordered Available Published Questions selected for the Assignment.
     pub question_ids: Vec<QuestionId>,
 }
@@ -52,7 +67,7 @@ fn initial_assignment_edit_number() -> AssignmentEditNumber {
 }
 
 fn default_late_work_rule() -> LateWorkRule {
-    LateWorkRule::Accept
+    LateWorkRule::Reject
 }
 
 impl SaveLiveAssignmentInput {
@@ -80,7 +95,7 @@ impl SaveLiveAssignmentInput {
 }
 
 /// Browser-safe Available Published Question row used by the bounded picker.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssignmentQuestionPickerEntry {
     /// Stable global Published Question ID.
@@ -90,7 +105,7 @@ pub struct AssignmentQuestionPickerEntry {
 }
 
 /// Browser-safe current authored fixed-Question selection.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthoredAssignmentQuestion {
     /// Stable global Published Question ID.
@@ -114,7 +129,7 @@ pub struct CourseAssignmentSummary {
 }
 
 /// Complete current Assignment Workspace projection for one direct Teaching Team Member.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveAssignmentWorkspace {
     /// Public Assignment Reference; internal Assignment identity remains server-side.
@@ -127,10 +142,20 @@ pub struct LiveAssignmentWorkspace {
     pub title: AssignmentTitle,
     /// Current Student-facing instructions.
     pub instructions: AssignmentInstructions,
-    /// Optional exact Due at in the authoritative Course zone.
-    pub due_at: Option<CourseLocalDateAndTime>,
+    /// Optional exact Due at projected in the authenticated Instructor zone.
+    pub due_at: Option<LocalDateAndTime>,
     /// Current canonical Late Work Rule.
     pub late_work_rule: LateWorkRule,
+    /// Whole-attempt limit in seconds, when configured.
+    pub assignment_attempt_time_limit_seconds: Option<NonZeroU32>,
+    /// Maximum Assignment Attempts, when configured.
+    pub attempt_limit: Option<NonZeroU32>,
+    /// The complete current activity policy.
+    pub activity_rules: AssignmentActivityRules,
+    /// The complete current disclosure policy.
+    pub student_feedback_release_rule: StudentFeedbackReleaseRule,
+    /// Authenticated Instructor display zone; never accepted in a request.
+    pub display_time_zone: AccountTimeZone,
     /// Ordered current fixed-Question selection.
     pub questions: Vec<AuthoredAssignmentQuestion>,
 }
@@ -156,7 +181,7 @@ pub struct AssignmentReleaseValidation {
 }
 
 /// Answer-free Instructor-authorized Assignment Preview for the current Assignment.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssignmentPreview {
     /// Current Student-visible Assignment title.

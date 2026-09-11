@@ -98,7 +98,12 @@ assert_concealed() {
 assert_list() {
 	python3 -c '
 import json, re, sys
-items=json.loads(sys.argv[1])
+page=json.loads(sys.argv[1])
+if not isinstance(page,dict) or set(page)!={"accounts","displayTimeZone"}:
+	raise SystemExit("Instructor Account list envelope is not closed")
+if not isinstance(page["displayTimeZone"],str) or not page["displayTimeZone"]:
+	raise SystemExit("Instructor Account list lacks its Sysadmin viewer zone")
+items=page["accounts"]
 if not isinstance(items,list) or not items:
     raise SystemExit("Instructor Account list is not a nonempty array")
 for item in items:
@@ -116,7 +121,7 @@ for item in items:
 active_signed_in_instructor_reference() {
 	python3 -c '
 import json, re, sys
-items=json.loads(sys.argv[1])
+page=json.loads(sys.argv[1]); items=page["accounts"]
 matches=[item.get("reference") for item in items if isinstance(item,dict) and item.get("state")=="active" and isinstance(item.get("lastSuccessfulSignIn"),int) and isinstance(item.get("reference"),str) and re.fullmatch(r"U-[1-9][0-9]{0,9}",item["reference"])]
 if len(matches) != 1:
     raise SystemExit("Live Demo did not retain one observable active Instructor session")

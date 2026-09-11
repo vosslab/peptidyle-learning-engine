@@ -85,6 +85,7 @@ impl PleQuestionBackend {
             question_title: source.compiled.presentation().question_title().to_string(),
             prompt: source.compiled.presentation().prompt().to_vec(),
             response: source.compiled.presentation().response().clone(),
+            native_choice_order: source.compiled.presentation().native_choice_order(),
         };
         let rendered_question_sha256 = sha256_hex(
             &serde_json::to_vec(&presentation)

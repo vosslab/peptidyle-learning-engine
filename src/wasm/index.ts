@@ -70,6 +70,16 @@ export type TimerEvaluator = (
   evaluation: QuestionAttemptTimingEvaluation,
 ) => Promise<QuestionAttemptTimingDecision>;
 
+/** Server-snapshotted duration plus elapsed milliseconds from a monotonic clock. */
+export interface AssignmentAttemptRemainingDurationInput {
+  readonly initialRemainingMilliseconds: number | null;
+  readonly elapsedMilliseconds: number;
+}
+
+export type AssignmentAttemptRemainingDurationEvaluator = (
+  input: AssignmentAttemptRemainingDurationInput,
+) => Promise<number | null>;
+
 export interface AssignmentQuestionConfig {
   readonly question: QuestionRevisionReference;
   readonly questionBackendCapabilities: QuestionBackendCapabilities;
@@ -132,6 +142,7 @@ export interface WasmFacade {
   readonly degradedReason?: string;
   readonly validateResponseFormat: ResponseFormatValidator;
   readonly questionAttemptTimingDecision: TimerEvaluator;
+  readonly assignmentAttemptRemainingMilliseconds: AssignmentAttemptRemainingDurationEvaluator;
   readonly validateAssignmentConfig: CapabilityValidator;
   readonly previewPleDraft: PleDraftPreviewer;
   readonly verifyPresentationDescriptor: PresentationVerifier;
@@ -140,6 +151,7 @@ export interface WasmFacade {
 interface WasmBindgenModule {
   readonly default: (options: { readonly module_or_path: URL }) => Promise<unknown>;
   readonly question_attempt_timing_decision: (evaluationJson: string) => string;
+  readonly assignment_attempt_remaining_milliseconds: (inputJson: string) => string;
   readonly validate_assignment_config: (configJson: string) => string;
   readonly validate_response_format: (responseFormatJson: string, responseJson: string) => string;
   readonly validate_presentation_response_format: (
@@ -167,6 +179,7 @@ function isWasmBindgenModule(value: unknown): value is WasmBindgenModule {
   return (
     typeof value["default"] === "function" &&
     typeof value["question_attempt_timing_decision"] === "function" &&
+    typeof value["assignment_attempt_remaining_milliseconds"] === "function" &&
     typeof value["validate_assignment_config"] === "function" &&
     typeof value["validate_response_format"] === "function" &&
     typeof value["validate_presentation_response_format"] === "function" &&
@@ -261,6 +274,14 @@ function parseQuestionAttemptTimingDecision(json: string): QuestionAttemptTiming
   }
 }
 
+function parseAssignmentAttemptRemainingMilliseconds(json: string): number | null {
+  const value: unknown = JSON.parse(json);
+  if (value === null) return null;
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0)
+    throw new Error("WASM assignment attempt duration must be a nonnegative safe integer");
+  return value;
+}
+
 function parseCapability(value: unknown): Capability {
   switch (value) {
     case "algorithmicGeneration":
@@ -333,6 +354,14 @@ async function initializeWasmFacade(
           loaded.question_attempt_timing_decision(JSON.stringify(evaluation)),
         ),
       );
+    const assignmentAttemptRemainingMilliseconds: AssignmentAttemptRemainingDurationEvaluator = (
+      input,
+    ) =>
+      Promise.resolve(
+        parseAssignmentAttemptRemainingMilliseconds(
+          loaded.assignment_attempt_remaining_milliseconds(JSON.stringify(input)),
+        ),
+      );
     const validateAssignmentConfig: CapabilityValidator = (config) =>
       Promise.resolve(
         parseCapabilityViolations(loaded.validate_assignment_config(JSON.stringify(config))),
@@ -359,6 +388,7 @@ async function initializeWasmFacade(
       mode: "wasm",
       validateResponseFormat,
       questionAttemptTimingDecision,
+      assignmentAttemptRemainingMilliseconds,
       validateAssignmentConfig,
       previewPleDraft,
       verifyPresentationDescriptor,
@@ -376,6 +406,10 @@ async function initializeWasmFacade(
         return formatFallback(responseFormat, response);
       },
       questionAttemptTimingDecision: timerFallback,
+      assignmentAttemptRemainingMilliseconds: () =>
+        Promise.reject(
+          new Error("Assignment Attempt countdown requires the browser WebAssembly runtime."),
+        ),
       validateAssignmentConfig: capabilityFallback,
       previewPleDraft: (request) =>
         Promise.resolve({

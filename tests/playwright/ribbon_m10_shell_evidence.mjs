@@ -3,13 +3,14 @@
 // does not build dist/ or replace real-stack browser acceptance.
 
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { readFileSync } from "node:fs";
-import { createServer } from "node:http";
 
 import { chromium } from "playwright";
 
 import { bundleRibbonM10ShellHarness } from "../support/ribbon_m10_shell_loader.ts";
+import { assertDenseTopBarKeyboardTraversal } from "./ribbon_m10_dense_top_bar_keyboard.mjs";
+import { mountRibbonM10Harness, startHarnessServer } from "./ribbon_m10_harness_server.mjs";
+import { assertNarrowRoutedShell } from "./ribbon_m10_narrow_routed_shell.mjs";
 
 const globalCss = readFileSync(new URL("../../src/style.css", import.meta.url), "utf8");
 const accessibilityCss = readFileSync(
@@ -25,48 +26,7 @@ const markup = [
   'html,body{margin:0;min-inline-size:0}</style></head><body><div id="root"></div></body></html>',
 ].join("\n");
 
-const server = createServer((_request, response) => {
-  response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-  response.end(markup);
-});
-server.listen(0, "127.0.0.1");
-await once(server, "listening");
-const address = server.address();
-if (address === null || typeof address === "string") {
-  throw new Error("Application-shell evidence server did not receive a TCP address.");
-}
-const evidenceUrl = `http://127.0.0.1:${String(address.port)}/`;
-
-function formatBootstrapDiagnostics(pageErrors, consoleErrors) {
-  const details = [...pageErrors, ...consoleErrors];
-  const summary = details.length === 0 ? "no page or console errors" : details.join(" | ");
-  return `Application-shell harness bootstrap failed: ${summary}`;
-}
-
-async function mountHarness(page, pageErrors, consoleErrors) {
-  try {
-    await page.addScriptTag({ content: Buffer.from(bundle.javascript).toString("utf8") });
-    await page.waitForFunction(
-      () =>
-        "PleRibbonM10Harness" in window &&
-        typeof window.PleRibbonM10Harness.mountRibbonM10ShellHarness === "function",
-      undefined,
-      { timeout: 5_000 },
-    );
-    await page.evaluate(() => {
-      const target = document.querySelector("#root");
-      if (!(target instanceof HTMLElement))
-        throw new Error("Application-shell harness root is missing.");
-      window.ribbonM10 = window.PleRibbonM10Harness.mountRibbonM10ShellHarness(target);
-    });
-    await page.waitForFunction(() => "ribbonM10" in window, undefined, { timeout: 5_000 });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`${formatBootstrapDiagnostics(pageErrors, consoleErrors)}; ${message}`, {
-      cause: error,
-    });
-  }
-}
+const harnessServer = await startHarnessServer(markup);
 
 async function flush(page) {
   await page.evaluate(() => new Promise((resolve) => queueMicrotask(resolve)));
@@ -75,6 +35,38 @@ async function flush(page) {
 
 function caseLocator(page, evidenceCase) {
   return page.locator(`[data-m10-case="${evidenceCase}"]`);
+}
+
+async function assertBreadcrumbPreludeStyle(prelude, profile) {
+  const style = await prelude.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    const trail = element.querySelector("ol");
+    if (!(trail instanceof HTMLElement)) throw new Error("breadcrumb trail is missing");
+    return {
+      backgroundColor: computed.backgroundColor,
+      paddingInlineStart: computed.paddingInlineStart,
+      paddingInlineEnd: computed.paddingInlineEnd,
+      trailGap: getComputedStyle(trail).gap,
+    };
+  });
+  assert.notEqual(
+    style.backgroundColor,
+    "rgba(0, 0, 0, 0)",
+    `${profile} breadcrumb prelude has a resolved nontransparent surface`,
+  );
+  assert.deepEqual(
+    {
+      paddingInlineStart: style.paddingInlineStart,
+      paddingInlineEnd: style.paddingInlineEnd,
+      trailGap: style.trailGap,
+    },
+    {
+      paddingInlineStart: profile === "narrow" ? "4px" : "16px",
+      paddingInlineEnd: profile === "narrow" ? "4px" : "16px",
+      trailGap: profile === "narrow" ? "4px" : "8px",
+    },
+    `${profile} breadcrumb prelude applies shared spacing tokens`,
+  );
 }
 
 async function waitForPath(page, evidenceCase, pathname) {
@@ -153,8 +145,8 @@ try {
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
-  await page.goto(evidenceUrl);
-  await mountHarness(page, pageErrors, consoleErrors);
+  await page.goto(harnessServer.evidenceUrl);
+  await mountRibbonM10Harness(page, bundle, pageErrors, consoleErrors);
 
   // Case A: current-source App composition with its router, routes, and providers.
   await page.evaluate(() => window.ribbonM10.currentNavigate("/"));
@@ -208,16 +200,41 @@ try {
   );
   let currentRibbon = await currentCase.locator(".ple-app-ribbon").elementHandle();
   assert.notEqual(currentRibbon, null, "current App mounts one Ribbon on an authenticated route");
-  await assertOneStableRibbon(page, "current-production", currentRibbon, false);
+  await assertOneStableRibbon(page, "current-production", currentRibbon, true);
   assert.deepEqual(
     await currentCase
       .locator("[data-ribbon-control]")
       .evaluateAll((controls) =>
         controls.map((control) => control.getAttribute("data-ribbon-control")),
       ),
-    ["courses", "questionLibrary", "blueprintCourses"],
-    "the current Instructor Product route exposes only its admitted Tabs and no Task controls",
+    ["courses", "questions", "myBlueprintCourses"],
+    "the current Instructor Product route exposes its admitted Courses and Questions Tabs and " +
+      "the backed My Blueprint Courses task; the unbacked Assignments destination remains unavailable",
   );
+  assert.deepEqual(
+    await currentCase
+      .locator(".ple-app-ribbon__top-bar [data-ribbon-control]")
+      .evaluateAll((controls) =>
+        controls.map((control) => control.getAttribute("data-ribbon-control")),
+      ),
+    ["courses", "questions"],
+    "only backed Product Tabs participate in the dense top-bar keyboard order",
+  );
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  });
+  const productKeyboardOrder = [
+    [currentCase.getByRole("link", { name: "Skip to learning content" }), "the skip link"],
+    [currentCase.locator(".ple-app-ribbon__brand"), "the Peptidyle home control"],
+    [currentCase.locator('[data-ribbon-control="courses"]'), "the Courses Tab"],
+    [currentCase.locator('[data-ribbon-control="questions"]'), "the Questions Tab"],
+    [currentCase.getByRole("button", { name: "Sign out" }), "the Sign out action"],
+    [
+      currentCase.locator('[data-ribbon-control="myBlueprintCourses"]'),
+      "the first backed task after the dense top bar",
+    ],
+  ];
+  await assertDenseTopBarKeyboardTraversal(page, productKeyboardOrder);
   await currentCase.screenshot({
     path: "/private/tmp/ple_ribbon_m10_current_production_empty.png",
     fullPage: true,
@@ -226,6 +243,19 @@ try {
   await page.evaluate(() => window.ribbonM10.currentNavigate("/courses/C-1"));
   await waitForPath(page, "current-production", "/courses/C-1");
   await assertOneStableRibbon(page, "current-production", currentRibbon, false);
+  const deferredBreadcrumb = currentCase.locator(".ple-shell__breadcrumb-prelude");
+  assert.equal(
+    await deferredBreadcrumb.count(),
+    1,
+    "a declared deep route reserves its shell-owned breadcrumb prelude while the title resolves",
+  );
+  assert.equal(
+    await deferredBreadcrumb.locator('nav[aria-label="Breadcrumb"]').count(),
+    0,
+    "a deferred course scope exposes no guessed breadcrumb landmark or identifier",
+  );
+  const deferredBreadcrumbBox = await deferredBreadcrumb.boundingBox();
+  const deferredRibbonBox = await currentCase.locator(".ple-app-ribbon").boundingBox();
   assert.equal(
     await currentCase.locator('.ple-app-ribbon[data-ribbon-scope="courseInstance"]').count(),
     1,
@@ -271,6 +301,40 @@ try {
     { timeout: 3_000 },
   );
   await assertOneStableRibbon(page, "current-production", currentRibbon, false);
+  assert.equal(
+    await currentCase.locator('nav[aria-label="Breadcrumb"]').count(),
+    1,
+    "the resolved deep route renders one shell-owned breadcrumb landmark",
+  );
+  assert.deepEqual(
+    await currentCase.locator('nav[aria-label="Breadcrumb"] li').allTextContents(),
+    ["Courses", "Course C-1"],
+    "the Course root has an ordered linked ancestor and current title",
+  );
+  assert.equal(
+    await currentCase.locator('nav[aria-label="Breadcrumb"] [aria-current="page"]').count(),
+    1,
+    "the breadcrumb terminal is the only current item",
+  );
+  assert.equal(
+    await currentCase.locator('nav[aria-label="Breadcrumb"] a').first().getAttribute("href"),
+    "/",
+    "the breadcrumb ancestor uses the canonical Courses path",
+  );
+  await assertBreadcrumbPreludeStyle(deferredBreadcrumb, "desktop");
+  await page.setViewportSize({ width: 320, height: 640 });
+  await assertBreadcrumbPreludeStyle(deferredBreadcrumb, "narrow");
+  await page.setViewportSize({ width: 1280, height: 800 });
+  assert.deepEqual(
+    await deferredBreadcrumb.boundingBox(),
+    deferredBreadcrumbBox,
+    "label resolution preserves the reserved breadcrumb-prelude geometry",
+  );
+  assert.deepEqual(
+    await currentCase.locator(".ple-app-ribbon").boundingBox(),
+    deferredRibbonBox,
+    "label resolution does not move any Ribbon control geometry",
+  );
   assert.equal(
     await currentCase.locator(".ple-app-ribbon__course-scope-label").innerText(),
     "Course C-1",
@@ -427,6 +491,28 @@ try {
     style: ".skip-link:not(:focus) { visibility: hidden !important; }",
   });
 
+  // The routed ApplicationShell is the M2 visual evidence surface. At phone
+  // width and a 200% root-text setting it must keep the dense Ribbon, its
+  // shell-owned breadcrumb prelude, and the beginning of route content in one
+  // readable document flow without horizontal overflow.
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = "200%";
+  });
+  await flush(page);
+  await assertNarrowRoutedShell(currentCase);
+  await page.screenshot({
+    path: "/private/tmp/ple_ribbon_m2_routed_shell_320x640_text200.png",
+    // Preserve the neutral capture conditions proved above while presenting the
+    // actual Ribbon, breadcrumb, and route content at this accessibility size.
+    style: ".skip-link:not(:focus) { visibility: hidden !important; }",
+  });
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = "";
+  });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await flush(page);
+
   await page.evaluate(() => window.ribbonM10.currentNavigate("/courses/C-0"));
   await waitForPath(page, "current-production", "/courses/C-0");
   await assertOneStableRibbon(page, "current-production", currentRibbon, false);
@@ -479,15 +565,24 @@ try {
 
   for (const [pathname, taskRowReserved] of [
     ["/library", true],
-    ["/blueprint-courses", false],
+    ["/blueprint-courses", true],
     ["/courses/C-2", false],
     ["/assignment-attempts/R-1", true],
     ["/courses/C-1", false],
   ]) {
     await page.evaluate((nextPathname) => window.ribbonM10.currentNavigate(nextPathname), pathname);
     await waitForPath(page, "current-production", pathname);
-    await assertOneStableRibbon(page, "current-production", currentRibbon, taskRowReserved);
+    try {
+      await assertOneStableRibbon(page, "current-production", currentRibbon, taskRowReserved);
+    } catch (error) {
+      throw new Error(`current-source Ribbon topology disagreed at ${pathname}`, { cause: error });
+    }
   }
+  assert.deepEqual(
+    pageErrors,
+    [],
+    "current-source route transitions, including the active Attempt scope, raise no page errors",
+  );
 
   await currentSkip.focus();
   await page.keyboard.press("Enter");
@@ -611,16 +706,16 @@ try {
     {
       pathname: "/library",
       scope: "product",
-      selected: "Question Library",
+      selected: "Questions",
       context: undefined,
       taskRowReserved: true,
     },
     {
       pathname: "/blueprint-courses",
       scope: "product",
-      selected: "Blueprint Courses",
+      selected: "Courses",
       context: undefined,
-      taskRowReserved: false,
+      taskRowReserved: true,
     },
     {
       pathname: "/courses/C-2",
@@ -806,6 +901,5 @@ try {
   );
 } finally {
   await browser.close();
-  server.close();
-  await once(server, "close");
+  await harnessServer.close();
 }

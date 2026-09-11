@@ -26,8 +26,10 @@ export {
   type QuestionResponseControlProps,
 } from "./common";
 export {
+  createImathasQuestionBackendMarkerPersistence,
   isImathasQuestionBackendReadyMessage,
   isSafeImathasQuestionBackendLaunchPath,
+  persistImathasQuestionBackendMarker,
 } from "./imathas_question_backend";
 export { handleQuestionResponseControlKeyDown } from "./keyboard";
 
@@ -141,6 +143,7 @@ function QuestionResponseControlBody(props: QuestionResponseControlProps): JSX.E
           attemptId={props.attemptId}
           onSubmit={props.onSubmit}
           onEscape={props.onEscape}
+          onResponseEdit={props.onResponseEdit}
           onResponseChange={props.onResponseChange}
           studentWorkRoute={props.studentWorkRoute}
           beginImathasQuestionBackendLaunch={props.beginImathasQuestionBackendLaunch}

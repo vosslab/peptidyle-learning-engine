@@ -52,7 +52,7 @@ export function OrderingResponse(
   const response = (): StudentResponse => ({ kind: "ordering", order: [...order()] });
   function update(next: ReadonlyArray<ResponseItemReference>): void {
     setOrder(next);
-    void controller.validate({ kind: "ordering", order: [...next] });
+    void controller.edit({ kind: "ordering", order: [...next] });
   }
   function rowId(id: ResponseItemReference): string {
     return `${props.attemptId}-order-${id}`;
@@ -181,6 +181,7 @@ export function OrderingResponse(
         disabled={!controller.canSubmit() || controller.locked()}
         resetDisabled={controller.locked()}
         onSubmit={submit}
+        submitLabel={props.submitLabel}
         onReset={reset}
         resetLabel="Reset order"
         onEscape={props.onEscape}

@@ -22,21 +22,31 @@ function assignmentStatusLabel(status: LiveAssignmentStatus): string {
   }
 }
 
-function AssignmentCard(props: {
+function assignmentQuestionsPath(courseReference: string, assignmentReference: string): string {
+  return `/instructor/courses/${courseReference}/assignments/${assignmentReference}/questions`;
+}
+
+function AssignmentRow(props: {
   readonly courseReference: string;
   readonly assignment: CourseAssignmentSummary;
 }): JSX.Element {
   return (
-    <article class="course-card">
-      <p class="card-kicker">{assignmentStatusLabel(props.assignment.status)} Assignment</p>
-      <h2>{props.assignment.title}</h2>
-      <p class="course-card-description">Assignment {props.assignment.reference}</p>
-      <A
-        class="primary-link"
-        href={`/instructor/courses/${props.courseReference}/assignments/${props.assignment.reference}/release`}
-      >
-        Open Assignment Workspace
-      </A>
+    <article class="instructor-list__row instructor-list__row--assignment">
+      <div class="instructor-list__identity">
+        <p class="instructor-list__kind">
+          {assignmentStatusLabel(props.assignment.status)} Assignment
+        </p>
+        <h3>{props.assignment.title}</h3>
+        <p class="instructor-list__metadata">Assignment {props.assignment.reference}</p>
+      </div>
+      <div class="instructor-list__actions">
+        <A
+          class="primary-link"
+          href={assignmentQuestionsPath(props.courseReference, props.assignment.reference)}
+        >
+          Edit Assignment
+        </A>
+      </div>
     </article>
   );
 }
@@ -115,10 +125,10 @@ export function CourseInstancePage(): JSX.Element {
                   </Show>
                 }
               >
-                <div class="card-grid">
+                <div class="instructor-list" aria-label="Assignments">
                   <For each={assignments()}>
                     {(assignment) => (
-                      <AssignmentCard
+                      <AssignmentRow
                         courseReference={view().course.reference}
                         assignment={assignment}
                       />

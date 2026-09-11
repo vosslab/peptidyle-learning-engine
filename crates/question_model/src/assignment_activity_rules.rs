@@ -341,7 +341,7 @@ impl Default for AssignmentActivityRules {
             question_pool_reuse_rule: QuestionPoolReuseRule::ReuseSelection,
             question_variation_rule: AssignmentQuestionVariationRule::NewVariation,
             assignment_attempt_resume_rule: AssignmentAttemptResumeRule::Resumable,
-            assignment_question_display_rule: AssignmentQuestionDisplayRule::AllQuestions,
+            assignment_question_display_rule: AssignmentQuestionDisplayRule::OneQuestionAtATime,
             assignment_navigation_rule: AssignmentNavigationRule::FreeNavigation,
             assignment_question_order_rule: AssignmentQuestionOrderRule::AuthoredOrder,
         }

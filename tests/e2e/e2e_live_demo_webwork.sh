@@ -290,17 +290,46 @@ prove_render() {
 	echo "WeBWorK render browser: visible Student start and rendered answer-free Question Presentation complete"
 }
 
-webwork_submission_parts() {
+webwork_response() {
 	python3 -c '
 import json, sys
 value=json.loads(sys.argv[1]); question=value["questions"][0]
-nonce=question.get("presentationNonce")
 choices=question.get("response",{}).get("choices")
-if not isinstance(nonce,str) or len(nonce) != 32 or not isinstance(choices,list) or not choices or not isinstance(choices[0].get("id"),str):
+if not isinstance(choices,list) or not choices or not isinstance(choices[0].get("id"),str):
     raise SystemExit("WeBWorK presentation has no submit-ready single choice")
-print(nonce)
 print(json.dumps({"response":{"kind":"multipleChoice","selected":[choices[0]["id"]]}},separators=(",",":")))
 ' "$1"
+}
+
+assignment_attempt_reference() {
+	python3 -c '
+import json, re, sys
+value=json.loads(sys.argv[1])
+attempt=value.get("activeAssignmentAttempt")
+if set(value) != {"startDecision", "activeAssignmentAttempt"} or not isinstance(attempt, str) or not re.fullmatch(r"R-[1-9][0-9]{0,9}", attempt):
+    raise SystemExit("Assignment Access did not expose the active public Assignment Attempt")
+print(attempt)
+' "$1"
+}
+
+assert_saved_response() {
+	python3 -c '
+import json, sys
+value=json.loads(sys.argv[1])
+expected={"assignmentAttempt":sys.argv[2],"position":1,"responseState":"saved"}
+if value != expected:
+    raise SystemExit("WeBWorK response save acknowledgement is malformed")
+' "$1" "$2"
+}
+
+assert_assignment_submitted() {
+	python3 -c '
+import json, sys
+value=json.loads(sys.argv[1])
+expected={"assignmentAttempt":sys.argv[2],"submissionState":"submitted"}
+if value != expected:
+    raise SystemExit("WeBWorK Assignment Attempt finalization acknowledgement is malformed")
+' "$1" "$2"
 }
 
 assert_webwork_job_state() {
@@ -315,7 +344,7 @@ assert_webwork_job_state() {
 }
 
 prove_grade() {
-	local instructor_cookie student_cookie refs course assignment started nonce response accepted manifest_path outage_assignment outage_started outage_nonce outage_response outage_accepted
+	local instructor_cookie student_cookie refs course assignment started access attempt response saved finalized manifest_path outage_assignment outage_started outage_access outage_attempt outage_response outage_saved outage_finalized
 	bash "$repository_root/tests/e2e/e2e_live_demo_assignment_release.sh" --service >/dev/null
 	install_private_webwork_source
 	instructor_cookie="$(persona_cookie elenaInstructor)"; student_cookie="$(persona_cookie maryStudent)"
@@ -324,18 +353,32 @@ prove_grade() {
 	assignment="$(release_webwork_assignment "$course" "$instructor_cookie")"
 	started="$(request "/api/course-instances/$course/assignments/$assignment/start" "$student_cookie" POST '{}')"
 	if [ "$(response_status "$started")" != "201" ]; then echo "Student could not start the WeBWorK grading Assignment" >&2; exit 1; fi
-	{ read -r nonce; read -r response; } < <(webwork_submission_parts "$(response_body "$started")")
-	accepted="$(request "/api/course-instances/$course/assignments/$assignment/presentations/$nonce/submissions" "$student_cookie" POST "$response")"
-	if [ "$(response_status "$accepted")" != "201" ] || [ "$(response_body "$accepted")" != "{\"presentationNonce\":\"$nonce\",\"gradingState\":\"pending\"}" ]; then echo "Student WeBWorK Response was not accepted once" >&2; exit 1; fi
+	access="$(request "/api/course-instances/$course/assignments/$assignment/access" "$student_cookie")"
+	if [ "$(response_status "$access")" != "200" ]; then echo "Student could not read the active WeBWorK Assignment Attempt" >&2; exit 1; fi
+	attempt="$(assignment_attempt_reference "$(response_body "$access")")"
+	response="$(webwork_response "$(response_body "$started")")"
+	saved="$(request "/api/assignment-attempts/$attempt/responses/1" "$student_cookie" PUT "$response")"
+	if [ "$(response_status "$saved")" != "200" ]; then echo "Student WeBWorK Response was not saved" >&2; exit 1; fi
+	assert_saved_response "$(response_body "$saved")" "$attempt"
+	finalized="$(request "/api/assignment-attempts/$attempt/submission" "$student_cookie" POST '{}')"
+	if [ "$(response_status "$finalized")" != "200" ]; then echo "Student could not submit the WeBWorK Assignment Attempt" >&2; exit 1; fi
+	assert_assignment_submitted "$(response_body "$finalized")" "$attempt"
 	assert_webwork_job_state "$course" "$assignment" 'completed|graded'
 	outage_assignment="$(release_webwork_assignment "$course" "$instructor_cookie")"
 	outage_started="$(request "/api/course-instances/$course/assignments/$outage_assignment/start" "$student_cookie" POST '{}')"
 	if [ "$(response_status "$outage_started")" != "201" ]; then echo "Student could not start the renderer-outage Assignment" >&2; exit 1; fi
-	{ read -r outage_nonce; read -r outage_response; } < <(webwork_submission_parts "$(response_body "$outage_started")")
+	outage_access="$(request "/api/course-instances/$course/assignments/$outage_assignment/access" "$student_cookie")"
+	if [ "$(response_status "$outage_access")" != "200" ]; then echo "Student could not read the active renderer-outage Assignment Attempt" >&2; exit 1; fi
+	outage_attempt="$(assignment_attempt_reference "$(response_body "$outage_access")")"
+	outage_response="$(webwork_response "$(response_body "$outage_started")")"
+	outage_saved="$(request "/api/assignment-attempts/$outage_attempt/responses/1" "$student_cookie" PUT "$outage_response")"
+	if [ "$(response_status "$outage_saved")" != "200" ]; then echo "Renderer-outage Student Response was not saved before grading" >&2; exit 1; fi
+	assert_saved_response "$(response_body "$outage_saved")" "$outage_attempt"
 	manifest_path="local_stack_state/live_demo_browser/workspace/disposable.manifest"
 	python3 -m local_stack_control.disposable_stack_command stop-webwork-renderer --manifest "$manifest_path" >/dev/null
-	outage_accepted="$(request "/api/course-instances/$course/assignments/$outage_assignment/presentations/$outage_nonce/submissions" "$student_cookie" POST "$outage_response")"
-	if [ "$(response_status "$outage_accepted")" != "201" ]; then echo "Renderer-outage Student Response was not accepted" >&2; exit 1; fi
+	outage_finalized="$(request "/api/assignment-attempts/$outage_attempt/submission" "$student_cookie" POST '{}')"
+	if [ "$(response_status "$outage_finalized")" != "200" ]; then echo "Renderer-outage Assignment Attempt was not submitted" >&2; exit 1; fi
+	assert_assignment_submitted "$(response_body "$outage_finalized")" "$outage_attempt"
 	assert_webwork_job_state "$course" "$outage_assignment" 'failed|instructor_attention'
 	python3 -m local_stack_control.disposable_stack_command replace-webwork-renderer --manifest "$manifest_path" >/dev/null
 	echo "WeBWorK grade authority: deterministic renderer grade commit and bounded renderer failure complete"

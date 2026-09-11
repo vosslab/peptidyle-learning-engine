@@ -11,23 +11,18 @@ import {
   type JSX,
 } from "solid-js";
 
-import type { AssignmentId } from "../../../generated/api/AssignmentId";
-import type { CourseId } from "../../../generated/api/CourseId";
-import type { ApiClient } from "../../api/client";
-import type { AssignmentEditorDetail, CourseSummary } from "../../api/contracts";
+import type {
+  ReleasedLiveAssignment,
+  RevisionedLiveAssignmentWorkspace,
+  SaveLiveAssignmentInput,
+} from "../../api/assignment_release";
 import { useApplicationApi } from "../../api/application_api";
-import { useSessionBootstrap } from "../../auth/session_context";
-import { courseRouteView } from "../../features/course_appearance/course_theme_context";
-import { resolveAssignmentRoute } from "../../navigation/resolved_route";
 import {
-  courseInstanceRouteReference,
   parseAssignmentReference,
   parseCourseInstanceReference,
   type AssignmentRouteReference,
   type CourseInstanceRouteReference,
 } from "../../navigation/public_route";
-import { useRouteScopeData } from "../../ribbon/route_scope_context";
-import { createAssignmentEditorRepository } from "../assignment_editor_repository";
 import "./assignment_workspace_authoring.css";
 import { type AssignmentWorkspaceSection } from "./assignment_workspace_paths";
 import { AssignmentWorkspaceOverviewPage } from "./assignment_workspace_overview_page";
@@ -35,24 +30,16 @@ import { AssignmentWorkspaceOperationsPage } from "./assignment_workspace_operat
 import { AssignmentWorkspacePoliciesPage } from "./assignment_workspace_policies_page";
 import { AssignmentWorkspaceQuestionsPage } from "./assignment_workspace_questions_page";
 import { AssignmentWorkspaceStudentViewPage } from "./assignment_workspace_student_view_page";
-import {
-  assignmentWorkspaceLoadFailureState,
-  type AssignmentWorkspaceLoadState,
-} from "./assignment_workspace_load_model";
 import "./assignment_workspace.css";
 
 export interface AssignmentWorkspaceContextValue {
-  readonly course: CourseSummary;
-  readonly courseId: CourseId;
   readonly courseReference: CourseInstanceRouteReference;
-  /** Shared live detail; focused saves replace this value for every child page. */
-  readonly assignment: Accessor<AssignmentEditorDetail>;
-  readonly assignmentId: AssignmentId;
+  /** Shared direct resource and exact ETag for every child page. */
+  readonly assignment: Accessor<RevisionedLiveAssignmentWorkspace>;
   readonly assignmentReference: AssignmentRouteReference;
-  readonly client: ApiClient;
-  readonly repository: ReturnType<typeof createAssignmentEditorRepository>;
-  readonly replaceAssignment: (assignment: AssignmentEditorDetail) => void;
-  readonly reloadAssignment: () => Promise<AssignmentEditorDetail>;
+  readonly save: (input: SaveLiveAssignmentInput) => Promise<RevisionedLiveAssignmentWorkspace>;
+  readonly release: (etag: string) => Promise<ReleasedLiveAssignment>;
+  readonly reloadAssignment: () => Promise<RevisionedLiveAssignmentWorkspace>;
 }
 
 const AssignmentWorkspaceContext = createContext<AssignmentWorkspaceContextValue>();
@@ -63,7 +50,7 @@ export function useAssignmentWorkspace(): AssignmentWorkspaceContextValue {
   return value;
 }
 
-type LoadState = "loading" | AssignmentWorkspaceLoadState;
+type LoadState = "loading" | "unavailable" | "error";
 
 function WorkspaceState(props: {
   readonly state: LoadState;
@@ -77,22 +64,6 @@ function WorkspaceState(props: {
         <p class="loading-state" role="status">
           Loading assignment workspace...
         </p>
-      </section>
-    );
-  }
-  if (props.state === "denied") {
-    return (
-      <section
-        class="page assignment-workspace-state route-error"
-        data-route-surface="assignmentWorkspaceGate"
-        role="alert"
-      >
-        <p class="eyebrow">Instructor assignment workspace</p>
-        <h1>You do not manage this course</h1>
-        <p>Return to your courses and choose an assignment in a course you manage.</p>
-        <A class="primary-link" href="/">
-          Return to courses
-        </A>
       </section>
     );
   }
@@ -154,12 +125,9 @@ export interface AssignmentWorkspaceLivePageProps {
 }
 
 /** Resolves public references, proves the exact course relationship, then loads one workspace detail. */
-function AssignmentWorkspaceLiveContent(
-  props: AssignmentWorkspaceLivePageProps & { readonly course: CourseSummary },
-): JSX.Element {
+function AssignmentWorkspaceLiveContent(props: AssignmentWorkspaceLivePageProps): JSX.Element {
   const applicationApi = useApplicationApi();
   const params = useParams();
-  const session = useSessionBootstrap();
   const [state, setState] = createSignal<LoadState>("loading");
   const [workspace, setWorkspace] = createSignal<AssignmentWorkspaceContextValue>();
   let retryButton: HTMLButtonElement | undefined;
@@ -170,71 +138,54 @@ function AssignmentWorkspaceLiveContent(
 
   async function load(): Promise<void> {
     setState("loading");
-    const course = props.course;
     const courseReference = parseCourseInstanceReference(params["courseRef"] ?? "");
     const assignmentReference = parseAssignmentReference(params["assignmentRef"] ?? "");
     if (courseReference === null || assignmentReference === null) {
       setState("unavailable");
       return;
     }
-    const currentSession = session.state();
-    if (
-      currentSession.kind !== "authenticated" ||
-      currentSession.session.account.productRole !== "instructor"
-    ) {
-      setState("denied");
-      return;
-    }
-    if (
-      course.role !== "instructor" ||
-      courseInstanceRouteReference(course.reference) !== courseReference
-    ) {
-      setState("denied");
-      return;
-    }
     try {
-      const identity = await resolveAssignmentRoute(applicationApi.client, assignmentReference);
-      if (identity.courseId !== course.id) {
-        setState("unavailable");
-        return;
-      }
-      const assignment = await applicationApi.client.getAssignmentWorkspace(
-        course.id,
-        identity.assignmentId,
+      const assignment = await applicationApi.client.getLiveAssignmentWorkspace(
+        courseReference,
+        assignmentReference,
       );
-      if (assignment.id !== identity.assignmentId || assignment.courseId !== course.id) {
-        setState("unavailable");
-        return;
-      }
       const [currentAssignment, setCurrentAssignment] = createSignal(assignment);
-      const replaceAssignment = (next: AssignmentEditorDetail): void => {
-        if (next.id !== identity.assignmentId || next.courseId !== course.id) {
-          throw new Error("Assignment update does not match the workspace authority");
-        }
-        setCurrentAssignment(next);
-      };
-      const reloadAssignment = async (): Promise<AssignmentEditorDetail> => {
-        const latest = await applicationApi.client.getAssignmentWorkspace(
-          course.id,
-          identity.assignmentId,
+      const reloadAssignment = async (): Promise<RevisionedLiveAssignmentWorkspace> => {
+        const latest = await applicationApi.client.getLiveAssignmentWorkspace(
+          courseReference,
+          assignmentReference,
         );
-        replaceAssignment(latest);
+        setCurrentAssignment(latest);
         return latest;
       };
+      const save = async (
+        input: SaveLiveAssignmentInput,
+      ): Promise<RevisionedLiveAssignmentWorkspace> => {
+        const saved = await applicationApi.client.saveLiveAssignment(
+          courseReference,
+          assignmentReference,
+          input,
+          currentAssignment().etag,
+        );
+        setCurrentAssignment(saved);
+        return saved;
+      };
+      const release = async (etag: string): Promise<ReleasedLiveAssignment> =>
+        await applicationApi.client.releaseLiveAssignment(
+          courseReference,
+          assignmentReference,
+          etag,
+        );
       setWorkspace({
-        course,
-        courseId: course.id,
         courseReference,
         assignment: currentAssignment,
-        assignmentId: identity.assignmentId,
         assignmentReference,
-        client: applicationApi.client,
-        repository: createAssignmentEditorRepository(applicationApi.client),
-        replaceAssignment,
+        release,
+        save,
         reloadAssignment,
       });
     } catch (error: unknown) {
-      const failureState = assignmentWorkspaceLoadFailureState(error);
+      const failureState: LoadState = error instanceof Error ? "error" : "unavailable";
       setState(failureState);
       if (failureState === "error") {
         requestAnimationFrame(() => retryButton?.focus());
@@ -267,26 +218,7 @@ function AssignmentWorkspaceLiveContent(
   );
 }
 
-/** Mounts the stateful workspace loader only after its course scope resolves. */
+/** Mounts the direct-resource loader; authorization remains server-owned. */
 export function AssignmentWorkspaceLivePage(props: AssignmentWorkspaceLivePageProps): JSX.Element {
-  const routeData = useRouteScopeData();
-  const course = (): CourseSummary | undefined => {
-    const data = routeData();
-    return data?.kind === "course" ? courseRouteView(data).summary : undefined;
-  };
-  return (
-    <Show
-      when={course()}
-      keyed
-      fallback={
-        <section class="page assignment-workspace" data-route-surface="assignmentWorkspace">
-          <p class="loading-state" role="status">
-            Loading assignment workspace...
-          </p>
-        </section>
-      }
-    >
-      {(loadedCourse) => <AssignmentWorkspaceLiveContent {...props} course={loadedCourse} />}
-    </Show>
-  );
+  return <AssignmentWorkspaceLiveContent {...props} />;
 }

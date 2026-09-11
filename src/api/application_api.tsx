@@ -4,12 +4,12 @@ import { query } from "@solidjs/router";
 import { createContext, useContext, type JSX } from "solid-js";
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
+import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import type { QuestionId } from "../../generated/api/QuestionId";
-import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
 import type { ApiClient, OrdinaryBrowserApiClient } from "./client";
 import type { CalculatedGradebookResult } from "./decoders/calculated_gradebook";
@@ -19,7 +19,6 @@ import type {
   CourseRouteView,
   CourseSummary,
   CursorPage,
-  AssignmentAttemptScreenData,
   AssignmentAttemptSummaryResponse,
 } from "./contracts";
 import {
@@ -32,6 +31,7 @@ import type {
   AssignmentAttemptRouteReference,
   CourseInstanceRouteReference,
 } from "../navigation/public_route";
+import type { StudentAssignmentAttemptContext } from "./assignment_attempt_navigation";
 
 interface QueryFunction<Arguments extends ReadonlyArray<unknown>, Result> {
   (...arguments_: Arguments): Promise<Result>;
@@ -50,13 +50,14 @@ export interface ApplicationApi<Client extends ApiClient = ApiClient> {
     readonly assignment: QueryFunction<[AssignmentId], StudentAssignmentDetail>;
     readonly assignmentSummary: QueryFunction<[AssignmentId], StudentAssignmentProgress>;
     readonly courseScope: QueryFunction<[CourseId], CourseRouteView>;
-    readonly assignmentAttemptScreen: QueryFunction<
-      [AssignmentAttemptId],
-      AssignmentAttemptScreenData
-    >;
     readonly assignmentAttemptSummary: QueryFunction<
       [AssignmentAttemptId],
       AssignmentAttemptSummaryResponse
+    >;
+    /** Live Student Attempt presentation scope keyed directly by R-n. */
+    readonly assignmentAttemptScope: QueryFunction<
+      [AssignmentAttemptRouteReference],
+      StudentAssignmentAttemptContext
     >;
     /** Public-reference keyed scope identity; not an authorization result. */
     readonly resolveCourse: QueryFunction<[CourseInstanceRouteReference], ResolvedCourseIdentity>;
@@ -110,15 +111,15 @@ export function createApplicationApi<Client extends ApiClient>(
         }
         return { summary, appearance };
       }, "course-scope"),
-      assignmentAttemptScreen: query(
-        (assignmentAttemptId: AssignmentAttemptId) =>
-          client.getAssignmentAttemptScreen(assignmentAttemptId),
-        "assignment-attempt-screen",
-      ),
       assignmentAttemptSummary: query(
         (assignmentAttemptId: AssignmentAttemptId) =>
           client.getAssignmentAttemptSummary(assignmentAttemptId, undefined, 30),
         "assignment-attempt-summary",
+      ),
+      assignmentAttemptScope: query(
+        (reference: AssignmentAttemptRouteReference) =>
+          client.getStudentAssignmentAttemptContext(reference),
+        "assignment-attempt-scope",
       ),
       resolveCourse: query(
         (reference: CourseInstanceRouteReference) => resolveCourseIdentity(client, reference),

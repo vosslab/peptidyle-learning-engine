@@ -4,6 +4,7 @@ import type { AccountReference } from "../../../generated/api/AccountReference";
 import type {
   CreateInstructorAccountInput,
   DeactivateInstructorAccountInput,
+  InstructorAccountList,
   InstructorAccountState,
   InstructorAccountSummary,
 } from "../instructor_account";
@@ -50,12 +51,33 @@ function summary(value: unknown, path: string): InstructorAccountSummary {
   };
 }
 
+function displayTimeZone(value: unknown, path: string): string {
+  const decoded = decodeString(value, path);
+  if (decoded.length === 0 || decoded.length > 100) {
+    throw new DecodeError(path, "a bounded IANA display time zone");
+  }
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: decoded });
+  } catch {
+    throw new DecodeError(path, "an exact IANA display time zone");
+  }
+  return decoded;
+}
+
 /** Rejects extra fields, including accidental Authentication Email disclosure. */
-export function decodeInstructorAccounts(
+export function decodeInstructorAccountList(
   value: unknown,
   path = "response",
-): ReadonlyArray<InstructorAccountSummary> {
-  return decodeArray(value, path, summary);
+): InstructorAccountList {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["accounts", "displayTimeZone"]);
+  return {
+    accounts: decodeArray(field(record, "accounts", path), `${path}.accounts`, summary),
+    displayTimeZone: displayTimeZone(
+      field(record, "displayTimeZone", path),
+      `${path}.displayTimeZone`,
+    ),
+  };
 }
 
 export function decodeInstructorAccount(

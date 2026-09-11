@@ -12,7 +12,7 @@ pub use grading::ple_question_json::{
     PleQuestionJsonError, PleQuestionJsonEvaluation, PleQuestionJsonPrivateGrading,
     validate_ple_question_json_shape,
 };
-use question_model::{QuestionContentBlock, QuestionMetadata};
+use question_model::{NativeChoiceOrder, QuestionContentBlock, QuestionMetadata};
 use question_model::{QuestionHint, QuestionType};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -74,6 +74,7 @@ pub struct PleQuestionJsonPresentation {
     prompt: Vec<QuestionContentBlock>,
     response: question_model::response::QuestionResponseFormat,
     question_type: QuestionType,
+    native_choice_order: NativeChoiceOrder,
 }
 
 impl PleQuestionJsonPresentation {
@@ -93,6 +94,11 @@ impl PleQuestionJsonPresentation {
     }
     pub fn question_type(&self) -> QuestionType {
         self.question_type
+    }
+
+    /// Returns the server-only native choice-order policy compiled from PLE source.
+    pub fn native_choice_order(&self) -> NativeChoiceOrder {
+        self.native_choice_order
     }
 }
 

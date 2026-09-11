@@ -57,8 +57,9 @@ transition such as creating a workspace or entering an Assignment Attempt. Route
 keyed `createResource` for its private draft read.
 
 `CourseThemeScope` classifies only course-owned routes. It loads `courseScope(courseId)` for course
-and instructor-course routes, `assignmentAttemptScreen(assignmentAttemptId)` for an attempt, and `assignmentAttemptSummary(assignmentAttemptId)` for a
-summary. The context exposes the authorized `CourseRouteView` to the course entry identity and theme;
+and instructor-course routes, `assignmentAttemptScope(reference)` for an active Attempt, and
+`assignmentAttemptSummary(assignmentAttemptId)` for a summary. The context exposes the authorized
+`CourseRouteView` to the course entry identity and theme;
 the scope is below the persistent shell and therefore cannot leak a prior
 course's CSS variables onto a global route.
 

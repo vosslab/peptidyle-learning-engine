@@ -36,7 +36,6 @@ const input = {
     assignmentQuestionOrderRule: "authoredOrder",
   },
   assignmentAuthoredContent: {
-    timeZone: "America/Chicago",
     instructions: "Use a structural drawing.",
     available_at: null,
     due_at: null,

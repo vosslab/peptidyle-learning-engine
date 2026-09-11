@@ -3,8 +3,11 @@
 //! Feature adapters return only after their exact clean-schema contracts exist.
 
 #[cfg(feature = "postgres")]
+mod account_time_zone;
+#[cfg(feature = "postgres")]
 mod assignment_attempt;
 #[cfg(feature = "postgres")]
+mod assignment_attempt_context;
 mod assignment_delivery;
 #[cfg(feature = "postgres")]
 mod assignment_release;
@@ -57,6 +60,8 @@ mod webwork_grading;
 #[cfg(feature = "postgres")]
 mod webwork_submission;
 
+#[cfg(feature = "postgres")]
+pub use account_time_zone::PostgresAccountTimeZoneStore;
 #[cfg(feature = "postgres")]
 pub use assignment_attempt::PostgresAssignmentAttemptStore;
 #[cfg(feature = "postgres")]

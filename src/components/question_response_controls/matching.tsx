@@ -64,7 +64,7 @@ export function MatchingResponse(
   function update(prompt: string, choice: string): void {
     const next = matches().map((pair) => (pair.prompt === prompt ? { prompt, choice } : pair));
     setMatches(next);
-    void controller.validate({ kind: "matching", matches: [...next] });
+    void controller.edit({ kind: "matching", matches: [...next] });
   }
 
   /**
@@ -207,6 +207,7 @@ export function MatchingResponse(
         disabled={!controller.canSubmit() || controller.locked()}
         resetDisabled={controller.locked()}
         onSubmit={submit}
+        submitLabel={props.submitLabel}
         onReset={reset}
         onEscape={props.onEscape}
       />

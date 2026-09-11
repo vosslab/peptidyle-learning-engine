@@ -9,9 +9,9 @@ authorization; and this document owns the checked-in migration sequence and forw
 
 ## Baseline and migration rules
 
-The current disposable baseline contains the 77 checked migration files from
+The current disposable baseline contains the 84 checked migration files from
 `2026082901_principal_baseline.sql` through
-`2026090904_course_summary_read.sql`. The numbered range has no
+`2026091012_student_assignment_attempt_context.sql`. The numbered range has no
 `2026082905` or `2026082927` file; those numbers are not migrations. Apply the
 complete checked-in sequence only to a clean disposable database. The prior
 migration epoch was removed during the fresh pre-production migration reset; it is neither an
@@ -62,6 +62,13 @@ legacy readers, or parallel authorization model.
 | 2026090902                             | Course Theme current setting                                                                 | `ple_data.course_instance.course_theme` is a scalar with a database-owned `grass` default. The Rust `CourseTheme` contract is the one closed vocabulary; session-authorized functions read the scalar only for an active Course Member and replace it only for an active Instructor Course Member. No appearance revision or history is stored.                                                                                                                                                                                                      |
 | 2026090903                             | Course Banner source, renditions, and repair work                                            | A Course Instance points only to a complete current Course Banner. Each hidden or current Banner retains one private source plus exact `hero` and `card` private WebP delivery renditions. Account-and-Course-bound uploads, source subjects, pending object deliveries, and durable put/delete work are persisted before their external object operation; only all completed prepared puts can make both deliveries available and advance the pointer. Retired objects remain cleanup work until a confirmed deletion or a repair-required outcome. |
 | 2026090904                             | Course Summary and C-reference navigation read                                               | Session-authorized functions resolve one active Course Member's browser-safe Course Summary and opaque C-reference navigation target. They are direct-route prerequisites for Course surfaces and do not duplicate Course Appearance storage or authorization.                                                                                                                                                                                                                                                                                       |
+| 2026091001                             | Account-owned exact IANA time-zone preferences                                               | Private mutable Account preferences have SQL-enforced exact IANA names, forced RLS, authenticated-self read access, an Instructor creation default, and Student default-once behavior from the already-authorized roster-importing Instructor. Persisted deadlines remain instants. |
+| 2026091002                             | Instructor Course-summary Theme projection                                                  | Instructor-authorized Course summaries add the existing closed Course Theme value without granting route scope. |
+| 2026091003                             | Assignment Workspace schedule context                                                       | The authenticated Instructor's Account time zone and current Course term are read together for wall-clock Assignment input. |
+| 2026091008                             | Assignment policy defaults                                                                  | Direct Assignment Workspace policy values and their released snapshot defaults are persisted at the Assignment boundary. |
+| 2026091010                             | Student Assignment Attempt navigation                                                       | Public `R-n` Attempt references and caller-bound, answer-free progress and selected-position reads project fixed issued work without mutable current-position state. |
+| 2026091011                             | Student working responses and final Attempt submission                                      | Forced-RLS private saved responses retain canonical server-side Student input while an owned Attempt is active. One final owned Attempt submission atomically copies every saved response into immutable per-Question submission and grading work. |
+| 2026091012                             | Student Assignment Attempt route context                                                    | A caller-bound public-reference projection supplies active or submitted Attempt chrome: Course and Assignment display values, Attempt number, and a server-evaluated remaining-duration snapshot. |
 
 ## Ownership boundaries
 
@@ -154,9 +161,11 @@ record that proves it.
 
 Each private Question Attempt stores its issued Question, unsigned Question
 Seed, generated-parameter SHA-256, issued/deadline times, closed Question
-Attempt State, and Question Attempt Reproduction Details. A Question
-Submission separately owns the accepted Student Response and submission time;
-the attempt state never invents a response when a deadline closes work.
+Attempt State, and Question Attempt Reproduction Details. While an Assignment
+Attempt is active, a private saved response holds its current canonical
+server-side input. Final Assignment Attempt submission copies every saved
+response into immutable per-Question Submission and grading work; a closed
+Attempt never invents a response.
 
 ## Verification
 

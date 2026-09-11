@@ -1,11 +1,95 @@
 -- Disposable authenticated inputs for the iMathAS Question Backend Session Store oracle.
--- This extends the existing Assignment Attempt fixture with its exact immutable
+-- This builds an independent released Assignment fixture with its exact immutable
 -- Question Source and one production-shaped API login.
 
 BEGIN;
 -- The PostgreSQL Migration Acceptance Runtime bootstrap authority creates this
--- disposable fixture.
+-- disposable fixture.  It owns a distinct Published Question and released
+-- Assignment Entry so it never changes a source binding established by another
+-- oracle.
 -- The assertions below then enter the production-shaped restricted API path.
+INSERT INTO ple_data.published_question (question_id, created_at)
+VALUES ('QBH-0001', pg_catalog.clock_timestamp());
+INSERT INTO ple_data.question_revision (
+    question_id, revision_number, backend, published_at
+) VALUES ('QBH-0001', 1, 'ple', pg_catalog.clock_timestamp());
+INSERT INTO ple_data.assignment (
+    assignment_id, course_id, source_blueprint_course_reference_number,
+    source_blueprint_revision_number, created_at, updated_at,
+    assignment_edit_number, assignment_title, assignment_instructions,
+    available_at, due_at, closes_at, assignment_attempt_time_limit_seconds,
+    attempt_limit, late_work_rule, assignment_deadline_rule,
+    assignment_completion_rule, assignment_completion_score_threshold,
+    assignment_attempt_grade_rule, assignment_attempt_continuation_rule,
+    max_additional_assignment_attempts, question_pool_reuse_rule,
+    question_variation_rule, assignment_attempt_resume_rule,
+    assignment_question_display_rule, assignment_navigation_rule,
+    assignment_question_order_rule, assignment_status, released_assignment_revision_id
+)
+SELECT
+    '00000000-0000-0000-0000-00000000f215', course_id,
+    source_blueprint_course_reference_number, source_blueprint_revision_number,
+    pg_catalog.clock_timestamp(), pg_catalog.clock_timestamp(), 1,
+    'iMathAS Question Backend fixture', '', available_at, due_at, closes_at,
+    assignment_attempt_time_limit_seconds, attempt_limit, late_work_rule,
+    assignment_deadline_rule, assignment_completion_rule,
+    assignment_completion_score_threshold, assignment_attempt_grade_rule,
+    assignment_attempt_continuation_rule, max_additional_assignment_attempts,
+    question_pool_reuse_rule, question_variation_rule, assignment_attempt_resume_rule,
+    assignment_question_display_rule, assignment_navigation_rule,
+    assignment_question_order_rule, 'unreleased', NULL
+FROM ple_data.assignment
+WHERE assignment_id = '00000000-0000-0000-0000-000000000110';
+INSERT INTO ple_data.assignment_revision (
+    assignment_revision_id, assignment_id, course_id, course_schedule_revision_id,
+    revision_number, assignment_title, assignment_instructions, available_at,
+    due_at, closes_at, assignment_attempt_time_limit_seconds, attempt_limit,
+    late_work_rule, assignment_deadline_rule, assignment_completion_rule,
+    assignment_completion_score_threshold, assignment_attempt_grade_rule,
+    assignment_attempt_continuation_rule, max_additional_assignment_attempts,
+    question_pool_reuse_rule, question_variation_rule, assignment_attempt_resume_rule,
+    assignment_question_display_rule, assignment_navigation_rule,
+    assignment_question_order_rule, created_at
+)
+SELECT
+    '00000000-0000-0000-0000-00000000f216',
+    '00000000-0000-0000-0000-00000000f215', course_id,
+    course_schedule_revision_id, 1, 'iMathAS Question Backend fixture', '',
+    available_at, due_at, closes_at, assignment_attempt_time_limit_seconds,
+    attempt_limit, late_work_rule, assignment_deadline_rule,
+    assignment_completion_rule, assignment_completion_score_threshold,
+    assignment_attempt_grade_rule, assignment_attempt_continuation_rule,
+    max_additional_assignment_attempts, question_pool_reuse_rule,
+    question_variation_rule, assignment_attempt_resume_rule,
+    assignment_question_display_rule, assignment_navigation_rule,
+    assignment_question_order_rule, pg_catalog.clock_timestamp()
+FROM ple_data.assignment_revision
+WHERE assignment_revision_id = '00000000-0000-0000-0000-000000000111';
+INSERT INTO ple_data.assignment_revision_entry (
+    assignment_revision_id, assignment_entry_id, assignment_content_entry_index,
+    entry_kind, availability, scoring_rule, point_value, question_attempt_limit,
+    question_attempt_time_limit_seconds, question_attempt_time_limit_grace_seconds
+)
+SELECT
+    '00000000-0000-0000-0000-00000000f216',
+    '00000000-0000-0000-0000-00000000f217',
+    assignment_content_entry_index, entry_kind, availability, scoring_rule,
+    point_value, question_attempt_limit, question_attempt_time_limit_seconds,
+    question_attempt_time_limit_grace_seconds
+FROM ple_data.assignment_revision_entry
+WHERE assignment_revision_id = '00000000-0000-0000-0000-000000000111'
+  AND assignment_entry_id = '00000000-0000-0000-0000-000000000112';
+INSERT INTO ple_data.assignment_revision_fixed_question (
+    assignment_revision_id, assignment_entry_id, question_id, revision_number
+) VALUES (
+    '00000000-0000-0000-0000-00000000f216',
+    '00000000-0000-0000-0000-00000000f217', 'QBH-0001', 1
+);
+UPDATE ple_data.assignment
+SET assignment_status = 'released',
+    released_assignment_revision_id = '00000000-0000-0000-0000-00000000f216',
+    updated_at = pg_catalog.clock_timestamp()
+WHERE assignment_id = '00000000-0000-0000-0000-00000000f215';
 INSERT INTO ple_private.object_record (
     object_id, object_address, object_storage_area, object_data_class, sha256,
     size_bytes, media_type, created_at
@@ -13,7 +97,7 @@ INSERT INTO ple_private.object_record (
     '00000000-0000-0000-0000-00000000f202',
     jsonb_build_object(
         'kind', 'questionSource',
-        'questionRevision', jsonb_build_object('questionId', 'ABC-DEF0', 'revisionNumber', 1),
+        'questionRevision', jsonb_build_object('questionId', 'QBH-0001', 'revisionNumber', 1),
         'object', '00000000-0000-0000-0000-00000000f202'::uuid
     ),
     'private-content', 'question-source', decode(repeat('aa', 32), 'hex'),
@@ -25,21 +109,44 @@ INSERT INTO ple_private.question_revision_source_binding (
     imathas_deployment_reference, imathas_item_reference, imathas_profile,
     source_object_id, source_object_checksum, created_at
 ) VALUES (
-    'ABC-DEF0', 1, 'ple',
+    'QBH-0001', 1, 'ple',
     'pleQuestionJson', NULL, NULL, NULL, NULL,
     '00000000-0000-0000-0000-00000000f202', repeat('aa', 32),
     pg_catalog.clock_timestamp()
 );
+INSERT INTO ple_private.assignment_attempt (
+    assignment_attempt_id, student_record_id, assignment_id, assignment_revision_id,
+    started_at, completed_at, attempt_number, question_pool_reuse_rule, question_variation_rule
+)
+SELECT
+    '00000000-0000-0000-0000-00000000f218', student_record_id,
+    '00000000-0000-0000-0000-00000000f215',
+    '00000000-0000-0000-0000-00000000f216',
+    pg_catalog.clock_timestamp(), NULL, attempt_number + 100, question_pool_reuse_rule,
+    question_variation_rule
+FROM ple_private.assignment_attempt
+WHERE assignment_attempt_id = '00000000-0000-0000-0000-000000000114';
+INSERT INTO ple_private.issued_question (
+    issued_question_id, assignment_attempt_id, assignment_entry_id, question_id,
+    revision_number, issued_position, point_value, scoring_rule, question_statistics_eligibility
+)
+SELECT
+    '00000000-0000-0000-0000-00000000f219',
+    '00000000-0000-0000-0000-00000000f218',
+    '00000000-0000-0000-0000-00000000f217', 'QBH-0001', 1,
+    0, point_value, scoring_rule, question_statistics_eligibility
+FROM ple_private.issued_question
+WHERE issued_question_id = '00000000-0000-5000-8000-000000000115';
 INSERT INTO ple_private.question_attempt (
     question_attempt_id, issued_question_id, question_seed, generated_parameter_sha256,
     issued_at, deadline_at, question_attempt_state, reproduction_details
 ) VALUES (
     '00000000-0000-0000-0000-00000000f205',
-    '00000000-0000-5000-8000-000000000115', 1, repeat('ab', 32),
+    '00000000-0000-0000-0000-00000000f219', 1, repeat('ab', 32),
     pg_catalog.clock_timestamp(), NULL, 'open', '{}'::jsonb
 ), (
     '00000000-0000-0000-0000-00000000f207',
-    '00000000-0000-5000-8000-000000000115', 1, repeat('ac', 32),
+    '00000000-0000-0000-0000-00000000f219', 1, repeat('ac', 32),
     pg_catalog.clock_timestamp(), NULL, 'open', '{}'::jsonb
 );
 -- This second issued Question preserves the same active Question identity while
@@ -53,7 +160,7 @@ SELECT
     assignment_revision_id, pg_catalog.clock_timestamp(), NULL, attempt_number + 100,
     question_pool_reuse_rule, question_variation_rule
 FROM ple_private.assignment_attempt
-WHERE assignment_attempt_id = '00000000-0000-0000-0000-000000000114';
+WHERE assignment_attempt_id = '00000000-0000-0000-0000-00000000f218';
 INSERT INTO ple_private.issued_question (
     issued_question_id, assignment_attempt_id, assignment_entry_id, question_id,
     revision_number, issued_position, point_value, scoring_rule, question_statistics_eligibility,
@@ -65,7 +172,7 @@ SELECT
     revision_number, issued_position, point_value, scoring_rule, false,
     question_pool_selection_id, question_pool_item_id
 FROM ple_private.issued_question
-WHERE issued_question_id = '00000000-0000-5000-8000-000000000115';
+WHERE issued_question_id = '00000000-0000-0000-0000-00000000f219';
 INSERT INTO ple_private.question_attempt (
     question_attempt_id, issued_question_id, question_seed, generated_parameter_sha256,
     issued_at, deadline_at, question_attempt_state, reproduction_details
@@ -85,7 +192,7 @@ SELECT
     assignment_revision_id, pg_catalog.clock_timestamp(), NULL, attempt_number + 200,
     question_pool_reuse_rule, question_variation_rule
 FROM ple_private.assignment_attempt
-WHERE assignment_attempt_id = '00000000-0000-0000-0000-000000000114';
+WHERE assignment_attempt_id = '00000000-0000-0000-0000-00000000f218';
 INSERT INTO ple_private.issued_question (
     issued_question_id, assignment_attempt_id, assignment_entry_id, question_id,
     revision_number, issued_position, point_value, scoring_rule, question_statistics_eligibility,
@@ -97,7 +204,7 @@ SELECT
     revision_number, issued_position, point_value, scoring_rule, true,
     question_pool_selection_id, question_pool_item_id
 FROM ple_private.issued_question
-WHERE issued_question_id = '00000000-0000-5000-8000-000000000115';
+WHERE issued_question_id = '00000000-0000-0000-0000-00000000f219';
 INSERT INTO ple_private.question_attempt (
     question_attempt_id, issued_question_id, question_seed, generated_parameter_sha256,
     issued_at, deadline_at, question_attempt_state, reproduction_details
@@ -176,8 +283,8 @@ SELECT
         WHERE question_attempt.question_attempt_id = '00000000-0000-0000-0000-00000000f208'
           AND NOT issued_question.question_statistics_eligibility
     ) AS has_ineligible_question_attempt,
-    EXISTS (SELECT 1 FROM ple_private.issued_question WHERE issued_question_id = '00000000-0000-5000-8000-000000000115') AS has_issued_question,
-    EXISTS (SELECT 1 FROM ple_private.question_revision_source_binding WHERE question_id = 'ABC-DEF0' AND revision_number = 1 AND source_object_id = '00000000-0000-0000-0000-00000000f202') AS has_question_source_binding,
+    EXISTS (SELECT 1 FROM ple_private.issued_question WHERE issued_question_id = '00000000-0000-0000-0000-00000000f219') AS has_issued_question,
+    EXISTS (SELECT 1 FROM ple_private.question_revision_source_binding WHERE question_id = 'QBH-0001' AND revision_number = 1 AND source_object_id = '00000000-0000-0000-0000-00000000f202') AS has_question_source_binding,
     ple_api.current_session_account_owns_student_record('00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000106') AS owns_student_record;
 DO $$
 BEGIN
@@ -201,8 +308,8 @@ BEGIN
           AND student.student_account_id = '00000000-0000-0000-0000-000000000101'
           AND student.course_id = '00000000-0000-0000-0000-000000000105'
           AND assignment.course_id = '00000000-0000-0000-0000-000000000105'
-          AND assignment_attempt.assignment_id = '00000000-0000-0000-0000-000000000110'
-          AND issued_question.question_id = 'ABC-DEF0'
+          AND assignment_attempt.assignment_id = '00000000-0000-0000-0000-00000000f215'
+          AND issued_question.question_id = 'QBH-0001'
           AND issued_question.revision_number = 1
           AND question_attempt.question_seed = 1
           AND ple_api.current_session_account_owns_student_record(
@@ -217,9 +324,9 @@ SET LOCAL ROLE ple_app;
 SELECT ple_api.create_imathas_question_backend_session(
     '00000000-0000-0000-0000-00000000f206',
     '00000000-0000-0000-0000-000000000105',
-    '00000000-0000-0000-0000-000000000110',
+    '00000000-0000-0000-0000-00000000f215',
     '00000000-0000-0000-0000-00000000f205',
-    'self-hosted-imathas', 'fixture-item', 'ABC-DEF0', 1,
+    'self-hosted-imathas', 'fixture-item', 'QBH-0001', 1,
     '00000000-0000-0000-0000-00000000f202', decode(repeat('aa', 32), 'hex'),
     'scored-embed', 1, repeat('c', 64), decode(repeat('01', 32), 'hex'),
     decode(repeat('03', 32), 'hex'),
@@ -280,14 +387,14 @@ BEGIN
     BEGIN
         UPDATE ple_private.issued_question
         SET issued_question_id = issued_question_id
-        WHERE issued_question_id = '00000000-0000-5000-8000-000000000115';
+        WHERE issued_question_id = '00000000-0000-0000-0000-00000000f219';
         RAISE EXCEPTION 'iMathAS lock capability updated an Issued Question';
     EXCEPTION WHEN insufficient_privilege THEN NULL;
     END;
     BEGIN
         UPDATE ple_private.assignment_attempt
         SET assignment_attempt_id = assignment_attempt_id
-        WHERE assignment_attempt_id = '00000000-0000-0000-0000-000000000114';
+        WHERE assignment_attempt_id = '00000000-0000-0000-0000-00000000f218';
         RAISE EXCEPTION 'iMathAS lock capability updated an Assignment Attempt';
     EXCEPTION WHEN insufficient_privilege THEN NULL;
     END;

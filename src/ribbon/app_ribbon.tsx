@@ -15,6 +15,7 @@ import "./app_ribbon.css";
 
 import type {
   RibbonActionDescriptor,
+  RibbonContextControlModel,
   RibbonControlModel,
   RibbonModel,
   RibbonTaskAreaModel,
@@ -51,6 +52,12 @@ const NON_FOCUSABLE_SVG = { focusable: "false" } as unknown as JSX.SvgSVGAttribu
 function visibleControl<Id extends RibbonDestinationId>(
   control: RibbonControlModel<Id>,
 ): control is RibbonControlModel<Id> & { href: string } {
+  return control.availability === "Available" && control.href !== undefined;
+}
+
+function visibleAccountControl(
+  control: RibbonContextControlModel,
+): control is RibbonContextControlModel & { href: string } {
   return control.availability === "Available" && control.href !== undefined;
 }
 
@@ -246,8 +253,7 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
   const hasReservedTaskRow = (): boolean => props.model.taskAreas.length > 0;
   const tabScrollport: { current: HTMLElement | undefined } = { current: undefined };
   const taskScrollport: { current: HTMLElement | undefined } = { current: undefined };
-  const contextOverflow = createRibbonOverflowCueState();
-  const tabOverflow = createRibbonOverflowCueState();
+  const topOverflow = createRibbonOverflowCueState();
   const taskOverflow = createRibbonOverflowCueState();
   let observationVersion = 0;
   let taskObservationVersion = 0;
@@ -264,7 +270,6 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
 
   function cueSafeViewport(
     scrollport: HTMLElement | undefined,
-    overflow: RibbonOverflowCueState,
     explicitCueSafeScroll = false,
   ): RibbonRowScrollport | undefined {
     if (scrollport === undefined) return undefined;
@@ -272,12 +277,9 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
       getBoundingClientRect: (): { readonly left: number; readonly right: number } => {
         const bounds = scrollport.getBoundingClientRect();
         const style = getComputedStyle(scrollport);
-        const startInset = overflow.atStart()
-          ? Number.parseFloat(style.scrollPaddingInlineStart) || 0
-          : 0;
-        const endInset = overflow.atEnd()
-          ? Number.parseFloat(style.scrollPaddingInlineEnd) || 0
-          : 0;
+        const overflows = scrollport.scrollWidth > scrollport.clientWidth;
+        const startInset = overflows ? Number.parseFloat(style.scrollPaddingInlineStart) || 0 : 0;
+        const endInset = overflows ? Number.parseFloat(style.scrollPaddingInlineEnd) || 0 : 0;
         return { left: bounds.left + startInset, right: bounds.right - endInset };
       },
       ...(explicitCueSafeScroll
@@ -291,7 +293,7 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
   // reveal a stale destination after the current selection has moved on.
   createEffect(() => {
     const selectedKey = selectedTab()?.id;
-    tabOverflow.geometryRevision();
+    topOverflow.geometryRevision();
     const version = ++observationVersion;
     onCleanup(() => {
       if (version === observationVersion) observationVersion += 1;
@@ -307,7 +309,7 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
       selectedTabVisibility.observe(
         selectedKey,
         tab instanceof HTMLAnchorElement ? tab : undefined,
-        cueSafeViewport(scrollport, tabOverflow),
+        cueSafeViewport(scrollport, true),
         reducedMotion,
       );
     });
@@ -335,7 +337,7 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
       selectedTaskVisibility.observe(
         selectedKey,
         task instanceof HTMLAnchorElement ? task : undefined,
-        cueSafeViewport(taskScrollport.current, taskOverflow, true),
+        cueSafeViewport(taskScrollport.current, true),
         reducedMotion,
       );
     });
@@ -356,12 +358,15 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
       data-ribbon-scope={props.model.scope}
       data-ribbon-task-row={hasReservedTaskRow() ? "reserved" : "absent"}
     >
-      <section class="ple-app-ribbon__row-frame" data-ribbon-row-frame="context">
+      <section class="ple-app-ribbon__row-frame" data-ribbon-row-frame="top">
         <section
-          class="ple-app-ribbon__row ple-app-ribbon__context"
-          aria-label="Ribbon context"
-          data-ribbon-row="context"
-          ref={contextOverflow.setRow}
+          class="ple-app-ribbon__row ple-app-ribbon__top-bar"
+          aria-label="Ribbon navigation"
+          data-ribbon-row="top"
+          ref={(element): void => {
+            tabScrollport.current = element;
+            topOverflow.setRow(element);
+          }}
         >
           <div class="ple-app-ribbon__context-identity">
             <a class="ple-app-ribbon__brand" href="/" aria-label="Peptidyle home">
@@ -387,6 +392,23 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
               {(label) => <span>{label()}</span>}
             </Show>
           </div>
+          <nav class="ple-app-ribbon__tabs" aria-label="Ribbon tabs">
+            <For each={visibleTabs()}>
+              {(control) => <RibbonLink control={control} pendingNavigation={pendingNavigation} />}
+            </For>
+          </nav>
+          <For each={props.model.context.accountControls.filter(visibleAccountControl)}>
+            {(control) => (
+              <a
+                class="ple-app-ribbon__profile"
+                href={control.href}
+                data-ribbon-context-control={control.id}
+              >
+                <RibbonIcon glyph={ribbonGlyphForContext(control.glyph)} />
+                <span class="ple-app-ribbon__control-label">{control.label}</span>
+              </a>
+            )}
+          </For>
           <button
             class="ple-app-ribbon__sign-out"
             type="button"
@@ -402,25 +424,9 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
             </span>
           </button>
         </section>
-        <RibbonOverflowCues state={contextOverflow} />
+        <RibbonOverflowCues state={topOverflow} />
       </section>
-      <section class="ple-app-ribbon__row-frame" data-ribbon-row-frame="tabs">
-        <nav
-          class="ple-app-ribbon__row ple-app-ribbon__tabs"
-          aria-label="Ribbon tabs"
-          data-ribbon-row="tabs"
-          ref={(element): void => {
-            tabScrollport.current = element;
-            tabOverflow.setRow(element);
-          }}
-        >
-          <For each={visibleTabs()}>
-            {(control) => <RibbonLink control={control} pendingNavigation={pendingNavigation} />}
-          </For>
-        </nav>
-        <RibbonOverflowCues state={tabOverflow} />
-      </section>
-      {/* taskAreas are route-topology-derived in ribbon_contract.ts:370-396, not admission state;
+      {/* taskAreasFor derives task areas from route topology, not admission state;
           server authorization remains the trusted layer (ASVS 8.3.1). */}
       <Show when={hasReservedTaskRow()}>
         <section class="ple-app-ribbon__row-frame" data-ribbon-row-frame="tasks">

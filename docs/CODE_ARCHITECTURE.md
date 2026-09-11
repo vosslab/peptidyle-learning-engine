@@ -100,27 +100,26 @@ assignment. Copy Course for New Term and Shift Course Dates are separate Course 
 | Question model       | `crates/question_model/`                                | BlueprintCourse tree, typed references, exact question identities, assignment meaning, Blueprint-operation contracts, previews, and browser-safe reader types.                                      |
 | Domain               | `crates/domain/`                                        | Pure timing, policy, disclosure, Assignment Attempt, scoring, generation, and validation behavior without database or wall-clock reads.                                                             |
 | Grading              | `crates/grading/`                                       | Answer-bearing checkers and correctness decisions; server-only and outside the Wasm dependency closure.                                                                                             |
-| Learning data access | `crates/learning-data-access/src/`                      | Current focused Account Session, authentication, Assignment Attempt, Instructor Question Library, private Authoring Workspace and Draft Question operations, reusable Blueprint Course lifecycle, Course Instance creation and initial Teaching Team, Course Roster Import/claim/revocation, M10 direct-Instructor Assignment Workspace/release, M11 Student Assignment Access/QuestionPresentation issuance, M18 Invitation Export, and independent Course Theme and Course Banner Store contracts, plus Question Source, object-record, grading-operation, pagination, and iMathAS Question Backend Session contracts and persistence. |
-| PostgreSQL modules   | `crates/learning-data-access/src/postgres/`             | Current connection, migration, Account Session, Assignment Attempt, Instructor Question Library, private Authoring Workspace and Draft Question persistence, reusable Blueprint Course persistence, Course Instance creation and Teaching Team persistence, Course Roster Import/claim/revocation persistence, M10 Assignment Workspace/release persistence, M11 Student Assignment Access/QuestionPresentation issuance persistence, M18 Invitation Export persistence, and Course Theme/Course Banner persistence, plus Question Source, object-record, and iMathAS Question Backend Session support.                                       |
-| Server               | `crates/server/src/`                                    | Current health, Account Session authentication and logout, deployment-gated seeded Live Demo selection, Instructor Question Library browse/detail, private Draft Question authoring/publication, Blueprint Course lifecycle, Course Instance creation and active-member summary, Course reference navigation, Course Roster Import/claim/revocation, M10 Assignment Workspace/release, M11 Student Assignment Access/QuestionPresentation issuance, M18 Invitation Export, independent Course Appearance reads and mutations, and their HTTP/cookie boundary.                                                             |
+| Learning data access | `crates/learning-data-access/src/`                      | Current Account Session, Assignment Workspace, Course, and Student Attempt Store boundaries. Student delivery reads direct caller-bound Attempt context, progress, and one presentation; it saves canonical working input and finalizes the whole Attempt into immutable submission and grading work. |
+| PostgreSQL modules   | `crates/learning-data-access/src/postgres/`             | Current connection, migration, and Store implementations. Assignment delivery invokes narrow session-authorized procedures for public `R-n` context/progress/presentation, saved-response persistence, and final Attempt submission. |
+| Server               | `crates/server/src/`                                    | Current HTTP/cookie boundary, Course and Workspace routes, and `assignment_delivery.rs` Student routes. The delivery router authenticates the Student, validates typed references, reproduces one presentation, converts only presentation-scoped response references, and emits no-store projections. |
 | Generated contracts  | `crates/project-tools/src/tsgen.rs` -> `generated/api/` | Derivative TypeScript DTOs generated from Rust contract roots; generated files are not hand-edited.                                                                                                 |
-| Browser              | `src/`                                                  | Application Shell, strict decoding, route/page state, and the available Blueprint Course, Course Instance creation, Course Roster Import, M10 Assignment Workspace/release, M11 Student Assignment Access/QuestionPresentation issuance, M18 invitation-attachment download, and Instructor Course Appearance page/authorized banner-delivery clients; Blueprint-operation Server Routes remain absent.                  |
+| Browser              | `src/`                                                  | Application Shell, strict decoding, route/page state, Assignment Workspace, Course, and Student delivery. `assignment_attempt_page.tsx` renders one selected Question at a time from the direct Attempt context/progress/presentation contract and keeps saved working input distinct from final submission. |
 | Object storage       | `crates/objects/`                                       | Typed keys, checksums, image ingress, and the `public-assets`, `private-content`, `student-records`, and `temp-processing` domains.                                                                 |
 | Adapters             | `crates/adapters/`                                      | Bounded PLE, iMathAS, and WeBWorK Question Backends, QTI Import, and H5P Package support behind the shared Question operations.                                                                     |
 
 The current server composition is
 [`crates/server/src/composition.rs`](../crates/server/src/composition.rs).
-`production_router_from_env()` constructs the PostgreSQL Account Session,
-Instructor Question Library, Authoring Workspace/Draft Question, and Blueprint
-Course Stores. It binds Question Library and private authoring to server-only
-S3 object handling, exposes health, Account Session, deployment-gated seeded
-Live Demo, Question Library, private authoring/publication, and Blueprint
-Course lifecycle routes, then applies the browser cookie boundary and HTTP
-security headers. The worker process has a separate
-internal composition path with its dedicated database login and no HTTP
-listener; its Job operations remain future work. Question Backends remain
-separate future assembly responsibilities until their Server Routes and
-Services are implemented.
+`production_router_from_env()` constructs PostgreSQL Stores for sessions,
+Question Library, authoring/publication, Blueprint and Course Instances, Course
+appearance, roster, Instructor accounts, support, invitations, Gradebook,
+Student Course landing, Assignment Workspace/release, Student delivery, native
+PLE submission status, and Question Asset delivery. It binds Question Library,
+authoring, delivery, and the private WeBWorK adapter to server-only object
+handling. The router merges health, Account Session, deployment-gated Live
+Demo, each listed owned route family, then applies the browser cookie boundary
+and HTTP security headers. Native PLE and WeBWorK workers have separate
+composition paths with dedicated database logins and no HTTP listener.
 
 ## Persistence ownership
 
@@ -129,32 +128,29 @@ Session, authentication ceremony and email, Assignment Attempt, Question
 Source, workspace Question Source object records, reusable Blueprint Course
 lifecycle, Course Instance creation and initial Teaching Team, Course Roster
 Import/claim/revocation, direct-Instructor Assignment Workspace/release,
-Student Assignment Access/QuestionPresentation issuance, Instructor Grading Operations,
-pagination, and iMathAS
-Question Backend Session contracts, Memory support, and PostgreSQL modules. M7 stores published reusable content as
+Student delivery, grading status, pagination, and iMathAS Question Backend
+Session contracts, Memory support, and PostgreSQL modules. M7 stores published reusable content as
 immutable Blueprint Revisions with exact Question Revision References, closed
 Blueprint Course Read Access, and checksum-verified content. M8 atomically
 creates a Course Instance from an exact Available published Blueprint Revision,
 retaining Course Origin, Course Schedule Revision 1, and the initial Instructor
 Course Membership. M9 separately imports a pending Course Invitation, then
 creates the exact Student Record and Student Course Membership only when its
-authenticated target claims it. M10 separately saves an Unreleased Course-owned
-Assignment through its exact Assignment Edit Number, validates selected
-Available Published Questions, and creates an immutable Assignment Revision
-without Student work. Its answer-free Assignment Preview has no Student
-identity, response, answer, feedback, or delivery state. Blueprint-operation persistence remains future
-work with its own Store, PostgreSQL/RLS authority, service routes, and browser
-integration.
-
-M11 separately authorizes only the signed-in Student's exact active Student
-Record for public Course and Assignment references. Its Store reads the released
-snapshot under narrow forced-RLS snapshot-entry access, calculates start/refusal
-at authoritative time, and atomically issues or resumes an exact Question
-Revision as an answer-free QuestionPresentation. It resolves the source pin and
-S3 object server-side. The private one-to-one immutable QuestionPresentation
-binding retains only nonce and full descriptor checksum; reproduction details
-remain private Question Attempt/source-binding facts. It exposes no response,
-Answer Key, grading input, feedback, submission, or grade; M12 owns response controls.
+authenticated target claims it. The Assignment Workspace stores Course-owned
+authoring and release separately from Student work. Its answer-free Assignment
+Preview has no Student identity, response, answer, feedback, or delivery state.
+Student Assignment Access authorizes the signed-in Student's exact active
+Student Record for public Course and Assignment references, calculates access
+at authoritative time, and starts or resumes a public `R-n` Attempt. That
+Attempt owns caller-bound context, answer-free progress, and one selected
+Question presentation. The server resolves source pins and objects privately;
+its presentation binding retains only the nonce and descriptor checksum. A
+response save records canonical working input for one issued position, and one
+explicit finalization turns all saved positions into immutable submission and
+grading work. Presentation and acknowledgement projections expose no Answer
+Key, grading input, feedback, or grade. Blueprint-operation persistence remains
+future work with its own Store, PostgreSQL/RLS authority, service routes, and
+browser integration.
 
 The current Question Model owns Blueprint-operation contracts. M7 implements
 reusable Blueprint Course creation, reader access, and successor-revision
@@ -205,8 +201,9 @@ are exact CourseInstance records. The normal assessment flow is:
 ```text
 published immutable question
   -> Course Instance Assignment and Assignment Access
-  -> server-issued answer-free Question Attempt presentation
-  -> accepted immutable Student response
+  -> caller-owned, answer-free Assignment Attempt presentation
+  -> durable canonical saved response for each issued position
+  -> whole-Attempt immutable submissions
   -> sealed worker grading and receipt
   -> current policy-controlled score and Student Feedback result
 ```
@@ -248,7 +245,9 @@ Validation follows [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md):
   DTO decoding, answer-free browser reader data, and deterministic Application
   Shell/Ribbon behavior.
 - Current disposable PostgreSQL/RLS oracles prove the applied schema and
-  service authority boundaries. The M5 real-stack runner separately proves
+  service authority boundaries. The M5 saved-response and context SQL oracles
+  pass; its keyboard, reload, timer, and browser axe journey remain pending.
+  The M5 real-stack runner separately proves
   Instructor Question Library browse/detail plus Student and anonymous
   concealment. M6 proves private Instructor Draft Question creation, exact
   Edit Number save conflict, publication, and Question Library handoff. M7

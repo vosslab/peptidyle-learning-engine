@@ -42,7 +42,7 @@ test("capability construction rejects incomplete proofs and backing a future ide
   );
   assert.throws(
     () =>
-      createRibbonCapabilityEntry("questionLibrary", {
+      createRibbonCapabilityEntry("questions", {
         kind: "backed",
         clientMethod: " ",
         serverEvidence: { kind: "registeredHandler", handler: "router" },
@@ -92,4 +92,44 @@ test("Checking remains withheld and Available never exceeds the route role ceili
       assert.equal(productRoleMayAccessRoute(entry.routeId, role), true, entry.id);
     }
   }
+});
+
+test("unbacked Instructor Product destinations remain unavailable without invented links", () => {
+  for (const id of [
+    "productAssignments",
+    "myActiveCourses",
+    "myInactiveCourses",
+    "searchPublicBlueprintCourses",
+    "myQuestions",
+    "starred",
+    "watched",
+    "assignmentsDueSoon",
+    "assignmentTemplates",
+  ]) {
+    const entry = CAPABILITY_REGISTRY[id];
+    assert.equal(entry.capability.kind, "unbacked", id);
+    assert.equal(ribbonAvailability(entry, "instructor", RESOLVED_ALLOW), "Unavailable", id);
+  }
+});
+
+test("Student Attempt navigation is backed by the registered Assignment delivery handler", () => {
+  const attempt = CAPABILITY_REGISTRY.attempt;
+  assert.equal(attempt.capability.kind, "backed");
+  assert.equal(attempt.capability.clientMethod, "ApiClient.startLiveAssignment");
+  assert.deepEqual(attempt.capability.serverEvidence, {
+    kind: "registeredHandler",
+    handler: "crates/server/src/assignment_delivery.rs::assignment_delivery_router",
+  });
+  assert.equal(ribbonAvailability(attempt, "student", RESOLVED_ALLOW), "Available");
+});
+
+test("Student Attempt return uses the existing Student Assignment Access boundary", () => {
+  const backToAssignment = CAPABILITY_REGISTRY.backToAssignments;
+  assert.equal(backToAssignment.capability.kind, "backed");
+  assert.equal(backToAssignment.capability.clientMethod, "ApiClient.getLiveAssignmentAccess");
+  assert.deepEqual(backToAssignment.capability.serverEvidence, {
+    kind: "registeredHandler",
+    handler: "crates/server/src/assignment_delivery.rs::assignment_delivery_router",
+  });
+  assert.equal(ribbonAvailability(backToAssignment, "student", RESOLVED_ALLOW), "Available");
 });

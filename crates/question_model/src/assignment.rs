@@ -1,8 +1,4 @@
-//! Browser-safe current assignment model.
-//!
-//! Stable Assignment Entry and Question Pool Item identities let Instructors change points, scoring behavior,
-//! and future ordering without rewriting immutable published content or
-//! inventing assignment-history rows.
+//! Browser-safe current Assignment model with stable authored-entry identities.
 
 use std::num::NonZeroU32;
 
@@ -18,7 +14,8 @@ pub use teaching_settings_local::{
     AssignmentAuthoredContentField, AssignmentAuthoredContentLocalError,
     AssignmentAuthoredContentValidationFailure, CourseLocalDateAndTime,
     CourseLocalDateAndTimeError, InstructorAssignmentAuthoredContentLocal,
-    InstructorAssignmentAvailabilityView, derive_instructor_assignment_availability,
+    InstructorAssignmentAvailabilityView, LocalDateAndTime, LocalDateAndTimeError,
+    derive_instructor_assignment_availability,
 };
 
 use crate::{
@@ -32,13 +29,10 @@ pub const MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS: usize = 200;
 /// Largest accepted assignment-instructions length, measured in Unicode scalars.
 pub const MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS: usize = 50_000;
 
-/// Maximum fixed-or-pool entries in one ordered Assignment Content record.
 pub const MAX_ASSIGNMENT_ORDERED_ENTRIES: usize = 1_024;
 
-/// Maximum Question Pool Items in one Question Pool Assignment Entry.
 pub const MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY: usize = 1_024;
 
-/// Maximum Question Pool Items across one complete Assignment Content record.
 pub const MAX_ASSIGNMENT_QUESTION_POOL_ITEMS: usize = 8_192;
 
 /// Instructor-controlled stable status for one Assignment.
@@ -287,7 +281,9 @@ impl Default for BaseAssignmentPolicy {
             closes_at: None,
             assignment_attempt_time_limit_seconds: None,
             attempt_limit: None,
-            late_work_rule: LateWorkRule::Accept,
+            // A new graded Assignment rejects work after its due instant.  The
+            // fixed deadline rule still submits work already in progress.
+            late_work_rule: LateWorkRule::Reject,
             assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
         }
     }
@@ -305,14 +301,10 @@ pub struct AssignmentAuthoredContent {
     pub activity_rules: AssignmentActivityRules,
 }
 
-/// Largest whole Assignment Attempt limit representable by the current PostgreSQL `INTEGER`
-/// columns. Keeping this public makes every browser and storage boundary share
-/// the same lossless domain without a needless `BIGINT` migration.
+/// Largest whole Assignment Attempt limit representable by PostgreSQL `INTEGER`.
 pub const MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS: u32 = 2_147_483_647;
 
-/// Largest attempt limit representable by the normalized PostgreSQL `INTEGER`
-/// policy column. Keeping it separate from the time-limit name prevents a
-/// browser-only value that the PostgreSQL implementation cannot persist.
+/// Largest attempt limit representable by PostgreSQL `INTEGER`.
 pub const MAX_ASSIGNMENT_ATTEMPT_LIMIT: u32 = 2_147_483_647;
 
 /// Whether a top-level Assignment Entry remains available for future Assignment Attempts.
@@ -443,7 +435,7 @@ pub enum AssignmentEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{CourseTerm, CourseTimeZone};
+    use crate::CourseTerm;
     use chrono::{TimeZone, Utc};
 
     fn course_term(time_zone: &str) -> CourseTerm {
@@ -455,13 +447,12 @@ mod tests {
     }
 
     fn local_settings(
-        time_zone: &str,
+        _time_zone: &str,
         available_at: Option<CourseLocalDateAndTime>,
         due_at: Option<CourseLocalDateAndTime>,
         closes_at: Option<CourseLocalDateAndTime>,
     ) -> InstructorAssignmentAuthoredContentLocal {
         InstructorAssignmentAuthoredContentLocal::new(
-            CourseTimeZone::parse(time_zone).expect("known zone"),
             AssignmentInstructions::try_new("Read the diagram.".to_string())
                 .expect("valid instructions"),
             available_at,
@@ -588,7 +579,7 @@ mod tests {
             AssignmentAuthoredContent {
                 instructions: AssignmentInstructions::default(),
                 base_policy: BaseAssignmentPolicy {
-                    late_work_rule: LateWorkRule::Accept,
+                    late_work_rule: LateWorkRule::Reject,
                     assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
                     ..BaseAssignmentPolicy::default()
                 },
@@ -639,6 +630,9 @@ mod tests {
 
     #[test]
     fn local_assignment_authored_content_round_trips_exact_milliseconds() {
+        let utc_zone = crate::AccountTimeZone::parse("UTC").expect("UTC Account zone");
+        let chicago_zone =
+            crate::AccountTimeZone::parse("America/Chicago").expect("Chicago Account zone");
         let timestamp = Timestamp::from_unix_millis(
             Utc.with_ymd_and_hms(2026, 9, 1, 15, 4, 5)
                 .single()
@@ -667,9 +661,12 @@ mod tests {
                 ..AssignmentActivityRules::default()
             },
         };
-        let utc =
-            InstructorAssignmentAuthoredContentLocal::from_absolute(&course_term("UTC"), &settings)
-                .expect("UTC projection");
+        let utc = InstructorAssignmentAuthoredContentLocal::from_absolute(
+            &course_term("UTC"),
+            &utc_zone,
+            &settings,
+        )
+        .expect("UTC projection");
         assert_eq!(
             utc.available_at
                 .as_ref()
@@ -677,13 +674,14 @@ mod tests {
             Some("2026-09-01T15:04:05.123")
         );
         assert_eq!(
-            utc.into_absolute(&course_term("UTC"), settings.activity_rules)
+            utc.into_absolute(&course_term("UTC"), &utc_zone, settings.activity_rules)
                 .expect("UTC resolution"),
             settings
         );
 
         let chicago = InstructorAssignmentAuthoredContentLocal::from_absolute(
             &course_term("America/Chicago"),
+            &chicago_zone,
             &settings,
         )
         .expect("Chicago projection");
@@ -696,15 +694,21 @@ mod tests {
         );
         assert_eq!(
             chicago
-                .into_absolute(&course_term("America/Chicago"), settings.activity_rules)
+                .into_absolute(
+                    &course_term("America/Chicago"),
+                    &chicago_zone,
+                    settings.activity_rules,
+                )
                 .expect("Chicago resolution"),
             settings
         );
     }
 
     #[test]
-    fn local_assignment_authored_content_refuses_dst_gap_ambiguity_and_mismatch() {
+    fn local_assignment_authored_content_refuses_dst_gap_and_ambiguity() {
         let term = course_term("America/Chicago");
+        let account_zone =
+            crate::AccountTimeZone::parse("America/Chicago").expect("authenticated Account zone");
         let gap = local_settings(
             "America/Chicago",
             Some(local("2026-03-08T02:30:00.000")),
@@ -712,7 +716,7 @@ mod tests {
             None,
         );
         assert_eq!(
-            gap.into_absolute(&term, AssignmentActivityRules::default()),
+            gap.into_absolute(&term, &account_zone, AssignmentActivityRules::default()),
             Err(AssignmentAuthoredContentLocalError::NonexistentLocalTime(
                 AssignmentAuthoredContentField::AvailableAt
             ))
@@ -724,15 +728,98 @@ mod tests {
             None,
         );
         assert_eq!(
-            ambiguity.into_absolute(&term, AssignmentActivityRules::default()),
+            ambiguity.into_absolute(&term, &account_zone, AssignmentActivityRules::default()),
             Err(AssignmentAuthoredContentLocalError::AmbiguousLocalTime(
                 AssignmentAuthoredContentField::AvailableAt
             ))
         );
-        let mismatch = local_settings("UTC", Some(local("2026-09-01T15:04:05.123")), None, None);
+    }
+
+    #[test]
+    fn zone_free_local_input_resolves_in_the_authenticated_account_zone() {
+        let local = LocalDateAndTime::parse("2026-09-01T10:00:00.000").expect("local input");
+        let term = course_term("America/Chicago");
+        let account_zone =
+            crate::AccountTimeZone::parse("America/New_York").expect("authenticated Account zone");
+        let resolved = local
+            .resolve_in_account_time_zone(
+                &term,
+                &account_zone,
+                AssignmentAuthoredContentField::DueAt,
+            )
+            .expect("Account-zone resolution");
+        assert_eq!(resolved.as_unix_millis(), 1_788_271_200_000);
         assert_eq!(
-            mismatch.into_absolute(&term, AssignmentActivityRules::default()),
-            Err(AssignmentAuthoredContentLocalError::CourseTimeZoneMismatch)
+            LocalDateAndTime::from_activity_timestamp_in_account_time_zone(
+                resolved,
+                &term,
+                &account_zone,
+                AssignmentAuthoredContentField::DueAt,
+            )
+            .expect("Account-zone projection")
+            .as_str(),
+            "2026-09-01T10:00:00.000"
+        );
+    }
+
+    #[test]
+    fn account_zone_resolver_refuses_bounds_and_dst_without_changing_local_order() {
+        let term = course_term("America/Chicago");
+        let account_zone =
+            crate::AccountTimeZone::parse("America/New_York").expect("authenticated Account zone");
+        for (value, expected) in [
+            (
+                "2025-12-31T23:59:59.999",
+                AssignmentAuthoredContentLocalError::OutsideCourseTerm(
+                    AssignmentAuthoredContentField::DueAt,
+                ),
+            ),
+            (
+                "2026-03-08T02:30:00.000",
+                AssignmentAuthoredContentLocalError::NonexistentLocalTime(
+                    AssignmentAuthoredContentField::DueAt,
+                ),
+            ),
+            (
+                "2026-11-01T01:30:00.000",
+                AssignmentAuthoredContentLocalError::AmbiguousLocalTime(
+                    AssignmentAuthoredContentField::DueAt,
+                ),
+            ),
+        ] {
+            assert_eq!(
+                LocalDateAndTime::parse(value)
+                    .expect("exact local time")
+                    .resolve_in_account_time_zone(
+                        &term,
+                        &account_zone,
+                        AssignmentAuthoredContentField::DueAt,
+                    ),
+                Err(expected),
+                "{value}",
+            );
+        }
+
+        let available = LocalDateAndTime::parse("2026-09-01T09:00:00.000").expect("available");
+        let due = LocalDateAndTime::parse("2026-09-01T10:00:00.000").expect("due");
+        assert!(available < due, "local wall-clock order remains explicit");
+        let available_at = available
+            .resolve_in_account_time_zone(
+                &term,
+                &account_zone,
+                AssignmentAuthoredContentField::AvailableAt,
+            )
+            .expect("available Account-zone resolution");
+        let due_at = due
+            .resolve_in_account_time_zone(
+                &term,
+                &account_zone,
+                AssignmentAuthoredContentField::DueAt,
+            )
+            .expect("due Account-zone resolution");
+        assert!(
+            available_at < due_at,
+            "resolved instants preserve local order"
         );
     }
 
@@ -742,7 +829,6 @@ mod tests {
         assert!(CourseLocalDateAndTime::parse("2026-09-01T10:04:05.12").is_err());
         assert_eq!(
             InstructorAssignmentAuthoredContentLocal::new(
-                CourseTimeZone::parse("UTC").expect("known zone"),
                 AssignmentInstructions::default(),
                 Some(local("2026-09-01T10:05:00.000")),
                 Some(local("2026-09-01T10:04:00.000")),
@@ -756,7 +842,6 @@ mod tests {
         );
         assert_eq!(
             InstructorAssignmentAuthoredContentLocal::new(
-                CourseTimeZone::parse("UTC").expect("known zone"),
                 AssignmentInstructions::default(),
                 None,
                 None,
@@ -770,7 +855,6 @@ mod tests {
         );
         assert!(
             serde_json::from_value::<InstructorAssignmentAuthoredContentLocal>(serde_json::json!({
-                "timeZone": "UTC",
                 "instructions": "",
                 "available_at": null,
                 "due_at": null,

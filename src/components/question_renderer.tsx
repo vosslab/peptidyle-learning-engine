@@ -488,7 +488,8 @@ export function QuestionRenderer(props: QuestionRendererProps): JSX.Element {
 
 /** Renders the prompt from one issued Student Question Presentation without projecting its format. */
 export function QuestionPresentationRenderer(props: {
-  readonly presentation: QuestionPresentation;
+  /** The prompt is sufficient for rendering; response entry stays with its own control. */
+  readonly presentation: Pick<QuestionPresentation, "prompt">;
   readonly assetUrl: AssetUrlResolver;
   readonly onRetry?: () => void;
 }): JSX.Element {

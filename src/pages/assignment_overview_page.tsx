@@ -1,24 +1,16 @@
-// Student Assignment Access and initial issued presentation.
+// Student Assignment Access before the issued one-question attempt lane.
 
-import { A, createAsync, useParams } from "@solidjs/router";
-import { createEffect, createSignal, For, Match, Show, Switch, untrack, type JSX } from "solid-js";
+import { createAsync, useNavigate, useParams } from "@solidjs/router";
+import { createEffect, createSignal, Match, Show, Switch, type JSX } from "solid-js";
 
-import type {
-  LiveAssignmentAttempt,
-  LiveNativePleSubmissionStatus,
-} from "../api/assignment_attempt_issuance";
 import { useApplicationApi } from "../api/application_api";
-import { QuestionPresentationRenderer } from "../components/question_renderer";
-import { QuestionPresentationResponseControl } from "../components/question_response_controls/question_response_control";
 import {
+  assignmentAttemptRouteReference,
   parseAssignmentReference,
   parseCourseInstanceReference,
   type AssignmentRouteReference,
   type CourseInstanceRouteReference,
 } from "../navigation/public_route";
-import { useWasmFacade } from "../wasm/context";
-import type { SubmissionOutcome } from "../features/question_attempt/question_attempt_state";
-import type { StudentResponse } from "../../generated/api/StudentResponse";
 
 function startDecisionMessage(decision: string): string {
   switch (decision) {
@@ -37,78 +29,29 @@ function startDecisionMessage(decision: string): string {
   }
 }
 
-function presentationNonce(value: string | undefined): string | null {
-  return value !== undefined && /^[0-9a-f]{32}$/u.test(value) ? value : null;
-}
-
-function submissionHeading(status: LiveNativePleSubmissionStatus): string {
-  return status.gradingState === "graded" ? "Graded" : "Response received";
-}
-
-function submissionMessage(status: LiveNativePleSubmissionStatus): string {
-  if (status.gradingState === "pending")
-    return "Grading is underway. You do not need to submit your response again.";
-  if (status.gradingState === "instructorAttention")
-    return "Your response needs instructor attention. You do not need to submit it again.";
-  return "Student Feedback will appear when released.";
-}
-
-function acceptedSubmissionStorageKey(
-  courseReference: string,
-  assignmentReference: string,
-  presentationNonce: string,
-): string {
-  return `live-native-ple-submission:${courseReference}:${assignmentReference}:${presentationNonce}`;
-}
-
-function SubmissionStatusPanel(props: {
-  readonly status: LiveNativePleSubmissionStatus;
-  readonly checkingStatus: boolean;
-  readonly statusError: string | undefined;
-  readonly onCheck: () => void;
-}): JSX.Element {
-  return (
-    <section class="attempt-pending" aria-labelledby="grading-status-heading">
-      <h2 id="grading-status-heading">{submissionHeading(props.status)}</h2>
-      <p>{submissionMessage(props.status)}</p>
-      <Show when={props.status.gradingState !== "graded"}>
-        <button
-          class="primary-action"
-          type="button"
-          disabled={props.checkingStatus}
-          onClick={props.onCheck}
-        >
-          Check grading status
-        </button>
-      </Show>
-      <Show when={props.statusError}>{(message) => <p role="alert">{message()}</p>}</Show>
-    </section>
-  );
-}
-
 /** Public Course and Assignment References locate the view; the server re-authorizes each response. */
 export function AssignmentOverviewPage(): JSX.Element {
   const runtime = useApplicationApi();
-  const validator = useWasmFacade();
+  const navigate = useNavigate();
   const params = useParams();
-  const [issued, setIssued] = createSignal<LiveAssignmentAttempt>();
   const [starting, setStarting] = createSignal(false);
   const [startError, setStartError] = createSignal<string>();
-  const [submissionStatus, setSubmissionStatus] = createSignal<LiveNativePleSubmissionStatus>();
-  const [checkingStatus, setCheckingStatus] = createSignal(false);
-  const [statusError, setStatusError] = createSignal<string>();
   const course = (): CourseInstanceRouteReference | null =>
     parseCourseInstanceReference(params["courseRef"] ?? "");
   const assignment = (): AssignmentRouteReference | null =>
     parseAssignmentReference(params["assignmentRef"] ?? "");
-  const selectedPresentationNonce = (): string | null =>
-    presentationNonce(params["presentationNonce"]);
-  const isSubmissionScreen = (): boolean => selectedPresentationNonce() !== null;
   const access = createAsync(() => {
     const courseReference = course();
     const assignmentReference = assignment();
     if (courseReference === null || assignmentReference === null) return Promise.resolve(undefined);
     return runtime.client.getLiveAssignmentAccess(courseReference, assignmentReference);
+  });
+  createEffect(() => {
+    const activeAssignmentAttempt = access()?.activeAssignmentAttempt;
+    if (activeAssignmentAttempt === null || activeAssignmentAttempt === undefined) return;
+    navigate(`/assignment-attempts/${assignmentAttemptRouteReference(activeAssignmentAttempt)}`, {
+      replace: true,
+    });
   });
 
   async function startAssignment(): Promise<void> {
@@ -122,15 +65,8 @@ export function AssignmentOverviewPage(): JSX.Element {
         courseReference,
         assignmentReference,
       );
-      const selected = selectedPresentationNonce();
-      if (
-        selected !== null &&
-        !attempt.questions.some((question) => question.presentationNonce === selected)
-      ) {
-        setStartError("This response screen is unavailable.");
-        return;
-      }
-      setIssued(attempt);
+      const attemptReference = assignmentAttemptRouteReference(attempt.assignmentAttempt);
+      navigate(`/assignment-attempts/${attemptReference}`, { replace: true });
     } catch (_error: unknown) {
       setStartError("Assignment could not be started. Please try again.");
     } finally {
@@ -138,217 +74,44 @@ export function AssignmentOverviewPage(): JSX.Element {
     }
   }
 
-  async function submitResponse(
-    presentationNonce: string,
-    response: StudentResponse,
-  ): Promise<SubmissionOutcome> {
-    const courseReference = course();
-    const assignmentReference = assignment();
-    if (courseReference === null || assignmentReference === null) {
-      return { kind: "rejected", message: "This Assignment is unavailable." };
-    }
-    try {
-      const acknowledgement = await runtime.client.submitLiveNativePleResponse(
-        courseReference,
-        assignmentReference,
-        presentationNonce,
-        response,
-      );
-      window.sessionStorage.setItem(
-        acceptedSubmissionStorageKey(courseReference, assignmentReference, presentationNonce),
-        "accepted",
-      );
-      setSubmissionStatus({
-        presentationNonce: acknowledgement.presentationNonce,
-        gradingState: acknowledgement.gradingState,
-      });
-      return { kind: "accepted" };
-    } catch (_error: unknown) {
-      return { kind: "rejected", message: "Your response could not be submitted. Try again." };
-    }
-  }
-
-  async function refreshSubmissionStatus(presentationNonce: string): Promise<void> {
-    const courseReference = course();
-    const assignmentReference = assignment();
-    if (courseReference === null || assignmentReference === null || checkingStatus()) return;
-    setCheckingStatus(true);
-    setStatusError(undefined);
-    try {
-      setSubmissionStatus(
-        await runtime.client.getLiveNativePleSubmissionStatus(
-          courseReference,
-          assignmentReference,
-          presentationNonce,
-        ),
-      );
-    } catch (_error: unknown) {
-      setStatusError("Grading status could not be checked. Please try again.");
-    } finally {
-      setCheckingStatus(false);
-    }
-  }
-
-  // ASVS 8.3.1 and 14.3.3: this answer-free marker only rehydrates the status UI;
-  // the no-store server read reauthorizes access without starting another attempt.
-  createEffect(() => {
-    const courseReference = course();
-    const assignmentReference = assignment();
-    const nonce = selectedPresentationNonce();
-    if (
-      courseReference === null ||
-      assignmentReference === null ||
-      nonce === null ||
-      window.sessionStorage.getItem(
-        acceptedSubmissionStorageKey(courseReference, assignmentReference, nonce),
-      ) !== "accepted"
-    ) {
-      return;
-    }
-    untrack(() => void refreshSubmissionStatus(nonce));
-  });
-
   return (
     <section class="page" data-route-surface="assignmentOverview">
-      <Show
-        when={issued()}
-        fallback={
-          <Show
-            when={isSubmissionScreen() && submissionStatus() !== undefined}
-            fallback={
-              <>
-                <h1>Assignment</h1>
-                <Show
-                  when={access()}
-                  fallback={<p class="loading-state">Loading Assignment Access...</p>}
-                >
-                  {(current) => (
-                    <>
-                      <p role="status">{startDecisionMessage(current().startDecision)}</p>
-                      <Switch>
-                        <Match when={current().startDecision === "may_start"}>
-                          <button
-                            class="primary-action"
-                            type="button"
-                            disabled={starting()}
-                            onClick={() => void startAssignment()}
-                          >
-                            {starting() ? "Starting Assignment..." : "Start Assignment"}
-                          </button>
-                        </Match>
-                        <Match when={true}>
-                          <p>
-                            Check with your Instructor if you expected this Assignment to be
-                            available.
-                          </p>
-                        </Match>
-                      </Switch>
-                      <Show when={startError()}>
-                        {(message) => (
-                          <p role="alert" class="inline-error">
-                            {message()}
-                          </p>
-                        )}
-                      </Show>
-                    </>
-                  )}
-                </Show>
-              </>
-            }
-          >
-            <h1>Assignment</h1>
-            <SubmissionStatusPanel
-              status={submissionStatus()!}
-              checkingStatus={checkingStatus()}
-              statusError={statusError()}
-              onCheck={() => void refreshSubmissionStatus(selectedPresentationNonce()!)}
-            />
-          </Show>
-        }
-      >
+      <h1>Assignment</h1>
+      <Show when={access()} fallback={<p class="loading-state">Loading Assignment Access...</p>}>
         {(current) => (
           <>
-            <header>
-              <p class="eyebrow">Assignment Attempt {current().attemptNumber}</p>
-              <h1>{current().title}</h1>
-              <Show when={current().resumed}>
-                <p role="status">Your current Assignment Attempt has been reopened.</p>
+            <Show
+              when={current().activeAssignmentAttempt === null}
+              fallback={
+                <p class="loading-state" role="status">
+                  Resuming Assignment...
+                </p>
+              }
+            >
+              <p role="status">{startDecisionMessage(current().startDecision)}</p>
+              <Switch>
+                <Match when={current().startDecision === "may_start"}>
+                  <button
+                    class="primary-action"
+                    type="button"
+                    disabled={starting()}
+                    onClick={() => void startAssignment()}
+                  >
+                    {starting() ? "Starting Assignment..." : "Start Assignment"}
+                  </button>
+                </Match>
+                <Match when={true}>
+                  <p>Check with your Instructor if you expected this Assignment to be available.</p>
+                </Match>
+              </Switch>
+              <Show when={startError()}>
+                {(message) => (
+                  <p role="alert" class="inline-error">
+                    {message()}
+                  </p>
+                )}
               </Show>
-            </header>
-            <Show when={current().instructions.length > 0}>
-              <section aria-labelledby="assignment-instructions-heading">
-                <h2 id="assignment-instructions-heading">Instructions</h2>
-                <p>{current().instructions}</p>
-              </section>
             </Show>
-            <section aria-labelledby="issued-questions-heading">
-              <h2 id="issued-questions-heading" tabindex="-1">
-                Questions
-              </h2>
-              <For
-                each={current().questions.filter(
-                  (question) =>
-                    selectedPresentationNonce() === null ||
-                    question.presentationNonce === selectedPresentationNonce(),
-                )}
-              >
-                {(question, index) => (
-                  <article class="question-presentation">
-                    <h3>
-                      Question {index() + 1}: {question.questionTitle}
-                    </h3>
-                    <QuestionPresentationRenderer
-                      presentation={question}
-                      assetUrl={(asset): URL =>
-                        new URL(
-                          runtime.client.assetUrl(asset.questionAsset),
-                          window.location.origin,
-                        )
-                      }
-                    />
-                    <Show
-                      when={
-                        isSubmissionScreen() &&
-                        submissionStatus()?.presentationNonce === question.presentationNonce
-                      }
-                      fallback={
-                        <QuestionPresentationResponseControl
-                          attemptId={question.presentationNonce}
-                          mode={isSubmissionScreen() ? "submission" : "formatOnly"}
-                          responseFormat={question.response}
-                          validator={validator}
-                          onSubmit={
-                            isSubmissionScreen()
-                              ? (response: StudentResponse): Promise<SubmissionOutcome> =>
-                                  submitResponse(question.presentationNonce, response)
-                              : undefined
-                          }
-                          onEscape={() =>
-                            document.getElementById("issued-questions-heading")?.focus()
-                          }
-                        />
-                      }
-                    >
-                      <SubmissionStatusPanel
-                        status={submissionStatus()!}
-                        checkingStatus={checkingStatus()}
-                        statusError={statusError()}
-                        onCheck={() => void refreshSubmissionStatus(question.presentationNonce)}
-                      />
-                    </Show>
-                    <Show when={!isSubmissionScreen()}>
-                      <p>
-                        <A
-                          href={`/courses/${course() ?? ""}/assignments/${assignment() ?? ""}/presentations/${question.presentationNonce}`}
-                        >
-                          Answer this question
-                        </A>
-                      </p>
-                    </Show>
-                  </article>
-                )}
-              </For>
-            </section>
           </>
         )}
       </Show>

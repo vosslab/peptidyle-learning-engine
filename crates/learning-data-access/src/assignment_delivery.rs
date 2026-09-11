@@ -1,7 +1,11 @@
 //! Student-authorized Assignment Access and answer-free initial delivery.
 
 use async_trait::async_trait;
-use question_model::{AssignmentReference, CourseInstanceReference, QuestionAssetId, QuestionId};
+use question_model::{
+    AssignmentAttemptReference, AssignmentReference, CourseInstanceReference, CourseTheme,
+    QuestionAssetId, QuestionAttemptId, QuestionId, StudentAssignmentAttemptProgress,
+    StudentResponse,
+};
 use serde::Serialize;
 
 use crate::{SessionTokenHash, StoreError};
@@ -28,6 +32,8 @@ pub enum LiveAssignmentStartDecision {
 pub struct LiveAssignmentAccess {
     /// The calculated decision at authoritative server time.
     pub start_decision: LiveAssignmentStartDecision,
+    /// The current authorized unfinished Assignment Attempt, if one exists.
+    pub active_assignment_attempt: Option<AssignmentAttemptReference>,
 }
 
 /// One answer-free fixed Question presentation issued to the Student.
@@ -55,6 +61,8 @@ pub struct IssuedQuestionPresentation {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveAssignmentAttempt {
+    /// Public attempt identity used only after server authorization.
+    pub assignment_attempt: AssignmentAttemptReference,
     /// Public Assignment locator; the private Attempt identity stays server-side.
     pub assignment: AssignmentReference,
     /// One-based Student-specific Attempt sequence.
@@ -159,9 +167,109 @@ pub struct NativeWebworkPresentationInput {
     pub replay_details: Option<serde_json::Value>,
 }
 
+/// Private immutable facts needed to reproduce one selected issued Question.
+/// This type must never be serialized at the browser boundary.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StudentAssignmentAttemptPresentationSource {
+    Ple {
+        question_attempt: QuestionAttemptId,
+        source: NativePleIssuanceSource,
+    },
+    Webwork {
+        question_attempt: QuestionAttemptId,
+        source: NativeWebworkIssuanceSource,
+        question_seed: u64,
+        presentation_nonce: String,
+        presentation_checksum: String,
+    },
+}
+
+/// Confirmation that one owned working response was saved at its fixed position.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StudentAssignmentAttemptSavedResponse {
+    /// Public Assignment Attempt reference that owns the saved response.
+    pub assignment_attempt: AssignmentAttemptReference,
+    /// One-based fixed issued Question position.
+    pub position: u32,
+}
+
+/// Browser-safe Student delivery chrome for one authorized Assignment Attempt.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudentAssignmentAttemptContext {
+    pub assignment_attempt: AssignmentAttemptReference,
+    pub attempt_number: u32,
+    pub course: CourseInstanceReference,
+    pub course_title: String,
+    pub course_theme: CourseTheme,
+    pub assignment: AssignmentReference,
+    pub assignment_title: String,
+    /// Server-evaluated nonnegative duration; no absolute deadline reaches the browser.
+    pub timer_remaining_milliseconds: Option<u64>,
+}
+
+/// Result of the single explicit Assignment Attempt submission action.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StudentAssignmentAttemptFinalization {
+    /// All saved working responses became immutable submission evidence.
+    Submitted,
+    /// The Attempt remains open because these one-based positions need saved responses.
+    MissingResponses { positions: Vec<u32> },
+}
+
 /// Store boundary for Student Assignment Access and initial issue.
 #[async_trait]
 pub trait LiveAssignmentDeliveryStore: Send + Sync {
+    /// Loads the minimal authorized route context for an open or submitted Student Attempt.
+    async fn student_assignment_attempt_context(
+        &self,
+        session_token_hash: SessionTokenHash,
+        assignment_attempt: AssignmentAttemptReference,
+    ) -> Result<StudentAssignmentAttemptContext, StoreError>;
+
+    /// Saves one canonical Student response for an active, owned issued position.
+    ///
+    /// The server validates and translates presentation references before this
+    /// boundary. PostgreSQL serializes this write with finalization.
+    async fn save_student_assignment_attempt_response(
+        &self,
+        session_token_hash: SessionTokenHash,
+        assignment_attempt: AssignmentAttemptReference,
+        position: u32,
+        response: StudentResponse,
+    ) -> Result<StudentAssignmentAttemptSavedResponse, StoreError>;
+
+    /// Reads the canonical saved response for one owned active issued position.
+    ///
+    /// `None` means that this exact Question has no saved working response.
+    async fn student_assignment_attempt_saved_response(
+        &self,
+        session_token_hash: SessionTokenHash,
+        assignment_attempt: AssignmentAttemptReference,
+        position: u32,
+    ) -> Result<Option<StudentResponse>, StoreError>;
+
+    /// Finalizes the entire owned Assignment Attempt in one database transition.
+    async fn finalize_student_assignment_attempt(
+        &self,
+        session_token_hash: SessionTokenHash,
+        assignment_attempt: AssignmentAttemptReference,
+    ) -> Result<StudentAssignmentAttemptFinalization, StoreError>;
+
+    /// Loads an answer-free, Student-owned progress projection by public Attempt reference.
+    async fn student_assignment_attempt_progress(
+        &self,
+        session_token_hash: SessionTokenHash,
+        assignment_attempt: AssignmentAttemptReference,
+    ) -> Result<StudentAssignmentAttemptProgress, StoreError>;
+
+    /// Resolves exactly one already-issued position inside the authenticated Student boundary.
+    async fn student_assignment_attempt_presentation_source(
+        &self,
+        session_token_hash: SessionTokenHash,
+        assignment_attempt: AssignmentAttemptReference,
+        position: u32,
+    ) -> Result<StudentAssignmentAttemptPresentationSource, StoreError>;
     /// Resolves only the Student-authorized fixed WeBWorK source pins for the
     /// private renderer boundary.
     async fn prepare_native_webwork_issuance(

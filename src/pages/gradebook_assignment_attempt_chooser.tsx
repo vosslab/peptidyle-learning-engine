@@ -12,6 +12,7 @@ import type { ApiClient } from "../api/client";
 import { inspectedStudentWorkUrl } from "./gradebook_navigation";
 import {
   GradebookAssignmentAttemptChooserSession,
+  formatSubmissionTime,
   type GradebookAssignmentAttemptChooserState,
 } from "./gradebook_assignment_attempt_chooser_model";
 
@@ -25,13 +26,6 @@ interface GradebookAssignmentAttemptChooserProps {
   readonly studentLabel: string;
   readonly assignmentTitle: string;
   readonly onDismiss: () => void;
-}
-
-function formatSubmissionTime(timestamp: number): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(timestamp));
 }
 
 /** Lets an Instructor explicitly select one immutable submitted Assignment Attempt for inspection. */
@@ -106,6 +100,7 @@ export function GradebookAssignmentAttemptChooser(
       <Show when={ready()}>
         {(loaded) => (
           <>
+            <p>Submitted times use your Instructor time zone: {loaded().displayTimeZone}.</p>
             <ul
               class="gradebook-assignment-attempt-choice-list"
               aria-label="Submitted Assignment Attempts"
@@ -117,7 +112,12 @@ export function GradebookAssignmentAttemptChooser(
                 {(assignmentAttempt) => (
                   <li>
                     <div>
-                      <strong>{formatSubmissionTime(assignmentAttempt.submittedAt)}</strong>
+                      <strong>
+                        {formatSubmissionTime(
+                          assignmentAttempt.submittedAt,
+                          loaded().displayTimeZone,
+                        )}
+                      </strong>
                       <Show when={assignmentAttempt.scoreSelected}>
                         <span class="gradebook-score-selected">Used for the current score</span>
                       </Show>

@@ -9,26 +9,26 @@ use adapter_webwork::{
 };
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{FromRef, Path, Query, State},
     http::{HeaderMap, StatusCode, header::COOKIE},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, post, put},
 };
 use learning_data_access::{
     LiveAssignmentAttempt, LiveAssignmentDeliveryStore, NativePleIssuanceSource,
     NativePlePresentationInput, NativeWebworkIssuanceSource, NativeWebworkPresentationInput,
     SessionTokenHash, StoreError,
     postgres::{
-        PostgresLiveAssignmentDeliveryStore, PostgresNativePleSubmissionStore,
-        PostgresSessionStore, PostgresWebworkSubmissionStore,
+        PostgresLiveAssignmentDeliveryStore, PostgresNativePleSubmissionStore, PostgresSessionStore,
     },
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    AssignmentReference, CourseInstanceReference, ObjectId, ProductRole, QuestionAssetReference,
-    QuestionAssetRendition, QuestionPresentation, QuestionPresentationBinding,
-    QuestionPresentationChecksum, QuestionRevisionNumber, QuestionRevisionReference,
-    SourceObjectChecksum, SourceObjectReference, Timestamp,
+    AssignmentAttemptReference, AssignmentReference, CourseInstanceReference, ObjectId,
+    ProductRole, QuestionAssetReference, QuestionAssetRendition, QuestionContentBlock,
+    QuestionPresentation, QuestionPresentationBinding, QuestionPresentationChecksum,
+    QuestionPresentationResponseFormat, QuestionRevisionNumber, QuestionRevisionReference,
+    SourceObjectChecksum, SourceObjectReference, StudentResponse, Timestamp,
 };
 use question_model::{
     generation::QuestionSeed,
@@ -38,16 +38,38 @@ use serde::Serialize;
 
 use crate::auth::{AuthError, resolve_session};
 
+mod context;
 mod submission;
+
+#[derive(serde::Deserialize)]
+struct PositionQuery {
+    position: u32,
+}
 
 #[derive(Clone)]
 pub(super) struct StateData {
     pub(super) sessions: Arc<PostgresSessionStore>,
     pub(super) delivery: PostgresLiveAssignmentDeliveryStore,
     pub(super) submissions: PostgresNativePleSubmissionStore,
-    pub(super) webwork_submissions: PostgresWebworkSubmissionStore,
     pub(super) objects: S3ObjectStore,
     pub(super) webwork: Arc<WebworkAdapter<S3ObjectStore, HttpWebworkRenderer>>,
+}
+
+/// The retained status read needs only authentication and its dedicated
+/// question-submission projection, not the mutable Assignment delivery state.
+#[derive(Clone)]
+pub(super) struct NativePleSubmissionStatusState {
+    pub(super) sessions: Arc<PostgresSessionStore>,
+    pub(super) submissions: PostgresNativePleSubmissionStore,
+}
+
+impl FromRef<StateData> for NativePleSubmissionStatusState {
+    fn from_ref(state: &StateData) -> Self {
+        Self {
+            sessions: Arc::clone(&state.sessions),
+            submissions: state.submissions.clone(),
+        }
+    }
 }
 
 /// Registers Student-only Assignment Access and initial start routes.
@@ -55,7 +77,6 @@ pub fn assignment_delivery_router(
     sessions: Arc<PostgresSessionStore>,
     delivery: PostgresLiveAssignmentDeliveryStore,
     submissions: PostgresNativePleSubmissionStore,
-    webwork_submissions: PostgresWebworkSubmissionStore,
     objects: S3ObjectStore,
     webwork: Arc<WebworkAdapter<S3ObjectStore, HttpWebworkRenderer>>,
 ) -> Router {
@@ -70,16 +91,209 @@ pub fn assignment_delivery_router(
         )
         .route(
             "/api/course-instances/{course}/assignments/{assignment}/presentations/{presentation_nonce}/submissions",
-            post(submission::submit_native_ple_response).get(submission::native_ple_submission_status),
+            submission::native_ple_submission_status_route::<StateData>(),
+        )
+        .route(
+            "/api/assignment-attempts/{assignment_attempt}/student-progress",
+            get(student_progress),
+        )
+        .route(
+            "/api/assignment-attempts/{assignment_attempt}/context",
+            get(context::student_context),
+        )
+        .route(
+            "/api/assignment-attempts/{assignment_attempt}/student-question",
+            get(student_question),
+        )
+        .route(
+            "/api/assignment-attempts/{assignment_attempt}/responses/{position}",
+            put(submission::save_selected_response),
+        )
+        .route(
+            "/api/assignment-attempts/{assignment_attempt}/submission",
+            post(submission::finalize_assignment_attempt),
         )
         .with_state(StateData {
             sessions,
             delivery,
             submissions,
-            webwork_submissions,
             objects,
             webwork,
         })
+}
+
+async fn student_progress(
+    State(state): State<StateData>,
+    headers: HeaderMap,
+    Path(assignment_attempt): Path<String>,
+) -> Response {
+    let assignment_attempt = match AssignmentAttemptReference::from_str(&assignment_attempt) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let token = match student(&state, &headers).await {
+        Ok(value) => value,
+        Err(value) => return *value,
+    };
+    match state
+        .delivery
+        .student_assignment_attempt_progress(token, assignment_attempt)
+        .await
+    {
+        Ok(value) => crate::auth::no_store(Json(value).into_response()),
+        Err(value) => store_error(value),
+    }
+}
+
+async fn student_question(
+    State(state): State<StateData>,
+    headers: HeaderMap,
+    Path(assignment_attempt): Path<String>,
+    Query(query): Query<PositionQuery>,
+) -> Response {
+    let assignment_attempt = match AssignmentAttemptReference::from_str(&assignment_attempt) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    if query.position == 0 {
+        return concealed();
+    }
+    let token = match student(&state, &headers).await {
+        Ok(value) => value,
+        Err(value) => return *value,
+    };
+    let source = match state
+        .delivery
+        .student_assignment_attempt_presentation_source(token, assignment_attempt, query.position)
+        .await
+    {
+        Ok(value) => value,
+        Err(value) => return store_error(value),
+    };
+    let issued = match reproduce_selected_issued_presentation(&state, source).await {
+        Ok(value) => value,
+        Err(StartError::Store(value)) => return store_error(value),
+        Err(StartError::Unavailable) => {
+            return error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Student Assignment delivery unavailable",
+            );
+        }
+        Err(StartError::Invalid) => return concealed(),
+    };
+    let saved_response = match state
+        .delivery
+        .student_assignment_attempt_saved_response(token, assignment_attempt, query.position)
+        .await
+    {
+        Ok(Some(value)) => match submission::restore_saved_response(&value, &issued) {
+            Ok(value) => Some(value),
+            Err(()) => return concealed(),
+        },
+        Ok(None) => None,
+        Err(value) => return store_error(value),
+    };
+    // ASVS 2.2.1/2.2.2 and 14.1.1: the trusted presentation is the only
+    // boundary that can translate durable response identifiers back into the
+    // opaque identifiers rendered to this Student.
+    crate::auth::no_store(
+        Json(SelectedPresentationResponse {
+            position: query.position,
+            presentation: issued.presentation.into(),
+            saved_response,
+        })
+        .into_response(),
+    )
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SelectedPresentationResponse {
+    position: u32,
+    presentation: StudentQuestionPresentation,
+    saved_response: Option<StudentResponse>,
+}
+
+/// Browser-safe selected Question facts. Pinned source, seed, nonce, checksum,
+/// revision, and authored title remain on the server-side replay boundary.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StudentQuestionPresentation {
+    prompt: Vec<QuestionContentBlock>,
+    response: QuestionPresentationResponseFormat,
+}
+
+impl From<QuestionPresentation> for StudentQuestionPresentation {
+    fn from(value: QuestionPresentation) -> Self {
+        Self {
+            prompt: value.prompt,
+            response: value.response,
+        }
+    }
+}
+
+pub(super) async fn reproduce_selected_issued_presentation(
+    state: &StateData,
+    source: learning_data_access::StudentAssignmentAttemptPresentationSource,
+) -> Result<question_model::presentation::IssuedQuestionPresentation, StartError> {
+    match source {
+        learning_data_access::StudentAssignmentAttemptPresentationSource::Ple {
+            source, ..
+        } => {
+            let issued = PleQuestionBackend::new()
+                .issue_question_json(
+                    &resolve_source(&state.objects, &source).await?,
+                    QuestionSeed::new(source.question_seed.ok_or(StartError::Invalid)?),
+                )
+                .map_err(|_| StartError::Invalid)?;
+            let nonce = question_model::QuestionPresentationNonce::parse(
+                source
+                    .presentation_nonce
+                    .as_deref()
+                    .ok_or(StartError::Invalid)?,
+            )
+            .map_err(|_| StartError::Invalid)?;
+            let checksum = QuestionPresentationChecksum::parse_hex(
+                source
+                    .presentation_checksum
+                    .as_deref()
+                    .ok_or(StartError::Invalid)?,
+            )
+            .map_err(|_| StartError::Invalid)?;
+            reproduce_question_presentation(
+                &issued.presentation,
+                &question_asset_renditions(&source),
+                QuestionPresentationBinding::new(nonce, checksum),
+            )
+            .map_err(|_| StartError::Invalid)
+        }
+        learning_data_access::StudentAssignmentAttemptPresentationSource::Webwork {
+            source,
+            question_seed,
+            presentation_nonce,
+            presentation_checksum,
+            ..
+        } => {
+            let issued = state
+                .webwork
+                .reproduce(
+                    QuestionSeed::new(question_seed),
+                    &resolve_webwork_source(&state.objects, &source).await?,
+                )
+                .await
+                .map_err(|_| StartError::Unavailable)?;
+            let nonce = question_model::QuestionPresentationNonce::parse(&presentation_nonce)
+                .map_err(|_| StartError::Invalid)?;
+            let checksum = QuestionPresentationChecksum::parse_hex(&presentation_checksum)
+                .map_err(|_| StartError::Invalid)?;
+            reproduce_question_presentation(
+                &issued.presentation,
+                &[],
+                QuestionPresentationBinding::new(nonce, checksum),
+            )
+            .map_err(|_| StartError::Invalid)
+        }
+    }
 }
 
 async fn access(
@@ -141,6 +355,7 @@ async fn start(
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LiveAssignmentAttemptResponse {
+    assignment_attempt: AssignmentAttemptReference,
     assignment: AssignmentReference,
     attempt_number: u32,
     resumed: bool,
@@ -217,6 +432,7 @@ async fn issue_native_ple_presentation(
         .map_err(StartError::Store)?;
     let questions = reproduce_presentations(&state.objects, &source_by_position, &attempt).await?;
     Ok(LiveAssignmentAttemptResponse {
+        assignment_attempt: attempt.assignment_attempt,
         assignment: attempt.assignment,
         attempt_number: attempt.attempt_number,
         resumed: attempt.resumed,
@@ -369,6 +585,7 @@ async fn issue_native_webwork_presentation_from_sources(
         );
     }
     Ok(LiveAssignmentAttemptResponse {
+        assignment_attempt: attempt.assignment_attempt,
         assignment: attempt.assignment,
         attempt_number: attempt.attempt_number,
         resumed: attempt.resumed,
@@ -496,6 +713,7 @@ async fn issue_mixed_native_presentation(
         questions.push(presentation);
     }
     Ok(LiveAssignmentAttemptResponse {
+        assignment_attempt: attempt.assignment_attempt,
         assignment: attempt.assignment,
         attempt_number: attempt.attempt_number,
         resumed: attempt.resumed,
@@ -641,7 +859,14 @@ pub(super) async fn student(
     state: &StateData,
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
-    match resolve_session(state.sessions.as_ref(), cookie(headers).as_deref()).await {
+    student_with_sessions(state.sessions.as_ref(), headers).await
+}
+
+pub(super) async fn student_with_sessions(
+    sessions: &PostgresSessionStore,
+    headers: &HeaderMap,
+) -> Result<SessionTokenHash, Box<Response>> {
+    match resolve_session(sessions, cookie(headers).as_deref()).await {
         Ok(value) if value.record.product_role == ProductRole::Student => Ok(value.session_hash),
         Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
         Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(error(
@@ -660,7 +885,7 @@ fn cookie(headers: &HeaderMap) -> Option<String> {
     (!values.is_empty()).then(|| values.join("; "))
 }
 
-fn store_error(value: StoreError) -> Response {
+pub(super) fn store_error(value: StoreError) -> Response {
     match value {
         StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => concealed(),
         StoreError::Conflict | StoreError::RetryableTransaction => {

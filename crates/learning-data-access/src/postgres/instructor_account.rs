@@ -1,13 +1,14 @@
 //! PostgreSQL persistence for Sysadmin Instructor Account management.
 
 use async_trait::async_trait;
-use question_model::{AccountReference, Timestamp};
+use question_model::{AccountReference, AccountTimeZone, Timestamp};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    CreateInstructorAccountInput, DeactivateInstructorAccountInput, InstructorAccountState,
-    InstructorAccountStore, InstructorAccountSummary, SessionTokenHash, StoreError,
+    CreateInstructorAccountInput, DeactivateInstructorAccountInput, InstructorAccountList,
+    InstructorAccountState, InstructorAccountStore, InstructorAccountSummary, SessionTokenHash,
+    StoreError,
 };
 
 /// PostgreSQL Store for the deliberate Sysadmin-only Instructor Accounts surface.
@@ -54,7 +55,7 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
     async fn list_instructor_accounts(
         &self,
         token: SessionTokenHash,
-    ) -> Result<Vec<InstructorAccountSummary>, StoreError> {
+    ) -> Result<InstructorAccountList, StoreError> {
         let mut tx = self.begin(token).await?;
         let rows = sqlx::query(
             "SELECT reference_number, state, \
@@ -69,8 +70,26 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
             .iter()
             .map(decode_summary)
             .collect::<Result<Vec<_>, _>>()?;
+        // ASVS 8.2.2 and 8.3.1: this function derives the display preference
+        // from the installed session rather than accepting a target Account ID.
+        let display_time_zone =
+            sqlx::query_scalar::<_, Option<String>>("SELECT ple_api.current_account_time_zone()")
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_sqlx_error)?
+                .ok_or(StoreError::NotFound)
+                .and_then(|value| {
+                    AccountTimeZone::parse(&value).map_err(|_| {
+                        StoreError::InvalidRecord(
+                            "database returned an invalid Account time zone".to_string(),
+                        )
+                    })
+                })?;
         tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(records)
+        Ok(InstructorAccountList {
+            accounts: records,
+            display_time_zone,
+        })
     }
 
     async fn create_instructor_account(

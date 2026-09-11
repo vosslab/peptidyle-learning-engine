@@ -143,7 +143,10 @@ value = json.loads(sys.argv[1])
 if set(value) != {"course", "creatorIsAssignedInstructor"}:
     raise SystemExit("Course Instance creation receipt was not closed")
 course = value["course"]
-if set(course) != {"reference", "title", "term"} or not re.fullmatch(r"C-[1-9][0-9]{0,9}", course["reference"]):
+themes = {"tundra", "forest", "desert", "grass", "arctic", "ocean", "tropical", "coral-reef", "swamp", "underground", "salt-marsh", "wetland", "sea-floor", "magma", "beach"}
+if (set(course) != {"reference", "title", "term", "theme"}
+    or not re.fullmatch(r"C-[1-9][0-9]{0,9}", course["reference"])
+    or course["theme"] not in themes):
     raise SystemExit("Course Instance creation receipt did not return a public Course Instance identity")
 if course["title"] != "M8 live Course Instance" or value["creatorIsAssignedInstructor"] is not False:
     raise SystemExit("Sysadmin Course Instance creation did not preserve its no-ambient-access receipt")
@@ -153,12 +156,16 @@ print(course["reference"])
 
 assert_instructor_view() {
 	python3 -c '
-import json, sys
+import json, re, sys
 value = json.loads(sys.argv[1])
 if set(value) != {"course", "isAssignedInstructor", "activeInstructorCount"}:
     raise SystemExit("Course Instance teaching-team view was not closed")
 course = value["course"]
-if set(course) != {"reference", "title", "term"} or course["reference"] != sys.argv[2]:
+themes = {"tundra", "forest", "desert", "grass", "arctic", "ocean", "tropical", "coral-reef", "swamp", "underground", "salt-marsh", "wetland", "sea-floor", "magma", "beach"}
+if (set(course) != {"reference", "title", "term", "theme"}
+    or not re.fullmatch(r"C-[1-9][0-9]{0,9}", course["reference"])
+    or course["reference"] != sys.argv[2]
+    or course["theme"] not in themes):
     raise SystemExit("Course Instance teaching-team view identity differs")
 if value["isAssignedInstructor"] is not True:
     raise SystemExit("Assigned Instructor did not receive teaching authority")

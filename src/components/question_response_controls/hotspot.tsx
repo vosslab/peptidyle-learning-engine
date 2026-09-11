@@ -64,7 +64,7 @@ export function HotspotResponse(
           ? selected().filter((selectedId) => selectedId !== id)
           : [...selected(), id];
     setSelected(next);
-    void controller.validate({
+    void controller.edit({
       kind: "hotspot",
       selections: next.map((region) => ({ region })),
     });
@@ -147,6 +147,7 @@ export function HotspotResponse(
         disabled={!controller.canSubmit() || controller.locked()}
         resetDisabled={controller.locked()}
         onSubmit={submit}
+        submitLabel={props.submitLabel}
         onReset={reset}
         onEscape={props.onEscape}
       />

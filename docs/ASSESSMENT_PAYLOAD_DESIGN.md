@@ -122,12 +122,10 @@ needs only the attempt ID, student-visible deadline, presentation binding, and p
 does not need Student identity, course authorization evidence, parameter hashes, source-object IDs,
 Question Backend, Renderer, or Grader Versions, or complete Question Attempt Reproduction Details.
 
-The implemented `getAssignmentAttemptScreen` client currently assembles a screen by loading the
-Assignment Attempt, Student Record, cursor-paged Question Attempts, Assignment, Course Instance,
-appearance, and Issued Question. In a one-time wire
-fixture,
-that required at least seven JSON responses across four dependent waves. A purpose-built server
-reader can perform those relationship checks once and return one bounded Student Question Attempt View.
+The retired aggregate `getAssignmentAttemptScreen` browser client assembled that screen from
+several unrelated reads. The current `R-n` Attempt boundary instead exposes caller-bound context,
+answer-free progress, and one selected presentation through focused delivery reads. Each route
+response remains bounded to the Student-visible facts it owns.
 
 ### Current response payload
 

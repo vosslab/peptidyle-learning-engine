@@ -17,9 +17,8 @@ use learning_data_access::{
         PostgresLiveStudentCourseLandingStore, PostgresNativePleGradingStore,
         PostgresNativePleSubmissionStore, PostgresPublicAssetPublicationStore,
         PostgresQuestionAssetDeliveryStore, PostgresQuestionLibraryStore, PostgresSessionStore,
-        PostgresSupportCapabilityStore, PostgresWebworkGradingStore,
-        PostgresWebworkSubmissionStore, ProductionLoginProfile, local_development_pool,
-        production_pool,
+        PostgresSupportCapabilityStore, PostgresWebworkGradingStore, ProductionLoginProfile,
+        local_development_pool, production_pool,
     },
 };
 use objects::{
@@ -94,7 +93,6 @@ pub async fn production_router_from_env() -> Result<Router> {
     let assignments = PostgresLiveAssignmentStore::new(pool.clone());
     let assignment_delivery = PostgresLiveAssignmentDeliveryStore::new(pool.clone());
     let native_ple_submissions = PostgresNativePleSubmissionStore::new(pool.clone());
-    let webwork_submissions = PostgresWebworkSubmissionStore::new(pool.clone());
     let question_asset_delivery = PostgresQuestionAssetDeliveryStore::new(pool.clone());
     let authoring_drafts = PostgresAuthoringDraftStore::new(pool.clone());
     let authoring_publication = PostgresDraftQuestionSourceBindingStore::new(pool);
@@ -180,7 +178,6 @@ pub async fn production_router_from_env() -> Result<Router> {
             Arc::clone(&sessions),
             assignment_delivery,
             native_ple_submissions,
-            webwork_submissions,
             question_library_objects.clone(),
             webwork_adapter,
         ))

@@ -1,631 +1,286 @@
-// assignment_workspace_questions_page.tsx - Questions-owned Assignment title and ordered Assignment Content.
-
 import { A } from "@solidjs/router";
-import { For, Show, createEffect, createSignal, onMount, type JSX } from "solid-js";
+import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 
-import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
-import type { AssignmentEditNumber } from "../../../generated/api/AssignmentEditNumber";
-import { AssignmentEditorContentList } from "../assignment_editor_content_list";
-import { createAssignmentEditorQuestionLookupController } from "../assignment_editor_question_lookup_controller";
-import {
-  appendFixedEntries,
-  appendQuestionPool,
-  assignmentContentInput,
-  assignmentEditorStateFrom,
-  moveAssignmentEntry,
-  parseExactQuestionIds,
-  questionBackendLabel,
-  validateAssignmentEditorState,
-  type AssignmentQuestionRow,
-  type AssignmentEditorState,
-  type AssignmentEditorQuestionPoolAssignmentEntry,
-} from "../assignment_editor_model";
-import { AssignmentEditorQuestionPicker } from "../assignment_editor_question_picker";
-import { createAssignmentEditorPickerController } from "../assignment_editor_picker_controller";
-import { createAssignmentEditorRetainedAssignmentController } from "../assignment_editor_reuse_controller";
-import { resolveAssignmentContentSaveFailure } from "../../api/http_client";
-import type { QuestionPoolPreview } from "../../api/contracts";
-
-import { assignmentWorkspacePath } from "./assignment_workspace_paths";
+import type { QuestionId } from "../../../generated/api/QuestionId";
+import type { SaveLiveAssignmentInput } from "../../api/assignment_release";
+import { useApplicationApi } from "../../api/application_api";
+import { LiveAssignmentWorkspaceConflictError } from "../../api/http_client/assignment_release";
+import { QuestionPicker, questionLibraryPickerSources } from "../../features/question_picker";
+import { createAssignmentEditorRepository } from "../assignment_editor_repository";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
+import { assignmentWorkspacePath } from "./assignment_workspace_paths";
 
-function previewEditNumber(revision: string): AssignmentEditNumber {
-  const match = /^"([1-9][0-9]*)"$/u.exec(revision);
-  const value = match?.[1];
-  if (value === undefined || BigInt(value) > 9_223_372_036_854_775_807n)
-    throw new Error("Save the assignment before requesting a pool sample.");
-  return value;
+const MAX_ASSIGNMENT_QUESTION_SELECTION = 1024;
+
+function withQuestionIds(
+  workspace: Omit<SaveLiveAssignmentInput, "questionIds">,
+  title: string,
+  questionIds: ReadonlyArray<QuestionId>,
+): SaveLiveAssignmentInput {
+  return {
+    title,
+    instructions: workspace.instructions,
+    questionIds,
+    dueAt: workspace.dueAt,
+    lateWorkRule: workspace.lateWorkRule,
+    assignmentAttemptTimeLimitSeconds: workspace.assignmentAttemptTimeLimitSeconds,
+    attemptLimit: workspace.attemptLimit,
+    activityRules: workspace.activityRules,
+    studentFeedbackReleaseRule: workspace.studentFeedbackReleaseRule,
+  };
 }
 
-/** Keeps Questions edits local until the Instructor explicitly saves the complete ordered Assignment Content. */
+/** Removes one selected Question while retaining the authored order of every other Question. */
+function removeSelectedQuestionAt(
+  questionIds: ReadonlyArray<QuestionId>,
+  index: number,
+): ReadonlyArray<QuestionId> {
+  if (index < 0 || index >= questionIds.length) return questionIds;
+  return questionIds.filter((_questionId, currentIndex) => currentIndex !== index);
+}
+
+/** Selects and orders only the direct resource's fixed Questions. */
 export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   const workspace = useAssignmentWorkspace();
-  const [draft, setDraft] = createSignal<AssignmentEditorState>(
-    assignmentEditorStateFrom(workspace.assignment()),
+  const applicationApi = useApplicationApi();
+  const [available, setAvailable] = createSignal<
+    ReadonlyArray<{ readonly questionId: QuestionId; readonly description: string }>
+  >([]);
+  const [selected, setSelected] = createSignal<ReadonlyArray<QuestionId>>(
+    workspace.assignment().workspace.questions.map((question) => question.questionId),
   );
+  const [title, setTitle] = createSignal(workspace.assignment().workspace.title);
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
-  const [validationMessage, setValidationMessage] = createSignal("");
-  const [directQuestionId, setDirectQuestionId] = createSignal("");
-  const [directMessage, setDirectMessage] = createSignal("");
-  const [poolPreview, setPoolPreview] = createSignal<QuestionPoolPreview>();
-  const [hasUnsavedContent, setHasUnsavedContent] = createSignal(false);
   const [needsReload, setNeedsReload] = createSignal(false);
-  const [successorRevisionRequired, setSuccessorRevisionRequired] = createSignal(false);
-  let saveQuestionsButton: HTMLButtonElement | undefined;
-  let reloadLatestButton: HTMLButtonElement | undefined;
-
-  const questionLookupController = createAssignmentEditorQuestionLookupController(
-    workspace.repository,
-  );
-  const retainedAssignmentController = createAssignmentEditorRetainedAssignmentController(
-    workspace.repository,
-    workspace.courseId,
-    workspace.assignmentId,
-  );
-
-  /**
-   * A stale revision is a recovery state, rather than a transient save error. Keep it sticky
-   * while local edits continue so another action cannot submit the same stale revision. The
-   * explicit reload is the deliberate, visible choice that replaces the local draft.
-   */
-  function update(next: AssignmentEditorState, nextMessage: string): void {
-    setDraft(next);
-    setPoolPreview(undefined);
-    setHasUnsavedContent(true);
-    const failure = validateAssignmentEditorState(next);
-    setValidationMessage(failure === null ? "" : `${failure} Correct the questions, then save.`);
-    setMessage(nextMessage);
-  }
-
-  function replacePool(
-    entryIndex: number,
-    entry: AssignmentEditorQuestionPoolAssignmentEntry,
-  ): void {
-    const entries = [...draft().entries];
-    entries[entryIndex] = entry;
-    update(
-      { ...draft(), entries },
-      "Pool updated. Review its Question Pool Items, then save questions and order.",
-    );
-  }
-
-  function removeEntry(entryIndex: number): void {
-    const entries = draft().entries.filter((_entry, index) => index !== entryIndex);
-    update(
-      { ...draft(), entries },
-      "Question removed. Save Questions and order when the Assignment Content is ready.",
-    );
-  }
-
-  function addPool(): void {
-    if (draft().entries.length >= MAX_ASSIGNMENT_ORDERED_ENTRIES) {
-      setValidationMessage(
-        `Keep this assignment to ${MAX_ASSIGNMENT_ORDERED_ENTRIES} ordered entries or fewer, then save.`,
-      );
-      return;
-    }
-    update(
-      appendQuestionPool(draft()),
-      "Question Pool added. Add Question Pool Item Question IDs, set its selection count, then save questions and order.",
-    );
-  }
-
-  function addRows(rows: ReadonlyArray<AssignmentQuestionRow>, success: string): void {
-    const next = appendFixedEntries(draft(), rows);
-    if (next === draft()) {
-      setMessage("Every selected Question ID is already in this assignment.");
-      return;
-    }
-    update(next, success);
-  }
-
-  async function chooseQuestionId(): Promise<void> {
-    setBusy(true);
-    setMessage("Checking the supplied Question ID.");
-    try {
-      const row = await questionLookupController.lookup(directQuestionId());
-      questionLookupController.setSelected(row);
-      setMessage(`${row.questionId} is ready to add.`);
-      setDirectMessage("");
-    } catch (_error: unknown) {
-      const failure = "That Question ID could not be found. Check it and try again.";
-      setDirectMessage(failure);
-      setMessage(failure);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function addQuestionIds(): Promise<void> {
-    let questionIds: ReadonlyArray<string>;
-    try {
-      questionIds = parseExactQuestionIds(directQuestionId());
-    } catch (error: unknown) {
-      setDirectMessage(error instanceof Error ? error.message : "Question IDs are invalid.");
-      return;
-    }
-    if (draft().entries.length + questionIds.length > MAX_ASSIGNMENT_ORDERED_ENTRIES) {
-      setDirectMessage(
-        `Keep this assignment to ${MAX_ASSIGNMENT_ORDERED_ENTRIES} ordered entries or fewer, then add Question IDs.`,
-      );
-      return;
-    }
-    setBusy(true);
-    setMessage("Checking the supplied Question IDs and adding valid questions.");
-    try {
-      const rows = await Promise.all(
-        questionIds.map(
-          async (questionId) => await workspace.repository.resolvePublished(questionId),
-        ),
-      );
-      addRows(
-        rows,
-        `Added ${rows.length} Question ID${rows.length === 1 ? "" : "s"}. Save questions and order when ready.`,
-      );
-      setDirectQuestionId("");
-      setDirectMessage("");
-    } catch (_error: unknown) {
-      const failure = "A Question ID could not be found. Your Question IDs are still here.";
-      setDirectMessage(failure);
-      setMessage(failure);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function saveQuestions(): Promise<boolean> {
-    const current = draft();
-    if (busy()) return false;
-    if (!hasUnsavedContent()) {
-      setMessage("Questions and order are already saved in the current assignment revision.");
-      return true;
-    }
-    if (successorRevisionRequired()) {
-      setMessage(
-        "Create a successor Assignment to use these structural question changes. Existing Student work remains pinned to this revision.",
-      );
-      return false;
-    }
-    if (needsReload()) {
-      setMessage(
-        "Reload the latest assignment before saving. Your entered title and question changes remain here until you choose Reload latest assignment.",
-      );
-      return false;
-    }
-    if (current.title.trim() === "") {
-      setValidationMessage("Enter an assignment title before saving questions and order.");
-      return false;
-    }
-    const failure = validateAssignmentEditorState(current);
-    if (failure !== null) {
-      setValidationMessage(`${failure} Correct the questions, then save.`);
-      return false;
-    }
-    setBusy(true);
-    try {
-      const saved = await workspace.client.saveAssignmentContent(
-        workspace.courseId,
-        workspace.assignmentId,
-        workspace.assignment().reference,
-        assignmentContentInput(current),
-        current.revision,
-      );
-      workspace.replaceAssignment(saved);
-      setDraft(assignmentEditorStateFrom(saved));
-      setPoolPreview(undefined);
-      setHasUnsavedContent(false);
-      setNeedsReload(false);
-      setValidationMessage("");
-      setMessage("Questions and order saved. Review assignment policies when you are ready.");
-      return true;
-    } catch (error: unknown) {
-      const failure = resolveAssignmentContentSaveFailure(error);
-      if (failure.kind === "staleRevision") {
-        setNeedsReload(true);
-        setMessage(failure.message);
-      } else if (failure.kind === "successorRevisionRequired") {
-        setSuccessorRevisionRequired(true);
-        setMessage(failure.message);
-      } else {
-        setMessage(failure.message);
-      }
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function reloadLatest(): Promise<void> {
-    setBusy(true);
-    let reloaded = false;
-    try {
-      const latest = await workspace.reloadAssignment();
-      setDraft(assignmentEditorStateFrom(latest));
-      setPoolPreview(undefined);
-      setHasUnsavedContent(false);
-      setNeedsReload(false);
-      setSuccessorRevisionRequired(false);
-      setValidationMessage("");
-      setMessage(
-        "Latest assignment loaded; your local title and question changes were replaced. Review the current questions and order before saving.",
-      );
-      reloaded = true;
-    } catch (_error: unknown) {
-      setMessage(
-        "The latest assignment could not be loaded. Your local question changes remain here.",
-      );
-    } finally {
-      setBusy(false);
-      if (reloaded) queueMicrotask(() => saveQuestionsButton?.focus());
-    }
-  }
-
-  async function previewPool(assignmentEntryId: string): Promise<void> {
-    const failure = validateAssignmentEditorState(draft());
-    if (failure !== null) {
-      setValidationMessage(
-        `${failure} Correct the questions, then preview a Question Pool selection.`,
-      );
-      return;
-    }
-    if (hasUnsavedContent()) {
-      setMessage(
-        "Save questions and order before previewing a Question Pool selection. Your local question changes remain here.",
-      );
-      queueMicrotask(() => saveQuestionsButton?.focus());
-      return;
-    }
-    setMessage("Generating a server sample from the saved Assignment Questions.");
-    const saved = workspace.assignment();
-    setBusy(true);
-    try {
-      const preview = await workspace.client.previewQuestionPool(
-        workspace.courseReference,
-        saved.reference,
-        previewEditNumber(saved.revision),
-        assignmentEntryId,
-      );
-      setPoolPreview(preview);
-      setMessage(
-        `${preview.questionPoolLabel} server sample is ready. It does not create Student work.`,
-      );
-    } catch (_error: unknown) {
-      setMessage(
-        "The pool sample could not be generated. The saved Assignment Questions remain available.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const pickerController = createAssignmentEditorPickerController({
-    repository: workspace.repository,
-    courseId: workspace.courseId,
-    mode: { kind: "workspace", assignmentId: workspace.assignmentId },
-    currentDraft: draft,
-    editorBusy: busy,
-    setBusy,
-    onDraftChange: (next) =>
-      update(next, "Selected questions added. Save questions and order when ready."),
-    onMessage: setMessage,
-    onError: (_error, fallback) => setMessage(fallback),
-  });
+  const [pickerOpen, setPickerOpen] = createSignal(false);
+  const pickerRepository = createAssignmentEditorRepository(applicationApi.client);
+  let pickerTrigger: HTMLButtonElement | undefined;
 
   onMount(() => {
-    void pickerController.loadSources();
-    void retainedAssignmentController.load();
+    void loadAvailable();
   });
 
-  createEffect(() => {
-    if (!needsReload() || busy()) return;
-    queueMicrotask(() => reloadLatestButton?.focus());
-  });
+  async function loadAvailable(): Promise<void> {
+    try {
+      setAvailable(
+        await applicationApi.client.listLiveAssignmentQuestionPicker(workspace.courseReference),
+      );
+    } catch {
+      setMessage("Question choices could not load. Current selected Questions remain available.");
+    }
+  }
+
+  const selectedEntries = (): ReadonlyArray<{
+    readonly questionId: QuestionId;
+    readonly description: string;
+  }> =>
+    selected().map(
+      (questionId) =>
+        available().find((entry) => entry.questionId === questionId) ?? {
+          questionId,
+          description: questionId,
+        },
+    );
+
+  function move(index: number, offset: -1 | 1): void {
+    setSelected((current) => {
+      const target = index + offset;
+      if (target < 0 || target >= current.length) return current;
+      const next = [...current];
+      [next[index], next[target]] = [next[target]!, next[index]!];
+      return next;
+    });
+  }
+
+  function remove(index: number): void {
+    setSelected((current) => removeSelectedQuestionAt(current, index));
+    setMessage("Question removed. Save Questions and order when ready.");
+  }
+
+  function addPickerSelection(
+    questionIds: ReadonlyArray<string>,
+    questions: ReadonlyArray<{ readonly questionId: string; readonly description: string }>,
+  ): void {
+    const known = new Set(selected());
+    const addedQuestionIds = questionIds.filter((questionId) => !known.has(questionId));
+    if (addedQuestionIds.length === 0) {
+      setMessage("Every selected Question is already in this assignment.");
+      setPickerOpen(false);
+      return;
+    }
+    setSelected((current) => [...current, ...addedQuestionIds]);
+    setAvailable((current) => {
+      const currentById = new Set(current.map((entry) => entry.questionId));
+      const additions = questions
+        .filter((question) => addedQuestionIds.includes(question.questionId))
+        .filter((question) => !currentById.has(question.questionId))
+        .map((question) => ({
+          questionId: question.questionId,
+          description: question.description,
+        }));
+      return [...current, ...additions];
+    });
+    setMessage("Selected Questions added. Save Questions and order when ready.");
+    setPickerOpen(false);
+  }
+
+  async function save(): Promise<void> {
+    if (needsReload()) {
+      setMessage(
+        "Reload the latest assignment before saving. Your selected Questions remain here.",
+      );
+      return;
+    }
+    setBusy(true);
+    try {
+      await workspace.save(withQuestionIds(workspace.assignment().workspace, title(), selected()));
+      setMessage("Questions and order saved. Review assignment policies when you are ready.");
+    } catch (error: unknown) {
+      const conflict = error instanceof LiveAssignmentWorkspaceConflictError;
+      setNeedsReload(conflict);
+      setMessage(
+        conflict
+          ? "This assignment changed elsewhere. Reload latest assignment before saving; your selected Questions remain here."
+          : "Questions were not saved. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reload(): Promise<void> {
+    setBusy(true);
+    try {
+      const latest = await workspace.reloadAssignment();
+      setSelected(latest.workspace.questions.map((question) => question.questionId));
+      setTitle(latest.workspace.title);
+      setNeedsReload(false);
+      setMessage("Latest assignment loaded. Review its Questions and order.");
+    } catch {
+      setMessage("The latest assignment could not load. Your selected Questions remain here.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <section class="assignment-workspace-questions" aria-labelledby="assignment-questions-heading">
       <header class="assignment-workspace-header">
         <p class="eyebrow">Assignment workspace</p>
         <h1 id="assignment-questions-heading">Questions</h1>
-        <p class="page-lede">
-          Set the assignment title, ordered fixed questions, and question pools.
-        </p>
+        <p class="page-lede">Select and order the Questions students receive.</p>
       </header>
-      <p role="status" aria-live="polite" aria-busy={busy()}>
-        {message()}
-      </p>
-      <Show when={needsReload()}>
-        <section class="inline-error" role="alert">
-          <p>
-            Reload the latest assignment before saving another set of question changes. Reloading
-            replaces your local title and question changes with the server version.
-          </p>
-          <button
-            class="quiet-action"
-            type="button"
-            ref={(element) => {
-              reloadLatestButton = element;
-            }}
-            disabled={busy()}
-            aria-label="Reload latest assignment and replace local changes"
-            onClick={() => void reloadLatest()}
-          >
-            Reload latest assignment
-          </button>
-        </section>
-      </Show>
-      <Show when={successorRevisionRequired()}>
-        <section class="inline-error" role="alert">
-          <p>
-            Student work already pins this Assignment Revision. Your local question changes remain
-            here, and a successor Assignment is required for structural changes.
-          </p>
-          <button
-            class="quiet-action"
-            type="button"
-            ref={(element) => {
-              reloadLatestButton = element;
-            }}
-            disabled={busy()}
-            onClick={() => void reloadLatest()}
-          >
-            Reload latest assignment
-          </button>
-        </section>
-      </Show>
-      <Show when={validationMessage()}>
+      <Show when={message()}>
         {(value) => (
-          <section class="inline-error" role="alert">
-            <p>{value()}</p>
-          </section>
+          <p class="assignment-workspace-save-message" role="status">
+            {value()}
+          </p>
         )}
       </Show>
-      <fieldset class="assignment-editor-operation-boundary" disabled={busy()} aria-busy={busy()}>
-        <div class="assignment-editor-actions">
+      <label class="assignment-editor-field">
+        Assignment title
+        <input value={title()} onInput={(event) => setTitle(event.currentTarget.value)} />
+      </label>
+      <section class="assignment-editor-panel" aria-labelledby="selected-questions-heading">
+        <h2 id="selected-questions-heading">Selected Questions and order</h2>
+        <p>
           <button
-            class="primary-action"
+            class="quiet-action"
             type="button"
+            disabled={
+              busy() || needsReload() || selected().length >= MAX_ASSIGNMENT_QUESTION_SELECTION
+            }
             ref={(element) => {
-              saveQuestionsButton = element;
+              pickerTrigger = element;
             }}
-            disabled={busy() || needsReload() || successorRevisionRequired()}
-            onClick={() => void saveQuestions()}
+            onClick={() => setPickerOpen(true)}
           >
-            Save questions and order
+            Search question library
           </button>
-          <A
-            class="quiet-link"
-            href={assignmentWorkspacePath(
-              workspace.courseReference,
-              workspace.assignmentReference,
-              "policies",
-            )}
-          >
-            Review assignment policies
-          </A>
-        </div>
-        <div class="assignment-editor-grid">
-          <section class="assignment-editor-panel">
-            <label class="assignment-editor-field" for="assignment-questions-title">
-              Assignment title
-              <input
-                id="assignment-questions-title"
-                value={draft().title}
-                onInput={(event) =>
-                  update(
-                    { ...draft(), title: event.currentTarget.value },
-                    "Title changed. Save questions and order when ready.",
-                  )
-                }
-              />
-            </label>
-            <button class="quiet-action" type="button" onClick={addPool}>
-              Add question pool
-            </button>
-            <p class="assignment-editor-note">
-              A Question Pool selects its configured number of Question Pool Items with the
-              server&apos;s current selection implementation.
-            </p>
-            <Show
-              when={draft().entries.length > 0}
-              fallback={
-                <section class="empty-state" aria-label="Empty assignment question list">
-                  <p>Add at least one question.</p>
-                  <p class="assignment-editor-note">
-                    Search the library, reuse a saved selection, or enter a Question ID below.
-                  </p>
-                </section>
-              }
-            >
-              <AssignmentEditorContentList
-                entries={draft().entries}
-                createMode={false}
-                busy={busy()}
-                preview={poolPreview()}
-                resolveQuestionPoolItems={async (questionIds) =>
-                  await Promise.all(
-                    questionIds.map(
-                      async (questionId) => await workspace.repository.resolvePublished(questionId),
-                    ),
-                  )
-                }
-                onMove={(entryIndex, direction) =>
-                  update(
-                    moveAssignmentEntry(draft(), entryIndex, direction),
-                    "Question order changed. Save questions and order when ready.",
-                  )
-                }
-                onRemoveFixed={(itemId) => {
-                  const index = draft().entries.findIndex(
-                    (entry) => entry.kind === "fixedQuestion" && entry.id === itemId,
-                  );
-                  if (index >= 0) removeEntry(index);
-                }}
-                onPoolChange={replacePool}
-                onRemovePool={removeEntry}
-                onMessage={setMessage}
-                onPreviewPool={(assignmentEntryId) => void previewPool(assignmentEntryId)}
-                onChooseQuestionPoolItems={(entryIndex, trigger) =>
-                  pickerController.open({ kind: "pool", entryIndex }, trigger)
-                }
-              />
-            </Show>
-          </section>
-
-          <section class="assignment-editor-panel">
-            <h2>Add questions</h2>
-            <label class="assignment-editor-field" for="assignment-question-id">
-              Question IDs
-              <input
-                id="assignment-question-id"
-                value={directQuestionId()}
-                placeholder="7K3-M9QP"
-                aria-describedby="assignment-question-id-help"
-                aria-invalid={directMessage() !== ""}
-                onInput={(event) => {
-                  setDirectQuestionId(event.currentTarget.value);
-                  setDirectMessage("");
-                  questionLookupController.setSelected(undefined);
-                }}
-              />
-            </label>
-            <p id="assignment-question-id-help" class="assignment-editor-note">
-              Add one or more canonical Question IDs separated by commas or lines. Use one ID to
-              check a Question before adding it.
-            </p>
-            <div class="assignment-editor-actions">
-              <button class="quiet-action" type="button" onClick={() => void chooseQuestionId()}>
-                Check Question ID
-              </button>
-              <button
-                class="primary-action"
-                type="button"
-                disabled={needsReload() || successorRevisionRequired()}
-                onClick={() => void addQuestionIds()}
-              >
-                Add Question IDs
-              </button>
-              <button
-                class="quiet-action"
-                type="button"
-                disabled={
-                  pickerController.sources().length === 0 ||
-                  needsReload() ||
-                  successorRevisionRequired()
-                }
-                onClick={(event) =>
-                  pickerController.open({ kind: "fixedQuestion" }, event.currentTarget)
-                }
-              >
-                Search question library
-              </button>
-            </div>
-            <Show when={questionLookupController.selected()}>
-              {(row) => (
-                <p class="success-state">
-                  Selected: {row().questionId} {row().questionTitle} (
-                  {questionBackendLabel(row().backend)})
-                </p>
-              )}
-            </Show>
-            <Show when={directMessage()}>
-              {(value) => (
-                <p class="inline-error" role="alert">
-                  {value()}
-                </p>
-              )}
-            </Show>
-
-            <details class="assignment-editor-reuse">
-              <summary>Reuse questions from a saved assignment</summary>
-              <Show when={retainedAssignmentController.message()}>
-                {(value) => (
-                  <p class="inline-error" role="alert">
-                    {value()}
-                  </p>
-                )}
-              </Show>
-              <Show
-                when={retainedAssignmentController.sources().length > 0}
-                fallback={
-                  <p class="assignment-editor-note">
-                    No other saved assignments are available in this course yet.
-                  </p>
-                }
-              >
-                <label class="assignment-editor-field">
-                  Source assignment
-                  <select
-                    value={retainedAssignmentController.sourceIndex() ?? ""}
-                    onChange={(event) =>
-                      retainedAssignmentController.chooseSource(Number(event.currentTarget.value))
-                    }
-                  >
-                    <For each={retainedAssignmentController.sources()}>
-                      {(assignment, index) => <option value={index()}>{assignment.title}</option>}
-                    </For>
-                  </select>
-                </label>
-                <div class="assignment-editor-reuse-checklist">
-                  <For each={retainedAssignmentController.selectedSource()?.questions ?? []}>
-                    {(question, index) => (
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={retainedAssignmentController.questionIndexes().has(index())}
-                          onChange={(event) =>
-                            retainedAssignmentController.toggleQuestion(
-                              index(),
-                              event.currentTarget.checked,
-                            )
-                          }
-                        />
-                        <span>
-                          <strong>{question.questionTitle}</strong>
-                          <small>{question.questionId}</small>
-                        </span>
-                      </label>
-                    )}
-                  </For>
-                </div>
-                <div class="assignment-editor-reuse-actions">
+        </p>
+        <Show when={selectedEntries().length > 0} fallback={<p>No Questions are selected.</p>}>
+          <ol>
+            <For each={selectedEntries()}>
+              {(entry, index) => (
+                <li>
+                  <strong>{entry.questionId}</strong> {entry.description}{" "}
                   <button
-                    class="primary-action"
                     type="button"
-                    onClick={() =>
-                      addRows(
-                        (retainedAssignmentController.selectedSource()?.questions ?? []).filter(
-                          (_question, index) =>
-                            retainedAssignmentController.questionIndexes().has(index),
-                        ),
-                        "Selected saved Assignment Questions added. Save Questions and order when ready.",
-                      )
-                    }
+                    disabled={busy() || index() === 0}
+                    onClick={() => move(index(), -1)}
                   >
-                    Add selected questions
-                  </button>
+                    Move up
+                  </button>{" "}
                   <button
-                    class="quiet-action"
                     type="button"
-                    onClick={() =>
-                      addRows(
-                        retainedAssignmentController.selectedSource()?.questions ?? [],
-                        "Saved assignment questions added. Save questions and order when ready.",
-                      )
-                    }
+                    disabled={busy() || index() === selectedEntries().length - 1}
+                    onClick={() => move(index(), 1)}
                   >
-                    Add entire assignment
+                    Move down
+                  </button>{" "}
+                  <button
+                    type="button"
+                    disabled={busy()}
+                    aria-label={`Remove Question ${entry.questionId}`}
+                    onClick={() => remove(index())}
+                  >
+                    Remove
                   </button>
-                </div>
-              </Show>
-            </details>
-          </section>
-        </div>
-      </fieldset>
-      <AssignmentEditorQuestionPicker
-        repository={workspace.repository}
-        controller={pickerController}
-      />
+                </li>
+              )}
+            </For>
+          </ol>
+        </Show>
+      </section>
+      <p class="assignment-editor-actions">
+        <button
+          class="primary-action"
+          type="button"
+          disabled={busy() || needsReload()}
+          onClick={() => void save()}
+        >
+          {busy() ? "Saving Questions..." : "Save Questions and order"}
+        </button>
+        <Show when={needsReload()}>
+          <button type="button" onClick={() => void reload()}>
+            Reload latest assignment
+          </button>
+        </Show>
+      </p>
+      <p class="assignment-workspace-next-actions">
+        <A
+          class="quiet-link"
+          href={assignmentWorkspacePath(
+            workspace.courseReference,
+            workspace.assignmentReference,
+            "policies",
+          )}
+        >
+          Review assignment policies
+        </A>
+      </p>
+      <Show when={pickerOpen()}>
+        <QuestionPicker
+          repository={pickerRepository.questionPickerRepository}
+          sources={questionLibraryPickerSources(true)}
+          mode="many"
+          maximumSelection={MAX_ASSIGNMENT_QUESTION_SELECTION - selected().length}
+          trigger={pickerTrigger}
+          title="Choose assignment questions"
+          confirmLabel="Add selected questions"
+          onConfirm={(selection) =>
+            addPickerSelection(
+              selection.questionIds,
+              selection.questions.map((question) => ({
+                questionId: question.questionId,
+                description: question.row.questionTitle,
+              })),
+            )
+          }
+          onCancel={() => setPickerOpen(false)}
+        />
+      </Show>
     </section>
   );
 }

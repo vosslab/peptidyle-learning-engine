@@ -12,15 +12,38 @@ export type RibbonControlPriority = "critical" | "normal";
 /** Catalog-declared density preference, independent of importance and viewport. */
 export type RibbonPresentation = "standard" | "compact";
 
+/** Availability is explicit for a Context Control before its usable path lands. */
+export type RibbonContextControlAvailability = "Available" | "Checking" | "Unavailable";
+
+/** Context Controls occupy the account endcap rather than the navigation catalog. */
+export type RibbonContextControlId = "profile";
+
+export type RibbonContextControlGlyphKey = "profile";
+
+/** A named account-endcap position. It is not a navigation destination. */
+export interface RibbonContextControlCatalogEntry {
+  readonly id: RibbonContextControlId;
+  readonly label: string;
+  readonly productRole: "instructor";
+  readonly availability: RibbonContextControlAvailability;
+  readonly glyph: RibbonContextControlGlyphKey;
+}
+
 /** The closed identities for destinations whose backend capability has not landed. */
 export type FutureRibbonDestinationId =
   | "instructorAccounts"
   | "supportRoster"
   | "blueprintUpdates"
   | "courseSetup"
+  | "productAssignments"
+  | "myActiveCourses"
+  | "myInactiveCourses"
+  | "searchPublicBlueprintCourses"
   | "myQuestions"
   | "starredQuestions"
-  | "watchedQuestions";
+  | "watchedQuestions"
+  | "assignmentsDueSoon"
+  | "assignmentTemplates";
 
 /** A destination is either a declared route or an honest future identity, never a URL guess. */
 export type RibbonDestination =
@@ -43,11 +66,18 @@ export interface RibbonCatalogControl<Id extends string> {
 }
 
 export type RibbonTaskId =
-  | "allQuestions"
+  | "myBlueprintCourses"
+  | "myActiveCourses"
+  | "myInactiveCourses"
+  | "searchPublicBlueprintCourses"
   | "myQuestions"
-  | "myQuestionDrafts"
+  | "myDraftQuestions"
   | "starred"
   | "watched"
+  | "searchQuestionLibrary"
+  | "browseQuestionLibrary"
+  | "assignmentsDueSoon"
+  | "assignmentTemplates"
   | "assignmentOverview"
   | "assignmentQuestions"
   | "assignmentPolicies"
@@ -60,8 +90,9 @@ export type RibbonTaskId =
 export type RibbonDestinationId = RibbonTabId | RibbonTaskId;
 
 export type RibbonTaskArea =
-  | "questionDestinations"
-  | "questionRelationships"
+  | "instructorCourses"
+  | "instructorQuestions"
+  | "instructorAssignments"
   | "assignment"
   | "courseSetup"
   | "assignmentAttempt";
@@ -71,22 +102,24 @@ export interface RibbonTaskCatalogEntry extends RibbonCatalogControl<RibbonTaskI
   readonly area: RibbonTaskArea;
 }
 
-const textOnlyIconFlags = {
-  iconBearing: false,
-  iconOnlySafe: false,
-} as const;
-
-/** Glyphs supplement labels only where their conventional meaning improves scanning. */
 const pairedIconFlags = {
   iconBearing: true,
   iconOnlySafe: false,
 } as const;
 
-/** The narrowest profile may retain these universally understood destination glyphs alone. */
-const conventionalIconOnlyFlags = {
-  iconBearing: true,
-  iconOnlySafe: true,
-} as const;
+/**
+ * Instructor Profile has a settled account-endcap position, but no usable
+ * browser path yet. M17 will back this exact declaration.
+ */
+export const RIBBON_CONTEXT_CONTROL_CATALOG = [
+  {
+    id: "profile",
+    label: "Profile",
+    productRole: "instructor",
+    availability: "Unavailable",
+    glyph: "profile",
+  },
+] as const satisfies ReadonlyArray<RibbonContextControlCatalogEntry>;
 
 /**
  * Every designed tab has a fixed identity and canonical label before capability
@@ -104,8 +137,8 @@ export const TAB_CATALOG = [
     ...pairedIconFlags,
   },
   {
-    id: "questionLibrary",
-    label: "Question Library",
+    id: "questions",
+    label: "Questions",
     destination: { kind: "route", routeId: "library" },
     requiredParams: [],
     role: "primary",
@@ -114,14 +147,14 @@ export const TAB_CATALOG = [
     ...pairedIconFlags,
   },
   {
-    id: "blueprintCourses",
-    label: "Blueprint Courses",
-    destination: { kind: "route", routeId: "blueprintCourses" },
+    id: "productAssignments",
+    label: "Assignments",
+    destination: { kind: "future", futureId: "productAssignments" },
     requiredParams: [],
-    role: "supporting",
-    priority: "normal",
-    presentation: "compact",
-    ...textOnlyIconFlags,
+    role: "primary",
+    priority: "critical",
+    presentation: "standard",
+    ...pairedIconFlags,
   },
   {
     id: "assignments",
@@ -171,7 +204,7 @@ export const TAB_CATALOG = [
     role: "supporting",
     priority: "normal",
     presentation: "standard",
-    ...textOnlyIconFlags,
+    ...pairedIconFlags,
   },
   {
     id: "blueprintUpdates",
@@ -181,7 +214,7 @@ export const TAB_CATALOG = [
     role: "supporting",
     priority: "normal",
     presentation: "compact",
-    ...textOnlyIconFlags,
+    ...pairedIconFlags,
   },
   {
     id: "courseSetup",
@@ -211,7 +244,7 @@ export const TAB_CATALOG = [
     role: "primary",
     priority: "critical",
     presentation: "standard",
-    ...textOnlyIconFlags,
+    ...pairedIconFlags,
   },
   {
     id: "supportRoster",
@@ -221,7 +254,7 @@ export const TAB_CATALOG = [
     role: "supporting",
     priority: "normal",
     presentation: "standard",
-    ...textOnlyIconFlags,
+    ...pairedIconFlags,
   },
 ] as const satisfies ReadonlyArray<RibbonCatalogControl<RibbonTabId>>;
 
@@ -231,36 +264,72 @@ export const TAB_CATALOG = [
  */
 export const RIBBON_TASK_CATALOG = [
   {
-    id: "allQuestions",
-    label: "All Questions",
-    destination: { kind: "route", routeId: "library" },
+    id: "myBlueprintCourses",
+    label: "My Blueprint Courses",
+    destination: { kind: "route", routeId: "blueprintCourses" },
     requiredParams: [],
-    taskGroup: "questionLibrary",
-    area: "questionDestinations",
+    taskGroup: "instructorCourses",
+    area: "instructorCourses",
     role: "primary",
     priority: "critical",
     presentation: "standard",
-    ...textOnlyIconFlags,
+    ...pairedIconFlags,
+  },
+  {
+    id: "myActiveCourses",
+    label: "My Active Courses",
+    destination: { kind: "future", futureId: "myActiveCourses" },
+    requiredParams: [],
+    taskGroup: "instructorCourses",
+    area: "instructorCourses",
+    role: "supporting",
+    priority: "normal",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "myInactiveCourses",
+    label: "My Inactive Courses",
+    destination: { kind: "future", futureId: "myInactiveCourses" },
+    requiredParams: [],
+    taskGroup: "instructorCourses",
+    area: "instructorCourses",
+    role: "supporting",
+    priority: "normal",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "searchPublicBlueprintCourses",
+    label: "Search Public Blueprint Courses",
+    destination: { kind: "future", futureId: "searchPublicBlueprintCourses" },
+    requiredParams: [],
+    taskGroup: "instructorCourses",
+    area: "instructorCourses",
+    role: "supporting",
+    priority: "normal",
+    presentation: "standard",
+    ...pairedIconFlags,
   },
   {
     id: "myQuestions",
     label: "My Questions",
     destination: { kind: "future", futureId: "myQuestions" },
     requiredParams: [],
-    taskGroup: "questionLibrary",
-    area: "questionDestinations",
+    taskGroup: "instructorQuestions",
+    area: "instructorQuestions",
     role: "primary",
     priority: "critical",
     presentation: "standard",
-    ...textOnlyIconFlags,
+    ...pairedIconFlags,
   },
   {
-    id: "myQuestionDrafts",
-    label: "My Question Drafts",
+    id: "myDraftQuestions",
+    label: "My Draft Questions",
     destination: { kind: "route", routeId: "questionDrafts" },
     requiredParams: [],
-    taskGroup: "questionLibrary",
-    area: "questionDestinations",
+    taskGroup: "instructorQuestions",
+    area: "instructorQuestions",
     role: "supporting",
     priority: "normal",
     presentation: "standard",
@@ -271,24 +340,72 @@ export const RIBBON_TASK_CATALOG = [
     label: "Starred",
     destination: { kind: "future", futureId: "starredQuestions" },
     requiredParams: [],
-    taskGroup: "questionLibrary",
-    area: "questionRelationships",
+    taskGroup: "instructorQuestions",
+    area: "instructorQuestions",
     role: "supporting",
     priority: "normal",
-    presentation: "compact",
-    ...conventionalIconOnlyFlags,
+    presentation: "standard",
+    ...pairedIconFlags,
   },
   {
     id: "watched",
     label: "Watched",
     destination: { kind: "future", futureId: "watchedQuestions" },
     requiredParams: [],
-    taskGroup: "questionLibrary",
-    area: "questionRelationships",
+    taskGroup: "instructorQuestions",
+    area: "instructorQuestions",
     role: "supporting",
     priority: "normal",
-    presentation: "compact",
-    ...conventionalIconOnlyFlags,
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "searchQuestionLibrary",
+    label: "Search Question Library",
+    destination: { kind: "route", routeId: "library" },
+    requiredParams: [],
+    taskGroup: "instructorQuestions",
+    area: "instructorQuestions",
+    role: "supporting",
+    priority: "normal",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "browseQuestionLibrary",
+    label: "Browse Question Library",
+    destination: { kind: "route", routeId: "library" },
+    requiredParams: [],
+    taskGroup: "instructorQuestions",
+    area: "instructorQuestions",
+    role: "supporting",
+    priority: "normal",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "assignmentsDueSoon",
+    label: "Assignments Due Soon",
+    destination: { kind: "future", futureId: "assignmentsDueSoon" },
+    requiredParams: [],
+    taskGroup: "instructorAssignments",
+    area: "instructorAssignments",
+    role: "primary",
+    priority: "critical",
+    presentation: "standard",
+    ...pairedIconFlags,
+  },
+  {
+    id: "assignmentTemplates",
+    label: "My Assignment Templates",
+    destination: { kind: "future", futureId: "assignmentTemplates" },
+    requiredParams: [],
+    taskGroup: "instructorAssignments",
+    area: "instructorAssignments",
+    role: "supporting",
+    priority: "normal",
+    presentation: "standard",
+    ...pairedIconFlags,
   },
   {
     id: "assignmentOverview",
@@ -300,7 +417,7 @@ export const RIBBON_TASK_CATALOG = [
     role: "primary",
     priority: "critical",
     presentation: "standard",
-    ...textOnlyIconFlags,
+    ...pairedIconFlags,
   },
   {
     id: "assignmentQuestions",
@@ -324,7 +441,7 @@ export const RIBBON_TASK_CATALOG = [
     role: "supporting",
     priority: "normal",
     presentation: "standard",
-    ...textOnlyIconFlags,
+    ...pairedIconFlags,
   },
   {
     id: "assignmentGradingOperations",
@@ -336,7 +453,7 @@ export const RIBBON_TASK_CATALOG = [
     role: "supporting",
     priority: "normal",
     presentation: "standard",
-    ...textOnlyIconFlags,
+    ...pairedIconFlags,
   },
   {
     id: "assignmentStudentView",
@@ -360,7 +477,7 @@ export const RIBBON_TASK_CATALOG = [
     role: "primary",
     priority: "critical",
     presentation: "standard",
-    ...textOnlyIconFlags,
+    ...pairedIconFlags,
   },
   {
     id: "appearance",
@@ -377,13 +494,13 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "backToAssignments",
     label: "Back to Assignments",
-    destination: { kind: "route", routeId: "courseAssignments" },
-    requiredParams: ["courseRef"],
+    destination: { kind: "route", routeId: "assignmentOverview" },
+    requiredParams: ["courseRef", "assignmentRef"],
     taskGroup: "assignmentAttempt",
     area: "assignmentAttempt",
     role: "primary",
     priority: "critical",
     presentation: "standard",
-    ...conventionalIconOnlyFlags,
+    ...pairedIconFlags,
   },
 ] as const satisfies ReadonlyArray<RibbonTaskCatalogEntry>;

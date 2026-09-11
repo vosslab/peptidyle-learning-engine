@@ -1,7 +1,7 @@
-// Student-owned current Course Instance index.
+// Student-owned current course index.
 
-import { A } from "@solidjs/router";
-import { createResource, For, Show, type JSX } from "solid-js";
+import { A, useLocation, useNavigate } from "@solidjs/router";
+import { createEffect, createResource, For, Show, type JSX } from "solid-js";
 
 import type { LiveStudentCourseLandingSummary } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
@@ -9,7 +9,6 @@ import { useApplicationApi } from "../api/application_api";
 function CourseCard(props: { readonly course: LiveStudentCourseLandingSummary }): JSX.Element {
   return (
     <article class="course-card">
-      <p class="card-kicker">Course Instance {props.course.reference}</p>
       <h2>{props.course.title}</h2>
       <A class="primary-link" href={`/student/courses/${props.course.reference}`}>
         Open assigned work
@@ -18,16 +17,27 @@ function CourseCard(props: { readonly course: LiveStudentCourseLandingSummary })
   );
 }
 
-/** Lists only the signed-in Student's current Course Instances. */
+/** Lists only the signed-in Student's current courses. */
 export function StudentCoursesPage(): JSX.Element {
   const applicationApi = useApplicationApi();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [courses] = createResource(() => applicationApi.client.listLiveStudentCourses());
+  const choosingCourses = (): boolean => new URLSearchParams(location.search).get("choose") === "1";
+
+  createEffect(() => {
+    const currentCourses = courses();
+    if (choosingCourses() || currentCourses?.length !== 1) return;
+    const currentCourse = currentCourses[0];
+    if (currentCourse === undefined) return;
+    navigate(`/student/courses/${currentCourse.reference}`, { replace: true });
+  });
 
   return (
     <section class="page" data-route-surface="studentCourses">
       <p class="eyebrow">Your learning</p>
       <h1>Your courses</h1>
-      <p class="page-lede">Open assigned work in one of your current Course Instances.</p>
+      <p class="page-lede">Open assigned work in one of your current courses.</p>
       <A class="quiet-link" href="/student/course-invitations">
         Course invitations
       </A>

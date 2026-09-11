@@ -38,6 +38,7 @@ function source() {
         { id: "red", text: "Red", feedback: "Not this one." },
       ],
       correctChoice: "blue",
+      randomizeChoices: false,
     },
     questionHint: "Compare each choice before responding.",
     feedback: { correct: "Exactly right.", incorrect: "Try again." },
@@ -85,6 +86,32 @@ test("codec accepts a valid source and serializes deterministic compact JSON", (
   const serialized = serializePleQuestionJsonSource(decoded);
   assert.equal(serialized, JSON.stringify(source()));
   assert.deepEqual(parsePleQuestionJsonSource(serialized), decoded);
+});
+
+test("choice randomization accepts legacy omission and serializes an explicit declaration", () => {
+  const legacy = source();
+  delete legacy.response.randomizeChoices;
+
+  const decoded = decodePleQuestionJsonSource(legacy);
+  assert.equal(decoded.response.kind, "singleChoice");
+  if (decoded.response.kind !== "singleChoice") throw new Error("Expected single-choice source.");
+  assert.equal(decoded.response.randomizeChoices, false);
+  assert.equal(serializePleQuestionJsonSource(decoded).includes('"randomizeChoices":false'), true);
+});
+
+test("choice randomization retains explicit false and true through source save/load JSON", () => {
+  for (const randomizeChoices of [false, true]) {
+    const saved = serializePleQuestionJsonSource(
+      decodePleQuestionJsonSource({
+        ...source(),
+        response: { ...source().response, randomizeChoices },
+      }),
+    );
+    const loaded = parsePleQuestionJsonSource(saved);
+    assert.equal(loaded.response.kind, "singleChoice");
+    if (loaded.response.kind !== "singleChoice") throw new Error("Expected single-choice source.");
+    assert.equal(loaded.response.randomizeChoices, randomizeChoices);
+  }
 });
 
 test("Question Citation is exact optional source credit and never becomes an empty record", () => {
@@ -281,6 +308,7 @@ test("all remaining v3 source Question Types retain semantic IDs and publish ans
           { id: "lipid", text: "Lipid", feedback: null },
         ],
         correctChoices: ["kinase"],
+        randomizeChoices: true,
       },
       publicKind: "multipleChoice",
       secret: "correctChoices",
@@ -432,6 +460,18 @@ test("hotspot public preview does not disclose correct-region cardinality", () =
 });
 
 test("remaining v3 source Question Types reject invalid private contracts", () => {
+  assert.throws(() =>
+    decodePleQuestionJsonSource({
+      ...source(),
+      response: {
+        kind: "fillIn",
+        answers: ["ATP"],
+        matchMode: "exact",
+        maxLength: 4,
+        randomizeChoices: true,
+      },
+    }),
+  );
   assert.throws(() =>
     decodePleQuestionJsonSource({
       ...source(),

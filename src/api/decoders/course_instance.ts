@@ -1,6 +1,7 @@
 // Strict decoding for the Course Instance creation and Teaching Team boundary.
 
 import type { AccountReference } from "../../../generated/api/AccountReference";
+import { COURSE_THEME_VALUES } from "../../../generated/api/CourseTheme";
 import type {
   CourseCreationInstructor,
   CourseInstanceSummary,
@@ -15,6 +16,7 @@ import {
   decodePositiveInteger,
   decodeRecord,
   decodeString,
+  decodeStringEnum,
 } from "../decoder";
 import { decodeBlueprintCourseReference, decodeBlueprintRevision } from "./blueprint_course";
 import { decodeCourseTerm } from "./course_term";
@@ -43,11 +45,12 @@ function title(value: unknown, path: string): string {
 
 function summary(value: unknown, path: string): CourseInstanceSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "title", "term"]);
+  requireOnlyFields(record, path, ["reference", "title", "term", "theme"]);
   return {
     reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
     title: title(field(record, "title", path), `${path}.title`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
+    theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, COURSE_THEME_VALUES),
   };
 }
 

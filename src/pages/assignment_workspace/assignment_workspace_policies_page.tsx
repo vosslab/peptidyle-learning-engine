@@ -1,725 +1,394 @@
-// assignment_workspace_policies_page.tsx - focused delivery-policy editor for one assignment.
-
 import { A } from "@solidjs/router";
-import { For, Show, createEffect, createMemo, createSignal, type JSX } from "solid-js";
+import { For, Show, createSignal, type JSX } from "solid-js";
 
-import type { InstructorAssignmentAuthoredContentLocal } from "../../../generated/api/InstructorAssignmentAuthoredContentLocal";
-import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
-import {
-  ApiRequestError,
-  AssignmentConflictError,
-  AssignmentPoliciesValidationError,
-} from "../../api/http_client";
+import type { LocalDateAndTime } from "../../../generated/api/LocalDateAndTime";
+import type { LateWorkRule } from "../../../generated/api/LateWorkRule";
+import type {
+  AssignmentReleaseValidation,
+  SaveLiveAssignmentInput,
+} from "../../api/assignment_release";
+import { useApplicationApi } from "../../api/application_api";
+import { LiveAssignmentWorkspaceConflictError } from "../../api/http_client/assignment_release";
 import { assignmentWorkspacePath } from "./assignment_workspace_paths";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
-import { AssignmentWorkspacePolicyPanel } from "./assignment_workspace_policy_panel";
-import {
-  assignmentAvailabilityCopy,
-  assignmentPolicyDraftSummary,
-} from "./assignment_workspace_presentation_model";
-import {
-  assignmentPoliciesInput,
-  assignmentPolicyCanReload,
-  assignmentPolicyFeedbackDetails,
-  assignmentPolicyFeedbackRole,
-  assignmentPolicyFeedbackNeedsQuestionRepair,
-  assignmentPoliciesValidationFeedback,
-  canonicalCourseLocalTime,
-  mergeSavedActivityRuleDraft,
-  nonnegativeIntegerDraft,
-  numberDraft,
-  optionalPositiveIntegerDraft,
-  activityRuleDraftFromRules,
-  scoreFractionDraft,
-  type AssignmentPolicyFeedback,
-  type PolicyFocusTarget,
-  type AssignmentActivityRuleDraft,
-  type AssignmentActivityRuleDraftField,
-} from "./assignment_workspace_policy_model";
 
-function controlValue(value: string | null): string {
-  return value === null ? "" : value.slice(0, 16);
+const FEEDBACK_FIELDS = [
+  ["score", "Score"],
+  ["per_item_correctness", "Per-item correctness"],
+  ["question_feedback", "Question feedback"],
+  ["question_answer", "Question answer"],
+  ["question_answer_explanation", "Question answer explanation"],
+  ["class_statistics", "Class statistics"],
+] as const;
+
+function localDateAndTime(value: string): LocalDateAndTime | null {
+  if (value === "") return null;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u.test(value)) return value;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/u.test(value)) return `${value}:00.000`;
+  return null;
 }
 
-function lateWorkRule(
-  value: string,
-): InstructorAssignmentAuthoredContentLocal["late_work_rule"] | undefined {
-  if (value === "accept" || value === "mark_late" || value === "reject") return value;
-  return undefined;
+function inputFrom(workspace: SaveLiveAssignmentInput): SaveLiveAssignmentInput {
+  return { ...workspace };
 }
 
-function relevantField(field: PolicyFocusTarget | undefined, control: PolicyFocusTarget): boolean {
-  return (
-    field === control ||
-    (field === "schedule" && ["availableAt", "dueAt", "closesAt"].includes(control)) ||
-    (field === "questions" && control === "questions")
-  );
-}
-
-function fieldErrorDescription(
-  field: PolicyFocusTarget | undefined,
-  control: PolicyFocusTarget,
-): string | undefined {
-  return relevantField(field, control) ? "assignment-policies-field-error" : undefined;
-}
-
-/**
- * The page owns one local policy draft. It changes only after a successful
- * focused save so a stale revision never discards typed teaching decisions.
- */
+/** Edits the full direct resource while keeping timing and feedback controls independent. */
 export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   const workspace = useAssignmentWorkspace();
-  const [policies, setPolicies] = createSignal(workspace.assignment().policies);
-  const [studentFeedbackReleaseRule, setStudentFeedbackReleaseRule] = createSignal(
-    workspace.assignment().studentFeedbackReleaseRule,
+  const applicationApi = useApplicationApi();
+  const initial = workspace.assignment().workspace;
+  const [instructions, setInstructions] = createSignal(initial.instructions);
+  const [dueAt, setDueAt] = createSignal<string>(initial.dueAt ?? "");
+  const [timeLimit, setTimeLimit] = createSignal(
+    initial.assignmentAttemptTimeLimitSeconds?.toString() ?? "",
   );
-  const [assignmentAuthoredContent, setAssignmentAuthoredContent] = createSignal(
-    workspace.assignment().assignmentAuthoredContent,
-  );
+  const [attemptLimit, setAttemptLimit] = createSignal(initial.attemptLimit?.toString() ?? "");
+  const [lateWorkRule, setLateWorkRule] = createSignal<LateWorkRule>(initial.lateWorkRule);
+  const [activityRules, setActivityRules] = createSignal(initial.activityRules);
+  const [feedbackRules, setFeedbackRules] = createSignal(initial.studentFeedbackReleaseRule);
   const [busy, setBusy] = createSignal(false);
-  const [feedback, setFeedback] = createSignal<AssignmentPolicyFeedback>();
-  const [failureField, setFailureField] = createSignal<PolicyFocusTarget>();
+  const [message, setMessage] = createSignal("");
   const [needsReload, setNeedsReload] = createSignal(false);
-  const [activityRuleDraft, setActivityRuleDraft] = createSignal<AssignmentActivityRuleDraft>(
-    activityRuleDraftFromRules(policies()),
-  );
-  const [assignmentAttemptTimeLimitSecondsDraft, setAssignmentAttemptTimeLimitSecondsDraft] =
-    createSignal(numberDraft(assignmentAuthoredContent().assignment_attempt_time_limit_seconds));
-  const [attemptLimitDraft, setAttemptLimitDraft] = createSignal(
-    numberDraft(assignmentAuthoredContent().attempt_limit),
-  );
-  const controls = new Map<PolicyFocusTarget, HTMLElement>();
-  let saveButton!: HTMLButtonElement;
-  let reloadButton: HTMLButtonElement | undefined;
-  const policySummary = createMemo(() =>
-    assignmentPolicyDraftSummary({
-      assignmentStatus: workspace.assignment().assignmentStatus,
-      savedAssignmentAvailability: workspace.assignment().assignmentAvailability,
-      policies: policies(),
-      activityRuleDraft: activityRuleDraft(),
-      studentFeedbackReleaseRule: studentFeedbackReleaseRule(),
-      assignmentAuthoredContent: assignmentAuthoredContent(),
-      assignmentAttemptTimeLimitSecondsDraft: assignmentAttemptTimeLimitSecondsDraft(),
-      attemptLimitDraft: attemptLimitDraft(),
-    }),
-  );
+  const [releaseValidation, setReleaseValidation] = createSignal<AssignmentReleaseValidation>();
+  const [validationFailed, setValidationFailed] = createSignal(false);
 
-  const workspaceBase = (): string =>
-    assignmentWorkspacePath(workspace.courseReference, workspace.assignmentReference);
-  const questionsRequired = (): boolean =>
-    workspace
-      .assignment()
-      .assignmentReleaseValidation.blockingIssues.some(
-        (issue) => issue.kind === "questionsRequired",
-      );
-  const questionRepairRequired = (): boolean =>
-    questionsRequired() || assignmentPolicyFeedbackNeedsQuestionRepair(feedback());
-
-  function registerSaveButton(element: HTMLButtonElement): void {
-    saveButton = element;
+  function integer(value: string): number | null | undefined {
+    if (value === "") return null;
+    return /^[1-9][0-9]*$/u.test(value) ? Number(value) : undefined;
   }
-
-  function registerReloadButton(element: HTMLButtonElement): void {
-    reloadButton = element;
-  }
-
-  createEffect(() => {
-    const field = failureField();
-    if (field === undefined || assignmentPolicyFeedbackNeedsQuestionRepair(feedback())) return;
-    const target = field === "schedule" ? "availableAt" : field;
-    queueMicrotask(() => controls.get(target)?.focus());
-  });
-
-  createEffect(() => {
-    if (!assignmentPolicyFeedbackNeedsQuestionRepair(feedback()) || busy()) return;
-    queueMicrotask(() => controls.get("questions")?.focus());
-  });
-
-  createEffect(() => {
-    const reloadIsShown = needsReload() || assignmentPolicyCanReload(feedback());
-    if (!reloadIsShown || busy()) return;
-    queueMicrotask(() => reloadButton?.focus());
-  });
-
-  function updateTeaching(
-    next: Partial<InstructorAssignmentAuthoredContentLocal>,
-    control?: PolicyFocusTarget,
-  ): void {
-    setAssignmentAuthoredContent((current) => ({ ...current, ...next }));
-    if (control !== undefined) clearRecoveredControl(control);
-  }
-
-  function clearRecoveredField(field: PolicyFocusTarget): void {
-    if (failureField() !== field) return;
-    setFailureField(undefined);
-    if (feedback()?.kind === "error") {
-      setFeedback({
-        kind: "info",
-        message:
-          "Your correction is ready. Save assignment policies to apply it to this assignment.",
-      });
-    }
-  }
-
-  /** A correction clears the matching server recovery state immediately. */
-  function clearRecoveredControl(control: PolicyFocusTarget): void {
-    const recovered = failureField();
-    const matches =
-      recovered === control ||
-      (recovered === "schedule" && ["availableAt", "dueAt", "closesAt"].includes(control));
-    if (matches && recovered !== undefined) clearRecoveredField(recovered);
-  }
-
-  function updateNumberDraft(
-    field: "assignmentAttemptTimeLimitSeconds" | "attemptLimit",
-    raw: string,
-  ): void {
-    const parsed = optionalPositiveIntegerDraft(raw);
-    if (field === "assignmentAttemptTimeLimitSeconds")
-      setAssignmentAttemptTimeLimitSecondsDraft(raw);
-    else setAttemptLimitDraft(raw);
-    if (!parsed.valid) return;
-    updateTeaching(
-      field === "assignmentAttemptTimeLimitSeconds"
-        ? { assignment_attempt_time_limit_seconds: parsed.value }
-        : { attempt_limit: parsed.value },
-      field,
-    );
-  }
-
-  function updateActivityRuleDraft(field: AssignmentActivityRuleDraftField, raw: string): void {
-    setActivityRuleDraft((current) => ({ ...current, [field]: raw }));
-    const parsed =
-      field === "completionFraction" ? scoreFractionDraft(raw) : nonnegativeIntegerDraft(raw);
-    const value = parsed.value;
-    if (!parsed.valid || value === null) return;
-    clearRecoveredField(field);
+  function currentInput(): SaveLiveAssignmentInput | null {
+    const base = workspace.assignment().workspace;
+    const parsedDueAt = localDateAndTime(dueAt());
+    const parsedTimeLimit = integer(timeLimit());
+    const parsedAttemptLimit = integer(attemptLimit());
     if (
-      field === "completionFraction" &&
-      policies().assignmentCompletionRule.kind === "scoreAtLeast"
-    ) {
-      setPolicies((current) => ({
-        ...current,
-        assignmentCompletionRule: { kind: "scoreAtLeast", fraction: value },
-      }));
-    }
-    if (
-      field === "additionalAssignmentAttempts" &&
-      policies().assignmentAttemptContinuationRule.kind === "capped"
-    ) {
-      setPolicies((current) => ({
-        ...current,
-        assignmentAttemptContinuationRule: {
-          kind: "capped",
-          maxAdditionalAssignmentAttempts: value,
-        },
-      }));
-    }
+      (dueAt() !== "" && parsedDueAt === null) ||
+      parsedTimeLimit === undefined ||
+      parsedAttemptLimit === undefined
+    )
+      return null;
+    return {
+      ...inputFrom({
+        title: base.title,
+        instructions: instructions(),
+        questionIds: base.questions.map((question) => question.questionId),
+        dueAt: parsedDueAt,
+        lateWorkRule: lateWorkRule(),
+        assignmentAttemptTimeLimitSeconds: parsedTimeLimit,
+        attemptLimit: parsedAttemptLimit,
+        activityRules: activityRules(),
+        studentFeedbackReleaseRule: feedbackRules(),
+      }),
+    };
   }
-
-  function changeCompletionKind(
-    kind: AssignmentActivityRules["assignmentCompletionRule"]["kind"],
-  ): void {
-    if (kind === "allCorrect") {
-      setPolicies((current) => ({ ...current, assignmentCompletionRule: { kind } }));
-      return;
-    }
-    if (kind === "answerAll") {
-      setPolicies((current) => ({ ...current, assignmentCompletionRule: { kind } }));
-      return;
-    }
-    const parsed = scoreFractionDraft(activityRuleDraft().completionFraction);
-    setPolicies((current) => ({
+  function updateOrder(shuffled: boolean): void {
+    setActivityRules((current) => ({
       ...current,
-      assignmentCompletionRule: { kind, fraction: parsed.value ?? 0.8 },
+      assignmentQuestionOrderRule: shuffled ? "shuffled" : "authoredOrder",
     }));
   }
-
-  function changeAssignmentAttemptContinuationRuleKind(
-    kind: AssignmentActivityRules["assignmentAttemptContinuationRule"]["kind"],
-  ): void {
-    if (kind === "unlimited" || kind === "closed") {
-      setPolicies((current) => ({ ...current, assignmentAttemptContinuationRule: { kind } }));
-      return;
-    }
-    const parsed = nonnegativeIntegerDraft(activityRuleDraft().additionalAssignmentAttempts);
-    setPolicies((current) => ({
-      ...current,
-      assignmentAttemptContinuationRule: {
-        kind,
-        maxAdditionalAssignmentAttempts: parsed.value ?? 3,
-      },
-    }));
-  }
-
-  function activityRuleFieldError(field: AssignmentActivityRuleDraftField): string | undefined {
-    const active =
-      (field === "completionFraction" &&
-        policies().assignmentCompletionRule.kind === "scoreAtLeast") ||
-      (field === "additionalAssignmentAttempts" &&
-        policies().assignmentAttemptContinuationRule.kind === "capped");
-    if (!active) return undefined;
-    const parsed =
-      field === "completionFraction"
-        ? scoreFractionDraft(activityRuleDraft().completionFraction)
-        : nonnegativeIntegerDraft(activityRuleDraft().additionalAssignmentAttempts);
-    if (!parsed.valid) {
-      return field === "completionFraction"
-        ? "Enter a decimal from 0 through 1."
-        : "Enter a whole number of 0 or more.";
-    }
-    return relevantField(failureField(), field) ? feedback()?.message : undefined;
-  }
-
-  function deliveryNumberFieldError(
-    field: "assignmentAttemptTimeLimitSeconds" | "attemptLimit",
-  ): string | undefined {
-    const parsed = optionalPositiveIntegerDraft(
-      field === "assignmentAttemptTimeLimitSeconds"
-        ? assignmentAttemptTimeLimitSecondsDraft()
-        : attemptLimitDraft(),
-    );
-    if (!parsed.valid) {
-      return `${field === "assignmentAttemptTimeLimitSeconds" ? "Whole Assignment Attempt seconds" : "Attempt limit"} must be a positive whole number or blank.`;
-    }
-    return relevantField(failureField(), field) ? feedback()?.message : undefined;
-  }
-
-  function questionVariationRuleError(): string | undefined {
-    return relevantField(failureField(), "questionVariationRule") ? feedback()?.message : undefined;
-  }
-
-  function questionPoolReuseRuleError(): string | undefined {
-    return relevantField(failureField(), "questionPoolReuseRule") ? feedback()?.message : undefined;
-  }
-
-  function updateQuestionPoolReuseRule(next: AssignmentActivityRules): void {
-    setPolicies(next);
-    clearRecoveredControl("questionPoolReuseRule");
-  }
-
-  function updateQuestionVariationRule(next: AssignmentActivityRules): void {
-    setPolicies(next);
-    clearRecoveredControl("questionVariationRule");
-  }
-
-  function firstInvalidNumericField(): PolicyFocusTarget | undefined {
+  function updateFeedback(field: (typeof FEEDBACK_FIELDS)[number][0], value: string): void {
     if (
-      policies().assignmentCompletionRule.kind === "scoreAtLeast" &&
-      !scoreFractionDraft(activityRuleDraft().completionFraction).valid
+      value === "during_attempt" ||
+      value === "after_submit" ||
+      value === "after_due" ||
+      value === "after_close" ||
+      value === "never"
     ) {
-      return "completionFraction";
+      setFeedbackRules((current) => ({ ...current, [field]: value }));
     }
-    if (
-      policies().assignmentAttemptContinuationRule.kind === "capped" &&
-      !nonnegativeIntegerDraft(activityRuleDraft().additionalAssignmentAttempts).valid
-    ) {
-      return "additionalAssignmentAttempts";
-    }
-    if (!optionalPositiveIntegerDraft(assignmentAttemptTimeLimitSecondsDraft()).valid)
-      return "assignmentAttemptTimeLimitSeconds";
-    if (!optionalPositiveIntegerDraft(attemptLimitDraft()).valid) return "attemptLimit";
-    return undefined;
   }
-
   async function save(): Promise<void> {
-    if (needsReload()) {
-      setFeedback({
-        kind: "conflict",
-        message:
-          "Reload the latest assignment before saving. Your typed policy edits remain here until you choose Reload latest assignment to replace them with current policies.",
-      });
+    const input = currentInput();
+    if (input === null) {
+      setMessage(
+        "Enter a complete local due time and positive whole-number limits, or leave them blank.",
+      );
       return;
     }
-    const invalidField = firstInvalidNumericField();
-    if (invalidField !== undefined) {
-      const label =
-        invalidField === "completionFraction"
-          ? "Required score fraction"
-          : invalidField === "additionalAssignmentAttempts"
-            ? "Additional Assignment Attempts"
-            : invalidField === "assignmentAttemptTimeLimitSeconds"
-              ? "Whole Assignment Attempt seconds"
-              : "Attempt limit";
-      setFailureField(invalidField);
-      setFeedback({
-        kind: "error",
-        message: `${label} needs correction before saving.`,
-      });
+    if (needsReload()) {
+      setMessage("Reload the latest assignment before saving. Your typed policies remain here.");
       return;
     }
     setBusy(true);
-    setFeedback(undefined);
-    setFailureField(undefined);
     try {
-      const input = assignmentPoliciesInput(
-        studentFeedbackReleaseRule(),
-        policies(),
-        assignmentAuthoredContent(),
-      );
-      const saved = await workspace.client.saveAssignmentPolicies(
-        workspace.courseId,
-        workspace.assignmentId,
-        workspace.assignment().reference,
-        input,
-        workspace.assignment().revision,
-      );
-      workspace.replaceAssignment(saved);
-      setPolicies(saved.policies);
-      setStudentFeedbackReleaseRule(saved.studentFeedbackReleaseRule);
-      setAssignmentAuthoredContent(saved.assignmentAuthoredContent);
-      setAssignmentAttemptTimeLimitSecondsDraft(
-        numberDraft(saved.assignmentAuthoredContent.assignment_attempt_time_limit_seconds),
-      );
-      setAttemptLimitDraft(numberDraft(saved.assignmentAuthoredContent.attempt_limit));
-      setActivityRuleDraft((current) => mergeSavedActivityRuleDraft(current, saved.policies));
-      setNeedsReload(false);
-      setFeedback({
-        kind: "success",
-        message: "Assignment policies saved. The current assignment now uses the new revision.",
-      });
+      await workspace.save(input);
+      setReleaseValidation(undefined);
+      setMessage("Assignment policies saved. The current assignment now uses the new revision.");
     } catch (error: unknown) {
-      if (error instanceof AssignmentPoliciesValidationError) {
-        const nextFeedback = assignmentPoliciesValidationFeedback(error.issues);
-        setFailureField(nextFeedback.target);
-        setFeedback(nextFeedback);
-      } else if (error instanceof AssignmentConflictError) {
-        setNeedsReload(true);
-        setFeedback({
-          kind: "conflict",
-          message:
-            "This assignment changed elsewhere. Your policy edits are still here. Reload the latest assignment to replace them with the current policies before saving again.",
-        });
-      } else if (error instanceof ApiRequestError) {
-        setFeedback({
-          kind: "error",
-          message: "Assignment policies were not saved. Review the settings and try again.",
-        });
-      } else {
-        setFeedback({ kind: "error", message: "Assignment policies were not saved. Try again." });
-      }
+      const conflict = error instanceof LiveAssignmentWorkspaceConflictError;
+      setNeedsReload(conflict);
+      setMessage(
+        conflict
+          ? "This assignment changed elsewhere. Reload latest assignment before saving; your typed policies remain here."
+          : "Assignment policies were not saved. Try again.",
+      );
     } finally {
       setBusy(false);
     }
   }
-
-  async function reloadLatest(): Promise<void> {
+  async function reload(): Promise<void> {
     setBusy(true);
-    let reloaded = false;
     try {
       const latest = await workspace.reloadAssignment();
-      setPolicies(latest.policies);
-      setStudentFeedbackReleaseRule(latest.studentFeedbackReleaseRule);
-      setAssignmentAuthoredContent(latest.assignmentAuthoredContent);
-      setAssignmentAttemptTimeLimitSecondsDraft(
-        numberDraft(latest.assignmentAuthoredContent.assignment_attempt_time_limit_seconds),
-      );
-      setAttemptLimitDraft(numberDraft(latest.assignmentAuthoredContent.attempt_limit));
-      setActivityRuleDraft(activityRuleDraftFromRules(latest.policies));
-      setFailureField(undefined);
+      const current = latest.workspace;
+      setInstructions(current.instructions);
+      setDueAt(current.dueAt ?? "");
+      setTimeLimit(current.assignmentAttemptTimeLimitSeconds?.toString() ?? "");
+      setAttemptLimit(current.attemptLimit?.toString() ?? "");
+      setLateWorkRule(current.lateWorkRule);
+      setActivityRules(current.activityRules);
+      setFeedbackRules(current.studentFeedbackReleaseRule);
       setNeedsReload(false);
-      setFeedback({
-        kind: "info",
-        message:
-          "Latest assignment loaded; your local policy edits were replaced. Review the current policies before saving.",
-      });
-      reloaded = true;
+      setReleaseValidation(undefined);
+      setMessage("Latest assignment loaded. Review the current policies.");
     } catch {
-      setNeedsReload(true);
-      setFeedback({
-        kind: "conflict",
-        message:
-          "The latest assignment could not be loaded. Try Reload latest assignment again; your typed policy edits remain here.",
-      });
+      setMessage("The latest assignment could not load. Your typed policies remain here.");
     } finally {
       setBusy(false);
-      if (reloaded) queueMicrotask(() => saveButton.focus());
     }
   }
-
+  async function validateRelease(): Promise<void> {
+    if (needsReload()) {
+      setMessage("Reload the latest assignment before checking its release readiness.");
+      return;
+    }
+    setBusy(true);
+    setValidationFailed(false);
+    setReleaseValidation(undefined);
+    try {
+      const validation = await applicationApi.client.validateLiveAssignmentRelease(
+        workspace.courseReference,
+        workspace.assignmentReference,
+      );
+      setReleaseValidation(validation);
+      setMessage(
+        validation.canRelease
+          ? "Release readiness checked. This saved assignment is ready to release."
+          : "Release readiness checked. Resolve the listed requirements before releasing.",
+      );
+    } catch {
+      setReleaseValidation(undefined);
+      setValidationFailed(true);
+      setMessage("Release readiness could not be checked. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function release(): Promise<void> {
+    if (needsReload()) {
+      setMessage("Reload the latest assignment before releasing it.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const current = workspace.assignment();
+      const released = await workspace.release(current.etag);
+      await workspace.reloadAssignment();
+      setReleaseValidation(undefined);
+      setMessage(`Assignment released as revision ${released.revisionNumber}.`);
+    } catch (error: unknown) {
+      const conflict = error instanceof LiveAssignmentWorkspaceConflictError;
+      setNeedsReload(conflict);
+      setMessage(
+        conflict
+          ? "This assignment changed elsewhere. Reload latest assignment before releasing it."
+          : "The assignment could not be released. Review its Questions and policies, then try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  const questionsPath = assignmentWorkspacePath(
+    workspace.courseReference,
+    workspace.assignmentReference,
+    "questions",
+  );
   return (
     <section class="assignment-workspace-policies" aria-labelledby="assignment-policies-heading">
       <header class="assignment-workspace-header">
         <p class="eyebrow">Assignment workspace</p>
         <h1 id="assignment-policies-heading">Policies</h1>
         <p class="page-lede">
-          Configure how {workspace.assignment().title} opens, accepts Assignment Attempts, and
-          shares Student Feedback. Times use the Course wall clock.
+          Times use your Instructor time zone: {workspace.assignment().workspace.displayTimeZone}.
         </p>
       </header>
-
-      <Show when={feedback()}>
-        {(currentFeedback) => (
-          <div
-            id={failureField() === undefined ? undefined : "assignment-policies-field-error"}
+      <Show when={message()}>
+        {(value) => (
+          <p
             class="assignment-workspace-save-message"
-            role={assignmentPolicyFeedbackRole(currentFeedback())}
-            aria-live={
-              assignmentPolicyFeedbackRole(currentFeedback()) === "alert" ? "assertive" : "polite"
-            }
+            role={validationFailed() ? "alert" : "status"}
           >
-            <p>{currentFeedback().message}</p>
-            <Show when={assignmentPolicyFeedbackDetails(currentFeedback()).length > 0}>
-              <ul>
-                <For each={assignmentPolicyFeedbackDetails(currentFeedback())}>
-                  {(detail) => <li>{detail}</li>}
-                </For>
-              </ul>
-            </Show>
-          </div>
+            {value()}
+          </p>
         )}
       </Show>
-
-      <section
-        class="assignment-workspace-policy-summary"
-        aria-labelledby="assignment-policy-summary-heading"
-      >
-        <h2 id="assignment-policy-summary-heading">Saved Assignment and unsaved edits</h2>
-        <dl>
-          <For each={policySummary()}>
-            {(item) => (
-              <div data-policy-summary={item.key}>
-                <dt>{item.label}</dt>
-                <dd>{item.value}</dd>
-              </div>
+      <fieldset class="assignment-workspace-policy-controls" disabled={busy()} aria-busy={busy()}>
+        <legend>Assignment policies</legend>
+        <section class="assignment-editor-policy-panel">
+          <h2>Assignment and delivery</h2>
+          <label class="assignment-editor-field">
+            Student instructions
+            <textarea
+              rows="4"
+              value={instructions()}
+              onInput={(event) => setInstructions(event.currentTarget.value)}
+            />
+          </label>
+          <label class="assignment-editor-field">
+            Due date and time ({workspace.assignment().workspace.displayTimeZone})
+            <input
+              type="datetime-local"
+              step="0.001"
+              value={dueAt()}
+              onInput={(event) => setDueAt(event.currentTarget.value)}
+            />
+          </label>
+          <label class="assignment-editor-field">
+            Time limit in seconds
+            <input
+              type="number"
+              min="1"
+              value={timeLimit()}
+              onInput={(event) => setTimeLimit(event.currentTarget.value)}
+            />
+          </label>
+          <label class="assignment-editor-field">
+            Attempt limit
+            <input
+              type="number"
+              min="1"
+              value={attemptLimit()}
+              onInput={(event) => setAttemptLimit(event.currentTarget.value)}
+            />
+          </label>
+          <p>
+            The late-work rule controls whether Students may begin work after the due time.
+            Submitted work is automatically submitted at the deadline.
+          </p>
+          <label class="assignment-editor-field">
+            Late-work rule
+            <select
+              value={lateWorkRule()}
+              onChange={(event) => setLateWorkRule(event.currentTarget.value as LateWorkRule)}
+            >
+              <option value="reject">Reject late work</option>
+              <option value="mark_late">Accept and mark late</option>
+              <option value="accept">Accept late work</option>
+            </select>
+          </label>
+          <label class="assignment-editor-field">
+            <input
+              type="checkbox"
+              checked={activityRules().assignmentQuestionOrderRule === "shuffled"}
+              onChange={(event) => updateOrder(event.currentTarget.checked)}
+            />{" "}
+            Randomize question order
+          </label>
+          <p>
+            Students see one Question at a time. Answer-choice order is configured on each Question.
+          </p>
+        </section>
+        <section class="assignment-editor-policy-panel">
+          <h2>Student feedback</h2>
+          <For each={FEEDBACK_FIELDS}>
+            {([field, label]) => (
+              <label class="assignment-editor-field">
+                {label}
+                <select
+                  value={feedbackRules()[field]}
+                  onChange={(event) => updateFeedback(field, event.currentTarget.value)}
+                >
+                  <option value="during_attempt">During attempt</option>
+                  <option value="after_submit">After submit</option>
+                  <option value="after_due">After due</option>
+                  <option value="after_close">After close</option>
+                  <option value="never">Never</option>
+                </select>
+              </label>
             )}
           </For>
-        </dl>
-      </section>
-
-      <fieldset class="assignment-workspace-policy-controls" disabled={busy()} aria-busy={busy()}>
-        <legend class="visually-hidden">Assignment policy controls</legend>
-        <section class="assignment-workspace-policy-actions" aria-label="Policy actions">
+          <p>
+            Class statistics is{" "}
+            {feedbackRules().class_statistics === "never"
+              ? "Never"
+              : feedbackRules().class_statistics}
+            .
+          </p>
+        </section>
+        <p class="assignment-editor-actions">
           <button
-            ref={registerSaveButton}
             class="primary-action"
             type="button"
-            disabled={needsReload() || firstInvalidNumericField() !== undefined}
+            disabled={needsReload()}
             onClick={() => void save()}
           >
-            {busy() ? "Saving assignment policies..." : "Save assignment policies"}
+            {busy() ? "Saving policies..." : "Save assignment policies"}
           </button>
-          <Show when={needsReload() || assignmentPolicyCanReload(feedback())}>
+          <Show when={workspace.assignment().workspace.status === "unreleased"}>
+            <button type="button" disabled={needsReload()} onClick={() => void validateRelease()}>
+              {busy() ? "Checking release readiness..." : "Check release readiness"}
+            </button>
             <button
-              ref={registerReloadButton}
+              class="primary-action"
               type="button"
-              aria-label="Reload latest assignment and replace local policy edits"
-              onClick={() => void reloadLatest()}
+              disabled={needsReload()}
+              onClick={() => void release()}
             >
+              Release assignment
+            </button>
+          </Show>
+          <Show when={needsReload()}>
+            <button type="button" onClick={() => void reload()}>
               Reload latest assignment
             </button>
           </Show>
-          <A class="quiet-link" href={`${workspaceBase()}/access`}>
-            Access and accommodations
+          <A class="quiet-link" href={questionsPath}>
+            Edit Questions
           </A>
-          <A class="quiet-link" href={`${workspaceBase()}/delivery-check`}>
+          <A
+            class="quiet-link"
+            href={`${assignmentWorkspacePath(workspace.courseReference, workspace.assignmentReference)}/delivery-check`}
+            target="_blank"
+            rel="noopener"
+          >
             Check assignment delivery
           </A>
-          <Show when={questionRepairRequired()}>
-            <A
-              ref={(element: HTMLAnchorElement) => controls.set("questions", element)}
-              class="quiet-link"
-              href={assignmentWorkspacePath(
-                workspace.courseReference,
-                workspace.assignmentReference,
-                "questions",
-              )}
+        </p>
+        <Show when={releaseValidation()}>
+          {(validation) => (
+            <section
+              class="assignment-workspace-release-readiness"
+              aria-labelledby="assignment-release-readiness-heading"
+              role={validation().canRelease ? undefined : "alert"}
             >
-              Add at least one question
-            </A>
-          </Show>
-        </section>
-
-        <div class="assignment-workspace-policy-grid">
-          <AssignmentWorkspacePolicyPanel
-            policies={policies}
-            studentFeedbackReleaseRule={studentFeedbackReleaseRule}
-            activityRuleDraft={activityRuleDraft}
-            activityRuleFieldError={activityRuleFieldError}
-            questionPoolReuseRuleError={questionPoolReuseRuleError}
-            questionVariationRuleError={questionVariationRuleError}
-            onPoliciesChange={setPolicies}
-            onQuestionPoolReuseRuleChange={updateQuestionPoolReuseRule}
-            onQuestionVariationRuleChange={updateQuestionVariationRule}
-            onStudentFeedbackReleaseRuleChange={setStudentFeedbackReleaseRule}
-            onActivityRuleDraftChange={updateActivityRuleDraft}
-            onCompletionKindChange={changeCompletionKind}
-            onAssignmentAttemptContinuationRuleKindChange={
-              changeAssignmentAttemptContinuationRuleKind
-            }
-            onRegisterActivityRuleControl={(field, element) => controls.set(field, element)}
-            onRegisterPolicyControl={(field, element) => controls.set(field, element)}
-          />
-
-          <section
-            class="assignment-editor-policy-panel assignment-editor-policy-panel--delivery"
-            aria-labelledby="assignment-delivery-policies-heading"
-          >
-            <h2 id="assignment-delivery-policies-heading">Release and delivery</h2>
-            <p class="assignment-editor-note" role="status">
-              {assignmentAvailabilityCopy(
-                workspace.assignment().assignmentStatus,
-                workspace.assignment().assignmentAvailability,
-                workspace.assignment().assignmentAuthoredContent.timeZone,
-              )}
-            </p>
-            <p class="assignment-editor-note">
-              Course time zone: {assignmentAuthoredContent().timeZone}.
-            </p>
-
-            <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--delivery">
-              <legend>Student instructions</legend>
-              <label class="assignment-editor-field">
-                Student instructions
-                <textarea
-                  ref={(element) => controls.set("instructions", element)}
-                  rows="4"
-                  value={assignmentAuthoredContent().instructions}
-                  aria-invalid={relevantField(failureField(), "instructions")}
-                  aria-describedby={fieldErrorDescription(failureField(), "instructions")}
-                  onInput={(event) =>
-                    updateTeaching({ instructions: event.currentTarget.value }, "instructions")
-                  }
-                />
-              </label>
-            </fieldset>
-
-            <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--schedule">
-              <legend>Schedule and limits</legend>
-              <label class="assignment-editor-field">
-                Available
-                <input
-                  type="datetime-local"
-                  ref={(element) => controls.set("availableAt", element)}
-                  step="0.001"
-                  value={controlValue(assignmentAuthoredContent().available_at)}
-                  aria-invalid={relevantField(failureField(), "availableAt")}
-                  aria-describedby={fieldErrorDescription(failureField(), "availableAt")}
-                  onChange={(event) =>
-                    updateTeaching(
-                      {
-                        available_at: canonicalCourseLocalTime(event.currentTarget.value),
-                      },
-                      "availableAt",
-                    )
-                  }
-                />
-              </label>
-              <label class="assignment-editor-field">
-                Due
-                <input
-                  type="datetime-local"
-                  ref={(element) => controls.set("dueAt", element)}
-                  step="0.001"
-                  value={controlValue(assignmentAuthoredContent().due_at)}
-                  aria-invalid={relevantField(failureField(), "dueAt")}
-                  aria-describedby={fieldErrorDescription(failureField(), "dueAt")}
-                  onChange={(event) =>
-                    updateTeaching(
-                      { due_at: canonicalCourseLocalTime(event.currentTarget.value) },
-                      "dueAt",
-                    )
-                  }
-                />
-              </label>
-              <label class="assignment-editor-field">
-                Closes
-                <input
-                  type="datetime-local"
-                  ref={(element) => controls.set("closesAt", element)}
-                  step="0.001"
-                  value={controlValue(assignmentAuthoredContent().closes_at)}
-                  aria-invalid={relevantField(failureField(), "closesAt")}
-                  aria-describedby={fieldErrorDescription(failureField(), "closesAt")}
-                  onChange={(event) =>
-                    updateTeaching(
-                      { closes_at: canonicalCourseLocalTime(event.currentTarget.value) },
-                      "closesAt",
-                    )
-                  }
-                />
-              </label>
-              <label class="assignment-editor-field">
-                Whole Assignment Attempt seconds
-                <input
-                  type="number"
-                  ref={(element) => controls.set("assignmentAttemptTimeLimitSeconds", element)}
-                  min="1"
-                  aria-invalid={
-                    deliveryNumberFieldError("assignmentAttemptTimeLimitSeconds") !== undefined
-                  }
-                  aria-describedby={
-                    deliveryNumberFieldError("assignmentAttemptTimeLimitSeconds") === undefined
-                      ? undefined
-                      : "assignment-policies-assignmentAttemptTimeLimitSeconds-error"
-                  }
-                  value={assignmentAttemptTimeLimitSecondsDraft()}
-                  onInput={(event) =>
-                    updateNumberDraft(
-                      "assignmentAttemptTimeLimitSeconds",
-                      event.currentTarget.value,
-                    )
-                  }
-                />
-                <Show when={deliveryNumberFieldError("assignmentAttemptTimeLimitSeconds")}>
-                  {(message) => (
-                    <p
-                      id="assignment-policies-assignmentAttemptTimeLimitSeconds-error"
-                      class="assignment-editor-note"
-                      role="status"
-                    >
-                      {message()}
-                    </p>
-                  )}
-                </Show>
-              </label>
-              <label class="assignment-editor-field">
-                Attempt limit
-                <input
-                  type="number"
-                  ref={(element) => controls.set("attemptLimit", element)}
-                  min="1"
-                  aria-invalid={deliveryNumberFieldError("attemptLimit") !== undefined}
-                  aria-describedby={
-                    deliveryNumberFieldError("attemptLimit") === undefined
-                      ? undefined
-                      : "assignment-policies-attemptLimit-error"
-                  }
-                  value={attemptLimitDraft()}
-                  onInput={(event) => updateNumberDraft("attemptLimit", event.currentTarget.value)}
-                />
-                <Show when={deliveryNumberFieldError("attemptLimit")}>
-                  {(message) => (
-                    <p
-                      id="assignment-policies-attemptLimit-error"
-                      class="assignment-editor-note"
-                      role="status"
-                    >
-                      {message()}
-                    </p>
-                  )}
-                </Show>
-              </label>
-              <label class="assignment-editor-field">
-                Late work
-                <select
-                  value={assignmentAuthoredContent().late_work_rule}
-                  onChange={(event) => {
-                    const next = lateWorkRule(event.currentTarget.value);
-                    if (next !== undefined) updateTeaching({ late_work_rule: next }, "schedule");
-                  }}
-                >
-                  <option value="accept">Accept</option>
-                  <option value="mark_late">Accept and mark late</option>
-                  <option value="reject">Reject after the due time</option>
-                </select>
-              </label>
-              <p class="assignment-editor-note">
-                At the effective deadline, the server automatically submits active work.
-              </p>
-            </fieldset>
-          </section>
-        </div>
+              <h2 id="assignment-release-readiness-heading">
+                {validation().canRelease ? "Ready to release" : "Release needs attention"}
+              </h2>
+              <Show
+                when={!validation().canRelease}
+                fallback={<p>All current release requirements are met.</p>}
+              >
+                <ul>
+                  <For each={validation().issues}>
+                    {(issue) => (
+                      <li>
+                        {issue === "noPublishedQuestions"
+                          ? "Select and save at least one published Question."
+                          : "A selected Question is unavailable. Review and save the Questions list."}
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </Show>
+              <Show when={!validation().canRelease}>
+                <A class="quiet-link" href={questionsPath}>
+                  Review assignment Questions
+                </A>
+              </Show>
+            </section>
+          )}
+        </Show>
       </fieldset>
     </section>
   );

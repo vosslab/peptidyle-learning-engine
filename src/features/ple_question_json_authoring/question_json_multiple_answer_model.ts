@@ -116,6 +116,15 @@ export function setMultipleAnswerCorrect(
   return changed({ ...response, correctChoices });
 }
 
+/** Changes only the presentation-order declaration, retaining authored choice identities. */
+export function setMultipleAnswerChoiceRandomization(
+  response: PleQuestionJsonMultipleAnswerResponse,
+  randomizeChoices: boolean,
+): MultipleAnswerEditResult {
+  if (response.randomizeChoices === randomizeChoices) return { response, changed: false };
+  return changed({ ...response, randomizeChoices });
+}
+
 /** Reordering changes reading order only. Semantic IDs and the private answer set are retained. */
 export function moveMultipleAnswerChoice(
   response: PleQuestionJsonMultipleAnswerResponse,

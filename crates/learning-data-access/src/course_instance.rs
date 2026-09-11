@@ -7,7 +7,7 @@
 use async_trait::async_trait;
 use question_model::{
     AccountReference, BlueprintCourseReference, BlueprintRevision, CourseId,
-    CourseInstanceReference, CourseSummary, CourseTerm,
+    CourseInstanceReference, CourseSummary, CourseTerm, CourseTheme,
 };
 use serde::{Deserialize, Serialize};
 
@@ -55,6 +55,8 @@ pub struct CourseInstanceSummary {
     pub title: String,
     /// Current initial Course Term snapshot.
     pub term: CourseTerm,
+    /// Course-owned identity for a list row; this does not establish route scope.
+    pub theme: CourseTheme,
 }
 
 /// Minimal Course Instance workspace projection for the current Teaching Team Member.

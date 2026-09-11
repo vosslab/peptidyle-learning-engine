@@ -1,4 +1,4 @@
-// Student-owned pending Course Invitation index.
+// Student-owned pending course invitation index.
 
 import { A } from "@solidjs/router";
 import { createResource, For, Show, type JSX } from "solid-js";
@@ -11,16 +11,15 @@ function InvitationCard(props: {
 }): JSX.Element {
   return (
     <article class="course-card">
-      <p class="card-kicker">Course Instance {props.invitation.reference}</p>
       <h2>{props.invitation.title}</h2>
       <A class="primary-link" href={`/courses/${props.invitation.reference}/invitation`}>
-        Review Course Invitation
+        Review invitation
       </A>
     </article>
   );
 }
 
-/** Lists only pending Course Invitations addressed to the signed-in Student. */
+/** Lists only pending course invitations addressed to the signed-in Student. */
 export function StudentCourseInvitationsPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const [invitations] = createResource(() =>
@@ -31,7 +30,7 @@ export function StudentCourseInvitationsPage(): JSX.Element {
     <section class="page" data-route-surface="studentCourseInvitations">
       <p class="eyebrow">Your learning</p>
       <h1>Course invitations</h1>
-      <p class="page-lede">Review a pending invitation before joining a Course Instance.</p>
+      <p class="page-lede">Review a pending invitation before joining a course.</p>
       <A class="quiet-link" href="/">
         Your courses
       </A>
@@ -49,7 +48,7 @@ export function StudentCourseInvitationsPage(): JSX.Element {
           !invitations.loading && invitations.error === undefined && invitations()?.length === 0
         }
       >
-        <p class="empty-state">You do not have any pending Course Invitations.</p>
+        <p class="empty-state">You do not have any pending course invitations.</p>
       </Show>
       <Show when={(invitations()?.length ?? 0) > 0}>
         <div class="card-grid">

@@ -12,7 +12,7 @@ use question_model::response::{
     HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
     QuestionResponseFormat, QuestionType, ResponseItemReference, TextEntrySlot,
 };
-use question_model::{QuestionAssetId, QuestionHint, QuestionMetadata};
+use question_model::{NativeChoiceOrder, QuestionAssetId, QuestionHint, QuestionMetadata};
 use question_model::{QuestionAssetReference, QuestionContentBlock};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -64,10 +64,14 @@ enum PleQuestionJsonResponse {
     SingleChoice {
         choices: Vec<PleQuestionJsonChoice>,
         correct_choice: String,
+        #[serde(default)]
+        randomize_choices: bool,
     },
     MultipleAnswer {
         choices: Vec<PleQuestionJsonChoice>,
         correct_choices: Vec<String>,
+        #[serde(default)]
+        randomize_choices: bool,
     },
     FillIn {
         answers: Vec<String>,
@@ -259,6 +263,7 @@ impl PleQuestionJsonDocumentBody {
             response: PleQuestionJsonResponse::SingleChoice {
                 choices,
                 correct_choice,
+                randomize_choices: false,
             },
             feedback: PleQuestionJsonOutcomeFeedback::default(),
             question_hint: None,
@@ -299,10 +304,12 @@ impl PleQuestionJsonDocumentBody {
             PleQuestionJsonResponse::SingleChoice {
                 choices,
                 correct_choice,
+                ..
             } => validate_choice_question(choices, std::slice::from_ref(correct_choice), true),
             PleQuestionJsonResponse::MultipleAnswer {
                 choices,
                 correct_choices,
+                ..
             } => validate_choice_question(choices, correct_choices, false),
             PleQuestionJsonResponse::FillIn {
                 answers,
@@ -335,7 +342,7 @@ impl PleQuestionJsonDocumentBody {
     pub(super) fn compile(&self) -> Result<CompiledPleQuestionJson, PleQuestionJsonError> {
         self.validate()?;
         let question_type = question_type_for(&self.response);
-        let (response, answer_key, choice_feedback, prompt_suffix) =
+        let (response, native_choice_order, answer_key, choice_feedback, prompt_suffix) =
             compile_response(&self.response)?;
         let mut prompt = markdown_blocks(&self.prompt);
         prompt.extend(prompt_suffix);
@@ -375,6 +382,7 @@ impl PleQuestionJsonDocumentBody {
                 prompt,
                 response,
                 question_type,
+                native_choice_order,
             },
             private,
             question_hint,
@@ -397,6 +405,7 @@ fn question_type_for(response: &PleQuestionJsonResponse) -> QuestionType {
 
 type CompiledResponse = (
     QuestionResponseFormat,
+    NativeChoiceOrder,
     AnswerKey,
     Vec<(ResponseItemReference, String)>,
     Vec<QuestionContentBlock>,
@@ -409,15 +418,23 @@ fn compile_response(
         PleQuestionJsonResponse::SingleChoice {
             choices,
             correct_choice,
+            randomize_choices,
         } => compile_choices(
             choices,
             ResponseSelectionRule::ExactlyOne,
             std::slice::from_ref(correct_choice),
+            *randomize_choices,
         ),
         PleQuestionJsonResponse::MultipleAnswer {
             choices,
             correct_choices,
-        } => compile_choices(choices, ResponseSelectionRule::AtLeastOne, correct_choices),
+            randomize_choices,
+        } => compile_choices(
+            choices,
+            ResponseSelectionRule::AtLeastOne,
+            correct_choices,
+            *randomize_choices,
+        ),
         PleQuestionJsonResponse::FillIn {
             answers,
             match_mode,
@@ -427,6 +444,7 @@ fn compile_response(
                 match_mode: (*match_mode).into(),
                 max_length: *max_length,
             },
+            NativeChoiceOrder::Fixed,
             AnswerKey::ShortText {
                 accepted: answers.clone(),
             },
@@ -445,6 +463,7 @@ fn compile_response(
                     })
                     .collect(),
             },
+            NativeChoiceOrder::Fixed,
             AnswerKey::MultiBlank {
                 accepted: blanks
                     .iter()
@@ -463,6 +482,7 @@ fn compile_response(
                 tolerance: tolerance.into(),
                 unit: unit.clone(),
             },
+            NativeChoiceOrder::Fixed,
             AnswerKey::Numeric { expected: *answer },
             Vec::new(),
             Vec::new(),
@@ -476,6 +496,7 @@ fn compile_response(
                 prompts: compile_matching_prompts(prompts),
                 choices: compile_matching_choices(choices),
             },
+            NativeChoiceOrder::Fixed,
             AnswerKey::Matching {
                 correct: matches
                     .iter()
@@ -497,6 +518,7 @@ fn compile_response(
             QuestionResponseFormat::Ordering {
                 items: compile_ordering_items(items),
             },
+            NativeChoiceOrder::Fixed,
             AnswerKey::Ordering {
                 correct: correct_order
                     .iter()
@@ -531,6 +553,7 @@ fn compile_response(
                     // disclosing how many regions the answer key contains.
                     selection: ResponseSelectionRule::AtLeastOne,
                 },
+                NativeChoiceOrder::Fixed,
                 AnswerKey::Hotspot {
                     correct: correct_regions
                         .iter()
@@ -552,6 +575,7 @@ fn compile_choices(
     choices: &[PleQuestionJsonChoice],
     selection: ResponseSelectionRule,
     correct: &[String],
+    randomize_choices: bool,
 ) -> CompiledResponse {
     (
         QuestionResponseFormat::MultipleChoice {
@@ -563,6 +587,11 @@ fn compile_choices(
                 })
                 .collect(),
             selection,
+        },
+        if randomize_choices {
+            NativeChoiceOrder::NonceRandomized
+        } else {
+            NativeChoiceOrder::Fixed
         },
         AnswerKey::MultipleChoice {
             correct: correct.iter().map(ResponseItemReference::new).collect(),

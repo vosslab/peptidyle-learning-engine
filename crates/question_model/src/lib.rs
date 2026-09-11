@@ -14,6 +14,8 @@
 //! Contracts here change only alongside every consumer, as recorded in
 //! `docs/CONTRACTS.md`.
 
+/// Account-owned exact IANA time-zone preference.
+pub mod account_time_zone;
 pub mod answer;
 /// Stable Assignment Entries, Question Pools, and exact point values.
 pub mod assignment;
@@ -75,6 +77,7 @@ pub mod teaching_operations;
 // The crate's front door. These are the types a caller reaches for first, so
 // they are re-exported to keep call sites short. Everything else stays
 // available under its module.
+pub use crate::account_time_zone::{AccountTimeZone, AccountTimeZoneError};
 pub use crate::assignment::{
     AssignmentAuthoredContent, AssignmentAuthoredContentFailureCode,
     AssignmentAuthoredContentFailureReason, AssignmentAuthoredContentField,
@@ -85,13 +88,13 @@ pub use crate::assignment::{
     AssignmentScoringState, AssignmentStatus, AssignmentTitle, AssignmentTitleError,
     BaseAssignmentPolicy, CourseLocalDateAndTime, CourseLocalDateAndTimeError,
     FixedQuestionAssignmentEntry, InstructorAssignmentAuthoredContentLocal,
-    InstructorAssignmentAvailabilityView, LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS,
-    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
-    MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS, MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
-    QuestionPoolAssignmentEntry, QuestionPoolItem, QuestionPoolItemAvailability,
-    QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, ScoringGeneration,
-    derive_instructor_assignment_availability,
+    InstructorAssignmentAvailabilityView, LateWorkRule, LocalDateAndTime, LocalDateAndTimeError,
+    MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
+    MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS, MAX_ASSIGNMENT_ORDERED_ENTRIES,
+    MAX_ASSIGNMENT_QUESTION_POOL_ITEMS, MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, QuestionPoolAssignmentEntry, QuestionPoolItem,
+    QuestionPoolItemAvailability, QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule,
+    ScoringGeneration, derive_instructor_assignment_availability,
 };
 pub use crate::assignment_activity_rules::{
     AssignmentActivityRules, AssignmentAttemptContinuationRule, AssignmentAttemptGradeRule,
@@ -229,7 +232,9 @@ pub use crate::question_revision::{
     MAX_QUESTION_REVISION_REASON_UNICODE_SCALARS, QuestionRevisionReason,
 };
 pub use crate::question_tag::Tag;
-pub use crate::question_variation::{QuestionVariation, QuestionVariationPresentation};
+pub use crate::question_variation::{
+    NativeChoiceOrder, QuestionVariation, QuestionVariationPresentation,
+};
 pub use crate::response::{
     QuestionResponseControl, QuestionResponseFormat, QuestionType, StudentResponse,
 };
@@ -244,8 +249,9 @@ pub use crate::student_work::{
     QuestionPoolItemId, QuestionPoolSelectedItem, QuestionPoolSelection, QuestionPoolSelectionId,
     QuestionPoolSelectionReuseError, QuestionRendererVersion, QuestionSubmission,
     QuestionSubmissionId, SourceObjectChecksum, SourceObjectChecksumError, SourceObjectReference,
-    StudentAssignmentGrade, StudentAssignmentProgress, StudentQuestionAttemptView, StudentRecordId,
-    Timestamp,
+    StudentAssignmentAttemptPosition, StudentAssignmentAttemptProgress,
+    StudentAssignmentAttemptResponseState, StudentAssignmentGrade, StudentAssignmentProgress,
+    StudentQuestionAttemptView, StudentRecordId, Timestamp,
 };
 pub use crate::teaching_authority::{
     CourseInvitation, CourseInvitationEvent, CourseInvitationEventKind, CourseInvitationId,

@@ -12,6 +12,7 @@ import {
   removeMatchingPair,
   reorderMatchingSide,
   setChoiceFeedback,
+  setChoiceRandomization,
   setChoiceText,
   setCorrectChoice,
   setPleQuestionJsonResponseKind,
@@ -95,6 +96,7 @@ export function PleQuestionJsonResponseFields(props: {
           <PleQuestionJsonChoiceList
             choices={singleChoiceResponse(props.source())?.choices ?? []}
             correctChoice={singleChoiceResponse(props.source())?.correctChoice ?? ""}
+            randomizeChoices={singleChoiceResponse(props.source())?.randomizeChoices ?? false}
             fieldErrors={props.fieldErrors}
             disabled={props.disabled}
             onChoiceChange={(id, patch) => {
@@ -106,6 +108,10 @@ export function PleQuestionJsonResponseFields(props: {
             }}
             onCorrectChoiceChange={(id) => {
               const next = setCorrectChoice(props.source(), id);
+              if (next.changed) props.onEdit(next.source);
+            }}
+            onRandomizeChoicesChange={(randomizeChoices) => {
+              const next = setChoiceRandomization(props.source(), randomizeChoices);
               if (next.changed) props.onEdit(next.source);
             }}
             onAddChoice={() => {

@@ -12,7 +12,7 @@ use crate::{
     AssignmentAuthoredContentField, AssignmentAuthoredContentLocalError,
     AssignmentEntryScoringRule, AssignmentInstructions, AssignmentPointValue, AssignmentTitle,
     BaseAssignmentPolicy, BlueprintAssignmentDefaults, BlueprintCourseValidationError,
-    CourseInstanceReference, CourseLocalDateAndTime, CourseTerm, CourseTimeZone, LocalTimeOfDay,
+    CourseInstanceReference, CourseTerm, CourseTimeZone, LocalDateAndTime, LocalTimeOfDay,
     MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
     MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, QuestionAttemptLimit, QuestionAttemptTimeLimit,
     QuestionRevisionReference, RelativeAssignmentSchedule, RelativeAssignmentScheduleMoment,
@@ -548,7 +548,7 @@ impl CourseScheduleRevisionReference {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ResolvedAssignmentScheduleMoment {
     /// Exact wall-clock value in the target course's authoritative zone.
-    pub local: CourseLocalDateAndTime,
+    pub local: LocalDateAndTime,
     /// Server-resolved absolute timestamp persisted by teaching state.
     pub timestamp: Timestamp,
 }
@@ -638,7 +638,7 @@ fn project_relative_moment(
 ) -> Result<Option<RelativeAssignmentScheduleMoment>, AssignmentAuthoredContentLocalError> {
     value
         .map(|value| {
-            let local = CourseLocalDateAndTime::from_activity_timestamp(value, source_term, field)?;
+            let local = LocalDateAndTime::from_activity_timestamp(value, source_term, field)?;
             let date = NaiveDate::parse_from_str(&local.as_str()[..10], "%Y-%m-%d")
                 .expect("validated course-local date");
             let start = NaiveDate::parse_from_str(source_term.start_date().as_str(), "%Y-%m-%d")
@@ -668,7 +668,7 @@ fn resolve(
                 .ok_or(AssignmentAuthoredContentLocalError::TimestampOutOfRange(
                     field,
                 ))?;
-            let local = CourseLocalDateAndTime::parse(&format!(
+            let local = LocalDateAndTime::parse(&format!(
                 "{}T{}",
                 date.format("%Y-%m-%d"),
                 value.local_time.as_str()

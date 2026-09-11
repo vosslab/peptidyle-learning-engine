@@ -71,7 +71,7 @@ export function assignmentPoliciesInput(
 }
 
 /** Converts a native local-date-time control value to the explicit wire form. */
-export function canonicalCourseLocalTime(value: string): string | null {
+export function canonicalLocalDateAndTime(value: string): string | null {
   if (value === "") return null;
   const normalized = value.length === 16 ? `${value}:00.000` : value;
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u.test(normalized) ? normalized : null;
@@ -94,14 +94,12 @@ function assignmentAuthoredContentMessage(
   reason: AssignmentPoliciesValidationIssue & { kind: "assignmentAuthoredContent" },
 ): string {
   switch (reason.correction.reason) {
-    case "courseTimeZoneMismatch":
-      return "Use the course time zone for this assignment schedule.";
     case "outsideCourseTerm":
       return "Choose assignment times within this course term.";
     case "nonexistentLocalTime":
     case "ambiguousLocalTime":
     case "timestampOutOfRange":
-      return "Choose a valid course-local date and time.";
+      return "Choose a valid local date and time.";
     case "scheduleOutOfOrder":
       return "Arrange the available, due, and close times in order.";
     case "assignmentAttemptTimeLimitOutOfRange":

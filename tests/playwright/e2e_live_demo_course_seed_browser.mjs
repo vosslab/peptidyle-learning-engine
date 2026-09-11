@@ -89,8 +89,9 @@ async function verifyElena(page) {
   const card = assignmentCard(page);
   await expect(card).toHaveCount(1);
   await expect(card.getByText("Released Assignment", { exact: true })).toBeVisible();
-  await card.getByRole("link", { name: "Open Assignment Workspace", exact: true }).click();
-  await expect(page.locator('[data-route-surface="assignmentReleaseWorkspace"]')).toBeVisible();
+  await card.getByRole("link", { name: "Edit Assignment", exact: true }).click();
+  await expect(page.locator('[data-route-surface="assignmentWorkspace"]')).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
   await expect(page.getByLabel("Assignment title")).toHaveValue(assignmentTitle);
   await page.goBack();
   await page.getByRole("link", { name: "Open Students", exact: true }).click();

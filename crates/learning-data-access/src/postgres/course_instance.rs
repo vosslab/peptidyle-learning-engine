@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use question_model::{
     AccountReference, CourseId, CourseInstanceReference, CourseMembershipRole, CourseSummary,
-    CourseTerm,
+    CourseTerm, CourseTheme,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -119,7 +119,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .await?;
         let rows = sqlx::query(
             "SELECT reference_number, title, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, course_time_zone \
+             term_ends_on::text AS term_ends_on, course_time_zone, course_theme \
              FROM ple_api.list_live_demo_course_instances()",
         )
         .fetch_all(&mut *transaction)
@@ -181,6 +181,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                     row.try_get("term_ends_on").map_err(map_sqlx_error)?,
                     row.try_get("course_time_zone").map_err(map_sqlx_error)?,
                 )?,
+                theme: CourseTheme::default(),
             },
             creator_is_assigned_instructor: row
                 .try_get("creator_is_assigned_instructor")
@@ -200,7 +201,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .await?;
         let row = sqlx::query(
             "SELECT reference_number, title, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, course_time_zone, is_assigned_instructor, \
+             term_ends_on::text AS term_ends_on, course_time_zone, course_theme, is_assigned_instructor, \
              active_instructor_count FROM ple_api.load_live_demo_course_instance($1)",
         )
         .bind(i64::from(reference.number()))
@@ -252,6 +253,7 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceSummary, 
             row.try_get("term_ends_on").map_err(map_sqlx_error)?,
             row.try_get("course_time_zone").map_err(map_sqlx_error)?,
         )?,
+        theme: theme(row.try_get("course_theme").map_err(map_sqlx_error)?)?,
     })
 }
 
@@ -309,6 +311,10 @@ fn membership_role(value: &str) -> Result<CourseMembershipRole, StoreError> {
         "instructor" => Ok(CourseMembershipRole::Instructor),
         _ => Err(invalid("Course Membership Role")),
     }
+}
+
+fn theme(value: String) -> Result<CourseTheme, StoreError> {
+    value.parse().map_err(|_| invalid("Course Theme"))
 }
 
 fn invalid(label: &str) -> StoreError {

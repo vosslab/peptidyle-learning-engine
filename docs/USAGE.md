@@ -81,8 +81,8 @@ boundaries:
 - exact Course Membership and Student ownership determine access;
 - Answer Keys, Question Graders, private Question Source data, and grading input
   remain server-held;
-- Question submission and grading recovery preserve accepted evidence rather
-  than replaying a Student response; and
+- An Assignment Attempt saves working responses while the Student is working,
+  then one final submission creates immutable per-Question grading work; and
 - Course, Assignment, and workspace references locate a record but never grant
   authority.
 

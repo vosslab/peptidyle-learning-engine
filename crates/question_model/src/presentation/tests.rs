@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use crate::answer::{ResponseSelectionRule, TextResponseMatchRule};
 use crate::generation::QuestionSeed;
 use crate::question_content::{QuestionAssetReference, QuestionContentBlock};
-use crate::question_variation::QuestionVariationPresentation;
+use crate::question_variation::{NativeChoiceOrder, QuestionVariationPresentation};
 use crate::response::{
     HotspotRegion, MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice,
     QuestionResponseFormat, ResponseItemReference, StudentHotspotSelection, StudentMatch,
@@ -80,6 +80,7 @@ fn fixture() -> QuestionVariationPresentation {
             ],
             selection: ResponseSelectionRule::ExactlyOne,
         },
+        native_choice_order: NativeChoiceOrder::Fixed,
     }
 }
 
@@ -290,6 +291,73 @@ fn persisted_binding_is_strict_and_round_trips_full_checksum() {
     let mut changed = fixture();
     changed.question_title.push('!');
     assert!(reproduce_question_presentation(&changed, &[], binding).is_err());
+}
+
+#[test]
+fn nonce_randomized_native_choices_reproduce_the_issued_binding_order() {
+    let mut randomized = fixture();
+    let QuestionResponseFormat::MultipleChoice { choices, .. } = &mut randomized.response else {
+        panic!("fixture has native choices");
+    };
+    choices.push(question_choice("hydroxyl", "Hydroxyl group"));
+    randomized.native_choice_order = NativeChoiceOrder::NonceRandomized;
+    let private_policy = serde_json::to_value(&randomized).expect("variation JSON");
+    assert!(private_policy.get("nativeChoiceOrder").is_none());
+    assert!(private_policy["response"].get("randomizeChoices").is_none());
+
+    let mut nonce_source = Nonces::new([[0x31; 16]]);
+    let issued = build_question_presentation_with_nonce_source(&randomized, &[], &mut nonce_source)
+        .expect("randomized presentation");
+    let issued_ids: Vec<_> = issued
+        .item_bindings
+        .iter()
+        .filter(|binding| binding.role == ResponseItemRole::QuestionChoice)
+        .map(|binding| {
+            binding
+                .response_item_reference
+                .as_ref()
+                .expect("server binding retains semantic choice identity")
+                .clone()
+        })
+        .collect();
+    assert_eq!(
+        issued_ids,
+        vec![
+            ResponseItemReference::new("carboxyl"),
+            ResponseItemReference::new("amine"),
+            ResponseItemReference::new("hydroxyl"),
+        ],
+        "the fixed nonce produces the documented nonce-and-stable-ID rank order"
+    );
+
+    let mut reordered = randomized.clone();
+    let QuestionResponseFormat::MultipleChoice { choices, .. } = &mut reordered.response else {
+        panic!("fixture has native choices");
+    };
+    choices.reverse();
+    let mut reordered_nonce_source = Nonces::new([[0x31; 16]]);
+    let reordered_issued =
+        build_question_presentation_with_nonce_source(&reordered, &[], &mut reordered_nonce_source)
+            .expect("randomized presentation survives authored-vector reordering");
+    let reordered_ids: Vec<_> = reordered_issued
+        .item_bindings
+        .iter()
+        .filter(|binding| binding.role == ResponseItemRole::QuestionChoice)
+        .map(|binding| {
+            binding
+                .response_item_reference
+                .as_ref()
+                .expect("server binding retains semantic choice identity")
+                .clone()
+        })
+        .collect();
+    assert_eq!(reordered_ids, issued_ids);
+
+    let binding =
+        QuestionPresentationBinding::new(issued.presentation.presentation_nonce, issued.checksum);
+    let reproduced = reproduce_question_presentation(&randomized, &[], binding)
+        .expect("stored nonce reproduces issued choice order");
+    assert_eq!(reproduced, issued);
 }
 
 fn presentation_for(response: QuestionResponseFormat) -> super::IssuedQuestionPresentation {

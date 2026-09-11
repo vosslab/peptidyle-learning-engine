@@ -45,7 +45,6 @@ const ASSIGNMENT_DEADLINE_RULES = ["auto_submit"] as const;
 const STUDENT_LATE_WORK_STATUSES = ["on_time", "accepted_late", "marked_late"] as const;
 const ASSIGNMENT_AUTHORED_CONTENT_FAILURE_FIELDS = [
   "assignmentAuthoredContent",
-  "timeZone",
   "availableAt",
   "dueAt",
   "closesAt",
@@ -56,7 +55,6 @@ const ASSIGNMENT_AUTHORED_CONTENT_FAILURE_FIELDS = [
 ] as const;
 const ASSIGNMENT_AUTHORED_CONTENT_FAILURE_REASONS = [
   "invalidInput",
-  "courseTimeZoneMismatch",
   "outsideCourseTerm",
   "nonexistentLocalTime",
   "ambiguousLocalTime",
@@ -80,7 +78,7 @@ function decodeInstructions(value: unknown, path: string): string {
 
 function decodeLocalTime(value: unknown, path: string): string {
   const text = decodeString(value, path);
-  if (!LOCAL_TIME.test(text)) throw new DecodeError(path, "a canonical course-local timestamp");
+  if (!LOCAL_TIME.test(text)) throw new DecodeError(path, "a canonical local timestamp");
   return text;
 }
 
@@ -122,7 +120,6 @@ export function decodeInstructorAssignmentAuthoredContentLocal(
 ): InstructorAssignmentAuthoredContentLocal {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "timeZone",
     "instructions",
     "available_at",
     "due_at",
@@ -133,7 +130,6 @@ export function decodeInstructorAssignmentAuthoredContentLocal(
     "assignment_deadline_rule",
   ]);
   return {
-    timeZone: decodeNonemptyString(field(record, "timeZone", path), `${path}.timeZone`),
     instructions: decodeInstructions(field(record, "instructions", path), `${path}.instructions`),
     available_at: decodeNullable(
       field(record, "available_at", path),
@@ -208,7 +204,7 @@ export function decodeStudentAssignmentDetail(
     "reference",
     "title",
     "instructions",
-    "time_zone",
+    "display_time_zone",
     "delivery",
     "entries",
   ]);
@@ -268,7 +264,10 @@ export function decodeStudentAssignmentDetail(
     reference: decodeAssignmentReference(field(record, "reference", path), `${path}.reference`),
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     instructions: decodeInstructions(field(record, "instructions", path), `${path}.instructions`),
-    time_zone: decodeNonemptyString(field(record, "time_zone", path), `${path}.time_zone`),
+    display_time_zone: decodeNonemptyString(
+      field(record, "display_time_zone", path),
+      `${path}.display_time_zone`,
+    ),
     delivery,
     entries: decodeArray(field(record, "entries", path), `${path}.entries`, decodeAssignmentEntry),
   };
@@ -283,7 +282,7 @@ export function decodeInstructorStudentView(
   requireOnlyFields(record, path, [
     "title",
     "instructions",
-    "timeZone",
+    "displayTimeZone",
     "delivery",
     "questionsPerAssignmentAttempt",
     "questionPoolReuseRule",
@@ -338,7 +337,10 @@ export function decodeInstructorStudentView(
   return {
     title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
     instructions: decodeInstructions(field(record, "instructions", path), `${path}.instructions`),
-    timeZone: decodeNonemptyString(field(record, "timeZone", path), `${path}.timeZone`),
+    displayTimeZone: decodeNonemptyString(
+      field(record, "displayTimeZone", path),
+      `${path}.displayTimeZone`,
+    ),
     delivery,
     questionsPerAssignmentAttempt: decodeNonnegativeInteger(
       field(record, "questionsPerAssignmentAttempt", path),

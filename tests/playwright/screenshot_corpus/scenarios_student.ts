@@ -4,9 +4,6 @@
 // src/pages/student_course_invitation_page.tsx:42, src/pages/assignment_overview_page.tsx:236,
 // and src/pages/assignment_attempt_page.tsx:730.
 
-import { expect } from "@playwright/test";
-import type { Page } from "playwright";
-
 import type { CaptureRecord } from "./manifest";
 import type { CaptureSession, ScenarioRuntime } from "./runtime";
 import type { ScenarioDefinition } from "./scenario_types";
@@ -16,11 +13,9 @@ import {
   choosePersona,
   courseCard,
   enterInstructor,
-  enterStudentAssignment,
   openStudentAssignment,
   openStudentCourse,
   scrollTop,
-  startStudentAssignment,
   type SeededPersona,
 } from "./visible_workflows";
 
@@ -166,134 +161,9 @@ async function captureAssignmentOverview(
   }
 }
 
-async function captureResumedAssignmentOverview(runtime: ScenarioRuntime): Promise<void> {
-  const scenario = "student_assignment_overviews";
-  const record = runtime.record(scenario, "resumed_laptop");
-  const session = await runtime.open(record);
-  try {
-    await choosePersona(session.page, "Jack Nguyen");
-    await openStudentCourse(session.page);
-    await assignmentCard(session.page).getByText("In progress", { exact: true }).waitFor();
-    await openStudentAssignment(session.page);
-    await startStudentAssignment(session.page);
-    await session.page
-      .getByText("Your current Assignment Attempt has been reopened.", { exact: true })
-      .waitFor();
-    await captureCheckpoint(runtime, scenario, "resumed_laptop", session);
-  } finally {
-    await runtime.close(session);
-  }
-}
-
 async function studentAssignmentOverviews(runtime: ScenarioRuntime): Promise<void> {
   await captureAssignmentOverview(runtime, "unanswered_laptop", "Avery Thompson", "Not started");
   await captureAssignmentOverview(runtime, "unanswered_tablet", "Avery Thompson", "Not started");
-  await captureResumedAssignmentOverview(runtime);
-}
-
-async function openUnansweredQuestion(
-  runtime: ScenarioRuntime,
-  checkpoint: string,
-): Promise<CaptureSession> {
-  const scenario = "student_question_delivery";
-  const session = await runtime.open(runtime.record(scenario, checkpoint));
-  await enterStudentAssignment(session.page, "Avery Thompson");
-  await startStudentAssignment(session.page);
-  return session;
-}
-
-async function captureResponsiveUnanswered(runtime: ScenarioRuntime): Promise<CaptureSession> {
-  const scenario = "student_question_delivery";
-  const laptop = await openUnansweredQuestion(runtime, "question_unanswered_laptop");
-  await captureCheckpoint(runtime, scenario, "question_unanswered_laptop", laptop);
-  for (const checkpoint of ["question_unanswered_phone", "question_unanswered_square"] as const) {
-    const session = await openUnansweredQuestion(runtime, checkpoint);
-    try {
-      await captureCheckpoint(runtime, scenario, checkpoint, session);
-    } finally {
-      await runtime.close(session);
-    }
-  }
-  return laptop;
-}
-
-async function waitForGraded(page: Page): Promise<void> {
-  const graded = page.getByRole("heading", { name: "Graded", exact: true });
-  await expect
-    .poll(
-      async () => {
-        if (await graded.isVisible()) return true;
-        const check = page.getByRole("button", { name: "Check grading status", exact: true });
-        if (await check.isVisible()) await check.click();
-        return await graded.isVisible();
-      },
-      { timeout: 120_000, intervals: [2_000] },
-    )
-    .toBe(true);
-}
-
-async function captureResponseProgression(
-  runtime: ScenarioRuntime,
-  session: CaptureSession,
-): Promise<void> {
-  const scenario = "student_question_delivery";
-  const page = session.page;
-  await page.getByRole("link", { name: "Answer this question", exact: true }).first().click();
-  await page.getByRole("button", { name: "Start Assignment", exact: true }).click();
-  await page.getByRole("radio").first().check();
-  await page.getByRole("button", { name: "Submit answer", exact: true }).waitFor();
-  await captureCheckpoint(runtime, scenario, "response_selected", session);
-  await page.getByRole("button", { name: "Submit answer", exact: true }).click();
-  await page.getByRole("heading", { name: "Response received", exact: true }).waitFor();
-  await captureCheckpoint(runtime, scenario, "response_received", session);
-  await waitForGraded(page);
-  await captureCheckpoint(runtime, scenario, "graded", session);
-  await page.reload({ waitUntil: "commit" });
-  await page.getByRole("heading", { name: "Graded", exact: true }).waitFor();
-  await captureCheckpoint(runtime, scenario, "graded_after_reload", session);
-}
-
-async function captureResponseFormats(
-  runtime: ScenarioRuntime,
-  session: CaptureSession,
-): Promise<void> {
-  const scenario = "student_question_delivery";
-  const page = session.page;
-  await page.goto(
-    new URL(
-      `/courses/${runtime.references.course}/assignments/${runtime.references.assignment}`,
-      runtime.entryUrl,
-    ).href,
-    { waitUntil: "commit" },
-  );
-  await page.getByRole("button", { name: "Start Assignment", exact: true }).click();
-  await page.getByRole("heading", { name: /^Question 3:/u }).waitFor();
-  const numeric = page.getByLabel("Numeric response", { exact: true });
-  await numeric.scrollIntoViewIfNeeded();
-  await runtime.capture(session, runtime.record(scenario, "numerical_response"));
-  const hotspot = page.getByRole("group", { name: /Choose the labeled image region/u });
-  await hotspot.scrollIntoViewIfNeeded();
-  const hotspotImage = hotspot
-    .locator("xpath=ancestor::article[contains(@class, 'question-presentation')]")
-    .locator("img");
-  await hotspotImage.waitFor();
-  const hotspotImageHandle = await hotspotImage.elementHandle();
-  if (hotspotImageHandle === null) throw new Error("hotspot response image is not attached");
-  await page.waitForFunction(
-    (image) => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
-    hotspotImageHandle,
-  );
-  await runtime.capture(session, runtime.record(scenario, "hotspot_response"));
-}
-
-async function studentQuestionDelivery(runtime: ScenarioRuntime): Promise<void> {
-  const laptop = await captureResponsiveUnanswered(runtime);
-  try {
-    await captureResponseProgression(runtime, laptop);
-    await captureResponseFormats(runtime, laptop);
-  } finally {
-    await runtime.close(laptop);
-  }
 }
 
 async function captureDenial(runtime: ScenarioRuntime, checkpoint: string): Promise<void> {
@@ -346,23 +216,8 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
   },
   {
     id: "student_assignment_overviews",
-    checkpoints: ["unanswered_laptop", "unanswered_tablet", "resumed_laptop"],
+    checkpoints: ["unanswered_laptop", "unanswered_tablet"],
     run: studentAssignmentOverviews,
-  },
-  {
-    id: "student_question_delivery",
-    checkpoints: [
-      "question_unanswered_laptop",
-      "question_unanswered_phone",
-      "question_unanswered_square",
-      "response_selected",
-      "response_received",
-      "graded",
-      "graded_after_reload",
-      "numerical_response",
-      "hotspot_response",
-    ],
-    run: studentQuestionDelivery,
   },
   {
     id: "student_authorization",

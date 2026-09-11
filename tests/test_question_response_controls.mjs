@@ -7,6 +7,7 @@ import { createRoot } from "solid-js";
 
 import {
   createSubmissionController,
+  createImathasQuestionBackendMarkerPersistence,
   handleQuestionResponseControlKeyDown,
   isImathasQuestionBackendReadyMessage,
   isSafeImathasQuestionBackendLaunchPath,
@@ -369,6 +370,110 @@ test("a rejected submission keeps the response editable for a corrected resubmis
 
   assert.equal(controller.phase().kind, "submitted");
   assert.deepEqual(submitted, [refused, corrected]);
+});
+
+test("editable save records raw input before delayed validation and retries a failed save", async () => {
+  let resolveValidation;
+  let saveCalls = 0;
+  const edits = [];
+  const validated = [];
+  const response = { kind: "numeric", value: 7 };
+  const controller = createRoot(() =>
+    createSubmissionController({
+      attemptId: "attempt-save-retry",
+      mode: "save",
+      responseFormat: numericResponseFormat,
+      validator: {
+        mode: "wasm",
+        validateResponseFormat: async () =>
+          new Promise((resolve) => {
+            resolveValidation = resolve;
+          }),
+      },
+      onEscape: () => undefined,
+      onResponseEdit: () => {
+        edits.push(response);
+        return edits.length;
+      },
+      onResponseChange: (_response, _validation, editRevision) => validated.push(editRevision),
+      onSubmit: async () => {
+        saveCalls += 1;
+        return saveCalls === 1
+          ? { kind: "rejected", message: "Temporary save failure." }
+          : { kind: "accepted" };
+      },
+    }),
+  );
+
+  const pendingEdit = controller.edit(response);
+  assert.deepEqual(edits, [response]);
+  assert.equal(controller.canSubmit(), false);
+  resolveValidation({ issues: [] });
+  await pendingEdit;
+  assert.deepEqual(validated, [1]);
+
+  await controller.submit(response);
+  assert.equal(controller.phase().kind, "failed");
+  assert.equal(controller.canSubmit(), true);
+  await controller.submit(response);
+  assert.equal(saveCalls, 2);
+  assert.equal(controller.phase().kind, "restored");
+});
+
+test("iMathAS marker records one revisioned durable response and retains it for retry", () => {
+  const edits = [];
+  const changes = [];
+  const marker = { kind: "imathasQuestionBackend" };
+  const persistMarker = createImathasQuestionBackendMarkerPersistence({
+    onResponseEdit: (response) => {
+      edits.push(response);
+      return 4;
+    },
+    onResponseChange: (response, validation, editRevision) => {
+      changes.push({ response, validation, editRevision });
+    },
+  });
+  persistMarker();
+  persistMarker();
+
+  assert.deepEqual(edits, [marker]);
+  assert.deepEqual(changes, [{ response: marker, validation: { issues: [] }, editRevision: 4 }]);
+
+  const retainedMarker = changes[0]?.response;
+  assert.deepEqual(retainedMarker, marker);
+});
+
+test("a disposed response controller ignores a late format validation", async () => {
+  let resolveValidation;
+  const changes = [];
+  let controller;
+  let dispose;
+  createRoot((disposeRoot) => {
+    dispose = disposeRoot;
+    controller = createSubmissionController({
+      attemptId: "attempt-disposed-validation",
+      responseFormat: numericResponseFormat,
+      validator: {
+        mode: "wasm",
+        validateResponseFormat: async () =>
+          new Promise((resolve) => {
+            resolveValidation = resolve;
+          }),
+      },
+      onEscape: () => undefined,
+      onResponseChange: (response) => changes.push(response),
+    });
+  });
+  const response = { kind: "numeric", value: 3 };
+
+  const validation = controller.validate(response);
+  const phaseAtDisposal = controller.phase();
+  dispose();
+  resolveValidation({ issues: [] });
+  await validation;
+
+  assert.deepEqual(changes, []);
+  assert.equal(controller.phase(), phaseAtDisposal);
 });
 
 test("iMathAS Question Backend readiness and route values admit only the narrow browser contract", () => {

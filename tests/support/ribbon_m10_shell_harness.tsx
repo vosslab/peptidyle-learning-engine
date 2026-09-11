@@ -33,7 +33,7 @@ import type {
   RibbonTaskAreaModel,
 } from "../../src/ribbon/ribbon_contract";
 import type { RibbonDestinationId } from "../../src/ribbon/ribbon_catalog";
-import { courseRouteData, assignmentAttemptScreenData } from "./route_scope_provider_fixtures";
+import { assignmentAttemptContext, courseRouteData } from "./route_scope_provider_fixtures";
 import { M6_RIBBON_FIXTURES } from "./ribbon_model_fixtures";
 
 interface QueryFunction<Arguments extends ReadonlyArray<unknown>, Result> {
@@ -143,8 +143,8 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
         deferredScopes === undefined ? Promise.resolve() : deferredScopes.waitForRelease(reference);
       return released.then(() => instructorCourseRouteData(reference));
     }),
-    assignmentAttemptScreen: queryFunction("assignment-attempt-screen", () =>
-      Promise.resolve(assignmentAttemptScreenData("C-1")),
+    assignmentAttemptScope: queryFunction("assignment-attempt-scope", () =>
+      Promise.resolve(assignmentAttemptContext("C-1")),
     ),
     assignmentAttemptSummary: queryFunction("assignment-attempt-summary", () =>
       Promise.reject(
@@ -161,6 +161,7 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
         course: {
           reference,
           title: `Course ${reference}`,
+          theme: "grass",
           term: {
             startDate: "2026-01-12",
             endDate: "2026-05-08",
@@ -251,25 +252,30 @@ function courseFixture(
   };
 }
 
-function productFixture(
-  selectedTab: "courses" | "questionLibrary" | "blueprintCourses",
-): RibbonModel {
+function productFixture(selectedTab: "courses" | "questions" | "productAssignments"): RibbonModel {
   const source = M6_RIBBON_FIXTURES.productInstructor;
+  const taskAreas: ReadonlyArray<RibbonTaskAreaModel> =
+    selectedTab === "questions"
+      ? withSelectedTaskControl(source.taskAreas, "searchQuestionLibrary")
+      : [
+          {
+            id: selectedTab === "courses" ? "instructorCourses" : "instructorAssignments",
+            label: selectedTab === "courses" ? "Courses" : "Assignments",
+            controls: [],
+          },
+        ];
   return {
     ...source,
     tabs: withSelectedControl(source.tabs, selectedTab),
-    taskAreas:
-      selectedTab === "questionLibrary"
-        ? withSelectedTaskControl(source.taskAreas, "allQuestions")
-        : [],
+    taskAreas,
   };
 }
 
 /** Explicit presentation-only projection for the structural shell fixture. */
 function fixtureModelForPathname(pathname: string): RibbonModel {
   if (pathname === "/") return productFixture("courses");
-  if (pathname === "/library") return productFixture("questionLibrary");
-  if (pathname === "/blueprint-courses") return productFixture("blueprintCourses");
+  if (pathname === "/library") return productFixture("questions");
+  if (pathname === "/blueprint-courses") return productFixture("courses");
   if (pathname === "/instructor/courses/C-1/students") return courseFixture("C-1", "students");
   if (pathname === "/instructor/courses/C-1/gradebook") return courseFixture("C-1", "gradebook");
   if (pathname === "/courses/C-2") return courseFixture("C-2");

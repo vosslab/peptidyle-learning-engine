@@ -55,11 +55,11 @@ gateway_port() {
 }
 
 request() {
-	local path="$1" cookie="${2:-}" method="${3:-GET}" body="${4:-}" if_match="${5:-}"
+	local path="$1" cookie="${2:-}" method="${3:-GET}" body="${4:-}" content_type="${5:-application/json}" if_match="${6:-}"
 	local gateway port
 	gateway="$(service_id gateway)"; port="$(gateway_port)"
 	local -a args=(--silent --show-error --insecure --max-time 12 --write-out $'\n%{http_code}' --header "Host: localhost:$port" --request "$method")
-	if [ "$method" != "GET" ]; then args+=(--header "Origin: https://localhost:$port" --header 'Content-Type: application/json'); fi
+	if [ "$method" != "GET" ]; then args+=(--header "Origin: https://localhost:$port" --header "Content-Type: $content_type"); fi
 	if [ -n "$cookie" ]; then args+=(--header "Cookie: $cookie"); fi
 	if [ -n "$if_match" ]; then args+=(--header "If-Match: \"$if_match\""); fi
 	if [ -n "$body" ]; then args+=(--data "$body"); fi
@@ -84,19 +84,27 @@ assert_concealed() {
 
 assert_access() {
 	python3 -c '
-import json, sys
+import json, re, sys
 value=json.loads(sys.argv[1])
-if value != {"startDecision":sys.argv[2]}:
+expected_active=sys.argv[3]
+if set(value) != {"startDecision", "activeAssignmentAttempt"} or value.get("startDecision") != sys.argv[2]:
     raise SystemExit("Assignment Access projection did not report the server decision")
-' "$1" "$2"
+active=value["activeAssignmentAttempt"]
+if expected_active == "none" and active is not None:
+    raise SystemExit("Assignment Access unexpectedly exposed an active Attempt")
+if expected_active == "active" and (not isinstance(active, str) or not re.fullmatch(r"R-[1-9][0-9]{0,9}", active)):
+    raise SystemExit("Assignment Access did not expose the canonical active Attempt")
+' "$1" "$2" "$3"
 }
 
 assert_started() {
 	python3 -c '
 import json, re, sys
 value=json.loads(sys.argv[1]); expected_resumed=sys.argv[2] == "true"; expected_number=int(sys.argv[3])
-required={"assignment","attemptNumber","resumed","title","instructions","questions"}
-if set(value) != required or not re.fullmatch(r"A-[1-9][0-9]{0,9}", value["assignment"]):
+required={"assignmentAttempt","assignment","attemptNumber","resumed","title","instructions","questions"}
+if (set(value) != required
+    or not re.fullmatch(r"R-[1-9][0-9]{0,9}", value["assignmentAttempt"])
+    or not re.fullmatch(r"A-[1-9][0-9]{0,9}", value["assignment"])):
     raise SystemExit("Assignment start projection is not closed")
 if value["resumed"] is not expected_resumed or value["attemptNumber"] != expected_number:
     raise SystemExit("Assignment start did not preserve the exact Attempt lifecycle")
@@ -159,6 +167,92 @@ print(items[0]["questionId"])
 ' "$1"
 }
 
+native_single_choice_source() {
+	local ordinal="$1"
+	python3 -c '
+import json, sys
+ordinal = sys.argv[1]
+source = {
+    "format": "pleQuestionJson",
+    "version": 3,
+    "questionTitle": f"M5 saved response {ordinal}",
+    "questionDescription": "Disposable Student delivery evidence.",
+    "prompt": f"Choose a response for Student delivery Question {ordinal}.",
+    "response": {
+        "kind": "singleChoice",
+        "choices": [
+            {"id": "one", "text": "One"},
+            {"id": "two", "text": "Two"},
+        ],
+        "correctChoice": "one",
+    },
+    "feedback": {"correct": None, "incorrect": None},
+    "questionHint": None,
+    "tags": ["live-demo", "m5-delivery"],
+    "questionLicense": "CC-BY-4.0",
+    "questionCitation": None,
+    "language": "en-US",
+}
+print(json.dumps(source, separators=(",", ":")))
+' "$ordinal"
+}
+
+publish_native_single_choice() {
+	local ordinal="$1" instructor_cookie="$2" created draft edit published
+	created="$(request '/api/authoring/drafts' "$instructor_cookie" POST "$(native_single_choice_source "$ordinal")" 'application/vnd.peptidyle.question+json')"
+	if [ "$(response_status "$created")" != "201" ]; then
+		echo "Instructor could not create M5 native Draft Question" >&2
+		exit 1
+	fi
+	read -r draft edit < <(python3 -c '
+import json, re, sys
+value = json.loads(sys.argv[1])
+if not re.fullmatch(r"D-[1-9][0-9]*", value.get("draftQuestion", "")) or not isinstance(value.get("editNumber"), int):
+    raise SystemExit("M5 native Draft Question receipt is malformed")
+print(value["draftQuestion"], value["editNumber"])
+' "$(response_body "$created")")
+	published="$(request "/api/authoring/drafts/$draft/publish" "$instructor_cookie" POST '{"authors":["Live Demo Instructor"]}' "" "$edit")"
+	if [ "$(response_status "$published")" != "200" ]; then
+		echo "Instructor could not publish M5 native Question" >&2
+		exit 1
+	fi
+	python3 -c '
+import json, re, sys
+value = json.loads(sys.argv[1])
+question_id = value.get("questionId")
+if set(value) != {"questionId"} or not isinstance(question_id, str) or not re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}", question_id):
+    raise SystemExit("M5 native Published Question receipt is malformed")
+print(question_id)
+' "$(response_body "$published")"
+}
+
+browser_workspace_payload() {
+	local workspace="$1" first_question="$2" second_question="$3"
+	python3 -c '
+import json, sys
+workspace = json.loads(sys.argv[1])
+required = {
+    "reference", "editNumber", "status", "title", "instructions", "dueAt", "lateWorkRule",
+    "assignmentAttemptTimeLimitSeconds", "attemptLimit", "activityRules",
+    "studentFeedbackReleaseRule", "displayTimeZone", "questions",
+}
+if set(workspace) != required:
+    raise SystemExit("Assignment Workspace projection is not closed")
+payload = {
+    "title": "M5 Student delivery",
+    "instructions": "Save each response, navigate every Question, then submit the Assignment.",
+    "questionIds": [sys.argv[2], sys.argv[3]],
+    "dueAt": workspace["dueAt"],
+    "lateWorkRule": workspace["lateWorkRule"],
+    "assignmentAttemptTimeLimitSeconds": 300,
+    "attemptLimit": workspace["attemptLimit"],
+    "activityRules": workspace["activityRules"],
+    "studentFeedbackReleaseRule": workspace["studentFeedbackReleaseRule"],
+}
+print(json.dumps(payload, separators=(",", ":")))
+' "$workspace" "$first_question" "$second_question"
+}
+
 assignment_reference_and_edit() {
 	python3 -c '
 import json, re, sys
@@ -177,10 +271,10 @@ create_reject_late_assignment() {
 	created="$(request "/api/course-instances/$course/assignments" "$instructor_cookie" POST '{"title":"M11 late assignment","instructions":"Complete the selected published question."}')"
 	if [ "$(response_status "$created")" != "201" ]; then echo "Instructor could not create the late-work Assignment" >&2; exit 1; fi
 	read -r assignment edit < <(assignment_reference_and_edit "$(response_body "$created")")
-	saved="$(request "/api/course-instances/$course/assignments/$assignment" "$instructor_cookie" PUT "{\"title\":\"M11 late assignment\",\"instructions\":\"Complete the selected published question.\",\"questionIds\":[\"$question_id\"],\"dueAt\":\"2026-09-01T00:00:00.000\",\"lateWorkRule\":\"reject\"}" "$edit")"
+	saved="$(request "/api/course-instances/$course/assignments/$assignment" "$instructor_cookie" PUT "{\"title\":\"M11 late assignment\",\"instructions\":\"Complete the selected published question.\",\"questionIds\":[\"$question_id\"],\"dueAt\":\"2026-09-01T00:00:00.000\",\"lateWorkRule\":\"reject\"}" "" "$edit")"
 	if [ "$(response_status "$saved")" != "200" ]; then echo "Instructor could not save the late-work Assignment policy" >&2; exit 1; fi
 	edit="$(assignment_reference_and_edit "$(response_body "$saved")" | awk '{print $2}')"
-	released="$(request "/api/course-instances/$course/assignments/$assignment/release" "$instructor_cookie" POST '{}' "$edit")"
+	released="$(request "/api/course-instances/$course/assignments/$assignment/release" "$instructor_cookie" POST '{}' "" "$edit")"
 	if [ "$(response_status "$released")" != "201" ]; then echo "Instructor could not release the late-work Assignment" >&2; exit 1; fi
 	printf '%s\n' "$assignment"
 }
@@ -253,13 +347,13 @@ prove_start() {
 	claim_student_record "$course" "$instructor_cookie" "$student_cookie"
 	access="$(request "/api/course-instances/$course/assignments/$assignment/access" "$student_cookie")"
 	if [ "$(response_status "$access")" != "200" ]; then echo "Student could not load current Assignment Access" >&2; exit 1; fi
-	assert_access "$(response_body "$access")" may_start
+	assert_access "$(response_body "$access")" may_start none
 	started="$(request "/api/course-instances/$course/assignments/$assignment/start" "$student_cookie" POST '{}')"
 	if [ "$(response_status "$started")" != "201" ]; then echo "Student could not start the released Assignment" >&2; exit 1; fi
 	assert_started "$(response_body "$started")" false 1
 	access="$(request "/api/course-instances/$course/assignments/$assignment/access" "$student_cookie")"
 	if [ "$(response_status "$access")" != "200" ]; then echo "Student could not read the current resumable Assignment Access" >&2; exit 1; fi
-	assert_access "$(response_body "$access")" may_start
+	assert_access "$(response_body "$access")" may_start active
 	resumed="$(request "/api/course-instances/$course/assignments/$assignment/start" "$student_cookie" POST '{}')"
 	if [ "$(response_status "$resumed")" != "201" ]; then echo "Student could not resume the started Assignment" >&2; exit 1; fi
 	assert_started "$(response_body "$resumed")" true 1
@@ -269,7 +363,7 @@ prove_start() {
 	expired_assignment="$(create_reject_late_assignment "$course" "$instructor_cookie")"
 	access="$(request "/api/course-instances/$course/assignments/$expired_assignment/access" "$student_cookie")"
 	if [ "$(response_status "$access")" != "200" ]; then echo "Student could not read the due Assignment Access" >&2; exit 1; fi
-	assert_access "$(response_body "$access")" late_work_refused
+	assert_access "$(response_body "$access")" late_work_refused none
 	rejected="$(request "/api/course-instances/$course/assignments/$expired_assignment/start" "$student_cookie" POST '{}')"
 	assert_concealed "$rejected"
 	assert_no_started_attempt "$course" "$expired_assignment"
@@ -293,14 +387,34 @@ prove_browser() {
 }
 
 prepare_browser_prerequisite() {
-	local instructor_cookie student_cookie postgres references
-	# Keep this fresh release available and unstarted for the visible Student flow.
+	local instructor_cookie student_cookie postgres references first_question second_question created assignment edit saved released payload
+	# Keep a fresh released, unstarted two-Question native Assignment for the visible Student flow.
 	bash "$repository_root/tests/e2e/e2e_live_demo_assignment_release.sh" --service >/dev/null
 	instructor_cookie="$(persona_cookie elenaInstructor)"
 	student_cookie="$(persona_cookie maryStudent)"
 	postgres="$(service_id postgres)"
 	references="$(released_references "$postgres")"
-	read -r prepared_course prepared_assignment <<<"$references"
+	read -r prepared_course _ <<<"$references"
+	first_question="$(publish_native_single_choice 1 "$instructor_cookie")"
+	second_question="$(publish_native_single_choice 2 "$instructor_cookie")"
+	created="$(request "/api/course-instances/$prepared_course/assignments" "$instructor_cookie" POST '{"title":"M5 Student delivery","instructions":"Save each response, navigate every Question, then submit the Assignment."}')"
+	if [ "$(response_status "$created")" != "201" ]; then
+		echo "Instructor could not create the M5 Student delivery Assignment" >&2
+		exit 1
+	fi
+	read -r prepared_assignment edit < <(assignment_reference_and_edit "$(response_body "$created")")
+	payload="$(browser_workspace_payload "$(response_body "$created")" "$first_question" "$second_question")"
+	saved="$(request "/api/course-instances/$prepared_course/assignments/$prepared_assignment" "$instructor_cookie" PUT "$payload" "" "$edit")"
+	if [ "$(response_status "$saved")" != "200" ]; then
+		echo "Instructor could not save the M5 two-Question timed Assignment" >&2
+		exit 1
+	fi
+	edit="$(assignment_reference_and_edit "$(response_body "$saved")" | awk '{print $2}')"
+	released="$(request "/api/course-instances/$prepared_course/assignments/$prepared_assignment/release" "$instructor_cookie" POST '{}' "" "$edit")"
+	if [ "$(response_status "$released")" != "201" ]; then
+		echo "Instructor could not release the M5 Student delivery Assignment" >&2
+		exit 1
+	fi
 	claim_student_record "$prepared_course" "$instructor_cookie" "$student_cookie"
 }
 

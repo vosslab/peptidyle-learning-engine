@@ -195,15 +195,21 @@ async function inspect(page, profile) {
       ),
       topologyRowsValid: ribbons.every((ribbon) => {
         const frames = [...ribbon.querySelectorAll(":scope > [data-ribbon-row-frame]")];
-        const expectedFrameCount =
-          ribbon.getAttribute("data-ribbon-task-row") === "reserved" ? 3 : 2;
+        const expectedFrames =
+          ribbon.getAttribute("data-ribbon-task-row") === "reserved" ? ["top", "tasks"] : ["top"];
         return (
-          frames.length === expectedFrameCount &&
-          frames.every(
-            (frame) =>
-              frame.querySelectorAll(":scope > [data-ribbon-row]").length === 1 &&
-              frame.querySelectorAll(":scope > [data-ribbon-overflow-cue]").length === 2,
-          )
+          [...ribbon.children].every((child) => child.matches("[data-ribbon-row-frame]")) &&
+          frames.map((frame) => frame.getAttribute("data-ribbon-row-frame")).join(" ") ===
+            expectedFrames.join(" ") &&
+          frames.every((frame, index) => {
+            const rows = [...frame.querySelectorAll(":scope > [data-ribbon-row]")];
+            return (
+              rows.length === 1 &&
+              rows[0].getAttribute("data-ribbon-row") === expectedFrames[index] &&
+              frame.querySelectorAll(":scope > [data-ribbon-overflow-cue]").length === 2
+            );
+          }) &&
+          ribbon.querySelector('[aria-label="Breadcrumb"]') === null
         );
       }),
       rowGeometry: rows.every((row) => row.getBoundingClientRect().height > 0),
@@ -248,10 +254,11 @@ async function inspect(page, profile) {
               ];
         }),
       ),
-      // A selected Task is a stronger promise than an arbitrary offscreen
-      // item. Intentionally include partial intersections so an ``Ov``-style
-      // endpoint clipping regression cannot be silently skipped.
-      selectedTaskVisibilityFailures: rows.flatMap((row) => {
+      // Desktop has room for every selected Task without horizontal travel.
+      // Keep that direct-visibility promise strict there; narrow profiles
+      // exercise reachability separately because their initial SSR scroll
+      // position is intentionally not a client-side visibility effect.
+      selectedTaskDirectVisibilityFailures: rows.flatMap((row) => {
         if (row.getAttribute("data-ribbon-row") !== "tasks") return [];
         const rowBox = row.getBoundingClientRect();
         return [...row.querySelectorAll('a[aria-current="page"]')].flatMap((control) => {
@@ -272,6 +279,31 @@ async function inspect(page, profile) {
                 },
               ]
             : [];
+        });
+      }),
+      selectedTaskReachabilityFailures: rows.flatMap((row) => {
+        if (row.getAttribute("data-ribbon-row") !== "tasks") return [];
+        return [...row.querySelectorAll('a[aria-current="page"]')].flatMap((control) => {
+          const priorScrollLeft = row.scrollLeft;
+          control.scrollIntoView({ block: "nearest", inline: "nearest" });
+          const box = control.getBoundingClientRect();
+          const rowBox = row.getBoundingClientRect();
+          const reachable =
+            control.querySelector(".ple-app-ribbon__control-label")?.textContent?.trim() !== "" &&
+            box.right > rowBox.left &&
+            box.left < rowBox.right;
+          row.scrollLeft = priorScrollLeft;
+          return reachable
+            ? []
+            : [
+                {
+                  id: control.getAttribute("data-ribbon-control"),
+                  box,
+                  rowBox,
+                  scrollWidth: row.scrollWidth,
+                  clientWidth: row.clientWidth,
+                },
+              ];
         });
       }),
       horizontalScrollableRows: rows.filter((row) => row.scrollWidth > row.clientWidth).length,
@@ -332,8 +364,8 @@ try {
     desktop.topologyRowsValid,
     true,
     [
-      "every real Ribbon has its topology-declared direct cue frames with one labelled scrollport",
-      "and two inert cues each",
+      "every real Ribbon has only its approved top frame and optional task frame, each with one",
+      "matching labelled scrollport and two inert cues; the shell owns Breadcrumb outside the Ribbon",
     ].join(" "),
   );
   assert.equal(desktop.rowGeometry, true, "each declared Ribbon row has measurable geometry");
@@ -341,6 +373,11 @@ try {
     desktop.visibleControlFailures,
     [],
     "visible Ribbon controls keep readable, unclipped labels within their rows",
+  );
+  assert.deepEqual(
+    desktop.selectedTaskDirectVisibilityFailures,
+    [],
+    "desktop keeps every selected Task directly visible without horizontal travel",
   );
   assert.equal(desktop.textFailures, 0, "every review panel retains a visible label");
   assert.equal(
@@ -361,9 +398,9 @@ try {
       .filter((control) =>
         ["teachingOperations", "assignmentOverview", "assignmentPolicies"].includes(control.id),
       )
-      .every((control) => control.iconCount === 0),
+      .every((control) => control.iconCount === 1 && control.labelVisible),
     true,
-    "rendered text-only destinations do not receive decorative SVGs",
+    "every rendered navigation destination pairs its settled glyph with visible text",
   );
   assert.equal(
     desktop.iconOnlySpecimens.every(
@@ -457,9 +494,9 @@ try {
       .filter((control) =>
         ["teachingOperations", "assignmentOverview", "assignmentPolicies"].includes(control.id),
       )
-      .every((control) => control.iconCount === 0 && control.labelVisible),
+      .every((control) => control.iconCount === 1 && control.labelVisible),
     true,
-    "tablet retains ordinary text-only destinations as visibly labelled controls",
+    "tablet keeps ordinary navigation destinations as visible icon-and-text controls",
   );
   await page.screenshot({ path: join(outputDirectory, "tablet.png"), fullPage: true });
 
@@ -476,13 +513,15 @@ try {
     [],
     "visible phone Ribbon controls keep readable, unclipped labels within their rows",
   );
+  assert.equal(
+    phone.horizontalScrollableRows > 0,
+    true,
+    "phone keeps overflowing Ribbon rows horizontally scrollable with their clipping cues",
+  );
   assert.deepEqual(
-    phone.selectedTaskVisibilityFailures,
+    phone.selectedTaskReachabilityFailures,
     [],
-    [
-      "phone keeps every intersecting selected Task fully readable rather than",
-      "partially painting it beneath an edge",
-    ].join(" "),
+    "phone keeps every selected Task present and reachable in its scroll content",
   );
   const phoneSignOut = phone.renderedControls.find((control) => control.id === "signOut");
   assert.deepEqual(
@@ -491,10 +530,10 @@ try {
       title: phoneSignOut?.title,
       visible: phoneSignOut?.labelVisible,
     },
-    { ariaLabel: "Sign out", title: "Sign out", visible: false },
+    { ariaLabel: "Sign out", title: "Sign out", visible: true },
     [
-      "narrow-phone Sign out retains its exact name and tooltip while its",
-      "conventional glyph takes the compact slot",
+      "narrow-phone Sign out retains its exact name, tooltip, conventional glyph,",
+      "and visible text in the horizontally scrollable top bar",
     ].join(" "),
   );
   assert.equal(
@@ -554,13 +593,15 @@ try {
     [],
     "visible 200% phone Ribbon controls keep readable, unclipped labels within their rows",
   );
+  assert.equal(
+    enlargedPhone.horizontalScrollableRows > 0,
+    true,
+    "200% phone keeps overflowing Ribbon rows horizontally scrollable with their clipping cues",
+  );
   assert.deepEqual(
-    enlargedPhone.selectedTaskVisibilityFailures,
+    enlargedPhone.selectedTaskReachabilityFailures,
     [],
-    [
-      "true 320px/200% text keeps every selected Task fully visible and clear of",
-      "the task-row endpoint",
-    ].join(" "),
+    "true 320px/200% text keeps every selected Task reachable in scroll content",
   );
   assert.deepEqual(
     enlargedPhone.glyphAtlas.map((entry) => entry.glyph).sort(),

@@ -4,7 +4,7 @@ import { Show, createSignal, type JSX } from "solid-js";
 import { useApplicationApi } from "../api/application_api";
 import { parseCourseInstanceReference } from "../navigation/public_route";
 
-/** Student-owned acceptance of one exact Course Invitation. */
+/** Student-owned acceptance of one exact course invitation. */
 export function StudentCourseInvitationPage(): JSX.Element {
   const runtime = useApplicationApi();
   const params = useParams();
@@ -26,11 +26,11 @@ export function StudentCourseInvitationPage(): JSX.Element {
       setAccepted(result.activeStudentMembership);
       setMessage(
         result.activeStudentMembership
-          ? "Course Invitation accepted."
-          : "Course Invitation could not be accepted.",
+          ? "Invitation accepted."
+          : "Invitation could not be accepted.",
       );
     } catch {
-      setMessage("This Course Invitation could not be accepted.");
+      setMessage("This invitation could not be accepted.");
     } finally {
       setBusy(false);
     }
@@ -38,9 +38,9 @@ export function StudentCourseInvitationPage(): JSX.Element {
 
   return (
     <section class="page" data-route-surface="studentCourseInvitation">
-      <p class="eyebrow">Course Invitation</p>
-      <h1>Join this Course Instance</h1>
-      <p>Accept your Course Invitation to join this Course Instance as a Student.</p>
+      <p class="eyebrow">Course invitation</p>
+      <h1>Join this course</h1>
+      <p>Accept this invitation to join the course.</p>
       <Show when={message()}>{(value) => <p role="status">{value()}</p>}</Show>
       <Show when={accepted() ? course() : null}>
         {(reference) => (
@@ -55,7 +55,7 @@ export function StudentCourseInvitationPage(): JSX.Element {
         disabled={busy() || course() === null}
         onClick={() => void claim()}
       >
-        Accept Course Invitation
+        Accept invitation
       </button>
     </section>
   );

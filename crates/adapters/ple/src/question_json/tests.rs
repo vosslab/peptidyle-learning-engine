@@ -29,6 +29,56 @@ fn version_three_source_compiles_private_evaluation_from_its_exact_content() {
     assert!(result.evaluation.correct());
     assert_eq!(result.evaluation.normalized_credit(), 1.0);
     assert!(result.question_answer.is_some());
+    assert_eq!(
+        compiled.presentation().native_choice_order(),
+        question_model::NativeChoiceOrder::Fixed
+    );
+}
+
+#[test]
+fn choice_randomization_is_choice_owned_and_defaults_for_legacy_sources() {
+    let source = br#"{
+        "format": "pleQuestionJson",
+        "version": 3,
+        "questionTitle": "Randomize choices",
+        "questionDescription": "A native choice question.",
+        "prompt": "Choose one.",
+        "response": {
+            "kind": "singleChoice",
+            "choices": [
+                {"id": "a", "text": "A"},
+                {"id": "b", "text": "B"}
+            ],
+            "correctChoice": "a",
+            "randomizeChoices": true
+        },
+        "language": "en"
+    }"#;
+    let compiled = PleQuestionJsonDocument::parse(source)
+        .expect("choice randomization parses")
+        .compile()
+        .expect("choice randomization compiles");
+    assert_eq!(
+        compiled.presentation().native_choice_order(),
+        question_model::NativeChoiceOrder::NonceRandomized
+    );
+
+    let non_choice_source = br#"{
+        "format": "pleQuestionJson",
+        "version": 3,
+        "questionTitle": "No choice order",
+        "questionDescription": "A fill-in question.",
+        "prompt": "Enter the answer.",
+        "response": {
+            "kind": "fillIn",
+            "answers": ["answer"],
+            "matchMode": "exact",
+            "maxLength": 16,
+            "randomizeChoices": true
+        },
+        "language": "en"
+    }"#;
+    assert!(PleQuestionJsonDocument::parse(non_choice_source).is_err());
 }
 
 #[test]

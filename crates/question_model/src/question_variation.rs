@@ -6,6 +6,21 @@ use crate::generation::QuestionSeed;
 use crate::question_content::QuestionContentBlock;
 use crate::{QuestionResponseFormat, QuestionRevisionReference};
 
+/// Internal presentation policy for native choice Questions.
+///
+/// This is deliberately skipped from the serialized Question Variation and
+/// public response contracts. PLE Question JSON is currently the only source
+/// that selects nonce-randomized choice order; other Question Backends retain
+/// their own presentation behavior.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum NativeChoiceOrder {
+    /// Preserve authored choice order.
+    #[default]
+    Fixed,
+    /// Derive the issued order from the durable presentation nonce and choice IDs.
+    NonceRandomized,
+}
+
 /// The reproducible generated state for one exact Question Revision and Question Seed.
 ///
 /// The same pair produces the same Question Variation Presentation on every
@@ -48,6 +63,9 @@ pub struct QuestionVariationPresentation {
     pub prompt: Vec<QuestionContentBlock>,
     /// The shape of response this variant expects.
     pub response: QuestionResponseFormat,
+    /// Server-only native choice-order policy; never emitted in public contracts.
+    #[serde(skip)]
+    pub native_choice_order: NativeChoiceOrder,
 }
 
 #[cfg(test)]

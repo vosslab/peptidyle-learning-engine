@@ -99,6 +99,7 @@ impl WebworkRenderer for RecordedRenderer {
                     ],
                     selection: ResponseSelectionRule::ExactlyOne,
                 },
+                native_choice_order: question_model::NativeChoiceOrder::Fixed,
             },
             renderer_version: self.identity.clone(),
             replay: Some(recorded_replay()),

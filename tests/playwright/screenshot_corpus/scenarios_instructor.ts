@@ -1,9 +1,11 @@
 // scenarios_instructor.ts - Instructor survey and visible mutation checkpoints.
 // Selector contract: shared Course actions live in visible_workflows.ts:32; primary headings are
 // owned by src/pages/course_list_page.tsx:149, src/pages/library_page.tsx:163,
-// src/pages/question_drafts_page.tsx:102, and src/pages/assignment_release_page.tsx:207.
+// src/pages/question_drafts_page.tsx:102, assignment_workspace_create_page.tsx, and the focused
+// Assignment workspace pages.
 
 import type { ScenarioRuntime } from "./runtime";
+import { monitorCapturePrivacy } from "./privacy_profiles";
 import type { ScenarioDefinition } from "./scenario_types";
 import {
   COURSE_TITLE,
@@ -171,34 +173,62 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
     await enterInstructor(page);
     await openInstructorCourse(page);
     await page.getByRole("link", { name: "Create Assignment", exact: true }).click();
-    await page.getByRole("heading", { name: "Create Assignment", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "Create an Assignment", exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, "assignment_creation", session);
     await page.getByLabel("Assignment title").fill(ASSIGNMENT_TITLE);
-    await page.getByLabel("Instructions").fill("Complete the selected peptide Question.");
     await page.getByRole("button", { name: "Create Assignment", exact: true }).click();
-    await page.getByRole("heading", { name: "Assignment Workspace", exact: true }).waitFor();
-    await page.getByRole("group", { name: "Available Published Questions", exact: true }).waitFor();
-    await captureCheckpoint(runtime, scenario, "assignment_release_draft", session);
+    await page.getByRole("heading", { name: "Questions", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Search question library", exact: true }).click();
+    const picker = page.getByRole("dialog", { name: "Choose assignment questions", exact: true });
+    await picker.getByRole("button", { name: "Search questions", exact: true }).click();
+    await picker.locator(".question-picker-result input").first().check();
+    await picker.getByRole("button", { name: "Add selected questions", exact: true }).click();
+    await captureCheckpoint(runtime, scenario, "assignment_questions_draft", session);
+    await page.getByRole("button", { name: "Save Questions and order", exact: true }).click();
     await page
-      .getByRole("group", { name: "Available Published Questions", exact: true })
-      .getByRole("checkbox")
-      .first()
-      .check();
+      .getByText("Questions and order saved. Review assignment policies when you are ready.")
+      .waitFor();
+    await page.getByRole("link", { name: "Review assignment policies", exact: true }).click();
+    await page.getByRole("heading", { name: "Policies", exact: true }).waitFor();
     await page.getByLabel("Due date").fill("2026-12-01T12:00");
     await page.getByLabel("Late-work rule").selectOption("mark_late");
-    await page.getByRole("button", { name: "Save Assignment", exact: true }).click();
+    await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
     await page
-      .getByText("Assignment saved. Validate it before release.", { exact: true })
+      .getByText("Assignment policies saved. The current assignment now uses the new revision.")
       .waitFor();
-    await page.getByRole("button", { name: "Validate Assignment", exact: true }).click();
-    await page.getByText(/Assignment validation passed/u).waitFor();
-    await page.getByRole("button", { name: "Open Assignment Preview", exact: true }).click();
-    await page.getByRole("heading", { name: "Assignment Preview", exact: true }).waitFor();
-    await runtime.capture(session, runtime.record(scenario, "assignment_release_preview"));
-    await page.getByRole("button", { name: "Return to Assignment Workspace", exact: true }).click();
-    await page.getByRole("button", { name: "Release Assignment", exact: true }).click();
-    await page.getByText(/Released state · current edit [1-9][0-9]*/u).waitFor();
-    await captureCheckpoint(runtime, scenario, "assignment_release_released", session);
+    const deliveryCheckPage = session.context.waitForEvent("page");
+    await page.getByRole("link", { name: "Check assignment delivery", exact: true }).click();
+    const deliveryCheck = await deliveryCheckPage;
+    await deliveryCheck
+      .getByRole("heading", { name: "Assignment delivery check", exact: true })
+      .waitFor();
+    await deliveryCheck
+      .getByText("Preview only - no Student work or grades are created.", { exact: true })
+      .waitFor();
+    const deliveryCheckSession = {
+      ...session,
+      page: deliveryCheck,
+      pageErrors: [],
+      privacy: monitorCapturePrivacy(deliveryCheck, runtime.entryUrl.origin),
+    };
+    await runtime.capture(
+      deliveryCheckSession,
+      runtime.record(scenario, "assignment_delivery_check"),
+    );
+    await deliveryCheck
+      .getByRole("link", { name: "Return to assignment policies", exact: true })
+      .waitFor();
+    await deliveryCheck.close();
+    const readiness = page.getByRole("button", { name: "Check release readiness", exact: true });
+    await readiness.focus();
+    await page.keyboard.press("Enter");
+    await page.getByRole("heading", { name: "Ready to release", exact: true }).waitFor();
+    await page
+      .getByText("Release readiness checked. This saved assignment is ready to release.")
+      .waitFor();
+    await page.getByRole("button", { name: "Release assignment", exact: true }).click();
+    await page.getByText("Assignment released as revision 1.").waitFor();
+    await captureCheckpoint(runtime, scenario, "assignment_policies_released", session);
   } finally {
     await runtime.close(session);
   }
@@ -235,9 +265,9 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     id: "instructor_assignment",
     checkpoints: [
       "assignment_creation",
-      "assignment_release_draft",
-      "assignment_release_preview",
-      "assignment_release_released",
+      "assignment_questions_draft",
+      "assignment_delivery_check",
+      "assignment_policies_released",
     ],
     run: instructorAssignment,
   },

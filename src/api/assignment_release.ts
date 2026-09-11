@@ -4,8 +4,11 @@ import type { AssignmentEditNumber } from "../../generated/api/AssignmentEditNum
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { QuestionId } from "../../generated/api/QuestionId";
-import type { CourseLocalDateAndTime } from "../../generated/api/CourseLocalDateAndTime";
+import type { LocalDateAndTime } from "../../generated/api/LocalDateAndTime";
 import type { LateWorkRule } from "../../generated/api/LateWorkRule";
+import type { AccountTimeZone } from "../../generated/api/AccountTimeZone";
+import type { AssignmentActivityRules } from "../../generated/api/AssignmentActivityRules";
+import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
 
 export type LiveAssignmentStatus = "unreleased" | "released" | "closed" | "archived";
 
@@ -29,9 +32,15 @@ export interface LiveAssignmentWorkspace {
   readonly status: LiveAssignmentStatus;
   readonly title: string;
   readonly instructions: string;
-  /** Course-local wall-clock deadline; the server resolves it with the Course Term. */
-  readonly dueAt: CourseLocalDateAndTime | null;
+  /** Zone-free wall-clock deadline resolved by the server in the Instructor zone. */
+  readonly dueAt: LocalDateAndTime | null;
   readonly lateWorkRule: LateWorkRule;
+  readonly assignmentAttemptTimeLimitSeconds: number | null;
+  readonly attemptLimit: number | null;
+  readonly activityRules: AssignmentActivityRules;
+  readonly studentFeedbackReleaseRule: StudentFeedbackReleaseRule;
+  /** Informational only; the server interprets dueAt in this authenticated Instructor zone. */
+  readonly displayTimeZone: AccountTimeZone;
   readonly questions: ReadonlyArray<AuthoredAssignmentQuestion>;
 }
 
@@ -48,8 +57,12 @@ export interface CreateLiveAssignmentInput {
 
 export interface SaveLiveAssignmentInput extends CreateLiveAssignmentInput {
   readonly questionIds: ReadonlyArray<QuestionId>;
-  readonly dueAt: CourseLocalDateAndTime | null;
+  readonly dueAt: LocalDateAndTime | null;
   readonly lateWorkRule: LateWorkRule;
+  readonly assignmentAttemptTimeLimitSeconds: number | null;
+  readonly attemptLimit: number | null;
+  readonly activityRules: AssignmentActivityRules;
+  readonly studentFeedbackReleaseRule: StudentFeedbackReleaseRule;
 }
 
 export interface AssignmentReleaseValidation {

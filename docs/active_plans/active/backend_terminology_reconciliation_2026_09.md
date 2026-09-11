@@ -4,7 +4,7 @@
 
 `docs/HUMAN_GUIDANCE.md` and `docs/TERMINOLOGY_CONTRACT.md` now define a simpler domain model: only published reusable Question and Blueprint content has Revisions. Mutable working state uses current records and subject-specific Edit Numbers where concurrency requires them. Student Work and operational evidence remain separate immutable records containing the exact facts used.
 
-The backend still contains four retired revision families—Course Schedule Revision, Assignment Revision and its entry snapshots, Question Change Proposal Revision, and Course Retention Plan Revision—plus Rust contracts, SQL functions, API responses, fixtures, tests, and documentation built around them. This is a pre-production system without durable production data, so the correct response is a clean schema and implementation redesign rather than compatibility machinery.
+The backend still contains four retired revision families-Course Schedule Revision, Assignment Revision and its entry snapshots, Question Change Proposal Revision, and Course Retention Plan Revision-plus Rust contracts, SQL functions, API responses, fixtures, tests, and documentation built around them. This is a pre-production system without durable production data, so the correct response is a clean schema and implementation redesign rather than compatibility machinery.
 
 The repository has substantial uncommitted Interface Cleanup work touching some of the same Assignment, Course, time-zone, API, and test surfaces. Execution must preserve and integrate those changes.
 
@@ -19,7 +19,7 @@ The repository has substantial uncommitted Interface Cleanup work touching some 
 
 ## Design philosophy
 
-Apply the repository’s KISS and “Fix Things Right” principles: replace the invalid revision architecture with direct current-state and evidence records, rather than renaming snapshots or maintaining parallel old/new representations. The rejected alternative is a translation layer that preserves Assignment, schedule, proposal, or retention revisions beneath revised terminology.
+Apply the repository's KISS and "Fix Things Right" principles: replace the invalid revision architecture with direct current-state and evidence records, rather than renaming snapshots or maintaining parallel old/new representations. The rejected alternative is a translation layer that preserves Assignment, schedule, proposal, or retention revisions beneath revised terminology.
 
 Keep evidence explicit and domain-shaped. Attempts and Issued Questions copy the facts they need; they do not point to a generic Assignment snapshot or opaque policy blob.
 
@@ -89,8 +89,8 @@ Keep evidence explicit and domain-shaped. Attempts and Issued Questions copy the
 
 | Area | Final contract |
 | --- | --- |
-| Assignment | Existing list, GET, PUT, preview, and release-validation routes remain. `POST …/release` requires `If-Match`, creates no Revision, and returns `200` with the updated Assignment and ETag. |
-| Unrelease | Add `GET …/unrelease-impact` and `POST …/unrelease`. POST requires `If-Match` and strict `{ "assignmentTitle": "exact title" }`; it returns the updated Assignment plus authoritative deletion counts. |
+| Assignment | Existing list, GET, PUT, preview, and release-validation routes remain. `POST .../release` requires `If-Match`, creates no Revision, and returns `200` with the updated Assignment and ETag. |
+| Unrelease | Add `GET .../unrelease-impact` and `POST .../unrelease`. POST requires `If-Match` and strict `{ "assignmentTitle": "exact title" }`; it returns the updated Assignment plus authoritative deletion counts. |
 | Published Question | Search and pickers expose only Available lineages. Add owner-only `POST /api/questions/by-id/{question_id}/archive` and `/restore` with strict confirmation and a current-view ETag. |
 | Blueprint Course | Keep published list/GET. Replace revision-creating base PUT with GET/PUT `/api/course-blueprints/{reference}/draft`; add POST `/publish`, `/archive`, and `/restore`. |
 | Account Time Zone | Add authenticated GET/PUT `/api/account/time-zone`; PUT accepts only `{ "timeZone": "<IANA identifier>" }` and requires `If-Match`. |
@@ -108,7 +108,7 @@ Keep evidence explicit and domain-shaped. Attempts and Issued Questions copy the
 
 ### Milestone M1: Canonical data foundation
 
-- Depends on: none — the governing documentation and retired-concept inventory are complete.
+- Depends on: none - the governing documentation and retired-concept inventory are complete.
 - Deliverables: rewritten fresh-schema structures, canonical Rust types, removed dead revision scaffolding, and behavior-based catalog checks.
 - Workstreams: WS-FS, WS-FD.
 - Entry criteria: preserve the current dirty-work inventory and record overlapping files for integration.
@@ -118,11 +118,11 @@ Keep evidence explicit and domain-shaped. Attempts and Issued Questions copy the
   - Current-state tables expose required Edit Numbers and immutable evidence tables contain copied facts.
   - The narrow schema and domain gates pass.
   - Update `docs/CHANGELOG.md`.
-- Parallel-plan ready: yes — max parallel doers: 2, because SQL foundation and Rust-domain cleanup have separate ownership and generated artifacts remain integrator-owned.
+- Parallel-plan ready: yes - max parallel doers: 2, because SQL foundation and Rust-domain cleanup have separate ownership and generated artifacts remain integrator-owned.
 
 ### Milestone M2: Published reusable content
 
-- Depends on: M1 — availability and draft implementations require the canonical roots and Edit Number types.
+- Depends on: M1 - availability and draft implementations require the canonical roots and Edit Number types.
 - Deliverables: lineage-level availability, immutable availability events, Blueprint Draft persistence, explicit Blueprint publication, archive/restore routes, and updated selection validation.
 - Workstreams: WS-PQ, WS-PB.
 - Entry criteria: fresh-schema and domain-foundation gates pass.
@@ -134,27 +134,27 @@ Keep evidence explicit and domain-shaped. Attempts and Issued Questions copy the
   - Course creation rejects an Archived Blueprint Course but preserves existing Course Origin resolution.
   - Focused Question Library and Blueprint Course E2E pass.
   - Update `docs/CHANGELOG.md`.
-- Parallel-plan ready: yes — max parallel doers: 2, with Question and Blueprint routes/stores owned separately and shared composition handed to the integrator.
+- Parallel-plan ready: yes - max parallel doers: 2, with Question and Blueprint routes/stores owned separately and shared composition handed to the integrator.
 
 ### Milestone M3: Current configuration and time
 
-- Depends on: M1 — the current-state and evidence conventions must be established first.
+- Depends on: M1 - the current-state and evidence conventions must be established first.
 - Deliverables: current Question Change Proposal and Course Retention Plan records, exact events/jobs, current Course Term dates, Account Time Zone route and Edit Number, and removal of Course Time Zone.
 - Workstreams: WS-CF, WS-TZ.
 - Entry criteria: canonical foundation merged.
 - Exit criteria:
   - Proposal edits use CAS and events retain the exact acted-on proposal facts.
   - Retention jobs/events retain exact effective settings without referencing a mutable plan.
-  - Course creation and Assignment schedule input use the acting Instructor’s Account Time Zone.
+  - Course creation and Assignment schedule input use the acting Instructor's Account Time Zone.
   - Instructor and Student responses render stored instants in their respective Account Time Zones.
   - No schema or wire field owns a Course Time Zone.
   - Focused catalog, time-zone, DST, and Course Instance gates pass.
   - Update `docs/CHANGELOG.md`.
-- Parallel-plan ready: yes — max parallel doers: 2, because configuration evidence and time-zone/Course Term components do not share route or domain ownership.
+- Parallel-plan ready: yes - max parallel doers: 2, because configuration evidence and time-zone/Course Term components do not share route or domain ownership.
 
 ### Milestone M4: Assignment and evidence lifecycle
 
-- Depends on: M2 and M3 — Assignment selection needs stable availability, while schedule capture needs the Account Time Zone model.
+- Depends on: M2 and M3 - Assignment selection needs stable availability, while schedule capture needs the Account Time Zone model.
 - Deliverables: current Assignment content, Released-state validation, revision-free Release, explicit Attempt/Issued Question evidence, Unrelease impact and action routes, deletion authority, and statistics correction.
 - Workstreams: WS-AS.
 - Entry criteria: Published Question availability and Account Time Zone gates pass.
@@ -167,11 +167,11 @@ Keep evidence explicit and domain-shaped. Attempts and Issued Questions copy the
   - Close and Archive preserve Student Work.
   - Focused Assignment release, Attempt, delivery, completion, gradebook, and Unrelease E2E pass.
   - Update `docs/CHANGELOG.md`.
-- Parallel-plan ready: no — the Assignment row, Attempt-start transaction, delivery functions, deletion graph, and statistics corrections form one tightly coupled consistency boundary.
+- Parallel-plan ready: no - the Assignment row, Attempt-start transaction, delivery functions, deletion graph, and statistics corrections form one tightly coupled consistency boundary.
 
 ### Milestone M5: Integration and close-out
 
-- Depends on: M2, M3, and M4 — integration must validate the complete domain cutover.
+- Depends on: M2, M3, and M4 - integration must validate the complete domain cutover.
 - Deliverables: regenerated contracts, minimal client adjustments, reconciled fixtures, full test evidence, documentation, semantic audit, and independent review.
 - Workstreams: WS-IV.
 - Entry criteria: every focused backend gate passes.
@@ -182,7 +182,7 @@ Keep evidence explicit and domain-shaped. Attempts and Issued Questions copy the
   - The final semantic scan finds only legitimate Question Revision and Blueprint Revision usage outside historical records.
   - An independent reviewer finds no unresolved correctness, security, terminology, or evidence-retention blocker.
   - Record final results and limitations in `docs/CHANGELOG.md`.
-- Parallel-plan ready: no — generated artifacts, active dirty work, cross-suite fixtures, final documentation, and completion claims require one integration owner.
+- Parallel-plan ready: no - generated artifacts, active dirty work, cross-suite fixtures, final documentation, and completion claims require one integration owner.
 
 ## Workstream breakdown
 
@@ -238,7 +238,7 @@ Keep evidence explicit and domain-shaped. Attempts and Issued Questions copy the
 
 ### Workstream WS-TZ: Account Time Zone and Course Term
 
-- Goal: remove Course Time Zone and use each authenticated Account’s zone.
+- Goal: remove Course Time Zone and use each authenticated Account's zone.
 - Owner: expert_coder.
 - Work packages: WP-TZ1.
 - Interfaces:
@@ -383,7 +383,7 @@ Keep evidence explicit and domain-shaped. Attempts and Issued Questions copy the
   - Account Time Zone GET/PUT supports both Instructor and Student accounts with validation and CAS.
   - Student defaulting from an Instructor occurs only at Student-account creation.
   - Ambiguous/nonexistent local times are rejected; stored instants are stable across preference changes.
-  - Responses render instants in the requesting Account’s zone.
+  - Responses render instants in the requesting Account's zone.
 - Evidence or review, when useful:
   - Unit and E2E coverage for two accounts in different zones and DST boundary cases.
 - Obvious follow-ons:
@@ -399,7 +399,7 @@ Keep evidence explicit and domain-shaped. Attempts and Issued Questions copy the
   - Reusing an existing pin does not advance it; newly introduced pins require Available content.
   - All mutable Assignment changes, including status, advance one Assignment Edit Number.
   - Released saves succeed only when the resulting current state passes release validation.
-  - Release performs `Unreleased → Released`, creates no revision, and returns the updated ETag.
+  - Release performs `Unreleased -> Released`, creates no revision, and returns the updated ETag.
 - Evidence or review, when useful:
   - Assignment create/save/release API and PostgreSQL E2E.
 - Obvious follow-ons:
@@ -462,7 +462,7 @@ Keep evidence explicit and domain-shaped. Attempts and Issued Questions copy the
   - Exact completed, skipped, and failed gates are recorded honestly.
   - The semantic scan has no unexplained retired Revision usage.
 - Evidence or review, when useful:
-  - Command receipts and an independent reviewer’s finding report.
+  - Command receipts and an independent reviewer's finding report.
 - Obvious follow-ons:
   - Route any failure to its owning work package; do not weaken assertions to close the plan.
 
@@ -522,7 +522,7 @@ Keep evidence explicit and domain-shaped. Attempts and Issued Questions copy the
 
 - Rewrite the earliest applicable baseline migrations and all downstream references so a fresh schema never creates retired concepts.
 - Do not append create-then-drop migrations, compatibility views, aliases, fallback readers, dual writes, serialized-version branches, or ledger edits.
-- Treat migration checksum mismatch in an existing disposable stack as the expected signal to recreate that stack using the repository’s bounded local-stack workflow.
+- Treat migration checksum mismatch in an existing disposable stack as the expected signal to recreate that stack using the repository's bounded local-stack workflow.
 - Do not delete broad directories or volumes with unresolved targets. Resolve the exact disposable database/volume first.
 - Preserve changed-checksum detection as an acceptance feature even though the working database is rebuilt.
 - Publish one current PLE wire shape; update all in-repository consumers in the same patch sequence.
@@ -565,15 +565,15 @@ Keep evidence explicit and domain-shaped. Attempts and Issued Questions copy the
 
 ## Patch plan and reporting format
 
-- Patch 1: schema — remove retired revision structures and establish current-state/evidence tables.
-- Patch 2: domain — remove retired Rust contracts and define canonical Edit Number/evidence types.
-- Patch 3: Published Question — stable availability, archive/restore, and selection rules.
-- Patch 4: Blueprint Course — current draft, explicit publication, availability, and Course creation rules.
-- Patch 5: configuration and time — proposal, retention, Account Time Zone, and current Course Term.
-- Patch 6: Assignment — current content, exact Question pins, Released saves, and revision-free release.
-- Patch 7: Student evidence — Attempt capture, delivery consumers, atomic Unrelease, and statistics correction.
-- Patch 8: integration — generated contracts, minimal frontend consumers, fixtures, and full acceptance.
-- Patch 9: documentation — current authorities, changelog evidence, active-plan closure, and regenerated indexes.
+- Patch 1: schema - remove retired revision structures and establish current-state/evidence tables.
+- Patch 2: domain - remove retired Rust contracts and define canonical Edit Number/evidence types.
+- Patch 3: Published Question - stable availability, archive/restore, and selection rules.
+- Patch 4: Blueprint Course - current draft, explicit publication, availability, and Course creation rules.
+- Patch 5: configuration and time - proposal, retention, Account Time Zone, and current Course Term.
+- Patch 6: Assignment - current content, exact Question pins, Released saves, and revision-free release.
+- Patch 7: Student evidence - Attempt capture, delivery consumers, atomic Unrelease, and statistics correction.
+- Patch 8: integration - generated contracts, minimal frontend consumers, fixtures, and full acceptance.
+- Patch 9: documentation - current authorities, changelog evidence, active-plan closure, and regenerated indexes.
 
 Each patch report must state: owned behavior, files/components touched, narrow gates run, exact outcomes, unresolved findings, and the next dependency unlocked.
 
@@ -590,7 +590,7 @@ Each patch report must state: owned behavior, files/components touched, narrow g
 - Allow publishing an Archived Blueprint Course without restoring it; continue to prohibit new Course creation from it.
 - Remove unused Blueprint copy/update and grading-operation revision scaffolding without constructing replacement APIs.
 - Add an authenticated Account Time Zone mutation route and remove Course Time Zone entirely.
-- Preserve Course Origin’s exact Blueprint Revision provenance.
+- Preserve Course Origin's exact Blueprint Revision provenance.
 
 ## Open questions and decisions needed
 

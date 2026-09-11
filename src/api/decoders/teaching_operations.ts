@@ -7,6 +7,7 @@ import { MAX_TEACHING_PAGE_SIZE } from "../../../generated/api/MAX_TEACHING_PAGE
 import type { HypotheticalStudentViewScenarioModifiers } from "../../../generated/api/HypotheticalStudentViewScenarioModifiers";
 import type { InstructorCourseInvitationCreateRequest } from "../../../generated/api/InstructorCourseInvitationCreateRequest";
 import type { CourseInvitationTerminalActionRequest } from "../../../generated/api/CourseInvitationTerminalActionRequest";
+import type { AccountTimeZone } from "../../../generated/api/AccountTimeZone";
 import type { InstructorCourseInvitationsPage } from "../../../generated/api/InstructorCourseInvitationsPage";
 import type { InstructorMembershipRemovalRequest } from "../../../generated/api/InstructorMembershipRemovalRequest";
 import type { InstructorMembershipsPage } from "../../../generated/api/InstructorMembershipsPage";
@@ -75,6 +76,19 @@ function canonicalPositivePostgresBigint(value: unknown, path: string): string {
 
 function pageCursor(value: unknown, path: string): string | null {
   return decodeNullable(value, path, decodeCursor);
+}
+
+function displayTimeZone(value: unknown, path: string): AccountTimeZone {
+  const timeZone = decodeString(value, path);
+  if (timeZone.length === 0 || timeZone.length > 255 || timeZone.trim() !== timeZone) {
+    throw new DecodeError(path, "a bounded exact IANA time-zone name");
+  }
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone });
+  } catch {
+    throw new DecodeError(path, "a browser-supported IANA time-zone name");
+  }
+  return timeZone;
 }
 
 function positiveInteger(value: unknown, path: string, maximum: number): number {
@@ -295,8 +309,10 @@ export function decodeInstructorCourseInvitationsPage(
   value: unknown,
   path = "response",
 ): InstructorCourseInvitationsPage {
-  const record = closed(value, path, ["invitations", "nextCursor"]);
+  const record = closed(value, path, ["displayTimeZone", "invitations", "nextCursor"]);
   return {
+    // ASVS 8.2.3/14.2.6: viewer-owned metadata belongs to the outer page only.
+    displayTimeZone: displayTimeZone(record.displayTimeZone, `${path}.displayTimeZone`),
     invitations: decodeBoundedArray(
       record.invitations,
       `${path}.invitations`,
@@ -331,8 +347,10 @@ export function decodePendingCourseInvitationsPage(
   value: unknown,
   path = "response",
 ): PendingCourseInvitationsPage {
-  const record = closed(value, path, ["invitations", "nextCursor"]);
+  const record = closed(value, path, ["displayTimeZone", "invitations", "nextCursor"]);
   return {
+    // ASVS 8.2.3/14.2.6: viewer-owned metadata belongs to the outer page only.
+    displayTimeZone: displayTimeZone(record.displayTimeZone, `${path}.displayTimeZone`),
     invitations: decodeBoundedArray(
       record.invitations,
       `${path}.invitations`,

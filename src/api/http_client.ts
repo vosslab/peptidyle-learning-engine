@@ -22,6 +22,7 @@ import { createGradingOperationsClient } from "./http_client/grading_operations"
 import { createCalculatedGradebookClient } from "./http_client/calculated_gradebook";
 import { createLiveAssignmentReleaseClient } from "./http_client/assignment_release";
 import { createLiveAssignmentAttemptIssuanceClient } from "./http_client/assignment_attempt_issuance";
+import { createStudentAssignmentAttemptNavigationClient } from "./http_client/assignment_attempt_navigation";
 import { createInstructorAccountClient } from "./http_client/instructor_account";
 import { createSupportCapabilityClient } from "./http_client/support_roster";
 import { createLiveDemoGradebookClient } from "./http_client/live_gradebook";
@@ -48,7 +49,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
   const fetchImplementation = config.fetch ?? browserFetch;
   const basePath = normalizeBasePath(config.basePath);
   const client = {} as OrdinaryBrowserApiClient;
-  const responses = createResponseClient(fetchImplementation, basePath, () => client);
+  const responses = createResponseClient(fetchImplementation, basePath);
   const requests = createRequestClient(fetchImplementation, basePath);
   Object.assign(
     client,
@@ -63,6 +64,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createLiveInvitationExportClient(fetchImplementation, basePath),
     createLiveAssignmentReleaseClient(fetchImplementation, basePath),
     createLiveAssignmentAttemptIssuanceClient(fetchImplementation, basePath),
+    createStudentAssignmentAttemptNavigationClient(fetchImplementation, basePath),
     createInstructorAccountClient(fetchImplementation, basePath),
     createSupportCapabilityClient(fetchImplementation, basePath),
     createLiveDemoGradebookClient(fetchImplementation, basePath),

@@ -62,15 +62,15 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
     setState("saving");
     setMessage("");
     try {
-      const created = await applicationApi.client.createAssignment(currentCourse.id, {
+      const created = await applicationApi.client.createLiveAssignment(reference, {
         title: title(),
+        instructions: "",
       });
-      if (created.courseId !== currentCourse.id) {
-        setState("unavailable");
-        return;
-      }
       navigate(
-        createdAssignmentQuestionsPath(reference, assignmentRouteReference(created.reference)),
+        createdAssignmentQuestionsPath(
+          reference,
+          assignmentRouteReference(created.workspace.reference),
+        ),
         {
           replace: true,
         },

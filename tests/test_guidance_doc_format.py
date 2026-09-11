@@ -251,34 +251,45 @@ def check_guidance_is_bulleted(rel: str, lines: list[str]) -> list[str]:
 	violations = []
 	in_section = False
 	in_bullet = False
+	after_bullet_blank = False
 	reported_line = 0
 	for line_number, line in body_lines(lines):
 		stripped = line.strip()
 		if stripped.startswith('## '):
 			in_section = True
 			in_bullet = False
+			after_bullet_blank = False
 			continue
 		if stripped.startswith('#'):
 			in_bullet = False
+			after_bullet_blank = False
 			continue
-		# A blank line alone does not close a bullet: Markdown allows a bullet to
-		# carry a blank-line-separated continuation, and the indent on the next
-		# line is what actually says whether the bullet continued.
+		# A blank boundary ends Markdown's lazy continuation form. An indented
+		# continuation may still follow it as part of the list item.
 		if not stripped:
+			if in_bullet:
+				after_bullet_blank = True
 			continue
 		if stripped.startswith('- ') or stripped.startswith('* '):
 			in_bullet = True
+			after_bullet_blank = False
 			continue
 		# Ordered-list items are entries too.
 		if ORDERED_ITEM_PATTERN.match(stripped):
 			in_bullet = True
+			after_bullet_blank = False
 			continue
 		# An indented line continues the bullet above it, blank line or not.
 		if in_bullet and line.startswith((' ', '\t')):
+			after_bullet_blank = False
+			continue
+		# An uninterrupted unindented line is a Markdown lazy continuation.
+		if in_bullet and not after_bullet_blank:
 			continue
 		# Table rows are structure, not narration.
 		if stripped.startswith('|'):
 			in_bullet = False
+			after_bullet_blank = False
 			continue
 		# Anything else under a section heading is a prose paragraph.
 		if in_section:
@@ -382,4 +393,31 @@ def test_guidance_doc_format(path: str) -> None:
 	assert rel not in VIOLATIONS_BY_FILE, file_utils.format_violation_assert_message(
 		rel, VIOLATIONS_BY_FILE.get(rel, []), REPORT_NAME
 	)
+
+
+#============================================
+def test_guidance_bullet_parser_accepts_lazy_continuation() -> None:
+	"""Accept an uninterrupted Markdown lazy continuation under a bullet."""
+	violations = check_guidance_is_bulleted(
+		GUIDANCE_DOC, ["## Guidance", "- A stated preference", "continued in the same item"]
+	)
+	assert not violations
+
+
+#============================================
+def test_guidance_bullet_parser_rejects_prose_after_blank_boundary() -> None:
+	"""Reject a new prose paragraph after a bullet's blank boundary."""
+	violations = check_guidance_is_bulleted(
+		GUIDANCE_DOC, ["## Guidance", "- A stated preference", "", "New prose paragraph"]
+	)
+	assert "prose paragraph" in violations[0]
+
+
+#============================================
+def test_guidance_bullet_parser_accepts_indented_continuation_after_blank() -> None:
+	"""Accept the indented continuation form after a blank boundary."""
+	violations = check_guidance_is_bulleted(
+		GUIDANCE_DOC, ["## Guidance", "- A stated preference", "", "  continued list item"]
+	)
+	assert not violations
 # Vendored pytest file. Local changes can and will be overwritten.

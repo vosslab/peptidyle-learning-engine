@@ -59,7 +59,6 @@ import type {
   CursorPage,
   ImathasQuestionBackendLaunch,
   StudentFeedbackReleaseResponse,
-  AssignmentAttemptScreenData,
   AssignmentAttemptSummaryResponse,
   PrefetchedNextQuestion,
   QuestionPoolPreview,
@@ -74,6 +73,7 @@ import type { LiveCourseRosterClient } from "./course_roster";
 import type { LiveInvitationExportClient } from "./invitation_export";
 import type { LiveAssignmentReleaseClient } from "./assignment_release";
 import type { LiveAssignmentAttemptIssuanceClient } from "./assignment_attempt_issuance";
+import type { StudentAssignmentAttemptNavigationClient } from "./assignment_attempt_navigation";
 import type { InstructorAccountClient } from "./instructor_account";
 import type { SupportCapabilityClient } from "./support_roster";
 import type { LiveDemoGradebookClient } from "./live_gradebook";
@@ -156,6 +156,7 @@ export interface ApiClient
     LiveInvitationExportClient,
     LiveAssignmentReleaseClient,
     LiveAssignmentAttemptIssuanceClient,
+    StudentAssignmentAttemptNavigationClient,
     InstructorAccountClient,
     SupportCapabilityClient,
     LiveDemoGradebookClient,
@@ -383,9 +384,6 @@ export interface ApiClient
   readonly getAssignmentActivitySummary: (
     studentRecordId: StudentRecordId,
   ) => Promise<StudentAssignmentProgress>;
-  readonly getAssignmentAttemptScreen: (
-    assignmentAttemptId: AssignmentAttemptId,
-  ) => Promise<AssignmentAttemptScreenData>;
   /** Same-origin POST that authorizes, audits, and returns one normalized course banner. */
   readonly fetchCourseBanner: (bannerReference: CourseBannerReference) => Promise<Blob>;
   /** Fetches the fixed 5:2 course-card WebP rendition. */

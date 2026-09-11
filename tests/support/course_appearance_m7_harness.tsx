@@ -133,8 +133,6 @@ export function mountCourseAppearanceM7Harness(
         Promise.reject(
           new Error("Course Appearance harness does not resolve Assignment Attempts."),
         ),
-      assignmentAttemptScreen: () =>
-        Promise.reject(new Error("Course Appearance harness does not load Assignment Attempts.")),
       assignmentAttemptSummary: () =>
         Promise.reject(
           new Error("Course Appearance harness does not load Assignment Attempt summaries."),

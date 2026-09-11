@@ -24,7 +24,7 @@ export function ShortTextResponse(
   const response = (): StudentResponse => ({ kind: "shortText", text: text() });
   function update(next: string): void {
     setText(next);
-    void controller.validate({ kind: "shortText", text: next });
+    void controller.edit({ kind: "shortText", text: next });
   }
   function submit(): void {
     void controller.submit(response());
@@ -70,6 +70,7 @@ export function ShortTextResponse(
         disabled={!controller.canSubmit() || controller.locked()}
         resetDisabled={controller.locked()}
         onSubmit={submit}
+        submitLabel={props.submitLabel}
         onReset={reset}
         onEscape={props.onEscape}
       />

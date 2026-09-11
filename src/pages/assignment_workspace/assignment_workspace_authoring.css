@@ -32,6 +32,17 @@
   align-items: start;
 }
 
+/* Questions owns the broad working area; lookup and reuse remain supporting tools. */
+.assignment-editor-grid--questions {
+  grid-template-columns:
+    minmax(var(--ple-instructor-primary-min-inline, 30rem), 1.8fr)
+    minmax(var(--ple-instructor-secondary-min-inline, 24rem), 0.8fr);
+}
+
+.assignment-editor-panel--questions-primary {
+  min-block-size: 30rem;
+}
+
 .assignment-editor-panel {
   min-width: 0;
   padding: var(--ple-panel-padding, 0.85rem);

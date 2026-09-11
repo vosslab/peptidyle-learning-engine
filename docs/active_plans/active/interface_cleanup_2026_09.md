@@ -385,6 +385,25 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   catalog; the icon sprite build test passes from the same-origin sprite.
 - Parallel-plan ready: yes.
 
+#### M2 completion receipt (2026-09-10)
+
+- Status: complete. One dense top bar holds identity, role, account, backed Product tabs, and Sign
+  Out. The declared Courses, Questions, and Assignments topology and ordered tasks use icon plus
+  text; the task row appears only when applicable.
+- Truthful navigation: unbacked destinations, including the current Assignments and Profile
+  positions, remain Unavailable without placeholder links. The typed unavailable Profile Context
+  Control is ready for M17; Student invitation remains a breadcrumb-free Product Context Control.
+- Breadcrumbs: the shell renders ordered real ancestor links and a current terminal below the
+  Ribbon, adds no Ribbon row, and preserves deferred-route geometry.
+- Accepted evidence: actual Tab and Shift+Tab reading-order traversal, selected-task and overflow
+  checks at desktop, tablet, phone, and 200% zoom, current sprite and ledger checks, and fresh
+  routed-shell image review at desktop and 320 by 640/200% all passed. A six-pass audit and final
+  rereview closed its concrete findings. The exact `./launchers/all_test.sh` checkpoint passed
+  with 414 Node and 6,252 pytest tests plus connected PostgreSQL and PostgreSQL-plus-MinIO Course
+  Appearance acceptance; its final diff was clean.
+- Remaining scope: M9 owns the final static screenshot-corpus refresh. M3 already has its
+  pre-existing receipt, so M16 is the next dependency-ordered milestone.
+
 ### Milestone: M3 Instructor list density and identity
 
 - Depends on: M0 only, for the density decision record. Independent of M1 and M2.
@@ -555,6 +574,23 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   one surface agree; the attempt countdown keeps consuming a server-computed remaining duration.
 - Parallel-plan ready: yes, per surface.
 
+#### M15 completion receipt (2026-09-10)
+
+- Status: complete. All production browser wall-clock formatters now receive an explicit
+  authenticated viewer or account `timeZone`. Student delivery and activity use and name one
+  Student zone; Gradebook submission times name the Instructor zone; Sysadmin sign-in times name
+  the viewer zone; and Teaching Team and pending-invitation timestamps append the exact viewer IANA
+  zone. The due-date editor names the Instructor zone that interprets its local entry.
+- Timer boundary: the Attempt countdown starts from the server-supplied
+  `timerRemainingMilliseconds` and advances with monotonic `performance.now()` elapsed time, with
+  the existing Wasm timing calculation retained; it does not derive remaining time from a browser
+  wall clock.
+- Review and checks: the targeted final reviewer approved the formatter sweep with no findings;
+  28/28 focused tests passed. Focused Markdown, guidance/source-line, whitespace, and diff checks
+  passed.
+- Scope disposition: Student presentation mounting remains M7. Retirement of the legacy
+  Course-zone display concept remains M16, including its migration and calendar-bound resolution.
+
 ### Milestone: M16 retire the Course zone
 
 - Depends on: M14, which removes the last interpretation dependency on it; M15, which removes the
@@ -605,6 +641,39 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   absolute deadline; axe reports no serious or critical finding on the Student attempt surface.
 - Parallel-plan ready: yes, once WS-DELIVERY has declared the surviving lane.
 
+#### M5 completion receipt (2026-09-10)
+
+- Status: complete. The public one-question Attempt entry, focused navigation, live context,
+  saved-response and whole-Attempt finalization routes, timer propagation, and truthful saved state
+  after reload are integrated. Duplicate frontend route/client and old nonce `POST` retirement are
+  complete; the retained nonce status route is GET-only.
+- Live acceptance: supported Live Demo startup reached ready state after the controller wait fix.
+  The exact browser journey passed keyboard Start, autosave, reload with a truthful restored
+  response, question navigation, manual save, responsive views, whole-Attempt submission, terminal
+  reload, and axe with no serious or critical findings.
+- Recovery acceptance: the native PLE leased-job interruption/replacement path passed with one
+  terminal result and audit receipt. WeBWorK passed deterministic grading plus renderer-outage
+  `instructor_attention` and replacement recovery.
+- Checkpoint gate: the current exact `./launchers/all_test.sh` passed Rust, `check_codebase.sh`
+  (409 Node tests), 6,252 pytest tests, and both connected acceptance lanes: PostgreSQL baseline
+  and PostgreSQL plus MinIO Course Appearance. The navigation oracle finalizes before its stable
+  post-finalization reads and proves the exact two-position submitted state. Live Demo uses the
+  current public Attempt APIs: Mary is finalized and graded, Jack is open with two saved responses,
+  and replay waits for pending Mary grading without another Attempt.
+- Six fresh independent Plan, Test, Style, Documentation, Legacy, and Comment audit passes repaired
+  syntax and stale tests, context registration, response validation/save recovery, and shared SQL
+  fixture isolation. Focused independent re-reviews accepted those repairs.
+- Scope disposition: existing presentation machinery remains the asset boundary; no asset-rendition
+  change belongs to M5. iMathAS end-to-end Student issuance and launch was unbacked before this
+  plan and is a separate backend-delivery follow-on. The manifest removed ten obsolete delivery
+  captures without replacing their historical PNGs or receipt; current Attempt capture, matching
+  receipt, and atlas remain explicit M9 work, so static corpus replay is pending that replacement.
+- Sequencing note: M2 and M4 have existing out-of-order work in progress, and M3, M12, M13, and
+  M14 received earlier implementation receipts ahead of the reporting order. M2 and M4 are not
+  accepted; their existing work and the other receipts are preserved without relabeling them as
+  newly validated. With M5 accepted, closure resumes the original patch sequence at M12, then M13,
+  M14, M15, M2, and the later listed patches.
+
 ### Milestone: M6 Student vocabulary and course entry
 
 - Depends on: none. Runs from day one.
@@ -624,9 +693,14 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
 - Focused checks: `npx tsc --noEmit -p tsconfig.json`, the two-case attempt recovery test, M6
   Prettier checks, and `git diff --check` passed. The initial M6 repository gate also passed with
   typecheck, lint, format, and 362 Node tests.
-- Browser evidence: the compiled production-component journey
-  `node --import tsx tests/playwright/student_course_entry_m6_evidence.mjs` passed on rerun. It
-  covers zero, one, chooser, many, and landing-back behavior.
+- One-time vocabulary acceptance: a source-guided sweep of the changed Student course, invitation,
+  access, attempt, summary, and navigation surfaces found no visible `Course Instance`, `Released
+  Assignment`, `Question Title`, or `C-n` label. The compiled production-component journey
+  `node --import tsx tests/playwright/student_course_entry_m6_evidence.mjs` passed zero, one,
+  chooser, many, and return states.
+- Evidence boundary: M5 now supplies the live Student access and Attempt proof for the surviving
+  delivery lane. Invitation wording remains source-reviewed here; this M6 receipt does not claim a
+  separately rendered invitation journey.
 - Independent review: the M6 re-review passed after the Student attempt route stopped rendering
   the authored Question Title and the updated browser assertions covered the visible headings.
 - Shared-gate boundary: later full-suite and repository-gate failures belonged to concurrent M12
@@ -1515,7 +1589,7 @@ and PYTEST_STYLE.md:
 - [x] M0 documents agree; no contradictory tab set remains.
 - [x] One Instructor Assignment editing path; no dead internal link.
 - [ ] Ribbon ledger regenerated and matching the catalog.
-- [ ] One Student delivery lane with navigation bar, saved state, and timer.
+- [x] One Student delivery lane with navigation bar, saved state, and timer.
 - [x] Student-visible text carries no Instructor noun.
 - [ ] Start Assignment shows title, counts, points, time limit, and previous attempts.
 - [ ] A deadline is a zone-free instant; Instructor entry and Student display each use their own

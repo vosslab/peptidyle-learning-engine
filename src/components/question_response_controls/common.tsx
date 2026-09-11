@@ -1,6 +1,6 @@
 // common.tsx - shared browser-safe response-controller contracts and controls.
 
-import { createContext, createSignal, useContext, type JSX } from "solid-js";
+import { createContext, createSignal, onCleanup, useContext, type JSX } from "solid-js";
 
 import type { QuestionContentBlock } from "../../../generated/api/QuestionContentBlock";
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
@@ -22,7 +22,7 @@ export type ResponseFormat = QuestionResponseFormat | QuestionPresentationRespon
  * mode exposes the Question Submission boundary. Keep that distinction at the
  * shared controller boundary so each response-format component stays native.
  */
-export type ResponseControlMode = "submission" | "formatOnly";
+export type ResponseControlMode = "submission" | "save" | "formatOnly";
 const ResponseControlModeContext = createContext<ResponseControlMode>("submission");
 
 export function ResponseControlModeProvider(props: {
@@ -74,10 +74,18 @@ export interface QuestionResponseControlBaseProps {
   /** Question Response Controls require only the key-free local format validation capability. */
   readonly validator: { readonly validateResponseFormat: ResponseFormatValidator };
   readonly onSubmit?: (response: StudentResponse) => Promise<SubmissionOutcome>;
+  /** Delivery surfaces may name a durable save without changing response semantics. */
+  readonly submitLabel?: string;
   readonly onEscape: () => void;
+  /**
+   * Editable delivery surfaces receive the raw response synchronously.  This
+   * invalidates any older save before asynchronous format validation returns.
+   */
+  readonly onResponseEdit?: (response: StudentResponse) => number | undefined;
   readonly onResponseChange?: (
     response: StudentResponse,
     validation: StudentResponseFormatCheck,
+    editRevision?: number,
   ) => void;
   /** Exact navigation scope required to activate an iMathAS Question Backend response. */
   readonly studentWorkRoute?: StudentWorkRouteScope;
@@ -106,6 +114,8 @@ export interface SubmissionController {
   readonly locked: () => boolean;
   readonly canSubmit: () => boolean;
   readonly canReset: () => boolean;
+  /** Record an input edit before its asynchronous format check starts. */
+  readonly edit: (response: StudentResponse) => Promise<void>;
   readonly validate: (response: StudentResponse) => Promise<void>;
   /** Restore an unsubmitted response and invalidate any older format check. */
   readonly reset: (response: StudentResponse) => Promise<void>;
@@ -232,8 +242,29 @@ export function createSubmissionController(
   const [phase, setPhase] = createSignal<QuestionResponseControlPhase>({ kind: "idle" });
   let validationRequest = 0;
   let submissionRequest = 0;
+  let disposed = false;
+  let latestEdit:
+    { readonly response: StudentResponse; readonly revision: number | undefined } | undefined;
+  let validatedResponse: StudentResponse | undefined;
 
-  async function validate(response: StudentResponse): Promise<void> {
+  onCleanup(() => {
+    disposed = true;
+    validationRequest += 1;
+    submissionRequest += 1;
+  });
+
+  function latestEditRevision(response: StudentResponse): number | undefined {
+    if (
+      latestEdit === undefined ||
+      JSON.stringify(latestEdit.response) !== JSON.stringify(response)
+    ) {
+      return undefined;
+    }
+    return latestEdit.revision;
+  }
+
+  async function validate(response: StudentResponse, editRevision?: number): Promise<void> {
+    if (disposed) return;
     if (
       phase().kind === "submitting" ||
       phase().kind === "recoveryPending" ||
@@ -243,25 +274,35 @@ export function createSubmissionController(
     }
     validationRequest += 1;
     const request = validationRequest;
+    const effectiveEditRevision = editRevision ?? latestEditRevision(response);
+    validatedResponse = undefined;
     setPhase({ kind: "validating" });
     try {
       const check = await validateResponseLocally(props.validator, props.responseFormat, response);
-      if (request !== validationRequest || phase().kind === "submitting") return;
-      props.onResponseChange?.(response, check);
+      if (disposed || request !== validationRequest || phase().kind === "submitting") return;
+      if (check.issues.length === 0) validatedResponse = response;
+      props.onResponseChange?.(response, check, effectiveEditRevision);
       setPhase(
         check.issues.length === 0
           ? { kind: "ready" }
           : { kind: "invalid", message: responseFormatMessage(check) },
       );
     } catch (error: unknown) {
-      if (request !== validationRequest || phase().kind === "submitting") return;
+      if (disposed || request !== validationRequest || phase().kind === "submitting") return;
+      validatedResponse = undefined;
       const message = error instanceof Error ? error.message : "format validation was unavailable";
       setPhase({ kind: "failed", message: `Cannot check this response yet: ${message}.` });
     }
   }
 
+  async function edit(response: StudentResponse): Promise<void> {
+    const editRevision = props.onResponseEdit?.(response);
+    latestEdit = { response, revision: editRevision };
+    await validate(response, editRevision);
+  }
+
   async function submit(response: StudentResponse): Promise<void> {
-    if (props.mode === "formatOnly") return;
+    if (disposed || props.mode === "formatOnly") return;
     if (
       phase().kind === "submitting" ||
       phase().kind === "recoveryPending" ||
@@ -269,7 +310,12 @@ export function createSubmissionController(
     ) {
       return;
     }
-    if (phase().kind !== "ready") {
+    const retryingSavedResponse =
+      props.mode === "save" &&
+      phase().kind === "failed" &&
+      validatedResponse !== undefined &&
+      JSON.stringify(validatedResponse) === JSON.stringify(response);
+    if (phase().kind !== "ready" && !retryingSavedResponse) {
       await validate(response);
       if (phase().kind !== "ready") return;
     }
@@ -282,10 +328,10 @@ export function createSubmissionController(
         return;
       }
       const outcome = await props.onSubmit(response);
-      if (request !== submissionRequest) return;
+      if (disposed || request !== submissionRequest) return;
       switch (outcome.kind) {
         case "accepted":
-          setPhase({ kind: "submitted" });
+          setPhase(props.mode === "save" ? { kind: "restored" } : { kind: "submitted" });
           return;
         case "recoveryPending":
           setPhase({ kind: "recoveryPending", message: outcome.message });
@@ -295,7 +341,7 @@ export function createSubmissionController(
           return;
       }
     } catch (error: unknown) {
-      if (request !== submissionRequest) return;
+      if (disposed || request !== submissionRequest) return;
       const message =
         error instanceof Error
           ? `Your response is still available. Submission failed: ${error.message}. Try again.`
@@ -305,6 +351,7 @@ export function createSubmissionController(
   }
 
   async function reset(response: StudentResponse): Promise<void> {
+    if (disposed) return;
     if (
       phase().kind === "submitting" ||
       phase().kind === "recoveryPending" ||
@@ -313,20 +360,25 @@ export function createSubmissionController(
       return;
     }
     // A restored response supersedes every earlier asynchronous format check.
+    const editRevision = props.onResponseEdit?.(response);
+    latestEdit = { response, revision: editRevision };
+    validatedResponse = undefined;
     validationRequest += 1;
     const request = validationRequest;
     setPhase({ kind: "validating" });
     try {
       const check = await validateResponseLocally(props.validator, props.responseFormat, response);
-      if (request !== validationRequest || phase().kind === "submitting") return;
-      props.onResponseChange?.(response, check);
+      if (disposed || request !== validationRequest || phase().kind === "submitting") return;
+      if (check.issues.length === 0) validatedResponse = response;
+      props.onResponseChange?.(response, check, editRevision);
       setPhase(
         check.issues.length === 0
           ? { kind: "restored" }
           : { kind: "invalid", message: responseFormatMessage(check) },
       );
     } catch (error: unknown) {
-      if (request !== validationRequest || phase().kind === "submitting") return;
+      if (disposed || request !== validationRequest || phase().kind === "submitting") return;
+      validatedResponse = undefined;
       const message = error instanceof Error ? error.message : "format validation was unavailable";
       setPhase({ kind: "failed", message: `Cannot check this response yet: ${message}.` });
     }
@@ -346,11 +398,15 @@ export function createSubmissionController(
       phase().kind === "recoveryPending" ||
       phase().kind === "submitted",
     canSubmit: () =>
-      props.mode !== "formatOnly" && (phase().kind === "ready" || phase().kind === "restored"),
+      props.mode !== "formatOnly" &&
+      (phase().kind === "ready" ||
+        phase().kind === "restored" ||
+        (props.mode === "save" && phase().kind === "failed")),
     canReset: () =>
       phase().kind !== "submitting" &&
       phase().kind !== "recoveryPending" &&
       phase().kind !== "submitted",
+    edit,
     validate,
     reset,
     submit,
@@ -388,6 +444,7 @@ export function Actions(props: {
   readonly disabled: boolean;
   readonly resetDisabled?: boolean;
   readonly onSubmit: () => void;
+  readonly submitLabel?: string;
   readonly onReset?: () => void;
   readonly resetLabel?: "Clear response" | "Reset order";
   readonly onEscape: () => void;
@@ -395,14 +452,14 @@ export function Actions(props: {
   const mode = useContext(ResponseControlModeContext);
   return (
     <div class="response-actions">
-      {mode === "submission" ? (
+      {mode !== "formatOnly" ? (
         <button
           class="primary-action"
           type="button"
           disabled={props.disabled}
           onClick={props.onSubmit}
         >
-          Submit answer
+          {props.submitLabel ?? "Submit answer"}
         </button>
       ) : null}
       {props.onReset === undefined ? null : (

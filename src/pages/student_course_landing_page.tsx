@@ -1,4 +1,4 @@
-// Student-owned answer-free Course Instance and released Assignment landing.
+// Student-owned answer-free course and available assignment landing.
 
 import { A, useParams } from "@solidjs/router";
 import { createMemo, createResource, For, Show, type JSX } from "solid-js";
@@ -24,14 +24,13 @@ function AssignmentCard(props: {
 }): JSX.Element {
   return (
     <article class="course-card">
-      <p class="card-kicker">Released Assignment</p>
       <h2>{props.assignment.title}</h2>
       <p>
         <strong>{progressLabel(props.assignment)}</strong>
       </p>
       <Show when={props.assignment.assignmentAttemptCompletion !== null}>
         <p>
-          {props.assignment.gradedQuestionCount} of {props.assignment.questionCount} Questions
+          {props.assignment.gradedQuestionCount} of {props.assignment.questionCount} questions
           graded
           {" · "}
           {props.assignment.assignmentAttemptCompletion === "completed"
@@ -106,12 +105,15 @@ export function StudentCourseLandingPage(): JSX.Element {
         {(current) => (
           <>
             <CourseEntryIdentity />
-            <h2>Released Assignments</h2>
+            <A class="quiet-link" href="/?choose=1">
+              Your courses
+            </A>
+            <h2>Assignments</h2>
             <Show when={assignments.loading}>
-              <p class="loading-state">Loading released Assignments...</p>
+              <p class="loading-state">Loading assignments...</p>
             </Show>
             <Show when={!assignments.loading && (assignments()?.length ?? 0) === 0}>
-              <p class="empty-state">No Assignments are released right now.</p>
+              <p class="empty-state">No assignments are available right now.</p>
             </Show>
             <Show when={(assignments()?.length ?? 0) > 0}>
               <div class="card-grid">

@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssignmentActivityRules, AssignmentDeadlineRule, AssignmentEntryAvailability,
+    AccountTimeZone, AssignmentActivityRules, AssignmentDeadlineRule, AssignmentEntryAvailability,
     AssignmentEntryId, AssignmentEntryScoringRule, AssignmentGrade, AssignmentId,
     AssignmentInstructions, AssignmentPointValue, AssignmentProgressRecord,
     AssignmentQuestionVariationRule, AssignmentReference, AssignmentScoringState, AssignmentTitle,
@@ -239,8 +239,8 @@ pub struct StudentAssignmentDetail {
     pub title: AssignmentTitle,
     /// Validated Student-facing plain-text instructions.
     pub instructions: AssignmentInstructions,
-    /// Authoritative IANA zone for displaying the server-resolved instants.
-    pub time_zone: CourseTimeZone,
+    /// Authenticated Student's IANA zone for displaying the server-resolved instants.
+    pub display_time_zone: AccountTimeZone,
     /// Server-resolved delivery limits for this Student.
     pub delivery: StudentAssignmentDelivery,
     /// Ordered complete Assignment Content Entry.
@@ -264,13 +264,14 @@ impl StudentAssignmentDetail {
         assignment: AssignmentSummary,
         landing: AssignmentOverview,
         delivery: StudentAssignmentDelivery,
+        display_time_zone: AccountTimeZone,
     ) -> Self {
         Self {
             id: assignment.id,
             reference: assignment.reference,
             title: landing.title,
             instructions: landing.instructions,
-            time_zone: landing.time_zone,
+            display_time_zone,
             delivery,
             entries: assignment.entries,
         }
@@ -418,10 +419,11 @@ mod tests {
                 assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
                 student_late_work_status: StudentLateWorkStatus::MarkedLate,
             },
+            AccountTimeZone::parse("America/New_York").expect("known zone"),
         );
         let value = serde_json::to_value(&detail).expect("detail serializes");
         assert_eq!(value["instructions"], "Read the legend.");
-        assert_eq!(value["time_zone"], "America/Chicago");
+        assert_eq!(value["display_time_zone"], "America/New_York");
         assert_eq!(value["delivery"]["student_late_work_status"], "marked_late");
         assert!(
             serde_json::from_value::<StudentAssignmentDetail>(serde_json::json!({
@@ -429,7 +431,7 @@ mod tests {
                 "reference": detail.reference,
                 "title": detail.title,
                 "instructions": "Read the legend.",
-                "time_zone": "America/Chicago",
+                "display_time_zone": "America/New_York",
                 "delivery": value["delivery"],
                 "entries": [],
                 "unexpected": true

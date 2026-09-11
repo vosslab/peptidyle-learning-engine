@@ -1,8 +1,7 @@
 /* Fixed-profile geometry and Fieldstation visual system for the persistent Ribbon. */
 
 :root {
-  --ple-ribbon-context-block-size: 3rem;
-  --ple-ribbon-tab-block-size: 2.5rem;
+  --ple-ribbon-top-block-size: 3rem;
   --ple-ribbon-task-block-size: 2.5rem;
   --ple-ribbon-reserved-task-size: var(--ple-ribbon-task-block-size);
 }
@@ -10,26 +9,11 @@
 .ple-app-ribbon,
 .ple-ribbon-shell-grid {
   --ple-ribbon-block-size: calc(
-    var(--ple-ribbon-context-block-size) + var(--ple-ribbon-tab-block-size) +
-      var(--ple-ribbon-reserved-task-size)
+    var(--ple-ribbon-top-block-size) + var(--ple-ribbon-reserved-task-size)
   );
-}
-
-.ple-app-ribbon[data-ribbon-task-row="absent"],
-.ple-ribbon-shell-grid[data-ribbon-task-row="absent"] {
-  --ple-ribbon-reserved-task-size: 0px;
-}
-
-/* The shell frame owns the viewport floor. This variant only replaces its
- * first content track with the Ribbon block declared by this component. */
-.ple-ribbon-shell-grid {
-  --ple-ribbon-shell-block-size: var(--ple-ribbon-block-size);
-  grid-template-rows: var(--ple-ribbon-shell-block-size) minmax(0, 1fr);
-}
-
-.ple-app-ribbon {
-  /* Readable local names make the shared spacing-scale authority visible at
-     every row boundary. */
+  /* The shell-owned breadcrumb prelude is a sibling of the Ribbon. Keep the
+     visual aliases on their shared parent so both regions resolve the same
+     density and surface vocabulary. */
   --ple-ribbon-space-tight: var(--ple-space-1);
   --ple-ribbon-space-control: var(--ple-space-2);
   --ple-ribbon-space-within-area: var(--ple-space-1);
@@ -37,9 +21,6 @@
   --ple-ribbon-space-row: var(--ple-space-3);
   --ple-ribbon-space-inline: var(--ple-space-4);
   --ple-ribbon-space-cue: var(--ple-space-6);
-  --ple-ribbon-course-accent: var(--ple-accent-strong);
-  --ple-ribbon-rule: color-mix(in srgb, var(--ple-ink) 18%, transparent);
-  --ple-ribbon-rule-quiet: color-mix(in srgb, var(--ple-ink) 10%, transparent);
   --ple-ribbon-context-surface: color-mix(
     in srgb,
     var(--ple-surface-soft) 88%,
@@ -60,12 +41,31 @@
     var(--ple-surface-soft) 76%,
     var(--ple-card-surface)
   );
+}
+
+.ple-app-ribbon[data-ribbon-task-row="absent"],
+.ple-ribbon-shell-grid[data-ribbon-task-row="absent"] {
+  --ple-ribbon-reserved-task-size: 0px;
+}
+
+/* The shell frame owns the viewport floor. This variant only replaces its
+ * first content track with the Ribbon block declared by this component. */
+.ple-ribbon-shell-grid {
+  --ple-ribbon-shell-block-size: var(--ple-ribbon-block-size);
+  grid-template-rows: var(--ple-ribbon-shell-block-size) minmax(0, 1fr);
+  /* Ribbon rows own their horizontal scrollports. Keep their long inline
+     control tracks from widening the document at enlarged text. */
+  overflow-x: clip;
+}
+
+.ple-app-ribbon {
+  --ple-ribbon-course-accent: var(--ple-accent-strong);
+  --ple-ribbon-rule: color-mix(in srgb, var(--ple-ink) 18%, transparent);
+  --ple-ribbon-rule-quiet: color-mix(in srgb, var(--ple-ink) 10%, transparent);
   position: relative;
   isolation: isolate;
   display: grid;
-  grid-template-rows: var(--ple-ribbon-context-block-size) var(--ple-ribbon-tab-block-size) var(
-      --ple-ribbon-reserved-task-size
-    );
+  grid-template-rows: var(--ple-ribbon-top-block-size) var(--ple-ribbon-reserved-task-size);
   block-size: var(--ple-ribbon-block-size);
   min-inline-size: 0;
   overflow: clip;
@@ -97,6 +97,13 @@
   white-space: nowrap;
 }
 
+/* A scroll-end spacer lets the selected control clear the pinned fade rather
+   than stopping beneath it at the physical end of a long Ribbon row. */
+.ple-app-ribbon__row::after {
+  flex: 0 0 calc(var(--ple-ribbon-space-cue) + 1px);
+  content: "";
+}
+
 /* The scrollport remains the labelled row. Its fixed-grid clipping and
    positioning layer keeps cues stationary while row content moves below it. */
 .ple-app-ribbon__row-frame {
@@ -105,12 +112,16 @@
   overflow: clip;
 }
 
-.ple-app-ribbon__row-frame[data-ribbon-row-frame="context"] {
-  --ple-ribbon-row-surface: var(--ple-ribbon-context-surface);
+.ple-app-ribbon__row-frame[data-ribbon-row-frame="top"] {
+  grid-row: 1;
 }
 
-.ple-app-ribbon__row-frame[data-ribbon-row-frame="tabs"] {
-  --ple-ribbon-row-surface: var(--ple-ribbon-tab-surface);
+.ple-app-ribbon__row-frame[data-ribbon-row-frame="tasks"] {
+  grid-row: 2;
+}
+
+.ple-app-ribbon__row-frame[data-ribbon-row-frame="top"] {
+  --ple-ribbon-row-surface: var(--ple-ribbon-context-surface);
 }
 
 .ple-app-ribbon__row-frame[data-ribbon-row-frame="tasks"] {
@@ -121,7 +132,7 @@
   position: absolute;
   z-index: 1;
   inset-block: 0;
-  inline-size: var(--ple-ribbon-space-cue);
+  inline-size: calc(var(--ple-ribbon-space-cue) - 1px);
   pointer-events: none;
   opacity: 0;
   transition: opacity 120ms ease-out;
@@ -129,6 +140,29 @@
 
 .ple-app-ribbon__overflow-cue[data-ribbon-overflow-active="true"] {
   opacity: 1;
+}
+
+/* A fade alone is easy to miss in ordinary color schemes. The same quiet
+   directional marks used by forced-colors mode make an active row-local
+   scrollport explicit while the gradient retains its spatial context. */
+.ple-app-ribbon__overflow-cue[data-ribbon-overflow-active="true"]::before {
+  display: grid;
+  inline-size: 100%;
+  block-size: 100%;
+  place-items: center;
+  color: var(--ple-ink);
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 0 0.18rem var(--ple-ribbon-row-surface);
+}
+
+.ple-app-ribbon__overflow-cue--start[data-ribbon-overflow-active="true"]::before {
+  content: "\2039";
+}
+
+.ple-app-ribbon__overflow-cue--end[data-ribbon-overflow-active="true"]::before {
+  content: "\203a";
 }
 
 .ple-app-ribbon__overflow-cue--start {
@@ -143,7 +177,7 @@
 
 /* Context answers where am I: quiet type, a neutral surface, and only the
    scoped course identity receives its small semantic accent marker. */
-.ple-app-ribbon__context {
+.ple-app-ribbon__top-bar {
   gap: var(--ple-ribbon-space-row);
   padding-inline: var(--ple-ribbon-space-inline);
   background-color: var(--ple-ribbon-context-surface);
@@ -242,6 +276,16 @@
   border-inline-start: 1px solid var(--ple-ribbon-rule);
 }
 
+/* The canonical 1280px Instructor bar needs the same full labels and glyphs
+   as wider desktops. Its dense band only tightens the existing inline-control
+   token; the task row and shell-owned breadcrumb prelude retain their ordinary
+   spacing. */
+@media (min-width: 64rem) and (max-width: 80rem) {
+  .ple-app-ribbon__top-bar {
+    --ple-ribbon-space-control: var(--ple-space-1);
+  }
+}
+
 /* Controls remain flat in their resting state. Presentation classes are a
    catalog declaration, never a proxy for role or priority. */
 .ple-app-ribbon__sign-out,
@@ -300,11 +344,13 @@
 /* Tabs answer which destination: this is the strongest repeated rhythm, with
    unchanged boxes and an underline/weight pair that survives loss of color. */
 .ple-app-ribbon__tabs {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-self: stretch;
+  align-items: stretch;
   gap: var(--ple-ribbon-space-tight);
-  padding-inline: var(--ple-ribbon-space-inline);
-  background-color: var(--ple-ribbon-tab-surface);
-  background-image: linear-gradient(to bottom, rgb(255 255 255 / 52%), transparent);
-  box-shadow: inset 0 -1px 0 var(--ple-ribbon-rule);
+  min-inline-size: 0;
+  margin-inline-start: var(--ple-ribbon-space-control);
 }
 
 .ple-app-ribbon__tabs .ple-app-ribbon__link {
@@ -428,8 +474,7 @@
 
 @media (max-width: 40rem) {
   :root {
-    --ple-ribbon-context-block-size: 3.25rem;
-    --ple-ribbon-tab-block-size: 2.75rem;
+    --ple-ribbon-top-block-size: 3.25rem;
     --ple-ribbon-task-block-size: 2.75rem;
   }
 
@@ -438,14 +483,15 @@
   }
 }
 
-/* Labels never disappear for ordinary destinations. The smallest profile only
-   collapses standard presentation to its declared compact treatment. */
+/* Narrow profiles stay one scrollable information bar: controls retain their
+   glyphs and visible text rather than moving to a second Tab row or icon-only
+   projection. */
 @media (max-width: 24rem) {
   .ple-app-ribbon__link--standard,
   .ple-app-ribbon__link--compact {
     gap: var(--ple-ribbon-space-tight);
     padding-inline: var(--ple-ribbon-space-tight);
-    font-size: 0.84rem;
+    font-size: 0.64rem;
   }
 
   .ple-app-ribbon__link .ple-app-ribbon__icon {
@@ -453,50 +499,19 @@
     block-size: 0.75em;
   }
 
-  .ple-app-ribbon__link[data-ribbon-icon-only-safe="true"] .ple-app-ribbon__control-label,
-  .ple-app-ribbon__sign-out .ple-app-ribbon__control-label,
-  .ple-app-ribbon__brand-word {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
-    margin: -1px;
+  /* At enlarged text, one long selected Task can exceed its cue-safe
+     scrollport. Keep its icon-and-text control inside that usable width so
+     the selection reveal has a complete target rather than an unresolvable
+     clipped edge. */
+  .ple-app-ribbon__tasks .ple-app-ribbon__link {
+    max-inline-size: calc(100dvw - var(--ple-ribbon-space-cue) - var(--ple-ribbon-space-cue) - 1px);
+  }
+
+  .ple-app-ribbon__tasks .ple-app-ribbon__control-label {
+    min-inline-size: 0;
     overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
+    text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .ple-app-ribbon__link[data-ribbon-icon-only-safe="true"],
-  .ple-app-ribbon__sign-out {
-    justify-content: center;
-    inline-size: 2.75rem;
-    padding-inline: var(--ple-ribbon-space-tight);
-  }
-
-  .ple-app-ribbon .ple-app-ribbon__tasks {
-    align-items: stretch;
-  }
-
-  .ple-app-ribbon .ple-app-ribbon__task-area {
-    display: grid;
-    grid-auto-columns: max-content;
-    grid-template-rows: 1fr 1fr;
-    align-items: center;
-    align-content: center;
-    column-gap: var(--ple-ribbon-space-tight);
-    row-gap: 0;
-  }
-
-  .ple-app-ribbon .ple-app-ribbon__task-area-label {
-    grid-column: 1 / -1;
-    grid-row: 1;
-  }
-
-  .ple-app-ribbon .ple-app-ribbon__task-area > .ple-app-ribbon__link {
-    grid-row: 2;
-    justify-self: start;
-    font-size: 0.64rem;
-    padding-inline: var(--ple-ribbon-space-tight);
   }
 }
 
@@ -504,8 +519,7 @@
    priority remain absent from the visual cascade. */
 @media (pointer: coarse) {
   :root {
-    --ple-ribbon-context-block-size: 3.25rem;
-    --ple-ribbon-tab-block-size: 2.75rem;
+    --ple-ribbon-top-block-size: 3.25rem;
     --ple-ribbon-task-block-size: 2.75rem;
   }
 
@@ -531,14 +545,6 @@
   }
 }
 
-/* This ordered narrow projection follows the coarse-pointer profile so its
-   two-line task rail wins through cascade order, never selector specificity. */
-@media (max-width: 24rem) {
-  :root {
-    --ple-ribbon-task-block-size: 4.5rem;
-  }
-}
-
 @media (forced-colors: active) {
   .ple-app-ribbon {
     background-image: none;
@@ -546,8 +552,7 @@
     box-shadow: none;
   }
 
-  .ple-app-ribbon__context,
-  .ple-app-ribbon__tabs,
+  .ple-app-ribbon__top-bar,
   .ple-app-ribbon__tasks {
     background-image: none;
     box-shadow: none;
@@ -563,6 +568,33 @@
     background: Highlight;
   }
 
+  /* Gradients are deliberately suppressed by forced-colors mode. Keep the
+     overflow state discoverable with a directional system-color marker that
+     is independent of the author palette. */
+  .ple-app-ribbon__overflow-cue[data-ribbon-overflow-active="true"] {
+    display: grid;
+    inline-size: max(1.25rem, var(--ple-ribbon-space-cue));
+    place-items: center;
+    border-inline: 1px solid ButtonText;
+    background: Canvas;
+    color: ButtonText;
+    forced-color-adjust: none;
+  }
+
+  .ple-app-ribbon__overflow-cue[data-ribbon-overflow-active="true"]::before {
+    font-size: 1.125rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .ple-app-ribbon__overflow-cue--start[data-ribbon-overflow-active="true"]::before {
+    content: "\2039";
+  }
+
+  .ple-app-ribbon__overflow-cue--end[data-ribbon-overflow-active="true"]::before {
+    content: "\203a";
+  }
+
   .ple-app-ribbon__tabs .ple-app-ribbon__link[aria-current="page"] {
     color: ButtonText;
     background: Canvas;
@@ -575,9 +607,18 @@
   }
 
   .ple-app-ribbon__tasks .ple-app-ribbon__link[aria-current="page"] {
+    /* Keep the chosen task as a system-paired text/background control. The
+       underline and contrasting border retain selected identity when color is
+       unavailable, while the explicit adjustment prevents a blank remap. */
     color: HighlightText;
-    background: Highlight;
-    outline: 1px solid Highlight;
+    border: 1px solid HighlightText;
+    background-color: Highlight;
+    background-image: none;
+    outline: 1px solid ButtonText;
+    outline-offset: 1px;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    forced-color-adjust: none;
   }
 
   .ple-app-ribbon__task-area + .ple-app-ribbon__task-area {
@@ -595,6 +636,92 @@
   .ple-app-ribbon__sign-out:focus-visible::before,
   .ple-app-ribbon__brand:focus-visible::before {
     border-color: ButtonText;
+  }
+}
+
+/* The shell's content prelude is deliberately outside the Ribbon grid. Its
+ * stable height lets a deferred authorized title resolve without moving any
+ * Ribbon control or changing the route-content origin. */
+.ple-shell__breadcrumb-prelude {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--ple-control-min-height);
+  min-inline-size: 0;
+  padding-inline: var(--ple-ribbon-space-inline);
+  border-block-end: 1px solid var(--ple-border);
+  background: var(--ple-ribbon-context-surface);
+  color: var(--ple-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.ple-shell__breadcrumb-prelude nav {
+  min-inline-size: 0;
+  overflow: hidden;
+}
+
+.ple-shell__breadcrumb-prelude ol {
+  display: flex;
+  gap: var(--ple-ribbon-space-control);
+  align-items: center;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.ple-shell__breadcrumb-prelude li {
+  display: flex;
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ple-shell__breadcrumb-prelude li + li::before {
+  flex: 0 0 auto;
+  margin-inline-end: var(--ple-ribbon-space-control);
+  content: "/";
+}
+
+.ple-shell__breadcrumb-prelude a,
+.ple-shell__breadcrumb-prelude span {
+  display: block;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* At a phone width with enlarged text, retain the root's recognizable name
+   and allocate every remaining inline pixel to the current location. Longer
+   trails stay within the same clipped shell prelude. */
+@media (max-width: 24rem) {
+  .ple-shell__breadcrumb-prelude {
+    padding-inline: var(--ple-ribbon-space-tight);
+    font-size: 0.68rem;
+  }
+
+  .ple-shell__breadcrumb-prelude ol {
+    inline-size: 100%;
+    gap: var(--ple-ribbon-space-tight);
+  }
+
+  .ple-shell__breadcrumb-prelude nav {
+    flex: 1 0 100%;
+    inline-size: 100%;
+  }
+
+  .ple-shell__breadcrumb-prelude li:first-child {
+    flex: 0 0 7ch;
+  }
+
+  .ple-shell__breadcrumb-prelude li:last-child {
+    flex: 1 1 auto;
+  }
+
+  .ple-shell__breadcrumb-prelude li + li::before {
+    margin-inline-end: var(--ple-ribbon-space-tight);
   }
 }
 

@@ -217,6 +217,23 @@
   font-weight: 820;
 }
 
+/* The retained Atlas comparison still uses its original tab-cell treatment.
+ * In the dense shared top bar, retain that treatment without compounding its
+ * former row padding: the production compact-control token preserves the
+ * measured 1280px desktop fit. */
+@media (min-width: 64rem) and (max-width: 80rem) {
+  [data-ribbon-treatment="atlas"] .ple-app-ribbon__top-bar .ple-app-ribbon__tabs {
+    padding-inline: 0;
+  }
+
+  [data-ribbon-treatment="atlas"]
+    .ple-app-ribbon__top-bar
+    .ple-app-ribbon__tabs
+    .ple-app-ribbon__link {
+    padding-inline: var(--ple-ribbon-space-control);
+  }
+}
+
 [data-ribbon-treatment="atlas"] .ple-app-ribbon__link:hover,
 [data-ribbon-treatment="atlas"] .ple-app-ribbon__sign-out:hover {
   background: color-mix(in srgb, var(--atlas-accent) 10%, transparent);

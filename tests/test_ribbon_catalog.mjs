@@ -46,3 +46,46 @@ test("schema tab identities have one corresponding tab catalog descriptor", () =
     assert.equal(TAB_CATALOG.filter((control) => control.id === id).length, 1, id);
   }
 });
+
+test("Instructor Product catalog preserves the owner's tabs and task order", () => {
+  assert.deepEqual(
+    TAB_CATALOG.filter((control) =>
+      ["courses", "questions", "productAssignments"].includes(control.id),
+    ).map((control) => control.label),
+    ["Courses", "Questions", "Assignments"],
+  );
+  const labelsForGroup = (taskGroup) =>
+    RIBBON_TASK_CATALOG.filter((control) => control.taskGroup === taskGroup).map(
+      (control) => control.label,
+    );
+  assert.deepEqual(labelsForGroup("instructorCourses"), [
+    "My Blueprint Courses",
+    "My Active Courses",
+    "My Inactive Courses",
+    "Search Public Blueprint Courses",
+  ]);
+  assert.deepEqual(labelsForGroup("instructorQuestions"), [
+    "My Questions",
+    "My Draft Questions",
+    "Starred",
+    "Watched",
+    "Search Question Library",
+    "Browse Question Library",
+  ]);
+  assert.deepEqual(labelsForGroup("instructorAssignments"), [
+    "Assignments Due Soon",
+    "My Assignment Templates",
+  ]);
+});
+
+test("Attempt task returns Students to the Assignment access route with its exact public scope", () => {
+  const backToAssignment = RIBBON_TASK_CATALOG.find(
+    (control) => control.id === "backToAssignments",
+  );
+  assert.deepEqual(backToAssignment?.destination, {
+    kind: "route",
+    routeId: "assignmentOverview",
+  });
+  assert.deepEqual(backToAssignment?.requiredParams, ["courseRef", "assignmentRef"]);
+  assert.equal(backToAssignment?.label, "Back to Assignments");
+});

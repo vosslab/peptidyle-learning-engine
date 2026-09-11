@@ -186,7 +186,7 @@ def _resolve_named_reference(
 
 
 #============================================
-def _gradebook_counts(
+def _graded_question_counts(
 	runner: local_stack_control.process.CommandRunner,
 	repository_root: pathlib.Path,
 	url: str,
@@ -302,6 +302,56 @@ def _assignment_attempts(
 		numbers[entry.persona] = attempt_number
 		completions[entry.persona] = completion
 	return numbers, completions
+
+
+#============================================
+def _saved_response_counts(
+	runner: local_stack_control.process.CommandRunner,
+	repository_root: pathlib.Path,
+	url: str,
+	jars: dict[str, pathlib.Path],
+	course_reference: str | None,
+	assignment_reference: str | None,
+	attempt_completions: dict[str, str],
+) -> dict[str, int]:
+	"""Read open Student work counts from the answer-free Attempt projections."""
+	seed = local_stack_control.live_demo_course_seed
+	counts = {entry.persona: 0 for entry in seed.SEEDED_ROSTER_ENTRIES}
+	if course_reference is None or assignment_reference is None:
+		return counts
+	path = (
+		f"/api/course-instances/{course_reference}/assignments/"
+		f"{assignment_reference}/access"
+	)
+	for persona, completion in attempt_completions.items():
+		if completion != "inProgress":
+			continue
+		body = _require_status(
+			_request(
+				runner, repository_root, url, path, jars[persona],
+				seed.Stage.WORK, "saved-work",
+			),
+			200, seed.Stage.WORK, "saved-work",
+		)
+		if not isinstance(body, dict) or set(body) != {
+			"startDecision", "activeAssignmentAttempt",
+		}:
+			raise local_stack_control.models.ControllerError(
+				"live-demo Student Assignment Access projection is invalid"
+			)
+		reference = local_stack_control.live_demo_course_activity.assignment_attempt_reference(
+			body.get("activeAssignmentAttempt")
+		)
+		if reference is None:
+			raise local_stack_control.models.ControllerError(
+				"live-demo Student Assignment Attempt is unavailable"
+			)
+		progress = local_stack_control.live_demo_course_activity.progress(
+			runner, repository_root, url, jars[persona], reference,
+			seed.Stage.WORK, "saved-work",
+		)
+		counts[persona] = local_stack_control.live_demo_course_activity.saved_count(progress)
+	return counts
 
 
 #============================================
@@ -445,7 +495,11 @@ def _observe(
 		runner, repository_root, url, jars,
 		course_reference, assignment_reference,
 	)
-	terminal_counts, gradebook_points = _gradebook_counts(
+	saved_response_counts = _saved_response_counts(
+		runner, repository_root, url, jars, course_reference, assignment_reference,
+		attempt_completions,
+	)
+	graded_question_counts, gradebook_points = _graded_question_counts(
 		runner, repository_root, url, elena, course_reference, assignment_reference
 	)
 	observed = seed.ObservedState(
@@ -462,9 +516,11 @@ def _observe(
 		mary_attempt_exists="maryStudent" in attempt_numbers,
 		jack_attempt_exists="jackStudent" in attempt_numbers,
 		avery_attempt_exists="averyStudent" in attempt_numbers,
-		mary_terminal_submission_count=terminal_counts["maryStudent"],
-		jack_terminal_submission_count=terminal_counts["jackStudent"],
-		avery_terminal_submission_count=terminal_counts["averyStudent"],
+		mary_attempt_completed=attempt_completions.get("maryStudent") == "completed",
+		mary_graded_question_count=graded_question_counts["maryStudent"],
+		jack_graded_question_count=graded_question_counts["jackStudent"],
+		avery_graded_question_count=graded_question_counts["averyStudent"],
+		jack_saved_response_count=saved_response_counts["jackStudent"],
 	)
 	return ResolvedCourseState(
 		observed=observed,
@@ -476,7 +532,8 @@ def _observe(
 		roster_states=roster_states,
 		attempt_numbers=attempt_numbers,
 		attempt_completions=attempt_completions,
-		terminal_submission_counts=terminal_counts,
+		graded_question_counts=graded_question_counts,
+		saved_response_counts=saved_response_counts,
 		gradebook_points=gradebook_points,
 	)
 
@@ -489,7 +546,8 @@ def _report_value(state: ResolvedCourseState) -> dict:
 	for entry in seed.SEEDED_ROSTER_ENTRIES:
 		membership = state.roster_states.get(entry.roster_id, "absent")
 		attempt_number = state.attempt_numbers.get(entry.persona)
-		terminal_count = state.terminal_submission_counts.get(entry.persona, 0)
+		graded_question_count = state.graded_question_counts.get(entry.persona, 0)
+		saved_count = state.saved_response_counts.get(entry.persona, 0)
 		points_earned, points_possible = state.gradebook_points.get(
 			entry.persona, (0.0, 0.0)
 		)
@@ -509,9 +567,13 @@ def _report_value(state: ResolvedCourseState) -> dict:
 				if attempt_number is not None
 				else None
 			),
-			"submission_count": terminal_count,
+			"assignment_submission_count": int(
+				state.attempt_completions.get(entry.persona) == "completed"
+			),
+			"graded_question_count": graded_question_count,
+			"saved_response_count": saved_count,
 			"grading_state": {
-				"graded": terminal_count,
+				"graded_question_count": graded_question_count,
 				"pending": 0,
 				"instructorAttention": 0,
 			},

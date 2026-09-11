@@ -31,6 +31,9 @@ const markup = [
   "HTMLElement.prototype.scrollIntoView = function(options) {",
   "  window.scrollCalls.push({ id: this.dataset.ribbonControl, options });",
   "};",
+  "HTMLElement.prototype.scrollBy = function(options) {",
+  "  window.scrollCalls.push({ id: this.dataset.ribbonRow, options });",
+  "};",
   "</script></body></html>",
 ].join("");
 
@@ -106,7 +109,7 @@ try {
     harness.setRoutingInFlight(false);
 
     window.scrollCalls.length = 0;
-    document.querySelector("#root").style.inlineSize = "40rem";
+    document.querySelector("#root").style.inlineSize = "80rem";
     harness.selectTab("assignments");
     await flushMicrotasks();
     const alreadyVisible = [...window.scrollCalls];
@@ -115,7 +118,7 @@ try {
     await flushMicrotasks();
     const clippedReveal = [...window.scrollCalls];
     const clippedBounds = {
-      row: document.querySelector('[data-ribbon-row="tabs"]').getBoundingClientRect().toJSON(),
+      row: document.querySelector('[data-ribbon-row="top"]').getBoundingClientRect().toJSON(),
       tab: link("teachingOperations").getBoundingClientRect().toJSON(),
     };
     window.scrollCalls.length = 0;
@@ -186,26 +189,18 @@ try {
     "modified, middle, and already-prevented activations never arm pending feedback",
   );
   assert.deepEqual(evidence.alreadyVisible, [], "an already-visible selected Tab does not scroll");
-  assert.deepEqual(
-    evidence.clippedReveal,
-    [
-      {
-        id: "teachingOperations",
-        options: { behavior: "smooth", block: "nearest", inline: "nearest" },
-      },
-    ],
-    `a newly selected clipped Tab reveals itself: ${JSON.stringify(evidence.clippedBounds)}`,
+  assert.equal(evidence.clippedReveal.length, 1, "a clipped selected Tab reveals itself once");
+  assert.equal(evidence.clippedReveal[0]?.id, "top");
+  assert.equal(evidence.clippedReveal[0]?.options.behavior, "smooth");
+  assert.ok(
+    evidence.clippedReveal[0]?.options.left > 0,
+    `cue-safe reveal scrolls the top bar toward its clipped Tab: ${JSON.stringify(evidence.clippedBounds)}`,
   );
-  assert.deepEqual(evidence.rapidSelection, [
-    {
-      id: "gradebook",
-      options: { behavior: "smooth", block: "nearest", inline: "nearest" },
-    },
-  ]);
-  assert.deepEqual(evidence.reducedMotion.at(-1), {
-    id: "teachingOperations",
-    options: { behavior: "auto", block: "nearest", inline: "nearest" },
-  });
+  assert.equal(evidence.rapidSelection.length, 1);
+  assert.equal(evidence.rapidSelection[0]?.id, "top");
+  assert.equal(evidence.rapidSelection[0]?.options.behavior, "smooth");
+  assert.equal(evidence.reducedMotion.at(-1)?.id, "top");
+  assert.equal(evidence.reducedMotion.at(-1)?.options.behavior, "auto");
   assert.equal(
     evidence.selectedId,
     "teachingOperations",

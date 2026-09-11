@@ -54,6 +54,8 @@ async fn list_instructor_accounts(
         Err(response) => return *response,
     };
     match state.accounts.list_instructor_accounts(token).await {
+        // ASVS 8.2.3: rows remain the closed three-field target projection;
+        // the display zone is the authenticated Sysadmin's outer context.
         Ok(accounts) => crate::auth::no_store(Json(accounts).into_response()),
         Err(error) => store_error_response(error),
     }

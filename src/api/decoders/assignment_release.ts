@@ -2,8 +2,11 @@
 
 import { MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/api/MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS";
 import type { AssignmentEditNumber } from "../../../generated/api/AssignmentEditNumber";
-import type { CourseLocalDateAndTime } from "../../../generated/api/CourseLocalDateAndTime";
+import type { LocalDateAndTime } from "../../../generated/api/LocalDateAndTime";
 import type { LateWorkRule } from "../../../generated/api/LateWorkRule";
+import type { AccountTimeZone } from "../../../generated/api/AccountTimeZone";
+import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
+import type { StudentFeedbackReleaseRule } from "../../../generated/api/StudentFeedbackReleaseRule";
 import type {
   AssignmentPreview,
   AssignmentQuestionPickerEntry,
@@ -54,11 +57,11 @@ function editNumber(value: unknown, path: string): AssignmentEditNumber {
   return decoded;
 }
 
-function courseLocalDateAndTime(value: unknown, path: string): CourseLocalDateAndTime | null {
+function localDateAndTime(value: unknown, path: string): LocalDateAndTime | null {
   if (value === null) return null;
   const decoded = decodeString(value, path);
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u.test(decoded)) {
-    throw new DecodeError(path, "a canonical course-local YYYY-MM-DDTHH:MM:SS.sss value or null");
+    throw new DecodeError(path, "a canonical local YYYY-MM-DDTHH:MM:SS.sss value or null");
   }
   return decoded;
 }
@@ -66,6 +69,63 @@ function courseLocalDateAndTime(value: unknown, path: string): CourseLocalDateAn
 function lateWorkRule(value: unknown, path: string): LateWorkRule {
   if (value === "accept" || value === "mark_late" || value === "reject") return value;
   throw new DecodeError(path, "a canonical Late Work Rule");
+}
+
+function optionalPositiveInteger(value: unknown, path: string): number | null {
+  if (value === null) return null;
+  return decodePositiveInteger(value, path);
+}
+
+function activityRules(value: unknown, path: string): AssignmentActivityRules {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "assignmentCompletionRule",
+    "assignmentAttemptGradeRule",
+    "assignmentAttemptContinuationRule",
+    "questionPoolReuseRule",
+    "questionVariationRule",
+    "assignmentAttemptResumeRule",
+    "assignmentQuestionDisplayRule",
+    "assignmentNavigationRule",
+    "assignmentQuestionOrderRule",
+  ]);
+  return record as AssignmentActivityRules;
+}
+
+function feedbackRules(value: unknown, path: string): StudentFeedbackReleaseRule {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "score",
+    "per_item_correctness",
+    "question_feedback",
+    "question_answer",
+    "question_answer_explanation",
+    "class_statistics",
+  ]);
+  for (const name of Object.keys(record)) {
+    const timing = field(record, name, path);
+    if (
+      !["during_attempt", "after_submit", "after_due", "after_close", "never"].includes(
+        String(timing),
+      )
+    ) {
+      throw new DecodeError(`${path}.${name}`, "a Student Feedback Release timing");
+    }
+  }
+  return record as StudentFeedbackReleaseRule;
+}
+
+function displayTimeZone(value: unknown, path: string): AccountTimeZone {
+  const timeZone = decodeString(value, path);
+  if (timeZone.length === 0 || timeZone.length > 255 || timeZone.trim() !== timeZone) {
+    throw new DecodeError(path, "a bounded exact IANA time-zone name");
+  }
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone });
+  } catch {
+    throw new DecodeError(path, "a browser-supported IANA time-zone name");
+  }
+  return timeZone;
 }
 
 function pickerEntry(value: unknown, path: string): AssignmentQuestionPickerEntry {
@@ -132,6 +192,10 @@ export function decodeSaveLiveAssignmentInput(
     "questionIds",
     "dueAt",
     "lateWorkRule",
+    "assignmentAttemptTimeLimitSeconds",
+    "attemptLimit",
+    "activityRules",
+    "studentFeedbackReleaseRule",
   ]);
   const questionIds = decodeArray(
     field(record, "questionIds", path),
@@ -145,8 +209,21 @@ export function decodeSaveLiveAssignmentInput(
     title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
     instructions: instructions(field(record, "instructions", path), `${path}.instructions`),
     questionIds,
-    dueAt: courseLocalDateAndTime(field(record, "dueAt", path), `${path}.dueAt`),
+    dueAt: localDateAndTime(field(record, "dueAt", path), `${path}.dueAt`),
     lateWorkRule: lateWorkRule(field(record, "lateWorkRule", path), `${path}.lateWorkRule`),
+    assignmentAttemptTimeLimitSeconds: optionalPositiveInteger(
+      field(record, "assignmentAttemptTimeLimitSeconds", path),
+      `${path}.assignmentAttemptTimeLimitSeconds`,
+    ),
+    attemptLimit: optionalPositiveInteger(
+      field(record, "attemptLimit", path),
+      `${path}.attemptLimit`,
+    ),
+    activityRules: activityRules(field(record, "activityRules", path), `${path}.activityRules`),
+    studentFeedbackReleaseRule: feedbackRules(
+      field(record, "studentFeedbackReleaseRule", path),
+      `${path}.studentFeedbackReleaseRule`,
+    ),
   };
 }
 
@@ -163,6 +240,11 @@ export function decodeLiveAssignmentWorkspace(
     "instructions",
     "dueAt",
     "lateWorkRule",
+    "assignmentAttemptTimeLimitSeconds",
+    "attemptLimit",
+    "activityRules",
+    "studentFeedbackReleaseRule",
+    "displayTimeZone",
     "questions",
   ]);
   return {
@@ -171,8 +253,25 @@ export function decodeLiveAssignmentWorkspace(
     status: status(field(record, "status", path), `${path}.status`),
     title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
     instructions: instructions(field(record, "instructions", path), `${path}.instructions`),
-    dueAt: courseLocalDateAndTime(field(record, "dueAt", path), `${path}.dueAt`),
+    dueAt: localDateAndTime(field(record, "dueAt", path), `${path}.dueAt`),
     lateWorkRule: lateWorkRule(field(record, "lateWorkRule", path), `${path}.lateWorkRule`),
+    assignmentAttemptTimeLimitSeconds: optionalPositiveInteger(
+      field(record, "assignmentAttemptTimeLimitSeconds", path),
+      `${path}.assignmentAttemptTimeLimitSeconds`,
+    ),
+    attemptLimit: optionalPositiveInteger(
+      field(record, "attemptLimit", path),
+      `${path}.attemptLimit`,
+    ),
+    activityRules: activityRules(field(record, "activityRules", path), `${path}.activityRules`),
+    studentFeedbackReleaseRule: feedbackRules(
+      field(record, "studentFeedbackReleaseRule", path),
+      `${path}.studentFeedbackReleaseRule`,
+    ),
+    displayTimeZone: displayTimeZone(
+      field(record, "displayTimeZone", path),
+      `${path}.displayTimeZone`,
+    ),
     questions: decodeArray(field(record, "questions", path), `${path}.questions`, authoredQuestion),
   };
 }

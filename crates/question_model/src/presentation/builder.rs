@@ -15,6 +15,7 @@ use super::assets::{
     content_assets, question_asset_rendition, validate_assets, validate_public_assets,
 };
 use super::binding::QuestionPresentationBinding;
+use super::choice_order::nonce_randomized_choices;
 use super::codec::{
     QuestionPresentationChecksum, crc16_ccitt_false, descriptor_bytes, item_basis_bytes,
 };
@@ -25,6 +26,7 @@ use super::model::{
     QuestionAssetRendition, QuestionPresentation, QuestionPresentationNonce,
     QuestionPresentationResponseFormat,
 };
+use super::response_validation::{selection_bounds, validate_regions};
 const MAX_PRESENTED_ITEMS: usize = 32;
 const MAX_NONCE_ATTEMPTS: usize = 8;
 const NUMERIC_MAX_CHARACTERS: u32 = 128;
@@ -264,13 +266,12 @@ where
     H: FnMut(&[u8]) -> u16,
 {
     let assets = validate_assets(presentation, question_asset_renditions)?;
-    let pending = pending_items(presentation, &assets)?;
-    if pending.len() > MAX_PRESENTED_ITEMS {
-        return Err(PresentationBuildError::TooManyItems);
-    }
-
     for _ in 0..MAX_NONCE_ATTEMPTS {
         let nonce = QuestionPresentationNonce::from_bytes(nonce_source.next_nonce()?);
+        let pending = pending_items(presentation, &assets, nonce)?;
+        if pending.len() > MAX_PRESENTED_ITEMS {
+            return Err(PresentationBuildError::TooManyItems);
+        }
         let mut used = BTreeSet::new();
         let mut bindings = Vec::with_capacity(pending.len());
         let mut collision = false;
@@ -355,13 +356,20 @@ fn push_bytes(target: &mut Vec<u8>, value: &[u8]) -> Result<(), PresentationBuil
 fn pending_items(
     presentation: &QuestionVariationPresentation,
     assets: &[QuestionAssetRendition],
+    nonce: QuestionPresentationNonce,
 ) -> Result<Vec<PendingResponseItem>, PresentationBuildError> {
     let mut items = Vec::new();
     match &presentation.response {
         QuestionResponseFormat::MultipleChoice { choices, .. } => {
+            let choices =
+                if presentation.native_choice_order == crate::NativeChoiceOrder::NonceRandomized {
+                    nonce_randomized_choices(choices, nonce)
+                } else {
+                    choices.clone()
+                };
             push_choices(
                 &mut items,
-                choices,
+                &choices,
                 ResponseItemRole::QuestionChoice,
                 assets,
             )?;
@@ -447,6 +455,8 @@ fn pending_items(
     }
     Ok(items)
 }
+
+/// Derives the issued choice order from the durable presentation nonce before bindings are minted.
 trait PresentedResponseItem {
     fn id(&self) -> &ResponseItemReference;
     fn body(&self) -> &[QuestionContentBlock];
@@ -555,6 +565,7 @@ fn public_presentation(
         QuestionResponseFormat::MultipleChoice {
             choices: source_choices,
             selection,
+            ..
         } => match selection {
             ResponseSelectionRule::ExactlyOne => QuestionPresentationResponseFormat::SingleChoice {
                 choices: presented_item_parts(ResponseItemRole::QuestionChoice)
@@ -951,47 +962,4 @@ impl HotspotRegionGeometry for PresentedHotspotRegion {
     fn height(&self) -> u16 {
         self.height
     }
-}
-
-fn validate_regions(regions: &[PresentedHotspotRegion]) -> Result<(), PresentationBuildError> {
-    const MAX: u32 = 10_000;
-    if regions.is_empty() {
-        return Err(PresentationBuildError::InvalidPublicContent(
-            "hotspot presentation has no accessible regions",
-        ));
-    }
-    for region in regions {
-        let right = u32::from(region.x) + u32::from(region.width);
-        let bottom = u32::from(region.y) + u32::from(region.height);
-        if region.width == 0
-            || region.height == 0
-            || right > MAX
-            || bottom > MAX
-            || region.label.is_empty()
-        {
-            return Err(PresentationBuildError::InvalidPublicContent(
-                "hotspot region is outside the normalized surface",
-            ));
-        }
-    }
-    Ok(())
-}
-
-fn selection_bounds(
-    selection: ResponseSelectionRule,
-    item_count: usize,
-) -> Result<(u32, u32), PresentationBuildError> {
-    let maximum = u32::try_from(item_count).map_err(|_| PresentationBuildError::TooManyItems)?;
-    let bounds = match selection {
-        ResponseSelectionRule::ExactlyOne => (1, 1),
-        ResponseSelectionRule::Exactly { count } => (count, count),
-        ResponseSelectionRule::AnyNumber => (0, maximum),
-        ResponseSelectionRule::AtLeastOne => (1, maximum),
-    };
-    if bounds.0 > bounds.1 || bounds.1 > maximum {
-        return Err(PresentationBuildError::InvalidPublicContent(
-            "Response Selection Rule exceeds presented objects",
-        ));
-    }
-    Ok(bounds)
 }

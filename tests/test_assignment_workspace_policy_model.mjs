@@ -6,7 +6,7 @@ import {
   assignmentPolicyCanReload,
   assignmentPoliciesValidationFeedback,
   assignmentPolicyFeedbackRole,
-  canonicalCourseLocalTime,
+  canonicalLocalDateAndTime,
   mergeSavedActivityRuleDraft,
   nonnegativeIntegerDraft,
   numberDraft,
@@ -37,7 +37,6 @@ const policies = {
 };
 
 const assignmentAuthoredContent = {
-  timeZone: "America/Chicago",
   instructions: "Use a clear structural drawing.",
   available_at: null,
   due_at: "2026-09-01T17:00:00.000",
@@ -58,9 +57,9 @@ test("focused policy input preserves direct delivery settings", () => {
   assert.equal(input.assignmentAuthoredContent.instructions, "Use a clear structural drawing.");
 });
 
-test("policy local-time normalization accepts only explicit course wall-clock values", () => {
-  assert.equal(canonicalCourseLocalTime("2026-09-01T17:00"), "2026-09-01T17:00:00.000");
-  assert.equal(canonicalCourseLocalTime("2026/09/01 17:00"), null);
+test("policy local-time normalization accepts only explicit local wall-clock values", () => {
+  assert.equal(canonicalLocalDateAndTime("2026-09-01T17:00"), "2026-09-01T17:00:00.000");
+  assert.equal(canonicalLocalDateAndTime("2026/09/01 17:00"), null);
 });
 
 test("policy feedback makes save failures and conflicts actionable while successes stay quiet", () => {

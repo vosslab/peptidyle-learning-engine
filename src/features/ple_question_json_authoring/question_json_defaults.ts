@@ -20,6 +20,7 @@ export function createDefaultPleQuestionJsonSource(): PleQuestionJsonDocument {
         { id: "choice_b", text: "Second choice", feedback: null },
       ],
       correctChoice: "choice_a",
+      randomizeChoices: false,
     },
     questionHint: null,
     feedback: { correct: null, incorrect: null },

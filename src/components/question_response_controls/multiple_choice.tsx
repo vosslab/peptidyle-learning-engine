@@ -76,7 +76,7 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
           ? selected().filter((item) => item !== choice)
           : [...selected(), choice];
     setSelected(next);
-    void controller.validate({ kind: "multipleChoice", selected: [...next] });
+    void controller.edit({ kind: "multipleChoice", selected: [...next] });
   }
   function submit(): void {
     void controller.submit(response());
@@ -177,6 +177,7 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
         disabled={!controller.canSubmit() || controller.locked()}
         resetDisabled={controller.locked()}
         onSubmit={submit}
+        submitLabel={props.submitLabel}
         onReset={reset}
         onEscape={props.onEscape}
       />

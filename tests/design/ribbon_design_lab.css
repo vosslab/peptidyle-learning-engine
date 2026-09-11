@@ -81,6 +81,28 @@
   gap: 0.45rem;
 }
 
+/* These named glyph specimens are laboratory-only, not product navigation.
+   Keep their compact-phone review from widening the document while the
+   accessible name remains available through the fixture's exact aria-label
+   and tooltip. */
+@media (max-width: 24rem) {
+  .ple-ribbon-design-lab__icon-only-specimen {
+    justify-content: center;
+    inline-size: 2.75rem;
+  }
+
+  .ple-ribbon-design-lab__icon-only-specimen .ple-app-ribbon__control-label {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 .ple-ribbon-design-lab__schema-grid,
 .ple-ribbon-design-lab__specimen-grid,
 .ple-ribbon-design-lab__theme-grid {

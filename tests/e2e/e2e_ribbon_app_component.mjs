@@ -103,16 +103,18 @@ test(topologyRowsTestName, async () => {
   assert.match(html, /aria-label="PLE application Ribbon"/);
   assert.deepEqual(
     [...html.matchAll(/data-ribbon-row="([^"]+)"/g)].map((match) => match[1]),
-    ["context", "tabs", "tasks"],
+    ["top", "tasks"],
   );
   assert.deepEqual(
     [...html.matchAll(/data-ribbon-row-frame="([^"]+)"/g)].map((match) => match[1]),
-    ["context", "tabs", "tasks"],
-    "each topology-reserved labelled row has one corresponding non-scrolling cue frame",
+    ["top", "tasks"],
+    "the top bar and declared task row each retain one non-scrolling cue frame",
   );
-  assert.match(html, /aria-label="Ribbon context"/);
+  assert.match(html, /aria-label="Ribbon navigation"/);
   assert.match(html, /<nav[^>]*aria-label="Ribbon tabs"/);
   assert.match(html, /<nav[^>]*aria-label="Ribbon tasks"/);
+  assert.doesNotMatch(html, /aria-label="Breadcrumb"/);
+  assert.doesNotMatch(html, /ple-app-ribbon__breadcrumbs/);
   assert.match(html, /aria-current="page"/);
   assert.match(html, /data-ribbon-action="signOut"/);
   assert.match(html, /data-ribbon-task-row="reserved"/);
@@ -126,8 +128,9 @@ test(topologyRowsTestName, async () => {
   assert.match(html, /Problem Set 7/);
   assert.doesNotMatch(html, /Blueprint Updates|Course Setup/);
   assert.doesNotMatch(html, /role="tab(list)?"/);
-  assert.ok(html.indexOf("signOut") < html.indexOf("Assignments"));
-  assert.ok(html.indexOf("Assignments") < html.indexOf("Overview"));
+  assert.ok(html.indexOf("Peptidyle") < html.indexOf("Instructor"));
+  assert.ok(html.indexOf("Instructor") < html.indexOf("Assignments"));
+  assert.ok(html.indexOf("Assignments") < html.indexOf("signOut"));
 });
 
 test("AppRibbon omits the Task Row when declared route topology has no Task Group", async () => {
@@ -140,8 +143,8 @@ test("AppRibbon omits the Task Row when declared route topology has no Task Grou
   assert.doesNotMatch(html, /data-ribbon-row-frame="tasks"/);
   assert.deepEqual(
     [...html.matchAll(/data-ribbon-row="([^"]+)"/g)].map((match) => match[1]),
-    ["context", "tabs"],
-    "taskless route topology renders only its Context and Tab Rows",
+    ["top"],
+    "taskless route topology renders its single dense top bar",
   );
 });
 
@@ -202,11 +205,11 @@ test(modelGlyphDeclarationTestName, async () => {
         : control,
     ),
   };
-  const textOnlyMapEntryClaimingAGlyph = {
+  const unknownGlyphClaim = {
     ...baseline,
     tabs: baseline.tabs.map((control) =>
-      control.id === "teachingOperations"
-        ? { ...control, iconBearing: true, iconOnlySafe: true }
+      control.id === "assignments"
+        ? { ...control, id: "unknownDestination", label: "Unknown", iconBearing: true }
         : control,
     ),
   };
@@ -227,13 +230,13 @@ test(modelGlyphDeclarationTestName, async () => {
   );
 
   const unmappedGlyphClaimHtml = renderToString(() =>
-    createComponent(RealAppRibbon, { model: textOnlyMapEntryClaimingAGlyph }),
+    createComponent(RealAppRibbon, { model: unknownGlyphClaim }),
   );
   const unmappedGlyphClaim = unmappedGlyphClaimHtml.match(
-    /<a[^>]*data-ribbon-control="teachingOperations"[^>]*>([\s\S]*?)<\/a>/,
+    /<a[^>]*data-ribbon-control="unknownDestination"[^>]*>([\s\S]*?)<\/a>/,
   )?.[1];
-  assert.ok(unmappedGlyphClaim, "the deliberately unmapped text-only destination still renders");
-  assert.match(unmappedGlyphClaim, /Teaching Operations/);
+  assert.ok(unmappedGlyphClaim, "an unknown destination still renders without a glyph");
+  assert.match(unmappedGlyphClaim, /Unknown/);
   assert.doesNotMatch(unmappedGlyphClaim, /<svg|<use |data-ribbon-icon-only-safe/);
 
   const ordinaryHtml = renderToString(() => createComponent(RealAppRibbon, { model: baseline }));
@@ -255,9 +258,8 @@ test(modelGlyphDeclarationTestName, async () => {
 test(narrowPhoneTestName, async () => {
   const css = await bundledAppRibbonCss();
   assert.match(css, /@media \(max-width: 24rem\)/);
-  assert.match(css, /data-ribbon-icon-only-safe=true/);
-  assert.match(css, /clip-path: inset\(50%\)/);
-  assert.match(css, /inline-size: 2\.75rem/);
+  assert.doesNotMatch(css, /clip-path: inset\(50%\)/);
+  assert.doesNotMatch(css, /data-ribbon-icon-only-safe=true/);
   assert.match(css, /fill: currentColor/);
 });
 

@@ -6,6 +6,7 @@ import {
   createMemo,
   createSignal,
   ErrorBoundary,
+  For,
   Show,
   type Accessor,
   type JSX,
@@ -15,7 +16,7 @@ import { useSessionBootstrap } from "./auth/session_context";
 import type { CourseThemeRouteData } from "./features/course_appearance/course_theme_context";
 import { CourseThemeVariables } from "./features/course_appearance/course_theme_variables";
 import { AppRibbon } from "./ribbon/app_ribbon";
-import type { RibbonModel } from "./ribbon/ribbon_contract";
+import type { RibbonBreadcrumbModel, RibbonModel } from "./ribbon/ribbon_contract";
 import { RouteScopeProvider, useRouteScopeData } from "./ribbon/route_scope_context";
 
 export interface ApplicationShellProps {
@@ -35,6 +36,42 @@ function isRibbonSignOutAction(
 
 interface ContentErrorProps {
   readonly reset: () => void;
+}
+
+function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): JSX.Element {
+  const breadcrumbs = (): ReadonlyArray<RibbonBreadcrumbModel> => props.model?.breadcrumbs ?? [];
+  const reserved = (): boolean => props.model?.breadcrumbPreludeReserved === true;
+  return (
+    <Show when={reserved()}>
+      <div class="ple-shell__breadcrumb-prelude" aria-live="polite">
+        <Show
+          when={breadcrumbs().length > 0}
+          fallback={<span class="sr-only">Loading location</span>}
+        >
+          <nav aria-label="Breadcrumb">
+            <ol>
+              <For each={breadcrumbs()}>
+                {(breadcrumb) => (
+                  <li>
+                    <Show
+                      when={breadcrumb.href}
+                      fallback={
+                        <span aria-current={breadcrumb.current ? "page" : undefined}>
+                          {breadcrumb.label}
+                        </span>
+                      }
+                    >
+                      {(href) => <A href={href()}>{breadcrumb.label}</A>}
+                    </Show>
+                  </li>
+                )}
+              </For>
+            </ol>
+          </nav>
+        </Show>
+      </div>
+    </Show>
+  );
 }
 
 function ContentError(props: ContentErrorProps): JSX.Element {
@@ -114,10 +151,10 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
       // not control admission, so this parent geometry stays admission-independent.
       return model.taskAreas.length > 0 ? "reserved" : "absent";
     });
-
     function ContentRegion(): JSX.Element {
       return (
         <main class="shell">
+          <BreadcrumbPrelude model={ribbonModel()} />
           <section
             id="main-content"
             tabindex="-1"

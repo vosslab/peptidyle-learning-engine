@@ -7,7 +7,7 @@ import {
   decodeCreateInstructorAccountInput,
   decodeDeactivateInstructorAccountInput,
   decodeInstructorAccount,
-  decodeInstructorAccounts,
+  decodeInstructorAccountList,
 } from "../decoders/instructor_account";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
@@ -54,7 +54,7 @@ export function createInstructorAccountClient(
         fetchImplementation,
         basePath,
         "/api/instructor-accounts",
-        decodeInstructorAccounts,
+        decodeInstructorAccountList,
       ),
     createInstructorAccount: (input) =>
       instructorAccountJson(

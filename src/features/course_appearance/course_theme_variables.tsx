@@ -82,7 +82,9 @@ const COURSE_THEME_VARIABLE_SHELL_STYLES = `
 `;
 
 function appearanceFor(data: CourseThemeRouteData | undefined): CourseAppearanceView | undefined {
-  return data === undefined ? undefined : courseRouteView(data).appearance;
+  if (data === undefined) return undefined;
+  if (data.kind === "assignmentAttempt") return { theme: data.context.course.theme, banner: null };
+  return courseRouteView(data).appearance;
 }
 
 /**
@@ -95,7 +97,9 @@ export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Elem
   const routeData = useRouteScopeData();
   const currentCourseId = createMemo(() => {
     const data = routeData();
-    return data === undefined ? undefined : courseRouteView(data).summary.id;
+    return data === undefined || data.kind === "assignmentAttempt"
+      ? undefined
+      : courseRouteView(data).summary.id;
   });
   const [presentationOverride, setPresentationOverride] =
     createSignal<CourseThemePresentationOverride>();
@@ -125,8 +129,9 @@ export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Elem
   });
   const courseReference = createMemo(() => {
     const data = routeData();
-    return data === undefined
-      ? undefined
+    if (data === undefined) return undefined;
+    return data.kind === "assignmentAttempt"
+      ? courseInstanceRouteReference(data.context.course.reference)
       : courseInstanceRouteReference(courseRouteView(data).summary.reference);
   });
 

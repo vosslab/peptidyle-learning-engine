@@ -95,8 +95,7 @@ async function measuredAt(page, width, scale) {
         taskRow: ribbon.getAttribute("data-ribbon-task-row"),
         tokens: Object.fromEntries(
           [
-            "--ple-ribbon-context-block-size",
-            "--ple-ribbon-tab-block-size",
+            "--ple-ribbon-top-block-size",
             "--ple-ribbon-reserved-task-size",
             "--ple-ribbon-block-size",
           ].map((name) => [name, tokenSize(ribbon, name)]),
@@ -140,9 +139,7 @@ async function shellPaddingMeasuredAt(page, viewport, name, model) {
       chromeAboveContent:
         contentProbe.getBoundingClientRect().top - frame.getBoundingClientRect().top,
       reservedRows:
-        tokenSize("--ple-ribbon-context-block-size") +
-        tokenSize("--ple-ribbon-tab-block-size") +
-        tokenSize("--ple-ribbon-reserved-task-size"),
+        tokenSize("--ple-ribbon-top-block-size") + tokenSize("--ple-ribbon-reserved-task-size"),
     };
   });
 }
@@ -157,26 +154,24 @@ try {
   ]) {
     const result = await measuredAt(page, profile.width, profile.scale);
     for (const entry of result.entries) {
-      const context = entry.tokens["--ple-ribbon-context-block-size"];
-      const tabs = entry.tokens["--ple-ribbon-tab-block-size"];
+      const top = entry.tokens["--ple-ribbon-top-block-size"];
       const reservedTask = entry.tokens["--ple-ribbon-reserved-task-size"];
       const total = entry.tokens["--ple-ribbon-block-size"];
       const expectedTaskRow = entry.taskRow === "reserved";
-      assert.ok(context > 0 && tabs > 0 && total > 0, `${entry.name} resolves named row tokens`);
+      assert.ok(top > 0 && total > 0, `${entry.name} resolves named row tokens`);
       assert.equal(
         expectedTaskRow ? reservedTask > 0 : reservedTask === 0,
         true,
         `${entry.name} reserves the task token only for declared topology`,
       );
-      near(total, context + tabs + reservedTask, `${entry.name} total reserved-row token`);
+      near(total, top + reservedTask, `${entry.name} total reserved-row token`);
       assert.equal(
         entry.rows.length,
-        expectedTaskRow ? 3 : 2,
+        1 + Number(expectedTaskRow),
         `${entry.name} renders declared rows`,
       );
-      near(entry.rows[0], context, `${entry.name} context row token`);
-      near(entry.rows[1], tabs, `${entry.name} tab row token`);
-      if (expectedTaskRow) near(entry.rows[2], reservedTask, `${entry.name} task row token`);
+      near(entry.rows[0], top, `${entry.name} top bar token`);
+      if (expectedTaskRow) near(entry.rows[1], reservedTask, `${entry.name} task row token`);
       near(entry.ribbon, total, `${entry.name} Ribbon block token`);
       near(entry.shellFirstTrack, total, `${entry.name} shell first grid track`);
     }
@@ -214,7 +209,8 @@ try {
     const visibleControls = [...document.querySelectorAll("a, button")];
     return visibleControls.map((control) => {
       const row = control.closest("[data-ribbon-row]");
-      if (row === null) return { control: control.textContent, passes: false, reason: "no row" };
+      if (row === null)
+        return { control: control.textContent, passes: false, reason: "no Ribbon scrollport" };
       control.focus();
       const controlBox = control.getBoundingClientRect();
       const rowBox = row.getBoundingClientRect();

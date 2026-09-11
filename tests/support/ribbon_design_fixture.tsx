@@ -45,6 +45,12 @@ const GLYPH_ATLAS_LABELS: Readonly<Record<RibbonGlyphId, string>> = {
   "arrow-left": "Back to Assignments",
   "circle-user": "Account context",
   "right-from-bracket": "Sign out",
+  "box-archive": "My Inactive Courses",
+  clock: "Assignments Due Soon",
+  copy: "My Assignment Templates",
+  "file-circle-question": "My Questions",
+  "layer-group": "My Blueprint Courses",
+  "magnifying-glass": "Search Question Library",
 };
 
 const ICON_ONLY_VISUAL_SPECIMENS = [
