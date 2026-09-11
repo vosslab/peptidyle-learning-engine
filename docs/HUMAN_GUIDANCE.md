@@ -203,6 +203,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   - A Course Instance might be `BCHM 355/455` / `BCHM 355/455 Section 20 Biochemistry (Roosevelt University; Spring 2026)`.
   - Course Instance names are properties of the Course Instance, not derived from the Blueprint Course names.
   - Short names are for space-constrained interface elements. Long names are the descriptive names used where space allows.
+  - Blueprint Course names identify the Blueprint across revisions. Changing a Blueprint name does not create a new Blueprint Revision.
 
 ## Assignment philosophy
 
