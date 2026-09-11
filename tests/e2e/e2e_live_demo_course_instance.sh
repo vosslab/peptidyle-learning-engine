@@ -7,6 +7,8 @@ repository_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 readonly repository_root
 readonly project_name="ple-live-demo-browser"
 readonly runtime_environment_path="local_stack_state/live_demo_browser/workspace/env.local"
+readonly course_short_name="BIOL 301"
+readonly course_long_name="Molecular Biology 301: Gene Expression"
 
 usage() {
 	echo "Usage: bash tests/e2e/e2e_live_demo_course_instance.sh [--authority|--browser]" >&2
@@ -131,9 +133,9 @@ print(json.dumps({"title":"M8 exact Blueprint source","modules":[{"label":"M8 mo
 course_payload() {
 	python3 -c '
 import json, sys
-blueprint, revision, assigned = sys.argv[1:]
-print(json.dumps({"blueprintCourse":blueprint,"blueprintRevision":revision,"title":"M8 live Course Instance","term":{"startDate":"2026-09-01","endDate":"2026-12-18"},"assignedInstructor":assigned}, separators=(",",":")))
-' "$1" "$2" "$3"
+blueprint, revision, assigned, short_name, long_name = sys.argv[1:]
+print(json.dumps({"blueprintCourse":blueprint,"blueprintRevision":revision,"shortName":short_name,"longName":long_name,"term":{"startDate":"2026-09-01","endDate":"2026-12-18"},"assignedInstructor":assigned}, separators=(",",":")))
+' "$1" "$2" "$3" "$course_short_name" "$course_long_name"
 }
 
 assert_course_receipt() {
@@ -144,14 +146,16 @@ if set(value) != {"course", "creatorIsAssignedInstructor"}:
     raise SystemExit("Course Instance creation receipt was not closed")
 course = value["course"]
 themes = {"tundra", "forest", "desert", "grass", "arctic", "ocean", "tropical", "coral-reef", "swamp", "underground", "salt-marsh", "wetland", "sea-floor", "magma", "beach"}
-if (set(course) != {"reference", "title", "term", "theme"}
+if (set(course) != {"reference", "shortName", "longName", "term", "theme"}
     or not re.fullmatch(r"C-[1-9][0-9]{0,9}", course["reference"])
     or course["theme"] not in themes):
     raise SystemExit("Course Instance creation receipt did not return a public Course Instance identity")
-if course["title"] != "M8 live Course Instance" or value["creatorIsAssignedInstructor"] is not False:
+if (course["shortName"] != sys.argv[2]
+    or course["longName"] != sys.argv[3]
+    or value["creatorIsAssignedInstructor"] is not False):
     raise SystemExit("Sysadmin Course Instance creation did not preserve its no-ambient-access receipt")
 print(course["reference"])
-' "$1"
+' "$1" "$2" "$3"
 }
 
 assert_instructor_view() {
@@ -162,11 +166,13 @@ if set(value) != {"course", "isAssignedInstructor", "activeInstructorCount"}:
     raise SystemExit("Course Instance teaching-team view was not closed")
 course = value["course"]
 themes = {"tundra", "forest", "desert", "grass", "arctic", "ocean", "tropical", "coral-reef", "swamp", "underground", "salt-marsh", "wetland", "sea-floor", "magma", "beach"}
-if (set(course) != {"reference", "title", "term", "theme"}
+if (set(course) != {"reference", "shortName", "longName", "term", "theme"}
     or not re.fullmatch(r"C-[1-9][0-9]{0,9}", course["reference"])
     or course["reference"] != sys.argv[2]
     or course["theme"] not in themes):
     raise SystemExit("Course Instance teaching-team view identity differs")
+if course["shortName"] != sys.argv[3] or course["longName"] != sys.argv[4]:
+    raise SystemExit("Course Instance teaching-team view did not retain both names")
 if value["isAssignedInstructor"] is not True:
     raise SystemExit("Assigned Instructor did not receive teaching authority")
 if not isinstance(value["activeInstructorCount"], int) or value["activeInstructorCount"] < 1:
@@ -174,7 +180,23 @@ if not isinstance(value["activeInstructorCount"], int) or value["activeInstructo
 forbidden = {"id", "accountId", "student", "studentRecord", "assignment", "sourceObject", "answerKey"}
 if forbidden.intersection(value) or forbidden.intersection(course):
     raise SystemExit("Course Instance teaching-team view exposed future or private state")
-' "$1" "$2"
+' "$1" "$2" "$3" "$4"
+}
+
+assert_course_list() {
+	python3 -c '
+import json, sys
+value = json.loads(sys.argv[1])
+items = value.get("items")
+if not isinstance(items, list):
+    raise SystemExit("Course Instance list was malformed")
+matches = [item for item in items if isinstance(item, dict) and item.get("reference") == sys.argv[2]]
+if len(matches) != 1:
+    raise SystemExit("Assigned Instructor Course Instance list did not retain the created identity")
+course = matches[0]
+if course.get("shortName") != sys.argv[3] or course.get("longName") != sys.argv[4]:
+    raise SystemExit("Assigned Instructor Course Instance list did not retain both names")
+' "$1" "$2" "$3" "$4"
 }
 
 assert_database_evidence() {
@@ -274,7 +296,7 @@ print(references[0])
 		echo "Sysadmin could not create the Course Instance for the selected Instructor" >&2
 		exit 1
 	fi
-	course_reference="$(assert_course_receipt "$(response_body "$course_created")")"
+	course_reference="$(assert_course_receipt "$(response_body "$course_created")" "$course_short_name" "$course_long_name")"
 	assert_concealed "$(request '/api/course-instances' "$sysadmin_cookie")"
 	assert_concealed "$(request "/api/course-instances/$course_reference" "$sysadmin_cookie")"
 	course_list="$(request '/api/course-instances' "$instructor_cookie")"
@@ -282,12 +304,13 @@ print(references[0])
 		echo "Assigned Instructor could not enter the new Course Instance list" >&2
 		exit 1
 	fi
+	assert_course_list "$(response_body "$course_list")" "$course_reference" "$course_short_name" "$course_long_name"
 	course_view="$(request "/api/course-instances/$course_reference" "$instructor_cookie")"
 	if [ "$(response_status "$course_view")" != "200" ]; then
 		echo "Assigned Instructor could not open the new Course Instance" >&2
 		exit 1
 	fi
-	assert_instructor_view "$(response_body "$course_view")" "$course_reference"
+	assert_instructor_view "$(response_body "$course_view")" "$course_reference" "$course_short_name" "$course_long_name"
 	assert_database_evidence "$course_reference" "$blueprint" "$assigned"
 	echo "Course Instance authority: exact source, Assigned Instructor, and no ambient Sysadmin access complete"
 }

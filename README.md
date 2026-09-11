@@ -129,3 +129,8 @@ and figures are licensed under [Creative Commons Attribution 4.0](LICENSE.CC-BY-
 The bundled Ribbon sprite redistributes only Font Awesome Free SVG icon artwork under
 [Creative Commons Attribution 4.0](LICENSE.CC-BY-4.0). That attribution does not claim to
 redistribute Font Awesome package tooling, code, or fonts.
+
+The bundled Atkinson Hyperlegible Next browser fonts are distributed under the
+[SIL Open Font License 1.1](src/assets/fonts/atkinson_hyperlegible_next/ofl_1_1.txt); their pinned
+source and retained-file record are in
+[the local provenance record](src/assets/fonts/atkinson_hyperlegible_next/provenance.txt).

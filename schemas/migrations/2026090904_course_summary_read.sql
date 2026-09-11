@@ -13,7 +13,8 @@ CREATE FUNCTION ple_api.read_course_summary(p_course_id uuid)
 RETURNS TABLE (
     course_id uuid,
     reference_number bigint,
-    title text,
+    short_name text,
+    long_name text,
     term_starts_on date,
     term_ends_on date,
     course_time_zone text,
@@ -24,7 +25,8 @@ SET search_path = pg_catalog, ple_api, ple_data
 AS $$
     SELECT course.course_id,
            course.reference_number,
-           course.course_title,
+           course.course_short_name,
+           course.course_long_name,
            schedule.term_starts_on,
            schedule.term_ends_on,
            schedule.course_time_zone,

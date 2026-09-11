@@ -1,3 +1,5 @@
+# This file is vendored. Local changes can and will be overwritten by propagation.
+
 # Standard Library
 import ast
 import pathlib
@@ -344,4 +346,3 @@ def test_r4_allows_flat_test_helpers(tmp_path: pathlib.Path) -> None:
 	write_module(tmp_path, "tests/file_utils.py", "VALUE = 1\n")
 	issues = check_synthetic(tmp_path, "tests/test_a.py", "import file_utils\n")
 	assert issues == []
-# Vendored pytest file. Local changes can and will be overwritten.

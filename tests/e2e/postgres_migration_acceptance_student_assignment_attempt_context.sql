@@ -166,7 +166,8 @@ BEGIN
             OR context.attempt_number < 1
             OR context.course_reference_number < 1
             OR context.assignment_reference_number < 1
-            OR context.course_title = ''
+            OR context.course_short_name = ''
+            OR context.course_long_name = ''
             OR context.assignment_title = ''
             OR context.course_theme NOT IN (
                 'tundra', 'forest', 'desert', 'grass', 'arctic', 'ocean',

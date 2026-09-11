@@ -19,7 +19,7 @@ impl PostgresLiveAssignmentDeliveryStore {
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
             "SELECT assignment_attempt_reference_number, attempt_number, \
-                    course_reference_number, course_title, course_theme, \
+                    course_reference_number, course_short_name, course_long_name, course_theme, \
                     assignment_reference_number, assignment_title, \
                     timer_remaining_milliseconds \
                FROM ple_api.read_student_assignment_attempt_context($1)",
@@ -52,9 +52,13 @@ impl PostgresLiveAssignmentDeliveryStore {
                 "Course reference",
                 CourseInstanceReference::new,
             )?,
-            course_title: nonempty(
-                row.try_get("course_title").map_err(map_sqlx_error)?,
-                "Course title",
+            course_short_name: name(
+                row.try_get("course_short_name").map_err(map_sqlx_error)?,
+                "Course short name",
+            )?,
+            course_long_name: name(
+                row.try_get("course_long_name").map_err(map_sqlx_error)?,
+                "Course long name",
             )?,
             course_theme: CourseTheme::from_str(
                 &row.try_get::<String, _>("course_theme")
@@ -101,6 +105,12 @@ fn reference<T>(
     u64::try_from(value)
         .ok()
         .and_then(build)
+        .ok_or_else(|| StoreError::InvalidRecord(format!("{label} is invalid")))
+}
+
+fn name(value: String, label: &str) -> Result<String, StoreError> {
+    (value == value.trim() && !value.is_empty() && value.chars().count() <= 200)
+        .then_some(value)
         .ok_or_else(|| StoreError::InvalidRecord(format!("{label} is invalid")))
 }
 

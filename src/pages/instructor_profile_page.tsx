@@ -3,6 +3,7 @@ import { For, Match, Show, Switch, createResource, createSignal, type JSX } from
 import { useApplicationApi } from "../api/application_api";
 import { ApiRequestError } from "../api/http_client";
 import { ProfileThumbnail } from "../features/instructor_profile/profile_thumbnail";
+import { dispatchProfileThumbnailReplaced } from "../features/instructor_profile/profile_thumbnail_url";
 
 function availableTimeZones(current: string): readonly string[] {
   const intl = Intl as typeof Intl & {
@@ -65,6 +66,7 @@ export function InstructorProfilePage(): JSX.Element {
     try {
       const saved = await applicationApi.client.replaceInstructorProfileThumbnail(file);
       mutateThumbnail(saved);
+      dispatchProfileThumbnailReplaced(saved);
       if (thumbnail.error !== undefined) void refetchThumbnail();
       setSelectedFile(undefined);
       if (thumbnailInput !== undefined) thumbnailInput.value = "";
@@ -90,7 +92,7 @@ export function InstructorProfilePage(): JSX.Element {
       <section aria-labelledby="profile-image-heading">
         <h2 id="profile-image-heading">Profile image</h2>
         <ProfileThumbnail
-          reference={thumbnailReference()}
+          reference={thumbnailReference}
           unavailable={thumbnail.error !== undefined}
           client={applicationApi.client}
         />

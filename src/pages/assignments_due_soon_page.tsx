@@ -48,7 +48,7 @@ function DueSoonAssignmentRow(props: {
           <A href={assignmentPath}>{props.assignment.assignmentTitle}</A>
         </h2>
         <p class="instructor-list__metadata">
-          Course: <A href={`/courses/${courseReference}`}>{props.assignment.courseTitle}</A>
+          Course: <A href={`/courses/${courseReference}`}>{props.assignment.courseLongName}</A>
         </p>
       </div>
       <p class="assignments-due-soon__due">

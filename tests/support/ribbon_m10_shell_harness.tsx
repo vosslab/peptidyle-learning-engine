@@ -157,7 +157,8 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
       return Promise.resolve({
         course: {
           reference,
-          title: `Course ${reference}`,
+          shortName: `Course ${reference}`,
+          longName: `Course ${reference}`,
           theme: "grass",
           term: {
             startDate: "2026-01-12",

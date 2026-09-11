@@ -15,7 +15,7 @@ import {
   decodeRecord,
   decodeStringEnum,
 } from "../decoder";
-import { field, requireOnlyFields } from "./shared";
+import { decodeCourseName, field, requireOnlyFields } from "./shared";
 import {
   type AssignmentAttemptRouteReference,
   type AssignmentRouteReference,
@@ -72,7 +72,7 @@ export function decodeStudentAssignmentAttemptContext(
     "assignment",
   ]);
   const course = decodeRecord(field(record, "course", path), `${path}.course`);
-  requireOnlyFields(course, `${path}.course`, ["reference", "title", "theme"]);
+  requireOnlyFields(course, `${path}.course`, ["reference", "shortName", "longName", "theme"]);
   const assignment = decodeRecord(field(record, "assignment", path), `${path}.assignment`);
   requireOnlyFields(assignment, `${path}.assignment`, ["reference", "title"]);
   const remaining = field(record, "timerRemainingMilliseconds", path);
@@ -94,7 +94,14 @@ export function decodeStudentAssignmentAttemptContext(
         field(course, "reference", `${path}.course`),
         `${path}.course.reference`,
       ),
-      title: decodeNonemptyString(field(course, "title", `${path}.course`), `${path}.course.title`),
+      shortName: decodeCourseName(
+        field(course, "shortName", `${path}.course`),
+        `${path}.course.shortName`,
+      ),
+      longName: decodeCourseName(
+        field(course, "longName", `${path}.course`),
+        `${path}.course.longName`,
+      ),
       theme: decodeStringEnum(
         field(course, "theme", `${path}.course`),
         `${path}.course.theme`,

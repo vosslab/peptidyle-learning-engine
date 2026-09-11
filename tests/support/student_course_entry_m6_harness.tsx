@@ -14,11 +14,13 @@ type StudentCourseEntryCase = "zero" | "one" | "choose" | "many" | "landing";
 
 const COURSE_ONE: LiveStudentCourseLandingSummary = {
   reference: "C-1",
-  title: "Biochemistry 301",
+  shortName: "BCHM 301",
+  longName: "Biochemistry 301: Proteins and Peptides",
 };
 const COURSE_TWO: LiveStudentCourseLandingSummary = {
   reference: "C-2",
-  title: "Molecular Genetics",
+  shortName: "BIOL 302",
+  longName: "Molecular Genetics: Gene Regulation",
 };
 
 function coursesFor(

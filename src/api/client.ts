@@ -39,13 +39,7 @@ import type { InstructorMembershipsPage } from "../../generated/api/InstructorMe
 import type { PendingCourseInvitationsPage } from "../../generated/api/PendingCourseInvitationsPage";
 import type { CourseInvitationStatePrecondition } from "../../generated/api/CourseInvitationStatePrecondition";
 import type { CourseRosterChangeNumber } from "../../generated/api/CourseRosterChangeNumber";
-import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
-import type { AssignmentEditNumber } from "../../generated/api/AssignmentEditNumber";
-import type { HypotheticalStudentViewScenarioRequest } from "../../generated/api/HypotheticalStudentViewScenarioRequest";
-import type { InstructorPreviewSchedulePage } from "../../generated/api/InstructorPreviewSchedulePage";
-import type { PreviewPlaneResponse } from "../../generated/api/PreviewPlaneResponse";
-import type { SelectedStudentViewScenarioRequest } from "../../generated/api/SelectedStudentViewScenarioRequest";
 import type { CapabilityValidator, FormatValidator, TimerEvaluator } from "../wasm/index";
 import type { CourseRosterClient } from "./enrollment";
 import type {
@@ -59,13 +53,11 @@ import type {
   StudentQuestionAttempt,
   QuestionSubmissionAcknowledgement,
   AuthenticatedSession,
-  CourseCreateInput,
   CourseSummary,
   CursorPage,
   ImathasQuestionBackendLaunch,
   StudentFeedbackReleaseResponse,
   PrefetchedNextQuestion,
-  QuestionPoolPreview,
 } from "./contracts";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
@@ -179,37 +171,6 @@ export interface ApiClient
   readonly getInstructorProfileThumbnail: () => Promise<InstructorProfileThumbnail>;
   readonly replaceInstructorProfileThumbnail: (image: Blob) => Promise<InstructorProfileThumbnail>;
   readonly fetchInstructorProfileThumbnail: (reference: string) => Promise<Blob>;
-  /** Instructor-only Assignment Delivery Preview schedule page using public C-/A- route references. */
-  readonly listPreviewSchedule: (
-    course: CourseInstanceReference,
-    assignment: AssignmentReference,
-    editNumber: AssignmentEditNumber,
-    cursor?: string,
-    pageSize?: number,
-  ) => Promise<InstructorPreviewSchedulePage>;
-  /**
-   * Constructs an identity-free hypothetical Student View Scenario.
-   */
-  readonly constructHypotheticalStudentViewScenario: (
-    course: CourseInstanceReference,
-    assignment: AssignmentReference,
-    editNumber: AssignmentEditNumber,
-    request: Omit<HypotheticalStudentViewScenarioRequest, "assignment" | "edit_number">,
-  ) => Promise<PreviewPlaneResponse>;
-  /** Constructs an identity-free Student View Scenario from one selected Student membership. */
-  readonly constructSelectedStudentViewScenario: (
-    course: CourseInstanceReference,
-    assignment: AssignmentReference,
-    editNumber: AssignmentEditNumber,
-    request: Omit<SelectedStudentViewScenarioRequest, "assignment" | "edit_number">,
-  ) => Promise<PreviewPlaneResponse>;
-  /** Samples one saved Question Pool with server-owned entropy and no student activity. */
-  readonly previewQuestionPool: (
-    course: CourseInstanceReference,
-    assignment: AssignmentReference,
-    editNumber: AssignmentEditNumber,
-    assignmentEntryId: string,
-  ) => Promise<QuestionPoolPreview>;
   readonly listInstructorCourseInvitations: (
     courseId: CourseId,
     cursor?: string,
@@ -275,8 +236,6 @@ export interface ApiClient
   /** Gets the safe immutable Question Details View, never a complete Question Revision. */
   readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
   readonly listCourses: (cursor?: string) => Promise<CursorPage<CourseSummary>>;
-  /** Creates one course for an authenticated instructor or sysadmin. */
-  readonly createCourse: (input: CourseCreateInput) => Promise<CourseSummary>;
   readonly getCourse: (courseId: CourseId) => Promise<CourseSummary>;
   /** Gets only the authorized current Course Appearance View. */
   readonly getCourseAppearanceView: (courseId: CourseId) => Promise<CourseAppearanceView>;

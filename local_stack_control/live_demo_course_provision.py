@@ -186,6 +186,37 @@ def _resolve_named_reference(
 
 
 #============================================
+def _resolve_course_reference(
+	items: list[dict],
+	stored_reference: str | None,
+	short_name: str,
+	long_name: str,
+	reference_pattern: re.Pattern[str],
+) -> dict | None:
+	"""Resolve a prior Course reference first, then its exact name pair."""
+	valid = [
+		item
+		for item in items
+		if isinstance(item.get("reference"), str)
+		and reference_pattern.fullmatch(item["reference"]) is not None
+	]
+	if stored_reference is not None:
+		for item in valid:
+			if item["reference"] == stored_reference:
+				return item
+	matches = [
+		item
+		for item in valid
+		if item.get("shortName") == short_name and item.get("longName") == long_name
+	]
+	if len(matches) > 1:
+		raise local_stack_control.models.ControllerError(
+			"live-demo Course Instance identity is ambiguous"
+		)
+	return matches[0] if matches else None
+
+
+#============================================
 def _graded_question_counts(
 	runner: local_stack_control.process.CommandRunner,
 	repository_root: pathlib.Path,
@@ -398,12 +429,12 @@ def _observe(
 		_require_status(course_response, 200, seed.Stage.COURSE, "detect"),
 		"Course Instance",
 	)
-	course = _resolve_named_reference(
+	course = _resolve_course_reference(
 		course_items,
 		stored.get("course_reference"),
-		seed.SEEDED_COURSE_TITLE,
+		seed.SEEDED_COURSE_SHORT_NAME,
+		seed.SEEDED_COURSE_LONG_NAME,
 		REFERENCE_PATTERNS["course_reference"],
-		"Course Instance",
 	)
 	course_reference = course["reference"] if course is not None else None
 

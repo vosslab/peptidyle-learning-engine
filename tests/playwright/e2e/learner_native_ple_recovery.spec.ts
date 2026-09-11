@@ -18,6 +18,7 @@ import { faultHandshakeFromEnvironment } from "./fault_handshake";
 import {
   chooseSeededIdentity,
   configureContextAndPage,
+  enterStudentCourse,
   expectObservedOrigin,
   observeContextOrigins,
   requireScenarioInput,
@@ -25,6 +26,7 @@ import {
 } from "./real_stack_ui";
 
 const maryEmail = "mary.okafor@live-demo.invalid";
+const marySeededCourseLongName = "Biochemistry 301: Proteins and Peptides";
 const timeoutMs = 600_000;
 const actionTimeoutMs = 30_000;
 const contextOptions = { viewport: { width: 1280, height: 800 }, ignoreHTTPSErrors: true };
@@ -75,11 +77,15 @@ async function gradingState(page: Page, path: string): Promise<string> {
 
 async function createCourseAssignment(
   page: Page,
-  course: string,
+  courseShortName: string,
+  courseLongName: string,
   assignment: string,
 ): Promise<void> {
-  const blueprint = `${course} blueprint`;
-  await page.getByRole("link", { name: "Blueprint Courses", exact: true }).click();
+  const blueprint = `${courseLongName} blueprint`;
+  await page
+    .getByRole("navigation", { name: "Ribbon tasks", exact: true })
+    .getByRole("link", { name: "My Blueprint Courses", exact: true })
+    .click();
   await page.getByRole("button", { name: "Create Blueprint Course", exact: true }).click();
   await page.getByLabel("Blueprint Course title").fill(blueprint);
   await page.getByRole("button", { name: "Choose published Questions", exact: true }).click();
@@ -90,15 +96,19 @@ async function createCourseAssignment(
     .getByRole("dialog")
     .getByRole("button", { name: "Create Blueprint Course", exact: true })
     .click();
-  await page.getByRole("link", { name: "Courses", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+    .getByRole("link", { name: "Courses", exact: true })
+    .click();
   await page
     .getByLabel("Blueprint Course Revision")
     .selectOption({ label: `${blueprint} · Revision 1` });
-  await page.getByLabel("Course Instance title").fill(course);
+  await page.getByLabel("Course short name").fill(courseShortName);
+  await page.getByLabel("Course long name").fill(courseLongName);
   await page.getByLabel("Course Term start date").fill("2026-09-01");
   await page.getByLabel("Course Term end date").fill("2026-12-18");
   await page.getByRole("button", { name: "Create Course Instance", exact: true }).click();
-  await expect(page.getByRole("heading", { name: course, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: courseLongName, exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Open Course Instance", exact: true }).first().click();
   await page.waitForURL(/\/courses\/C-[1-9][0-9]*$/u);
   const students = page.getByRole("link", { name: "Open Students", exact: true });
@@ -112,9 +122,9 @@ async function createCourseAssignment(
   await page.getByRole("link", { name: "Return to Course Instances", exact: true }).click();
   const courseCard = page
     .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: course, exact: true }) });
+    .filter({ has: page.getByRole("heading", { name: courseLongName, exact: true }) });
   await courseCard.getByRole("link", { name: "Open Course Instance", exact: true }).click();
-  await expect(page.getByRole("heading", { name: course, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: courseLongName, exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Create Assignment", exact: true }).click();
   await page.getByLabel("Assignment title").fill(assignment);
   await page.getByRole("button", { name: "Create Assignment", exact: true }).click();
@@ -127,14 +137,15 @@ async function createCourseAssignment(
   await picker.getByRole("button", { name: "Search questions", exact: true }).click();
   await picker.locator(".question-picker-result input").first().check();
   await picker.getByRole("button", { name: "Add selected questions", exact: true }).click();
-  await page.getByRole("button", { name: "Save questions and order", exact: true }).click();
+  await page.getByRole("button", { name: "Save Questions and order", exact: true }).click();
   await expect(
     page.getByText("Questions and order saved. Review assignment policies when you are ready."),
   ).toBeVisible();
   await page.getByRole("link", { name: "Review assignment policies", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
-  await page.getByLabel("Due date").fill("2026-12-01");
-  await page.getByLabel("Due time").fill("12:00");
+  await page.getByLabel("Due date (America/Chicago)", { exact: true }).fill("2026-12-01");
+  await page.getByLabel("Due time", { exact: true }).fill("12:00");
+  await page.getByLabel("Time limit in seconds", { exact: true }).fill("3600");
   await page.getByLabel("Late-work rule").selectOption("mark_late");
   await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
   await expect(
@@ -144,12 +155,10 @@ async function createCourseAssignment(
   await page.getByRole("link", { name: "Check assignment delivery", exact: true }).click();
   const deliveryCheck = await deliveryCheckPage;
   await expect(
-    deliveryCheck.getByRole("heading", { name: "Assignment Preview", exact: true }),
+    deliveryCheck.getByRole("heading", { name: "Assignment delivery check", exact: true }),
   ).toBeVisible();
   await expect(
-    deliveryCheck.getByText(
-      "This answer-free preview does not create a Student attempt or access.",
-    ),
+    deliveryCheck.getByText("Preview only - no Student work or grades are created."),
   ).toBeVisible();
   await expect(
     deliveryCheck.getByRole("button", {
@@ -161,11 +170,12 @@ async function createCourseAssignment(
   ).toBeVisible();
   await deliveryCheck.close();
   await page.getByRole("button", { name: "Release assignment", exact: true }).click();
+  await expect(page.getByText(/^Assignment released as revision [1-9][0-9]*\.$/u)).toBeVisible();
 }
 
 async function signInStudentAndStartAssignment(
   page: Page,
-  courseTitle: string,
+  courseLongName: string,
   assignmentTitle: string,
 ): Promise<string> {
   await page.goto("/sign-in");
@@ -174,6 +184,8 @@ async function signInStudentAndStartAssignment(
   ).toBeVisible();
   await page.getByRole("button", { name: /Continue as .*Mary Okafor/iu }).click();
   await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
+  await enterStudentCourse(page, marySeededCourseLongName);
+  await page.getByRole("link", { name: "Your courses", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Your courses", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Course invitations", exact: true }).click();
   await expect(
@@ -181,12 +193,12 @@ async function signInStudentAndStartAssignment(
   ).toBeVisible();
   const invitation = page
     .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: courseTitle, exact: true }) });
+    .filter({ has: page.getByRole("heading", { name: courseLongName, exact: true }) });
   await invitation.getByRole("link", { name: "Review invitation", exact: true }).click();
   await page.getByRole("button", { name: "Accept invitation", exact: true }).click();
   await expect(page.getByText("Invitation accepted.", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Open assigned work", exact: true }).click();
-  await expect(page.getByRole("heading", { name: courseTitle, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: courseLongName, exact: true })).toBeVisible();
   const assignment = page
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: assignmentTitle, exact: true }) });
@@ -224,7 +236,8 @@ test("student native PLE recovery: one accepted response survives the owner work
     scenarioInput.scenarioId,
     scenarioInput.namespace,
   );
-  const course = `Biochemistry: Resilient Practice ${scenarioInput.namespace}`;
+  const courseShortName = "BIO Recovery";
+  const courseLongName = `Biochemistry: Resilient Practice ${scenarioInput.namespace}`;
   const assignment = `Peptide Bonds: Connection Recovery ${scenarioInput.namespace}`;
   const origins = {
     instructor: { pageOrigins: new Set<string>(), requestOrigins: new Set<string>() },
@@ -253,8 +266,8 @@ test("student native PLE recovery: one accepted response survives the owner work
     configureContextAndPage(instructorContext, instructor, actionTimeoutMs);
     configureContextAndPage(learnerContext, student, actionTimeoutMs);
     await chooseSeededIdentity(instructor, /Elena Rivera/u);
-    await createCourseAssignment(instructor, course, assignment);
-    const statusPath = await signInStudentAndStartAssignment(student, course, assignment);
+    await createCourseAssignment(instructor, courseShortName, courseLongName, assignment);
+    const statusPath = await signInStudentAndStartAssignment(student, courseLongName, assignment);
     await student.getByRole("button", { name: "Submit Assignment", exact: true }).click();
     await expect(
       student.getByRole("heading", { name: "Assignment submitted", exact: true }),

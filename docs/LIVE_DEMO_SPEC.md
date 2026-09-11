@@ -24,9 +24,8 @@ implemented role- and relationship-gated routes listed in
 [API_CONTRACTS.md](API_CONTRACTS.md).
 
 The demo's database and object storage are disposable. Regeneration replaces
-their seeded state. M12-M18 have their recorded focused acceptance, and M19
-accepted a fresh serial production-browser run of the production bundle against
-the fixed HTTPS stack on 2026-09-07.
+their seeded state. The current connected-browser receipt is the 2026-09-11
+owner run against a fresh disposable HTTPS stack.
 
 ## Purpose
 
@@ -55,12 +54,13 @@ through the same relationship-gated routes used by ordinary product workflows.
 
 The reusable source is the Blueprint Course `Biochemistry 301: Proteins and
 Peptides`. Elena Rivera owns its published Blueprint Revision. Her Fall 2026
-Course Instance has the same title, runs from 2026-08-24 through 2026-12-11 in
-`America/Chicago`, and has Elena as its Assigned Instructor. Its released
-Assignment `Peptide Structure Practice` contains PNE-0001, PNE-0002, PNE-0003,
-and PNE-0004 in that order. It has no due date, accepts late work, and tells
-Students: `Complete the four practice questions on peptide structure and
-properties.`
+Course Instance is independently named `BCHM 301` (short name) and
+`Biochemistry 301: Proteins and Peptides` (long name), runs from 2026-08-24
+through 2026-12-11 in `America/Chicago`, and has Elena as its Assigned
+Instructor. Its released Assignment `Peptide Structure Practice` contains
+PNE-0001, PNE-0002, PNE-0003, and PNE-0004 in that order. It has no due date,
+accepts late work, and tells Students: `Complete the four practice questions on
+peptide structure and properties.`
 
 The roster-driven import and claim workflow establishes the three active
 Student Course Memberships and course-scoped Student Records. Their declared
@@ -68,17 +68,21 @@ startup facts are:
 
 | Student        | Roster ID      | Product facts after startup                                                      |
 | -------------- | -------------- | -------------------------------------------------------------------------------- |
-| Mary Okafor    | `BIO301-MARY`  | 1 Assignment Attempt; 4 Question Submissions; 4 terminal Grading Results         |
-| Jack Nguyen    | `BIO301-JACK`  | 1 open Assignment Attempt; 2 Question Submissions; 2 unanswered Issued Questions |
+| Mary Okafor    | `BIO301-MARY`  | 1 completed Attempt; 4 Question Submissions; 4 terminal Grading Results          |
+| Jack Nguyen    | `BIO301-JACK`  | 1 open Attempt; 2 saved responses; 2 unanswered Issued Questions                 |
 | Avery Thompson | `BIO301-AVERY` | An available released Assignment and no Assignment Attempt                       |
+
+Jack has zero current Question Submission rows. His saved responses are not
+Question Submissions.
 
 The interface derives completed, in-progress, and not-started labels from
 those records. Provisioning never writes a parallel demo-only Assignment or
 grade state. Repeated starts detect each stage through its product read route
 and apply only missing operations. A retained disposable manifest identifies
 the created Blueprint Course, Course Instance, and Assignment by their public
-References; title matching is only recovery when that manifest fact is absent
-or stale. The current mode-0600 baseline report is
+References. Recovery uses an exact Blueprint Course or Assignment title, or an
+exact Course Instance short-and-long-name pair, only when that manifest fact is
+absent or stale. The current mode-0600 baseline report is
 `local_stack_state/live_demo_browser/workspace/live_demo_course_report.json`;
 its public References and outstanding-stage list are controller evidence, not a
 browser data source.
@@ -151,7 +155,11 @@ current local-demo identity-verification path.
 
 ## Connected-browser evidence
 
-M19 accepted `./devel/run_playwright_tests.sh --build` on 2026-09-07. Its serial
-owner rebuilt the disposable stack and exercised visible connected journeys.
-Focused service or earlier milestone evidence remains narrower evidence and
-does not substitute for that completed browser run.
+On 2026-09-11, the owner ran `./devel/run_playwright_tests.sh` against a fresh
+disposable HTTPS stack; it exited 0. The four Playwright scenarios passed:
+authentication and authorization, Instructor authoring, Course Appearance
+propagation, and learner native-PLE recovery. The maintained visible journeys
+also passed: Assignment release, WeBWorK render, Instructor Accounts, support
+capability, invitation export, and Course seed. Focused service and earlier
+milestone evidence remain narrower evidence and do not substitute for this
+connected-browser receipt.

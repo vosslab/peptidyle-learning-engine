@@ -11,20 +11,6 @@ export class ApiRequestError extends Error {
   }
 }
 
-/** A bounded course-term refusal with one safe field-specific correction. */
-export class CourseTermValidationError extends ApiRequestError {
-  public readonly failure: import("../../../generated/api/CourseTermValidationFailure").CourseTermValidationFailure;
-
-  public constructor(
-    path: string,
-    failure: import("../../../generated/api/CourseTermValidationFailure").CourseTermValidationFailure,
-  ) {
-    super(422, path);
-    this.name = "CourseTermValidationError";
-    this.failure = failure;
-  }
-}
-
 /** Successful HTTP response that violated the browser-safe API contract. */
 export class ApiProtocolError extends Error {
   public constructor(message: string) {
@@ -90,16 +76,6 @@ export function resolveAssignmentContentSaveFailure(error: unknown): AssignmentC
     message:
       "Questions could not be saved. Your entered title and question changes are still here.",
   };
-}
-
-/** A preview revision became stale; callers retain the hypothetical draft and reload it. */
-export class PreviewPlaneConflictError extends ApiRequestError {
-  declare public readonly status: 412;
-
-  public constructor(path: string) {
-    super(412, path);
-    this.name = "PreviewPlaneConflictError";
-  }
 }
 
 /** A course-grade save lost its strong ETag race; the caller must retain its draft. */

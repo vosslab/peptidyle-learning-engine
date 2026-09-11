@@ -8,7 +8,12 @@ function history() {
   return {
     assignmentAttempt: "R-12",
     attemptNumber: 2,
-    course: { reference: "C-3", title: "Molecular biology", theme: "forest" },
+    course: {
+      reference: "C-3",
+      shortName: "Mol Bio",
+      longName: "Molecular biology",
+      theme: "forest",
+    },
     assignment: { reference: "A-7", title: "Protein folding practice" },
     state: "submitted",
     questions: [{ position: 1, responseState: "submitted" }],
@@ -51,7 +56,12 @@ test("selected history rejects a Course context outside the established route co
     () =>
       decodeStudentAssignmentAttemptHistory({
         ...history(),
-        course: { reference: "C-3", title: "Molecular biology", theme: "unknown" },
+        course: {
+          reference: "C-3",
+          shortName: "Mol Bio",
+          longName: "Molecular biology",
+          theme: "unknown",
+        },
       }),
     DecodeError,
   );

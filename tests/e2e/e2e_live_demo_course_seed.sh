@@ -188,8 +188,9 @@ assert_product_state() {
 import json, sys
 courses,course,assignments,roster,gradebook,mary_landing,jack_landing,avery_landing,access=map(json.loads,sys.argv[1:10])
 blueprint_reference,course_reference,assignment_reference=sys.argv[10:13]
-title="Biochemistry 301: Proteins and Peptides"
-matching=[item for item in courses.get("items",[]) if isinstance(item,dict) and item.get("title")==title]
+short_name="BCHM 301"
+long_name="Biochemistry 301: Proteins and Peptides"
+matching=[item for item in courses.get("items",[]) if isinstance(item,dict) and item.get("shortName")==short_name and item.get("longName")==long_name]
 if len(matching)!=1 or matching[0].get("reference")!=course_reference:
     raise SystemExit("Elena does not see exactly one fixed Course Instance")
 if course.get("course")!=matching[0] or course.get("isAssignedInstructor") is not True or course.get("activeInstructorCount")!=1:
@@ -255,7 +256,8 @@ BEGIN
     SELECT course.course_id INTO v_course_id
       FROM ple_data.course_instance AS course
      WHERE course.reference_number=${course_reference#C-}
-       AND course.course_title='Biochemistry 301: Proteins and Peptides'
+       AND course.course_short_name='BCHM 301'
+       AND course.course_long_name='Biochemistry 301: Proteins and Peptides'
        AND course.blueprint_course_reference_number=${blueprint_reference#BP-};
     SELECT assignment.assignment_id, assignment.released_assignment_revision_id
       INTO v_assignment_id, v_revision_id
@@ -284,7 +286,8 @@ BEGIN
     IF v_course_id IS NULL OR v_assignment_id IS NULL OR v_revision_id IS NULL
        OR v_mary_record IS NULL OR v_jack_record IS NULL OR v_avery_record IS NULL
        OR (SELECT count(*) FROM ple_data.course_instance
-            WHERE course_title='Biochemistry 301: Proteins and Peptides') <> 1
+            WHERE course_short_name='BCHM 301'
+              AND course_long_name='Biochemistry 301: Proteins and Peptides') <> 1
        OR (SELECT array_agg(fixed.question_id ORDER BY entry.assignment_content_entry_index)
              FROM ple_data.assignment_revision_fixed_question AS fixed
              JOIN ple_data.assignment_revision_entry AS entry

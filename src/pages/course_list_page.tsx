@@ -21,7 +21,7 @@ function CourseInstanceRow(props: { readonly course: CourseInstanceSummary }): J
     >
       <div class="instructor-list__identity">
         <p class="instructor-list__kind">Course Instance</p>
-        <h2>{props.course.title}</h2>
+        <h2>{props.course.longName}</h2>
         <p class="instructor-list__metadata">
           {props.course.term.startDate} through {props.course.term.endDate}
         </p>
@@ -86,7 +86,8 @@ function TeachingCourseListPage(): JSX.Element {
     [],
   );
   const [source, setSource] = createSignal("");
-  const [title, setTitle] = createSignal("");
+  const [shortName, setShortName] = createSignal("");
+  const [longName, setLongName] = createSignal("");
   const [startDate, setStartDate] = createSignal("");
   const [endDate, setEndDate] = createSignal("");
   const [isCreating, setIsCreating] = createSignal(false);
@@ -112,8 +113,13 @@ function TeachingCourseListPage(): JSX.Element {
       setCreationError("Choose the exact Blueprint Course Revision for this Course Instance.");
       return;
     }
-    if (title().trim() !== title() || title().trim().length === 0) {
-      setCreationError("Enter a trimmed Course Instance title.");
+    if (
+      shortName().trim() !== shortName() ||
+      shortName().trim().length === 0 ||
+      longName().trim() !== longName() ||
+      longName().trim().length === 0
+    ) {
+      setCreationError("Enter trimmed Course short and long names.");
       return;
     }
     if (startDate() === "" || endDate() === "" || endDate() < startDate()) {
@@ -126,12 +132,14 @@ function TeachingCourseListPage(): JSX.Element {
       const created = await applicationApi.client.createCourseInstance({
         blueprintCourse: selected.reference,
         blueprintRevision: selected.revision,
-        title: title(),
+        shortName: shortName(),
+        longName: longName(),
         term: { startDate: startDate(), endDate: endDate() },
       });
       setCreatedCourses((current) => [created.course, ...current]);
       setSource("");
-      setTitle("");
+      setShortName("");
+      setLongName("");
       setStartDate("");
       setEndDate("");
       void refetchCourses();
@@ -177,14 +185,27 @@ function TeachingCourseListPage(): JSX.Element {
               value={source()}
               onChange={setSource}
             />
-            <label for="course-title">
-              Course Instance title
+            <label for="course-short-name">
+              Course short name
               <input
-                id="course-title"
-                name="title"
+                id="course-short-name"
+                name="shortName"
                 type="text"
-                value={title()}
-                onInput={(event) => setTitle(event.currentTarget.value)}
+                value={shortName()}
+                onInput={(event) => setShortName(event.currentTarget.value)}
+                autocomplete="off"
+                required
+              />
+              <small>For compact navigation; about 16 characters when practical.</small>
+            </label>
+            <label for="course-long-name">
+              Course long name
+              <input
+                id="course-long-name"
+                name="longName"
+                type="text"
+                value={longName()}
+                onInput={(event) => setLongName(event.currentTarget.value)}
                 autocomplete="off"
                 required
               />

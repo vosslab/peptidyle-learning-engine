@@ -80,7 +80,7 @@ const CANONICAL_PARAMS = {
 } as const satisfies Readonly<Record<RouteParamName, string>>;
 
 const SIGN_OUT = { kind: "action", id: "signOut", label: "Sign out" } as const;
-const SHORT_COURSE_TITLE = "Biochemistry I";
+const SHORT_COURSE_NAME = "BCHM 355";
 export const VERY_LONG_COURSE_TITLE = [
   "Molecular Biology of the Cell: Evidence, Explanation, and Experimental Design",
   "Across a Very Long Course Instance Title",
@@ -176,10 +176,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
     [control("courses", { selected: true })],
     [],
     "reading",
-    {
-      accountLabel: "Student account",
-      signOutAction: SIGN_OUT,
-    },
+    { signOutAction: SIGN_OUT },
   ),
   productInstructor: model(
     "product",
@@ -196,7 +193,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
       ]),
     ],
     "fullWidth",
-    { accountLabel: "Instructor account", signOutAction: SIGN_OUT },
+    { signOutAction: SIGN_OUT },
   ),
   productSysadmin: model(
     "product",
@@ -204,7 +201,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
     [control("courses", { selected: true }), control("instructorAccounts")],
     [],
     "reading",
-    { accountLabel: "System administrator", signOutAction: SIGN_OUT },
+    { signOutAction: SIGN_OUT },
   ),
   courseStudent: model(
     "courseInstance",
@@ -212,7 +209,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
     [control("studentAssignments", { selected: true })],
     [],
     "reading",
-    { accountLabel: "Student account", scopeLabel: SHORT_COURSE_TITLE, signOutAction: SIGN_OUT },
+    { scopeLabel: SHORT_COURSE_NAME, signOutAction: SIGN_OUT },
   ),
   courseInstructor: model(
     "courseInstance",
@@ -236,8 +233,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
     ],
     "fullWidth",
     {
-      accountLabel: "Instructor account",
-      scopeLabel: SHORT_COURSE_TITLE,
+      scopeLabel: SHORT_COURSE_NAME,
       assignmentLabel: "Problem Set 7",
       signOutAction: SIGN_OUT,
     },
@@ -249,8 +245,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
     [],
     "reading",
     {
-      accountLabel: "System administrator",
-      scopeLabel: SHORT_COURSE_TITLE,
+      scopeLabel: SHORT_COURSE_NAME,
       signOutAction: SIGN_OUT,
     },
   ),
@@ -261,18 +256,15 @@ export const RIBBON_DESIGN_SCHEMAS = {
     [area("assignmentAttempt", "Assignment attempt", [control("backToAssignments")])],
     "reading",
     {
-      accountLabel: "Student account",
       assignmentLabel: "Problem Set 7",
       assignmentAttemptProgress: WIDEST_ATTEMPT_PROGRESS,
       signOutAction: SIGN_OUT,
     },
   ),
   attemptInstructor: model("assignmentAttempt", "instructor", [], [], "reading", {
-    accountLabel: "Instructor account",
     signOutAction: SIGN_OUT,
   }),
   attemptSysadmin: model("assignmentAttempt", "sysadmin", [], [], "reading", {
-    accountLabel: "System administrator",
     signOutAction: SIGN_OUT,
   }),
 } as const satisfies Readonly<Record<string, RibbonModel>>;
@@ -307,8 +299,7 @@ export const RIBBON_DESIGN_STATE_SPECIMENS = {
     ],
     "reading",
     {
-      accountLabel: "Instructor account",
-      scopeLabel: SHORT_COURSE_TITLE,
+      scopeLabel: SHORT_COURSE_NAME,
       signOutAction: SIGN_OUT,
     },
   ),
@@ -325,7 +316,7 @@ export const RIBBON_DESIGN_STATE_SPECIMENS = {
     ],
     [],
     "fullWidth",
-    { accountLabel: "Instructor account", scopeLabel: SHORT_COURSE_TITLE, signOutAction: SIGN_OUT },
+    { scopeLabel: SHORT_COURSE_NAME, signOutAction: SIGN_OUT },
   ),
   checkingAdmission: model(
     "courseInstance",
@@ -336,7 +327,7 @@ export const RIBBON_DESIGN_STATE_SPECIMENS = {
     ],
     [],
     "fullWidth",
-    { accountLabel: "Instructor account", scopeLabel: SHORT_COURSE_TITLE, signOutAction: SIGN_OUT },
+    { scopeLabel: SHORT_COURSE_NAME, signOutAction: SIGN_OUT },
   ),
 } as const satisfies Readonly<Record<string, RibbonModel>>;
 

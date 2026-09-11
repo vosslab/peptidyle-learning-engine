@@ -65,9 +65,8 @@ test("the glyph vocabulary is a closed same-origin semantic contract", () => {
     Object.keys(EXPECTED_DESTINATION_GLYPHS).sort(),
   );
   assert.deepEqual(RIBBON_DESTINATION_GLYPHS, EXPECTED_DESTINATION_GLYPHS);
-  assert.deepEqual(RIBBON_CONTEXT_GLYPH_KEYS, ["account", "profile", "signOut"]);
+  assert.deepEqual(RIBBON_CONTEXT_GLYPH_KEYS, ["profile", "signOut"]);
   assert.deepEqual(RIBBON_CONTEXT_GLYPHS, {
-    account: "circle-user",
     profile: "circle-user",
     signOut: "right-from-bracket",
   });
@@ -122,7 +121,6 @@ test("every navigation destination retains its text label", () => {
 });
 
 test("context glyphs remain closed identities rather than invented navigation controls", () => {
-  assert.equal(ribbonGlyphForContext("account"), "circle-user");
   assert.equal(ribbonGlyphForContext("signOut"), "right-from-bracket");
   assert.equal(ribbonGlyphForContext("profile"), "circle-user");
   assert.deepEqual(RIBBON_CONTEXT_CONTROL_CATALOG, [
@@ -135,9 +133,7 @@ test("context glyphs remain closed identities rather than invented navigation co
     },
   ]);
   assert.equal(
-    CATALOG.some(
-      (control) => control.id === "account" || control.id === "profile" || control.id === "signOut",
-    ),
+    CATALOG.some((control) => control.id === "profile" || control.id === "signOut"),
     false,
   );
 });

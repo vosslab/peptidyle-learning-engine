@@ -8,13 +8,15 @@ import type { LiveAssignmentAttemptScore } from "./assignment_attempt_issuance";
 /** One current Student-visible Course Instance, without membership or progress details. */
 export interface LiveStudentCourseLandingSummary {
   readonly reference: CourseInstanceReference;
-  readonly title: string;
+  readonly shortName: string;
+  readonly longName: string;
 }
 
 /** One pending Student Course Invitation, without invitation or membership details. */
 export interface LiveStudentCourseInvitationSummary {
   readonly reference: CourseInstanceReference;
-  readonly title: string;
+  readonly shortName: string;
+  readonly longName: string;
 }
 
 /** One current Student-visible Assignment with self-only, answer-free progress. */

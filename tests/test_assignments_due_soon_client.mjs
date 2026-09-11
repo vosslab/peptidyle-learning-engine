@@ -11,7 +11,7 @@ function responseBody() {
     items: [
       {
         courseReference: "C-2",
-        courseTitle: "Molecular Biology",
+        courseLongName: "Molecular Biology",
         assignmentReference: "A-3",
         assignmentTitle: "DNA repair",
         assignmentStatus: "released",

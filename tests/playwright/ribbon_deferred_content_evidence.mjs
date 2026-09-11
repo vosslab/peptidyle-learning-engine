@@ -1,4 +1,4 @@
-// ribbon_m11_deferred_content_evidence.mjs - compiled-harness deferred-content evidence.
+// ribbon_deferred_content_evidence.mjs - compiled-harness deferred-content evidence.
 // It exercises current source composition in a controlled browser fixture; it
 // does not build dist/ or replace real-stack browser acceptance.
 
@@ -9,13 +9,13 @@ import { createServer } from "node:http";
 
 import { chromium } from "playwright";
 
-import { bundleM11Harness } from "../support/ribbon_m11_deferred_content_loader.ts";
+import { bundleRibbonDeferredContentHarness } from "../support/ribbon_deferred_content_loader.ts";
 
 const css = [
   readFileSync(new URL("../../src/style.css", import.meta.url), "utf8"),
   readFileSync(new URL("../../src/styles/accessibility.css", import.meta.url), "utf8"),
 ].join("\n");
-const bundle = await bundleM11Harness();
+const bundle = await bundleRibbonDeferredContentHarness();
 const RIBBON_ROOT_SELECTOR = ".ple-app-ribbon";
 const WORKSPACE_CASES = new Set(["policies", "workspace"]);
 const RETIRED_NAVIGATION_SELECTOR = [
@@ -65,18 +65,16 @@ try {
   await page.goto(`http://127.0.0.1:${String(address.port)}/`);
   await page.addScriptTag({ content: Buffer.from(bundle.javascript).toString("utf8") });
   await page.waitForFunction(
-    () =>
-      typeof window.PleRibbonM11DeferredContent?.mountRibbonM11DeferredContentHarness ===
-      "function",
+    () => typeof window.PleRibbonDeferredContent?.mountRibbonDeferredContentHarness === "function",
   );
   await page.evaluate(() => {
     const root = document.querySelector("#root");
     if (!(root instanceof HTMLElement))
       throw new Error("Deferred-content evidence root is missing.");
-    window.ribbonM11 =
-      window.PleRibbonM11DeferredContent.mountRibbonM11DeferredContentHarness(root);
+    window.ribbonDeferredContent =
+      window.PleRibbonDeferredContent.mountRibbonDeferredContentHarness(root);
   });
-  await page.waitForFunction(() => window.ribbonM11.ready());
+  await page.waitForFunction(() => window.ribbonDeferredContent.ready());
   const assertHarnessRibbon = async (caseName, taskRowReserved) => {
     const ribbonRoot = page.locator(RIBBON_ROOT_SELECTOR);
     await ribbonRoot.waitFor({ state: "visible" });
@@ -131,7 +129,7 @@ try {
       "Loading assignment delivery check...",
       "Assignment delivery check",
       "scopeCourse",
-      "resolveNavigation",
+      "getLiveAssignmentPreview",
       0,
       1,
       false,
@@ -185,7 +183,7 @@ try {
     expectedAfterRelease,
     taskRowReserved,
   ] of cases) {
-    await page.evaluate((name) => window.ribbonM11.navigate(name), caseName);
+    await page.evaluate((name) => window.ribbonDeferredContent.navigate(name), caseName);
     const pendingStatus = page
       .locator(`[data-route-surface="${pendingSurface}"]`)
       .locator('[role="status"]')
@@ -220,7 +218,7 @@ try {
     );
     assert.equal(
       await page.evaluate(
-        ([name, counter]) => window.ribbonM11.count(name, counter),
+        ([name, counter]) => window.ribbonDeferredContent.count(name, counter),
         [caseName, downstream],
       ),
       expectedBeforeRelease,
@@ -228,7 +226,7 @@ try {
     );
     assert.equal(
       await page.evaluate(
-        ([name, counter]) => window.ribbonM11.count(name, counter),
+        ([name, counter]) => window.ribbonDeferredContent.count(name, counter),
         [caseName, scopeCounter],
       ),
       1,
@@ -236,7 +234,7 @@ try {
     );
     // Workspace content owns its loader independently of the deferred Course
     // presentation scope; the stable shell must tolerate both loads together.
-    await page.evaluate((name) => window.ribbonM11.release(name), caseName);
+    await page.evaluate((name) => window.ribbonDeferredContent.release(name), caseName);
     await page.locator(`[data-route-surface="${surface}"]`).first().waitFor({ state: "attached" });
     if (WORKSPACE_CASES.has(caseName)) {
       const workspaceGate = page.locator('[data-route-surface="assignmentWorkspaceGate"]');
@@ -259,12 +257,12 @@ try {
         `${caseName} replaces the outer deferred scope fallback with its inner workspace gate`,
       );
       await page.waitForFunction(
-        (name) => window.ribbonM11.count(name, "getLiveAssignmentWorkspace") === 1,
+        (name) => window.ribbonDeferredContent.count(name, "getLiveAssignmentWorkspace") === 1,
         caseName,
       );
       assert.equal(
         await page.evaluate(
-          (name) => window.ribbonM11.count(name, "getLiveAssignmentWorkspace"),
+          (name) => window.ribbonDeferredContent.count(name, "getLiveAssignmentWorkspace"),
           caseName,
         ),
         1,
@@ -274,12 +272,13 @@ try {
       await page.getByRole("heading", { name: heading }).first().waitFor({ state: "visible" });
     }
     await page.waitForFunction(
-      ([name, counter, expectedCount]) => window.ribbonM11.count(name, counter) === expectedCount,
+      ([name, counter, expectedCount]) =>
+        window.ribbonDeferredContent.count(name, counter) === expectedCount,
       [caseName, downstream, expectedAfterRelease],
     );
     assert.equal(
       await page.evaluate(
-        ([name, counter]) => window.ribbonM11.count(name, counter),
+        ([name, counter]) => window.ribbonDeferredContent.count(name, counter),
         [caseName, downstream],
       ),
       expectedAfterRelease,
@@ -288,7 +287,7 @@ try {
     if (caseName === "teaching") {
       assert.equal(
         await page.evaluate(() =>
-          window.ribbonM11.count("teaching", "listInstructorCourseInvitations"),
+          window.ribbonDeferredContent.count("teaching", "listInstructorCourseInvitations"),
         ),
         1,
         "teaching starts its paired invitation load once",

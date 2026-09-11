@@ -63,7 +63,7 @@ export function CourseEntryIdentity(): JSX.Element {
                 height="200"
               />
             </Show>
-            <h1>{course.summary.title}</h1>
+            <h1>{course.summary.longName}</h1>
           </header>
         );
       }}

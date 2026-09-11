@@ -20,7 +20,8 @@ export interface StudentAssignmentAttemptHistory {
   readonly attemptNumber: number;
   readonly course: {
     readonly reference: CourseInstanceReference;
-    readonly title: string;
+    readonly shortName: string;
+    readonly longName: string;
     readonly theme: CourseTheme;
   };
   readonly assignment: {

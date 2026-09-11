@@ -13,7 +13,7 @@ import {
   decodeAssignmentReference,
   decodeAssignmentTitle,
   decodeCourseInstanceReference,
-  decodeCourseTitle,
+  decodeCourseName,
   field,
   requireOnlyFields,
 } from "./shared";
@@ -54,7 +54,7 @@ export function decodeStudentAssignmentAttemptHistory(
   const assignment = decodeRecord(field(record, "assignment", path), `${path}.assignment`);
   requireOnlyFields(assignment, `${path}.assignment`, ["reference", "title"]);
   const course = decodeRecord(field(record, "course", path), `${path}.course`);
-  requireOnlyFields(course, `${path}.course`, ["reference", "title", "theme"]);
+  requireOnlyFields(course, `${path}.course`, ["reference", "shortName", "longName", "theme"]);
   const score = optionalNestedScore(record.score, `${path}.score`);
   const decoded = {
     assignmentAttempt,
@@ -67,7 +67,14 @@ export function decodeStudentAssignmentAttemptHistory(
         field(course, "reference", `${path}.course`),
         `${path}.course.reference`,
       ),
-      title: decodeCourseTitle(field(course, "title", `${path}.course`), `${path}.course.title`),
+      shortName: decodeCourseName(
+        field(course, "shortName", `${path}.course`),
+        `${path}.course.shortName`,
+      ),
+      longName: decodeCourseName(
+        field(course, "longName", `${path}.course`),
+        `${path}.course.longName`,
+      ),
       theme: decodeStringEnum(
         field(course, "theme", `${path}.course`),
         `${path}.course.theme`,

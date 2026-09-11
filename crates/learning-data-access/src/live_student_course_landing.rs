@@ -16,8 +16,10 @@ use crate::{LiveAssignmentAttemptScore, SessionTokenHash, StoreError};
 pub struct LiveStudentCourseLandingSummary {
     /// Public Course Instance reference, never an internal Course identity.
     pub course: CourseInstanceReference,
-    /// Student-facing Course title.
-    pub title: String,
+    /// Compact Course Instance name for constrained navigation.
+    pub short_name: String,
+    /// Descriptive Course Instance name for headings and lists.
+    pub long_name: String,
 }
 
 /// One pending Student Course Invitation available from the landing page.
@@ -29,8 +31,10 @@ pub struct LiveStudentCourseLandingSummary {
 pub struct LiveStudentCourseInvitationSummary {
     /// Public Course Instance reference, never an invitation or Account identity.
     pub course: CourseInstanceReference,
-    /// Student-facing Course title.
-    pub title: String,
+    /// Compact Course Instance name for constrained navigation.
+    pub short_name: String,
+    /// Descriptive Course Instance name for headings and lists.
+    pub long_name: String,
 }
 
 /// One released Assignment available from an authorized Student Course.

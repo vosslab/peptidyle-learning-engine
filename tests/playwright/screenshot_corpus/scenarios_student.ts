@@ -23,7 +23,8 @@ import {
   type SeededPersona,
 } from "./visible_workflows";
 
-const INVITATION_COURSE_TITLE = "Screenshot Corpus Invitation Course";
+const INVITATION_COURSE_SHORT_NAME = "Corpus Invite";
+const INVITATION_COURSE_LONG_NAME = "Screenshot Corpus Invitation Course";
 
 async function captureCheckpoint(
   runtime: ScenarioRuntime,
@@ -68,11 +69,12 @@ async function prepareStudentInvitation(
     await page
       .getByLabel("Blueprint Course Revision")
       .selectOption({ label: `${COURSE_TITLE} · Revision 1` });
-    await page.getByLabel("Course Instance title").fill(INVITATION_COURSE_TITLE);
+    await page.getByLabel("Course short name").fill(INVITATION_COURSE_SHORT_NAME);
+    await page.getByLabel("Course long name").fill(INVITATION_COURSE_LONG_NAME);
     await page.getByLabel("Course Term start date").fill("2026-09-01");
     await page.getByLabel("Course Term end date").fill("2026-12-18");
     await page.getByRole("button", { name: "Create Course Instance", exact: true }).click();
-    const created = courseCard(page, INVITATION_COURSE_TITLE);
+    const created = courseCard(page, INVITATION_COURSE_LONG_NAME);
     await created.waitFor();
     await created.getByRole("link", { name: "Open Course Instance", exact: true }).click();
     await page.getByRole("link", { name: "Open Students", exact: true }).click();
@@ -98,7 +100,7 @@ async function studentInvitation(runtime: ScenarioRuntime): Promise<void> {
     await openStudentCourseChooser(page);
     await page.getByRole("link", { name: "Course invitations", exact: true }).click();
     await page.getByRole("heading", { name: "Course invitations", exact: true }).waitFor();
-    const invitation = courseCard(page, INVITATION_COURSE_TITLE);
+    const invitation = courseCard(page, INVITATION_COURSE_LONG_NAME);
     await invitation.waitFor();
     await captureCheckpoint(runtime, scenario, "invitation_index", session);
     await invitation.getByRole("link", { name: "Review invitation", exact: true }).click();
@@ -108,7 +110,7 @@ async function studentInvitation(runtime: ScenarioRuntime): Promise<void> {
     await page.getByText("Invitation accepted.", { exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, "invitation_accepted", session);
     await page.getByRole("link", { name: "Open assigned work", exact: true }).click();
-    await page.getByRole("heading", { name: INVITATION_COURSE_TITLE, exact: true }).waitFor();
+    await page.getByRole("heading", { name: INVITATION_COURSE_LONG_NAME, exact: true }).waitFor();
   } finally {
     await runtime.close(session);
   }

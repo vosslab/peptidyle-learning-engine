@@ -21,7 +21,6 @@ import type { ProductRole } from "../../generated/api/ProductRole";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import type { InstructorAssignmentAuthoredContentLocal } from "../../generated/api/InstructorAssignmentAuthoredContentLocal";
 import type { InstructorAssignmentAvailabilityView } from "../../generated/api/InstructorAssignmentAvailabilityView";
-import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { AssignmentEditNumber } from "../../generated/api/AssignmentEditNumber";
@@ -130,12 +129,6 @@ export type AssignmentEditorEntryInput =
       readonly questionAttemptLimit: import("../../generated/api/QuestionAttemptLimit").QuestionAttemptLimit;
       readonly questionAttemptTimeLimit: import("../../generated/api/QuestionAttemptTimeLimit").QuestionAttemptTimeLimit;
     };
-
-/** The deliberately small public request accepted when an instructor creates a course. */
-export interface CourseCreateInput {
-  readonly title: string;
-  readonly term: CourseTerm;
-}
 
 /** One server-derived capability conflict for a selected immutable version. */
 export interface AssignmentCapabilityViolation {

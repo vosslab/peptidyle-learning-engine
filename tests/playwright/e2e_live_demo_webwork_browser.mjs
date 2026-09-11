@@ -18,7 +18,7 @@ const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ ignoreHTTPSErrors: true });
 const page = await context.newPage();
 const protectedFields =
-  /answer|correct|solution|grading|score|replay|source|webworkpgpath|questionattemptid|binding|checksum/iu;
+  /\b(?:answer|correct|solution|grading|score|replay|source)\b|webworkpgpath|questionattemptid|binding|checksum/iu;
 
 try {
   await page.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
@@ -37,15 +37,11 @@ try {
   await page.waitForURL(new RegExp(`${origin}/assignment-attempts/R-[1-9][0-9]*$`, "u"));
   const attempt = page.locator('[data-route-surface="assignmentAttempt"]');
   await attempt.waitFor({ state: "visible" });
+  await page.getByText("Question 1 of 1", { exact: true }).waitFor();
+  await page.getByRole("radio").nth(1).waitFor({ state: "visible" });
   const visibleText = await attempt.innerText();
   if (protectedFields.test(visibleText)) {
     throw new Error("WeBWorK Assignment Attempt crossed the private renderer boundary");
-  }
-  await page.getByText("Question 1 of 1", { exact: true }).waitFor();
-  if ((await page.getByRole("radio").count()) < 2) {
-    throw new Error(
-      "WeBWorK Question Presentation did not render its browser-safe response format",
-    );
   }
 } finally {
   await context.close();

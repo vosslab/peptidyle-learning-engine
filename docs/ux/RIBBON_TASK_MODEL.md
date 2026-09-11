@@ -24,7 +24,7 @@ The models below therefore distinguish two states:
   has a backed route and is available to the signed-in Product Role. This is not a new workflow or
   authorization rule; it is the stable navigation behavior an admitted capability must join.
 
-The dense top bar combines application identity, account context, and Product Tabs. When the
+The dense top bar combines application identity, Product Role context, and Product Tabs. When the
 declared route has a task group, the optional Task Row answers "which part of that work can I
 enter?". The Application Shell places a breadcrumb prelude between the Ribbon and route content for
 deep routes. The top bar and any present Task Row retain their order while route content changes;
@@ -47,6 +47,14 @@ This means a person can re-orient from the dense top bar, then confirm the selec
 the shell-owned breadcrumb trail when present, then resume reading or working in the content area.
 A scoped course label, Assignment Attempt label, admission result, loading state, or content error
 never replaces the page heading or changes the navigation declared by route topology.
+
+### Account-end controls
+
+The boxed Product Role plate appears once in the dense top bar; no second account-label rendering
+repeats that context. Instructor Sign Out precedes the far-right Profile link. Profile is the one
+accessible icon-only exception to the ordinary glyph-plus-text Ribbon pattern: its link name is
+`Profile`, and its visible rounded-square content is the generic user glyph until the Instructor's
+uploaded thumbnail is available. Student and Sysadmin schemas omit Profile.
 
 ### Course Instance Tabs
 
@@ -94,10 +102,10 @@ changes.
 - On a route reached through a Context Control, recognize **No Selected Ribbon Tab** as an intentional
   state and use the persistent schema to return to a teaching destination.
 
-**Information needs.** The Instructor needs the Product Role, Account label, selected Course Instance
-label, selected Tab or Task, shell-owned parent trail on a deep route, page heading, and the
-route-local teaching data. The Instructor does not need an opaque identifier, a second course
-navigation surface, or a loading replacement for the Ribbon.
+**Information needs.** The Instructor needs the one boxed Product Role plate, accessible Profile
+control, selected Course Instance label, selected Tab or Task, shell-owned parent trail on a deep
+route, page heading, and the route-local teaching data. The Instructor does not need an opaque
+identifier, a second course navigation surface, or a loading replacement for the Ribbon.
 
 **Error and recovery.** If route content fails, the content-region recovery explains that the learning
 space, navigation, and any active Assignment Attempt remain available. The Instructor may retry that
@@ -184,7 +192,7 @@ surface, and recover from content failure without gaining unintended access to S
 - Treat a missing Student roster, Gradebook, or Assignment Attempt control as an intentional boundary,
   not a cue to seek general FERPA access.
 
-**Information needs.** The Sysadmin needs Product Role, Account label, selected Course Instance
+**Information needs.** The Sysadmin needs the one boxed Product Role plate, selected Course Instance
 context when present, selected destination, and route-local support information. The Sysadmin does
 not need permanent Student roster, grade, or Assignment Attempt navigation in the general schema;
 the product's FERPA boundary remains enforced by route and server authorization.

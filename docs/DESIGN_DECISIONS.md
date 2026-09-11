@@ -1091,11 +1091,14 @@ individual route-page components own their content and Page Actions.
 
 ### Interface cleanup: settled Ribbon and Assignment work
 
-**Decision.** The Instructor Product Ribbon uses one dense top bar in the order Peptidyle, Product
-Role, Account name, Courses, Questions, Assignments, Profile, and Sign Out. Every visible navigation
-item has a Font Awesome glyph plus text. Courses tasks are My Blueprint Courses, My Active Courses,
-My Inactive Courses, and Search Public Blueprint Courses. Assignments tasks are Assignments Due Soon
-and My Assignment Templates. Unbacked destinations remain Unavailable without a placeholder link.
+**Decision.** The Instructor Product Ribbon uses one dense top bar with Peptidyle, one boxed Product
+Role plate, Courses, Questions, Assignments, Sign Out, and the far-right Profile control. Product Role
+has no second account-label rendering. Every visible navigation item has a Font Awesome glyph plus
+text except the Instructor-only Profile control: its visible rounded-square content is a generic
+user glyph or the Instructor's uploaded thumbnail, while its accessible name remains `Profile`.
+Courses tasks are My Blueprint Courses, My Active Courses, My Inactive Courses, and Search Public
+Blueprint Courses. Assignments tasks are Assignments Due Soon and My Assignment Templates. Unbacked
+destinations remain Unavailable without a placeholder link.
 Assignment composition and delivery are separate tasks: Edit Assignment makes selecting, adding,
 removing, and ordering Questions primary; Assignment Settings owns timing, release, scoring,
 attempts, randomization, late work, and disclosure. The labels are secondary; the five focused
@@ -1106,9 +1109,11 @@ one-Question Assignment Attempt surface.
 One Student delivery lane avoids duplicate state and recovery behavior.
 
 **Consequence.** A separate Tab Row survives only after named responsive or focus-order evidence
-requires it. The older duplicate Assignment surface retires instead of becoming another editing
-path. Question navigation and the subtle remaining-time timer stay in Attempt content. Capability
-admission never turns a reserved future position into a false link.
+requires it. Sign Out remains before Profile so the icon-only Profile control is the final
+account-end control. Student and Sysadmin Ribbons have no Profile control. The older duplicate
+Assignment surface retires instead of becoming another editing path. Question navigation and the
+subtle remaining-time timer stay in Attempt content. Capability admission never turns a reserved
+future position into a false link.
 
 **Owner.** `src/application_shell.tsx`, `src/ribbon/ribbon_contract.ts`, and
 `src/ribbon/app_ribbon.tsx` own shell selection and presentation; the Assignment route family owns
@@ -1216,7 +1221,7 @@ whether its answer choices randomize when presented; an Assignment never overrid
 schema owns `assignment_question_order_rule` at
 `schemas/migrations/2026082916_course_delivery_schedule.sql:15-72`; Question presentation remains
 the stated implementation boundary in
-`docs/active_plans/active/interface_cleanup_2026_09.md:1004-1013`.
+`docs/archive/interface_cleanup_2026_09.md:1004-1013`.
 
 **Consequence.** Assignment Settings exposes only Question-order randomization. PLE-native
 Question authoring, issuance, and presentation own the answer-choice declaration; backend
@@ -1405,7 +1410,32 @@ transaction advisory lock.
 `crates/learning-data-access/src/profile_thumbnail.rs` owns the Store contract;
 `schemas/migrations/2026091015_profile_thumbnail.sql` owns persistence and database authority;
 `crates/server/src/instructor_profile.rs` owns the self-only HTTP boundary; and
-`src/features/instructor_profile/profile_thumbnail.tsx` owns the shared silhouette.
+`src/features/instructor_profile/profile_thumbnail.tsx`,
+`src/features/instructor_profile/profile_thumbnail_url.ts`, and
+`src/features/instructor_profile/ribbon_profile_avatar.tsx` own browser thumbnail presentation and
+its cleanup-safe delivery projection.
+
+### Browser typography uses locally bundled Atkinson Hyperlegible Next
+
+**Decision.** Written browser UI uses locally bundled Atkinson Hyperlegible Next normal and italic
+variable web fonts. `src/styles/browser_fonts.css` declares the browser-local font faces;
+`src/style.css` owns only the global stack that places the family before system sans-serif fallbacks.
+Explicit browser monospace rules retain their own font choices; backend, native-renderer, and export
+font choices remain outside this browser-presentation decision.
+
+**Why.** The selected typeface supports the owner's readable written interface preference without a
+runtime dependency on a third-party font host. Keeping deliberate monospace and renderer choices
+preserves contexts where character alignment or output fidelity is the requirement.
+
+**Consequence.** The checked browser build copies the font files, license, and provenance record
+from `src/assets/fonts/atkinson_hyperlegible_next/` to the same-origin `dist/` asset path. A build
+failure identifies a repairable local asset or stylesheet rule; it does not silently substitute a
+remote font request.
+
+**Owner.** `src/assets/fonts/atkinson_hyperlegible_next/` owns the retained font distribution and
+its OFL/provenance record; `src/styles/browser_fonts.css` owns browser font-face declarations;
+`src/style.css` owns the global browser font stack; and `pipeline/build.mjs` owns local asset
+copying and delivery verification.
 
 ## Demonstration and release evidence
 

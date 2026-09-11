@@ -11,7 +11,8 @@ import { courseThemeTokens } from "../src/features/course_appearance/course_them
 function courseSummary(theme = "forest") {
   return {
     reference: "C-7",
-    title: "Molecular Biology",
+    shortName: "Mol Bio",
+    longName: "Molecular Biology",
     term: {
       startDate: "2026-09-01",
       endDate: "2026-12-18",

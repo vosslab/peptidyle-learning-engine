@@ -138,8 +138,8 @@ pub struct CourseAssignmentSummary {
 pub struct DueSoonAssignmentSummary {
     /// Public Course Instance reference; internal Course identity remains server-side.
     pub course_reference: CourseInstanceReference,
-    /// Current Course Instance title.
-    pub course_title: String,
+    /// Descriptive Course Instance name for cross-Course lists.
+    pub course_long_name: String,
     /// Public Assignment reference; internal Assignment identity remains server-side.
     pub assignment_reference: AssignmentReference,
     /// Current Instructor-authored Assignment title.

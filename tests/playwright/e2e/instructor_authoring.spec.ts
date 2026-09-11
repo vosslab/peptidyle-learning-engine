@@ -1,7 +1,8 @@
 // Production-stack journey: a private Draft Question becomes a Published Question.
-// Selector contract: Question Library Ribbon tab (src/ribbon/ribbon_catalog.ts:108-115),
-// Question Library heading (src/pages/library_page.tsx:163), and My Question Drafts navigation link
-// (src/ribbon/ribbon_catalog.ts:239-246); Draft Question control and My Question Drafts heading
+// Selector contract: Questions Ribbon tab (src/ribbon/ribbon_catalog.ts:137-147), then Browse
+// Question Library and My Draft Questions Ribbon tasks (src/ribbon/ribbon_catalog.ts:324-335,
+// 372-383); Question Library heading (src/pages/library_page.tsx:163); Draft Question control and
+// My Question Drafts heading
 // (src/pages/question_drafts_page.tsx:101,106); JSON editor surface and private-draft status
 // (src/features/ple_question_json_authoring/question_json_editor_page.tsx:420-422,439-442);
 // Question License (src/features/ple_question_json_authoring/question_json_metadata_fields.tsx:92-105);
@@ -56,11 +57,14 @@ test.describe("instructor authoring on the production PLE stack", () => {
       configureContextAndPage(context, page, actionTimeoutMs);
 
       await chooseSeededIdentity(page, /Elena Rivera/u);
-      await page.getByRole("link", { name: "Question Library", exact: true }).click();
+      const ribbonTabs = page.getByRole("navigation", { name: "Ribbon tabs", exact: true });
+      await ribbonTabs.getByRole("link", { name: "Questions", exact: true }).click();
+      const ribbonTasks = page.getByRole("navigation", { name: "Ribbon tasks", exact: true });
+      await ribbonTasks.getByRole("link", { name: "Browse Question Library", exact: true }).click();
       await expect(
         page.getByRole("heading", { name: "Question library", exact: true }),
       ).toBeVisible();
-      await page.getByRole("link", { name: "My Question Drafts", exact: true }).click();
+      await ribbonTasks.getByRole("link", { name: "My Draft Questions", exact: true }).click();
       await expect(
         page.getByRole("heading", { name: "My Question Drafts", exact: true }),
       ).toBeVisible();

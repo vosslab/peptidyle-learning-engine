@@ -75,10 +75,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Visual design should be pushed harder. Make the interface less bubbly and reduce excessive padding.
 - Themes should use biome and habitat names, for example, forest, grass, ocean, desert, etc.
 - UUIDs should never appear in visible page content, navigation URLs, or copyable links.
-- Atkinson HyperLegible https://www.brailleinstitute.org/freefont/ is my favorite for written text and mononoki font https://madmalik.github.io/mononoki/ for monospace
+- Atkinson Hyperlegible Next https://www.brailleinstitute.org/freefont/ is my favorite for written text and mononoki font https://madmalik.github.io/mononoki/ for monospace.
+- Use Atkinson Hyperlegible Next throughout, unless backend or monospace overrides.
 - we should not have any upload capabilities for students and all instructor content is created via text boxes
 - Instructor menu: **Courses**, **Questions**, and **Assignments**, in one dense top bar with
-  Profile and Sign Out. Use an icon and text for each menu item.
+  Profile and Sign Out. Use an icon and text for each menu item except Profile.
+- Product Role appears once, in its boxed plate.
+- Instructor Profile is the far-right icon-only generic user image until an uploaded Profile image
+  replaces it.
 - Courses: My Blueprint Courses, My Active Courses, My Inactive Courses, Search Public Blueprint Courses.
 - Questions: My Questions, My Draft Questions, Starred, Watched, Search Question Library, Browse
   Question Library.

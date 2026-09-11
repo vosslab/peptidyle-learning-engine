@@ -19,5 +19,8 @@
 
 .profile-thumbnail-placeholder {
   color: var(--ple-muted);
-  text-align: center;
+  display: grid;
+  font-size: 3rem;
+  line-height: 1;
+  place-items: center;
 }

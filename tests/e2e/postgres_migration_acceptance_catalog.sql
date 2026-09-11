@@ -895,11 +895,13 @@ INSERT INTO ple_data.assignment_question_analysis (
 BEGIN;
 INSERT INTO ple_data.course_instance (
     course_id, blueprint_course_reference_number, blueprint_revision_number,
-    assigned_instructor_account_id, course_title, assigned_instructor_role, created_at
+    assigned_instructor_account_id, course_short_name, course_long_name,
+    assigned_instructor_role, created_at
 ) VALUES (
     '00000000-0000-0000-0000-000000002000',
     7, 1,
-    '00000000-0000-0000-0000-000000000102', 'Mismatched Course Instance fixture',
+    '00000000-0000-0000-0000-000000000102', 'Mismatch',
+    'Mismatched Course Instance fixture',
     'instructor', '2026-01-01 00:00:00+00'
 );
 INSERT INTO ple_data.course_membership (

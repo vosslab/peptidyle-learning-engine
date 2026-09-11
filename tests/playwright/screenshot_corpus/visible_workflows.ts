@@ -6,6 +6,7 @@ import {
   chooseSeededIdentityAtSignIn,
   courseChoice,
   restoreViewportOrigin,
+  waitForStudentCourseEntry,
 } from "../e2e/real_stack_ui";
 
 export const COURSE_TITLE = "Biochemistry 301: Proteins and Peptides";
@@ -72,41 +73,6 @@ function studentCourseHeading(page: Page, title: string): Locator {
 
 function studentCourseChooserHeading(page: Page): Locator {
   return page.getByRole("heading", { name: "Your courses", exact: true });
-}
-
-/** Waits for a loaded current Student Course entry state after seeded sign-in. */
-async function waitForStudentCourseEntry(page: Page, title: string): Promise<"course" | "chooser"> {
-  await page.locator(".loading-state").waitFor({ state: "hidden" });
-  const entry = await page.waitForFunction((expectedTitle) => {
-    for (const heading of document.querySelectorAll("h1")) {
-      const style = window.getComputedStyle(heading);
-      if (
-        heading.textContent?.trim() === expectedTitle &&
-        style.visibility !== "hidden" &&
-        style.display !== "none"
-      ) {
-        return "course";
-      }
-    }
-
-    let visibleCardCount = 0;
-    let expectedCardIsVisible = false;
-    for (const card of document.querySelectorAll("article.course-card")) {
-      const style = window.getComputedStyle(card);
-      if (style.visibility === "hidden" || style.display === "none") continue;
-      visibleCardCount += 1;
-      for (const heading of card.querySelectorAll("h2")) {
-        if (heading.textContent?.trim() === expectedTitle) expectedCardIsVisible = true;
-      }
-    }
-    if (!expectedCardIsVisible || window.location.pathname !== "/") return null;
-
-    const choosingCourses = new URLSearchParams(window.location.search).get("choose") === "1";
-    return choosingCourses || visibleCardCount > 1 ? "chooser" : null;
-  }, title);
-  const state = await entry.jsonValue();
-  if (state === "course" || state === "chooser") return state;
-  throw new Error("Student Course entry did not reach a visible Course or chooser state.");
 }
 
 export async function openStudentAssignment(page: Page): Promise<void> {

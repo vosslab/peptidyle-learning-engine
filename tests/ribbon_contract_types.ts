@@ -15,7 +15,7 @@ const route = ROUTE_CONTRACT.find(
 const params = { courseRef: "C-1" } as const;
 const routeState = { route, params } satisfies RibbonRouteState;
 const viewerIdentity = { productRole: "instructor" } satisfies RibbonViewerIdentity;
-const contextLabels = { accountLabel: "Neil Voss" } satisfies RibbonContextLabels;
+const contextLabels = {} satisfies RibbonContextLabels;
 
 // Positive calls ensure the negative cases below cannot pass due to a broken API.
 deriveRibbonModel(routeState, viewerIdentity, contextLabels);
@@ -25,18 +25,23 @@ const withResource = { productRole: "instructor" as const, scopeResource: { cour
 // @ts-expect-error A resource cannot cross the viewer identity boundary through a variable.
 deriveRibbonModel(routeState, withResource, contextLabels);
 
-const withPromise = { accountLabel: "Neil Voss", pendingScope: Promise.resolve("C-1") };
+const withPromise = {
+  courseShortName: "Molecular Biology",
+  pendingScope: Promise.resolve("C-1"),
+};
 // @ts-expect-error A Promise cannot cross the context label boundary through a variable.
 deriveRibbonModel(routeState, viewerIdentity, withPromise);
 
 const withAccessor = {
-  accountLabel: "Neil Voss",
-  courseTitle: (): string => "Molecular Biology",
+  courseShortName: (): string => "Molecular Biology",
 };
 // @ts-expect-error A Solid-style accessor cannot cross the context label boundary.
 deriveRibbonModel(routeState, viewerIdentity, withAccessor);
 
-const withCallback = { accountLabel: "Neil Voss", onSignOut: (): undefined => undefined };
+const withCallback = {
+  courseShortName: "Molecular Biology",
+  onSignOut: (): undefined => undefined,
+};
 // @ts-expect-error A callback cannot cross the pure context label boundary.
 deriveRibbonModel(routeState, viewerIdentity, withCallback);
 

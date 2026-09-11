@@ -20,7 +20,7 @@ import {
   decodeAssignmentReference,
   decodeAssignmentTitle,
   decodeCourseInstanceReference,
-  decodeCourseTitle,
+  decodeCourseName,
   field,
   requireOnlyFields,
 } from "./shared";
@@ -32,19 +32,21 @@ const ASSIGNMENT_ATTEMPT_COMPLETIONS = [
 
 function decodeCourseSummary(value: unknown, path: string): LiveStudentCourseLandingSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "title"]);
+  requireOnlyFields(record, path, ["reference", "shortName", "longName"]);
   return {
     reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
-    title: decodeCourseTitle(field(record, "title", path), `${path}.title`),
+    shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
+    longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
   };
 }
 
 function decodeInvitationSummary(value: unknown, path: string): LiveStudentCourseInvitationSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "title"]);
+  requireOnlyFields(record, path, ["reference", "shortName", "longName"]);
   return {
     reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
-    title: decodeCourseTitle(field(record, "title", path), `${path}.title`),
+    shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
+    longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
   };
 }
 

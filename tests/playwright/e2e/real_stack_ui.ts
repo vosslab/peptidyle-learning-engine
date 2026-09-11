@@ -118,6 +118,65 @@ export async function selectVisibleCourse(page: Page, title: string): Promise<vo
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
 }
 
+export type StudentCourseEntry = "course" | "chooser";
+
+/**
+ * Wait for a seeded Student's loaded Course entry state.
+ *
+ * A Student with one current Course enters that Course directly. The explicit
+ * `/?choose=1` path retains the visible Course chooser. The initial `/` list
+ * may render briefly while the role-owned Course state is loading, so callers
+ * must wait for one of those settled states before interacting with it.
+ */
+export async function waitForStudentCourseEntry(
+  page: Page,
+  title: string,
+): Promise<StudentCourseEntry> {
+  await page.locator(".loading-state").waitFor({ state: "hidden" });
+  const entry = await page.waitForFunction((expectedTitle) => {
+    for (const heading of document.querySelectorAll("h1")) {
+      const style = window.getComputedStyle(heading);
+      if (
+        heading.textContent?.trim() === expectedTitle &&
+        style.visibility !== "hidden" &&
+        style.display !== "none"
+      ) {
+        return "course";
+      }
+    }
+
+    let visibleCardCount = 0;
+    let expectedCardIsVisible = false;
+    for (const card of document.querySelectorAll("article.course-card")) {
+      const style = window.getComputedStyle(card);
+      if (style.visibility === "hidden" || style.display === "none") continue;
+      visibleCardCount += 1;
+      for (const heading of card.querySelectorAll("h2")) {
+        if (heading.textContent?.trim() === expectedTitle) expectedCardIsVisible = true;
+      }
+    }
+    if (!expectedCardIsVisible || window.location.pathname !== "/") return null;
+
+    const choosingCourses = new URLSearchParams(window.location.search).get("choose") === "1";
+    return choosingCourses || visibleCardCount > 1 ? "chooser" : null;
+  }, title);
+  const state = await entry.jsonValue();
+  if (state === "course" || state === "chooser") return state;
+  throw new Error("Student Course entry did not reach a visible Course or chooser state.");
+}
+
+/** Enter a Student's current Course, using the chooser only when it is visible. */
+export async function enterStudentCourse(page: Page, title: string): Promise<StudentCourseEntry> {
+  const entry = await waitForStudentCourseEntry(page, title);
+  if (entry === "chooser") {
+    const choice = courseChoice(page, title);
+    await expect(choice).toHaveCount(1);
+    await choice.getByRole("link", { name: "Open assigned work", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1, name: title, exact: true })).toBeVisible();
+  }
+  return entry;
+}
+
 export type RouteDataSurface = "assignmentOverview" | "assignmentAttempt";
 
 export async function waitForRouteDataSurface(

@@ -141,7 +141,7 @@ function model(
 }
 
 const SIGN_OUT = { kind: "action", id: "signOut", label: "Sign out" } as const;
-const COURSE_TITLE = "Biochemistry I";
+const COURSE_SHORT_NAME = "BCHM 355";
 
 /** All exact scope-by-role schemas, with catalog-valid controls and real declared destinations. */
 export const M6_RIBBON_FIXTURES = {
@@ -151,10 +151,7 @@ export const M6_RIBBON_FIXTURES = {
     [control("courses", { selected: true })],
     [],
     "reading",
-    {
-      accountLabel: "Student account",
-      signOutAction: SIGN_OUT,
-    },
+    { signOutAction: SIGN_OUT },
   ),
   productInstructor: model(
     "product",
@@ -171,7 +168,7 @@ export const M6_RIBBON_FIXTURES = {
       ]),
     ],
     "fullWidth",
-    { accountLabel: "Instructor account", signOutAction: SIGN_OUT },
+    { signOutAction: SIGN_OUT },
   ),
   productSysadmin: model(
     "product",
@@ -179,7 +176,7 @@ export const M6_RIBBON_FIXTURES = {
     [control("courses", { selected: true }), control("instructorAccounts")],
     [],
     "reading",
-    { accountLabel: "System administrator", signOutAction: SIGN_OUT },
+    { signOutAction: SIGN_OUT },
   ),
   courseStudent: model(
     "courseInstance",
@@ -187,7 +184,7 @@ export const M6_RIBBON_FIXTURES = {
     [control("studentAssignments", { selected: true })],
     [],
     "reading",
-    { accountLabel: "Student account", scopeLabel: COURSE_TITLE, signOutAction: SIGN_OUT },
+    { scopeLabel: COURSE_SHORT_NAME, signOutAction: SIGN_OUT },
   ),
   courseInstructor: model(
     "courseInstance",
@@ -211,8 +208,7 @@ export const M6_RIBBON_FIXTURES = {
     ],
     "fullWidth",
     {
-      accountLabel: "Instructor account",
-      scopeLabel: COURSE_TITLE,
+      scopeLabel: COURSE_SHORT_NAME,
       assignmentLabel: "Problem Set 7",
       signOutAction: SIGN_OUT,
     },
@@ -223,7 +219,10 @@ export const M6_RIBBON_FIXTURES = {
     [control("teachingOperations", { selected: true })],
     [],
     "reading",
-    { accountLabel: "System administrator", scopeLabel: COURSE_TITLE, signOutAction: SIGN_OUT },
+    {
+      scopeLabel: COURSE_SHORT_NAME,
+      signOutAction: SIGN_OUT,
+    },
   ),
   attemptStudent: model(
     "assignmentAttempt",
@@ -232,18 +231,15 @@ export const M6_RIBBON_FIXTURES = {
     [area("assignmentAttempt", "Assignment attempt", [control("backToAssignments")])],
     "reading",
     {
-      accountLabel: "Student account",
       assignmentLabel: "Problem Set 7",
       assignmentAttemptProgress: "Question 999 of 999",
       signOutAction: SIGN_OUT,
     },
   ),
   attemptInstructor: model("assignmentAttempt", "instructor", [], [], "reading", {
-    accountLabel: "Instructor account",
     signOutAction: SIGN_OUT,
   }),
   attemptSysadmin: model("assignmentAttempt", "sysadmin", [], [], "reading", {
-    accountLabel: "System administrator",
     signOutAction: SIGN_OUT,
   }),
   longCourse: model(
@@ -258,7 +254,6 @@ export const M6_RIBBON_FIXTURES = {
     ],
     "fullWidth",
     {
-      accountLabel: "Instructor account",
       scopeLabel:
         "Molecular Biology of the Cell: Evidence, Explanation, and Experimental Design " +
         "Across a Very Long Course Instance Title",
@@ -273,7 +268,6 @@ export const M6_RIBBON_FIXTURES = {
     [],
     "reading",
     {
-      accountLabel: "Student account",
       scopeLabel: "Loading course title...",
       signOutAction: SIGN_OUT,
     },
@@ -285,7 +279,6 @@ export const M6_RIBBON_FIXTURES = {
     [],
     "reading",
     {
-      accountLabel: "Student account",
       scopeLabel: "Unable to refresh course title",
       signOutAction: SIGN_OUT,
     },

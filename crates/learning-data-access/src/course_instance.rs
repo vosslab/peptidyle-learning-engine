@@ -21,8 +21,10 @@ pub struct CreateCourseInstanceInput {
     pub blueprint_course: BlueprintCourseReference,
     /// Exact immutable Blueprint Revision source.
     pub blueprint_revision: BlueprintRevision,
-    /// Durable human-facing Course Instance title.
-    pub title: String,
+    /// Compact Course Instance name for constrained navigation.
+    pub short_name: String,
+    /// Descriptive Course Instance name for headings and breadcrumbs.
+    pub long_name: String,
     /// Initial immutable Course Term.
     pub term: CourseTerm,
     /// Required when a Sysadmin creates for an Instructor; omitted by an Instructor creating for self.
@@ -31,14 +33,11 @@ pub struct CreateCourseInstanceInput {
 }
 
 impl CreateCourseInstanceInput {
-    /// Keeps the durable Course title within the same bound enforced at persistence.
+    /// Keeps both durable Course Instance names within the persistence bound.
     pub fn validate(&self) -> Result<(), StoreError> {
-        if self.title != self.title.trim()
-            || self.title.is_empty()
-            || self.title.chars().count() > 200
-        {
+        if !valid_name(&self.short_name) || !valid_name(&self.long_name) {
             return Err(StoreError::InvalidRecord(
-                "Course Instance title is invalid".to_string(),
+                "Course Instance name is invalid".to_string(),
             ));
         }
         Ok(())
@@ -51,12 +50,18 @@ impl CreateCourseInstanceInput {
 pub struct CourseInstanceSummary {
     /// Public C-reference only; internal Course IDs never enter this route.
     pub reference: CourseInstanceReference,
-    /// Course Instance title.
-    pub title: String,
+    /// Compact Course Instance name for constrained navigation.
+    pub short_name: String,
+    /// Descriptive Course Instance name for headings and breadcrumbs.
+    pub long_name: String,
     /// Current initial Course Term snapshot.
     pub term: CourseTerm,
     /// Course-owned identity for a list row; this does not establish route scope.
     pub theme: CourseTheme,
+}
+
+fn valid_name(value: &str) -> bool {
+    !value.is_empty() && value == value.trim() && value.chars().count() <= 200
 }
 
 /// Minimal Course Instance workspace projection for the current Teaching Team Member.

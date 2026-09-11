@@ -1,0 +1,29 @@
+Atkinson Hyperlegible Next browser font assets
+
+Source repository:
+https://github.com/googlefonts/atkinson-hyperlegible-next
+
+Pinned source revision:
+7925f50f649b3813257faf2f4c0b381011f434f1
+
+Release identity:
+Version 2.001, first release 20 November 2024.
+
+Publisher and typeface background:
+https://www.brailleinstitute.org/freefont/
+
+Retained files:
+- atkinson_hyperlegible_next_variable.woff2
+  Source: fonts/webfonts/AtkinsonHyperlegibleNext[wght].woff2
+  SHA-256: abde1ad5cf78b9ac575ef90d991f2e9101eb0b3b6668bde9a00e2e1e27d99afd
+- atkinson_hyperlegible_next_variable_italic.woff2
+  Source: fonts/webfonts/AtkinsonHyperlegibleNext-Italic[wght].woff2
+  SHA-256: 34491c5a87f711d314637962f69267d28c7df3ed498082c990cdfbbc02ebf3f2
+
+License:
+SIL Open Font License, Version 1.1. The full text is in ofl_1_1.txt.
+
+Build owner:
+pipeline/build.mjs copies these same-origin browser assets into dist/ and checks
+styles/browser_fonts.css for the local normal and italic font references; style.css
+owns only the global stack.

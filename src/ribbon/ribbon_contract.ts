@@ -63,8 +63,8 @@ export interface RibbonViewerIdentity {
  * resources, accessors, callbacks, promises, or projections.
  */
 export interface RibbonContextLabels {
-  readonly accountLabel: string;
-  readonly courseTitle?: string;
+  readonly courseShortName?: string;
+  readonly courseLongName?: string;
   readonly assignmentTitle?: string;
   readonly assignmentAttemptTitle?: string;
   readonly assignmentAttemptProgress?: string;
@@ -93,7 +93,6 @@ export interface RibbonActionDescriptor {
 
 export interface RibbonContextModel {
   readonly productLabel: "Student" | "Instructor" | "Sysadmin";
-  readonly accountLabel: string;
   readonly scopeLabel?: string;
   readonly assignmentLabel?: string;
   readonly assignmentAttemptProgress?: string;
@@ -395,7 +394,7 @@ function contextFor(
   productRole: ProductRole,
   labels: RibbonContextLabels,
 ): RibbonContextModel {
-  const scopeLabel = route.ribbon.scope === "courseInstance" ? labels.courseTitle : undefined;
+  const scopeLabel = route.ribbon.scope === "courseInstance" ? labels.courseShortName : undefined;
   const assignmentLabel =
     route.ribbon.scope === "courseInstance"
       ? labels.assignmentTitle
@@ -404,7 +403,6 @@ function contextFor(
     route.ribbon.scope === "assignmentAttempt" ? labels.assignmentAttemptProgress : undefined;
   return Object.freeze({
     productLabel: PRODUCT_LABELS[productRole],
-    accountLabel: labels.accountLabel,
     ...(scopeLabel === undefined ? {} : { scopeLabel }),
     ...(assignmentLabel === undefined ? {} : { assignmentLabel }),
     ...(assignmentAttemptProgress === undefined ? {} : { assignmentAttemptProgress }),
@@ -495,11 +493,11 @@ function breadcrumbsFor(
   const assignmentLabel = labels.assignmentTitle ?? "Assignment";
 
   function courseTrail(current: string, courseHref: string | undefined): RibbonBreadcrumbModel[] {
-    if (courses === undefined || courseHref === undefined || labels.courseTitle === undefined)
+    if (courses === undefined || courseHref === undefined || labels.courseLongName === undefined)
       return [];
     return [
       breadcrumbLinkItem("Courses", courses),
-      breadcrumbLinkItem(labels.courseTitle, courseHref),
+      breadcrumbLinkItem(labels.courseLongName, courseHref),
       breadcrumbCurrent(current),
     ];
   }
@@ -507,10 +505,10 @@ function breadcrumbsFor(
   switch (routeState.route.id) {
     case "courseAssignments":
     case "studentCourseLanding":
-      return courses !== undefined && labels.courseTitle !== undefined
+      return courses !== undefined && labels.courseLongName !== undefined
         ? Object.freeze([
             breadcrumbLinkItem("Courses", courses),
-            breadcrumbCurrent(labels.courseTitle),
+            breadcrumbCurrent(labels.courseLongName),
           ])
         : Object.freeze([]);
     case "questionDetail":
@@ -580,14 +578,14 @@ function breadcrumbsFor(
         courses === undefined ||
         studentCourse === undefined ||
         studentAssignment === undefined ||
-        labels.courseTitle === undefined ||
+        labels.courseLongName === undefined ||
         labels.assignmentAttemptTitle === undefined
       ) {
         return Object.freeze([]);
       }
       return Object.freeze([
         breadcrumbLinkItem("Courses", courses),
-        breadcrumbLinkItem(labels.courseTitle, studentCourse),
+        breadcrumbLinkItem(labels.courseLongName, studentCourse),
         breadcrumbLinkItem(labels.assignmentAttemptTitle, studentAssignment),
         breadcrumbCurrent("Assignment attempt"),
       ]);
@@ -595,11 +593,11 @@ function breadcrumbsFor(
       return courses !== undefined &&
         studentCourse !== undefined &&
         studentAssignment !== undefined &&
-        labels.courseTitle !== undefined &&
+        labels.courseLongName !== undefined &&
         labels.assignmentAttemptTitle !== undefined
         ? Object.freeze([
             breadcrumbLinkItem("Courses", courses),
-            breadcrumbLinkItem(labels.courseTitle, studentCourse),
+            breadcrumbLinkItem(labels.courseLongName, studentCourse),
             breadcrumbLinkItem(labels.assignmentAttemptTitle, studentAssignment),
             breadcrumbCurrent("Assignment attempt"),
           ])

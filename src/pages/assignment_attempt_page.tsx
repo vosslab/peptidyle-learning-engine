@@ -98,6 +98,7 @@ function AttemptExperience(props: {
       setProgress(next);
       if (finalized) {
         setSubmissionState("submitted");
+        // Invalidate an in-flight timer result before finalized delivery hides the timer.
         timerRequest += 1;
         setPosition(null);
         return;

@@ -25,7 +25,7 @@ export interface CourseAssignmentSummary {
 /** One Course-qualified Assignment due in the authenticated Instructor's rolling next-seven-days window. */
 export interface DueSoonAssignmentSummary {
   readonly courseReference: CourseInstanceReference;
-  readonly courseTitle: string;
+  readonly courseLongName: string;
   readonly assignmentReference: AssignmentReference;
   readonly assignmentTitle: string;
   readonly assignmentStatus: LiveAssignmentStatus;

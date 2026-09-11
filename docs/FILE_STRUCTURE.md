@@ -150,8 +150,9 @@ Teaching Team Member authority.
 
 ```text
 src/
++- assets/fonts/atkinson_hyperlegible_next/ Locally bundled browser font files with OFL and provenance
 +- application_shell.tsx                    Persistent shell frame, viewport floor, content origin, skip-link/focus boundary, and Ribbon mount
-+- ribbon/                                  Catalog/schema, capability admission, scope, selection/pending state, and topology-aware row presentation
++- ribbon/                                  Catalog/schema, capability admission, scope, selection/pending state, topology-aware row presentation, and shared icon helper
 +- api/
 |  +- blueprint_course.ts                 BlueprintCourse client contract
 |  +- blueprint_operations.ts              Blueprint-operation client contract
@@ -164,6 +165,7 @@ src/
 +- features/
 |  +- blueprint_course/                    One BlueprintCourse workspace/editor
 |  +- course_appearance/                  Course theme presentation and authorized banner delivery
+|  +- instructor_profile/                 Self-only Profile thumbnail page/Ribbon presentation and cleanup-safe local URL projection
 |  `- blueprint_operations/                Blueprint-operation workflow stylesheet
 +- pages/
 |  +- blueprint_course_route_page.tsx          Blueprint Course list route composition
@@ -186,6 +188,12 @@ a new Blueprint Course.
 section of `docs/ux/RIBBON_DESTINATION_LEDGER.md` from the Ribbon catalog and
 capability registry. Its `--check` mode is the deterministic maintenance check;
 the editorial section remains human-owned.
+
+`pipeline/build.mjs` copies `src/assets/fonts/atkinson_hyperlegible_next/` into the same-origin
+browser asset path in `dist/` and checks that `src/styles/browser_fonts.css` declares local normal
+and italic Atkinson Hyperlegible Next font faces. `src/style.css` owns only the global browser font
+stack. The font directory keeps the retained files' OFL text and source provenance beside the
+delivered browser assets.
 
 ## Generated contracts
 

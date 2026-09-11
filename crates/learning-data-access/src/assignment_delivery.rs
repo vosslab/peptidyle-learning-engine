@@ -99,7 +99,8 @@ pub struct StudentAssignmentAttemptHistory {
 #[serde(rename_all = "camelCase")]
 pub struct StudentAssignmentAttemptHistoryCourse {
     pub reference: CourseInstanceReference,
-    pub title: String,
+    pub short_name: String,
+    pub long_name: String,
     pub theme: CourseTheme,
 }
 
@@ -331,7 +332,8 @@ pub struct StudentAssignmentAttemptContext {
     pub assignment_attempt: AssignmentAttemptReference,
     pub attempt_number: u32,
     pub course: CourseInstanceReference,
-    pub course_title: String,
+    pub course_short_name: String,
+    pub course_long_name: String,
     pub course_theme: CourseTheme,
     pub assignment: AssignmentReference,
     pub assignment_title: String,

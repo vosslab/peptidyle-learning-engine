@@ -521,13 +521,13 @@ SET LOCAL ROLE ple_private_owner;
 CREATE OR REPLACE FUNCTION ple_api.read_student_assignment_attempt_context(
     p_assignment_attempt_reference_number bigint
 ) RETURNS TABLE (assignment_attempt_reference_number bigint, attempt_number integer,
-    course_reference_number bigint, course_title text, course_theme text,
+    course_reference_number bigint, course_short_name text, course_long_name text, course_theme text,
     assignment_reference_number bigint, assignment_title text, timer_remaining_milliseconds bigint)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     WITH evaluated_at AS (SELECT pg_catalog.statement_timestamp() AS value)
     SELECT attempt.reference_number, attempt.attempt_number, course.reference_number,
-        course.course_title, course.course_theme, assignment.reference_number,
+        course.course_short_name, course.course_long_name, course.course_theme, assignment.reference_number,
         CASE WHEN attempt.delivery_assignment_title IS NOT NULL
              THEN attempt.delivery_assignment_title ELSE revision.assignment_title END,
         CASE WHEN revision.assignment_attempt_time_limit_seconds IS NULL THEN NULL ELSE GREATEST(0::bigint,

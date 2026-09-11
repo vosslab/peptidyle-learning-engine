@@ -22,7 +22,8 @@ function initialCourse(): CourseRouteView {
     summary: {
       id: COURSE_ID,
       reference: "C-1",
-      title: "Course one",
+      shortName: "BCHM 301",
+      longName: "Biochemistry 301: Proteins and Peptides",
       term: { startDate: "2026-01-12", endDate: "2026-05-08" },
       role: "instructor",
     },

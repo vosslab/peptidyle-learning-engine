@@ -11,7 +11,7 @@ function InvitationCard(props: {
 }): JSX.Element {
   return (
     <article class="course-card">
-      <h2>{props.invitation.title}</h2>
+      <h2>{props.invitation.longName}</h2>
       <A class="primary-link" href={`/courses/${props.invitation.reference}/invitation`}>
         Review invitation
       </A>

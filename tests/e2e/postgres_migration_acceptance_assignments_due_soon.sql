@@ -61,7 +61,7 @@ BEGIN
     SELECT course.course_id
       INTO v_secondary_course_id
       FROM ple_data.course_instance AS course
-     WHERE course.course_title = 'M14 foreign Instructor fixture';
+     WHERE course.course_long_name = 'M14 foreign Instructor fixture';
     IF v_secondary_course_id IS NULL THEN
         RAISE EXCEPTION 'M10 requires the M14 foreign Course fixture';
     END IF;
@@ -163,7 +163,7 @@ BEGIN
     SELECT jsonb_agg(
                jsonb_build_object(
                    'course_reference_number', course.reference_number,
-                   'course_title', course.course_title,
+                   'course_long_name', course.course_long_name,
                    'assignment_reference_number', assignment.reference_number,
                    'assignment_title', assignment.assignment_title,
                    'assignment_status', assignment.assignment_status,
@@ -194,7 +194,7 @@ BEGIN
     SELECT jsonb_agg(
                jsonb_build_object(
                    'course_reference_number', item.course_reference_number,
-                   'course_title', item.course_title,
+                   'course_long_name', item.course_long_name,
                    'assignment_reference_number', item.assignment_reference_number,
                    'assignment_title', item.assignment_title,
                    'assignment_status', item.assignment_status,
@@ -214,7 +214,7 @@ BEGIN
              FROM ple_api.list_assignments_due_soon() AS item,
                   LATERAL jsonb_object_keys(to_jsonb(item)) AS key(name)
             WHERE key.name NOT IN (
-                'course_reference_number', 'course_title',
+                'course_reference_number', 'course_long_name',
                 'assignment_reference_number', 'assignment_title',
                 'assignment_status', 'due_at_millis'
             )

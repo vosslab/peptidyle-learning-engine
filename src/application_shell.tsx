@@ -12,9 +12,11 @@ import {
   type JSX,
 } from "solid-js";
 
+import { useApplicationApi } from "./api/application_api";
 import { useSessionBootstrap } from "./auth/session_context";
 import type { CourseThemeRouteData } from "./features/course_appearance/course_theme_context";
 import { CourseThemeVariables } from "./features/course_appearance/course_theme_variables";
+import { RibbonProfileAvatar } from "./features/instructor_profile/ribbon_profile_avatar";
 import { AppRibbon } from "./ribbon/app_ribbon";
 import type { RibbonBreadcrumbModel, RibbonModel } from "./ribbon/ribbon_contract";
 import { RouteScopeProvider, useRouteScopeData } from "./ribbon/route_scope_context";
@@ -138,6 +140,7 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
   });
 
   function ShellInterior(): JSX.Element {
+    const applicationApi = useApplicationApi();
     // Read route scope data from a memo owned by the persistent shell. Calling
     // the hook at component construction would capture its initial (often
     // unresolved) value and prevent later cache resolution from reaching the
@@ -204,7 +207,10 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
           >
             {(model) => (
               <div on:ple-ribbon-action={handleRibbonAction}>
-                <AppRibbon model={model()} />
+                <AppRibbon
+                  model={model()}
+                  renderProfileAvatar={() => <RibbonProfileAvatar client={applicationApi.client} />}
+                />
               </div>
             )}
           </Show>

@@ -17,7 +17,7 @@ import { loadAppRibbonForSsr } from "./support/ribbon_component_ssr.ts";
 import { M6_RIBBON_FIXTURES } from "./support/ribbon_model_fixtures.ts";
 
 const PRODUCT_ROLES = ["student", "instructor", "sysadmin"];
-const LABELS = { accountLabel: "Neil Voss" };
+const LABELS = {};
 const PARAMETER_VALUES = {
   courseRef: "C-1",
   assignmentRef: "A-1",
@@ -112,7 +112,7 @@ test("admission withholds unavailable controls and respects declared role ceilin
   }
 });
 
-test("Instructor Profile is an available Instructor account-endcap route without a selected tab", async () => {
+test("Instructor Ribbon has one Product Role plate and an accessible icon-only Profile end control", async () => {
   const model = controlsFor("courses", "instructor").model;
   assert.deepEqual(model.context.accountControls, [
     {
@@ -126,7 +126,22 @@ test("Instructor Profile is an available Instructor account-endcap route without
   const RealAppRibbon = await loadAppRibbonForSsr();
   const html = renderToString(() => createComponent(RealAppRibbon, { model }));
   assert.match(html, /data-ribbon-context-control="profile"/);
-  assert.match(html, />Profile</);
+  assert.equal(
+    (html.match(/ple-app-ribbon__product-role/g) ?? []).length,
+    1,
+    "the Product Role is represented by one role plate",
+  );
+  const profile = html.match(
+    /<a[^>]*data-ribbon-context-control="profile"[^>]*>[\s\S]*?<\/a>/,
+  )?.[0];
+  assert.ok(profile, "Instructor Ribbon has a Profile end control");
+  assert.match(profile, /aria-label="Profile"/);
+  assert.doesNotMatch(profile, />Profile</);
+  assert.ok(
+    html.indexOf('data-ribbon-action="signOut"') <
+      html.indexOf('data-ribbon-context-control="profile"'),
+    "Profile follows Sign out at the account end",
+  );
   const profileRoute = ROUTE_CONTRACT.find((route) => route.id === "instructorProfile");
   assert.deepEqual(profileRoute?.ribbon, { scope: "product", contentLayout: "reading" });
 });
@@ -342,8 +357,8 @@ test("relationship admission may check without moving schema-owned positions", (
 
 test("breadcrumb trails are canonical route projections with one current terminal", () => {
   const labels = {
-    accountLabel: "Neil Voss",
-    courseTitle: "Biochemistry I",
+    courseShortName: "BCHM 355",
+    courseLongName: "Biochemistry I",
     assignmentTitle: "Problem Set 7",
     assignmentAttemptTitle: "Problem Set 7",
   };
@@ -399,6 +414,14 @@ test("breadcrumb trails are canonical route projections with one current termina
     true,
     "declared deep-route geometry remains stable",
   );
+
+  const scoped = deriveRibbonModel(
+    routeStateFor("courseAppearance"),
+    { productRole: "instructor" },
+    labels,
+  );
+  assert.equal(scoped.context.scopeLabel, "BCHM 355");
+  assert.equal(scoped.breadcrumbs[1]?.label, "Biochemistry I");
 });
 
 test("Student Course Invitation acceptance stays outside Course breadcrumb context", () => {

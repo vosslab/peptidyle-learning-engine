@@ -2,7 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
-import { decodeLiveStudentAssignmentLandings } from "../src/api/decoders/live_student_course_landing.ts";
+import {
+  decodeLiveStudentAssignmentLandings,
+  decodeLiveStudentCourseLandings,
+} from "../src/api/decoders/live_student_course_landing.ts";
+
+test("Student Course landing carries both Course Instance names", () => {
+  const value = {
+    courses: [{ reference: "C-7", shortName: "Mol Bio", longName: "Molecular Biology" }],
+  };
+  assert.deepEqual(decodeLiveStudentCourseLandings(value), value.courses);
+});
 
 function assignment(overrides = {}) {
   return {

@@ -24,30 +24,14 @@ function isPublicAccountRoute(pathname: string): boolean {
   return routeId === "signIn";
 }
 
-function accountLabelFor(
-  state: Extract<SessionBootstrapState, { readonly kind: "authenticated" }>,
-): string {
-  switch (state.session.account.productRole) {
-    case "student":
-      return "Student account";
-    case "instructor":
-      return "Instructor account";
-    case "sysadmin":
-      return "System administrator";
-  }
-}
-
-function ribbonLabelsFor(
-  state: Extract<SessionBootstrapState, { readonly kind: "authenticated" }>,
-  routeData: CourseThemeRouteData | undefined,
-): RibbonContextLabels {
-  if (routeData === undefined) return { accountLabel: accountLabelFor(state) };
+function ribbonLabelsFor(routeData: CourseThemeRouteData | undefined): RibbonContextLabels {
+  if (routeData === undefined) return {};
 
   if (routeData.kind === "assignmentAttempt") {
     const { context } = routeData;
     return {
-      accountLabel: accountLabelFor(state),
-      courseTitle: context.course.title,
+      courseShortName: context.course.shortName,
+      courseLongName: context.course.longName,
       assignmentAttemptTitle: context.assignment.title,
       assignmentAttemptProgress: `Attempt ${String(context.attemptNumber)}`,
     };
@@ -55,15 +39,15 @@ function ribbonLabelsFor(
   if (routeData.kind === "assignmentAttemptHistory") {
     const { history } = routeData;
     return {
-      accountLabel: accountLabelFor(state),
-      courseTitle: history.course.title,
+      courseShortName: history.course.shortName,
+      courseLongName: history.course.longName,
       assignmentAttemptTitle: history.assignment.title,
       assignmentAttemptProgress: `Attempt ${String(history.attemptNumber)}`,
     };
   }
   return {
-    accountLabel: accountLabelFor(state),
-    courseTitle: courseRouteView(routeData).summary.title,
+    courseShortName: courseRouteView(routeData).summary.shortName,
+    courseLongName: courseRouteView(routeData).summary.longName,
   };
 }
 
@@ -185,7 +169,7 @@ export function App(props: RouteSectionProps): JSX.Element {
     return deriveRibbonModel(
       { route, params },
       { productRole: state.session.account.productRole },
-      ribbonLabelsFor(state, routeData),
+      ribbonLabelsFor(routeData),
     );
   }
 

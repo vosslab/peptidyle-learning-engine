@@ -12,7 +12,6 @@ import {
 } from "./http_client/request";
 import { createResponseClient } from "./http_client/response";
 import { createTeachingOperationsClient } from "./http_client/teaching_operations";
-import { createPreviewPlaneClient } from "./http_client/preview_plane";
 import { createBlueprintCourseClient } from "./http_client/blueprint_course";
 import { createCourseInstanceClient } from "./http_client/course_instance";
 import { createLiveCourseRosterClient } from "./http_client/course_roster";
@@ -35,10 +34,8 @@ export {
   AssignmentConflictError,
   AssignmentSuccessorRevisionRequiredError,
   AssignmentPoliciesValidationError,
-  PreviewPlaneConflictError,
   CourseGradeSchemeConflictError,
   BlueprintCourseConflictError,
-  CourseTermValidationError,
   resolveAssignmentContentSaveFailure,
 } from "./http_client/error";
 export type { ApiFetch, HttpApiClientConfig } from "./http_client/request";
@@ -58,7 +55,6 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createCourseRosterClient(fetchImplementation, basePath),
     createLiveDemoClient(fetchImplementation, basePath),
     createTeachingOperationsClient(fetchImplementation, basePath),
-    createPreviewPlaneClient(fetchImplementation, basePath),
     createBlueprintCourseClient(fetchImplementation, basePath),
     createCourseInstanceClient(fetchImplementation, basePath),
     createLiveCourseRosterClient(fetchImplementation, basePath),

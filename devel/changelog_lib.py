@@ -1,3 +1,5 @@
+# This file is vendored. Local changes can and will be overwritten by propagation.
+
 """Shared helpers for changelog-oriented developer scripts.
 
 Originally a parser/serializer-only library; expanded by user decision

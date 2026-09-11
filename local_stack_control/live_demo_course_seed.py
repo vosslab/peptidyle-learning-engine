@@ -10,7 +10,8 @@ import local_stack_control.live_demo_seed
 
 
 SEEDED_BLUEPRINT_TITLE = "Biochemistry 301: Proteins and Peptides"
-SEEDED_COURSE_TITLE = "Biochemistry 301: Proteins and Peptides"
+SEEDED_COURSE_SHORT_NAME = "BCHM 301"
+SEEDED_COURSE_LONG_NAME = "Biochemistry 301: Proteins and Peptides"
 SEEDED_ASSIGNMENT_TITLE = "Peptide Structure Practice"
 SEEDED_ASSIGNMENT_INSTRUCTIONS = (
 	"Complete the four practice questions on peptide structure and properties."
@@ -280,7 +281,8 @@ def course_payload(blueprint_reference: str, blueprint_revision: str = "1") -> d
 	payload = {
 		"blueprintCourse": blueprint_reference,
 		"blueprintRevision": blueprint_revision,
-		"title": SEEDED_COURSE_TITLE,
+		"shortName": SEEDED_COURSE_SHORT_NAME,
+		"longName": SEEDED_COURSE_LONG_NAME,
 		"term": {
 			"startDate": SEEDED_COURSE_TERM.start_date,
 			"endDate": SEEDED_COURSE_TERM.end_date,

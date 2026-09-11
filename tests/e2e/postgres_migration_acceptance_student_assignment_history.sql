@@ -83,7 +83,8 @@ SELECT attempt.reference_number AS m7_history_source_reference
    AND attempt.completed_at IS NOT NULL
 \gset
 SELECT course.reference_number AS m7_history_parent_course_reference,
-       course.course_title AS m7_history_parent_course_title,
+       course.course_short_name AS m7_history_parent_course_short_name,
+       course.course_long_name AS m7_history_parent_course_long_name,
        course.course_theme AS m7_history_parent_course_theme
   FROM ple_private.assignment_attempt AS attempt
   JOIN ple_data.assignment AS assignment ON assignment.assignment_id = attempt.assignment_id
@@ -100,8 +101,12 @@ SELECT set_config(
     :'m7_history_parent_course_reference', false
 );
 SELECT set_config(
-    'ple_e2e.m7_history_parent_course_title',
-    :'m7_history_parent_course_title', false
+    'ple_e2e.m7_history_parent_course_short_name',
+    :'m7_history_parent_course_short_name', false
+);
+SELECT set_config(
+    'ple_e2e.m7_history_parent_course_long_name',
+    :'m7_history_parent_course_long_name', false
 );
 SELECT set_config(
     'ple_e2e.m7_history_parent_course_theme',
@@ -284,12 +289,15 @@ BEGIN
     IF NOT FOUND
        OR v_pending.assignment_reference_number IS NULL
        OR v_pending.course_reference_number IS NULL
-       OR v_pending.course_title IS NULL
+       OR v_pending.course_short_name IS NULL
+       OR v_pending.course_long_name IS NULL
        OR v_pending.course_theme IS NULL
        OR v_pending.course_reference_number IS DISTINCT FROM
           current_setting('ple_e2e.m7_history_parent_course_reference')::bigint
-       OR v_pending.course_title IS DISTINCT FROM
-          current_setting('ple_e2e.m7_history_parent_course_title')
+       OR v_pending.course_short_name IS DISTINCT FROM
+          current_setting('ple_e2e.m7_history_parent_course_short_name')
+       OR v_pending.course_long_name IS DISTINCT FROM
+          current_setting('ple_e2e.m7_history_parent_course_long_name')
        OR v_pending.course_theme IS DISTINCT FROM
           current_setting('ple_e2e.m7_history_parent_course_theme')
        OR v_pending.state <> 'submitted'
@@ -326,12 +334,15 @@ BEGIN
     IF NOT FOUND
        OR v_closed.state <> 'closed'
        OR v_closed.course_reference_number IS NULL
-       OR v_closed.course_title IS NULL
+       OR v_closed.course_short_name IS NULL
+       OR v_closed.course_long_name IS NULL
        OR v_closed.course_theme IS NULL
        OR v_closed.course_reference_number IS DISTINCT FROM
           current_setting('ple_e2e.m7_history_parent_course_reference')::bigint
-       OR v_closed.course_title IS DISTINCT FROM
-          current_setting('ple_e2e.m7_history_parent_course_title')
+       OR v_closed.course_short_name IS DISTINCT FROM
+          current_setting('ple_e2e.m7_history_parent_course_short_name')
+       OR v_closed.course_long_name IS DISTINCT FROM
+          current_setting('ple_e2e.m7_history_parent_course_long_name')
        OR v_closed.course_theme IS DISTINCT FROM
           current_setting('ple_e2e.m7_history_parent_course_theme') THEN
         RAISE EXCEPTION 'closed Attempt history did not preserve its owned Course metadata';

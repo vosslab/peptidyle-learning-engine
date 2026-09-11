@@ -11,7 +11,7 @@ $$;
 SET LOCAL ROLE ple_api_owner;
 
 DROP FUNCTION ple_api.create_live_demo_course_instance(
-    uuid, uuid, uuid, uuid, uuid, bigint, bigint, text, date, date, text, bigint
+    uuid, uuid, uuid, uuid, uuid, bigint, bigint, text, text, date, date, text, bigint
 );
 DROP FUNCTION ple_api.list_live_demo_course_instances();
 DROP FUNCTION ple_api.load_live_demo_course_instance(bigint);
@@ -22,11 +22,11 @@ CREATE FUNCTION ple_api.create_live_demo_course_instance(
     p_course_id uuid, p_course_origin_id uuid, p_course_membership_id uuid,
     p_course_schedule_revision_id uuid, p_creation_event_id uuid,
     p_blueprint_course_reference_number bigint, p_blueprint_revision_number bigint,
-    p_course_title text, p_term_starts_on date, p_term_ends_on date,
+    p_course_short_name text, p_course_long_name text, p_term_starts_on date, p_term_ends_on date,
     p_assigned_instructor_reference_number bigint
 )
 RETURNS TABLE (
-    reference_number bigint, title text, term_starts_on date, term_ends_on date,
+    reference_number bigint, short_name text, long_name text, term_starts_on date, term_ends_on date,
     creator_is_assigned_instructor boolean
 )
 LANGUAGE plpgsql SECURITY DEFINER
@@ -43,8 +43,10 @@ BEGIN
        OR p_course_schedule_revision_id IS NULL OR p_creation_event_id IS NULL
        OR p_blueprint_course_reference_number NOT BETWEEN 1 AND 2147483647
        OR p_blueprint_revision_number IS NULL OR p_blueprint_revision_number <= 0
-       OR p_course_title IS NULL OR p_course_title <> btrim(p_course_title)
-       OR char_length(p_course_title) NOT BETWEEN 1 AND 200
+       OR p_course_short_name IS NULL OR p_course_short_name <> btrim(p_course_short_name)
+       OR char_length(p_course_short_name) NOT BETWEEN 1 AND 200
+       OR p_course_long_name IS NULL OR p_course_long_name <> btrim(p_course_long_name)
+       OR char_length(p_course_long_name) NOT BETWEEN 1 AND 200
        OR p_term_starts_on IS NULL OR p_term_ends_on IS NULL OR p_term_starts_on > p_term_ends_on
     THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -112,9 +114,9 @@ BEGIN
     END IF;
     v_occurred_at := pg_catalog.clock_timestamp();
     INSERT INTO ple_data.course_instance (course_id, blueprint_course_reference_number, blueprint_revision_number,
-        assigned_instructor_account_id, course_title, created_at)
+        assigned_instructor_account_id, course_short_name, course_long_name, created_at)
     VALUES (p_course_id, p_blueprint_course_reference_number, p_blueprint_revision_number,
-        v_assigned_instructor_account_id, p_course_title, v_occurred_at)
+        v_assigned_instructor_account_id, p_course_short_name, p_course_long_name, v_occurred_at)
     RETURNING course_instance.reference_number INTO v_course_reference_number;
     INSERT INTO ple_data.course_origin (course_origin_id, course_id, blueprint_course_reference_number,
         blueprint_revision_number, source_course_id, created_at, evidence)
@@ -128,33 +130,38 @@ BEGIN
     PERFORM ple_audit.record_course_instance_creation_event(p_creation_event_id, p_course_id,
         v_course_reference_number, p_blueprint_course_reference_number, p_blueprint_revision_number,
         v_assigned_instructor_account_id, v_creator_account_id, v_occurred_at);
-    RETURN QUERY SELECT v_course_reference_number, p_course_title, p_term_starts_on, p_term_ends_on,
+    RETURN QUERY SELECT v_course_reference_number, p_course_short_name, p_course_long_name,
+        p_term_starts_on, p_term_ends_on,
         v_creator_account_id = v_assigned_instructor_account_id;
 END
 $$;
 
 CREATE FUNCTION ple_api.list_live_demo_course_instances()
-RETURNS TABLE (reference_number bigint, title text, term_starts_on date, term_ends_on date, course_theme text)
+RETURNS TABLE (reference_number bigint, short_name text, long_name text, term_starts_on date,
+    term_ends_on date, course_theme text)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
-    SELECT course.reference_number, course.course_title, schedule.term_starts_on, schedule.term_ends_on, course.course_theme
+    SELECT course.reference_number, course.course_short_name, course.course_long_name,
+           schedule.term_starts_on, schedule.term_ends_on, course.course_theme
       FROM ple_data.course_instance AS course
       JOIN ple_data.course_membership AS membership ON membership.course_id = course.course_id
        AND membership.account_id = ple_api.current_session_account_id() AND membership.role = 'instructor'
        AND ple_data.course_membership_is_active(membership.membership_id)
       JOIN ple_data.course_schedule_revision AS schedule ON schedule.course_id = course.course_id AND schedule.revision_number = 1
      WHERE ple_api.current_session_account_is_instructor()
-     ORDER BY course.course_title, course.reference_number
+     ORDER BY course.course_long_name, course.reference_number
 $$;
 
 CREATE FUNCTION ple_api.load_live_demo_course_instance(p_reference_number bigint)
-RETURNS TABLE (reference_number bigint, title text, term_starts_on date, term_ends_on date, course_theme text,
+RETURNS TABLE (reference_number bigint, short_name text, long_name text, term_starts_on date,
+    term_ends_on date, course_theme text,
     is_assigned_instructor boolean, active_instructor_count bigint)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
-    SELECT course.reference_number, course.course_title, schedule.term_starts_on, schedule.term_ends_on,
+    SELECT course.reference_number, course.course_short_name, course.course_long_name,
+           schedule.term_starts_on, schedule.term_ends_on,
            course.course_theme, course.assigned_instructor_account_id = ple_api.current_session_account_id(),
            (SELECT count(*) FROM ple_data.course_membership AS team_member WHERE team_member.course_id = course.course_id
              AND team_member.role = 'instructor' AND ple_data.course_membership_is_active(team_member.membership_id))
@@ -168,12 +175,14 @@ AS $$
 $$;
 
 CREATE FUNCTION ple_api.read_course_summary(p_course_id uuid)
-RETURNS TABLE (course_id uuid, reference_number bigint, title text, term_starts_on date, term_ends_on date,
+RETURNS TABLE (course_id uuid, reference_number bigint, short_name text, long_name text,
+    term_starts_on date, term_ends_on date,
     membership_role text)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
-    SELECT course.course_id, course.reference_number, course.course_title, schedule.term_starts_on,
+    SELECT course.course_id, course.reference_number, course.course_short_name, course.course_long_name,
+           schedule.term_starts_on,
            schedule.term_ends_on, membership.role
       FROM ple_data.course_instance AS course
       JOIN ple_data.course_membership AS membership ON membership.course_id = course.course_id
@@ -184,13 +193,13 @@ AS $$
 $$;
 
 REVOKE ALL ON FUNCTION ple_api.create_live_demo_course_instance(
-    uuid, uuid, uuid, uuid, uuid, bigint, bigint, text, date, date, bigint
+    uuid, uuid, uuid, uuid, uuid, bigint, bigint, text, text, date, date, bigint
 ) FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_api.list_live_demo_course_instances() FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_api.load_live_demo_course_instance(bigint) FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_api.read_course_summary(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.create_live_demo_course_instance(
-    uuid, uuid, uuid, uuid, uuid, bigint, bigint, text, date, date, bigint
+    uuid, uuid, uuid, uuid, uuid, bigint, bigint, text, text, date, date, bigint
 ) TO ple_app;
 GRANT EXECUTE ON FUNCTION ple_api.list_live_demo_course_instances(),
     ple_api.load_live_demo_course_instance(bigint), ple_api.read_course_summary(uuid) TO ple_app;

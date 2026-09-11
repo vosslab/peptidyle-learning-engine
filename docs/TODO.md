@@ -7,6 +7,26 @@
 - [ ] Keep execution-only coordinates outside permanent documentation. Record durable outcomes in
       [CONTRACTS.md](CONTRACTS.md), [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md), or the focused guide.
 
+## Deferred interface capabilities
+
+- [ ] Build public Blueprint Course search when a public Blueprint projection and its authorization
+      boundary are designed; the settled Courses task-row position remains Unavailable.
+- [ ] Build My Questions, Starred, and Watched when their cross-course ownership and saved-state
+      models exist; their settled Questions task-row positions remain Unavailable.
+- [ ] Build My Assignment Templates when a reusable Assignment-template domain and read path exist;
+      its settled Assignments task-row position remains Unavailable.
+- [ ] Build Active and Inactive Courses as part of a dedicated Course Retention capability. Existing
+      retention-plan/job/event scaffolding has no executable atomic Course-wide FERPA-stripping
+      transition or Course-bound receipt that attests that transition. The existing
+      `course_retention_event` is indirect preparation, not attestation that stripping occurred,
+      so both settled Courses task-row positions remain Unavailable. This capability may use
+      retention-specific evidence without requiring the broad mutable-state Edit Number/revision
+      migration.
+- [ ] Decide and implement Blueprint short and long names as mutable Blueprint-aggregate metadata.
+      Those names identify a Blueprint across revisions; Blueprint storage and Blueprint
+      Revision/checksum semantics remain deferred, so this item makes no current schema or content
+      revision change.
+
 ## Delivered Course Appearance
 
 - Course-scoped Theme and Banner appearance is delivered: active Course Members read one current

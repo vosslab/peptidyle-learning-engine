@@ -330,7 +330,8 @@ mod tests {
                 attempt_number: 2,
                 course: StudentAssignmentAttemptHistoryCourse {
                     reference: CourseInstanceReference::new(3).expect("valid reference"),
-                    title: "Molecular biology".to_string(),
+                    short_name: "Mol Bio".to_string(),
+                    long_name: "Molecular biology".to_string(),
                     theme: CourseTheme::Forest,
                 },
                 assignment: StudentAssignmentAttemptHistoryAssignment {

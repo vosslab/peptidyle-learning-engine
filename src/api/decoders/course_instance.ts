@@ -22,7 +22,7 @@ import { decodeBlueprintCourseReference, decodeBlueprintRevision } from "./bluep
 import { decodeCourseTerm } from "./course_term";
 import {
   decodeCourseInstanceReference,
-  decodeCourseTitle,
+  decodeCourseName,
   field,
   requireOnlyFields,
 } from "./shared";
@@ -35,20 +35,13 @@ function accountReference(value: unknown, path: string): AccountReference {
   return decoded;
 }
 
-function title(value: unknown, path: string): string {
-  const decoded = decodeCourseTitle(value, path);
-  if (decoded !== decoded.trim() || Array.from(decoded).length > 200) {
-    throw new DecodeError(path, "a trimmed Course Title within its bound");
-  }
-  return decoded;
-}
-
 function summary(value: unknown, path: string): CourseInstanceSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "title", "term", "theme"]);
+  requireOnlyFields(record, path, ["reference", "shortName", "longName", "term", "theme"]);
   return {
     reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
-    title: title(field(record, "title", path), `${path}.title`),
+    shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
+    longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
     theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, COURSE_THEME_VALUES),
   };
@@ -63,7 +56,8 @@ export function decodeCreateCourseInstanceInput(
   requireOnlyFields(record, path, [
     "blueprintCourse",
     "blueprintRevision",
-    "title",
+    "shortName",
+    "longName",
     "term",
     "assignedInstructor",
   ]);
@@ -77,7 +71,8 @@ export function decodeCreateCourseInstanceInput(
       field(record, "blueprintRevision", path),
       `${path}.blueprintRevision`,
     ),
-    title: title(field(record, "title", path), `${path}.title`),
+    shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
+    longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
     ...(assignedInstructor === undefined
       ? {}

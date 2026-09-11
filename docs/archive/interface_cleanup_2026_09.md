@@ -1,11 +1,11 @@
 # Plan: interface cleanup from the 2026-09-09 interface notes
 
-<!-- Drafted with blueprint-plan-drafter. On approval, publish to
-docs/active_plans/active/interface_cleanup_2026_09.md per docs/REPO_STYLE.md. -->
+<!-- Published and updated at each milestone while active, then archived at closure as
+docs/archive/interface_cleanup_2026_09.md. -->
 
 ## Context
 
-[docs/active_plans/2026-09-09-notes.txt](../2026-09-09-notes.txt)
+[docs/active_plans/2026-09-09-notes.txt](../active_plans/2026-09-09-notes.txt)
 records the owner's consolidated pass over the live interface, split by the rule that Student
 sections describe what Students see and do while Instructor sections describe what Instructors see
 and configure.
@@ -29,8 +29,8 @@ treating them as one list is the main risk to this cleanup:
    every time zone in the product is Course-owned.
 
 Document ownership also needed a decision, and the owner has now given it: only
-[docs/HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) and
-[docs/TERMINOLOGY_CONTRACT.md](../../TERMINOLOGY_CONTRACT.md)
+[docs/HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md) and
+[docs/TERMINOLOGY_CONTRACT.md](../TERMINOLOGY_CONTRACT.md)
 are human-approved, and `docs/INTERFACE_TERMINOLOGY.md` should hold terminology rather than
 Ribbon-level structural restrictions. That removes the block on the notes' Ribbon shape and makes
 the first task a documentation ownership repair rather than a negotiation.
@@ -101,7 +101,7 @@ rewrite; what remains is recorded as a decision in M0.
 
 - Evidence strategy for uncertain methods: density, timer prominence, and navigation-bar legibility
   are visual questions. Each carries browser evidence at the canonical profiles in
-  [docs/UI_DESIGN_GUIDE.md](../../UI_DESIGN_GUIDE.md)
+  [docs/UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md)
   (1280 by 800 Instructor; 1280 by 800 and 800 by 1280 Student; narrow-phone guard) plus
   `image_evaluator` review, rather than a pixel equivalence gate, per HUMAN_GUIDANCE.md on avoiding
   arbitrary numeric gates.
@@ -404,6 +404,16 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
 - Remaining scope: M9 owns the final static screenshot-corpus refresh. M3 already has its
   pre-existing receipt, so M16 is the next dependency-ordered milestone.
 
+#### M2 correction receipt (2026-09-11)
+
+- Course Instance identity now uses required independent short and long names from the root
+  schema/model/API boundary. The compact short name is the persistent Ribbon scope; the long name
+  is used in breadcrumbs, headings, and descriptive rows. The correction has no derivation,
+  fallback, or compatibility alias, and does not change Blueprint semantics.
+- The owner directed a pre-production baseline correction rather than a compatibility migration.
+  Full fresh/no-op migration and aggregate gates passed. The generic unbacked browser Course-create
+  surface was removed in favor of the existing Course Instance creation contract.
+
 ### Milestone: M3 Instructor list density and identity
 
 - Depends on: M0 only, for the density decision record. Independent of M1 and M2.
@@ -435,6 +445,13 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   concurrent M2 Ribbon drift; the independent M3 review found no M3 TypeScript error.
 - Independent review: code, authorization, decoder, semantic-row, and shared-CSS checks passed;
   the initially pending visual gate now passes.
+
+#### M3 correction receipt (2026-09-11)
+
+- Long Course names remain the descriptive row identity while short names remain confined to the
+  constrained Ribbon scope. The 393 px Student Ribbon now preserves the full short name, and the
+  Course action uses the shared readable action treatment; independent visual rereview accepted
+  both repairs.
 
 ### Milestone: M4 Assignment settings defaults
 
@@ -873,8 +890,8 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
 - Scope disposition: existing presentation machinery remains the asset boundary; no asset-rendition
   change belongs to M5. iMathAS end-to-end Student issuance and launch was unbacked before this
   plan and is a separate backend-delivery follow-on. The manifest removed ten obsolete delivery
-  captures without replacing their historical PNGs or receipt; current Attempt capture, matching
-  receipt, and atlas remain explicit M9 work, so static corpus replay is pending that replacement.
+  captures before the later M9 replacement publication; that historical M5 receipt did not claim
+  the replacement capture, matching receipt, atlas, or replay.
 - Sequencing note: M2 and M4 have existing out-of-order work in progress, and M3, M12, M13, and
   M14 received earlier implementation receipts ahead of the reporting order. M2 and M4 are not
   accepted; their existing work and the other receipts are preserved without relabeling them as
@@ -931,8 +948,8 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   only when trusted PostgreSQL `feedback_score` permits it and the complete unique immutable
   grading lineage is present; strict Rust, TypeScript, and UI contracts enforce the projection.
   Focused inline fixture-policy acceptance passed in session 15668. The owner declined a
-  speculative full timing-permutation matrix; M9 corpus publication remains pending, and M19
-  remains incomplete.
+  speculative full timing-permutation matrix. M9 later completed its corpus publication and
+  evidence close-out; M19 is deferred to the separate Course Retention capability.
 - Depends on: M5 for the surviving Student delivery lane; M6 for the vocabulary rules the new copy
   must follow.
 - Deliverables: `LiveAssignmentAccess` extended with question count, points possible, time limit,
@@ -947,13 +964,27 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
 
 ### Milestone: M9 evidence close-out
 
-- Status: in progress. WP-EVI1 passed against all four changed Student surfaces with no serious or
-  critical axe finding. Fresh aggregate acceptance, session 55874, exited 0 with Rust and Wasm,
-  435 Node tests, 6,441 pytest tests, PostgreSQL 17 fresh/no-op migration, MinIO, Profile, Course
-  Appearance, and disposable-cleanup lanes passing. WP-EVI2's replacement 49-capture publication,
-  bound receipt, visual review, and verification replay remain pending; the active 52-capture
-  corpus remains authoritative until that replacement is accepted. WP-EVI3 documentation close-out
-  follows those evidence steps. M19 remains a separate retention-scope blocker.
+- Status: complete. WP-EVI1 session 9103 passed all four changed Student surfaces with no serious
+  or critical axe finding. WP-EVI2 published exactly 49 canonical paths with receipt manifest
+  digest `34692bd7355560ed67b57bd41259fc3dccd88373ced50f1de2ad9e7b8eb773dc`; semantic/privacy
+  `--verify` replay passed all 49 and preserved the published files. Independent image review
+  accepted all 18 Student and all 31 Instructor/shared captures after rereviewing the two corrected
+  images. Five replay-only byte differences are informational human-review evidence, not a pixel
+  gate. WP-EVI3 keeps axe in the explicit connected Playwright evidence lane rather than
+  `check_codebase.sh`, because it needs a live browser/service and no fast-lane recovery action.
+- Final correction evidence: the Course action contrast and 393 px short-name clipping repairs
+  were recaptured and independently accepted. The semantic/privacy replay still covers all 49
+  paths at digest `34692bd7355560ed67b57bd41259fc3dccd88373ced50f1de2ad9e7b8eb773dc`.
+- Final connected-browser receipt (2026-09-11): the owner ran
+  `./devel/run_playwright_tests.sh` against a fresh disposable HTTPS stack; it exited 0. All four
+  Playwright scenarios passed: authentication and authorization, Instructor authoring, Course
+  Appearance propagation, and learner native-PLE recovery. The maintained Assignment release,
+  WeBWorK render, Instructor Accounts, support capability, invitation export, and Course-seed
+  journeys also passed.
+- Patch N final aggregate receipt: `./launchers/all_test.sh` exited 0 with Rust/Wasm,
+  `check_codebase.sh` (including 432 Node tests), 6,436 pytest tests, PostgreSQL 17 fresh/no-op
+  migration, authority, and persistence, and PostgreSQL-plus-MinIO Course Appearance and Profile
+  Thumbnail sagas. Disposable cleanup completed; no containers or pods remained.
 - Depends on: every milestone whose surface it captures.
 - Deliverables: axe coverage for the changed Student surfaces; refreshed screenshot corpus entries
   and manifest digest; `docs/CHANGELOG.md` entries; a recommendation on whether an accessibility
@@ -989,9 +1020,14 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
 
 ### Milestone: M19 Active and Inactive Courses
 
-- Status: pending representation direction. Representation reviews reject a bare event or absence predicate because
-  no retention executor or trusted stripping receipt exists. Scope direction remains pending; no
-  product implementation is accepted.
+- Status: deferred and routed to a separate Course Retention capability by owner direction.
+  Representation reviews reject a bare event or absence predicate: existing Course Retention Plan
+  Revision, typed job/lease, and retention-event scaffolding lack an executable atomic Course-wide
+  FERPA-stripping transition and Course-bound receipt that attests that transition. The existing
+  `course_retention_event` is indirect preparation, not attestation that stripping occurred. No
+  M19 work package is accepted, and both destinations remain honestly Unavailable.
+  Retention-specific exact evidence can support that capability without requiring the broad
+  mutable-state Edit Number/revision migration.
 - Depends on: M0 for the recorded definition; M2 for the Courses task row that holds both
   destinations; M3 for the row pattern the lists reuse.
 - Deliverables: the smallest durable representation of Course activity that supports My Active
@@ -1813,7 +1849,7 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
 ## Test and verification strategy
 
 Match the layer to the claim, per
-[docs/TEST_EVIDENCE_MODEL.md](../../TEST_EVIDENCE_MODEL.md)
+[docs/TEST_EVIDENCE_MODEL.md](../TEST_EVIDENCE_MODEL.md)
 and PYTEST_STYLE.md:
 
 - Fast offline checks for durable contracts: route-contract shape, Ribbon catalog and schema
@@ -1855,7 +1891,8 @@ and PYTEST_STYLE.md:
 
 - [x] M0 documents agree; no contradictory tab set remains.
 - [x] One Instructor Assignment editing path; no dead internal link.
-- [ ] Ribbon ledger regenerated and matching the catalog.
+- [x] Ribbon ledger regenerated and matching the catalog (`node --import tsx
+      devel/generate_ribbon_destination_ledger.mjs --check` reported its generated section current).
 - [x] One Student delivery lane with navigation bar, saved state, and timer.
 - [x] Student-visible text carries no Instructor noun.
 - [x] Start Assignment shows title, counts, points, time limit, and previous attempts.
@@ -1874,16 +1911,16 @@ and PYTEST_STYLE.md:
 - [x] Assignments Due Soon lists only Courses the current Instructor teaches; its dense Product
       page shows Course identity and Account-zone due time, preserves public links, and recovers
       from the expected local retry state.
-- [ ] Inactive Courses show non-sensitive metadata and no FERPA-sensitive Student data.
-- [ ] Student axe coverage passing; screenshot receipt matching.
-- [ ] `docs/CHANGELOG.md` records accepted evidence; deferred items routed to `docs/TODO.md`.
-- [ ] Release acceptance remains governed by `docs/ROADMAP.md`; this plan authorizes no deployment.
+- [x] M19's owner-approved deferral and routing to Course Retention is complete; both destinations
+      remain honestly Unavailable until its FERPA boundary is executable and proven.
+- [x] Student axe coverage passed; the screenshot receipt and 49-path semantic/privacy replay match.
+- [x] `docs/CHANGELOG.md` records accepted evidence; deferred items are routed to `docs/TODO.md`.
+- [x] Release acceptance remains governed by `docs/ROADMAP.md`; this plan authorizes no deployment.
 
 ## Documentation close-out requirements
 
-- Active plan / progress tracker: publish this plan to
-  `docs/active_plans/active/interface_cleanup_2026_09.md` and update it at each milestone exit;
-  `git mv` it to `docs/archive/` at closure.
+- Active plan / progress tracker: this plan was published and updated at each milestone while
+  active, then archived at closure as `docs/archive/interface_cleanup_2026_09.md`.
 - docs/CHANGELOG.md entry: one dated block using the repository's six category headings, recording
   the retirements and the deferred capability items under Decisions and Failures.
 - Archive / closure notes: keep the retirement inventory from WP-RET1 in the plan so a later reader

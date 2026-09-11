@@ -1,4 +1,4 @@
-// ribbon_m11_deferred_content_harness.tsx - real routed deferred-content evidence.
+// ribbon_deferred_content_harness.tsx - real routed deferred-content evidence.
 
 import { render } from "solid-js/web";
 import { MemoryRouter, createMemoryHistory } from "@solidjs/router";
@@ -59,7 +59,8 @@ function instructorCourse(reference: string): CourseRouteView {
     summary: {
       id: `course-${reference}`,
       reference,
-      title: `Deferred content evidence course ${reference}`,
+      shortName: `Course ${reference}`,
+      longName: `Deferred content evidence course ${reference}`,
       term: { startDate: "2026-01-12", endDate: "2026-05-08" },
       role: "instructor",
     },
@@ -70,7 +71,7 @@ function instructorCourse(reference: string): CourseRouteView {
 function instructorSession(): AuthenticatedSession {
   return {
     authenticated: true,
-    account: { id: "account-m11", productRole: "instructor" },
+    account: { id: "deferred-content-evidence-account", productRole: "instructor" },
   };
 }
 
@@ -92,7 +93,7 @@ function queryFunction<Arguments extends ReadonlyArray<unknown>, Result>(
  * withheld; page transports are distinct counters, so release proves that a
  * content-local child (not copied test JSX) starts exactly once.
  */
-export function mountRibbonM11DeferredContentHarness(target: HTMLElement): DeferredContentHarness {
+export function mountRibbonDeferredContentHarness(target: HTMLElement): DeferredContentHarness {
   assertFixturePathsHaveValidScope();
   const history = createMemoryHistory();
   const counts = new Map<EvidenceCase, Map<string, number>>();
@@ -143,7 +144,8 @@ export function mountRibbonM11DeferredContentHarness(target: HTMLElement): Defer
         }
         if (property === "getLiveAssignmentWorkspace")
           return () => unresolved("getLiveAssignmentWorkspace");
-        if (property === "listPreviewSchedule") return () => unresolved("listPreviewSchedule");
+        if (property === "getLiveAssignmentPreview")
+          return () => unresolved("getLiveAssignmentPreview");
         if (property === "getLiveCourseRoster") return () => unresolved("getLiveCourseRoster");
         if (property === "listCourseInstructors") return () => unresolved("listCourseInstructors");
         if (property === "listInstructorCourseInvitations")

@@ -28,7 +28,6 @@ import type { QuestionPoolSelectionRule } from "../../../generated/api/QuestionP
 import type {
   AssignmentContentInput,
   AssignmentEditorEntryInput,
-  CourseCreateInput,
   CourseRouteView,
 } from "../contracts";
 import {
@@ -52,7 +51,7 @@ import {
   MAX_QUESTION_SEARCH_PAGE_ITEMS,
   decodeAssignmentReference,
   decodeAssignmentTitle,
-  decodeCourseTitle,
+  decodeCourseName,
   decodeQuestionBackendCapabilities,
   decodeBoundedArray,
   decodeQuestionRevisionReference,
@@ -79,7 +78,7 @@ import { decodeCourseAppearanceView } from "./course_appearance";
 import { decodeQuestionSearchFacets } from "./question_type_facets";
 
 // Reuse the Question Library course import surface while course-term owns its decoding rules.
-export { decodeCourseTerm, decodeCourseTermValidationFailure } from "./course_term";
+export { decodeCourseTerm } from "./course_term";
 export { decodeStudentFeedbackReleaseRule } from "./assignment_policy";
 export {
   decodeCourseAppearanceView,
@@ -220,7 +219,7 @@ function decodeCourseQuestionUse(value: unknown, path: string): CourseQuestionUs
   requireOnlyFields(record, path, ["course", "title", "assignmentCount"]);
   return {
     course: decodeCourseInstanceReference(field(record, "course", path), `${path}.course`),
-    title: decodeCourseTitle(field(record, "title", path), `${path}.title`),
+    title: decodeCourseName(field(record, "title", path), `${path}.title`),
     assignmentCount: decodePositiveInteger(
       field(record, "assignmentCount", path),
       `${path}.assignmentCount`,
@@ -445,26 +444,15 @@ function decodeAssignmentActivityRules(
 
 export function decodeCourseSummary(value: unknown, path = "response"): CourseSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["id", "reference", "title", "term", "role"]);
+  requireOnlyFields(record, path, ["id", "reference", "shortName", "longName", "term", "role"]);
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
-    title: decodeCourseTitle(field(record, "title", path), `${path}.title`),
+    shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
+    longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
     role: decodeStringEnum(field(record, "role", path), `${path}.role`, ["student", "instructor"]),
   } satisfies CourseSummary;
-  return decoded;
-}
-
-/** Strict request decoder for the public course-creation transport boundary. */
-export function decodeCourseCreateInput(value: unknown, path = "request"): CourseCreateInput {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["title", "term"]);
-  const title = decodeCourseTitle(field(record, "title", path), `${path}.title`);
-  const decoded = {
-    title,
-    term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
-  } satisfies CourseCreateInput;
   return decoded;
 }
 

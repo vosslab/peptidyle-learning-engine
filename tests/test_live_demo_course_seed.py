@@ -4,12 +4,15 @@ import local_stack_control.live_demo_course_seed
 
 
 #============================================
-def test_course_payload_uses_the_date_only_course_term_contract() -> None:
-	"""The Live Demo Course request retains term dates without retired clock data."""
+def test_course_payload_uses_the_course_instance_creation_contract() -> None:
+	"""The Live Demo Course request retains its explicit name and term fields."""
 	seed = local_stack_control.live_demo_course_seed
 
 	payload = seed.course_payload("BP-1")
 
+	assert payload["shortName"] == seed.SEEDED_COURSE_SHORT_NAME
+	assert payload["longName"] == seed.SEEDED_COURSE_LONG_NAME
+	assert "title" not in payload
 	assert payload["term"] == {
 		"startDate": seed.SEEDED_COURSE_TERM.start_date,
 		"endDate": seed.SEEDED_COURSE_TERM.end_date,

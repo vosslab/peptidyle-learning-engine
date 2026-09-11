@@ -8,9 +8,11 @@ if (!/^[0-9]+$/.test(port ?? "")) {
 }
 
 const origin = `https://localhost:${port}`;
-const blueprintTitle = `Browser M10 Blueprint ${Date.now()}`;
-const courseTitle = `Browser M10 Course ${Date.now()}`;
-const assignmentTitle = `Browser M10 Assignment ${Date.now()}`;
+const runId = Date.now();
+const blueprintTitle = `Browser M10 Blueprint ${runId}`;
+const courseShortName = `M10-${runId}`;
+const courseLongName = `Browser M10 Course ${runId}`;
+const assignmentTitle = `Browser M10 Assignment ${runId}`;
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ ignoreHTTPSErrors: true });
 const page = await context.newPage();
@@ -54,11 +56,12 @@ try {
   await page.getByLabel("Blueprint Course Revision").selectOption({
     label: `${blueprintTitle} · Revision 1`,
   });
-  await page.getByLabel("Course Instance title").fill(courseTitle);
+  await page.getByLabel("Course short name").fill(courseShortName);
+  await page.getByLabel("Course long name").fill(courseLongName);
   await page.getByLabel("Course Term start date").fill("2026-09-01");
   await page.getByLabel("Course Term end date").fill("2026-12-18");
   await page.getByRole("button", { name: "Create Course Instance" }).click();
-  await page.getByRole("heading", { name: courseTitle }).waitFor();
+  await page.getByRole("heading", { name: courseLongName }).waitFor();
   await page.getByRole("link", { name: "Open Course Instance" }).first().click();
   await page.waitForURL(/\/courses\/C-[1-9][0-9]*$/u);
 

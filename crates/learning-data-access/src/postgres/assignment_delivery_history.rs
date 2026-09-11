@@ -41,7 +41,7 @@ pub(super) async fn read(
     // ASVS 8.2.2 and 8.3.1: the parameter is only a public reference; the
     // SECURITY DEFINER reader re-checks exact Student ownership and membership.
     let row = sqlx::query(
-        "SELECT course_reference_number, course_title, course_theme, \
+        "SELECT course_reference_number, course_short_name, course_long_name, course_theme, \
          assignment_reference_number, assignment_title, attempt_number, state, questions, \
          feedback_rule, due_at_millis, closes_at_millis, submitted_at_millis, evaluated_at_millis, \
          grading_is_current, grading_results FROM ple_api.read_student_assignment_attempt_history($1)",
@@ -102,9 +102,13 @@ pub(super) async fn read(
                 "Course reference",
                 CourseInstanceReference::new,
             )?,
-            title: nonempty(
-                row.try_get("course_title").map_err(map_sqlx_error)?,
-                "Course title",
+            short_name: name(
+                row.try_get("course_short_name").map_err(map_sqlx_error)?,
+                "Course short name",
+            )?,
+            long_name: name(
+                row.try_get("course_long_name").map_err(map_sqlx_error)?,
+                "Course long name",
             )?,
             theme: CourseTheme::from_str(
                 &row.try_get::<String, _>("course_theme")
@@ -147,8 +151,8 @@ fn reference<T>(
         .ok_or_else(|| StoreError::InvalidRecord(format!("{label} is invalid")))
 }
 
-fn nonempty(value: String, label: &str) -> Result<String, StoreError> {
-    (!value.is_empty())
+fn name(value: String, label: &str) -> Result<String, StoreError> {
+    (value == value.trim() && !value.is_empty() && value.chars().count() <= 200)
         .then_some(value)
         .ok_or_else(|| StoreError::InvalidRecord(format!("{label} is invalid")))
 }

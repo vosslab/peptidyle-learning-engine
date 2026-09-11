@@ -70,7 +70,7 @@ BEGIN
             MESSAGE = 'Invitation export requires a current Instructor Course Membership';
     END IF;
     RETURN QUERY
-    SELECT course.course_title
+    SELECT course.course_long_name
       FROM ple_data.course_instance AS course
      WHERE course.course_id = v_course_id;
 END

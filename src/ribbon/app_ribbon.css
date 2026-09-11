@@ -209,12 +209,6 @@
   font-weight: 620;
 }
 
-.ple-app-ribbon__account-label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--ple-ribbon-space-tight);
-}
-
 .ple-app-ribbon__course-scope-label {
   display: inline-flex;
   align-items: center;
@@ -290,7 +284,8 @@
    catalog declaration, never a proxy for role or priority. */
 .ple-app-ribbon__sign-out,
 .ple-app-ribbon__link,
-.ple-app-ribbon__brand {
+.ple-app-ribbon__brand,
+.ple-app-ribbon__profile {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -339,6 +334,29 @@
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 700;
+}
+
+.ple-app-ribbon__profile {
+  inline-size: 2rem;
+  block-size: 2rem;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--ple-ribbon-rule);
+  border-radius: var(--ple-radius-inset);
+  padding: 0;
+  color: var(--ple-muted);
+  background: var(--ple-ribbon-interaction-surface);
+}
+
+.ple-app-ribbon__profile img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+.ple-app-ribbon__profile .ple-app-ribbon__icon {
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
 }
 
 /* Tabs answer which destination: this is the strongest repeated rhythm, with
@@ -419,12 +437,14 @@
 
 .ple-app-ribbon__link:hover,
 .ple-app-ribbon__sign-out:hover,
-.ple-app-ribbon__brand:hover {
+.ple-app-ribbon__brand:hover,
+.ple-app-ribbon__profile:hover {
   background-color: var(--ple-ribbon-interaction-surface);
 }
 
 .ple-app-ribbon__link:active,
-.ple-app-ribbon__sign-out:active {
+.ple-app-ribbon__sign-out:active,
+.ple-app-ribbon__profile:active {
   box-shadow: inset 0 0 0 1px var(--ple-ribbon-rule);
 }
 
@@ -455,7 +475,8 @@
 
 .ple-app-ribbon__link:focus-visible,
 .ple-app-ribbon__sign-out:focus-visible,
-.ple-app-ribbon__brand:focus-visible {
+.ple-app-ribbon__brand:focus-visible,
+.ple-app-ribbon__profile:focus-visible {
   z-index: 1;
   outline: var(--ple-ribbon-space-tight) solid var(--ple-focus);
   outline-offset: var(--ple-ribbon-space-tight);
@@ -463,7 +484,8 @@
 
 .ple-app-ribbon__link:focus-visible::before,
 .ple-app-ribbon__sign-out:focus-visible::before,
-.ple-app-ribbon__brand:focus-visible::before {
+.ple-app-ribbon__brand:focus-visible::before,
+.ple-app-ribbon__profile:focus-visible::before {
   position: absolute;
   inset: 0;
   border: 1px solid var(--ple-focus);
@@ -530,8 +552,10 @@
 
   .ple-app-ribbon__sign-out,
   .ple-app-ribbon__link,
-  .ple-app-ribbon__brand {
+  .ple-app-ribbon__brand,
+  .ple-app-ribbon__profile {
     min-block-size: 2.75rem;
+    min-inline-size: 2.75rem;
     padding-block: var(--ple-ribbon-space-tight);
   }
 
@@ -596,10 +620,10 @@
     text-overflow: ellipsis;
   }
 
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__account-label > span {
-    min-inline-size: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .ple-app-ribbon[data-ribbon-product-role="student"]
+    .ple-app-ribbon__context-details
+    > .ple-app-ribbon__course-scope-label {
+    flex: 0 0 auto;
   }
 
   .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__tabs {
@@ -638,7 +662,8 @@
 
   .ple-app-ribbon__context-identity,
   .ple-app-ribbon__context-details > span + span,
-  .ple-app-ribbon__sign-out {
+  .ple-app-ribbon__sign-out,
+  .ple-app-ribbon__profile {
     border-color: ButtonText;
   }
 
@@ -705,14 +730,16 @@
 
   .ple-app-ribbon__link:focus-visible,
   .ple-app-ribbon__sign-out:focus-visible,
-  .ple-app-ribbon__brand:focus-visible {
+  .ple-app-ribbon__brand:focus-visible,
+  .ple-app-ribbon__profile:focus-visible {
     outline-color: Highlight;
     outline-offset: var(--ple-ribbon-space-tight);
   }
 
   .ple-app-ribbon__link:focus-visible::before,
   .ple-app-ribbon__sign-out:focus-visible::before,
-  .ple-app-ribbon__brand:focus-visible::before {
+  .ple-app-ribbon__brand:focus-visible::before,
+  .ple-app-ribbon__profile:focus-visible::before {
     border-color: ButtonText;
   }
 }

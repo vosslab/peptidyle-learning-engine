@@ -35,8 +35,10 @@ pub struct CourseSummary {
     pub id: CourseId,
     /// Stable Course Instance Reference used in application navigation.
     pub reference: CourseInstanceReference,
-    /// Human-facing course or section title.
-    pub title: String,
+    /// Compact Course Instance name for constrained navigation.
+    pub short_name: String,
+    /// Descriptive Course Instance name for headings and breadcrumbs.
+    pub long_name: String,
     /// Required inclusive term bounds.
     pub term: crate::CourseTerm,
     /// Signed-in Account's Course Membership Role for this Course Instance.

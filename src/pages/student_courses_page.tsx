@@ -9,7 +9,7 @@ import { useApplicationApi } from "../api/application_api";
 function CourseCard(props: { readonly course: LiveStudentCourseLandingSummary }): JSX.Element {
   return (
     <article class="course-card">
-      <h2>{props.course.title}</h2>
+      <h2>{props.course.longName}</h2>
       <A class="primary-link" href={`/student/courses/${props.course.reference}`}>
         Open assigned work
       </A>

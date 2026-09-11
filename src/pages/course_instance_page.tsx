@@ -327,7 +327,7 @@ export function CourseInstancePage(): JSX.Element {
         {(view) => (
           <>
             <p class="eyebrow">Course Instance · {view().course.reference}</p>
-            <h1>{view().course.title}</h1>
+            <h1>{view().course.longName}</h1>
             <p class="page-lede">
               Course Term: {view().course.term.startDate} through {view().course.term.endDate}.
             </p>

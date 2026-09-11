@@ -3,7 +3,6 @@ import type { AssignmentReference } from "../../../generated/api/AssignmentRefer
 import type { AssignmentAttempt } from "../../../generated/api/AssignmentAttempt";
 import type { CourseGradeSchemeUpdateView } from "../../../generated/api/CourseGradeSchemeUpdateView";
 import type { CourseId } from "../../../generated/api/CourseId";
-import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ApiClient } from "../client";
@@ -25,9 +24,6 @@ import {
   decodeCapabilityViolations,
   decodeCourseGradeSchemeView,
   decodeCourseGradeSchemeUpdateView,
-  decodeCourseCreateInput,
-  decodeCourseSummary,
-  decodeCourseTermValidationFailure,
   decodeStudentFeedbackReleaseResponse,
   decodePrefetchedNextQuestion,
   decodeStudentResponseFormatCheck,
@@ -46,7 +42,6 @@ import {
   AssignmentSuccessorRevisionRequiredError,
   AssignmentPoliciesValidationError,
   CourseGradeSchemeConflictError,
-  CourseTermValidationError,
 } from "./error";
 import {
   MAX_RESPONSE_CHARACTERS,
@@ -135,33 +130,6 @@ export async function requestJson<T>(
       `API response ${path} must contain 1 to ${MAX_RESPONSE_CHARACTERS} JSON characters`,
     );
   return decoder(decodeJson(text, path), "response");
-}
-
-async function requestCourseCreate(
-  fetchImplementation: ApiFetch,
-  basePath: string,
-  input: import("../contracts").CourseCreateInput,
-): Promise<CourseSummary> {
-  const path = "/api/courses";
-  const response = await fetchImplementation(requestPath(basePath, path), {
-    method: "POST",
-    headers: { accept: "application/json", "content-type": "application/json" },
-    body: JSON.stringify(input),
-    credentials: "same-origin",
-    cache: "no-store",
-  });
-  if (response.status === 422) {
-    const value = await boundedResponseJson(response, path);
-    let failure: import("../../../generated/api/CourseTermValidationFailure").CourseTermValidationFailure;
-    try {
-      failure = decodeCourseTermValidationFailure(value, "response");
-    } catch (_error: unknown) {
-      throw new ApiRequestError(response.status, path);
-    }
-    throw new CourseTermValidationError(path, failure);
-  }
-  if (!response.ok) throw new ApiRequestError(response.status, path);
-  return decodeCourseSummary(await boundedResponseJson(response, path), "response");
 }
 
 function validRevision(value: string): boolean {
@@ -316,7 +284,6 @@ export function createRequestClient(
   ApiClient,
   | "saveCourseGradeScheme"
   | "createCourseGradeExport"
-  | "createCourse"
   | "createAssignment"
   | "getAssignmentWorkspace"
   | "saveAssignmentContent"
@@ -394,8 +361,6 @@ export function createRequestClient(
         throw new ApiProtocolError(`API response ${path} exceeds the course export limit`);
       return { exportId, filename, csv };
     },
-    createCourse: (input): Promise<CourseSummary> =>
-      requestCourseCreate(fetchImplementation, basePath, decodeCourseCreateInput(input, "request")),
     getAssignmentWorkspace: (courseId, assignmentId) =>
       requestAssignmentEditor(
         fetchImplementation,

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# This file is vendored. Local changes can and will be overwritten by propagation.
+
 """Bump every package.json dependency and devDependency under the CWD
 to ``>=<current-latest>`` from the npm registry.
 

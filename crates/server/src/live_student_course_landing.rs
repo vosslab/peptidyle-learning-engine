@@ -50,9 +50,11 @@ struct CourseListResponse {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct CourseSummary {
     reference: CourseInstanceReference,
-    title: String,
+    short_name: String,
+    long_name: String,
 }
 
 #[derive(Serialize)]
@@ -61,9 +63,11 @@ struct CourseInvitationListResponse {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct CourseInvitationSummary {
     reference: CourseInstanceReference,
-    title: String,
+    short_name: String,
+    long_name: String,
 }
 
 #[derive(Serialize)]
@@ -96,7 +100,8 @@ async fn list_courses(State(state): State<RouteState>, headers: HeaderMap) -> Re
                     .into_iter()
                     .map(|course| CourseSummary {
                         reference: course.course,
-                        title: course.title,
+                        short_name: course.short_name,
+                        long_name: course.long_name,
                     })
                     .collect(),
             })
@@ -125,7 +130,8 @@ async fn list_pending_invitations(State(state): State<RouteState>, headers: Head
                     .into_iter()
                     .map(|invitation| CourseInvitationSummary {
                         reference: invitation.course,
-                        title: invitation.title,
+                        short_name: invitation.short_name,
+                        long_name: invitation.long_name,
                     })
                     .collect(),
             })

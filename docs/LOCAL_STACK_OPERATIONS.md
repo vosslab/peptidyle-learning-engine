@@ -163,10 +163,11 @@ Mary and Jack's real work, and their Grading Results. Avery remains enrolled
 without an Assignment Attempt.
 
 The private manifest is the first identity source for the created Blueprint
-Course, Course Instance, and Assignment. Exact title matching is recovery only
-when a stored public Reference is absent or stale. Each observation produces a
-plan of missing stages; a repeated provision reports no stages and creates no
-duplicate product objects. The bounded mode-0600 report is written to
+Course, Course Instance, and Assignment. Recovery uses an exact Blueprint
+Course or Assignment title, or an exact Course Instance short-and-long-name
+pair, only when a stored public Reference is absent or stale. Each observation
+produces a plan of missing stages; a repeated provision reports no stages and
+creates no duplicate product objects. The bounded mode-0600 report is written to
 `local_stack_state/live_demo_browser/workspace/live_demo_course_report.json`.
 
 The sealed `seed-inventory` receipt reports only named aggregate counts for the

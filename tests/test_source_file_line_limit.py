@@ -1,3 +1,5 @@
+# This file is vendored. Local changes can and will be overwritten by propagation.
+
 """Enforce a maintainable line-count limit for tracked source files."""
 
 # Standard Library
@@ -287,4 +289,3 @@ def test_source_file_line_limit(path: str) -> None:
 	assert rel not in VIOLATIONS_BY_FILE, file_utils.format_violation_assert_message(
 		rel, VIOLATIONS_BY_FILE.get(rel, []), REPORT_NAME
 	)
-# Vendored pytest file. Local changes can and will be overwritten.

@@ -64,6 +64,7 @@ export const STATISTICS_DURATION_ESTIMATES_SECONDS = [
 ] as const;
 export const MAX_PUBLICATION_SEMANTIC_ENTRIES = 100;
 const MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS = 200;
+const MAX_COURSE_NAME_UNICODE_SCALARS = 200;
 
 export function decodeCourseInstanceReference(
   value: unknown,
@@ -82,13 +83,19 @@ export function decodeAssignmentReference(value: unknown, path: string): Assignm
   return reference;
 }
 
-/** Course Titles are durable Course Instance labels, not Question Titles. */
-export function decodeCourseTitle(value: unknown, path: string): string {
-  const courseTitle = decodeNonemptyString(value, path);
-  if (courseTitle.trim().length === 0) {
-    throw new DecodeError(path, "a Course Title containing non-whitespace content");
+/** Course Instance names are durable labels, not Question Titles. */
+export function decodeCourseName(value: unknown, path: string): string {
+  const courseName = decodeNonemptyString(value, path);
+  if (courseName !== courseName.trim()) {
+    throw new DecodeError(path, "a trimmed Course Instance name");
   }
-  return courseTitle;
+  if (Array.from(courseName).length > MAX_COURSE_NAME_UNICODE_SCALARS) {
+    throw new DecodeError(
+      path,
+      `a Course Instance name no longer than ${MAX_COURSE_NAME_UNICODE_SCALARS} Unicode scalar values`,
+    );
+  }
+  return courseName;
 }
 
 export function decodeQuestionTitle(value: unknown, path: string): string {

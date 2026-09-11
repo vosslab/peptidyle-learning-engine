@@ -41,8 +41,16 @@ const skipWasm = process.argv.includes("--skip-wasm");
 const distDir = path.join(repoRoot, "dist");
 const srcDir = path.join(repoRoot, "src");
 const wasmWebDir = path.join(repoRoot, "dist_wasm", "web");
-const STATIC_STYLESHEETS = ["style.css", "styles/accessibility.css"];
+const STATIC_STYLESHEETS = ["styles/browser_fonts.css", "style.css", "styles/accessibility.css"];
+const BROWSER_FONT_STYLESHEET = "styles/browser_fonts.css";
 const RIBBON_ICON_SPRITE = "assets/ribbon-icons.svg";
+const BROWSER_FONT_ASSET_DIR = "assets/fonts/atkinson_hyperlegible_next";
+const REQUIRED_BROWSER_FONT_ASSETS = [
+  "atkinson_hyperlegible_next_variable.woff2",
+  "atkinson_hyperlegible_next_variable_italic.woff2",
+  "ofl_1_1.txt",
+  "provenance.txt",
+];
 
 //============================================
 
@@ -169,6 +177,71 @@ function copyRibbonIconSprite() {
 //============================================
 
 /**
+ * Copies the locally bundled browser typeface and its distribution record.
+ *
+ * The font is a product accessibility choice, so silently omitting it would
+ * make the browser fall back to an unreviewed system typeface. Keeping its
+ * license and source record beside the delivered files makes the asset
+ * reproducible without a runtime request to a third-party font host.
+ *
+ * @returns {void}
+ */
+function copyBrowserFontAssets() {
+  const sourceDir = path.join(srcDir, BROWSER_FONT_ASSET_DIR);
+  const targetDir = path.join(distDir, BROWSER_FONT_ASSET_DIR);
+  for (const asset of REQUIRED_BROWSER_FONT_ASSETS) {
+    const sourcePath = path.join(sourceDir, asset);
+    if (!fs.existsSync(sourcePath)) {
+      throw new Error(
+        `browser font asset missing at ${sourcePath}; restore the locally bundled Atkinson Hyperlegible Next distribution`,
+      );
+    }
+    fs.mkdirSync(targetDir, { recursive: true });
+    fs.copyFileSync(sourcePath, path.join(targetDir, asset));
+  }
+}
+
+//============================================
+
+/**
+ * Verifies that the browser stylesheet names only the copied local font files.
+ *
+ * @returns {void}
+ */
+function checkBrowserFontDelivery() {
+  const stylesheetPath = path.join(distDir, BROWSER_FONT_STYLESHEET);
+  if (!fs.existsSync(stylesheetPath)) {
+    throw new Error(`build finished but dist/${BROWSER_FONT_STYLESHEET} is missing`);
+  }
+  const stylesheet = fs.readFileSync(stylesheetPath, "utf8");
+  const fontFaceBlocks = stylesheet.match(/@font-face\s*\{[^}]*\}/g) ?? [];
+  if (fontFaceBlocks.some((block) => /https?:\/\//i.test(block))) {
+    throw new Error("browser font stylesheet must not refer to remote font assets");
+  }
+  for (const [style, asset] of [
+    ["normal", REQUIRED_BROWSER_FONT_ASSETS[0]],
+    ["italic", REQUIRED_BROWSER_FONT_ASSETS[1]],
+  ]) {
+    const fontFace = fontFaceBlocks.find((block) =>
+      new RegExp(`font-style\\s*:\\s*${style}\\s*;`).test(block),
+    );
+    if (!fontFace) {
+      throw new Error(`browser font stylesheet must define a local ${style} @font-face rule`);
+    }
+    if (!fontFace.includes(`/${BROWSER_FONT_ASSET_DIR}/${asset}`)) {
+      throw new Error(
+        `browser ${style} @font-face rule does not refer to local font asset ${asset}`,
+      );
+    }
+    if (!fs.existsSync(path.join(distDir, BROWSER_FONT_ASSET_DIR, asset))) {
+      throw new Error(`build finished but dist/${BROWSER_FONT_ASSET_DIR}/${asset} is missing`);
+    }
+  }
+}
+
+//============================================
+
+/**
  * Builds the site into dist/.
  *
  * @returns {Promise<void>}
@@ -216,6 +289,8 @@ async function main() {
   const stylesheetHashes = copyStaticStylesheets();
   copyIndexHtml(bundleHash, stylesheetHashes, componentStylesheetHash);
   copyRibbonIconSprite();
+  copyBrowserFontAssets();
+  checkBrowserFontDelivery();
 
   copyWasmBridge();
 
@@ -225,6 +300,7 @@ async function main() {
     "main.css",
     ...STATIC_STYLESHEETS,
     RIBBON_ICON_SPRITE,
+    ...REQUIRED_BROWSER_FONT_ASSETS.map((asset) => path.join(BROWSER_FONT_ASSET_DIR, asset)),
   ]) {
     if (!fs.existsSync(path.join(distDir, required))) {
       throw new Error(`build finished but dist/${required} is missing`);

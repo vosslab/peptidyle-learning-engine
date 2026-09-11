@@ -9,6 +9,7 @@ import { COURSE_THEME_REGISTRY } from "../../../src/features/course_appearance/c
 import {
   chooseSeededIdentity,
   configureContextAndPage,
+  enterStudentCourse,
   observeContextOrigins,
   requireScenarioInput,
   selectVisibleCourse,
@@ -55,29 +56,23 @@ async function expectSavedTheme(page: Page): Promise<void> {
   );
 }
 
-async function openStudentCourse(page: Page): Promise<void> {
-  const course = page.getByRole("article").filter({
-    has: page.getByRole("heading", { name: seededCourseTitle, exact: true }),
-  });
-  await expect(course).toHaveCount(1);
-  await course.getByRole("link", { name: "Open assigned work", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { level: 1, name: seededCourseTitle, exact: true }),
-  ).toBeVisible();
-}
-
-async function createSecondCourseThroughVisibleControls(page: Page, title: string): Promise<void> {
+async function createSecondCourseThroughVisibleControls(
+  page: Page,
+  shortName: string,
+  longName: string,
+): Promise<void> {
   await page.getByLabel("Blueprint Course Revision").selectOption({ index: 1 });
-  await page.getByLabel("Course Instance title").fill(title);
+  await page.getByLabel("Course short name").fill(shortName);
+  await page.getByLabel("Course long name").fill(longName);
   await page.getByLabel("Course Term start date").fill("2026-09-01");
   await page.getByLabel("Course Term end date").fill("2026-12-18");
   await page.getByRole("button", { name: "Create Course Instance", exact: true }).click();
   const course = page.getByRole("article").filter({
-    has: page.getByRole("heading", { name: title, exact: true }),
+    has: page.getByRole("heading", { name: longName, exact: true }),
   });
   await expect(course).toHaveCount(1);
   await course.getByRole("link", { name: "Open Course Instance", exact: true }).click();
-  await expect(page.getByRole("heading", { level: 1, name: title, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: longName, exact: true })).toBeVisible();
 }
 
 test.describe("Course Appearance propagation on the production PLE stack", () => {
@@ -159,7 +154,7 @@ test.describe("Course Appearance propagation on the production PLE stack", () =>
         const student = await studentContext.newPage();
         configureContextAndPage(studentContext, student, actionTimeoutMs);
         await chooseSeededIdentity(student, /Mary Okafor/u);
-        await openStudentCourse(student);
+        await enterStudentCourse(student, seededCourseTitle);
         await expectSavedTheme(student);
         const banner = student.locator(".course-entry-banner");
         await expect(banner).toHaveCount(1);
@@ -177,8 +172,13 @@ test.describe("Course Appearance propagation on the production PLE stack", () =>
         await expect(
           instructor.getByRole("heading", { name: "Course Instances you teach", exact: true }),
         ).toBeVisible();
-        const secondCourseTitle = `Appearance isolation ${scenarioInput.namespace}`;
-        await createSecondCourseThroughVisibleControls(instructor, secondCourseTitle);
+        const secondCourseShortName = "Appearance";
+        const secondCourseLongName = `Appearance isolation ${scenarioInput.namespace}`;
+        await createSecondCourseThroughVisibleControls(
+          instructor,
+          secondCourseShortName,
+          secondCourseLongName,
+        );
         await openAppearanceFromCourseActions(instructor);
         await expect(instructor.getByRole("radio", { name: /^Grass/u })).toBeChecked();
         await expect(instructor.locator("[data-course-banner-saved-preview]")).toHaveCount(0);

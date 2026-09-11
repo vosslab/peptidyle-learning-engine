@@ -1,3 +1,5 @@
+# This file is vendored. Local changes can and will be overwritten by propagation.
+
 """Keep the checkout disk budget visible in pytest's base lane.
 
 Run this deliberate base-lane check with ``source source_me.sh && pytest tests/``.
@@ -39,4 +41,3 @@ def test_checkout_disk_usage_stays_under_20_gib() -> None:
 		f"{actual_kib / (1024 * 1024):.1f} GiB; the budget is 20.0 GiB. "
 		"Remove stale generated build outputs before continuing."
 	)
-# Vendored pytest file. Local changes can and will be overwritten.

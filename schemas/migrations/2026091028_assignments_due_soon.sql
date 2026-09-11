@@ -13,7 +13,7 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.list_assignments_due_soon()
 RETURNS TABLE (
     course_reference_number bigint,
-    course_title text,
+    course_long_name text,
     assignment_reference_number bigint,
     assignment_title text,
     assignment_status text,
@@ -26,7 +26,7 @@ DECLARE
 BEGIN
     -- One statement timestamp keeps both bounds of the rolling next-seven-days window coherent.
     RETURN QUERY
-    SELECT course.reference_number, course.course_title, assignment.reference_number,
+    SELECT course.reference_number, course.course_long_name, assignment.reference_number,
            assignment.assignment_title, assignment.assignment_status,
            floor(extract(epoch FROM assignment.due_at) * 1000)::bigint
       FROM ple_data.assignment AS assignment

@@ -33,6 +33,13 @@ values; reserve bold for the few words that establish structure. Status text sho
 state or recovery action. Do not render confirmations such as "Question content ready" when the
 visible content already proves the state.
 
+### Browser typography
+
+Written browser UI uses the locally bundled Atkinson Hyperlegible Next family before system
+sans-serif fallbacks. Explicit monospace rules remain for code, machine identifiers, and
+alignment-sensitive content. Backend, native-renderer, and export typography have their own output
+requirements and remain outside this browser rule.
+
 ## Space and layout
 
 - Global shell: use nearly the full viewport, with bounded edge gutters rather than a narrow centered
@@ -154,14 +161,17 @@ Product Role is available with the Authenticated Session, so one Account uses on
 each scope throughout its session. Exact server and Store checks continue to authorize every
 destination and operation.
 
-Place the single Peptidyle home identity, Product Role, Account name, Instructor Product Tabs,
-Profile, and Sign Out in one information-dense top bar at a desktop 1280 by 800 viewport. Every
-visible Ribbon navigation item has a same-origin Font Awesome glyph and text. Build that single bar
-first; retain a separate Tab Row only when responsive or focus-order evidence demonstrates a named
-failure at a named viewport. Authenticated Ribbon routes do not add a separate site-header identity
-band; the site header is the fallback for routes without a Ribbon. Account Security, Instructor
-Course Invitations, and Sign In use Context Controls. Their routes retain the current Ribbon Schema
-and render with No Selected Ribbon Tab.
+Place the single Peptidyle home identity, one boxed Product Role plate, Instructor Product Tabs,
+Sign Out, and the far-right Instructor Profile control in one information-dense top bar at a desktop
+1280 by 800 viewport. Product Role has no duplicate account-label rendering. Every visible Ribbon
+navigation item has a same-origin Font Awesome glyph and text except Profile: the Instructor-only
+Profile link has the accessible name `Profile` while its visible rounded-square content is a generic
+user glyph or the uploaded Profile image. Sign Out precedes Profile. Build that single bar first;
+retain a separate Tab Row only when responsive or focus-order evidence demonstrates a named failure
+at a named viewport. Authenticated Ribbon routes do not add a separate site-header identity band;
+the site header is the fallback for routes without a Ribbon. Account Security, Instructor Course
+Invitations, and Sign In use Context Controls. Their routes retain the current Ribbon Schema and
+render with No Selected Ribbon Tab.
 
 The Instructor task rows are ordered as follows:
 

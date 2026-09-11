@@ -180,7 +180,7 @@ release_webwork_assignment() {
 	created="$(request "/api/course-instances/$course/assignments" "$instructor_cookie" POST '{"title":"M14 WeBWorK render","instructions":"Complete the rendered question."}')"
 	if [ "$(response_status "$created")" != "201" ]; then echo "Instructor could not create the WeBWorK Assignment" >&2; exit 1; fi
 	read -r assignment edit < <(assignment_reference_and_edit "$(response_body "$created")")
-	saved="$(request "/api/course-instances/$course/assignments/$assignment" "$instructor_cookie" PUT "{\"title\":\"M14 WeBWorK render\",\"instructions\":\"Complete the rendered question.\",\"questionIds\":[\"$webwork_question_id\"],\"dueAt\":null,\"lateWorkRule\":\"accept\"}" "$edit")"
+	saved="$(request "/api/course-instances/$course/assignments/$assignment" "$instructor_cookie" PUT "{\"title\":\"M14 WeBWorK render\",\"instructions\":\"Complete the rendered question.\",\"questionIds\":[\"$webwork_question_id\"],\"dueAt\":null,\"assignmentAttemptTimeLimitSeconds\":3600,\"lateWorkRule\":\"accept\"}" "$edit")"
 	if [ "$(response_status "$saved")" != "200" ]; then echo "Instructor could not select the private renderer-backed Published Question" >&2; exit 1; fi
 	edit="$(assignment_reference_and_edit "$(response_body "$saved")" | awk '{print $2}')"
 	released="$(request "/api/course-instances/$course/assignments/$assignment/release" "$instructor_cookie" POST '{}' "$edit")"
@@ -195,7 +195,7 @@ release_mixed_assignment() {
 	read -r assignment edit < <(assignment_reference_and_edit "$(response_body "$created")")
 	# The released order makes aggregation concrete: a native PLE Question and
 	# the renderer-backed Question share one Assignment Attempt contract.
-	saved="$(request "/api/course-instances/$course/assignments/$assignment" "$instructor_cookie" PUT "{\"title\":\"M14 mixed render\",\"instructions\":\"Complete the released questions.\",\"questionIds\":[\"PNE-0001\",\"$webwork_question_id\"],\"dueAt\":null,\"lateWorkRule\":\"accept\"}" "$edit")"
+	saved="$(request "/api/course-instances/$course/assignments/$assignment" "$instructor_cookie" PUT "{\"title\":\"M14 mixed render\",\"instructions\":\"Complete the released questions.\",\"questionIds\":[\"PNE-0001\",\"$webwork_question_id\"],\"dueAt\":null,\"assignmentAttemptTimeLimitSeconds\":3600,\"lateWorkRule\":\"accept\"}" "$edit")"
 	if [ "$(response_status "$saved")" != "200" ]; then echo "Instructor could not select the mixed Published Questions" >&2; exit 1; fi
 	edit="$(assignment_reference_and_edit "$(response_body "$saved")" | awk '{print $2}')"
 	released="$(request "/api/course-instances/$course/assignments/$assignment/release" "$instructor_cookie" POST '{}' "$edit")"
@@ -207,8 +207,10 @@ assert_webwork_presentation() {
 	python3 -c '
 import json, re, sys
 value=json.loads(sys.argv[1])
-if set(value) != {"assignment","attemptNumber","resumed","title","instructions","questions"} or value["resumed"] is not (sys.argv[2] == "true"):
+if set(value) != {"assignment","assignmentAttempt","attemptNumber","resumed","title","instructions","questions"} or value["resumed"] is not (sys.argv[2] == "true"):
     raise SystemExit("WeBWorK Assignment start projection is invalid")
+if not isinstance(value["assignmentAttempt"], str) or not re.fullmatch(r"R-[1-9][0-9]{0,9}", value["assignmentAttempt"]):
+    raise SystemExit("WeBWorK Assignment start projection has an invalid public Assignment Attempt reference")
 questions=value["questions"]
 if not isinstance(questions,list) or len(questions) != 1:
     raise SystemExit("Assignment did not issue exactly one WeBWorK Question Presentation")

@@ -10,7 +10,8 @@ import type { CourseTheme } from "../../generated/api/CourseTheme";
 export interface CreateCourseInstanceInput {
   readonly blueprintCourse: BlueprintCourseReference;
   readonly blueprintRevision: string;
-  readonly title: string;
+  readonly shortName: string;
+  readonly longName: string;
   readonly term: CourseTerm;
   /** Omitted for Instructor self-assignment; required for a Sysadmin creation. */
   readonly assignedInstructor?: AccountReference;
@@ -19,7 +20,8 @@ export interface CreateCourseInstanceInput {
 /** Browser-safe Course Instance landing-page identity. */
 export interface CourseInstanceSummary {
   readonly reference: CourseInstanceReference;
-  readonly title: string;
+  readonly shortName: string;
+  readonly longName: string;
   readonly term: CourseTerm;
   /** Row identity only; it does not apply a Course theme to the product route. */
   readonly theme: CourseTheme;

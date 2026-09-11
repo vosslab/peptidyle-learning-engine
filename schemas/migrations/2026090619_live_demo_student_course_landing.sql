@@ -8,10 +8,10 @@
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.list_live_student_course_landing()
-RETURNS TABLE (course_reference_number bigint, course_title text)
+RETURNS TABLE (course_reference_number bigint, course_short_name text, course_long_name text)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-    SELECT course.reference_number, course.course_title
+    SELECT course.reference_number, course.course_short_name, course.course_long_name
       FROM ple_private.account AS account
       JOIN LATERAL (
           SELECT event.state
@@ -27,17 +27,17 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
       JOIN ple_data.course_instance AS course ON course.course_id = membership.course_id
      WHERE account.account_id = ple_api.current_session_account_id()
        AND account.product_role = 'student'
-     ORDER BY course.course_title, course.reference_number
+     ORDER BY course.course_long_name, course.reference_number
 $$;
 
 CREATE FUNCTION ple_api.list_pending_live_student_course_invitations()
-RETURNS TABLE (course_reference_number bigint, course_title text)
+RETURNS TABLE (course_reference_number bigint, course_short_name text, course_long_name text)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     -- ASVS 2.2.1/2.2.2 and 2.3.1: derive the active Student Account here;
     -- choose the same current invitation as the claim transaction, but return
-    -- only its Course Instance reference and title.
-    SELECT course.reference_number, course.course_title
+    -- only its Course Instance reference and display names.
+    SELECT course.reference_number, course.course_short_name, course.course_long_name
       FROM ple_private.account AS account
       JOIN LATERAL (
           SELECT event.state
@@ -71,7 +71,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
         ON course.course_id = pending_invitation.course_id
      WHERE account.account_id = ple_api.current_session_account_id()
        AND account.product_role = 'student'
-     ORDER BY course.course_title, course.reference_number
+     ORDER BY course.course_long_name, course.reference_number
 $$;
 
 CREATE FUNCTION ple_api.list_released_live_student_assignments(

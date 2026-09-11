@@ -8,7 +8,8 @@ DROP FUNCTION ple_api.list_live_demo_course_instances();
 CREATE FUNCTION ple_api.list_live_demo_course_instances()
 RETURNS TABLE (
     reference_number bigint,
-    title text,
+    short_name text,
+    long_name text,
     term_starts_on date,
     term_ends_on date,
     course_time_zone text,
@@ -17,7 +18,7 @@ RETURNS TABLE (
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
-    SELECT course.reference_number, course.course_title,
+    SELECT course.reference_number, course.course_short_name, course.course_long_name,
            schedule.term_starts_on, schedule.term_ends_on, schedule.course_time_zone,
            course.course_theme
       FROM ple_data.course_instance AS course
@@ -30,7 +31,7 @@ AS $$
         ON schedule.course_id = course.course_id
        AND schedule.revision_number = 1
      WHERE ple_api.current_session_account_is_instructor()
-     ORDER BY course.course_title, course.reference_number
+     ORDER BY course.course_long_name, course.reference_number
 $$;
 
 DROP FUNCTION ple_api.load_live_demo_course_instance(bigint);
@@ -38,7 +39,8 @@ DROP FUNCTION ple_api.load_live_demo_course_instance(bigint);
 CREATE FUNCTION ple_api.load_live_demo_course_instance(p_reference_number bigint)
 RETURNS TABLE (
     reference_number bigint,
-    title text,
+    short_name text,
+    long_name text,
     term_starts_on date,
     term_ends_on date,
     course_time_zone text,
@@ -49,7 +51,7 @@ RETURNS TABLE (
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
-    SELECT course.reference_number, course.course_title,
+    SELECT course.reference_number, course.course_short_name, course.course_long_name,
            schedule.term_starts_on, schedule.term_ends_on, schedule.course_time_zone,
            course.course_theme,
            course.assigned_instructor_account_id = ple_api.current_session_account_id(),

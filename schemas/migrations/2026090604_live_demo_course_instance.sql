@@ -19,8 +19,12 @@ SET LOCAL ROLE ple_data_owner;
 ALTER TABLE ple_data.course_instance
     ADD COLUMN reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE
         CHECK (reference_number BETWEEN 1 AND 2147483647),
-    ADD COLUMN course_title text NOT NULL
-        CHECK (course_title = btrim(course_title) AND char_length(course_title) BETWEEN 1 AND 200);
+    ADD COLUMN course_short_name text NOT NULL
+        CHECK (course_short_name = btrim(course_short_name)
+            AND char_length(course_short_name) BETWEEN 1 AND 200),
+    ADD COLUMN course_long_name text NOT NULL
+        CHECK (course_long_name = btrim(course_long_name)
+            AND char_length(course_long_name) BETWEEN 1 AND 200);
 
 GRANT USAGE ON SCHEMA ple_data TO ple_audit_owner;
 GRANT REFERENCES ON TABLE ple_data.course_instance, ple_data.blueprint_course_revision
@@ -173,7 +177,8 @@ CREATE FUNCTION ple_api.create_live_demo_course_instance(
     p_creation_event_id uuid,
     p_blueprint_course_reference_number bigint,
     p_blueprint_revision_number bigint,
-    p_course_title text,
+    p_course_short_name text,
+    p_course_long_name text,
     p_term_starts_on date,
     p_term_ends_on date,
     p_course_time_zone text,
@@ -181,7 +186,8 @@ CREATE FUNCTION ple_api.create_live_demo_course_instance(
 )
 RETURNS TABLE (
     reference_number bigint,
-    title text,
+    short_name text,
+    long_name text,
     term_starts_on date,
     term_ends_on date,
     course_time_zone text,
@@ -201,8 +207,10 @@ BEGIN
        OR p_course_schedule_revision_id IS NULL OR p_creation_event_id IS NULL
        OR p_blueprint_course_reference_number NOT BETWEEN 1 AND 2147483647
        OR p_blueprint_revision_number IS NULL OR p_blueprint_revision_number <= 0
-       OR p_course_title IS NULL OR p_course_title <> btrim(p_course_title)
-       OR char_length(p_course_title) NOT BETWEEN 1 AND 200
+       OR p_course_short_name IS NULL OR p_course_short_name <> btrim(p_course_short_name)
+       OR char_length(p_course_short_name) NOT BETWEEN 1 AND 200
+       OR p_course_long_name IS NULL OR p_course_long_name <> btrim(p_course_long_name)
+       OR char_length(p_course_long_name) NOT BETWEEN 1 AND 200
        OR p_term_starts_on IS NULL OR p_term_ends_on IS NULL OR p_term_starts_on > p_term_ends_on
        OR p_course_time_zone IS NULL OR char_length(btrim(p_course_time_zone)) NOT BETWEEN 1 AND 100
     THEN
@@ -286,10 +294,10 @@ BEGIN
     v_occurred_at := pg_catalog.clock_timestamp();
     INSERT INTO ple_data.course_instance (
         course_id, blueprint_course_reference_number, blueprint_revision_number,
-        assigned_instructor_account_id, course_title, created_at
+        assigned_instructor_account_id, course_short_name, course_long_name, created_at
     ) VALUES (
         p_course_id, p_blueprint_course_reference_number, p_blueprint_revision_number,
-        v_assigned_instructor_account_id, p_course_title, v_occurred_at
+        v_assigned_instructor_account_id, p_course_short_name, p_course_long_name, v_occurred_at
     ) RETURNING course_instance.reference_number INTO v_course_reference_number;
     INSERT INTO ple_data.course_origin (
         course_origin_id, course_id, blueprint_course_reference_number,
@@ -317,7 +325,7 @@ BEGIN
         v_assigned_instructor_account_id, v_creator_account_id, v_occurred_at
     );
 
-    RETURN QUERY SELECT v_course_reference_number, p_course_title,
+    RETURN QUERY SELECT v_course_reference_number, p_course_short_name, p_course_long_name,
         p_term_starts_on, p_term_ends_on, p_course_time_zone,
         v_creator_account_id = v_assigned_instructor_account_id;
 END
@@ -326,7 +334,8 @@ $$;
 CREATE FUNCTION ple_api.list_live_demo_course_instances()
 RETURNS TABLE (
     reference_number bigint,
-    title text,
+    short_name text,
+    long_name text,
     term_starts_on date,
     term_ends_on date,
     course_time_zone text
@@ -334,7 +343,7 @@ RETURNS TABLE (
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
-    SELECT course.reference_number, course.course_title,
+    SELECT course.reference_number, course.course_short_name, course.course_long_name,
            schedule.term_starts_on, schedule.term_ends_on, schedule.course_time_zone
       FROM ple_data.course_instance AS course
       JOIN ple_data.course_membership AS membership
@@ -346,13 +355,14 @@ AS $$
         ON schedule.course_id = course.course_id
        AND schedule.revision_number = 1
      WHERE ple_api.current_session_account_is_instructor()
-     ORDER BY course.course_title, course.reference_number
+     ORDER BY course.course_long_name, course.reference_number
 $$;
 
 CREATE FUNCTION ple_api.load_live_demo_course_instance(p_reference_number bigint)
 RETURNS TABLE (
     reference_number bigint,
-    title text,
+    short_name text,
+    long_name text,
     term_starts_on date,
     term_ends_on date,
     course_time_zone text,
@@ -362,7 +372,7 @@ RETURNS TABLE (
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data
 AS $$
-    SELECT course.reference_number, course.course_title,
+    SELECT course.reference_number, course.course_short_name, course.course_long_name,
            schedule.term_starts_on, schedule.term_ends_on, schedule.course_time_zone,
            course.assigned_instructor_account_id = ple_api.current_session_account_id(),
            (
@@ -407,20 +417,20 @@ $$;
 
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.current_session_account_is_sysadmin() FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.create_live_demo_course_instance(
-    uuid, uuid, uuid, uuid, uuid, bigint, bigint, text, date, date, text, bigint
+    uuid, uuid, uuid, uuid, uuid, bigint, bigint, text, text, date, date, text, bigint
 ) FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.list_live_demo_course_instances() FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.load_live_demo_course_instance(bigint) FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.list_live_demo_course_creation_instructors() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.create_live_demo_course_instance(
-    uuid, uuid, uuid, uuid, uuid, bigint, bigint, text, date, date, text, bigint
+    uuid, uuid, uuid, uuid, uuid, bigint, bigint, text, text, date, date, text, bigint
 ) TO ple_app;
 GRANT EXECUTE ON FUNCTION ple_api.list_live_demo_course_instances() TO ple_app;
 GRANT EXECUTE ON FUNCTION ple_api.load_live_demo_course_instance(bigint) TO ple_app;
 GRANT EXECUTE ON FUNCTION ple_api.list_live_demo_course_creation_instructors() TO ple_app;
 
 COMMENT ON FUNCTION ple_api.create_live_demo_course_instance(
-    uuid, uuid, uuid, uuid, uuid, bigint, bigint, text, date, date, text, bigint
+    uuid, uuid, uuid, uuid, uuid, bigint, bigint, text, text, date, date, text, bigint
 ) IS 'Atomically creates one Course Instance from an exact available published Blueprint Revision with immutable Course Origin, Course Term, initial Assigned Instructor Course Membership, and audit event.';
 
 RESET ROLE;

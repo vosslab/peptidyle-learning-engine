@@ -35,7 +35,7 @@ import {
   decodeAssignmentReference,
   decodeAssignmentTitle,
   decodeCourseInstanceReference,
-  decodeCourseTitle,
+  decodeCourseName,
   decodeQuestionDescription,
   decodeQuestionId,
   field,
@@ -198,7 +198,7 @@ function dueSoonAssignmentSummary(value: unknown, path: string): DueSoonAssignme
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "courseReference",
-    "courseTitle",
+    "courseLongName",
     "assignmentReference",
     "assignmentTitle",
     "assignmentStatus",
@@ -209,7 +209,10 @@ function dueSoonAssignmentSummary(value: unknown, path: string): DueSoonAssignme
       field(record, "courseReference", path),
       `${path}.courseReference`,
     ),
-    courseTitle: decodeCourseTitle(field(record, "courseTitle", path), `${path}.courseTitle`),
+    courseLongName: decodeCourseName(
+      field(record, "courseLongName", path),
+      `${path}.courseLongName`,
+    ),
     assignmentReference: decodeAssignmentReference(
       field(record, "assignmentReference", path),
       `${path}.assignmentReference`,

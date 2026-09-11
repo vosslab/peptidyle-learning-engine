@@ -1,21 +1,21 @@
-// ribbon_m11_deferred_content_loader.ts - compiles browser-only deferred-route evidence.
+// ribbon_deferred_content_loader.ts - compiles browser-only deferred-route evidence.
 
 import { build, stop } from "esbuild";
 import { solidPlugin } from "esbuild-plugin-solid";
 
-export interface RibbonM11DeferredContentBundle {
+export interface RibbonDeferredContentBundle {
   readonly javascript: Uint8Array;
   readonly stylesheet: string;
 }
 
-export async function bundleM11Harness(): Promise<RibbonM11DeferredContentBundle> {
+export async function bundleRibbonDeferredContentHarness(): Promise<RibbonDeferredContentBundle> {
   try {
     const result = await build({
       bundle: true,
-      entryPoints: [new URL("./ribbon_m11_deferred_content_harness.tsx", import.meta.url).pathname],
+      entryPoints: [new URL("./ribbon_deferred_content_harness.tsx", import.meta.url).pathname],
       format: "iife",
-      globalName: "PleRibbonM11DeferredContent",
-      outfile: "ribbon_m11_deferred_content_harness.js",
+      globalName: "PleRibbonDeferredContent",
+      outfile: "ribbon_deferred_content_harness.js",
       platform: "browser",
       plugins: [solidPlugin({ solid: { generate: "dom", hydratable: false } })],
       write: false,

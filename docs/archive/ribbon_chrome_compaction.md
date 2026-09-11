@@ -497,7 +497,7 @@ region.
   node tests/playwright/ribbon_m9_responsive_evidence.mjs
   node tests/playwright/ribbon_m9b_density_evidence.mjs
   node tests/playwright/ribbon_m10_shell_evidence.mjs
-  node tests/playwright/ribbon_m11_deferred_content_evidence.mjs
+  node tests/playwright/ribbon_deferred_content_evidence.mjs
   node tests/e2e/e2e_ribbon_app_component.mjs
   node tests/e2e/e2e_ribbon_production_styles.mjs
   ./check_codebase.sh

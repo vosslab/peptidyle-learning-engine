@@ -93,7 +93,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         // ASVS 1.2.3, 8.2.2, and 8.3.1: the SECURITY DEFINER procedure binds
         // this opaque Course ID to the installed session's active membership.
         let row = sqlx::query(
-            "SELECT course_id, reference_number, title, term_starts_on::text AS term_starts_on, \
+            "SELECT course_id, reference_number, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, membership_role \
              FROM ple_api.read_course_summary($1)",
         )
@@ -118,7 +118,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let rows = sqlx::query(
-            "SELECT reference_number, title, term_starts_on::text AS term_starts_on, \
+            "SELECT reference_number, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, course_theme \
              FROM ple_api.list_live_demo_course_instances()",
         )
@@ -143,10 +143,10 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let row = sqlx::query(
-            "SELECT reference_number, title, term_starts_on::text AS term_starts_on, \
+            "SELECT reference_number, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, creator_is_assigned_instructor \
              FROM ple_api.create_live_demo_course_instance(\
-             $1, $2, $3, $4, $5, $6, $7, $8, $9::date, $10::date, $11)",
+             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11::date, $12)",
         )
         .bind(random_uuid()?)
         .bind(random_uuid()?)
@@ -158,7 +158,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             i64::try_from(input.blueprint_revision.value())
                 .map_err(|_| invalid("Blueprint Revision"))?,
         )
-        .bind(&input.title)
+        .bind(&input.short_name)
+        .bind(&input.long_name)
         .bind(input.term.start_date().to_string())
         .bind(input.term.end_date().to_string())
         .bind(
@@ -174,7 +175,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                 reference: course_reference(
                     row.try_get("reference_number").map_err(map_sqlx_error)?,
                 )?,
-                title: row.try_get("title").map_err(map_sqlx_error)?,
+                short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
+                long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
                 term: term(
                     row.try_get("term_starts_on").map_err(map_sqlx_error)?,
                     row.try_get("term_ends_on").map_err(map_sqlx_error)?,
@@ -198,7 +200,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let row = sqlx::query(
-            "SELECT reference_number, title, term_starts_on::text AS term_starts_on, \
+            "SELECT reference_number, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, course_theme, is_assigned_instructor, \
              active_instructor_count FROM ple_api.load_live_demo_course_instance($1)",
         )
@@ -245,7 +247,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
 fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceSummary, StoreError> {
     Ok(CourseInstanceSummary {
         reference: course_reference(row.try_get("reference_number").map_err(map_sqlx_error)?)?,
-        title: row.try_get("title").map_err(map_sqlx_error)?,
+        short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
+        long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         term: term(
             row.try_get("term_starts_on").map_err(map_sqlx_error)?,
             row.try_get("term_ends_on").map_err(map_sqlx_error)?,
@@ -260,7 +263,8 @@ fn decode_course_summary(row: &sqlx::postgres::PgRow) -> Result<CourseSummary, S
     Ok(CourseSummary {
         id: CourseId::from_uuid(course_id),
         reference: course_reference(row.try_get("reference_number").map_err(map_sqlx_error)?)?,
-        title: row.try_get("title").map_err(map_sqlx_error)?,
+        short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
+        long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         term: term(
             row.try_get("term_starts_on").map_err(map_sqlx_error)?,
             row.try_get("term_ends_on").map_err(map_sqlx_error)?,

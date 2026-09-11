@@ -79,11 +79,10 @@ export const RIBBON_DESTINATION_GLYPHS = Object.freeze({
 export type RibbonDestinationGlyphId = keyof typeof RIBBON_DESTINATION_GLYPHS;
 
 /** Context identities are not destinations and therefore remain a separate closed vocabulary. */
-export const RIBBON_CONTEXT_GLYPH_KEYS = ["account", "profile", "signOut"] as const;
+export const RIBBON_CONTEXT_GLYPH_KEYS = ["profile", "signOut"] as const;
 export type RibbonContextGlyphKey = (typeof RIBBON_CONTEXT_GLYPH_KEYS)[number];
 
 export const RIBBON_CONTEXT_GLYPHS = Object.freeze({
-  account: "circle-user",
   profile: "circle-user",
   signOut: "right-from-bracket",
 } as const satisfies Readonly<Record<RibbonContextGlyphKey, RibbonGlyphId>>);

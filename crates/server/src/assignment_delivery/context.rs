@@ -62,7 +62,8 @@ struct StudentAssignmentAttemptContextResponse {
 #[serde(rename_all = "camelCase")]
 struct StudentAssignmentAttemptCourseContext {
     reference: CourseInstanceReference,
-    title: String,
+    short_name: String,
+    long_name: String,
     theme: question_model::CourseTheme,
 }
 
@@ -83,7 +84,8 @@ impl From<learning_data_access::StudentAssignmentAttemptContext>
             timer_remaining_milliseconds: value.timer_remaining_milliseconds,
             course: StudentAssignmentAttemptCourseContext {
                 reference: value.course,
-                title: value.course_title,
+                short_name: value.course_short_name,
+                long_name: value.course_long_name,
                 theme: value.course_theme,
             },
             assignment: StudentAssignmentAttemptAssignmentContext {

@@ -22,11 +22,11 @@ import type {
 } from "./ribbon_contract";
 import type { RibbonDestinationId } from "./ribbon_catalog";
 import {
-  RIBBON_ICON_ASSET_PATH,
   ribbonGlyphForContext,
   ribbonGlyphForDestination,
   type RibbonGlyphId,
 } from "./ribbon_icons";
+import { RibbonIcon } from "./ribbon_icon";
 import {
   createRibbonPendingNavigation,
   type RibbonPendingNavigation,
@@ -43,11 +43,9 @@ export interface AppRibbonProps {
   readonly routingInFlight?: Accessor<boolean>;
   /** User motion preference injected by the future shell; absent means ordinary motion. */
   readonly reducedMotion?: Accessor<boolean>;
+  /** Optional shell-owned Instructor avatar presentation inside the Profile link. */
+  readonly renderProfileAvatar?: () => JSX.Element;
 }
-
-// `focusable` is an SVG accessibility attribute supported by browsers but is
-// absent from the DOM library's SVG attribute type.
-const NON_FOCUSABLE_SVG = { focusable: "false" } as unknown as JSX.SvgSVGAttributes<SVGSVGElement>;
 
 function visibleControl<Id extends RibbonDestinationId>(
   control: RibbonControlModel<Id>,
@@ -69,23 +67,6 @@ function isUnmodifiedPrimaryActivation(event: MouseEvent): boolean {
     !event.ctrlKey &&
     !event.metaKey &&
     !event.shiftKey
-  );
-}
-
-/**
- * Decorative, same-origin glyph rendering for the closed Ribbon vocabulary.
- * The adjacent text remains the control's accessible name.
- */
-export function RibbonIcon(props: { readonly glyph: RibbonGlyphId }): JSX.Element {
-  return (
-    <svg
-      class="ple-app-ribbon__icon"
-      aria-hidden="true"
-      {...NON_FOCUSABLE_SVG}
-      data-ribbon-glyph={props.glyph}
-    >
-      <use href={`${RIBBON_ICON_ASSET_PATH}#${props.glyph}`} />
-    </svg>
   );
 }
 
@@ -379,10 +360,6 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
             <span class="ple-app-ribbon__product-role">{props.model.context.productLabel}</span>
           </div>
           <div class="ple-app-ribbon__context-details">
-            <span class="ple-app-ribbon__account-label">
-              <RibbonIcon glyph={ribbonGlyphForContext("account")} />
-              <span>{props.model.context.accountLabel}</span>
-            </span>
             <Show when={props.model.context.scopeLabel}>
               {(label) => <span class="ple-app-ribbon__course-scope-label">{label()}</span>}
             </Show>
@@ -398,18 +375,6 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
               {(control) => <RibbonLink control={control} pendingNavigation={pendingNavigation} />}
             </For>
           </nav>
-          <For each={props.model.context.accountControls.filter(visibleAccountControl)}>
-            {(control) => (
-              <a
-                class="ple-app-ribbon__profile"
-                href={control.href}
-                data-ribbon-context-control={control.id}
-              >
-                <RibbonIcon glyph={ribbonGlyphForContext(control.glyph)} />
-                <span class="ple-app-ribbon__control-label">{control.label}</span>
-              </a>
-            )}
-          </For>
           <button
             class="ple-app-ribbon__sign-out"
             type="button"
@@ -424,6 +389,21 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
               {props.model.context.signOutAction.label}
             </span>
           </button>
+          <For each={props.model.context.accountControls.filter(visibleAccountControl)}>
+            {(control) => (
+              <a
+                class="ple-app-ribbon__profile"
+                href={control.href}
+                aria-label={control.label}
+                title={control.label}
+                data-ribbon-context-control={control.id}
+              >
+                {props.renderProfileAvatar?.() ?? (
+                  <RibbonIcon glyph={ribbonGlyphForContext(control.glyph)} />
+                )}
+              </a>
+            )}
+          </For>
         </section>
         <RibbonOverflowCues state={topOverflow} />
       </section>

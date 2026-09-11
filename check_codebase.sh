@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# This file is vendored. Local changes can and will be overwritten by propagation.
+
 # Run TypeScript type checks, lint, formatting, and Node unit tests (no build).
 set -euo pipefail
 

@@ -1,10 +1,5 @@
 /* Course Instance owns the presentation of its semantic Course actions nav. */
 
-/* The former bare-nav hover rule changed the primary action's label color. */
-.course-instance-page__actions .primary-link:hover {
-  color: var(--ple-accent-strong);
-}
-
 .instructor-list__row--assignment {
   grid-template-columns: minmax(0, 1fr) auto;
 }

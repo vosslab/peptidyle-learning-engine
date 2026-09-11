@@ -93,10 +93,7 @@ async function instructorProfile(runtime: ScenarioRuntime): Promise<void> {
   const session = await runtime.open(runtime.record(scenario, "default"));
   try {
     await enterInstructor(session.page);
-    await session.page
-      .locator('[data-ribbon-context-control="profile"]')
-      .getByText("Profile", { exact: true })
-      .click();
+    await session.page.getByRole("link", { name: "Profile", exact: true }).click();
     await session.page.getByRole("heading", { level: 1, name: "Profile", exact: true }).waitFor();
     await session.page
       .getByRole("heading", { level: 2, name: "Profile image", exact: true })

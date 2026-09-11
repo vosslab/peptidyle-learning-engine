@@ -160,7 +160,7 @@ function BannerImage(props: {
 
 function AppearanceBannerEditor(props: {
   readonly courseId: string;
-  readonly courseTitle: string;
+  readonly courseLongName: string;
   readonly storedAppearance: () => CourseAppearanceView;
 }): JSX.Element {
   const applicationApi = useApplicationApi();
@@ -310,7 +310,7 @@ function AppearanceBannerEditor(props: {
                   alternativeText={selectedAlternativeText()}
                   rendition="hero"
                 />
-                <p class="course-appearance-banner-course-name">Course: {props.courseTitle}</p>
+                <p class="course-appearance-banner-course-name">Course: {props.courseLongName}</p>
                 <p>Course card</p>
                 <BannerImage
                   url={url()}
@@ -369,7 +369,7 @@ function AppearanceBannerEditor(props: {
                   />
                 )}
               </Show>
-              <p class="course-appearance-banner-course-name">Course: {props.courseTitle}</p>
+              <p class="course-appearance-banner-course-name">Course: {props.courseLongName}</p>
               <p>Course card</p>
               <Show when={cardUrl()}>
                 {(url) => (
@@ -479,7 +479,7 @@ export function CourseAppearancePage(): JSX.Element {
             <AppearanceThemeEditor courseId={summary.id} storedAppearance={appearance} />
             <AppearanceBannerEditor
               courseId={summary.id}
-              courseTitle={summary.title}
+              courseLongName={summary.longName}
               storedAppearance={appearance}
             />
           </section>

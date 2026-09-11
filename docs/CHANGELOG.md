@@ -12,6 +12,17 @@
 
 ### Behavior or Interface Changes
 
+- The authenticated top bar now presents Product Role once in its boxed plate. Instructor Profile
+  is the far-right accessible icon-only rounded-square control after Sign Out; it shows the generic
+  user glyph until the existing self-only uploaded thumbnail is available. Browser written UI now
+  uses locally bundled Atkinson Hyperlegible Next normal and italic variable fonts, while explicit
+  monospace and backend, native-renderer, and export typography remain intentional exceptions.
+
+- Course Instances now have required, independently entered short and long names at the root
+  schema, model, and API boundary. The short name supplies the constrained persistent Ribbon scope;
+  the long name supplies breadcrumbs, headings, and descriptive rows. There is no derived value,
+  fallback, or compatibility alias, and Blueprint naming semantics are unchanged.
+
 - Implemented M7/WP-ACC2 Student Assignment Start and history UI. The Start page now presents the
   server-authorized Assignment title, questions, points possible, and time limit before its single
   primary Start action, with prior Attempt links following that action. The retained summary route
@@ -48,17 +59,25 @@
 
 ### Fixes and Maintenance
 
+- The final scoped top-bar audit removed the obsolete `RibbonIcon` compatibility re-export, updated
+  its design specimen from retired Account context to Profile, documented the replacement-event
+  race guard, and kept the separate Course-name contract classified under Interface Cleanup M2.
+
+- Final M9 visual review repaired the Course action's insufficient contrast and the 393 px Student
+  Ribbon clipping that hid the final character of the Course short name. Recapture and independent
+  review accepted both repairs; the 49-path semantic/privacy replay remains the evidence boundary.
+
 - Repaired the M7 Student Course landing score disclosure found by the M9 privacy gate: the
   previously unconditional `pointsEarned`/`pointsPossible` projection now emits an all-or-none
   score only when trusted PostgreSQL `feedback_score` permits it and the complete unique immutable
   grading lineage is present. Strict Rust, TypeScript, and UI contracts keep the projection
   coherent. Focused inline fixture-policy acceptance passed in session 15668; the owner declined a
-  speculative full timing-permutation matrix. M9 corpus publication remains pending, and M19
-  remains incomplete.
+  speculative full timing-permutation matrix. M9 evidence is recorded below; Course retention is
+  deferred as a separate capability.
 
-- Reconciled the active Interface Cleanup tracker with already accepted M7, account-zone, Profile,
-  and thumbnail receipts. The M10 checklist now records its accepted service and page evidence;
-  M9 and M19 remain explicitly incomplete.
+- Reconciled the active Interface Cleanup tracker with accepted M7, account-zone, Profile,
+  thumbnail, M9 evidence, and M10 receipts. M19 is owner-deferred and routed as Course Retention
+  rather than represented by a misleading interface-only Course status.
 
 - Applied the scoped documentation and comment-audit corrections: durable documentation now states
   current-state Assignment editing accurately, architecture inventories the Profile, selected
@@ -70,7 +89,15 @@
   exact-key record, and clarify Profile Thumbnail Store rustdoc and migration comment tags.
 - Synchronized shared style guides, tests, and repository support files from the starter template.
 
+- The six-pass scoped audit checkpoint found stale M9 and M19 documentation, a dead legacy
+  preview-plane client surface, and one timer-generation comment; Test and Style passes found no
+  issue. This documentation records the evidence and scope dispositions. Product cleanup remains
+  subject to its separate current-source review.
+
 ### Removals and Deprecations
+
+- Removed the unbacked generic browser Course-create client surface; the supported Course Instance
+  creation path remains the only browser contract.
 
 - Removed the dead generic Assignment Attempt Summary transport and its decoder-only surface while
   preserving the live `/assignment-attempts/R-n/summary` browser presentation route and its pinned
@@ -79,25 +106,58 @@
 
 ### Decisions and Failures
 
+- The Course-name replacement is an owner-directed pre-production baseline correction: it changes
+  the disposable root schema directly rather than retaining a compatibility path. Full fresh and
+  no-op migration plus aggregate gates passed. Blueprint short/long names remain a future mutable
+  Blueprint-metadata decision and do not change current Blueprint Revision content or checksums.
+
 - The mutation-heavy clear/zone-switch browser harness was denied as optional and outside M10
   acceptance. The accepted replacement is materially safer read-only replay against the existing
   fixture; Profile zone changes remain M17 evidence.
 
-- M9 remains open: its connected Student axe run (session 9103) and fresh full
-  `all_test.sh` aggregate (session 55874) passed, while the replacement 49-capture corpus
-  publication, matching manifest receipt, visual review, verification replay, and WP-EVI3
-  documentation remain pending; the active 52-capture corpus remains authoritative meanwhile.
-  M19 remains pending scope direction because no retention executor or trusted stripping receipt
-  exists; no Course-activity product implementation is accepted.
+- M9/WP-EVI1 and WP-EVI2 are accepted. Session 9103 found no serious or critical axe issue on all
+  four changed Student surfaces. The canonical replacement publication contains exactly 49 paths
+  and receipt manifest digest
+  `34692bd7355560ed67b57bd41259fc3dccd88373ced50f1de2ad9e7b8eb773dc`.
+  Semantic and privacy `--verify` replay passed all 49 while preserving the published files;
+  independent image review accepted all 18 Student and all 31 Instructor/shared captures after
+  rereviewing the two corrected images. Five replay-only byte differences are informational
+  human-review evidence, not a pixel gate.
+
+- WP-EVI3 keeps axe in the explicit connected Playwright evidence lane rather than
+  `check_codebase.sh`: it needs a live browser and service, and a fast-lane failure has no useful
+  recovery action. M19 is owner-deferred. Existing Course Retention Plan Revision, typed job/lease,
+  and retention-event scaffolding are preparation only; no executable atomic Course-wide
+  FERPA-stripping transition or Course-bound receipt that attests that transition exists. The
+  existing `course_retention_event` is indirect preparation, not attestation that stripping
+  occurred. Active and Inactive destinations remain honestly Unavailable until a separate Course
+  Retention capability supplies that boundary.
 
 ### Developer Tests and Notes
 
-- Fresh aggregate acceptance, session 55874, ran `./launchers/all_test.sh` to exit 0
-  (`/private/tmp/ple-interface-cleanup.QVsF3M/audit20-all-test.log`): Rust and Wasm checks,
-  435 Node tests, 6,441 pytest tests, PostgreSQL 17 fresh/no-op migration acceptance, MinIO,
-  Profile, Course Appearance, and disposable-cleanup lanes all passed. Six fresh scoped audit
-  reports (Plan, Tests, Style, Documentation, Legacy, and Comments) were reviewed; the accepted
-  repairs are recorded above. This checkpoint does not close M9 or M19.
+- `node --import tsx devel/generate_ribbon_destination_ledger.mjs --check` passed with `Ribbon
+  destination ledger generated section is current.`
+
+- Final aggregate receipt: `./launchers/all_test.sh` exited 0 with 432 Node checks, 6,456 pytest
+  checks, Rust/Wasm, fresh/no-op PostgreSQL authority and persistence, MinIO, Course Appearance,
+  and Profile Thumbnail. Disposable cleanup completed; no containers or pods remained. An initial
+  source-file line-limit failure was repaired by the dedicated font stylesheet; `src/style.css`
+  finished at 999 lines.
+
+- Focused TypeScript, lint, 22 Ribbon tests, and build passed. One-time connected Instructor proof
+  covered Sign out then the icon-only Profile control, generic fallback, `POST` 200, visible
+  success, same-document avatar replacement without reload, navigation persistence, and local
+  Atkinson normal/italic WOFF2 delivery. Corrected rendered runtime-injected monospace proof passed.
+
+- Published 49 screenshot paths and passed semantic/privacy `--verify`; five byte differences were
+  retained only for human review. Independent visual acceptance passed.
+
+- Final connected-browser receipt: on 2026-09-11, the owner ran
+  `./devel/run_playwright_tests.sh` against a fresh disposable HTTPS stack; it exited 0. All four
+  Playwright scenarios passed: authentication and authorization, Instructor authoring, Course
+  Appearance propagation, and learner native-PLE recovery. The maintained Assignment release,
+  WeBWorK render, Instructor Accounts, support capability, invitation export, and Course-seed
+  journeys also passed.
 
 - M10 acceptance combines the accepted WP-DUE1 PostgreSQL 17 fresh/no-op migration and revocation
   receipt with a final read-only browser run at `https://localhost:55104` that exited 0. It proved
@@ -109,7 +169,7 @@
 
 - Accepted M10/WP-DUE1's narrow cross-course Due Soon read path. The authenticated Instructor-only
   `GET /api/assignments/due-soon` response is exactly `{ items, nextCursor: null, displayTimeZone
-  }`; each item contains only Course reference/title, Assignment reference/title/status, and
+  }`; each item contains only Course reference/long name, Assignment reference/title/status, and
   `dueAtMillis`. The implementation uses an owner-selected rolling next-seven-days window for
   unreleased and released Assignments. It is not a new product-policy or human-guidance decision.
   The Store independently applies the existing active-Instructor membership predicate, so revoked

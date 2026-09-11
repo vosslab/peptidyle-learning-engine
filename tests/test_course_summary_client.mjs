@@ -12,7 +12,8 @@ function courseSummary() {
   return {
     id: COURSE_ID,
     reference: "C-1",
-    title: "Molecular Biology",
+    shortName: "BIOL 301",
+    longName: "Molecular Biology 301: Gene Expression",
     term: { startDate: "2026-01-01", endDate: "2026-05-01" },
     role: "student",
   };

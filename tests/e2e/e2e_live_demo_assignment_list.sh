@@ -203,7 +203,7 @@ fi
 read -r blueprint_reference blueprint_revision < <(blueprint_reference_and_revision "$(response_body "$blueprints")")
 foreign_payload="$(python3 -c '
 import json, sys
-print(json.dumps({"blueprintCourse":sys.argv[1],"blueprintRevision":sys.argv[2],"title":"M3 foreign Instructor Course","term":{"startDate":"2026-08-24","endDate":"2026-12-11"},"assignedInstructor":sys.argv[3]},separators=(",",":")))
+print(json.dumps({"blueprintCourse":sys.argv[1],"blueprintRevision":sys.argv[2],"shortName":"Foreign course","longName":"Foreign Instructor Course","term":{"startDate":"2026-08-24","endDate":"2026-12-11"},"assignedInstructor":sys.argv[3]},separators=(",",":")))
 ' "$blueprint_reference" "$blueprint_revision" "$foreign_instructor")"
 created_course="$(request '/api/course-instances' "$sysadmin_cookie" POST "$foreign_payload")"
 if [ "$(response_status "$created_course")" != "201" ]; then

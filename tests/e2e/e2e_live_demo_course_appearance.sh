@@ -91,12 +91,13 @@ assert_course_summary() {
 	python3 -c '
 import json, re, sys
 value=json.loads(sys.argv[1]); course_id, reference, role=sys.argv[2:]
-if set(value)!={"id","reference","title","term","role"}:
+if set(value)!={"id","reference","shortName","longName","term","role"}:
     raise SystemExit("Course Summary response is not closed")
 if value.get("id") != course_id or value.get("reference") != reference or value.get("role") != role:
     raise SystemExit("Course Summary did not retain exact identity and caller membership role")
-if not isinstance(value.get("title"),str) or not value["title"].strip():
-    raise SystemExit("Course Summary title is invalid")
+for key in ("shortName", "longName"):
+    if not isinstance(value.get(key),str) or not value[key].strip():
+        raise SystemExit(f"Course Summary {key} is invalid")
 term=value.get("term")
 if not isinstance(term,dict) or set(term)!={"startDate","endDate"}:
     raise SystemExit("Course Summary term is invalid")
@@ -109,7 +110,7 @@ assert_same_course_summary_identity() {
 	python3 -c '
 import json, sys
 left=json.loads(sys.argv[1]); right=json.loads(sys.argv[2])
-for key in ("id","reference","title","term"):
+for key in ("id","reference","shortName","longName","term"):
     if left.get(key) != right.get(key):
         raise SystemExit("Instructor and enrolled Student Course Summaries differ")
 ' "$1" "$2"
@@ -212,7 +213,7 @@ course_uuid() {
 find_foreign_course_uuid() {
 	local postgres sql output
 	postgres="$(service_id postgres)"
-	sql="SELECT course.course_id FROM ple_data.course_instance AS course WHERE course.course_title = 'M3 foreign Instructor Course' AND NOT EXISTS (SELECT 1 FROM ple_data.course_membership AS membership JOIN ple_private.account_authentication_email AS email ON email.account_id = membership.account_id WHERE membership.course_id = course.course_id AND email.normalized_email = 'elena.rivera@live-demo.invalid' AND ple_data.course_membership_is_active(membership.membership_id)) ORDER BY course.reference_number DESC LIMIT 1;"
+	sql="SELECT course.course_id FROM ple_data.course_instance AS course WHERE course.course_short_name = 'Foreign course' AND course.course_long_name = 'Foreign Instructor Course' AND NOT EXISTS (SELECT 1 FROM ple_data.course_membership AS membership JOIN ple_private.account_authentication_email AS email ON email.account_id = membership.account_id WHERE membership.course_id = course.course_id AND email.normalized_email = 'elena.rivera@live-demo.invalid' AND ple_data.course_membership_is_active(membership.membership_id)) ORDER BY course.reference_number DESC LIMIT 1;"
 	output="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "$sql")"
 	[ "$(printf '%s\n' "$output" | sed '/^$/d' | wc -l | tr -d '[:space:]')" -le "1" ] ||
 		fail "foreign-Instructor Course discovery was ambiguous"

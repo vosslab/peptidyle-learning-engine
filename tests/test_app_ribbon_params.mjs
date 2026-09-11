@@ -10,7 +10,7 @@ import {
 import { ROUTE_CONTRACT } from "../src/route_contract.ts";
 import { deriveRibbonModel } from "../src/ribbon/ribbon_contract.ts";
 
-const LABELS = { accountLabel: "Student account" };
+const LABELS = {};
 const ATTEMPT_PATH = "/assignment-attempts/R-1";
 const attemptRoute = ROUTE_CONTRACT.find((route) => route.id === "assignmentAttempt");
 

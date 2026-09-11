@@ -16,7 +16,7 @@ SET LOCAL ROLE ple_private_owner;
 CREATE FUNCTION ple_api.read_student_assignment_attempt_history(
     p_assignment_attempt_reference_number bigint
 ) RETURNS TABLE (
-    course_reference_number bigint, course_title text, course_theme text,
+    course_reference_number bigint, course_short_name text, course_long_name text, course_theme text,
     assignment_reference_number bigint, assignment_title text, attempt_number integer,
     state text, questions jsonb, feedback_rule jsonb, due_at_millis bigint,
     closes_at_millis bigint, submitted_at_millis bigint, evaluated_at_millis bigint,
@@ -28,7 +28,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
         SELECT pg_catalog.statement_timestamp() AS value
     ), owned_attempt AS (
         SELECT attempt.*, course.reference_number AS course_reference_number,
-               course.course_title, course.course_theme,
+               course.course_short_name, course.course_long_name, course.course_theme,
                assignment.reference_number AS assignment_reference_number,
                CASE WHEN attempt.delivery_assignment_title IS NOT NULL
                     THEN attempt.delivery_assignment_title ELSE revision.assignment_title END AS assignment_title,
@@ -62,7 +62,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
                   AND ple_data.course_membership_is_active(membership.membership_id)
            )
     )
-    SELECT owned.course_reference_number, owned.course_title, owned.course_theme,
+    SELECT owned.course_reference_number, owned.course_short_name, owned.course_long_name, owned.course_theme,
            owned.assignment_reference_number, owned.assignment_title, owned.attempt_number,
            CASE WHEN assignment_submission.assignment_attempt_id IS NOT NULL
                 THEN 'submitted'::text ELSE 'closed'::text END,
@@ -119,7 +119,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
            WHERE grading_issued.assignment_attempt_id = owned.assignment_attempt_id
       ) AS complete_grading
       CROSS JOIN evaluated_at
-     GROUP BY owned.course_reference_number, owned.course_title, owned.course_theme,
+     GROUP BY owned.course_reference_number, owned.course_short_name, owned.course_long_name, owned.course_theme,
               owned.assignment_reference_number, owned.assignment_title, owned.attempt_number,
               owned.feedback_rule, owned.due_at, owned.closes_at,
               assignment_submission.assignment_attempt_id, assignment_submission.submitted_at,

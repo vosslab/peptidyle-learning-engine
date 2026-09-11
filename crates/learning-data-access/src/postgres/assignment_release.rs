@@ -79,7 +79,7 @@ impl LiveAssignmentStore for PostgresLiveAssignmentStore {
                     AccountTimeZone::parse(&value).map_err(|_| invalid("Account Time Zone"))
                 })?;
         let rows = sqlx::query(concat!(
-            "SELECT course_reference_number, course_title, assignment_reference_number, ",
+            "SELECT course_reference_number, course_long_name, assignment_reference_number, ",
             "assignment_title, assignment_status, due_at_millis ",
             "FROM ple_api.list_assignments_due_soon()",
         ))
@@ -94,8 +94,8 @@ impl LiveAssignmentStore for PostgresLiveAssignmentStore {
                         row.try_get("course_reference_number")
                             .map_err(map_sqlx_error)?,
                     )?,
-                    course_title: course_title(
-                        row.try_get("course_title").map_err(map_sqlx_error)?,
+                    course_long_name: course_name(
+                        row.try_get("course_long_name").map_err(map_sqlx_error)?,
                     )?,
                     assignment_reference: assignment_reference(
                         row.try_get("assignment_reference_number")
@@ -581,9 +581,9 @@ fn course_reference(value: i64) -> Result<CourseInstanceReference, StoreError> {
         .and_then(CourseInstanceReference::new)
         .ok_or_else(|| invalid("Course Instance Reference"))
 }
-fn course_title(value: String) -> Result<String, StoreError> {
+fn course_name(value: String) -> Result<String, StoreError> {
     if value.is_empty() || value != value.trim() || value.chars().count() > 200 {
-        return Err(invalid("Course Title"));
+        return Err(invalid("Course Name"));
     }
     Ok(value)
 }

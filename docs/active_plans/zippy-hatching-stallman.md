@@ -1,7 +1,7 @@
 # Plan: interface cleanup from the 2026-09-09 interface notes
 
-<!-- Drafted with blueprint-plan-drafter. On approval, publish to
-docs/active_plans/active/interface_cleanup_2026_09.md per docs/REPO_STYLE.md. -->
+<!-- Drafted with blueprint-plan-drafter. The approved tracker was archived at closure as
+docs/archive/interface_cleanup_2026_09.md per docs/REPO_STYLE.md. -->
 
 ## Context
 
@@ -1414,9 +1414,8 @@ and PYTEST_STYLE.md:
 
 ## Documentation close-out requirements
 
-- Active plan / progress tracker: publish this plan to
-  `docs/active_plans/active/interface_cleanup_2026_09.md` and update it at each milestone exit;
-  `git mv` it to `docs/archive/` at closure.
+- Completed plan / progress tracker: the approved tracker was archived at closure as
+  `docs/archive/interface_cleanup_2026_09.md`.
 - docs/CHANGELOG.md entry: one dated block using the repository's six category headings, recording
   the retirements and the deferred capability items under Decisions and Failures.
 - Archive / closure notes: keep the retirement inventory from WP-RET1 in the plan so a later reader

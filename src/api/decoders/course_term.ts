@@ -1,14 +1,7 @@
 // Course-term browser-visible API DTO decoders.
 
 import type { CourseTerm } from "../../../generated/api/CourseTerm";
-import type { CourseTermValidationFailure } from "../../../generated/api/CourseTermValidationFailure";
-import {
-  DecodeError,
-  decodeNonemptyString,
-  decodeRecord,
-  decodeString,
-  decodeStringEnum,
-} from "../decoder";
+import { DecodeError, decodeRecord, decodeString } from "../decoder";
 import { field, requireOnlyFields } from "./shared";
 
 function decodeCourseDate(value: unknown, path: string): string {
@@ -35,31 +28,4 @@ export function decodeCourseTerm(value: unknown, path: string): CourseTerm {
   if (endDate < startDate)
     throw new DecodeError(`${path}.endDate`, "a date on or after the course start date");
   return { startDate, endDate } satisfies CourseTerm;
-}
-
-/** Strict bounded refusal decoder for course-term validation responses. */
-export function decodeCourseTermValidationFailure(
-  value: unknown,
-  path = "response",
-): CourseTermValidationFailure {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["error", "field", "reason", "message"]);
-  const message = decodeNonemptyString(field(record, "message", path), `${path}.message`);
-  if (message.length > 160) {
-    throw new DecodeError(`${path}.message`, "at most 160 characters");
-  }
-  return {
-    error: decodeStringEnum(field(record, "error", path), `${path}.error`, ["courseTermInvalid"]),
-    field: decodeStringEnum(field(record, "field", path), `${path}.field`, [
-      "term",
-      "startDate",
-      "endDate",
-    ]),
-    reason: decodeStringEnum(field(record, "reason", path), `${path}.reason`, [
-      "required",
-      "invalidCalendarDate",
-      "endBeforeStart",
-    ]),
-    message,
-  } satisfies CourseTermValidationFailure;
 }

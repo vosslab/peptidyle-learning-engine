@@ -10,7 +10,8 @@ export function courseRouteData(reference: string): CourseRouteView {
     summary: {
       id: `course-${reference}`,
       reference,
-      title: `Course ${reference}`,
+      shortName: `CRS ${reference}`,
+      longName: `Course ${reference}: Molecular Biology`,
       term: { startDate: "2026-01-12", endDate: "2026-05-08" },
       role: "student",
     },
@@ -26,7 +27,8 @@ export function assignmentAttemptContext(reference: string): StudentAssignmentAt
     timerRemainingMilliseconds: 1_800_000,
     course: {
       reference,
-      title: `Course ${reference}`,
+      shortName: `CRS ${reference}`,
+      longName: `Course ${reference}: Molecular Biology`,
       theme: "grass",
     },
     assignment: { reference: "A-1", title: "Assignment one" },
@@ -38,7 +40,12 @@ export function assignmentAttemptHistoryData(reference: string): StudentAssignme
   return {
     assignmentAttempt: "R-1",
     attemptNumber: 1,
-    course: { reference, title: `Course ${reference}`, theme: "grass" },
+    course: {
+      reference,
+      shortName: `CRS ${reference}`,
+      longName: `Course ${reference}: Molecular Biology`,
+      theme: "grass",
+    },
     assignment: { reference: "A-1", title: "Assignment one" },
     state: "submitted",
     questions: [],

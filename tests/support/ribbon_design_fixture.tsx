@@ -6,8 +6,9 @@ import {
   COURSE_THEME_OPTIONS,
   courseThemeStyle,
 } from "../../src/features/course_appearance/course_theme_registry";
-import { AppRibbon, RibbonIcon } from "../../src/ribbon/app_ribbon";
+import { AppRibbon } from "../../src/ribbon/app_ribbon";
 import type { RibbonModel } from "../../src/ribbon/ribbon_contract";
+import { RibbonIcon } from "../../src/ribbon/ribbon_icon";
 import { RIBBON_GLYPH_IDS, type RibbonGlyphId } from "../../src/ribbon/ribbon_icons";
 import "../design/ribbon_design_lab.css";
 import "../design/ribbon_treatment_fieldstation.css";
@@ -43,7 +44,7 @@ const GLYPH_ATLAS_LABELS: Readonly<Record<RibbonGlyphId, string>> = {
   "user-graduate": "Assignment Student View",
   palette: "Appearance",
   "arrow-left": "Back to Assignments",
-  "circle-user": "Account context",
+  "circle-user": "Profile",
   "right-from-bracket": "Sign out",
   "box-archive": "My Inactive Courses",
   clock: "Assignments Due Soon",

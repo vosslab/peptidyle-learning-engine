@@ -59,7 +59,7 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
     ) -> Result<Vec<LiveStudentCourseLandingSummary>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query(
-            "SELECT course_reference_number, course_title \
+            "SELECT course_reference_number, course_short_name, course_long_name \
              FROM ple_api.list_live_student_course_landing()",
         )
         .fetch_all(&mut *transaction)
@@ -79,7 +79,7 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
     ) -> Result<Vec<LiveStudentCourseInvitationSummary>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query(
-            "SELECT course_reference_number, course_title \
+            "SELECT course_reference_number, course_short_name, course_long_name \
              FROM ple_api.list_pending_live_student_course_invitations()",
         )
         .fetch_all(&mut *transaction)
@@ -128,7 +128,14 @@ fn decode_course(
             CourseInstanceReference::new,
             "Course Instance reference",
         )?,
-        title: row.try_get("course_title").map_err(map_sqlx_error)?,
+        short_name: name(
+            row.try_get("course_short_name").map_err(map_sqlx_error)?,
+            "Course short name",
+        )?,
+        long_name: name(
+            row.try_get("course_long_name").map_err(map_sqlx_error)?,
+            "Course long name",
+        )?,
     })
 }
 
@@ -202,7 +209,14 @@ fn decode_invitation(
             CourseInstanceReference::new,
             "Course Instance reference",
         )?,
-        title: row.try_get("course_title").map_err(map_sqlx_error)?,
+        short_name: name(
+            row.try_get("course_short_name").map_err(map_sqlx_error)?,
+            "Course short name",
+        )?,
+        long_name: name(
+            row.try_get("course_long_name").map_err(map_sqlx_error)?,
+            "Course long name",
+        )?,
     })
 }
 
@@ -227,6 +241,12 @@ fn optional_finite_nonnegative(
 
 fn invalid(name: &str) -> StoreError {
     StoreError::InvalidRecord(format!("{name} is invalid"))
+}
+
+fn name(value: String, label: &str) -> Result<String, StoreError> {
+    (value == value.trim() && !value.is_empty() && value.chars().count() <= 200)
+        .then_some(value)
+        .ok_or_else(|| invalid(label))
 }
 
 fn reference<T>(

@@ -97,7 +97,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
     sqlx::query("INSERT INTO ple_data.blueprint_course_revision (blueprint_course_reference_number, blueprint_revision_number, title, blueprint_course_content, blueprint_content_checksum, created_at) VALUES (1,1,'Banner oracle','{}',decode(repeat('00',32),'hex'),clock_timestamp())")
         .execute(&mut *transaction).await.expect("revision");
     for (course, assigned) in [(COURSE, INSTRUCTOR), (FOREIGN_COURSE, FOREIGN)] {
-        sqlx::query("INSERT INTO ple_data.course_instance (course_id, blueprint_course_reference_number, blueprint_revision_number, assigned_instructor_account_id, course_title, created_at) VALUES ($1,1,1,$2,'Banner course',clock_timestamp())")
+        sqlx::query("INSERT INTO ple_data.course_instance (course_id, blueprint_course_reference_number, blueprint_revision_number, assigned_instructor_account_id, course_short_name, course_long_name, created_at) VALUES ($1,1,1,$2,'Banner','Banner course',clock_timestamp())")
             .bind(id(course)).bind(id(assigned)).execute(&mut *transaction).await.expect("course");
     }
     sqlx::query("INSERT INTO ple_data.student_record (student_record_id, course_id, student_account_id, created_at) VALUES ($1,$2,$3,clock_timestamp())")

@@ -8,7 +8,12 @@ function history() {
   return {
     assignmentAttempt: "R-12",
     attemptNumber: 3,
-    course: { reference: "C-2", title: "Biochemistry", theme: "ocean" },
+    course: {
+      reference: "C-2",
+      shortName: "BCHM 301",
+      longName: "Biochemistry 301: Proteins and Peptides",
+      theme: "ocean",
+    },
     assignment: { reference: "A-4", title: "Peptide structure practice" },
     state: "submitted",
     questions: [{ position: 1, responseState: "submitted" }],
