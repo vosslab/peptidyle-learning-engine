@@ -1,6 +1,5 @@
 // contracts.ts - browser-safe DTOs at the application transport boundary.
 
-import type { AssignmentAttempt } from "../../generated/api/AssignmentAttempt";
 import type { AssignmentSummary } from "../../generated/api/AssignmentSummary";
 import type { StudentAssignmentLandingSummary } from "../../generated/api/StudentAssignmentLandingSummary";
 import type { StudentAssignmentDetail } from "../../generated/api/StudentAssignmentDetail";
@@ -16,8 +15,6 @@ import type { QuestionPresentation } from "../../generated/api/QuestionPresentat
 import type { AssignmentScoringState } from "../../generated/api/AssignmentScoringState";
 import type { AssignmentStatus } from "../../generated/api/AssignmentStatus";
 import type { AssignmentAttemptCompletion } from "../../generated/api/AssignmentAttemptCompletion";
-import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
-import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { Capability } from "../../generated/api/Capability";
 import type { AccountId } from "../../generated/api/AccountId";
 import type { ProductRole } from "../../generated/api/ProductRole";
@@ -257,25 +254,6 @@ export interface PrefetchedNextQuestion {
   /** Same safe Question Pool Selection Position used when this cached successor becomes current. */
   readonly questionPoolSelectionPosition: QuestionPoolSelectionPosition | null;
   readonly presentation: QuestionPresentation;
-}
-
-/** Server-redacted one-question outcome in a bounded Assignment Attempt summary. */
-export interface AssignmentAttemptSummaryOutcome {
-  readonly attempt: QuestionAttemptId;
-  readonly issuedQuestion: StudentIssuedQuestion;
-  readonly submittedAt: number | null;
-  readonly response: StudentResponse | null;
-  readonly feedback: StudentFeedback | null;
-  readonly assignmentScoringState: AssignmentScoringState;
-}
-
-/** Current Student Question Attempt View; it never includes a question key, result, or release policy. */
-export interface AssignmentAttemptSummaryResponse {
-  readonly course: CourseRouteView;
-  readonly assignmentAttempt: AssignmentAttempt;
-  /** Server-derived student progress, never a policy, clock, or Student Record identifier. */
-  readonly summary: StudentAssignmentProgress;
-  readonly outcomes: CursorPage<AssignmentAttemptSummaryOutcome>;
 }
 
 /** Receipt for an Instructor command that releases Student Feedback for one attempt. */

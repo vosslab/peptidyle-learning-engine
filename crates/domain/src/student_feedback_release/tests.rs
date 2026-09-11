@@ -24,6 +24,7 @@ fn rule() -> StudentFeedbackReleaseRule {
     StudentFeedbackReleaseRule {
         score: StudentFeedbackReleaseTiming::DuringAttempt,
         per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
+        submitted_response: StudentFeedbackReleaseTiming::AfterSubmit,
         question_feedback: StudentFeedbackReleaseTiming::AfterDue,
         question_answer: StudentFeedbackReleaseTiming::AfterClose,
         question_answer_explanation: StudentFeedbackReleaseTiming::AfterClose,
@@ -70,6 +71,7 @@ fn independent_fields_follow_their_own_timings() {
         StudentFeedbackReleaseDecision {
             score: true,
             per_item_correctness: false,
+            submitted_response: false,
             question_feedback: false,
             question_answer: false,
             question_answer_explanation: false,
@@ -89,7 +91,25 @@ fn after_submit_requires_this_students_submission() {
             .expect("allowed Student has a disclosure decision");
 
     assert!(!before_submission.per_item_correctness);
+    assert!(!before_submission.submitted_response);
     assert!(after_submission.per_item_correctness);
+    assert!(after_submission.submitted_response);
+}
+
+#[test]
+fn submitted_response_never_remains_withheld_after_submission() {
+    let mut response_withheld = rule();
+    response_withheld.submitted_response = StudentFeedbackReleaseTiming::Never;
+
+    let decision = evaluate_student_feedback_release(
+        response_withheld,
+        &allowed(Some(stamp(20)), Some(stamp(30))),
+        stamp(10),
+        Some(stamp(9)),
+    )
+    .expect("allowed Student has a disclosure decision");
+
+    assert!(!decision.submitted_response);
 }
 
 #[test]
@@ -197,6 +217,7 @@ fn feedback_projection_allowlists_each_released_field() {
     let decision = StudentFeedbackReleaseDecision {
         score: true,
         per_item_correctness: true,
+        submitted_response: true,
         question_feedback: true,
         question_answer: true,
         question_answer_explanation: true,
@@ -226,6 +247,7 @@ fn withheld_question_answer_is_absent_while_authorized_feedback_still_releases()
     let decision = StudentFeedbackReleaseDecision {
         score: false,
         per_item_correctness: false,
+        submitted_response: false,
         question_feedback: true,
         question_answer: false,
         question_answer_explanation: false,
@@ -257,6 +279,7 @@ fn independently_derived_answer_explanation_releases_without_an_answer_wrapper()
     let decision = StudentFeedbackReleaseDecision {
         score: false,
         per_item_correctness: false,
+        submitted_response: false,
         question_feedback: false,
         question_answer: false,
         question_answer_explanation: true,
@@ -287,6 +310,7 @@ fn student_response_inspection_projects_only_permitted_correctness_and_score() {
     let decision = StudentFeedbackReleaseDecision {
         score: true,
         per_item_correctness: true,
+        submitted_response: true,
         question_feedback: true,
         question_answer: true,
         question_answer_explanation: true,
@@ -315,6 +339,7 @@ fn stale_scoring_removes_both_score_and_correctness_permissions() {
     let decision = StudentFeedbackReleaseDecision {
         score: true,
         per_item_correctness: true,
+        submitted_response: true,
         question_feedback: false,
         question_answer: false,
         question_answer_explanation: false,

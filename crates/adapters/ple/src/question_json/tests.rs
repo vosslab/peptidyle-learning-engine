@@ -1,5 +1,5 @@
 use question_model::response::{QuestionResponseFormat, ResponseItemReference, StudentResponse};
-use question_model::{QuestionAssetId, QuestionAssetReference};
+use question_model::{GradingResult, QuestionAssetId, QuestionAssetReference};
 use uuid::Uuid;
 
 use super::{PLE_QUESTION_JSON_MEDIA_TYPE, PleQuestionJsonDocument, PleQuestionJsonError};
@@ -33,6 +33,64 @@ fn version_three_source_compiles_private_evaluation_from_its_exact_content() {
         compiled.presentation().native_choice_order(),
         question_model::NativeChoiceOrder::Fixed
     );
+}
+
+#[test]
+fn recorded_teaching_projection_uses_recorded_outcome_without_regrading() {
+    let document = PleQuestionJsonDocument::parse(SINGLE_CHOICE_SOURCE).expect("v3 source parses");
+    let compiled = document.compile().expect("v3 source compiles");
+    let response = StudentResponse::MultipleChoice {
+        selected: vec![ResponseItemReference::new("blue")],
+    };
+
+    let content = compiled
+        .private()
+        .project_recorded_teaching_content(
+            compiled.private().public_content_checksum(),
+            compiled.presentation().question_type(),
+            compiled.presentation().response(),
+            Some(&response),
+            Some(GradingResult {
+                correct: false,
+                points_earned: 0.0,
+                points_possible: 1.0,
+            }),
+        )
+        .expect("recorded content projects");
+
+    assert!(
+        content
+            .question_feedback
+            .expect("feedback")
+            .incorrect_feedback
+            .is_some()
+    );
+    assert!(content.question_answer.is_some());
+}
+
+#[test]
+fn teaching_projection_keeps_selected_choice_feedback_without_an_outcome() {
+    let document = PleQuestionJsonDocument::parse(SINGLE_CHOICE_SOURCE).expect("v3 source parses");
+    let compiled = document.compile().expect("v3 source compiles");
+    let response = StudentResponse::MultipleChoice {
+        selected: vec![ResponseItemReference::new("blue")],
+    };
+
+    let content = compiled
+        .private()
+        .project_recorded_teaching_content(
+            compiled.private().public_content_checksum(),
+            compiled.presentation().question_type(),
+            compiled.presentation().response(),
+            Some(&response),
+            None,
+        )
+        .expect("choice content projects");
+    let feedback = content.question_feedback.expect("selected-choice feedback");
+
+    assert!(feedback.choice_feedback.is_some());
+    assert!(feedback.correct_feedback.is_none());
+    assert!(feedback.incorrect_feedback.is_none());
 }
 
 #[test]

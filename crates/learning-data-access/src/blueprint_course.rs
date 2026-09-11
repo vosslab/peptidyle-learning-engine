@@ -241,6 +241,22 @@ impl StoredBlueprintCourseContent {
 
     /// Rebuilds the domain model and returns its canonical Blueprint Content Checksum.
     pub fn checksum(&self) -> Result<BlueprintContentChecksum, StoreError> {
+        self.checksum_for_encoding_version(
+            question_model::BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION,
+        )?
+        .ok_or_else(|| invalid("Blueprint Content encoding version"))
+    }
+
+    /// Rebuilds one recognized persisted Blueprint Content checksum.
+    ///
+    /// Version two exists only for immutable records written before the
+    /// submitted-response timing field was introduced. The PostgreSQL adapter
+    /// selects it from the persisted encoding version after normalizing that
+    /// one missing legacy field in memory.
+    pub fn checksum_for_encoding_version(
+        &self,
+        version: u8,
+    ) -> Result<Option<BlueprintContentChecksum>, StoreError> {
         let modules = self
             .modules
             .iter()
@@ -256,7 +272,7 @@ impl StoredBlueprintCourseContent {
             .collect::<Result<Vec<_>, StoreError>>()?;
         let course =
             BlueprintCourseContent::new(self.title.clone(), modules).map_err(invalid_content)?;
-        Ok(BlueprintRevisionContent::course(course).checksum())
+        Ok(BlueprintRevisionContent::course(course).checksum_for_encoding_version(version))
     }
 
     fn new_module(

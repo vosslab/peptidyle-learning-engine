@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  canonicalCourseLocalDateAndTime,
+  canonicalLocalDateAndTime,
   emptyPatchDraft,
   policyRequest,
 } from "../src/pages/assignment_access/model";
@@ -40,12 +40,9 @@ test("Student View Scenario modifiers keep dates inherited and accept both modes
   assert.deepEqual(extendOnly.adjustment.attempt_limit, { kind: "set", value: 2 });
 });
 
-test("course-local inputs are canonical strings with no epoch conversion", () => {
-  assert.equal(canonicalCourseLocalDateAndTime("2026-08-20T09:30"), "2026-08-20T09:30:00.000");
-  assert.equal(canonicalCourseLocalDateAndTime("2026-08-20T09:30:45"), "2026-08-20T09:30:45.000");
-  assert.equal(
-    canonicalCourseLocalDateAndTime("2026-08-20T09:30:45.123"),
-    "2026-08-20T09:30:45.123",
-  );
-  assert.throws(() => canonicalCourseLocalDateAndTime("2026-08-20T09:30:45.1"));
+test("local inputs are canonical strings with no epoch conversion", () => {
+  assert.equal(canonicalLocalDateAndTime("2026-08-20T09:30"), "2026-08-20T09:30:00.000");
+  assert.equal(canonicalLocalDateAndTime("2026-08-20T09:30:45"), "2026-08-20T09:30:45.000");
+  assert.equal(canonicalLocalDateAndTime("2026-08-20T09:30:45.123"), "2026-08-20T09:30:45.123");
+  assert.throws(() => canonicalLocalDateAndTime("2026-08-20T09:30:45.1"));
 });

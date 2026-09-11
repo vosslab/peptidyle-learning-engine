@@ -23,7 +23,7 @@ function initialCourse(): CourseRouteView {
       id: COURSE_ID,
       reference: "C-1",
       title: "Course one",
-      term: { startDate: "2026-01-12", endDate: "2026-05-08", timeZone: "America/Chicago" },
+      term: { startDate: "2026-01-12", endDate: "2026-05-08" },
       role: "instructor",
     },
     appearance: { theme: "grass", banner: null },
@@ -129,13 +129,9 @@ export function mountCourseAppearanceM7Harness(
         activeScope = deferredScope();
         return activeScope.promise;
       },
-      resolveAssignmentAttempt: () =>
+      assignmentAttemptHistory: () =>
         Promise.reject(
-          new Error("Course Appearance harness does not resolve Assignment Attempts."),
-        ),
-      assignmentAttemptSummary: () =>
-        Promise.reject(
-          new Error("Course Appearance harness does not load Assignment Attempt summaries."),
+          new Error("Course Appearance harness does not load Assignment Attempt history."),
         ),
     },
   } as unknown as ApplicationApi<OrdinaryBrowserApiClient>;

@@ -1,6 +1,13 @@
 """Public-presentation response projection for Live Demo Student work."""
 
+# Standard Library
+import pathlib
+
+# third-party modules
+import pytest
+
 # local repo modules
+import local_stack_control.live_demo_course_activity
 import local_stack_control.live_demo_course_provision
 import local_stack_control.live_demo_course_seed
 
@@ -40,6 +47,40 @@ def test_pinned_recipes_resolve_only_presented_response_references() -> None:
 	assert local_stack_control.live_demo_course_provision._presented_response(
 		hotspot, recipes["PNE-0004"]
 	) == {"kind": "hotspot", "selections": [{"region": "b002"}]}
+
+
+#============================================
+def test_saved_response_counts_accept_expanded_access_projection(
+
+	monkeypatch: pytest.MonkeyPatch,
+	tmp_path: pathlib.Path,
+) -> None:
+	"""Open work reads its validated Attempt despite additional access facts."""
+	provision = local_stack_control.live_demo_course_provision
+	activity = local_stack_control.live_demo_course_activity
+	access = activity.ProductResponse(
+		status=200,
+		body={
+			"startDecision": "may_resume",
+			"activeAssignmentAttempt": "R-1",
+			"assignment": {"reference": "A-1"},
+			"attemptHistory": [{"reference": "R-1"}],
+		},
+		failure_detail=None,
+	)
+	monkeypatch.setattr(provision, "_request", lambda *args: access)
+	monkeypatch.setattr(
+		activity,
+		"progress",
+		lambda *args: {"positions": [{"responseState": "saved"}]},
+	)
+
+	counts = provision._saved_response_counts(
+		object(), tmp_path, "https://demo.invalid", {"jackStudent": tmp_path},
+		"C-1", "A-1", {"jackStudent": "inProgress"},
+	)
+
+	assert counts["jackStudent"] == 1
 
 
 #============================================

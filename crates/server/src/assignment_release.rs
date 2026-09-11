@@ -10,11 +10,11 @@ use axum::{
         header::{COOKIE, ETAG, IF_MATCH},
     },
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, post, put},
 };
 use learning_data_access::{
-    CreateLiveAssignmentInput, LiveAssignmentStore, SaveLiveAssignmentInput, SessionTokenHash,
-    StoreError,
+    CreateLiveAssignmentInput, LiveAssignmentStore, SaveLiveAssignmentInlineInput,
+    SaveLiveAssignmentInput, SessionTokenHash, StoreError,
     postgres::{PostgresLiveAssignmentStore, PostgresSessionStore},
 };
 use question_model::{
@@ -43,9 +43,14 @@ pub fn assignment_release_router(
             "/api/course-instances/{course}/assignments",
             get(list_assignments).post(create_assignment),
         )
+        .route("/api/assignments/due-soon", get(list_assignments_due_soon))
         .route(
             "/api/course-instances/{course}/assignments/{assignment}",
             get(load_assignment).put(save_assignment),
+        )
+        .route(
+            "/api/course-instances/{course}/assignments/{assignment}/inline",
+            put(save_assignment_inline),
         )
         .route(
             "/api/course-instances/{course}/assignments/{assignment}/release-validation",
@@ -63,6 +68,19 @@ pub fn assignment_release_router(
             sessions,
             assignments,
         })
+}
+
+async fn list_assignments_due_soon(State(state): State<StateData>, headers: HeaderMap) -> Response {
+    let token = match instructor(&state, &headers).await {
+        Ok(v) => v,
+        Err(r) => return *r,
+    };
+    match state.assignments.list_assignments_due_soon(token).await {
+        // ASVS 4.1.1 and 8.3.1: Axum serializes this closed JSON projection;
+        // it includes no Student, Attempt, response, answer, or grading record.
+        Ok(v) => crate::auth::no_store(Json(v).into_response()),
+        Err(e) => store_error(e),
+    }
 }
 
 async fn list_assignments(
@@ -185,6 +203,33 @@ async fn save_assignment(
         Err(e) => store_error(e),
     }
 }
+async fn save_assignment_inline(
+    State(state): State<StateData>,
+    headers: HeaderMap,
+    Path((course, assignment)): Path<(String, String)>,
+    Json(input): Json<SaveLiveAssignmentInlineInput>,
+) -> Response {
+    let (course, assignment) = match refs(&course, &assignment) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let expected = match edit_header(&headers) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let token = match instructor(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .assignments
+        .save_live_assignment_inline(token, course, assignment, expected, input)
+        .await
+    {
+        Ok(value) => summary_response(&value),
+        Err(error_value) => store_error(error_value),
+    }
+}
 async fn validate_release(
     State(state): State<StateData>,
     headers: HeaderMap,
@@ -261,6 +306,13 @@ fn workspace_response(
     value: &learning_data_access::LiveAssignmentWorkspace,
 ) -> Response {
     let mut response = crate::auth::no_store((status, Json(value)).into_response());
+    if let Ok(header) = format!("\"{}\"", value.edit_number.value()).parse() {
+        response.headers_mut().insert(ETAG, header);
+    }
+    response
+}
+fn summary_response(value: &learning_data_access::CourseAssignmentSummary) -> Response {
+    let mut response = crate::auth::no_store(Json(value).into_response());
     if let Ok(header) = format!("\"{}\"", value.edit_number.value()).parse() {
         response.headers_mut().insert(ETAG, header);
     }

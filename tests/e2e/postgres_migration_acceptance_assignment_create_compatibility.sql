@@ -100,12 +100,13 @@ SELECT EXISTS (
        AND assignment.question_variation_rule = 'new_variation'
        AND assignment.assignment_question_display_rule = 'one_question_at_a_time'
        AND assignment.assignment_navigation_rule = 'free_navigation'
-       AND assignment.assignment_question_order_rule = 'authored_order'
+       AND assignment.assignment_question_order_rule = 'shuffled'
        AND assignment.feedback_score = 'after_submit'
        AND assignment.feedback_per_item_correctness = 'after_submit'
-       AND assignment.feedback_question_feedback = 'after_submit'
-       AND assignment.feedback_question_answer = 'after_submit'
-       AND assignment.feedback_question_answer_explanation = 'after_submit'
+       AND assignment.feedback_submitted_response = 'after_submit'
+       AND assignment.feedback_question_feedback = 'never'
+       AND assignment.feedback_question_answer = 'never'
+       AND assignment.feedback_question_answer_explanation = 'never'
        AND assignment.feedback_class_statistics = 'never'
 ) AS m4_create_persisted_expected_defaults
 \gset

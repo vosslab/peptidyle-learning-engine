@@ -1,7 +1,6 @@
 import { A } from "@solidjs/router";
 import { For, Show, createSignal, type JSX } from "solid-js";
 
-import type { LocalDateAndTime } from "../../../generated/api/LocalDateAndTime";
 import type { LateWorkRule } from "../../../generated/api/LateWorkRule";
 import type {
   AssignmentReleaseValidation,
@@ -11,22 +10,30 @@ import { useApplicationApi } from "../../api/application_api";
 import { LiveAssignmentWorkspaceConflictError } from "../../api/http_client/assignment_release";
 import { assignmentWorkspacePath } from "./assignment_workspace_paths";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
+import {
+  canonicalLocalDateAndTime,
+  dueDateDraft,
+  dueTimeDraft,
+  localDueDateAndTime,
+} from "./assignment_workspace_policy_model";
 
 const FEEDBACK_FIELDS = [
   ["score", "Score"],
   ["per_item_correctness", "Per-item correctness"],
+  [
+    "submitted_response",
+    "Previous-attempt response",
+    "Controls the Student's recorded response in previous attempts. Never leaves correctness visible when Per-item correctness permits it.",
+  ],
   ["question_feedback", "Question feedback"],
-  ["question_answer", "Question answer"],
+  ["question_answer", "Correct answer"],
   ["question_answer_explanation", "Question answer explanation"],
-  ["class_statistics", "Class statistics"],
+  [
+    "class_statistics",
+    "Class statistics",
+    "Default: Never. Choose a later timing only when sharing class statistics is appropriate.",
+  ],
 ] as const;
-
-function localDateAndTime(value: string): LocalDateAndTime | null {
-  if (value === "") return null;
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u.test(value)) return value;
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/u.test(value)) return `${value}:00.000`;
-  return null;
-}
 
 function inputFrom(workspace: SaveLiveAssignmentInput): SaveLiveAssignmentInput {
   return { ...workspace };
@@ -38,7 +45,8 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const initial = workspace.assignment().workspace;
   const [instructions, setInstructions] = createSignal(initial.instructions);
-  const [dueAt, setDueAt] = createSignal<string>(initial.dueAt ?? "");
+  const [dueDate, setDueDate] = createSignal(dueDateDraft(initial.dueAt));
+  const [dueTime, setDueTime] = createSignal(dueTimeDraft(initial.dueAt));
   const [timeLimit, setTimeLimit] = createSignal(
     initial.assignmentAttemptTimeLimitSeconds?.toString() ?? "",
   );
@@ -58,11 +66,11 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   }
   function currentInput(): SaveLiveAssignmentInput | null {
     const base = workspace.assignment().workspace;
-    const parsedDueAt = localDateAndTime(dueAt());
+    const parsedDueAt = canonicalLocalDateAndTime(localDueDateAndTime(dueDate(), dueTime()));
     const parsedTimeLimit = integer(timeLimit());
     const parsedAttemptLimit = integer(attemptLimit());
     if (
-      (dueAt() !== "" && parsedDueAt === null) ||
+      (dueDate() !== "" && parsedDueAt === null) ||
       parsedTimeLimit === undefined ||
       parsedAttemptLimit === undefined
     )
@@ -133,7 +141,8 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       const latest = await workspace.reloadAssignment();
       const current = latest.workspace;
       setInstructions(current.instructions);
-      setDueAt(current.dueAt ?? "");
+      setDueDate(dueDateDraft(current.dueAt));
+      setDueTime(dueTimeDraft(current.dueAt));
       setTimeLimit(current.assignmentAttemptTimeLimitSeconds?.toString() ?? "");
       setAttemptLimit(current.attemptLimit?.toString() ?? "");
       setLateWorkRule(current.lateWorkRule);
@@ -235,15 +244,25 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
               onInput={(event) => setInstructions(event.currentTarget.value)}
             />
           </label>
-          <label class="assignment-editor-field">
-            Due date and time ({workspace.assignment().workspace.displayTimeZone})
-            <input
-              type="datetime-local"
-              step="0.001"
-              value={dueAt()}
-              onInput={(event) => setDueAt(event.currentTarget.value)}
-            />
-          </label>
+          <div class="assignment-workspace-schedule" role="group" aria-label="Due date and time">
+            <label class="assignment-editor-field">
+              Due date ({workspace.assignment().workspace.displayTimeZone})
+              <input
+                type="date"
+                value={dueDate()}
+                onInput={(event) => setDueDate(event.currentTarget.value)}
+              />
+            </label>
+            <label class="assignment-editor-field">
+              Due time
+              <input
+                type="time"
+                step="0.001"
+                value={dueTime()}
+                onInput={(event) => setDueTime(event.currentTarget.value)}
+              />
+            </label>
+          </div>
           <label class="assignment-editor-field">
             Time limit in seconds
             <input
@@ -263,8 +282,8 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
             />
           </label>
           <p>
-            The late-work rule controls whether Students may begin work after the due time.
-            Submitted work is automatically submitted at the deadline.
+            The late-work rule controls whether Students may begin or save responses after the due
+            time. Saved work remains available for the Student to submit.
           </p>
           <label class="assignment-editor-field">
             Late-work rule
@@ -277,13 +296,13 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
               <option value="accept">Accept late work</option>
             </select>
           </label>
-          <label class="assignment-editor-field">
+          <label class="assignment-workspace-choice">
             <input
               type="checkbox"
               checked={activityRules().assignmentQuestionOrderRule === "shuffled"}
               onChange={(event) => updateOrder(event.currentTarget.checked)}
-            />{" "}
-            Randomize question order
+            />
+            <span>Randomize question order</span>
           </label>
           <p>
             Students see one Question at a time. Answer-choice order is configured on each Question.
@@ -292,11 +311,12 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
         <section class="assignment-editor-policy-panel">
           <h2>Student feedback</h2>
           <For each={FEEDBACK_FIELDS}>
-            {([field, label]) => (
+            {([field, label, help]) => (
               <label class="assignment-editor-field">
                 {label}
                 <select
                   value={feedbackRules()[field]}
+                  aria-describedby={help === undefined ? undefined : `feedback-${field}-help`}
                   onChange={(event) => updateFeedback(field, event.currentTarget.value)}
                 >
                   <option value="during_attempt">During attempt</option>
@@ -305,16 +325,12 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                   <option value="after_close">After close</option>
                   <option value="never">Never</option>
                 </select>
+                <Show when={help !== undefined}>
+                  <small id={`feedback-${field}-help`}>{help}</small>
+                </Show>
               </label>
             )}
           </For>
-          <p>
-            Class statistics is{" "}
-            {feedbackRules().class_statistics === "never"
-              ? "Never"
-              : feedbackRules().class_statistics}
-            .
-          </p>
         </section>
         <p class="assignment-editor-actions">
           <button
@@ -375,7 +391,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                       <li>
                         {issue === "noPublishedQuestions"
                           ? "Select and save at least one published Question."
-                          : "A selected Question is unavailable. Review and save the Questions list."}
+                          : issue === "questionUnavailable"
+                            ? "A selected Question is unavailable. Review and save the Questions list."
+                            : "Enter a positive time limit in Assignment policies, save, then check release readiness again."}
                       </li>
                     )}
                   </For>

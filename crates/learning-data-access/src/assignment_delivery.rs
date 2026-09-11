@@ -3,10 +3,11 @@
 use async_trait::async_trait;
 use question_model::{
     AssignmentAttemptReference, AssignmentReference, CourseInstanceReference, CourseTheme,
-    QuestionAssetId, QuestionAttemptId, QuestionId, StudentAssignmentAttemptProgress,
-    StudentResponse,
+    GradingResult, QuestionAssetId, QuestionAttemptId, QuestionId,
+    StudentAssignmentAttemptProgress, StudentFeedback, StudentFeedbackReleaseRule, StudentResponse,
+    Timestamp,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{SessionTokenHash, StoreError};
 
@@ -27,24 +28,154 @@ pub enum LiveAssignmentStartDecision {
 }
 
 /// Answer-free Assignment Access projection for the authenticated Student.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveAssignmentAccess {
     /// The calculated decision at authoritative server time.
     pub start_decision: LiveAssignmentStartDecision,
     /// The current authorized unfinished Assignment Attempt, if one exists.
     pub active_assignment_attempt: Option<AssignmentAttemptReference>,
+    /// The effective Student-facing title for the current delivery state.
+    pub title: String,
+    /// Exact released or issued Question count, never inferred from grading.
+    pub question_count: u32,
+    /// Exact released or issued total points, never inferred from grading.
+    pub points_possible: f64,
+    /// Whole-Assignment time limit; `None` is the explicit unbounded fact.
+    pub time_limit_seconds: Option<u32>,
+    /// Complete owned Assignment Attempt history, newest first, without
+    /// responses, grading details, or private identifiers.
+    pub previous_attempts: Vec<LiveAssignmentPreviousAttempt>,
+}
+
+/// Answer-free state for one owned prior Assignment Attempt.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAssignmentPreviousAttempt {
+    pub assignment_attempt: AssignmentAttemptReference,
+    pub attempt_number: u32,
+    pub state: LiveAssignmentPreviousAttemptState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score: Option<LiveAssignmentAttemptScore>,
+}
+
+/// The only prior-Attempt states exposed by the access landing projection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LiveAssignmentPreviousAttemptState {
+    Submitted,
+    Closed,
+}
+
+/// Current aggregate score for one independently disclosed prior Attempt.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAssignmentAttemptScore {
+    pub points_earned: f64,
+    pub points_possible: f64,
+}
+
+/// Server-projected record of one completed, owned Assignment Attempt.
+///
+/// Protected members are represented by absent fields at the HTTP boundary;
+/// this storage type deliberately contains only the answer-free spine.  The
+/// delivery server adds independently released presentation facts.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudentAssignmentAttemptHistory {
+    pub assignment_attempt: AssignmentAttemptReference,
+    pub attempt_number: u32,
+    /// Current Course display identity, authorized with the completed Attempt.
+    pub course: StudentAssignmentAttemptHistoryCourse,
+    pub assignment: StudentAssignmentAttemptHistoryAssignment,
+    pub state: LiveAssignmentPreviousAttemptState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score: Option<LiveAssignmentAttemptScore>,
+    pub questions: Vec<StudentAssignmentAttemptHistoryQuestion>,
+}
+
+/// Public Course identity for a selected owned history record.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudentAssignmentAttemptHistoryCourse {
+    pub reference: CourseInstanceReference,
+    pub title: String,
+    pub theme: CourseTheme,
+}
+
+/// Public Assignment identity for a selected owned history record.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudentAssignmentAttemptHistoryAssignment {
+    pub reference: AssignmentReference,
+    pub title: String,
+}
+
+/// One completed issued position.  This remains useful when every disclosure
+/// setting is `never`.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudentAssignmentAttemptHistoryQuestion {
+    pub position: u32,
+    pub response_state: LiveAssignmentPreviousAttemptState,
+    /// Readable submitted response, released independently from all grading
+    /// and feedback fields. Omitted when withheld or exact reproduction fails.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response: Option<Vec<question_model::QuestionContentBlock>>,
+    /// Independently disclosed current grade and teaching feedback. The
+    /// server applies each release gate before this browser-safe projection.
+    #[serde(flatten)]
+    pub feedback: StudentFeedback,
+}
+
+/// Private, already-authorized evidence used to build one selected history
+/// response. This type is intentionally not serializable: disclosure is owned
+/// by the delivery server after the Store confirms exact Student ownership.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StudentAssignmentAttemptHistoryEvidence {
+    pub history: StudentAssignmentAttemptHistory,
+    pub feedback_rule: StudentFeedbackReleaseRule,
+    pub due_at: Option<Timestamp>,
+    pub closes_at: Option<Timestamp>,
+    pub submitted_at: Option<Timestamp>,
+    /// Database-authoritative time at which the disclosure decision is read.
+    pub evaluated_at: Timestamp,
+    /// True only when every issued position has a graded lifecycle, its exact
+    /// grading result, and the matching immutable automated receipt.
+    pub grading_is_current: bool,
+    /// One result per ordered public position, retained below the HTTP seam.
+    pub grading_results: Vec<Option<GradingResult>>,
+}
+
+/// Private completed-response evidence for one issued position.
+///
+/// This crosses only from the Student-authorized history reader to the server
+/// reproduction boundary. Neither the canonical response nor its source is a
+/// browser value.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StudentAssignmentAttemptHistoryResponseSource {
+    /// One-based public position in the selected completed Attempt.
+    pub position: u32,
+    /// Canonical durable response identifiers, retained below the HTTP seam.
+    pub response: Option<StudentResponse>,
+    /// Exact pinned source required to reproduce the issued presentation.
+    pub presentation_source: StudentAssignmentAttemptPresentationSource,
 }
 
 /// One answer-free fixed Question presentation issued to the Student.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IssuedQuestionPresentation {
+    /// Exact released Assignment Entry identity retained only within the
+    /// server/store seam. It binds source reproduction to an Issued Question;
+    /// `position` is the Student-facing sequence and may be shuffled.
+    #[serde(skip_serializing)]
+    pub assignment_entry_id: String,
     /// Exact Published Question identity, without an internal row locator.
     pub question_id: QuestionId,
     /// Answer-free Question description for this first delivery slice.
     pub description: String,
-    /// Stable zero-based position in the released Assignment Revision.
+    /// Stable zero-based position in this Assignment Attempt.
     pub position: u32,
     /// Private reproduction facts consumed by the server before serialization.
     #[serde(skip_serializing)]
@@ -311,6 +442,22 @@ pub trait LiveAssignmentDeliveryStore: Send + Sync {
         course: CourseInstanceReference,
         assignment: AssignmentReference,
     ) -> Result<LiveAssignmentAccess, StoreError>;
+
+    /// Reads one completed Attempt after the store has re-authorized exact
+    /// Student ownership and active Course membership.
+    async fn student_assignment_attempt_history(
+        &self,
+        session_token_hash: SessionTokenHash,
+        assignment_attempt: AssignmentAttemptReference,
+    ) -> Result<StudentAssignmentAttemptHistoryEvidence, StoreError>;
+
+    /// Loads completed canonical responses and their exact pinned presentation
+    /// sources after re-authorizing the selected owned Attempt.
+    async fn student_assignment_attempt_history_response_sources(
+        &self,
+        session_token_hash: SessionTokenHash,
+        assignment_attempt: AssignmentAttemptReference,
+    ) -> Result<Vec<StudentAssignmentAttemptHistoryResponseSource>, StoreError>;
 
     /// Atomically starts or resumes the exact released Assignment Revision.
     async fn start_live_assignment(

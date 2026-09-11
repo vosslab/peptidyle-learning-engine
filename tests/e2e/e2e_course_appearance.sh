@@ -165,4 +165,9 @@ run_live_cargo_test "Course Banner PostgreSQL plus MinIO saga" cargo test \
 	-p learning-data-access --features postgres --test course_banner_saga_postgres \
 	course_banner_saga_is_durable_authorized_and_cross_store -- --ignored --exact --test-threads=1
 
+echo "course appearance E2E: self-only Profile Thumbnail object contract"
+run_live_cargo_test "Profile Thumbnail PostgreSQL plus MinIO saga" cargo test \
+	-p learning-data-access --features postgres --test profile_thumbnail_saga_postgres \
+	profile_thumbnail_saga_is_self_only_durable_and_cross_store -- --ignored --exact --test-threads=1
+
 echo "course appearance E2E: PASS"

@@ -52,6 +52,38 @@ export interface StudentAssignmentPresentationProps {
   readonly primaryAction: JSX.Element | null;
 }
 
+/** Compact, answer-free facts shared by the preview and Student Start surfaces. */
+export function StudentAssignmentStartFacts(props: {
+  readonly questionCount: number;
+  readonly pointsPossible?: number;
+  readonly timeLimitSeconds: number | null;
+}): JSX.Element {
+  return (
+    <section
+      class="student-assignment-start-facts"
+      aria-labelledby="assignment-start-facts-heading"
+    >
+      <h2 id="assignment-start-facts-heading">Before you start</h2>
+      <dl class="assignment-facts">
+        <div>
+          <dt>Questions</dt>
+          <dd>{props.questionCount}</dd>
+        </div>
+        <Show when={props.pointsPossible !== undefined}>
+          <div>
+            <dt>Points possible</dt>
+            <dd>{props.pointsPossible}</dd>
+          </div>
+        </Show>
+        <div>
+          <dt>Time limit</dt>
+          <dd>{formatAssignmentAttemptTimeLimit(props.timeLimitSeconds)}</dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
+
 /** Adapts either answer-free Assignment Overview to the shared presentation shape. */
 export function toStudentAssignmentPresentationData(
   assignment: StudentAssignmentDetail | InstructorStudentView,
@@ -245,6 +277,10 @@ export function StudentAssignmentPresentation(
           <p class="plain-text-instructions">{props.assignment.instructions}</p>
         </section>
       </Show>
+      <StudentAssignmentStartFacts
+        questionCount={props.assignment.questionsPerAssignmentAttempt}
+        timeLimitSeconds={props.assignment.delivery.assignmentAttemptTimeLimitSeconds}
+      />
       <section aria-labelledby="delivery-details-heading">
         <h2 id="delivery-details-heading">Delivery details</h2>
         <p>Times are shown in your time zone: {props.assignment.displayTimeZone}.</p>
@@ -277,14 +313,6 @@ export function StudentAssignmentPresentation(
             </dd>
           </div>
           <div>
-            <dt>Whole Assignment Attempt limit</dt>
-            <dd>
-              {formatAssignmentAttemptTimeLimit(
-                props.assignment.delivery.assignmentAttemptTimeLimitSeconds,
-              )}
-            </dd>
-          </div>
-          <div>
             <dt>Attempt limit</dt>
             <dd>
               {formatAssignmentLimit(props.assignment.delivery.attemptLimit, "attempt", "attempts")}
@@ -309,10 +337,6 @@ export function StudentAssignmentPresentation(
         </dl>
       </section>
       <dl class="assignment-facts">
-        <div>
-          <dt>Questions per Assignment Attempt</dt>
-          <dd>{props.assignment.questionsPerAssignmentAttempt}</dd>
-        </div>
         <div>
           <dt>Later Assignment Attempt</dt>
           <dd>

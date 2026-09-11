@@ -25,7 +25,7 @@ use learning_data_access::{
 use objects::s3::S3ObjectStore;
 use question_model::{
     AssignmentAttemptReference, AssignmentReference, CourseInstanceReference, ObjectId,
-    ProductRole, QuestionAssetReference, QuestionAssetRendition, QuestionContentBlock,
+    ProductRole, QuestionAssetReference, QuestionAssetRendition, QuestionContentBlock, QuestionId,
     QuestionPresentation, QuestionPresentationBinding, QuestionPresentationChecksum,
     QuestionPresentationResponseFormat, QuestionRevisionNumber, QuestionRevisionReference,
     SourceObjectChecksum, SourceObjectReference, StudentResponse, Timestamp,
@@ -39,6 +39,8 @@ use serde::Serialize;
 use crate::auth::{AuthError, resolve_session};
 
 mod context;
+mod history;
+mod history_response;
 mod submission;
 
 #[derive(serde::Deserialize)]
@@ -96,6 +98,10 @@ pub fn assignment_delivery_router(
         .route(
             "/api/assignment-attempts/{assignment_attempt}/student-progress",
             get(student_progress),
+        )
+        .route(
+            "/api/assignment-attempts/{assignment_attempt}/history",
+            get(history::student_history),
         )
         .route(
             "/api/assignment-attempts/{assignment_attempt}/context",
@@ -240,32 +246,8 @@ pub(super) async fn reproduce_selected_issued_presentation(
         learning_data_access::StudentAssignmentAttemptPresentationSource::Ple {
             source, ..
         } => {
-            let issued = PleQuestionBackend::new()
-                .issue_question_json(
-                    &resolve_source(&state.objects, &source).await?,
-                    QuestionSeed::new(source.question_seed.ok_or(StartError::Invalid)?),
-                )
-                .map_err(|_| StartError::Invalid)?;
-            let nonce = question_model::QuestionPresentationNonce::parse(
-                source
-                    .presentation_nonce
-                    .as_deref()
-                    .ok_or(StartError::Invalid)?,
-            )
-            .map_err(|_| StartError::Invalid)?;
-            let checksum = QuestionPresentationChecksum::parse_hex(
-                source
-                    .presentation_checksum
-                    .as_deref()
-                    .ok_or(StartError::Invalid)?,
-            )
-            .map_err(|_| StartError::Invalid)?;
-            reproduce_question_presentation(
-                &issued.presentation,
-                &question_asset_renditions(&source),
-                QuestionPresentationBinding::new(nonce, checksum),
-            )
-            .map_err(|_| StartError::Invalid)
+            let resolved = resolve_source(&state.objects, &source).await?;
+            history::reproduce_ple_issued_presentation(&source, &resolved)
         }
         learning_data_access::StudentAssignmentAttemptPresentationSource::Webwork {
             source,
@@ -412,11 +394,20 @@ async fn issue_native_ple_presentation(
         return Err(StartError::Invalid);
     }
 
-    let source_by_position = sources
+    let source_by_entry = sources
         .iter()
-        .map(|source| (source.position, source))
+        .map(|source| {
+            (
+                (
+                    source.assignment_entry_id.as_str(),
+                    &source.question_id,
+                    source.revision_number,
+                ),
+                source,
+            )
+        })
         .collect::<BTreeMap<_, _>>();
-    if source_by_position.len() != sources.len() {
+    if source_by_entry.len() != sources.len() {
         return Err(StartError::Invalid);
     }
 
@@ -430,7 +421,7 @@ async fn issue_native_ple_presentation(
         .commit_native_ple_issuance(token, course, assignment, prepared)
         .await
         .map_err(StartError::Store)?;
-    let questions = reproduce_presentations(&state.objects, &source_by_position, &attempt).await?;
+    let questions = reproduce_presentations(&state.objects, &source_by_entry, &attempt).await?;
     Ok(LiveAssignmentAttemptResponse {
         assignment_attempt: attempt.assignment_attempt,
         assignment: attempt.assignment,
@@ -481,14 +472,18 @@ async fn issue_new_presentations(
 
 async fn reproduce_presentations(
     objects: &S3ObjectStore,
-    source_by_position: &BTreeMap<u32, &NativePleIssuanceSource>,
+    source_by_entry: &BTreeMap<(&str, &QuestionId, u32), &NativePleIssuanceSource>,
     attempt: &LiveAssignmentAttempt,
 ) -> Result<Vec<QuestionPresentation>, StartError> {
     let backend = PleQuestionBackend::new();
     let mut questions = Vec::with_capacity(attempt.questions.len());
     for issued_attempt in &attempt.questions {
-        let source = source_by_position
-            .get(&issued_attempt.position)
+        let source = source_by_entry
+            .get(&(
+                issued_attempt.assignment_entry_id.as_str(),
+                &issued_attempt.question_id,
+                issued_attempt.revision_number,
+            ))
             .copied()
             .ok_or(StartError::Invalid)?;
         if source.question_id != issued_attempt.question_id
@@ -532,11 +527,20 @@ async fn issue_native_webwork_presentation_from_sources(
     if sources.iter().any(|source| source.resumed != resumed) {
         return Err(StartError::Invalid);
     }
-    let by_position = sources
+    let by_entry = sources
         .iter()
-        .map(|source| (source.position, source))
+        .map(|source| {
+            (
+                (
+                    source.assignment_entry_id.as_str(),
+                    &source.question_id,
+                    source.revision_number,
+                ),
+                source,
+            )
+        })
         .collect::<BTreeMap<_, _>>();
-    if by_position.len() != sources.len() {
+    if by_entry.len() != sources.len() {
         return Err(StartError::Invalid);
     }
     let prepared = if resumed {
@@ -551,8 +555,12 @@ async fn issue_native_webwork_presentation_from_sources(
         .map_err(StartError::Store)?;
     let mut questions = Vec::with_capacity(attempt.questions.len());
     for issued_attempt in &attempt.questions {
-        let source = by_position
-            .get(&issued_attempt.position)
+        let source = by_entry
+            .get(&(
+                issued_attempt.assignment_entry_id.as_str(),
+                &issued_attempt.question_id,
+                issued_attempt.revision_number,
+            ))
             .copied()
             .ok_or(StartError::Invalid)?;
         if source.question_id != issued_attempt.question_id
@@ -614,19 +622,37 @@ async fn issue_mixed_native_presentation(
     {
         return Err(StartError::Invalid);
     }
-    let ple_by_position = ple_sources
+    let ple_by_entry = ple_sources
         .iter()
-        .map(|source| (source.position, source))
+        .map(|source| {
+            (
+                (
+                    source.assignment_entry_id.as_str(),
+                    &source.question_id,
+                    source.revision_number,
+                ),
+                source,
+            )
+        })
         .collect::<BTreeMap<_, _>>();
-    let webwork_by_position = webwork_sources
+    let webwork_by_entry = webwork_sources
         .iter()
-        .map(|source| (source.position, source))
+        .map(|source| {
+            (
+                (
+                    source.assignment_entry_id.as_str(),
+                    &source.question_id,
+                    source.revision_number,
+                ),
+                source,
+            )
+        })
         .collect::<BTreeMap<_, _>>();
-    if ple_by_position.len() != ple_sources.len()
-        || webwork_by_position.len() != webwork_sources.len()
-        || ple_by_position
+    if ple_by_entry.len() != ple_sources.len()
+        || webwork_by_entry.len() != webwork_sources.len()
+        || ple_by_entry
             .keys()
-            .any(|position| webwork_by_position.contains_key(position))
+            .any(|entry| webwork_by_entry.contains_key(entry))
     {
         return Err(StartError::Invalid);
     }
@@ -669,8 +695,13 @@ async fn issue_mixed_native_presentation(
             QuestionPresentationChecksum::parse_hex(&issued_attempt.presentation_checksum)
                 .map_err(|_| StartError::Invalid)?;
         let binding = QuestionPresentationBinding::new(nonce, checksum);
-        let presentation = if let Some(source) =
-            ple_by_position.get(&issued_attempt.position).copied()
+        let presentation = if let Some(source) = ple_by_entry
+            .get(&(
+                issued_attempt.assignment_entry_id.as_str(),
+                &issued_attempt.question_id,
+                issued_attempt.revision_number,
+            ))
+            .copied()
         {
             if source.question_id != issued_attempt.question_id
                 || source.revision_number != issued_attempt.revision_number
@@ -690,7 +721,14 @@ async fn issue_mixed_native_presentation(
             )
             .map_err(|_| StartError::Invalid)?
             .presentation
-        } else if let Some(source) = webwork_by_position.get(&issued_attempt.position).copied() {
+        } else if let Some(source) = webwork_by_entry
+            .get(&(
+                issued_attempt.assignment_entry_id.as_str(),
+                &issued_attempt.question_id,
+                issued_attempt.revision_number,
+            ))
+            .copied()
+        {
             if source.question_id != issued_attempt.question_id
                 || source.revision_number != issued_attempt.revision_number
             {
@@ -795,7 +833,7 @@ async fn resolve_webwork_source(
     .map_err(|_| StartError::Unavailable)
 }
 
-async fn resolve_source(
+pub(super) async fn resolve_source(
     objects: &S3ObjectStore,
     source: &NativePleIssuanceSource,
 ) -> Result<ResolvedPleQuestionJsonSource, StartError> {
@@ -834,7 +872,9 @@ pub(super) fn refs(
     ))
 }
 
-fn question_asset_renditions(source: &NativePleIssuanceSource) -> Vec<QuestionAssetRendition> {
+pub(super) fn question_asset_renditions(
+    source: &NativePleIssuanceSource,
+) -> Vec<QuestionAssetRendition> {
     question_asset_renditions_from_ready(&source.question_asset_renditions)
 }
 

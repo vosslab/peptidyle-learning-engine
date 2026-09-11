@@ -16,6 +16,28 @@ function selection(...questionIds) {
   return { questionIds, questions: [] };
 }
 
+test("new Blueprint Assignment drafts keep answer-bearing feedback private", () => {
+  const feedback = emptyReusableContent("Quiz").defaults.student_feedback_release_rule;
+
+  assert.deepEqual(feedback, {
+    score: "after_submit",
+    per_item_correctness: "after_submit",
+    submitted_response: "after_submit",
+    question_feedback: "never",
+    question_answer: "never",
+    question_answer_explanation: "never",
+    class_statistics: "never",
+  });
+});
+
+test("new Blueprint Assignment drafts use the Assignment delivery defaults", () => {
+  const defaults = emptyReusableContent("Quiz").defaults;
+
+  assert.equal(defaults.late_work_rule, "reject");
+  assert.equal(defaults.activity_rules.assignmentQuestionDisplayRule, "oneQuestionAtATime");
+  assert.equal(defaults.activity_rules.assignmentQuestionOrderRule, "shuffled");
+});
+
 test("reusable entries preserve fixed and Question Pool interleaving", () => {
   const fixed = appendPickedFixedEntries(emptyReusableContent("Quiz"), selection("AAA-BBBB"));
   const pooled = appendPickedPool(fixed, selection("CCC-DDDD", "EEE-FFFF"));

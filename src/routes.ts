@@ -21,6 +21,7 @@ import { ROUTE_CONTRACT, type RouteId } from "./route_contract";
 import { AssignmentAttemptPage } from "./pages/assignment_attempt_page";
 import { CourseRosterPage } from "./pages/course_roster_page";
 import { SignInPage } from "./pages/sign_in_page";
+import { InstructorProfilePage } from "./pages/instructor_profile_page";
 import { AccountPendingInvitationsPage } from "./pages/account_pending_invitations_page";
 import { StudentCourseInvitationPage } from "./pages/student_course_invitation_page";
 import { StudentCourseInvitationsPage } from "./pages/student_course_invitations_page";
@@ -29,6 +30,7 @@ import { TeachingOperationsPage } from "./pages/teaching_operations_page";
 import { InstructorAccountsPage } from "./pages/instructor_accounts_page";
 import { SupportRosterPage } from "./pages/support_roster_page";
 import { AssignmentPreviewPage } from "./pages/assignment_preview_page";
+import { AssignmentsDueSoonPage } from "./pages/assignments_due_soon_page";
 import { AssignmentWorkspaceCreatePage } from "./pages/assignment_workspace/assignment_workspace_create_page";
 import {
   BlueprintCourseDetailLivePage,
@@ -43,6 +45,7 @@ export { ROUTE_CONTRACT } from "./route_contract";
 
 const routeComponents: Readonly<Record<RouteId, Component>> = {
   courses: CourseListPage,
+  instructorProfile: InstructorProfilePage,
   signIn: SignInPage,
   pendingCourseInvitations: AccountPendingInvitationsPage,
   studentCourseInvitations: StudentCourseInvitationsPage,
@@ -60,6 +63,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   questionDraftEditor: QuestionDraftEditorPage,
   blueprintCourses: BlueprintCoursesLivePage,
   blueprintCourseDetail: BlueprintCourseDetailLivePage,
+  assignmentsDueSoon: AssignmentsDueSoonPage,
   assignmentCreate: AssignmentWorkspaceCreatePage,
   assignmentWorkspaceOverview: () =>
     createComponent(AssignmentWorkspaceLivePage, { section: "overview" }),

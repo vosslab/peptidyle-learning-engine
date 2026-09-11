@@ -121,7 +121,7 @@ assignment = {
   "title": "Course Instance source assignment",
   "instructions": "Use the published Question in reusable course structure.",
   "entries": [{"kind":"fixed","question_id":question_id,"points_possible":"1","scoring_rule":"normal","question_attempt_limit":{"maxAttempts":None},"question_attempt_time_limit":{"kind":"unlimited"}}],
-  "defaults": {"assignment_attempt_time_limit_seconds":None,"attempt_limit":2,"late_work_rule":"accept","assignment_deadline_rule":"auto_submit","activity_rules":{"assignmentCompletionRule":{"kind":"answerAll"},"assignmentAttemptGradeRule":"highest","assignmentAttemptContinuationRule":{"kind":"unlimited"},"questionPoolReuseRule":"reuseSelection","questionVariationRule":"newVariation","assignmentAttemptResumeRule":"resumable","assignmentQuestionDisplayRule":"allQuestions","assignmentNavigationRule":"freeNavigation","assignmentQuestionOrderRule":"authoredOrder"},"student_feedback_release_rule":{"score":"after_submit","per_item_correctness":"after_submit","question_feedback":"after_submit","question_answer":"never","question_answer_explanation":"never","class_statistics":"never"}},
+  "defaults": {"assignment_attempt_time_limit_seconds":None,"attempt_limit":2,"late_work_rule":"accept","assignment_deadline_rule":"auto_submit","activity_rules":{"assignmentCompletionRule":{"kind":"answerAll"},"assignmentAttemptGradeRule":"highest","assignmentAttemptContinuationRule":{"kind":"unlimited"},"questionPoolReuseRule":"reuseSelection","questionVariationRule":"newVariation","assignmentAttemptResumeRule":"resumable","assignmentQuestionDisplayRule":"allQuestions","assignmentNavigationRule":"freeNavigation","assignmentQuestionOrderRule":"authoredOrder"},"student_feedback_release_rule":{"score":"after_submit","submitted_response":"after_submit","per_item_correctness":"after_submit","question_feedback":"after_submit","question_answer":"never","question_answer_explanation":"never","class_statistics":"never"}},
   "schedule":{"available_at":None,"due_at":None,"closes_at":None},
 }
 print(json.dumps({"title":"M8 exact Blueprint source","modules":[{"label":"M8 module","assignments":[assignment]}]}, separators=(",",":")))
@@ -132,7 +132,7 @@ course_payload() {
 	python3 -c '
 import json, sys
 blueprint, revision, assigned = sys.argv[1:]
-print(json.dumps({"blueprintCourse":blueprint,"blueprintRevision":revision,"title":"M8 live Course Instance","term":{"startDate":"2026-09-01","endDate":"2026-12-18","timeZone":"America/Chicago"},"assignedInstructor":assigned}, separators=(",",":")))
+print(json.dumps({"blueprintCourse":blueprint,"blueprintRevision":revision,"title":"M8 live Course Instance","term":{"startDate":"2026-09-01","endDate":"2026-12-18"},"assignedInstructor":assigned}, separators=(",",":")))
 ' "$1" "$2" "$3"
 }
 

@@ -39,7 +39,6 @@ try {
   await page.getByLabel("Course Instance title").fill(courseTitle);
   await page.getByLabel("Course Term start date").fill("2026-09-01");
   await page.getByLabel("Course Term end date").fill("2026-12-18");
-  await page.getByLabel("Course Time Zone (IANA)").fill("America/Chicago");
   await page.getByRole("button", { name: "Create Course Instance" }).click();
   await page.getByRole("heading", { name: courseTitle }).waitFor();
   await page.getByRole("link", { name: "Open Course Instance" }).first().click();

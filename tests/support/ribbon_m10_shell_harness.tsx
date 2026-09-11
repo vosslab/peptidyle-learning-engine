@@ -134,9 +134,6 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
     resolveCourse: queryFunction("resolve-course", (reference: string) =>
       Promise.resolve({ courseId: `course-${reference}` }),
     ),
-    resolveAssignmentAttempt: queryFunction("resolve-assignment-attempt", (reference: string) =>
-      Promise.resolve({ assignmentAttemptId: `attempt-${reference}` }),
-    ),
     courseScope: queryFunction("course-scope", (courseId: string) => {
       const reference = courseId.replace("course-", "");
       const released =
@@ -146,9 +143,9 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
     assignmentAttemptScope: queryFunction("assignment-attempt-scope", () =>
       Promise.resolve(assignmentAttemptContext("C-1")),
     ),
-    assignmentAttemptSummary: queryFunction("assignment-attempt-summary", () =>
+    assignmentAttemptHistory: queryFunction("assignment-attempt-history", () =>
       Promise.reject(
-        new Error("Application-shell evidence does not enter attempt-summary content."),
+        new Error("Application-shell evidence does not enter attempt-history content."),
       ),
     ),
   };
@@ -165,7 +162,6 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
           term: {
             startDate: "2026-01-12",
             endDate: "2026-05-08",
-            timeZone: "America/Chicago",
           },
         },
         isAssignedInstructor: true,

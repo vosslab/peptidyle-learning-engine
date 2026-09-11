@@ -26,7 +26,7 @@ pub mod s3;
 
 pub use crate::bucket::{
     ObjectAddress, ObjectDataClass, ObjectStorageArea, course_banner_rendition_object_id,
-    course_banner_source_object_id, course_banner_upload_object_id,
+    course_banner_source_object_id, course_banner_upload_object_id, profile_thumbnail_object_id,
     published_import_archive_object_id, workspace_qti_archive_object_id,
 };
 pub use crate::question_source::{QuestionSourceResolutionError, ResolvedQuestionSource};

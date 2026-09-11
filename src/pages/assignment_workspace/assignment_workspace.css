@@ -142,10 +142,19 @@
   border: 0;
 }
 
+.assignment-workspace-schedule {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ple-compact-gap, 0.35rem);
+}
+
 .assignment-workspace-choice {
   display: flex;
   align-items: baseline;
   gap: 0.45rem;
+  grid-column: 1 / -1;
+  width: fit-content;
 }
 
 .assignment-workspace-policies .assignment-workspace-choice input {
@@ -272,6 +281,10 @@
 
   .assignment-workspace-policy-summary dl {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .assignment-workspace-schedule {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .assignment-workspace-card:last-child {

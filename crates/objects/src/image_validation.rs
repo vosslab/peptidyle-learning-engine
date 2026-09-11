@@ -20,6 +20,8 @@ pub const MAX_STILL_IMAGE_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_STILL_IMAGE_DECODED_PIXELS: u64 = 20_000_000;
 /// Maximum encoded byte length for one normalized Course Banner rendition.
 pub const MAX_COURSE_BANNER_RENDITION_BYTES: usize = 2 * 1024 * 1024;
+/// Maximum encoded byte length for one normalized still-image rendition.
+pub const MAX_NORMALIZED_STILL_IMAGE_BYTES: usize = MAX_COURSE_BANNER_RENDITION_BYTES;
 
 /// Exact media type established from the decoded bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -97,6 +99,16 @@ pub fn normalized_course_banner_webp(
         return Err(StillImageError::ByteLimit);
     }
     Ok(output)
+}
+
+/// Produces one exact centered lossless WebP rendition from verified still bytes.
+// ASVS 5.2.1: decode and constrain hostile raster bytes before derived output.
+pub fn normalized_still_image_webp(
+    bytes: &[u8],
+    width: u32,
+    height: u32,
+) -> Result<Vec<u8>, StillImageError> {
+    normalized_course_banner_webp(bytes, width, height)
 }
 
 impl StillImageError {

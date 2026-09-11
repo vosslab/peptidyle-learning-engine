@@ -84,6 +84,8 @@ const COURSE_THEME_VARIABLE_SHELL_STYLES = `
 function appearanceFor(data: CourseThemeRouteData | undefined): CourseAppearanceView | undefined {
   if (data === undefined) return undefined;
   if (data.kind === "assignmentAttempt") return { theme: data.context.course.theme, banner: null };
+  if (data.kind === "assignmentAttemptHistory")
+    return { theme: data.history.course.theme, banner: null };
   return courseRouteView(data).appearance;
 }
 
@@ -97,7 +99,9 @@ export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Elem
   const routeData = useRouteScopeData();
   const currentCourseId = createMemo(() => {
     const data = routeData();
-    return data === undefined || data.kind === "assignmentAttempt"
+    return data === undefined ||
+      data.kind === "assignmentAttempt" ||
+      data.kind === "assignmentAttemptHistory"
       ? undefined
       : courseRouteView(data).summary.id;
   });
@@ -130,9 +134,13 @@ export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Elem
   const courseReference = createMemo(() => {
     const data = routeData();
     if (data === undefined) return undefined;
-    return data.kind === "assignmentAttempt"
-      ? courseInstanceRouteReference(data.context.course.reference)
-      : courseInstanceRouteReference(courseRouteView(data).summary.reference);
+    if (data.kind === "assignmentAttempt") {
+      return courseInstanceRouteReference(data.context.course.reference);
+    }
+    if (data.kind === "assignmentAttemptHistory") {
+      return courseInstanceRouteReference(data.history.course.reference);
+    }
+    return courseInstanceRouteReference(courseRouteView(data).summary.reference);
   });
 
   return (

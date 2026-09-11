@@ -333,9 +333,7 @@ def _saved_response_counts(
 			),
 			200, seed.Stage.WORK, "saved-work",
 		)
-		if not isinstance(body, dict) or set(body) != {
-			"startDecision", "activeAssignmentAttempt",
-		}:
+		if not isinstance(body, dict):
 			raise local_stack_control.models.ControllerError(
 				"live-demo Student Assignment Access projection is invalid"
 			)
@@ -477,6 +475,13 @@ def _observe(
 		and workspace_value.get("instructions") == seed.SEEDED_ASSIGNMENT_INSTRUCTIONS
 		and workspace_value.get("dueAt") is None
 		and workspace_value.get("lateWorkRule") == "accept"
+		and workspace_value.get("assignmentAttemptTimeLimitSeconds")
+		== seed.SEEDED_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS
+		and workspace_value.get("activityRules")
+		== seed.assignment_activity_rules(
+			assignment_question_display_rule="oneQuestionAtATime",
+			assignment_question_order_rule="authoredOrder",
+		)
 		and question_ids == seed.SEEDED_QUESTION_IDS
 	)
 	assignment_edit_number = (

@@ -98,7 +98,7 @@ if value.get("id") != course_id or value.get("reference") != reference or value.
 if not isinstance(value.get("title"),str) or not value["title"].strip():
     raise SystemExit("Course Summary title is invalid")
 term=value.get("term")
-if not isinstance(term,dict) or set(term)!={"startDate","endDate","timeZone"}:
+if not isinstance(term,dict) or set(term)!={"startDate","endDate"}:
     raise SystemExit("Course Summary term is invalid")
 if not all(isinstance(term.get(key),str) and term[key] for key in term):
     raise SystemExit("Course Summary term fields are invalid")

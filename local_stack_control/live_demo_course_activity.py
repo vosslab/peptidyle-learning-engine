@@ -225,11 +225,15 @@ def assignment_attempt_reference(value: object) -> str | None:
 
 #============================================
 def require_startable_access(value: object) -> bool:
-	"""Recognize the exact answer-free access projection for a new Attempt."""
-	return value == {
-		"startDecision": "may_start",
-		"activeAssignmentAttempt": None,
-	}
+	"""Recognize required new-Attempt facts while leaving access details server-owned."""
+	if not isinstance(value, dict):
+		return False
+	return (
+		"startDecision" in value
+		and value["startDecision"] == "may_start"
+		and "activeAssignmentAttempt" in value
+		and value["activeAssignmentAttempt"] is None
+	)
 
 
 #============================================

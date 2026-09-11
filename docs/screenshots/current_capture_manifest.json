@@ -122,6 +122,34 @@
       "privacyProfile": "instructor_answer_free",
       "gallery": { "order": 150, "caption": "Answer-free Gradebook", "featured": true }
     },
+    {
+      "id": "instructor_assignments_due_soon_empty_laptop",
+      "path": "instructor/assignments_due_soon_empty_laptop.png",
+      "role": "instructor",
+      "routeId": "assignmentsDueSoon",
+      "area": "assignments",
+      "workflow": "upcoming deadlines",
+      "state": "no current deadlines",
+      "scenario": "instructor_seeded",
+      "checkpoint": "assignments_due_soon_empty",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 160, "caption": "Assignments Due Soon without current deadlines" }
+    },
+    {
+      "id": "instructor_profile_default_laptop",
+      "path": "instructor/profile_default_laptop.png",
+      "role": "instructor",
+      "routeId": "instructorProfile",
+      "area": "account",
+      "workflow": "profile preferences",
+      "state": "default profile",
+      "scenario": "instructor_profile",
+      "checkpoint": "default",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 170, "caption": "Instructor Profile" }
+    },
 
     {
       "id": "instructor_question_library_laptop",
@@ -480,6 +508,76 @@
       "gallery": { "order": 820, "caption": "Unanswered Assignment overview on a tablet" }
     },
     {
+      "id": "student_assignment_overview_history_laptop",
+      "path": "student/assignment_overview_history_laptop.png",
+      "role": "student",
+      "routeId": "assignmentOverview",
+      "area": "assignments",
+      "workflow": "assignment history",
+      "state": "previous attempts",
+      "scenario": "student_assignment_history",
+      "checkpoint": "overview_history",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": { "order": 825, "caption": "Assignment overview with previous attempts" }
+    },
+    {
+      "id": "student_assignment_attempt_saved_laptop",
+      "path": "student/assignment_attempt_saved_laptop.png",
+      "role": "student",
+      "routeId": "assignmentAttempt",
+      "area": "assignments",
+      "workflow": "assignment attempt",
+      "state": "saved response",
+      "scenario": "student_assignment_attempt",
+      "checkpoint": "response_selected",
+      "viewport": "laptop",
+      "privacyProfile": "student_selected_response",
+      "gallery": { "order": 830, "caption": "Saved Student Assignment response", "featured": true }
+    },
+    {
+      "id": "student_assignment_attempt_resumed_tablet",
+      "path": "student/assignment_attempt_resumed_tablet.png",
+      "role": "student",
+      "routeId": "assignmentAttempt",
+      "area": "assignments",
+      "workflow": "assignment attempt",
+      "state": "reloaded saved response",
+      "scenario": "student_assignment_attempt",
+      "checkpoint": "resume_selected",
+      "viewport": "tablet",
+      "privacyProfile": "student_self",
+      "gallery": { "order": 840, "caption": "Reloaded Student Assignment response on a tablet" }
+    },
+    {
+      "id": "student_assignment_attempt_submitted_phone",
+      "path": "student/assignment_attempt_submitted_phone.png",
+      "role": "student",
+      "routeId": "assignmentAttempt",
+      "area": "assignments",
+      "workflow": "assignment attempt",
+      "state": "submitted",
+      "scenario": "student_assignment_attempt",
+      "checkpoint": "submitted",
+      "viewport": "phone",
+      "privacyProfile": "student_self",
+      "gallery": { "order": 850, "caption": "Submitted Student Assignment on a phone" }
+    },
+    {
+      "id": "student_assignment_attempt_summary_laptop",
+      "path": "student/assignment_attempt_summary_laptop.png",
+      "role": "student",
+      "routeId": "assignmentAttemptSummary",
+      "area": "assignments",
+      "workflow": "assignment history",
+      "state": "selected previous attempt",
+      "scenario": "student_assignment_history",
+      "checkpoint": "selected_history",
+      "viewport": "laptop",
+      "privacyProfile": "student_self",
+      "gallery": { "order": 860, "caption": "Selected Assignment history" }
+    },
+    {
       "id": "student_authorization_denial_laptop",
       "path": "student/authorization_denial_laptop.png",
       "role": "student",
@@ -619,6 +717,11 @@
         ]
       },
       {
+        "routeId": "instructorProfile",
+        "status": "captured",
+        "captureIds": ["instructor_profile_default_laptop"]
+      },
+      {
         "routeId": "courseAssignments",
         "status": "captured",
         "captureIds": ["instructor_course_assignment_workspace_laptop"]
@@ -626,17 +729,24 @@
       {
         "routeId": "assignmentOverview",
         "status": "captured",
-        "captureIds": ["student_assignment_overview_unanswered_laptop"]
+        "captureIds": [
+          "student_assignment_overview_unanswered_laptop",
+          "student_assignment_overview_history_laptop"
+        ]
       },
       {
         "routeId": "assignmentAttempt",
-        "status": "deferred",
-        "reason": "M5 Student delivery moved to this route; M9 must recapture the save, reload, and whole-Attempt submission states."
+        "status": "captured",
+        "captureIds": [
+          "student_assignment_attempt_saved_laptop",
+          "student_assignment_attempt_resumed_tablet",
+          "student_assignment_attempt_submitted_phone"
+        ]
       },
       {
         "routeId": "assignmentAttemptSummary",
-        "status": "deferred",
-        "reason": "The default Live Demo has no separate legacy Assignment Attempt summary surface."
+        "status": "captured",
+        "captureIds": ["student_assignment_attempt_summary_laptop"]
       },
       {
         "routeId": "library",
@@ -704,6 +814,11 @@
         "routeId": "assignmentWorkspaceGradingOperations",
         "status": "deferred",
         "reason": "The default Live Demo has no meaningful automated-grading operations state to review."
+      },
+      {
+        "routeId": "assignmentsDueSoon",
+        "status": "captured",
+        "captureIds": ["instructor_assignments_due_soon_empty_laptop"]
       },
       {
         "routeId": "gradebook",
@@ -808,8 +923,8 @@
       },
       {
         "id": "tab:productAssignments",
-        "status": "deferred",
-        "reason": "Product-level Assignments destinations are not yet backed."
+        "status": "captured",
+        "captureIds": ["instructor_assignments_due_soon_empty_laptop"]
       },
       {
         "id": "tab:assignments",
@@ -913,8 +1028,8 @@
       },
       {
         "id": "task:assignmentsDueSoon",
-        "status": "deferred",
-        "reason": "M10 authorized cross-Course view is not yet backed."
+        "status": "captured",
+        "captureIds": ["instructor_assignments_due_soon_empty_laptop"]
       },
       {
         "id": "task:assignmentTemplates",

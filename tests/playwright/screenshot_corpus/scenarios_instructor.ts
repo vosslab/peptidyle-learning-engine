@@ -63,6 +63,46 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
     await session.page.locator('[data-route-surface="gradebook"]').waitFor();
     await session.page.getByText("BIO301-JACK", { exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, "gradebook", session);
+    await session.page.locator(".ple-app-ribbon__brand").click();
+    await session.page.waitForURL((url) => url.pathname === "/");
+    await session.page.locator('[data-route-surface="courses"]').waitFor();
+    await session.page
+      .getByRole("heading", { name: "Course Instances you teach", exact: true })
+      .waitFor();
+    await session.page
+      .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+      .getByRole("link", { name: "Assignments", exact: true })
+      .click();
+    await session.page
+      .getByRole("heading", { level: 1, name: "Assignments Due Soon", exact: true })
+      .waitFor();
+    await Promise.race([
+      session.page
+        .getByRole("heading", { level: 2, name: "No Assignments are due in the next 7 days." })
+        .waitFor(),
+      session.page.getByRole("list", { name: "Assignments due in the next 7 days" }).waitFor(),
+    ]);
+    await captureCheckpoint(runtime, scenario, "assignments_due_soon_empty", session);
+  } finally {
+    await runtime.close(session);
+  }
+}
+
+async function instructorProfile(runtime: ScenarioRuntime): Promise<void> {
+  const scenario = "instructor_profile";
+  const session = await runtime.open(runtime.record(scenario, "default"));
+  try {
+    await enterInstructor(session.page);
+    await session.page
+      .locator('[data-ribbon-context-control="profile"]')
+      .getByText("Profile", { exact: true })
+      .click();
+    await session.page.getByRole("heading", { level: 1, name: "Profile", exact: true }).waitFor();
+    await session.page
+      .getByRole("heading", { level: 2, name: "Profile image", exact: true })
+      .waitFor();
+    await session.page.locator(".profile-thumbnail-placeholder").waitFor();
+    await captureCheckpoint(runtime, scenario, "default", session);
   } finally {
     await runtime.close(session);
   }
@@ -98,7 +138,12 @@ async function instructorAuthoring(runtime: ScenarioRuntime): Promise<void> {
   const session = await runtime.open(runtime.record(scenario, "draft_list"));
   try {
     await enterInstructor(session.page);
-    await session.page.getByRole("link", { name: "My Question Drafts", exact: true }).click();
+    await session.page
+      .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+      .getByRole("link", { name: "Questions", exact: true })
+      .click();
+    await session.page.getByRole("heading", { name: "Question library", exact: true }).waitFor();
+    await session.page.getByRole("link", { name: "My Draft Questions", exact: true }).click();
     await session.page.getByRole("heading", { name: "My Question Drafts", exact: true }).waitFor();
     await session.page
       .getByText("Loading your private Draft Questions...", { exact: true })
@@ -138,7 +183,14 @@ async function instructorBlueprint(runtime: ScenarioRuntime): Promise<void> {
   const session = await runtime.open(runtime.record(scenario, "blueprint_list"));
   try {
     await enterInstructor(session.page);
-    await session.page.getByRole("link", { name: "Blueprint Courses", exact: true }).click();
+    await session.page
+      .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+      .getByRole("link", { name: "Courses", exact: true })
+      .click();
+    await session.page
+      .getByRole("heading", { name: "Course Instances you teach", exact: true })
+      .waitFor();
+    await session.page.getByRole("link", { name: "My Blueprint Courses", exact: true }).click();
     await session.page
       .getByRole("heading", { name: "Build reusable course structure", exact: true })
       .waitFor();
@@ -190,7 +242,12 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
       .waitFor();
     await page.getByRole("link", { name: "Review assignment policies", exact: true }).click();
     await page.getByRole("heading", { name: "Policies", exact: true }).waitFor();
-    await page.getByLabel("Due date").fill("2026-12-01T12:00");
+    await page
+      .getByRole("group", { name: "Due date and time", exact: true })
+      .locator('input[type="date"]')
+      .fill("2026-12-01");
+    await page.getByLabel("Due time").fill("12:00");
+    await page.getByLabel("Time limit in seconds").fill("1800");
     await page.getByLabel("Late-work rule").selectOption("mark_late");
     await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
     await page
@@ -243,6 +300,7 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       "course_roster_active",
       "course_roster_pending_invitation",
       "gradebook",
+      "assignments_due_soon_empty",
     ],
     run: seededInstructor,
   },
@@ -250,6 +308,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     id: "instructor_library",
     checkpoints: ["library_default", "library_filtered", "published_question_detail"],
     run: instructorLibrary,
+  },
+  {
+    id: "instructor_profile",
+    checkpoints: ["default"],
+    run: instructorProfile,
   },
   {
     id: "instructor_authoring",

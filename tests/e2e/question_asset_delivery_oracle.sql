@@ -319,22 +319,58 @@ SELECT ple_api.resolve_and_install_session(decode(repeat('ab',32),'hex')) AS m12
 SET ROLE ple_app;
 COMMIT;
 
--- Availability denial is evaluated by the canonical M11 access procedure,
--- not duplicated by this fixture.  Completing the sole active binding leaves
--- only otherwise exact closed, not-yet, and late-rejected bindings.
+-- The completed-Attempt branch retains only the owned exact Ready rendition.
+-- Keep completion and revocation transactional so the shared active fixture is
+-- restored after this oracle has exercised the completed authority path.
+BEGIN;
 RESET ROLE;
 UPDATE ple_private.assignment_attempt
    SET completed_at = clock_timestamp()
- WHERE assignment_attempt_id = (SELECT assignment_attempt_id FROM m12_asset_delivery_fixture WHERE case_name = 'active');
+ WHERE assignment_attempt_id = (
+     SELECT assignment_attempt_id FROM m12_asset_delivery_fixture WHERE case_name = 'active'
+ );
+SET ROLE ple_auth;
+SELECT ple_api.resolve_and_install_session(decode(repeat('ab',32),'hex'));
+SET ROLE ple_app;
+DO $$
+BEGIN
+    IF (SELECT count(*) FROM ple_api.resolve_ready_live_demo_question_asset(
+        current_setting('ple_e2e.m12_asset_id')::uuid
+    )) <> 1 THEN
+        RAISE EXCEPTION 'owned completed Question Attempt did not resolve its exact Ready rendition';
+    END IF;
+END $$;
+SET ROLE ple_auth;
+SELECT ple_api.resolve_and_install_session(decode(repeat('1',64),'hex'));
 SET ROLE ple_app;
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM ple_api.resolve_ready_live_demo_question_asset(
         current_setting('ple_e2e.m12_asset_id')::uuid
     )) THEN
-        RAISE EXCEPTION 'completed, closed, not-yet, or late-refused bindings resolved';
+        RAISE EXCEPTION 'foreign Student resolved a completed Question Asset';
     END IF;
 END $$;
+RESET ROLE;
+SET ROLE ple_api_owner;
+INSERT INTO ple_data.course_membership_event (
+    course_membership_event_id, membership_id, event_kind, occurred_at, reason
+) VALUES (
+    gen_random_uuid(), '00000000-0000-0000-0000-000000000108'::uuid,
+    'ended', clock_timestamp(), 'M12 completed Question Asset revocation acceptance'
+);
+SET ROLE ple_auth;
+SELECT ple_api.resolve_and_install_session(decode(repeat('ab',32),'hex'));
+SET ROLE ple_app;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM ple_api.resolve_ready_live_demo_question_asset(
+        current_setting('ple_e2e.m12_asset_id')::uuid
+    )) THEN
+        RAISE EXCEPTION 'revoked Student resolved a completed Question Asset';
+    END IF;
+END $$;
+ROLLBACK;
 
 -- Direct table reads stay denied to the public application capability while
 -- the one fixed resolver remains executable.

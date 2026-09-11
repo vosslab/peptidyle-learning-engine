@@ -118,10 +118,8 @@ SELECT reference_number AS m5_saved_attempt_reference
 \gset
 RESET ROLE;
 
--- An Assignment Attempt derives its time boundary from the immutable released
--- Assignment Revision it already pins.  A null limit above remains usable;
--- this separately pinned one-second revision rejects both save and finalize
--- after that boundary without creating any Student-work evidence.
+-- A reject-rule due instant stops new response mutations, but a response
+-- already saved before that boundary still finalizes into immutable evidence.
 SELECT gen_random_uuid() AS m5_timed_assignment_id \gset
 SELECT gen_random_uuid() AS m5_timed_revision_id \gset
 SELECT gen_random_uuid() AS m5_timed_attempt_id \gset
@@ -144,8 +142,8 @@ INSERT INTO ple_data.assignment (
 SELECT :'m5_timed_assignment_id'::uuid, assignment.course_id,
        assignment.source_blueprint_course_reference_number,
        assignment.source_blueprint_revision_number, clock_timestamp(), clock_timestamp(),
-       1, 'M5 expired Attempt fixture', '', NULL, NULL, NULL, 1, NULL,
-       'accept', 'auto_submit', 'answer_all', NULL, 'highest', 'unlimited',
+       1, 'M4 due-boundary fixture', '', NULL, clock_timestamp() - interval '1 second', NULL, 600, NULL,
+       'reject', 'auto_submit', 'answer_all', NULL, 'highest', 'unlimited',
        NULL, 'reuse_selection', 'new_variation', 'resumable', 'all_questions',
        'free_navigation', 'authored_order', 'unreleased', NULL
   FROM ple_data.assignment AS assignment
@@ -164,8 +162,8 @@ INSERT INTO ple_data.assignment_revision (
 )
 SELECT :'m5_timed_revision_id'::uuid, :'m5_timed_assignment_id'::uuid,
        revision.course_id, revision.course_schedule_revision_id, 1,
-       'M5 expired Attempt fixture', '', NULL, NULL, NULL, 1, NULL,
-       'accept', 'auto_submit', 'answer_all', NULL, 'highest', 'unlimited',
+       'M4 due-boundary fixture', '', NULL, clock_timestamp() - interval '1 second', NULL, 600, NULL,
+       'reject', 'auto_submit', 'answer_all', NULL, 'highest', 'unlimited',
        NULL, 'reuse_selection', 'new_variation', 'resumable', 'all_questions',
        'free_navigation', 'authored_order', clock_timestamp()
   FROM ple_data.assignment_revision AS revision
@@ -218,7 +216,7 @@ INSERT INTO ple_private.assignment_attempt (
 )
 SELECT :'m5_timed_attempt_id'::uuid, student_record_id,
        :'m5_timed_assignment_id'::uuid, :'m5_timed_revision_id'::uuid,
-       clock_timestamp() - interval '2 seconds', NULL, attempt_number + 2,
+       clock_timestamp(), NULL, attempt_number + 2,
        question_pool_reuse_rule, question_variation_rule
   FROM ple_private.assignment_attempt
  WHERE assignment_attempt_id = '00000000-0000-0000-0000-000000000114'::uuid;
@@ -262,6 +260,15 @@ SELECT set_config(
     'ple_e2e.m5_timed_question_attempt_id', :'m5_timed_question_attempt_id', false
 );
 
+SET ROLE ple_private_owner;
+INSERT INTO ple_private.assignment_attempt_saved_response (
+    question_attempt_id, student_response, saved_at
+) VALUES (
+    :'m5_timed_question_attempt_id'::uuid, '{"choice":"on_time"}'::jsonb,
+    clock_timestamp() - interval '2 seconds'
+);
+RESET ROLE;
+
 BEGIN;
 SET ROLE ple_auth;
 SELECT ple_api.resolve_and_install_session(decode(repeat('ab', 32), 'hex'));
@@ -272,17 +279,21 @@ BEGIN
         current_setting('ple_e2e.m5_timed_attempt_reference')::bigint,
         1, '{}'::jsonb
     );
-    RAISE EXCEPTION 'expired Assignment Attempt accepted a saved response';
+    RAISE EXCEPTION 'reject-rule due Assignment accepted a late saved response';
 EXCEPTION WHEN object_not_in_prerequisite_state THEN NULL;
 END
 $$;
 DO $$
 BEGIN
-    PERFORM 1 FROM ple_api.finalize_student_assignment_attempt(
-        current_setting('ple_e2e.m5_timed_attempt_reference')::bigint
-    );
-    RAISE EXCEPTION 'expired Assignment Attempt finalized';
-EXCEPTION WHEN object_not_in_prerequisite_state THEN NULL;
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_api.finalize_student_assignment_attempt(
+            current_setting('ple_e2e.m5_timed_attempt_reference')::bigint
+        ) AS result
+         WHERE result.submission_state = 'submitted'
+           AND result.missing_positions = ARRAY[]::integer[]
+    ) THEN
+        RAISE EXCEPTION 'on-time saved response did not finalize after the due boundary';
+    END IF;
 END
 $$;
 COMMIT;
@@ -290,16 +301,21 @@ COMMIT;
 SET ROLE ple_private_owner;
 DO $$
 BEGIN
-    IF EXISTS (
-        SELECT 1 FROM ple_private.assignment_attempt_saved_response AS saved_response
-         WHERE saved_response.question_attempt_id =
-               current_setting('ple_e2e.m5_timed_question_attempt_id', true)::uuid
-    ) OR EXISTS (
+    IF NOT EXISTS (
         SELECT 1 FROM ple_private.assignment_submission AS submission
          WHERE submission.assignment_attempt_id =
                current_setting('ple_e2e.m5_timed_attempt_id')::uuid
+    ) OR NOT EXISTS (
+        SELECT 1 FROM ple_private.question_submission AS submission
+        JOIN ple_private.question_attempt AS question_attempt
+          ON question_attempt.question_attempt_id = submission.question_attempt_id
+        JOIN ple_private.issued_question AS issued
+          ON issued.issued_question_id = question_attempt.issued_question_id
+         WHERE issued.assignment_attempt_id =
+               current_setting('ple_e2e.m5_timed_attempt_id')::uuid
+           AND submission.student_response = '{"choice":"on_time"}'::jsonb
     ) THEN
-        RAISE EXCEPTION 'expired Assignment Attempt wrote Student-work evidence';
+        RAISE EXCEPTION 'reject-rule due Assignment did not preserve submitted evidence';
     END IF;
 END
 $$;

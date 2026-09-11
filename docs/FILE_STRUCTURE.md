@@ -89,17 +89,21 @@ The current module inventory is:
 ```text
 crates/learning-data-access/src/
 +- assignment_attempt.rs                 Assignment Attempt Store contract
++- assignment_delivery.rs                Student Assignment access, issued presentation, submission, and history Store contracts
++- assignment_release.rs                 Instructor Assignment workspace, release, inline retime, and Due Soon Store contracts
 +- course_banner.rs                      Course Banner Store contract and promotion work types
 +- course_theme.rs                       Course Theme Store contract
 +- authentication_ceremony.rs            email and passkey ceremony contracts
 +- authentication_email.rs               normalized authentication email values
 +- grading_operations.rs                 Instructor Grading Operation Store contract
 +- imathas_question_backend_session/     iMathAS Question Backend Session contracts and Memory support
++- instructor_profile.rs                 Self-only Instructor Profile Store contract
 +- object_record.rs                      workspace Question Source object records
 +- pagination.rs                         cursor and page contracts
++- profile_thumbnail.rs                  Self-only Profile thumbnail Store contract and rendition work types
 +- question_source.rs                    Draft source resolution and Question Publication Store contracts
 +- session.rs                            Account Session Store contract
-`- postgres/                             current PostgreSQL connection, migration, Account Session, Assignment Attempt, Course Instance, Course Theme, Course Banner, Question Source, object-record, and iMathAS Session modules
+`- postgres/                             current PostgreSQL connection, migration, Account Session, Assignment Attempt, Assignment delivery/release, Course Instance, Course Theme, Course Banner, Instructor Profile, Profile thumbnail, Question Source, object-record, and iMathAS Session modules
 ```
 
 No Blueprint Course or Blueprint-operation Store implementation currently
@@ -114,12 +118,15 @@ the boundary between public Blueprint readers and private CourseInstances.
 
 ```text
 crates/server/src/
++- assignment_delivery.rs  Student Assignment access, issued presentation, submission, and history routes
++- assignment_release.rs   Instructor Assignment workspace, release, inline retime, and Due Soon routes
 +- auth/                     Account session and seeded Live Demo browser boundary
 +- composition.rs            Production database and session composition
 +- course_appearance.rs      Authorized Course Appearance reads, theme changes, and banner lifecycle routes
 +- course_instance.rs        Course Instance routes and active-member Course summary
 +- health.rs                 Readiness probe support
 +- http_security.rs          Uniform dynamic-response security headers
++- instructor_profile.rs     Self-only Instructor Profile and thumbnail routes
 +- question_publication.rs  Server-only new-lineage Question Publication coordinator and Question ID issuer
 +- navigation.rs             Authorized public Course-reference navigation resolver
 +- request_lifecycle.rs      Process-wide safe request lifecycle handling
@@ -233,7 +240,8 @@ model behavior. Graphify and source/migration inventories are one-time evidence.
 `tests/e2e/e2e_run_all.sh` runs its explicitly selected non-browser production-build and
 service checks; it does not execute every E2E in the tree. The focused compiled-Chromium Ribbon
 scripts exercise supplied fixture content and are visual/structural evidence only. They do not
-substitute for the separate serial real-stack browser owner, which accepted M19 after serving the
+substitute for the separate serial real-stack browser owner, which accepted the 2026-09-07 serial
+release-browser milestone after serving the
 production bundle through the local HTTPS stack and creating product state through visible PLE
 controls. PostgreSQL, process, migration, and rendered visual checks stay in their named E2E or
 human-review lanes. See

@@ -28,7 +28,9 @@ try {
   await page.getByRole("button", { name: "Continue as Elena Rivera" }).click();
   await page.waitForURL(`${origin}/library`);
 
-  const coursesTab = page.getByRole("link", { name: "Courses", exact: true });
+  const coursesTab = page
+    .getByRole("navigation", { name: "Ribbon tabs" })
+    .getByRole("link", { name: "Courses", exact: true });
   if ((await coursesTab.getAttribute("aria-current")) !== "page") {
     await coursesTab.click();
     await page.waitForURL(`${origin}/`);
@@ -47,7 +49,7 @@ try {
   await page.getByRole("dialog").getByRole("button", { name: "Create Blueprint Course" }).click();
   await page.waitForURL(/\/blueprint-courses\/BP-[1-9][0-9]*$/u);
 
-  await page.getByRole("link", { name: "Courses", exact: true }).click();
+  await coursesTab.click();
   await page.waitForURL(`${origin}/`);
   await page.getByLabel("Blueprint Course Revision").selectOption({
     label: `${blueprintTitle} · Revision 1`,
@@ -55,7 +57,6 @@ try {
   await page.getByLabel("Course Instance title").fill(courseTitle);
   await page.getByLabel("Course Term start date").fill("2026-09-01");
   await page.getByLabel("Course Term end date").fill("2026-12-18");
-  await page.getByLabel("Course Time Zone (IANA)").fill("America/Chicago");
   await page.getByRole("button", { name: "Create Course Instance" }).click();
   await page.getByRole("heading", { name: courseTitle }).waitFor();
   await page.getByRole("link", { name: "Open Course Instance" }).first().click();
@@ -82,7 +83,10 @@ try {
     .waitFor();
   await page.getByRole("link", { name: "Review assignment policies", exact: true }).click();
   await page.getByRole("heading", { name: "Policies", exact: true }).waitFor();
-  await page.getByLabel("Due date").fill("2026-12-01T12:00");
+  const dueSchedule = page.getByRole("group", { name: "Due date and time", exact: true });
+  await dueSchedule.locator('input[type="date"]').fill("2026-12-01");
+  await page.getByLabel("Due time", { exact: true }).fill("12:00");
+  await page.getByLabel("Time limit in seconds").fill("1800");
   await page.getByLabel("Late-work rule").selectOption("mark_late");
   await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
   await page

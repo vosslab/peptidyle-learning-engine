@@ -29,6 +29,8 @@ pub mod health;
 pub(crate) mod http_security;
 /// Sysadmin-only Instructor Account management routes.
 pub(crate) mod instructor_account;
+/// Authenticated Instructor self-profile preference routes.
+pub(crate) mod instructor_profile;
 /// Protected direct-Instructor invitation-mailer export route.
 pub(crate) mod invitation_export;
 pub(crate) mod live_gradebook;

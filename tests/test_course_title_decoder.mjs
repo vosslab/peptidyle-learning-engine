@@ -9,7 +9,7 @@ function courseSummary(title) {
     id: "00000000-0000-0000-0000-000000000001",
     reference: "C-1",
     title,
-    term: { startDate: "2026-01-01", endDate: "2026-05-01", timeZone: "America/Chicago" },
+    term: { startDate: "2026-01-01", endDate: "2026-05-01" },
     role: "instructor",
   };
 }

@@ -157,20 +157,20 @@ payload={
     "questionIds": [sys.argv[4]],
     "dueAt": workspace["dueAt"],
     "lateWorkRule": workspace["lateWorkRule"],
-    "assignmentAttemptTimeLimitSeconds": workspace["assignmentAttemptTimeLimitSeconds"],
+    "assignmentAttemptTimeLimitSeconds": int(sys.argv[5]),
     "attemptLimit": workspace["attemptLimit"],
     "activityRules": workspace["activityRules"],
     "studentFeedbackReleaseRule": workspace["studentFeedbackReleaseRule"],
 }
 print(json.dumps(payload, separators=(",", ":")))
-' "$1" "$2" "$3" "$4"
+' "$1" "$2" "$3" "$4" "$5"
 }
 
 assert_validation() {
 	python3 -c '
 import json, sys
 value=json.loads(sys.argv[1])
-expected={"canRelease":sys.argv[2]=="true","issues":([] if sys.argv[3]=="" else [sys.argv[3]])}
+expected={"canRelease":sys.argv[2]=="true","issues":([] if sys.argv[3]=="" else sys.argv[3].split(","))}
 if value != expected: raise SystemExit("Assignment Release Validation did not report the exact current boundary")
 ' "$1" "$2" "$3"
 }
@@ -178,14 +178,15 @@ if value != expected: raise SystemExit("Assignment Release Validation did not re
 assert_saved_workspace() {
 	python3 -c '
 import json, sys
-value=json.loads(sys.argv[1]); question_id=sys.argv[2]; edit=sys.argv[3]
+value=json.loads(sys.argv[1]); question_id=sys.argv[2]; edit=sys.argv[3]; time_limit_seconds=int(sys.argv[4])
 required={"reference","editNumber","status","title","instructions","dueAt","lateWorkRule","assignmentAttemptTimeLimitSeconds","attemptLimit","activityRules","studentFeedbackReleaseRule","displayTimeZone","questions"}
 if (set(value)!=required or value.get("status")!="unreleased" or value.get("editNumber")!=edit
+    or value.get("assignmentAttemptTimeLimitSeconds")!=time_limit_seconds
     or not isinstance(value.get("questions"),list) or len(value["questions"])!=1
     or set(value["questions"][0])!={"questionId","description"}
     or value["questions"][0].get("questionId")!=question_id):
     raise SystemExit("Assignment save did not retain the accepted fixed Question selection")
-' "$1" "$2" "$3"
+' "$1" "$2" "$3" "$4"
 }
 
 assert_preview() {
@@ -243,7 +244,7 @@ SELECT 'assignment_release_authority';"
 }
 
 prove_service() {
-	local instructor_cookie student_cookie sysadmin_cookie course_reference picker question_id created assignment_reference initial_edit save_payload validation saved saved_edit stale retained preview released
+	local instructor_cookie student_cookie sysadmin_cookie course_reference picker question_id created assignment_reference initial_edit save_payload validation saved saved_edit stale retained preview released time_limit_seconds=1800
 	instructor_cookie="$(persona_cookie elenaInstructor)"
 	student_cookie="$(persona_cookie maryStudent)"
 	sysadmin_cookie="$(persona_cookie morganSysadmin)"
@@ -257,20 +258,20 @@ prove_service() {
 	created="$(request "/api/course-instances/$course_reference/assignments" "$instructor_cookie" POST '{"title":"M10 live assignment","instructions":"Complete the selected published question."}')"
 	if [ "$(response_status "$created")" != "201" ]; then echo "Instructor could not create an Unreleased Assignment" >&2; exit 1; fi
 	read -r assignment_reference initial_edit < <(workspace_reference_and_edit "$(response_body "$created")" unreleased)
-	save_payload="$(workspace_save_payload "$(response_body "$created")" "M10 live assignment" "Complete the selected published question." "$question_id")"
+	save_payload="$(workspace_save_payload "$(response_body "$created")" "M10 live assignment" "Complete the selected published question." "$question_id" "$time_limit_seconds")"
 	validation="$(request "/api/course-instances/$course_reference/assignments/$assignment_reference/release-validation" "$instructor_cookie")"
 	if [ "$(response_status "$validation")" != "200" ]; then echo "Instructor could not validate an Unreleased Assignment" >&2; exit 1; fi
-	assert_validation "$(response_body "$validation")" false noPublishedQuestions
+	assert_validation "$(response_body "$validation")" false timeLimitRequired,noPublishedQuestions
 	saved="$(request "/api/course-instances/$course_reference/assignments/$assignment_reference" "$instructor_cookie" PUT "$save_payload" "$initial_edit")"
 	if [ "$(response_status "$saved")" != "200" ]; then echo "Instructor could not save the fixed Question selection" >&2; exit 1; fi
 	saved_edit="$(workspace_reference_and_edit "$(response_body "$saved")" unreleased | awk '{print $2}')"
 	if [ "$saved_edit" = "$initial_edit" ]; then echo "Assignment save did not issue a new Edit Number" >&2; exit 1; fi
-	assert_saved_workspace "$(response_body "$saved")" "$question_id" "$saved_edit"
+	assert_saved_workspace "$(response_body "$saved")" "$question_id" "$saved_edit" "$time_limit_seconds"
 	stale="$(request "/api/course-instances/$course_reference/assignments/$assignment_reference" "$instructor_cookie" PUT "$save_payload" "$initial_edit")"
 	if [ "$(response_status "$stale")" != "412" ]; then echo "Stale Assignment save did not fail its Edit Number precondition" >&2; exit 1; fi
 	retained="$(request "/api/course-instances/$course_reference/assignments/$assignment_reference" "$instructor_cookie")"
 	if [ "$(response_status "$retained")" != "200" ]; then echo "Instructor could not reload the accepted Assignment state" >&2; exit 1; fi
-	assert_saved_workspace "$(response_body "$retained")" "$question_id" "$saved_edit"
+	assert_saved_workspace "$(response_body "$retained")" "$question_id" "$saved_edit" "$time_limit_seconds"
 	validation="$(request "/api/course-instances/$course_reference/assignments/$assignment_reference/release-validation" "$instructor_cookie")"
 	if [ "$(response_status "$validation")" != "200" ]; then echo "Instructor could not validate the selected Assignment" >&2; exit 1; fi
 	assert_validation "$(response_body "$validation")" true ''

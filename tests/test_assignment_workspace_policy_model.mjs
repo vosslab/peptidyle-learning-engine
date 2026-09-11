@@ -7,6 +7,10 @@ import {
   assignmentPoliciesValidationFeedback,
   assignmentPolicyFeedbackRole,
   canonicalLocalDateAndTime,
+  DEFAULT_DUE_TIME,
+  dueDateDraft,
+  dueTimeDraft,
+  localDueDateAndTime,
   mergeSavedActivityRuleDraft,
   nonnegativeIntegerDraft,
   numberDraft,
@@ -18,6 +22,7 @@ import {
 const studentFeedbackReleaseRule = {
   score: "after_submit",
   per_item_correctness: "after_submit",
+  submitted_response: "after_due",
   question_feedback: "after_due",
   question_answer: "after_close",
   question_answer_explanation: "after_close",
@@ -57,9 +62,23 @@ test("focused policy input preserves direct delivery settings", () => {
   assert.equal(input.assignmentAuthoredContent.instructions, "Use a clear structural drawing.");
 });
 
-test("policy local-time normalization accepts only explicit local wall-clock values", () => {
+test("policy local-time normalization preserves valid native time precision", () => {
   assert.equal(canonicalLocalDateAndTime("2026-09-01T17:00"), "2026-09-01T17:00:00.000");
+  assert.equal(canonicalLocalDateAndTime("2026-09-01T17:00:15"), "2026-09-01T17:00:15.000");
+  assert.equal(canonicalLocalDateAndTime("2026-09-01T17:00:15.1"), "2026-09-01T17:00:15.100");
+  assert.equal(canonicalLocalDateAndTime("2026-09-01T17:00:15.12"), "2026-09-01T17:00:15.120");
+  assert.equal(canonicalLocalDateAndTime("2026-09-01T17:00:15.123"), "2026-09-01T17:00:15.123");
   assert.equal(canonicalLocalDateAndTime("2026/09/01 17:00"), null);
+});
+
+test("a selected due date starts at the teaching default while authored times stay exact", () => {
+  assert.equal(DEFAULT_DUE_TIME, "23:59:00.000");
+  assert.equal(dueDateDraft(null), "");
+  assert.equal(dueTimeDraft(null), DEFAULT_DUE_TIME);
+  assert.equal(localDueDateAndTime("2026-12-01", dueTimeDraft(null)), "2026-12-01T23:59:00.000");
+  assert.equal(dueDateDraft("2026-12-01T12:34:56.789"), "2026-12-01");
+  assert.equal(dueTimeDraft("2026-12-01T12:34:56.789"), "12:34:56.789");
+  assert.equal(localDueDateAndTime("", DEFAULT_DUE_TIME), "");
 });
 
 test("policy feedback makes save failures and conflicts actionable while successes stay quiet", () => {

@@ -9,10 +9,10 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    AssignmentAuthoredContentField, AssignmentAuthoredContentLocalError,
+    AccountTimeZone, AssignmentAuthoredContentField, AssignmentAuthoredContentLocalError,
     AssignmentEntryScoringRule, AssignmentInstructions, AssignmentPointValue, AssignmentTitle,
     BaseAssignmentPolicy, BlueprintAssignmentDefaults, BlueprintCourseValidationError,
-    CourseInstanceReference, CourseTerm, CourseTimeZone, LocalDateAndTime, LocalTimeOfDay,
+    CourseInstanceReference, CourseTerm, LocalDateAndTime, LocalTimeOfDay,
     MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
     MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, QuestionAttemptLimit, QuestionAttemptTimeLimit,
     QuestionRevisionReference, RelativeAssignmentSchedule, RelativeAssignmentScheduleMoment,
@@ -25,7 +25,8 @@ pub use contracts::*;
 
 const DOMAIN: &[u8] = b"ple:blueprint-revision-content\0";
 /// Current normalized Blueprint Revision Content encoding version.
-pub const BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION: u8 = 2;
+pub const BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION: u8 = 3;
+const BLUEPRINT_REVISION_CONTENT_LEGACY_ENCODING_VERSION: u8 = 2;
 
 #[derive(Debug, Clone, PartialEq)]
 /// Validated Blueprint Revision Content stored independently from operation evidence.
@@ -51,17 +52,21 @@ impl BlueprintRevisionContent {
     }
     /// Produces the one validated persistence record for this Blueprint Revision Content.
     pub fn encoding_record(&self) -> BlueprintRevisionContentRecord {
-        let encoded_bytes = deterministic_encoded_bytes(self);
-        let checksum = BlueprintContentChecksum(Sha256::digest(&encoded_bytes).into());
-        BlueprintRevisionContentRecord {
-            version: BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION,
-            encoded_bytes,
-            checksum,
-        }
+        self.encoding_record_for_version(BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION)
+            .expect("the current Blueprint Revision Content encoding version is supported")
     }
     /// Computes the full versioned Blueprint Revision Content checksum.
     pub fn checksum(&self) -> BlueprintContentChecksum {
         self.encoding_record().checksum()
+    }
+    /// Computes one recognized historic or current persistence checksum.
+    ///
+    /// The storage adapter uses version two only to verify immutable records
+    /// written before submitted-response timing became explicit. New records
+    /// always use the current version returned by [`Self::encoding_version`].
+    pub fn checksum_for_encoding_version(&self, version: u8) -> Option<BlueprintContentChecksum> {
+        self.encoding_record_for_version(version)
+            .map(|record| record.checksum())
     }
     /// Checks Blueprint Revision Content and reports both checksums when it changed.
     pub fn compare(&self, other: &Self) -> BlueprintContentCheck {
@@ -75,6 +80,22 @@ impl BlueprintRevisionContent {
                 actual: other.checksum(),
             }
         }
+    }
+
+    fn encoding_record_for_version(&self, version: u8) -> Option<BlueprintRevisionContentRecord> {
+        let encoded_bytes = match version {
+            BLUEPRINT_REVISION_CONTENT_LEGACY_ENCODING_VERSION => {
+                deterministic_encoded_bytes_v2(self)
+            }
+            BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION => deterministic_encoded_bytes_v3(self),
+            _ => return None,
+        };
+        let checksum = BlueprintContentChecksum(Sha256::digest(&encoded_bytes).into());
+        Some(BlueprintRevisionContentRecord {
+            version,
+            encoded_bytes,
+            checksum,
+        })
     }
 }
 
@@ -379,6 +400,64 @@ struct EncodedAssignment<'a> {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+struct EncodedPayloadV2<'a> {
+    version: u8,
+    meaning: EncodedMeaningV2<'a>,
+}
+
+#[derive(Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum EncodedMeaningV2<'a> {
+    Assignment {
+        content: EncodedAssignmentV2<'a>,
+    },
+    Course {
+        title: &'a str,
+        modules: Vec<EncodedModuleV2<'a>>,
+    },
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+struct EncodedModuleV2<'a> {
+    label: &'a str,
+    assignments: Vec<EncodedAssignmentV2<'a>>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+struct EncodedAssignmentV2<'a> {
+    title: &'a str,
+    instructions: &'a AssignmentInstructions,
+    entries: Vec<EncodedEntry<'a>>,
+    defaults: EncodedBlueprintAssignmentDefaultsV2<'a>,
+    schedule: &'a RelativeAssignmentSchedule,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+struct EncodedBlueprintAssignmentDefaultsV2<'a> {
+    assignment_attempt_time_limit_seconds: &'a Option<std::num::NonZeroU32>,
+    attempt_limit: &'a Option<std::num::NonZeroU32>,
+    late_work_rule: crate::LateWorkRule,
+    assignment_deadline_rule: crate::AssignmentDeadlineRule,
+    activity_rules: &'a crate::AssignmentActivityRules,
+    student_feedback_release_rule: EncodedStudentFeedbackReleaseRuleV2,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+struct EncodedStudentFeedbackReleaseRuleV2 {
+    score: crate::StudentFeedbackReleaseTiming,
+    per_item_correctness: crate::StudentFeedbackReleaseTiming,
+    question_feedback: crate::StudentFeedbackReleaseTiming,
+    question_answer: crate::StudentFeedbackReleaseTiming,
+    question_answer_explanation: crate::StudentFeedbackReleaseTiming,
+    class_statistics: crate::StudentFeedbackReleaseTiming,
+}
+
+#[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum EncodedEntry<'a> {
     Fixed {
@@ -399,7 +478,7 @@ enum EncodedEntry<'a> {
     },
 }
 
-fn deterministic_encoded_bytes(payload: &BlueprintRevisionContent) -> Vec<u8> {
+fn deterministic_encoded_bytes_v3(payload: &BlueprintRevisionContent) -> Vec<u8> {
     let meaning = match payload {
         BlueprintRevisionContent::Assignment(assignment) => EncodedMeaning::Assignment {
             content: encode_assignment(assignment),
@@ -418,6 +497,38 @@ fn deterministic_encoded_bytes(payload: &BlueprintRevisionContent) -> Vec<u8> {
     };
     let json = serde_json::to_vec(&EncodedPayload {
         version: BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION,
+        meaning,
+    })
+    .expect("validated private Blueprint Revision Content serializes");
+    let mut bytes = Vec::with_capacity(DOMAIN.len() + json.len());
+    bytes.extend_from_slice(DOMAIN);
+    bytes.extend_from_slice(&json);
+    bytes
+}
+
+fn deterministic_encoded_bytes_v2(payload: &BlueprintRevisionContent) -> Vec<u8> {
+    let meaning = match payload {
+        BlueprintRevisionContent::Assignment(assignment) => EncodedMeaningV2::Assignment {
+            content: encode_assignment_v2(assignment),
+        },
+        BlueprintRevisionContent::Course(course) => EncodedMeaningV2::Course {
+            title: course.title(),
+            modules: course
+                .modules()
+                .iter()
+                .map(|module| EncodedModuleV2 {
+                    label: module.label(),
+                    assignments: module
+                        .assignments()
+                        .iter()
+                        .map(encode_assignment_v2)
+                        .collect(),
+                })
+                .collect(),
+        },
+    };
+    let json = serde_json::to_vec(&EncodedPayloadV2 {
+        version: BLUEPRINT_REVISION_CONTENT_LEGACY_ENCODING_VERSION,
         meaning,
     })
     .expect("validated private Blueprint Revision Content serializes");
@@ -460,6 +571,60 @@ fn encode_assignment(assignment: &BlueprintAssignmentContent) -> EncodedAssignme
             })
             .collect(),
         defaults: assignment.defaults(),
+        schedule: assignment.schedule(),
+    }
+}
+
+fn encode_assignment_v2(assignment: &BlueprintAssignmentContent) -> EncodedAssignmentV2<'_> {
+    let feedback = assignment.defaults().student_feedback_release_rule;
+    EncodedAssignmentV2 {
+        title: assignment.title(),
+        instructions: assignment.instructions(),
+        entries: assignment
+            .entries()
+            .iter()
+            .map(|entry| match entry {
+                BlueprintAssignmentEntryContent::Fixed {
+                    reference,
+                    points_possible,
+                    scoring_rule,
+                    question_attempt_limit,
+                    question_attempt_time_limit,
+                } => EncodedEntry::Fixed {
+                    reference,
+                    points_possible: *points_possible,
+                    scoring_rule: *scoring_rule,
+                    question_attempt_limit,
+                    question_attempt_time_limit,
+                },
+                BlueprintAssignmentEntryContent::Pool(pool) => EncodedEntry::Pool {
+                    items: &pool.items,
+                    selection_count: pool.selection_count,
+                    points_per_item: pool.points_per_item,
+                    scoring_rule: pool.scoring_rule,
+                    selection_rule: pool.selection_rule,
+                    question_attempt_limit: &pool.question_attempt_limit,
+                    question_attempt_time_limit: &pool.question_attempt_time_limit,
+                },
+            })
+            .collect(),
+        defaults: EncodedBlueprintAssignmentDefaultsV2 {
+            assignment_attempt_time_limit_seconds: &assignment
+                .defaults()
+                .assignment_attempt_time_limit_seconds,
+            attempt_limit: &assignment.defaults().attempt_limit,
+            late_work_rule: assignment.defaults().late_work_rule,
+            assignment_deadline_rule: assignment.defaults().assignment_deadline_rule,
+            activity_rules: &assignment.defaults().activity_rules,
+            student_feedback_release_rule: EncodedStudentFeedbackReleaseRuleV2 {
+                score: feedback.score,
+                per_item_correctness: feedback.per_item_correctness,
+                question_feedback: feedback.question_feedback,
+                question_answer: feedback.question_answer,
+                question_answer_explanation: feedback.question_answer_explanation,
+                class_statistics: feedback.class_statistics,
+            },
+        },
         schedule: assignment.schedule(),
     }
 }
@@ -543,11 +708,11 @@ impl CourseScheduleRevisionReference {
     }
 }
 
-/// One relative moment resolved into target-course local and absolute time.
+/// One relative moment resolved in the acting Account zone and as an absolute time.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ResolvedAssignmentScheduleMoment {
-    /// Exact wall-clock value in the target course's authoritative zone.
+    /// Exact wall-clock value in the acting Account's authorized zone.
     pub local: LocalDateAndTime,
     /// Server-resolved absolute timestamp persisted by teaching state.
     pub timestamp: Timestamp,
@@ -556,8 +721,6 @@ pub struct ResolvedAssignmentScheduleMoment {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ResolvedAssignmentSchedule {
-    /// Authoritative target-course IANA zone for every local value.
-    pub time_zone: CourseTimeZone,
     /// Resolved first student-availability moment when configured.
     pub available_at: Option<ResolvedAssignmentScheduleMoment>,
     /// Resolved ordinary due moment when configured.
@@ -566,9 +729,7 @@ pub struct ResolvedAssignmentSchedule {
     pub closes_at: Option<ResolvedAssignmentScheduleMoment>,
 }
 impl RelativeAssignmentSchedule {
-    /// Projects a stored course-owned policy into reusable calendar-relative meaning.
-    ///
-    /// The source term's IANA zone is the sole authority for this conversion.
+    /// Projects a stored policy into reusable calendar-relative meaning in the acting Account zone.
     /// Each absolute timestamp must project to an inclusive source-term local date,
     /// and the resulting related moments must remain chronological. This gives
     /// adoption callers a typed correction rather than discarding a stored date
@@ -576,21 +737,25 @@ impl RelativeAssignmentSchedule {
     pub fn from_base_policy(
         policy: &BaseAssignmentPolicy,
         source_term: &CourseTerm,
+        account_time_zone: &AccountTimeZone,
     ) -> Result<Self, AssignmentAuthoredContentLocalError> {
         let schedule = Self {
             available_at: project_relative_moment(
                 policy.available_at,
                 source_term,
+                account_time_zone,
                 AssignmentAuthoredContentField::AvailableAt,
             )?,
             due_at: project_relative_moment(
                 policy.due_at,
                 source_term,
+                account_time_zone,
                 AssignmentAuthoredContentField::DueAt,
             )?,
             closes_at: project_relative_moment(
                 policy.closes_at,
                 source_term,
+                account_time_zone,
                 AssignmentAuthoredContentField::ClosesAt,
             )?,
         };
@@ -600,31 +765,31 @@ impl RelativeAssignmentSchedule {
         Ok(schedule)
     }
 
-    /// Resolves calendar offsets in the target term's IANA zone.
-    ///
-    /// Calendar-day arithmetic occurs before the existing course-local resolver
-    /// supplies inclusive-bound and field-specific DST corrections.
+    /// Resolves calendar offsets in the acting Account's IANA zone.
     pub fn resolve_for_target_term(
         &self,
         term: &CourseTerm,
+        account_time_zone: &AccountTimeZone,
     ) -> Result<ResolvedAssignmentSchedule, AssignmentAuthoredContentLocalError> {
         self.validate()
             .map_err(|_| AssignmentAuthoredContentLocalError::ScheduleOutOfOrder)?;
         Ok(ResolvedAssignmentSchedule {
-            time_zone: term.time_zone().clone(),
             available_at: resolve(
                 self.available_at.as_ref(),
                 term,
+                account_time_zone,
                 AssignmentAuthoredContentField::AvailableAt,
             )?,
             due_at: resolve(
                 self.due_at.as_ref(),
                 term,
+                account_time_zone,
                 AssignmentAuthoredContentField::DueAt,
             )?,
             closes_at: resolve(
                 self.closes_at.as_ref(),
                 term,
+                account_time_zone,
                 AssignmentAuthoredContentField::ClosesAt,
             )?,
         })
@@ -634,19 +799,25 @@ impl RelativeAssignmentSchedule {
 fn project_relative_moment(
     value: Option<Timestamp>,
     source_term: &CourseTerm,
+    account_time_zone: &AccountTimeZone,
     field: AssignmentAuthoredContentField,
 ) -> Result<Option<RelativeAssignmentScheduleMoment>, AssignmentAuthoredContentLocalError> {
     value
         .map(|value| {
-            let local = LocalDateAndTime::from_activity_timestamp(value, source_term, field)?;
+            let local = LocalDateAndTime::from_activity_timestamp_in_account_time_zone(
+                value,
+                source_term,
+                account_time_zone,
+                field,
+            )?;
             let date = NaiveDate::parse_from_str(&local.as_str()[..10], "%Y-%m-%d")
-                .expect("validated course-local date");
+                .expect("validated Account-local date");
             let start = NaiveDate::parse_from_str(source_term.start_date().as_str(), "%Y-%m-%d")
                 .expect("validated course term");
             let day_offset = i32::try_from(date.signed_duration_since(start).num_days())
                 .map_err(|_| AssignmentAuthoredContentLocalError::TimestampOutOfRange(field))?;
             let local_time =
-                LocalTimeOfDay::parse(&local.as_str()[11..]).expect("validated course-local time");
+                LocalTimeOfDay::parse(&local.as_str()[11..]).expect("validated Account-local time");
             Ok(RelativeAssignmentScheduleMoment {
                 day_offset,
                 local_time,
@@ -657,6 +828,7 @@ fn project_relative_moment(
 fn resolve(
     value: Option<&RelativeAssignmentScheduleMoment>,
     term: &CourseTerm,
+    account_time_zone: &AccountTimeZone,
     field: AssignmentAuthoredContentField,
 ) -> Result<Option<ResolvedAssignmentScheduleMoment>, AssignmentAuthoredContentLocalError> {
     value
@@ -675,7 +847,7 @@ fn resolve(
             ))
             .map_err(|_| AssignmentAuthoredContentLocalError::TimestampOutOfRange(field))?;
             Ok(ResolvedAssignmentScheduleMoment {
-                timestamp: local.resolve_for_course(term, field)?,
+                timestamp: local.resolve_in_account_time_zone(term, account_time_zone, field)?,
                 local,
             })
         })
@@ -696,13 +868,13 @@ mod wire_tests {
             due_at: None,
             closes_at: None,
         };
-        let term =
-            CourseTerm::from_parts("2026-08-24", "2026-12-12", "America/Chicago").expect("term");
+        let term = CourseTerm::from_parts("2026-08-24", "2026-12-12").expect("term");
+        let account_time_zone = AccountTimeZone::parse("America/Chicago").expect("zone");
         let resolved = schedule
-            .resolve_for_target_term(&term)
+            .resolve_for_target_term(&term, &account_time_zone)
             .expect("resolved schedule");
         let wire = serde_json::to_value(&resolved).expect("schedule serializes");
-        assert!(wire.get("time_zone").is_some());
+        assert!(wire.get("time_zone").is_none());
         assert!(wire.get("available_at").is_some());
         assert!(wire.get("timeZone").is_none());
         let mut forged = wire;

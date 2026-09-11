@@ -1,8 +1,10 @@
 // scenarios_student.ts - Student course, invitation, delivery, and denial survey.
 // Selector contract: shared Course and Assignment actions live in visible_workflows.ts:47; Student
 // headings and controls are owned by src/pages/student_courses_page.tsx:29,
-// src/pages/student_course_invitation_page.tsx:42, src/pages/assignment_overview_page.tsx:236,
-// and src/pages/assignment_attempt_page.tsx:730.
+// src/pages/student_course_invitation_page.tsx:42, src/pages/assignment_overview_page.tsx:95,
+// src/pages/assignment_attempt_page.tsx:322, and src/pages/assignment_attempt_summary_page.tsx:55.
+
+import type { Locator } from "playwright";
 
 import type { CaptureRecord } from "./manifest";
 import type { CaptureSession, ScenarioRuntime } from "./runtime";
@@ -15,6 +17,8 @@ import {
   enterInstructor,
   openStudentAssignment,
   openStudentCourse,
+  openStudentCourseChooser,
+  resumeStudentAssignmentAttempt,
   scrollTop,
   type SeededPersona,
 } from "./visible_workflows";
@@ -39,7 +43,7 @@ async function studentCourseList(runtime: ScenarioRuntime): Promise<void> {
     const session = await runtime.open(record);
     try {
       await choosePersona(session.page, "Mary Okafor");
-      await session.page.getByRole("heading", { name: "Your courses", exact: true }).waitFor();
+      await openStudentCourseChooser(session.page);
       await courseCard(session.page).waitFor();
       await captureCheckpoint(runtime, scenario, checkpoint, session);
     } finally {
@@ -67,7 +71,6 @@ async function prepareStudentInvitation(
     await page.getByLabel("Course Instance title").fill(INVITATION_COURSE_TITLE);
     await page.getByLabel("Course Term start date").fill("2026-09-01");
     await page.getByLabel("Course Term end date").fill("2026-12-18");
-    await page.getByLabel("Course Time Zone (IANA)").fill("America/Chicago");
     await page.getByRole("button", { name: "Create Course Instance", exact: true }).click();
     const created = courseCard(page, INVITATION_COURSE_TITLE);
     await created.waitFor();
@@ -92,16 +95,17 @@ async function studentInvitation(runtime: ScenarioRuntime): Promise<void> {
   const page = session.page;
   try {
     await choosePersona(page, "Mary Okafor");
+    await openStudentCourseChooser(page);
     await page.getByRole("link", { name: "Course invitations", exact: true }).click();
     await page.getByRole("heading", { name: "Course invitations", exact: true }).waitFor();
     const invitation = courseCard(page, INVITATION_COURSE_TITLE);
     await invitation.waitFor();
     await captureCheckpoint(runtime, scenario, "invitation_index", session);
-    await invitation.getByRole("link", { name: "Review Course Invitation", exact: true }).click();
-    await page.getByRole("heading", { name: "Join this Course Instance", exact: true }).waitFor();
+    await invitation.getByRole("link", { name: "Review invitation", exact: true }).click();
+    await page.getByRole("heading", { name: "Join this course", exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, "invitation_detail", session);
-    await page.getByRole("button", { name: "Accept Course Invitation", exact: true }).click();
-    await page.getByText("Course Invitation accepted.", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "Accept invitation", exact: true }).click();
+    await page.getByText("Invitation accepted.", { exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, "invitation_accepted", session);
     await page.getByRole("link", { name: "Open assigned work", exact: true }).click();
     await page.getByRole("heading", { name: INVITATION_COURSE_TITLE, exact: true }).waitFor();
@@ -153,8 +157,10 @@ async function captureAssignmentOverview(
     await assignmentCard(session.page).getByText(expectedCourseState, { exact: true }).waitFor();
     await openStudentAssignment(session.page);
     await session.page
-      .getByText("This Assignment is available to start.", { exact: true })
+      .getByRole("heading", { level: 1, name: "Peptide Structure Practice" })
       .waitFor();
+    await session.page.getByRole("heading", { name: "Before you start", exact: true }).waitFor();
+    await session.page.getByRole("button", { name: "Start Assignment", exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, checkpoint, session);
   } finally {
     await runtime.close(session);
@@ -164,6 +170,118 @@ async function captureAssignmentOverview(
 async function studentAssignmentOverviews(runtime: ScenarioRuntime): Promise<void> {
   await captureAssignmentOverview(runtime, "unanswered_laptop", "Avery Thompson", "Not started");
   await captureAssignmentOverview(runtime, "unanswered_tablet", "Avery Thompson", "Not started");
+}
+
+async function studentAssignmentHistory(runtime: ScenarioRuntime): Promise<void> {
+  const scenario = "student_assignment_history";
+  const overviewRecord = runtime.record(scenario, "overview_history");
+  const session = await runtime.open(overviewRecord);
+  try {
+    await choosePersona(session.page, "Mary Okafor");
+    await openStudentCourse(session.page);
+    const assignment = assignmentCard(session.page);
+    await assignment.getByRole("link", { name: "Open Assignment", exact: true }).click();
+    await session.page.locator('[data-route-surface="assignmentOverview"]').waitFor();
+    await session.page.getByRole("heading", { name: "Previous attempts", exact: true }).waitFor();
+    const previousAttempt = session.page.getByRole("link", { name: "Attempt 1", exact: true });
+    await previousAttempt.waitFor();
+    await captureCheckpoint(runtime, scenario, "overview_history", session);
+    await previousAttempt.click();
+    await session.page.locator('[data-route-surface="assignmentAttemptSummary"]').waitFor();
+    await session.page.getByRole("heading", { name: "Your recorded work", exact: true }).waitFor();
+    await captureCheckpoint(runtime, scenario, "selected_history", session);
+  } finally {
+    await runtime.close(session);
+  }
+}
+
+function attemptSurface(session: CaptureSession): Locator {
+  return session.page.locator('[data-route-surface="assignmentAttempt"]');
+}
+
+function attemptQuestion(session: CaptureSession, name: string): Locator {
+  return session.page
+    .getByRole("navigation", { name: "Assignment questions", exact: true })
+    .getByRole("button", { name, exact: true });
+}
+
+async function saveCurrentRadioResponse(session: CaptureSession): Promise<void> {
+  const responseControl = attemptSurface(session).locator("section.question-response-control");
+  await responseControl.getByRole("radio").first().check();
+  await responseControl.getByRole("button", { name: "Save response", exact: true }).click();
+  await session.page.getByText("Response saved.", { exact: true }).waitFor();
+}
+
+async function saveCurrentNumericResponse(session: CaptureSession): Promise<void> {
+  const responseControl = attemptSurface(session).locator("section.question-response-control");
+  await responseControl.locator("input[type='number']").fill("1");
+  await responseControl.getByRole("button", { name: "Save response", exact: true }).click();
+  await session.page.getByText("Response saved.", { exact: true }).waitFor();
+}
+
+async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void> {
+  const scenario = "student_assignment_attempt";
+  const savedRecord = runtime.record(scenario, "response_selected");
+  const savedSession = await runtime.open(savedRecord);
+  try {
+    await choosePersona(savedSession.page, "Avery Thompson");
+    await openStudentCourse(savedSession.page);
+    await openStudentAssignment(savedSession.page);
+    await savedSession.page.getByRole("button", { name: "Start Assignment", exact: true }).click();
+    await attemptSurface(savedSession).waitFor();
+    await savedSession.page.getByText("Question 1 of 4", { exact: true }).waitFor();
+    await saveCurrentRadioResponse(savedSession);
+    await attemptQuestion(savedSession, "Question 1: Saved, current").waitFor();
+    await captureCheckpoint(runtime, scenario, "response_selected", savedSession);
+  } finally {
+    await runtime.close(savedSession);
+  }
+
+  const resumedRecord = runtime.record(scenario, "resume_selected");
+  const resumedSession = await runtime.open(resumedRecord);
+  try {
+    await choosePersona(resumedSession.page, "Avery Thompson");
+    await openStudentCourse(resumedSession.page);
+    await resumeStudentAssignmentAttempt(resumedSession.page);
+    await resumedSession.page.reload({ waitUntil: "commit" });
+    await attemptSurface(resumedSession).waitFor();
+    await attemptQuestion(resumedSession, "Question 1: Saved").waitFor();
+    await attemptQuestion(resumedSession, "Question 1: Saved").click();
+    await resumedSession.page.getByText("Question 1 of 4", { exact: true }).waitFor();
+    await attemptSurface(resumedSession).locator("input[type='radio']:checked").waitFor();
+    await resumedSession.page.getByText("Response saved.", { exact: true }).waitFor();
+    await captureCheckpoint(runtime, scenario, "resume_selected", resumedSession);
+  } finally {
+    await runtime.close(resumedSession);
+  }
+
+  const submittedRecord = runtime.record(scenario, "submitted");
+  const submittedSession = await runtime.open(submittedRecord);
+  try {
+    await choosePersona(submittedSession.page, "Avery Thompson");
+    await openStudentCourse(submittedSession.page);
+    await resumeStudentAssignmentAttempt(submittedSession.page);
+    await attemptQuestion(submittedSession, "Question 2: Not answered, current").waitFor();
+    await saveCurrentRadioResponse(submittedSession);
+    await attemptQuestion(submittedSession, "Question 2: Saved, current").waitFor();
+    await attemptQuestion(submittedSession, "Question 3: Not answered").click();
+    await attemptQuestion(submittedSession, "Question 3: Not answered, current").waitFor();
+    await saveCurrentNumericResponse(submittedSession);
+    await attemptQuestion(submittedSession, "Question 3: Saved, current").waitFor();
+    await attemptQuestion(submittedSession, "Question 4: Not answered").click();
+    await attemptQuestion(submittedSession, "Question 4: Not answered, current").waitFor();
+    await saveCurrentRadioResponse(submittedSession);
+    await attemptQuestion(submittedSession, "Question 4: Saved, current").waitFor();
+    await submittedSession.page
+      .getByRole("button", { name: "Submit Assignment", exact: true })
+      .click();
+    await submittedSession.page
+      .getByRole("heading", { name: "Assignment submitted", exact: true })
+      .waitFor();
+    await captureCheckpoint(runtime, scenario, "submitted", submittedSession);
+  } finally {
+    await runtime.close(submittedSession);
+  }
 }
 
 async function captureDenial(runtime: ScenarioRuntime, checkpoint: string): Promise<void> {
@@ -218,6 +336,16 @@ export const STUDENT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     id: "student_assignment_overviews",
     checkpoints: ["unanswered_laptop", "unanswered_tablet"],
     run: studentAssignmentOverviews,
+  },
+  {
+    id: "student_assignment_history",
+    checkpoints: ["overview_history", "selected_history"],
+    run: studentAssignmentHistory,
+  },
+  {
+    id: "student_assignment_attempt",
+    checkpoints: ["response_selected", "resume_selected", "submitted"],
+    run: studentAssignmentAttempt,
   },
   {
     id: "student_authorization",

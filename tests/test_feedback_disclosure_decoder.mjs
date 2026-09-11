@@ -8,25 +8,9 @@ import {
   decodeStudentFeedback,
   decodeStudentQuestionAttempt,
   decodeStudentIssuedQuestion,
-  decodeAssignmentAttemptSummaryResponse,
   decodeGradedQuestionSubmissionReceipt,
 } from "../src/api/decoders.ts";
 import { publishedQuestionFixture } from "./fixtures/published_question.ts";
-
-const studentProgress = {
-  assignment_progress: {
-    completed_assignment_attempt_count: 2,
-    total_question_attempts: 4,
-    last_activity_at: 1786000000000,
-  },
-  student_assignment_grade: {
-    score_state: "available",
-    assignment_scoring_state: "current",
-    current_score: 0,
-    best_score: 1,
-    latest_score: 0,
-  },
-};
 
 test("disclosed feedback preserves allowed accessible blocks and optional omission", () => {
   const feedback = {
@@ -134,55 +118,6 @@ test("Student Issued Question excludes durable Question Pool Selection evidence"
       decodeStudentIssuedQuestion({
         ...issuedQuestion,
         questionPoolSelection: "0198e000-0000-7000-8000-000000000060",
-      }),
-    DecodeError,
-  );
-});
-
-test("Assignment Attempt summary decoder accepts only its compact redacted wire shape", () => {
-  const assignmentAttempt = publishedQuestionFixture.assignment_attempts[0];
-  const summary = {
-    course: {
-      summary: publishedQuestionFixture.course,
-      appearance: { theme: "grass", banner: null },
-    },
-    assignmentAttempt,
-    summary: studentProgress,
-    outcomes: {
-      items: [
-        {
-          attempt: publishedQuestionFixture.attempts[0].id,
-          issuedQuestion: publishedQuestionFixture.issuedQuestions[0],
-          submittedAt: 1,
-          response: null,
-          feedback: null,
-          assignmentScoringState: "current",
-        },
-      ],
-      nextCursor: null,
-    },
-  };
-  assert.deepEqual(decodeAssignmentAttemptSummaryResponse(summary), summary);
-  assert.throws(
-    () => decodeAssignmentAttemptSummaryResponse({ ...summary, policy: "onRelease" }),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeAssignmentAttemptSummaryResponse({
-        ...summary,
-        summary: { ...summary.summary, privateScope: "0198e000-0000-7000-8000-000000000099" },
-      }),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeAssignmentAttemptSummaryResponse({
-        ...summary,
-        outcomes: {
-          ...summary.outcomes,
-          items: [{ ...summary.outcomes.items[0], result: { correct: true } }],
-        },
       }),
     DecodeError,
   );

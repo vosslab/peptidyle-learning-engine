@@ -1,9 +1,10 @@
 // Student Assignment Access before the issued one-question attempt lane.
 
-import { createAsync, useNavigate, useParams } from "@solidjs/router";
-import { createEffect, createSignal, Match, Show, Switch, type JSX } from "solid-js";
+import { A, createAsync, useNavigate, useParams } from "@solidjs/router";
+import { createEffect, createSignal, For, Match, Show, Switch, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
+import { StudentAssignmentStartFacts } from "../components/student_assignment_presentation";
 import {
   assignmentAttemptRouteReference,
   parseAssignmentReference,
@@ -76,10 +77,23 @@ export function AssignmentOverviewPage(): JSX.Element {
 
   return (
     <section class="page" data-route-surface="assignmentOverview">
-      <h1>Assignment</h1>
-      <Show when={access()} fallback={<p class="loading-state">Loading Assignment Access...</p>}>
+      <Show
+        when={access()}
+        fallback={
+          <p class="loading-state" role="status">
+            Loading Assignment...
+          </p>
+        }
+      >
         {(current) => (
           <>
+            <p class="eyebrow">Assignment</p>
+            <h1>{current().title}</h1>
+            <StudentAssignmentStartFacts
+              questionCount={current().questionCount}
+              pointsPossible={current().pointsPossible}
+              timeLimitSeconds={current().timeLimitSeconds}
+            />
             <Show
               when={current().activeAssignmentAttempt === null}
               fallback={
@@ -88,29 +102,64 @@ export function AssignmentOverviewPage(): JSX.Element {
                 </p>
               }
             >
-              <p role="status">{startDecisionMessage(current().startDecision)}</p>
-              <Switch>
-                <Match when={current().startDecision === "may_start"}>
-                  <button
-                    class="primary-action"
-                    type="button"
-                    disabled={starting()}
-                    onClick={() => void startAssignment()}
-                  >
-                    {starting() ? "Starting Assignment..." : "Start Assignment"}
-                  </button>
-                </Match>
-                <Match when={true}>
-                  <p>Check with your Instructor if you expected this Assignment to be available.</p>
-                </Match>
-              </Switch>
-              <Show when={startError()}>
-                {(message) => (
-                  <p role="alert" class="inline-error">
-                    {message()}
-                  </p>
-                )}
-              </Show>
+              <section class="student-assignment-action-region" aria-label="Assignment access">
+                <div class="student-assignment-primary-action">
+                  <p role="status">{startDecisionMessage(current().startDecision)}</p>
+                  <Switch>
+                    <Match when={current().startDecision === "may_start"}>
+                      <button
+                        class="primary-action wide-action"
+                        type="button"
+                        disabled={starting()}
+                        onClick={() => void startAssignment()}
+                      >
+                        {starting() ? "Starting Assignment..." : "Start Assignment"}
+                      </button>
+                    </Match>
+                    <Match when={true}>
+                      <p>
+                        Check with your Instructor if you expected this Assignment to be available.
+                      </p>
+                    </Match>
+                  </Switch>
+                  <Show when={startError()}>
+                    {(message) => (
+                      <p role="alert" class="inline-error">
+                        {message()}
+                      </p>
+                    )}
+                  </Show>
+                </div>
+              </section>
+            </Show>
+            <Show when={current().previousAttempts.length > 0}>
+              <section class="assignment-history" aria-labelledby="assignment-history-heading">
+                <h2 id="assignment-history-heading">Previous attempts</h2>
+                <ul class="assignment-history__list">
+                  <For each={current().previousAttempts}>
+                    {(attempt) => (
+                      <li>
+                        <A
+                          href={`/assignment-attempts/${assignmentAttemptRouteReference(attempt.assignmentAttempt)}/summary`}
+                        >
+                          Attempt {attempt.attemptNumber}
+                        </A>
+                        <span>{attempt.state === "submitted" ? "Submitted" : "Closed"}</span>
+                        <span>
+                          {attempt.score === undefined
+                            ? "Score is not available."
+                            : `${attempt.score.pointsEarned} of ${attempt.score.pointsPossible} points`}
+                        </span>
+                      </li>
+                    )}
+                  </For>
+                </ul>
+              </section>
+            </Show>
+            <Show when={current().previousAttempts.length === 0}>
+              <p class="empty-state" role="note">
+                You do not have a previous attempt for this Assignment.
+              </p>
             </Show>
           </>
         )}

@@ -4,6 +4,8 @@ import type { AssignmentReference } from "../../../generated/api/AssignmentRefer
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { ApiClient } from "../client";
 import type {
+  CourseAssignmentSummary,
+  DueSoonAssignments,
   LiveAssignmentReleaseClient,
   RevisionedLiveAssignmentWorkspace,
 } from "../assignment_release";
@@ -11,10 +13,13 @@ import {
   decodeAssignmentPreview,
   decodeAssignmentQuestionPicker,
   decodeAssignmentReleaseValidation,
+  decodeCourseAssignmentSummary,
   decodeCourseAssignments,
+  decodeDueSoonAssignments,
   decodeCreateLiveAssignmentInput,
   decodeLiveAssignmentWorkspace,
   decodeReleasedLiveAssignment,
+  decodeSaveLiveAssignmentInlineInput,
   decodeSaveLiveAssignmentInput,
 } from "../decoders/assignment_release";
 import { ApiProtocolError, ApiRequestError } from "./error";
@@ -93,6 +98,15 @@ export function createLiveAssignmentReleaseClient(
   basePath: string,
 ): Pick<ApiClient, keyof LiveAssignmentReleaseClient> {
   return {
+    listAssignmentsDueSoon: async (): Promise<DueSoonAssignments> =>
+      (
+        await assignmentJson(
+          fetchImplementation,
+          basePath,
+          "/api/assignments/due-soon",
+          decodeDueSoonAssignments,
+        )
+      ).body,
     listCourseAssignments: async (course) =>
       (
         await assignmentJson(
@@ -102,6 +116,28 @@ export function createLiveAssignmentReleaseClient(
           decodeCourseAssignments,
         )
       ).body,
+    saveLiveAssignmentInline: async (
+      course,
+      assignment,
+      input,
+      editNumber,
+    ): Promise<CourseAssignmentSummary> => {
+      const path = `${assignmentPath(course, assignment)}/inline`;
+      const result = await assignmentJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeCourseAssignmentSummary,
+        {
+          method: "PUT",
+          body: decodeSaveLiveAssignmentInlineInput(input),
+          etag: `"${editNumber}"`,
+          status: 200,
+        },
+      );
+      requireWorkspaceEtag(result.response, result.body.editNumber, path);
+      return result.body;
+    },
     listLiveAssignmentQuestionPicker: async (course) =>
       (
         await assignmentJson(

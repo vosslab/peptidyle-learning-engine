@@ -108,6 +108,17 @@ assignment. Copy Course for New Term and Shift Course Dates are separate Course 
 | Object storage       | `crates/objects/`                                       | Typed keys, checksums, image ingress, and the `public-assets`, `private-content`, `student-records`, and `temp-processing` domains.                                                                 |
 | Adapters             | `crates/adapters/`                                      | Bounded PLE, iMathAS, and WeBWorK Question Backends, QTI Import, and H5P Package support behind the shared Question operations.                                                                     |
 
+The implemented interface inventory also includes self-only Instructor Profile and thumbnail handling in
+[`crates/server/src/instructor_profile.rs`](../crates/server/src/instructor_profile.rs) and
+[`src/pages/instructor_profile_page.tsx`](../src/pages/instructor_profile_page.tsx); the
+cross-Course Due Soon reader and page in
+[`crates/server/src/assignment_release.rs`](../crates/server/src/assignment_release.rs) and
+[`src/pages/assignments_due_soon_page.tsx`](../src/pages/assignments_due_soon_page.tsx); and the
+selected completed-Attempt history reader in
+[`crates/server/src/assignment_delivery/history.rs`](../crates/server/src/assignment_delivery/history.rs).
+The history reader resolves only the owned completed Attempt's pinned source evidence and returns
+independently disclosed teaching content without regrading.
+
 The current server composition is
 [`crates/server/src/composition.rs`](../crates/server/src/composition.rs).
 `production_router_from_env()` constructs PostgreSQL Stores for sessions,

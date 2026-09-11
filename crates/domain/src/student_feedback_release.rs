@@ -13,7 +13,7 @@ use question_model::{
 
 use crate::effective_assignment_policy::{AssignmentAccessDecision, EffectiveAssignmentPolicy};
 
-/// The six independently evaluated Student Feedback Release fields.
+/// The seven independently evaluated Student Feedback Release fields.
 ///
 /// A caller uses these booleans to omit protected fields from Student Feedback;
 /// this type contains no protected content itself.
@@ -21,6 +21,7 @@ use crate::effective_assignment_policy::{AssignmentAccessDecision, EffectiveAssi
 pub struct StudentFeedbackReleaseDecision {
     pub score: bool,
     pub per_item_correctness: bool,
+    pub submitted_response: bool,
     pub question_feedback: bool,
     pub question_answer: bool,
     pub question_answer_explanation: bool,
@@ -152,6 +153,13 @@ pub fn evaluate_allowed_student_feedback_release(
         ),
         per_item_correctness: timing_released(
             rule.per_item_correctness,
+            now,
+            submitted_at,
+            policy.due_at.value,
+            policy.closes_at.value,
+        ),
+        submitted_response: timing_released(
+            rule.submitted_response,
             now,
             submitted_at,
             policy.due_at.value,

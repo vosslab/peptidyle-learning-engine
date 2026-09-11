@@ -7,12 +7,13 @@
 //! and returns an owned, closed Assignment Release Validation.
 
 use question_model::{
-    ActiveStudentCourseMembershipDenialReason, ActiveStudentCourseMembershipGrantReason,
-    ActiveStudentCourseMembershipOutcome, AssignmentAuthoredContentField,
-    AssignmentPolicySourceKind, CourseLocalDateAndTime, CourseTerm, EffectiveAssignmentPolicyView,
-    PreviewAssignmentDeadlineRuleField, PreviewDenialReason, PreviewDisclosureFlags,
-    PreviewDisclosureMoment, PreviewDisclosureUnavailableReason, PreviewLateWorkRuleField,
-    PreviewLimitField, PreviewResolvedPolicy, PreviewTimeField, StudentFeedbackReleaseRule,
+    AccountTimeZone, ActiveStudentCourseMembershipDenialReason,
+    ActiveStudentCourseMembershipGrantReason, ActiveStudentCourseMembershipOutcome,
+    AssignmentAuthoredContentField, AssignmentPolicySourceKind, CourseTerm,
+    EffectiveAssignmentPolicyView, LocalDateAndTime, PreviewAssignmentDeadlineRuleField,
+    PreviewDenialReason, PreviewDisclosureFlags, PreviewDisclosureMoment,
+    PreviewDisclosureUnavailableReason, PreviewLateWorkRuleField, PreviewLimitField,
+    PreviewResolvedPolicy, PreviewTimeField, StudentFeedbackReleaseRule,
     StudentFeedbackReleaseView, Timestamp,
 };
 
@@ -41,19 +42,27 @@ pub fn assignment_policy_source_kind(
 pub fn project_preview_policy(
     policy: &EffectiveAssignmentPolicy,
     term: &CourseTerm,
+    account_time_zone: &AccountTimeZone,
 ) -> Result<PreviewResolvedPolicy, &'static str> {
     PreviewResolvedPolicy::new(
         time(
             &policy.available_at,
             term,
+            account_time_zone,
             AssignmentAuthoredContentField::AvailableAt,
         )
         .map_err(|_| "invalid local preview time")?,
-        time(&policy.due_at, term, AssignmentAuthoredContentField::DueAt)
-            .map_err(|_| "invalid local preview time")?,
+        time(
+            &policy.due_at,
+            term,
+            account_time_zone,
+            AssignmentAuthoredContentField::DueAt,
+        )
+        .map_err(|_| "invalid local preview time")?,
         time(
             &policy.closes_at,
             term,
+            account_time_zone,
             AssignmentAuthoredContentField::ClosesAt,
         )
         .map_err(|_| "invalid local preview time")?,
@@ -66,12 +75,20 @@ pub fn project_preview_policy(
 fn time(
     field: &crate::effective_assignment_policy::EffectiveAssignmentPolicyValue<Option<Timestamp>>,
     term: &CourseTerm,
+    account_time_zone: &AccountTimeZone,
     kind: AssignmentAuthoredContentField,
 ) -> Result<PreviewTimeField, question_model::AssignmentAuthoredContentLocalError> {
     Ok(PreviewTimeField {
         value: field
             .value
-            .map(|v| CourseLocalDateAndTime::from_activity_timestamp(v, term, kind))
+            .map(|v| {
+                LocalDateAndTime::from_activity_timestamp_in_account_time_zone(
+                    v,
+                    term,
+                    account_time_zone,
+                    kind,
+                )
+            })
             .transpose()?,
         source: assignment_policy_source_kind(&field.source),
     })
@@ -111,17 +128,25 @@ fn deadline(
 pub fn project_preview_schedule(
     policy: &EffectiveAssignmentPolicy,
     term: &CourseTerm,
+    account_time_zone: &AccountTimeZone,
 ) -> Result<EffectiveAssignmentPolicyView, question_model::AssignmentAuthoredContentLocalError> {
     Ok(EffectiveAssignmentPolicyView {
         available_at: time(
             &policy.available_at,
             term,
+            account_time_zone,
             AssignmentAuthoredContentField::AvailableAt,
         )?,
-        due_at: time(&policy.due_at, term, AssignmentAuthoredContentField::DueAt)?,
+        due_at: time(
+            &policy.due_at,
+            term,
+            account_time_zone,
+            AssignmentAuthoredContentField::DueAt,
+        )?,
         closes_at: time(
             &policy.closes_at,
             term,
+            account_time_zone,
             AssignmentAuthoredContentField::ClosesAt,
         )?,
         assignment_attempt_time_limit_seconds: limit(&policy.assignment_attempt_time_limit_seconds),
@@ -392,9 +417,10 @@ mod tests {
                 source: AssignmentPolicySource::Base,
             },
         };
-        let term = CourseTerm::from_parts("2026-08-01", "2026-08-31", "America/Chicago").unwrap();
-        let projected = project_preview_policy(&policy, &term).unwrap();
-        let schedule = project_preview_schedule(&policy, &term).unwrap();
+        let term = CourseTerm::from_parts("2026-08-01", "2026-08-31").unwrap();
+        let account_time_zone = AccountTimeZone::parse("America/Chicago").unwrap();
+        let projected = project_preview_policy(&policy, &term, &account_time_zone).unwrap();
+        let schedule = project_preview_schedule(&policy, &term, &account_time_zone).unwrap();
 
         assert_eq!(
             projected.available_at().value.as_ref().unwrap().as_str(),
@@ -562,6 +588,7 @@ mod tests {
         let disclosure = StudentFeedbackReleaseRule {
             score: StudentFeedbackReleaseTiming::DuringAttempt,
             per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
+            submitted_response: StudentFeedbackReleaseTiming::AfterSubmit,
             question_feedback: StudentFeedbackReleaseTiming::AfterDue,
             question_answer: StudentFeedbackReleaseTiming::AfterClose,
             question_answer_explanation: StudentFeedbackReleaseTiming::AfterClose,

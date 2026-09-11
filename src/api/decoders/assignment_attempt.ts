@@ -37,8 +37,6 @@ import type {
   PrefetchedNextQuestion,
   QuestionPoolSelectionPosition,
   StudentIssuedQuestion,
-  AssignmentAttemptSummaryOutcome,
-  AssignmentAttemptSummaryResponse,
   SignedOutResponse,
 } from "../contracts";
 import type { CapabilityViolation, QuestionAttemptTimingDecision } from "../../wasm/index";
@@ -56,10 +54,7 @@ import {
   decodeTrue,
 } from "../decoder";
 import {
-  MAX_CURSOR_PAGE_ITEMS,
   decodeCapability,
-  decodeBoundedArray,
-  decodeCursor,
   decodeCursorPage,
   decodeIdentifier,
   decodeQuestionRevisionReference,
@@ -69,17 +64,9 @@ import {
   requireOnlyFields,
 } from "./shared";
 import { decodeStudentAssignmentLandingSummary } from "./question_library";
-import {
-  decodeGradingResult,
-  decodeStudentFeedback,
-  decodeStudentResponse,
-} from "./question_delivery";
+import { decodeGradingResult, decodeStudentResponse } from "./question_delivery";
 import { decodeIssuedQuestionPresentation } from "./presentation_delivery";
-import {
-  decodeQuestionSummary,
-  decodeCourseRouteView,
-  decodeCourseSummary,
-} from "./question_library";
+import { decodeQuestionSummary, decodeCourseSummary } from "./question_library";
 import { decodeAssignmentReference } from "./shared";
 
 const ISSUED_ATTEMPT_CAPABILITIES = [
@@ -586,87 +573,6 @@ export function decodeStudentAssignmentProgress(
     );
   }
   return { assignment_progress, student_assignment_grade };
-}
-
-function decodeAssignmentAttemptSummaryOutcome(
-  value: unknown,
-  path: string,
-): AssignmentAttemptSummaryOutcome {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "attempt",
-    "issuedQuestion",
-    "submittedAt",
-    "response",
-    "feedback",
-    "assignmentScoringState",
-  ]);
-  const decoded = {
-    attempt: decodeIdentifier(field(record, "attempt", path), `${path}.attempt`),
-    issuedQuestion: decodeStudentIssuedQuestion(
-      field(record, "issuedQuestion", path),
-      `${path}.issuedQuestion`,
-    ),
-    submittedAt: decodeNullable(
-      field(record, "submittedAt", path),
-      `${path}.submittedAt`,
-      decodeTimestamp,
-    ),
-    response: decodeNullable(
-      field(record, "response", path),
-      `${path}.response`,
-      decodeStudentResponse,
-    ),
-    feedback: decodeNullable(
-      field(record, "feedback", path),
-      `${path}.feedback`,
-      decodeStudentFeedback,
-    ),
-    assignmentScoringState: decodeStringEnum(
-      field(record, "assignmentScoringState", path),
-      `${path}.assignmentScoringState`,
-      ASSIGNMENT_SCORING_STATES,
-    ),
-  } satisfies AssignmentAttemptSummaryOutcome;
-  if (
-    decoded.assignmentScoringState !== "current" &&
-    (decoded.feedback?.pointsEarned !== undefined || decoded.feedback?.pointsPossible !== undefined)
-  ) {
-    throw new DecodeError(`${path}.feedback`, "no numeric points while scoring is not current");
-  }
-  return decoded;
-}
-
-export function decodeAssignmentAttemptSummaryResponse(
-  value: unknown,
-  path = "response",
-): AssignmentAttemptSummaryResponse {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["course", "assignmentAttempt", "summary", "outcomes"]);
-  const outcomes = decodeRecord(field(record, "outcomes", path), `${path}.outcomes`);
-  requireOnlyFields(outcomes, `${path}.outcomes`, ["items", "nextCursor"]);
-  const decoded = {
-    course: decodeCourseRouteView(field(record, "course", path), `${path}.course`),
-    assignmentAttempt: decodeStrictAssignmentAttempt(
-      field(record, "assignmentAttempt", path),
-      `${path}.assignmentAttempt`,
-    ),
-    summary: decodeStudentAssignmentProgress(field(record, "summary", path), `${path}.summary`),
-    outcomes: {
-      items: decodeBoundedArray(
-        field(outcomes, "items", `${path}.outcomes`),
-        `${path}.outcomes.items`,
-        MAX_CURSOR_PAGE_ITEMS,
-        decodeAssignmentAttemptSummaryOutcome,
-      ),
-      nextCursor: decodeNullable(
-        field(outcomes, "nextCursor", `${path}.outcomes`),
-        `${path}.outcomes.nextCursor`,
-        decodeCursor,
-      ),
-    },
-  } satisfies AssignmentAttemptSummaryResponse;
-  return decoded;
 }
 
 export function decodeStudentFeedbackReleaseResponse(

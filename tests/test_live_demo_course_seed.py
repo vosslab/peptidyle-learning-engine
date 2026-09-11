@@ -4,6 +4,45 @@ import local_stack_control.live_demo_course_seed
 
 
 #============================================
+def test_course_payload_uses_the_date_only_course_term_contract() -> None:
+	"""The Live Demo Course request retains term dates without retired clock data."""
+	seed = local_stack_control.live_demo_course_seed
+
+	payload = seed.course_payload("BP-1")
+
+	assert payload["term"] == {
+		"startDate": seed.SEEDED_COURSE_TERM.start_date,
+		"endDate": seed.SEEDED_COURSE_TERM.end_date,
+	}
+
+
+#============================================
+def test_student_feedback_release_rule_includes_submitted_response_timing() -> None:
+	"""The Live Demo Blueprint payload satisfies the strict feedback-rule wire contract."""
+	seed = local_stack_control.live_demo_course_seed
+
+	rule = seed.student_feedback_release_rule()
+
+	assert rule["submitted_response"] == "after_submit"
+
+
+#============================================
+def test_assignment_save_payload_sets_the_explicit_demo_presentation() -> None:
+	"""The fixed demo walkthrough retains its time limit and authored Question recipes."""
+	seed = local_stack_control.live_demo_course_seed
+
+	payload = seed.assignment_save_payload(seed.SEEDED_QUESTION_IDS)
+
+	assert payload["assignmentAttemptTimeLimitSeconds"] == (
+		seed.SEEDED_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS
+	)
+	assert payload["activityRules"] == seed.assignment_activity_rules(
+		assignment_question_display_rule="oneQuestionAtATime",
+		assignment_question_order_rule="authoredOrder",
+	)
+
+
+#============================================
 def test_fully_provisioned_state_plans_no_stages() -> None:
 	"""Every declared product fact closes its corresponding stage."""
 	observed = local_stack_control.live_demo_course_seed.ObservedState(

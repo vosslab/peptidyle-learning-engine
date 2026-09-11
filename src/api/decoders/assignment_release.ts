@@ -14,15 +14,19 @@ import type {
   AuthoredAssignmentQuestion,
   CourseAssignmentSummary,
   CreateLiveAssignmentInput,
+  DueSoonAssignmentSummary,
+  DueSoonAssignments,
   LiveAssignmentStatus,
   LiveAssignmentWorkspace,
   ReleasedLiveAssignment,
+  SaveLiveAssignmentInlineInput,
   SaveLiveAssignmentInput,
 } from "../assignment_release";
 import {
   DecodeError,
   decodeArray,
   decodeBoolean,
+  decodeFiniteNumber,
   decodePositiveInteger,
   decodeRecord,
   decodeString,
@@ -30,6 +34,8 @@ import {
 import {
   decodeAssignmentReference,
   decodeAssignmentTitle,
+  decodeCourseInstanceReference,
+  decodeCourseTitle,
   decodeQuestionDescription,
   decodeQuestionId,
   field,
@@ -97,6 +103,7 @@ function feedbackRules(value: unknown, path: string): StudentFeedbackReleaseRule
   requireOnlyFields(record, path, [
     "score",
     "per_item_correctness",
+    "submitted_response",
     "question_feedback",
     "question_answer",
     "question_answer_explanation",
@@ -159,12 +166,77 @@ function status(value: unknown, path: string): LiveAssignmentStatus {
 
 function courseAssignmentSummary(value: unknown, path: string): CourseAssignmentSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "title", "status", "editNumber"]);
+  requireOnlyFields(record, path, [
+    "reference",
+    "title",
+    "dueAt",
+    "displayTimeZone",
+    "status",
+    "editNumber",
+  ]);
   return {
     reference: decodeAssignmentReference(field(record, "reference", path), `${path}.reference`),
     title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
+    dueAt: localDateAndTime(field(record, "dueAt", path), `${path}.dueAt`),
+    displayTimeZone: displayTimeZone(
+      field(record, "displayTimeZone", path),
+      `${path}.displayTimeZone`,
+    ),
     status: status(field(record, "status", path), `${path}.status`),
     editNumber: editNumber(field(record, "editNumber", path), `${path}.editNumber`),
+  };
+}
+
+function dueAtMillis(value: unknown, path: string): number {
+  const decoded = decodeFiniteNumber(value, path);
+  if (!Number.isSafeInteger(decoded))
+    throw new DecodeError(path, "a safe Unix millisecond instant");
+  return decoded;
+}
+
+function dueSoonAssignmentSummary(value: unknown, path: string): DueSoonAssignmentSummary {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "courseReference",
+    "courseTitle",
+    "assignmentReference",
+    "assignmentTitle",
+    "assignmentStatus",
+    "dueAtMillis",
+  ]);
+  return {
+    courseReference: decodeCourseInstanceReference(
+      field(record, "courseReference", path),
+      `${path}.courseReference`,
+    ),
+    courseTitle: decodeCourseTitle(field(record, "courseTitle", path), `${path}.courseTitle`),
+    assignmentReference: decodeAssignmentReference(
+      field(record, "assignmentReference", path),
+      `${path}.assignmentReference`,
+    ),
+    assignmentTitle: decodeAssignmentTitle(
+      field(record, "assignmentTitle", path),
+      `${path}.assignmentTitle`,
+    ),
+    assignmentStatus: status(field(record, "assignmentStatus", path), `${path}.assignmentStatus`),
+    dueAtMillis: dueAtMillis(field(record, "dueAtMillis", path), `${path}.dueAtMillis`),
+  };
+}
+
+/** Decodes the bounded cross-Course Due Soon response without accepting hidden pagination. */
+export function decodeDueSoonAssignments(value: unknown, path = "response"): DueSoonAssignments {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["items", "nextCursor", "displayTimeZone"]);
+  if (field(record, "nextCursor", path) !== null) {
+    throw new DecodeError(`${path}.nextCursor`, "null for the bounded Due Soon list");
+  }
+  return {
+    items: decodeArray(field(record, "items", path), `${path}.items`, dueSoonAssignmentSummary),
+    nextCursor: null,
+    displayTimeZone: displayTimeZone(
+      field(record, "displayTimeZone", path),
+      `${path}.displayTimeZone`,
+    ),
   };
 }
 
@@ -178,6 +250,19 @@ export function decodeCreateLiveAssignmentInput(
   return {
     title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
     instructions: instructions(field(record, "instructions", path), `${path}.instructions`),
+  };
+}
+
+/** Validates the intentionally narrow mutable Course Assignment list-row input. */
+export function decodeSaveLiveAssignmentInlineInput(
+  value: unknown,
+  path = "request",
+): SaveLiveAssignmentInlineInput {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["title", "dueAt"]);
+  return {
+    title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
+    dueAt: localDateAndTime(field(record, "dueAt", path), `${path}.dueAt`),
   };
 }
 
@@ -290,6 +375,14 @@ export function decodeCourseAssignments(
   return decodeArray(value, path, courseAssignmentSummary);
 }
 
+/** Decodes the same closed row shape returned by the inline row save. */
+export function decodeCourseAssignmentSummary(
+  value: unknown,
+  path = "response",
+): CourseAssignmentSummary {
+  return courseAssignmentSummary(value, path);
+}
+
 export function decodeAssignmentReleaseValidation(
   value: unknown,
   path = "response",
@@ -297,7 +390,11 @@ export function decodeAssignmentReleaseValidation(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["canRelease", "issues"]);
   const issues = decodeArray(field(record, "issues", path), `${path}.issues`, (item, itemPath) => {
-    if (item !== "noPublishedQuestions" && item !== "questionUnavailable") {
+    if (
+      item !== "noPublishedQuestions" &&
+      item !== "questionUnavailable" &&
+      item !== "timeLimitRequired"
+    ) {
       throw new DecodeError(itemPath, "a current Assignment Release issue");
     }
     return item;

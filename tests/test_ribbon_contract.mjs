@@ -112,20 +112,23 @@ test("admission withholds unavailable controls and respects declared role ceilin
   }
 });
 
-test("Instructor Profile retains an unavailable account-endcap position without a DOM control", async () => {
+test("Instructor Profile is an available Instructor account-endcap route without a selected tab", async () => {
   const model = controlsFor("courses", "instructor").model;
   assert.deepEqual(model.context.accountControls, [
     {
       id: "profile",
       label: "Profile",
-      availability: "Unavailable",
+      availability: "Available",
       glyph: "profile",
+      href: "/profile",
     },
   ]);
   const RealAppRibbon = await loadAppRibbonForSsr();
   const html = renderToString(() => createComponent(RealAppRibbon, { model }));
-  assert.doesNotMatch(html, /data-ribbon-context-control="profile"/);
-  assert.doesNotMatch(html, />Profile</);
+  assert.match(html, /data-ribbon-context-control="profile"/);
+  assert.match(html, />Profile</);
+  const profileRoute = ROUTE_CONTRACT.find((route) => route.id === "instructorProfile");
+  assert.deepEqual(profileRoute?.ribbon, { scope: "product", contentLayout: "reading" });
 });
 
 test("Appearance admits only the Instructor Course Setup task and preserves its route", async () => {

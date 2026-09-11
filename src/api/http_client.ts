@@ -22,6 +22,7 @@ import { createGradingOperationsClient } from "./http_client/grading_operations"
 import { createCalculatedGradebookClient } from "./http_client/calculated_gradebook";
 import { createLiveAssignmentReleaseClient } from "./http_client/assignment_release";
 import { createLiveAssignmentAttemptIssuanceClient } from "./http_client/assignment_attempt_issuance";
+import { createStudentAssignmentAttemptHistoryClient } from "./http_client/assignment_attempt_history";
 import { createStudentAssignmentAttemptNavigationClient } from "./http_client/assignment_attempt_navigation";
 import { createInstructorAccountClient } from "./http_client/instructor_account";
 import { createSupportCapabilityClient } from "./http_client/support_roster";
@@ -64,6 +65,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createLiveInvitationExportClient(fetchImplementation, basePath),
     createLiveAssignmentReleaseClient(fetchImplementation, basePath),
     createLiveAssignmentAttemptIssuanceClient(fetchImplementation, basePath),
+    createStudentAssignmentAttemptHistoryClient(fetchImplementation, basePath),
     createStudentAssignmentAttemptNavigationClient(fetchImplementation, basePath),
     createInstructorAccountClient(fetchImplementation, basePath),
     createSupportCapabilityClient(fetchImplementation, basePath),

@@ -191,9 +191,17 @@ const CAPABILITY_DECLARATIONS = {
     ],
   },
   productAssignments: {
-    kind: "unbacked",
-    reason: "Product-level Assignments has no complete cross-Course destination yet.",
-    evidence: ["src/ribbon/ribbon_catalog.ts::productAssignments"],
+    kind: "backed",
+    clientMethod: "ApiClient.listAssignmentsDueSoon",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/assignment_release.rs::assignment_release_router",
+    },
+    evidence: [
+      "crates/server/src/assignment_release.rs::assignment_release_router",
+      "src/api/http_client/assignment_release.ts::createLiveAssignmentReleaseClient",
+      "src/pages/assignments_due_soon_page.tsx::AssignmentsDueSoonPage",
+    ],
   },
   assignments: {
     kind: "backed",
@@ -378,9 +386,17 @@ const CAPABILITY_DECLARATIONS = {
     ],
   },
   assignmentsDueSoon: {
-    kind: "unbacked",
-    reason: "Assignments Due Soon has no authorized cross-Course view yet.",
-    evidence: ["src/ribbon/ribbon_catalog.ts::assignmentsDueSoon"],
+    kind: "backed",
+    clientMethod: "ApiClient.listAssignmentsDueSoon",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/assignment_release.rs::assignment_release_router",
+    },
+    evidence: [
+      "crates/server/src/assignment_release.rs::assignment_release_router",
+      "src/api/http_client/assignment_release.ts::createLiveAssignmentReleaseClient",
+      "src/pages/assignments_due_soon_page.tsx::AssignmentsDueSoonPage",
+    ],
   },
   assignmentTemplates: {
     kind: "unbacked",
@@ -398,9 +414,17 @@ const CAPABILITY_DECLARATIONS = {
     evidence: [...NO_TEACHING_HANDLER, "src/routes.ts::routeComponents"],
   },
   assignmentPolicies: {
-    kind: "unbacked",
-    reason: "Assignment workspace Policies has no registered production teaching/data handler.",
-    evidence: [...NO_TEACHING_HANDLER, "src/routes.ts::routeComponents"],
+    kind: "backed",
+    clientMethod: "ApiClient.getLiveAssignmentWorkspace",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "GET /api/course-instances/{course}/assignments/{assignment}",
+    },
+    evidence: [
+      "src/routes.ts::routeComponents",
+      "src/pages/assignment_workspace/assignment_workspace_policies_page.tsx::AssignmentWorkspacePoliciesPage",
+      "src/api/http_client/assignment_release.ts::getLiveAssignmentWorkspace",
+    ],
   },
   assignmentGradingOperations: {
     kind: "unbacked",

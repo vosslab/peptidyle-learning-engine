@@ -189,6 +189,12 @@ psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/test
 echo "PostgreSQL Migration Acceptance Runtime E2E: M5 saved-response and Assignment Attempt submission oracle PASS"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/postgres_migration_acceptance_student_assignment_attempt_context.sql"
 echo "PostgreSQL Migration Acceptance Runtime E2E: M5 Student Assignment Attempt context oracle PASS"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/postgres_migration_acceptance_inline_assignment_retime.sql"
+echo "PostgreSQL Migration Acceptance Runtime E2E: M11 released Assignment retime oracle PASS"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/postgres_migration_acceptance_student_assignment_access.sql"
+echo "PostgreSQL Migration Acceptance Runtime E2E: M7 Student Assignment access oracle PASS"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/postgres_migration_acceptance_student_assignment_history.sql"
+echo "PostgreSQL Migration Acceptance Runtime E2E: M7 Student Assignment Attempt history oracle PASS"
 echo "PostgreSQL Migration Acceptance Runtime E2E: Question Asset delivery authorization oracle"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/question_asset_delivery_oracle.sql"
 echo "PostgreSQL Migration Acceptance Runtime E2E: Question Asset delivery authorization oracle PASS"
@@ -201,6 +207,8 @@ psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/test
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/postgres_migration_acceptance_instructor_account_creation.sql"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/postgres_migration_acceptance_account_time_zone.sql"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/postgres_migration_acceptance_assignment_schedule_context.sql"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/postgres_migration_acceptance_assignments_due_soon.sql"
+echo "PostgreSQL Migration Acceptance Runtime E2E: M10 Assignments Due Soon oracle PASS"
 assert_restricted_logins
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/imathas_question_backend_session_postgres_oracle.sql"
 assert_imathas_question_backend_service_logins

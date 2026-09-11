@@ -8,11 +8,31 @@ import type { QuestionPresentation } from "../../generated/api/QuestionPresentat
 export type AssignmentStartDecision =
   "may_start" | "not_yet_available" | "closed" | "attempt_limit_reached" | "late_work_refused";
 
+export interface LiveAssignmentAttemptScore {
+  readonly pointsEarned: number;
+  readonly pointsPossible: number;
+}
+
+export interface LiveAssignmentPreviousAttempt {
+  readonly assignmentAttempt: AssignmentAttemptReference;
+  readonly attemptNumber: number;
+  readonly state: "submitted" | "closed";
+  /** Omitted while grading is incomplete or disclosure withholds the score. */
+  readonly score?: LiveAssignmentAttemptScore;
+}
+
 /** Server-calculated access for the signed-in Student only. */
 export interface LiveAssignmentAccess {
   readonly startDecision: AssignmentStartDecision;
   /** Authorized unfinished Assignment Attempt, if the Student can resume one. */
   readonly activeAssignmentAttempt: AssignmentAttemptReference | null;
+  readonly title: string;
+  readonly questionCount: number;
+  readonly pointsPossible: number;
+  /** `null` represents an unbounded Assignment Attempt duration. */
+  readonly timeLimitSeconds: number | null;
+  /** Complete, newest-first, answer-free owned Attempt history. */
+  readonly previousAttempts: ReadonlyArray<LiveAssignmentPreviousAttempt>;
 }
 
 /** Initial or resumed Assignment Attempt presentation with its response controls. */

@@ -55,7 +55,7 @@ pub struct SaveLiveAssignmentInput {
     /// The nine independent Assignment activity rules.
     #[serde(default)]
     pub activity_rules: AssignmentActivityRules,
-    /// The six independently configured Student feedback timings.
+    /// The seven independently configured Student feedback timings.
     #[serde(default)]
     pub student_feedback_release_rule: StudentFeedbackReleaseRule,
     /// Ordered Available Published Questions selected for the Assignment.
@@ -122,10 +122,64 @@ pub struct CourseAssignmentSummary {
     pub reference: AssignmentReference,
     /// Current Instructor-authored Assignment Title.
     pub title: AssignmentTitle,
+    /// Optional current Due at projected in the authenticated Instructor zone.
+    pub due_at: Option<LocalDateAndTime>,
+    /// Authenticated Instructor zone governing the returned local Due at.
+    pub display_time_zone: AccountTimeZone,
     /// Stable Assignment lifecycle, separate from Student Assignment Access.
     pub status: AssignmentStatus,
     /// Exact compare-and-swap value for the current authored content.
     pub edit_number: AssignmentEditNumber,
+}
+
+/// One answer-free Assignment due in the current Instructor's rolling next-seven-days window.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DueSoonAssignmentSummary {
+    /// Public Course Instance reference; internal Course identity remains server-side.
+    pub course_reference: CourseInstanceReference,
+    /// Current Course Instance title.
+    pub course_title: String,
+    /// Public Assignment reference; internal Assignment identity remains server-side.
+    pub assignment_reference: AssignmentReference,
+    /// Current Instructor-authored Assignment title.
+    pub assignment_title: AssignmentTitle,
+    /// Current Assignment lifecycle, limited by the reader to ordinary actionable states.
+    pub assignment_status: AssignmentStatus,
+    /// Stored deadline instant as Unix milliseconds, not a Course-local wall-clock value.
+    pub due_at_millis: i64,
+}
+
+/// Bounded cross-Course Due Soon projection for one authenticated Instructor.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DueSoonAssignments {
+    /// Answer-free Assignment rows ordered by their stored due instant.
+    pub items: Vec<DueSoonAssignmentSummary>,
+    /// This bounded reader has no pagination cursor.
+    pub next_cursor: Option<String>,
+    /// Authenticated Account-owned zone for the browser's due-instant display.
+    pub display_time_zone: AccountTimeZone,
+}
+
+/// The only mutable fields exposed by the Course Assignment-list inline save.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SaveLiveAssignmentInlineInput {
+    // ASVS 1.5.2 and 2.2.1: accept only this closed, validated request shape.
+    /// Instructor-facing Assignment Title.
+    pub title: AssignmentTitle,
+    /// Optional raw local Due at; the Store resolves it in the Instructor zone.
+    #[serde(deserialize_with = "deserialize_required_option")]
+    pub due_at: Option<LocalDateAndTime>,
+}
+
+fn deserialize_required_option<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::deserialize(deserializer)
 }
 
 /// Complete current Assignment Workspace projection for one direct Teaching Team Member.
@@ -164,6 +218,8 @@ pub struct LiveAssignmentWorkspace {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AssignmentReleaseIssue {
+    /// An Assignment Attempt duration must be chosen before release.
+    TimeLimitRequired,
     /// An immutable Assignment Revision requires at least one selected Question.
     NoPublishedQuestions,
     /// A previously selected Question Revision is no longer Available for release.
@@ -178,6 +234,68 @@ pub struct AssignmentReleaseValidation {
     pub can_release: bool,
     /// All current release blockers in the small release boundary.
     pub issues: Vec<AssignmentReleaseIssue>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AssignmentReleaseIssue, SaveLiveAssignmentInlineInput};
+
+    #[test]
+    fn time_limit_required_is_a_stable_browser_issue() {
+        assert_eq!(
+            serde_json::to_value(AssignmentReleaseIssue::TimeLimitRequired)
+                .expect("release issue serializes"),
+            serde_json::json!("timeLimitRequired")
+        );
+    }
+
+    #[test]
+    fn inline_save_input_accepts_only_the_closed_validated_shape() {
+        assert!(
+            serde_json::from_value::<SaveLiveAssignmentInlineInput>(serde_json::json!({
+                "title": "Peptide bonds"
+            }))
+            .is_err()
+        );
+
+        let input: SaveLiveAssignmentInlineInput = serde_json::from_value(serde_json::json!({
+            "title": "Peptide bonds",
+            "dueAt": "2026-09-11T14:30:00.000"
+        }))
+        .expect("valid inline save input deserializes");
+        assert_eq!(input.title.as_str(), "Peptide bonds");
+        assert!(input.due_at.is_some());
+
+        let input: SaveLiveAssignmentInlineInput = serde_json::from_value(serde_json::json!({
+            "title": "Peptide bonds",
+            "dueAt": null
+        }))
+        .expect("explicit null inline due date deserializes");
+        assert!(input.due_at.is_none());
+
+        assert!(
+            serde_json::from_value::<SaveLiveAssignmentInlineInput>(serde_json::json!({
+                "title": "Peptide bonds",
+                "dueAt": null,
+                "unexpected": true
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<SaveLiveAssignmentInlineInput>(serde_json::json!({
+                "title": "",
+                "dueAt": null
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<SaveLiveAssignmentInlineInput>(serde_json::json!({
+                "title": "Peptide bonds",
+                "dueAt": "invalid"
+            }))
+            .is_err()
+        );
+    }
 }
 
 /// Answer-free Instructor-authorized Assignment Preview for the current Assignment.
@@ -205,6 +323,12 @@ pub struct ReleasedLiveAssignment {
 /// Store boundary for Assignment Workspace and release operations.
 #[async_trait]
 pub trait LiveAssignmentStore: Send + Sync {
+    /// Lists ordinary current Assignments due in the caller's rolling next-seven-days window.
+    async fn list_assignments_due_soon(
+        &self,
+        session_token_hash: SessionTokenHash,
+    ) -> Result<DueSoonAssignments, StoreError>;
+
     /// Lists only Assignments owned by one exact authorized Course Instance.
     async fn list_course_assignments(
         &self,
@@ -243,6 +367,16 @@ pub trait LiveAssignmentStore: Send + Sync {
         assignment: AssignmentReference,
         input: SaveLiveAssignmentInput,
     ) -> Result<LiveAssignmentWorkspace, StoreError>;
+
+    /// Saves only the current Title and Due at with an exact Edit Number.
+    async fn save_live_assignment_inline(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course: CourseInstanceReference,
+        assignment: AssignmentReference,
+        expected_edit_number: AssignmentEditNumber,
+        input: SaveLiveAssignmentInlineInput,
+    ) -> Result<CourseAssignmentSummary, StoreError>;
 
     /// Calculates the current small release boundary without mutating state.
     async fn validate_live_assignment_release(

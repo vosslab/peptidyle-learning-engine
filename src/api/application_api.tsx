@@ -4,7 +4,6 @@ import { query } from "@solidjs/router";
 import { createContext, useContext, type JSX } from "solid-js";
 
 import type { AssignmentId } from "../../generated/api/AssignmentId";
-import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
@@ -19,7 +18,6 @@ import type {
   CourseRouteView,
   CourseSummary,
   CursorPage,
-  AssignmentAttemptSummaryResponse,
 } from "./contracts";
 import {
   resolveAssignmentAttemptIdentity,
@@ -32,6 +30,7 @@ import type {
   CourseInstanceRouteReference,
 } from "../navigation/public_route";
 import type { StudentAssignmentAttemptContext } from "./assignment_attempt_navigation";
+import type { StudentAssignmentAttemptHistory } from "./assignment_attempt_history";
 
 interface QueryFunction<Arguments extends ReadonlyArray<unknown>, Result> {
   (...arguments_: Arguments): Promise<Result>;
@@ -50,9 +49,9 @@ export interface ApplicationApi<Client extends ApiClient = ApiClient> {
     readonly assignment: QueryFunction<[AssignmentId], StudentAssignmentDetail>;
     readonly assignmentSummary: QueryFunction<[AssignmentId], StudentAssignmentProgress>;
     readonly courseScope: QueryFunction<[CourseId], CourseRouteView>;
-    readonly assignmentAttemptSummary: QueryFunction<
-      [AssignmentAttemptId],
-      AssignmentAttemptSummaryResponse
+    readonly assignmentAttemptHistory: QueryFunction<
+      [AssignmentAttemptRouteReference],
+      StudentAssignmentAttemptHistory
     >;
     /** Live Student Attempt presentation scope keyed directly by R-n. */
     readonly assignmentAttemptScope: QueryFunction<
@@ -111,10 +110,10 @@ export function createApplicationApi<Client extends ApiClient>(
         }
         return { summary, appearance };
       }, "course-scope"),
-      assignmentAttemptSummary: query(
-        (assignmentAttemptId: AssignmentAttemptId) =>
-          client.getAssignmentAttemptSummary(assignmentAttemptId, undefined, 30),
-        "assignment-attempt-summary",
+      assignmentAttemptHistory: query(
+        (reference: AssignmentAttemptRouteReference) =>
+          client.getStudentAssignmentAttemptHistory(reference),
+        "assignment-attempt-history",
       ),
       assignmentAttemptScope: query(
         (reference: AssignmentAttemptRouteReference) =>

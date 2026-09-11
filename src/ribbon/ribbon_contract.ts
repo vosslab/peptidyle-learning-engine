@@ -192,6 +192,9 @@ function accountControlsFor(productRole: ProductRole): ReadonlyArray<RibbonConte
           label: control.label,
           availability: control.availability,
           glyph: control.glyph,
+          ...(control.id === "profile" && control.availability === "Available"
+            ? { href: "/profile" }
+            : {}),
         }),
     ),
   );
@@ -589,14 +592,15 @@ function breadcrumbsFor(
         breadcrumbCurrent("Assignment attempt"),
       ]);
     case "assignmentAttemptSummary":
-      // Summary route data authorizes only a Course title today. It must not
-      // manufacture an Assignment label or fetch one solely for navigation.
       return courses !== undefined &&
         studentCourse !== undefined &&
-        labels.courseTitle !== undefined
+        studentAssignment !== undefined &&
+        labels.courseTitle !== undefined &&
+        labels.assignmentAttemptTitle !== undefined
         ? Object.freeze([
             breadcrumbLinkItem("Courses", courses),
             breadcrumbLinkItem(labels.courseTitle, studentCourse),
+            breadcrumbLinkItem(labels.assignmentAttemptTitle, studentAssignment),
             breadcrumbCurrent("Assignment attempt"),
           ])
         : Object.freeze([]);

@@ -80,7 +80,6 @@ test("the rendered Questions surface owns Assignment title and Policies keeps de
   );
   assert.doesNotMatch(policiesPage, /Assignment title/u);
   assert.match(policiesPage, /Student instructions/u);
-  assert.match(policiesPage, /Due date and time/u);
 });
 
 test("persisted draft creation enters the canonical Questions route", () => {

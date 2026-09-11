@@ -31,6 +31,7 @@ pub enum InstructorAssignmentAvailabilityView {
 
 pub fn derive_instructor_assignment_availability(
     term: &CourseTerm,
+    account_time_zone: &AccountTimeZone,
     assignment_status: AssignmentStatus,
     settings: &AssignmentAuthoredContent,
     now: Timestamp,
@@ -42,9 +43,10 @@ pub fn derive_instructor_assignment_availability(
         Closed => Ok(InstructorAssignmentAvailabilityView::Closed { closed_at: None }),
         Released if settings.base_policy.available_at.is_some_and(|at| now < at) => {
             Ok(InstructorAssignmentAvailabilityView::Scheduled {
-                available_at: project_optional_course_local_timestamp(
+                available_at: project_optional_local_timestamp_in_account_time_zone(
                     settings.base_policy.available_at,
                     term,
+                    account_time_zone,
                     AssignmentAuthoredContentField::AvailableAt,
                 )?
                 .expect("released scheduled state has an available-at instant"),
@@ -62,9 +64,10 @@ pub fn derive_instructor_assignment_availability(
             };
             if closed_at.is_some_and(|at| now >= at) {
                 return Ok(InstructorAssignmentAvailabilityView::Closed {
-                    closed_at: project_optional_course_local_timestamp(
+                    closed_at: project_optional_local_timestamp_in_account_time_zone(
                         closed_at,
                         term,
+                        account_time_zone,
                         AssignmentAuthoredContentField::ClosesAt,
                     )?,
                 });
@@ -119,21 +122,6 @@ impl LocalDateAndTime {
             .expect("validated local date time")
     }
 
-    /// Compatibility resolver for the separate Course-zone availability view.
-    ///
-    /// Assignment authoring resolves with [`Self::resolve_in_account_time_zone`]
-    /// and the authenticated Account zone plus authorized calendar bounds.
-    ///
-    /// The supplied field identifies the exact correction target for DST,
-    /// term, and range refusals at the server boundary.
-    pub fn resolve_for_course(
-        &self,
-        course_term: &CourseTerm,
-        field: AssignmentAuthoredContentField,
-    ) -> Result<Timestamp, AssignmentAuthoredContentLocalError> {
-        resolve_course_local_timestamp(self, course_term, field)
-    }
-
     /// Resolves this zone-free wall-clock input only in the authenticated
     /// Account's exact IANA zone. The caller supplies calendar bounds from
     /// the authorized Course context; no browser-selected zone is accepted.
@@ -146,18 +134,6 @@ impl LocalDateAndTime {
         resolve_local_timestamp_in_account_time_zone(self, course_term, account_time_zone, field)
     }
 
-    /// Compatibility projection for the separate Course-zone availability view.
-    ///
-    /// The supplied field identifies the exact correction target if an instant
-    /// cannot round-trip through the course calendar and zone.
-    pub fn from_activity_timestamp(
-        value: Timestamp,
-        course_term: &CourseTerm,
-        field: AssignmentAuthoredContentField,
-    ) -> Result<Self, AssignmentAuthoredContentLocalError> {
-        project_course_local_timestamp(value, course_term, field)
-    }
-
     /// Projects an instant through the authenticated Account's exact IANA zone.
     pub fn from_activity_timestamp_in_account_time_zone(
         value: Timestamp,
@@ -168,10 +144,6 @@ impl LocalDateAndTime {
         project_local_timestamp_in_account_time_zone(value, course_term, account_time_zone, field)
     }
 }
-
-/// Compatibility name for unrelated Course-zone projection consumers.
-/// Assignment authoring input uses [`LocalDateAndTime`] directly.
-pub type CourseLocalDateAndTime = LocalDateAndTime;
 
 impl TryFrom<String> for LocalDateAndTime {
     type Error = LocalDateAndTimeError;
@@ -198,8 +170,6 @@ impl std::fmt::Display for LocalDateAndTimeError {
 }
 
 impl std::error::Error for LocalDateAndTimeError {}
-/// Compatibility error name for unrelated Course-zone consumers.
-pub type CourseLocalDateAndTimeError = LocalDateAndTimeError;
 
 /// Browser-facing Instructor Assignment Authored Content Local.
 ///
@@ -530,9 +500,9 @@ impl std::fmt::Display for AssignmentAuthoredContentLocalError {
 impl std::error::Error for AssignmentAuthoredContentLocalError {}
 
 fn validate_local_ordering(
-    available_at: &Option<CourseLocalDateAndTime>,
-    due_at: &Option<CourseLocalDateAndTime>,
-    closes_at: &Option<CourseLocalDateAndTime>,
+    available_at: &Option<LocalDateAndTime>,
+    due_at: &Option<LocalDateAndTime>,
+    closes_at: &Option<LocalDateAndTime>,
 ) -> Result<(), AssignmentAuthoredContentLocalError> {
     if available_at
         .as_ref()
@@ -572,14 +542,6 @@ fn validate_absolute_ordering(
     Ok(())
 }
 
-fn course_time_zone(course_term: &CourseTerm) -> chrono_tz::Tz {
-    course_term
-        .time_zone()
-        .as_str()
-        .parse()
-        .expect("CourseTerm contains an exact known IANA zone")
-}
-
 fn parsed_account_time_zone(account_time_zone: &AccountTimeZone) -> chrono_tz::Tz {
     account_time_zone
         .as_str()
@@ -602,19 +564,6 @@ pub fn resolve_local_timestamp_in_account_time_zone(
         parsed_account_time_zone(account_time_zone),
         field,
     )
-}
-
-/// Resolves one exact course-local wall-clock value at the server boundary.
-///
-/// Callers supply the receiving field so every DST, term, and range refusal
-/// points at the browser control the instructor must correct. This function
-/// never consults a machine-local time zone.
-pub fn resolve_course_local_timestamp(
-    value: &CourseLocalDateAndTime,
-    course_term: &CourseTerm,
-    field: AssignmentAuthoredContentField,
-) -> Result<Timestamp, AssignmentAuthoredContentLocalError> {
-    resolve_local_timestamp(value, course_term, course_time_zone(course_term), field)
 }
 
 fn resolve_local_timestamp(
@@ -658,32 +607,27 @@ pub fn project_local_timestamp_in_account_time_zone(
     )
 }
 
-fn project_optional_course_local_timestamp(
+fn project_optional_local_timestamp_in_account_time_zone(
     value: Option<Timestamp>,
     course_term: &CourseTerm,
+    account_time_zone: &AccountTimeZone,
     field: AssignmentAuthoredContentField,
-) -> Result<Option<CourseLocalDateAndTime>, AssignmentAuthoredContentLocalError> {
+) -> Result<Option<LocalDateAndTime>, AssignmentAuthoredContentLocalError> {
     value
-        .map(|value| project_course_local_timestamp(value, course_term, field))
+        .map(|value| {
+            project_local_timestamp_in_account_time_zone(
+                value,
+                course_term,
+                account_time_zone,
+                field,
+            )
+        })
         .transpose()
-}
-
-/// Projects a stored absolute timestamp into an exact course-local wall-clock value.
-///
-/// The round-trip check refuses an instant that cannot be represented without
-/// choosing between two local times. Callers supply the receiving field so a
-/// correction remains field-specific.
-pub fn project_course_local_timestamp(
-    value: Timestamp,
-    course_term: &CourseTerm,
-    field: AssignmentAuthoredContentField,
-) -> Result<CourseLocalDateAndTime, AssignmentAuthoredContentLocalError> {
-    project_local_timestamp(value, course_term, course_time_zone(course_term), field)
 }
 
 fn project_local_timestamp(
     value: Timestamp,
-    course_term: &CourseTerm,
+    _course_term: &CourseTerm,
     time_zone: chrono_tz::Tz,
     field: AssignmentAuthoredContentField,
 ) -> Result<LocalDateAndTime, AssignmentAuthoredContentLocalError> {
@@ -691,30 +635,10 @@ fn project_local_timestamp(
         AssignmentAuthoredContentLocalError::TimestampOutOfRange(field),
     )?;
     let local = time_zone.from_utc_datetime(&utc.naive_utc());
-    let wall_clock =
-        CourseLocalDateAndTime::parse(&local.format("%Y-%m-%dT%H:%M:%S%.3f").to_string())
-            .expect("formatted course-local timestamp is valid");
-    match time_zone.from_local_datetime(&wall_clock.naive()) {
-        LocalResult::Single(round_trip)
-            if round_trip.timestamp_millis() == value.as_unix_millis() => {}
-        LocalResult::Single(_) | LocalResult::Ambiguous(_, _) => {
-            return Err(AssignmentAuthoredContentLocalError::AmbiguousLocalTime(
-                field,
-            ));
-        }
-        LocalResult::None => {
-            return Err(AssignmentAuthoredContentLocalError::NonexistentLocalTime(
-                field,
-            ));
-        }
-    }
-    let date = local.format("%Y-%m-%d").to_string();
-    if date.as_str() < course_term.start_date().as_str()
-        || date.as_str() > course_term.end_date().as_str()
-    {
-        return Err(AssignmentAuthoredContentLocalError::OutsideCourseTerm(
-            field,
-        ));
-    }
-    Ok(wall_clock)
+    // A stored instant is already unambiguous. Its display may be an ambiguous
+    // fall-back local clock value, but formatting must not make it unusable.
+    Ok(
+        LocalDateAndTime::parse(&local.format("%Y-%m-%dT%H:%M:%S%.3f").to_string())
+            .expect("formatted Account-local timestamp is valid"),
+    )
 }

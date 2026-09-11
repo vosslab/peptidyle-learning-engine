@@ -25,11 +25,11 @@ export function emptyPatchDraft(): ModifierPatchDraft {
 }
 
 /** Preserve the course wall-clock value; browser and machine time zones are irrelevant here. */
-export function canonicalCourseLocalDateAndTime(value: string): string {
+export function canonicalLocalDateAndTime(value: string): string {
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/u.test(value)) return `${value}:00.000`;
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/u.test(value)) return `${value}.000`;
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u.test(value)) return value;
-  throw new Error("Enter a complete course-local date and time.");
+  throw new Error("Enter a complete local date and time.");
 }
 
 function positiveInteger(value: string, label: string): number {
@@ -42,7 +42,7 @@ function positiveInteger(value: string, label: string): number {
 function timePatch(field: ModifierPatchDraft["availableAt"]): TeachingTimeFieldPatch {
   if (field.kind === "inherit") return { kind: "inherit" };
   if (field.kind === "unrestricted") return { kind: "unrestricted" };
-  return { kind: "set", value: canonicalCourseLocalDateAndTime(field.value) };
+  return { kind: "set", value: canonicalLocalDateAndTime(field.value) };
 }
 
 function limitPatch(

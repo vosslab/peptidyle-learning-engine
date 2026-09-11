@@ -7,7 +7,7 @@ use crate::{
     AssignmentEntryId, AssignmentEntryScoringRule, AssignmentGrade, AssignmentId,
     AssignmentInstructions, AssignmentPointValue, AssignmentProgressRecord,
     AssignmentQuestionVariationRule, AssignmentReference, AssignmentScoringState, AssignmentTitle,
-    CourseId, CourseInstanceReference, CourseTimeZone, LateWorkRule, QuestionAttemptLimit,
+    CourseId, CourseInstanceReference, LateWorkRule, QuestionAttemptLimit,
     QuestionAttemptTimeLimit, QuestionBackend, QuestionBackendCapabilities, QuestionId,
     QuestionPoolItemAvailability, QuestionPoolItemId, QuestionPoolSelectionRule,
     StudentFeedbackReleaseRule, StudentRecordId, Timestamp,
@@ -37,7 +37,7 @@ pub struct CourseSummary {
     pub reference: CourseInstanceReference,
     /// Human-facing course or section title.
     pub title: String,
-    /// Required inclusive term bounds and authoritative scheduling zone.
+    /// Required inclusive term bounds.
     pub term: crate::CourseTerm,
     /// Signed-in Account's Course Membership Role for this Course Instance.
     pub role: CourseMembershipRole,
@@ -158,8 +158,6 @@ pub struct AssignmentOverview {
     pub title: AssignmentTitle,
     /// Student-facing instructions.
     pub instructions: AssignmentInstructions,
-    /// Course scheduling zone used to present delivery facts.
-    pub time_zone: CourseTimeZone,
     /// Number of active questions a student receives in one Assignment Attempt.
     pub questions_per_assignment_attempt: u32,
     /// Student-visible Question Pool Reuse Rule.
@@ -403,7 +401,6 @@ mod tests {
                 title: assignment_title("Peptide bonds"),
                 instructions: AssignmentInstructions::try_new("Read the legend.".to_string())
                     .expect("valid instructions"),
-                time_zone: CourseTimeZone::parse("America/Chicago").expect("known zone"),
                 questions_per_assignment_attempt: 0,
                 question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
                 question_variation_rule: AssignmentQuestionVariationRule::NewVariation,

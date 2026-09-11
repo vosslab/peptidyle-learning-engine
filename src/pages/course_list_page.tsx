@@ -23,8 +23,7 @@ function CourseInstanceRow(props: { readonly course: CourseInstanceSummary }): J
         <p class="instructor-list__kind">Course Instance</p>
         <h2>{props.course.title}</h2>
         <p class="instructor-list__metadata">
-          {props.course.term.startDate} through {props.course.term.endDate} ·{" "}
-          {props.course.term.timeZone}
+          {props.course.term.startDate} through {props.course.term.endDate}
         </p>
       </div>
       <p class="instructor-list__theme" aria-label={`Course theme: ${theme.name}`}>
@@ -90,7 +89,6 @@ function TeachingCourseListPage(): JSX.Element {
   const [title, setTitle] = createSignal("");
   const [startDate, setStartDate] = createSignal("");
   const [endDate, setEndDate] = createSignal("");
-  const [timeZone, setTimeZone] = createSignal("America/Chicago");
   const [isCreating, setIsCreating] = createSignal(false);
   const [creationError, setCreationError] = createSignal<string | null>(null);
 
@@ -122,10 +120,6 @@ function TeachingCourseListPage(): JSX.Element {
       setCreationError("Enter an end date on or after the Course Term start date.");
       return;
     }
-    if (timeZone().trim() !== timeZone() || timeZone().trim().length === 0) {
-      setCreationError("Enter the Course Term's IANA time zone.");
-      return;
-    }
     setCreationError(null);
     setIsCreating(true);
     try {
@@ -133,7 +127,7 @@ function TeachingCourseListPage(): JSX.Element {
         blueprintCourse: selected.reference,
         blueprintRevision: selected.revision,
         title: title(),
-        term: { startDate: startDate(), endDate: endDate(), timeZone: timeZone() },
+        term: { startDate: startDate(), endDate: endDate() },
       });
       setCreatedCourses((current) => [created.course, ...current]);
       setSource("");
@@ -214,20 +208,6 @@ function TeachingCourseListPage(): JSX.Element {
                 type="date"
                 value={endDate()}
                 onInput={(event) => setEndDate(event.currentTarget.value)}
-                required
-              />
-            </label>
-            <label for="course-time-zone">
-              Course Time Zone (IANA)
-              <input
-                id="course-time-zone"
-                name="timeZone"
-                type="text"
-                value={timeZone()}
-                onInput={(event) => setTimeZone(event.currentTarget.value)}
-                autocomplete="off"
-                autocapitalize="none"
-                spellcheck={false}
                 required
               />
             </label>

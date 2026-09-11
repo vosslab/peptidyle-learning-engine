@@ -7,10 +7,9 @@
 
 use std::num::NonZeroU32;
 
-use chrono::{DateTime, Utc};
 pub use question_model::StudentLateWorkStatus;
 use question_model::{
-    AssignmentDeadlineRule, AssignmentStatus, BaseAssignmentPolicy, CourseTerm, LateWorkRule,
+    AssignmentDeadlineRule, AssignmentStatus, BaseAssignmentPolicy, LateWorkRule,
     MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, StudentRecordId,
     Timestamp,
 };
@@ -257,8 +256,6 @@ pub enum ModifierSource {
 pub enum EffectivePolicyError {
     BaseAssignmentAttemptAssignmentAttemptTimeLimitOutOfRange,
     BaseAttemptLimitOutOfRange,
-    BaseTimestampOutsideCourseTerm(PolicyField),
-    BaseTimestampOutOfRange(PolicyField),
     AccommodationStudentRecordMismatch {
         granted: StudentRecordId,
         modifier: StudentRecordId,
@@ -294,48 +291,6 @@ pub fn validate_base_assignment_policy(
         return Err(EffectivePolicyError::BaseAttemptLimitOutOfRange);
     }
     validate_schedule_values(base.available_at, base.due_at, base.closes_at)
-}
-
-/// Validates absolute persisted policy instants against the course-owned term.
-///
-/// The input is already an absolute server timestamp. This only projects that
-/// instant into the course's authoritative zone to check its calendar date; it
-/// neither accepts nor resolves Instructor-entered local wall-clock text.
-pub fn validate_base_assignment_policy_for_course_term(
-    base: BaseAssignmentPolicy,
-    term: &CourseTerm,
-) -> Result<(), EffectivePolicyError> {
-    validate_base_assignment_policy(base)?;
-    for (field, value) in [
-        (PolicyField::AvailableAt, base.available_at),
-        (PolicyField::DueAt, base.due_at),
-        (PolicyField::ClosesAt, base.closes_at),
-    ] {
-        validate_absolute_timestamp_in_course_term(field, value, term)?;
-    }
-    Ok(())
-}
-
-fn validate_absolute_timestamp_in_course_term(
-    field: PolicyField,
-    value: Option<Timestamp>,
-    term: &CourseTerm,
-) -> Result<(), EffectivePolicyError> {
-    let Some(value) = value else {
-        return Ok(());
-    };
-    let utc = DateTime::<Utc>::from_timestamp_millis(value.as_unix_millis())
-        .ok_or(EffectivePolicyError::BaseTimestampOutOfRange(field))?;
-    let zone = term
-        .time_zone()
-        .as_str()
-        .parse::<chrono_tz::Tz>()
-        .expect("CourseTerm contains an exact known IANA zone");
-    let date = utc.with_timezone(&zone).format("%Y-%m-%d").to_string();
-    if date.as_str() < term.start_date().as_str() || date.as_str() > term.end_date().as_str() {
-        return Err(EffectivePolicyError::BaseTimestampOutsideCourseTerm(field));
-    }
-    Ok(())
 }
 
 /// Resolves the complete policy after Assignment Status, Active Student Course Membership, and action

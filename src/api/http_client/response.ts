@@ -15,7 +15,12 @@ import type { StudentRecordId } from "../../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { ApiClient } from "../client";
-import type { AssignmentAttemptSummaryResponse, StudentQuestionAttempt } from "../contracts";
+import type {
+  InstructorProfile,
+  InstructorProfileThumbnail,
+  UpdateInstructorProfileInput,
+} from "../instructor_profile";
+import type { StudentQuestionAttempt } from "../contracts";
 import { questionReferencePath, questionSearchPath } from "../question_search_query";
 import {
   decodeStudentAssignmentPage,
@@ -38,10 +43,14 @@ import {
   decodeStudentQuestionAttempt,
   decodeIssuedQuestionPresentation,
   decodeAssignmentAttemptPage,
-  decodeAssignmentAttemptSummaryResponse,
   decodeStudentAssignmentProgress,
   decodeNavigationResolution,
 } from "../decoders";
+import {
+  decodeInstructorProfile,
+  decodeInstructorProfileThumbnail,
+  decodeUpdateInstructorProfileInput,
+} from "../decoders/instructor_profile";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import {
   encodedId,
@@ -162,6 +171,95 @@ export async function boundedResponseJson(response: Response, path: string): Pro
 function courseAppearanceViewPath(courseId: CourseId): string {
   return `/api/courses/${encodedId(courseId)}/appearance`;
 }
+
+async function instructorProfile(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+): Promise<InstructorProfile> {
+  const path = "/api/instructor-profile";
+  const response = await fetchImplementation(requestPath(basePath, path), {
+    headers: { accept: "application/json" },
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  requireNoStore(response, path);
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  return decodeInstructorProfile(await boundedResponseJson(response, path));
+}
+
+async function saveInstructorProfile(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  input: UpdateInstructorProfileInput,
+): Promise<InstructorProfile> {
+  const path = "/api/instructor-profile";
+  const request = decodeUpdateInstructorProfileInput(input, "request");
+  const response = await fetchImplementation(requestPath(basePath, path), {
+    method: "PATCH",
+    headers: { accept: "application/json", "content-type": "application/json" },
+    body: JSON.stringify(request),
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  requireNoStore(response, path);
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  return decodeInstructorProfile(await boundedResponseJson(response, path));
+}
+
+async function instructorProfileThumbnail(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+): Promise<InstructorProfileThumbnail> {
+  const path = "/api/instructor-profile/thumbnail";
+  const response = await fetchImplementation(requestPath(basePath, path), {
+    headers: { accept: "application/json" },
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  requireNoStore(response, path);
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  return decodeInstructorProfileThumbnail(await boundedResponseJson(response, path));
+}
+
+async function replaceInstructorProfileThumbnail(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  image: Blob,
+): Promise<InstructorProfileThumbnail> {
+  const path = "/api/instructor-profile/thumbnail";
+  const response = await fetchImplementation(requestPath(basePath, path), {
+    method: "POST",
+    headers: { accept: "application/json", "content-type": "application/octet-stream" },
+    body: image,
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  requireNoStore(response, path);
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  return decodeInstructorProfileThumbnail(await boundedResponseJson(response, path));
+}
+
+async function fetchInstructorProfileThumbnail(
+  fetchImplementation: ApiFetch,
+  basePath: string,
+  reference: string,
+): Promise<Blob> {
+  const path = `/api/instructor-profile/thumbnails/${encodedId(reference)}/delivery`;
+  const response = await fetchImplementation(requestPath(basePath, path), {
+    method: "POST",
+    headers: { accept: "image/webp" },
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  requireNoStore(response, path);
+  if (!response.ok) throw new ApiRequestError(response.status, path);
+  if (
+    response.headers.get("content-type") !== "image/webp" ||
+    response.headers.get("x-content-type-options") !== "nosniff"
+  )
+    throw new ApiProtocolError(`API response ${path} must be a protected WebP thumbnail`);
+  return response.blob();
+}
 async function courseAppearanceView(
   fetchImplementation: ApiFetch,
   basePath: string,
@@ -273,6 +371,11 @@ export function createResponseClient(
 ): Pick<
   ApiClient,
   | "resolveNavigation"
+  | "getInstructorProfile"
+  | "updateInstructorProfile"
+  | "getInstructorProfileThumbnail"
+  | "replaceInstructorProfileThumbnail"
+  | "fetchInstructorProfileThumbnail"
   | "listQuestions"
   | "searchQuestionLibrary"
   | "resolveQuestion"
@@ -291,7 +394,6 @@ export function createResponseClient(
   | "getAssignmentSummary"
   | "listAssignmentAttempts"
   | "getAssignmentAttempt"
-  | "getAssignmentAttemptSummary"
   | "listQuestionAttempts"
   | "getAttempt"
   | "getIssuedQuestion"
@@ -302,6 +404,13 @@ export function createResponseClient(
   | "assetUrl"
 > {
   return {
+    getInstructorProfile: () => instructorProfile(fetchImplementation, basePath),
+    updateInstructorProfile: (input) => saveInstructorProfile(fetchImplementation, basePath, input),
+    getInstructorProfileThumbnail: () => instructorProfileThumbnail(fetchImplementation, basePath),
+    replaceInstructorProfileThumbnail: (image) =>
+      replaceInstructorProfileThumbnail(fetchImplementation, basePath, image),
+    fetchInstructorProfileThumbnail: (reference) =>
+      fetchInstructorProfileThumbnail(fetchImplementation, basePath, reference),
     resolveNavigation: (reference) =>
       requestJson(
         fetchImplementation,
@@ -425,34 +534,6 @@ export function createResponseClient(
         `/api/assignment-attempts/${encodedId(assignmentAttemptId)}`,
         decodeAssignmentAttempt,
       ),
-    getAssignmentAttemptSummary: (
-      assignmentAttemptId,
-      cursor,
-      pageSize,
-    ): Promise<AssignmentAttemptSummaryResponse> => {
-      if (cursor !== undefined && (cursor.length === 0 || cursor.length > 512))
-        return Promise.reject(
-          new ApiProtocolError(
-            "Assignment Attempt summary cursor must be 1 through 512 characters",
-          ),
-        );
-      if (
-        pageSize !== undefined &&
-        (!Number.isSafeInteger(pageSize) || pageSize <= 0 || pageSize > 100)
-      )
-        return Promise.reject(
-          new ApiProtocolError("Assignment Attempt summary pageSize must be 1 through 100"),
-        );
-      const query = new URLSearchParams();
-      if (cursor !== undefined) query.set("cursor", cursor);
-      if (pageSize !== undefined) query.set("pageSize", String(pageSize));
-      return requestJson(
-        fetchImplementation,
-        basePath,
-        `/api/assignment-attempts/${encodedId(assignmentAttemptId)}/summary${query.size === 0 ? "" : `?${query.toString()}`}`,
-        decodeAssignmentAttemptSummaryResponse,
-      );
-    },
     listQuestionAttempts: (assignmentAttemptId, cursor) =>
       requestJson(
         fetchImplementation,

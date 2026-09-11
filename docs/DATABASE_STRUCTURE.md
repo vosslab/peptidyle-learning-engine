@@ -9,9 +9,9 @@ authorization; and this document owns the checked-in migration sequence and forw
 
 ## Baseline and migration rules
 
-The current disposable baseline contains the 84 checked migration files from
+The current disposable baseline contains the 100 checked migration files from
 `2026082901_principal_baseline.sql` through
-`2026091012_student_assignment_attempt_context.sql`. The numbered range has no
+`2026091028_assignments_due_soon.sql`. The numbered range has no
 `2026082905` or `2026082927` file; those numbers are not migrations. Apply the
 complete checked-in sequence only to a clean disposable database. The prior
 migration epoch was removed during the fresh pre-production migration reset; it is neither an
@@ -69,6 +69,22 @@ legacy readers, or parallel authorization model.
 | 2026091010                             | Student Assignment Attempt navigation                                                       | Public `R-n` Attempt references and caller-bound, answer-free progress and selected-position reads project fixed issued work without mutable current-position state. |
 | 2026091011                             | Student working responses and final Attempt submission                                      | Forced-RLS private saved responses retain canonical server-side Student input while an owned Attempt is active. One final owned Attempt submission atomically copies every saved response into immutable per-Question submission and grading work. |
 | 2026091012                             | Student Assignment Attempt route context                                                    | A caller-bound public-reference projection supplies active or submitted Attempt chrome: Course and Assignment display values, Attempt number, and a server-evaluated remaining-duration snapshot. |
+| 2026091013                             | Course time-zone retirement                                                                 | Course Schedule Revisions retain inclusive ordered term dates while Account preferences are the sole IANA wall-clock authority. The forward migration removes the Course column and recreates affected authorized Course readers without a zone field. |
+| 2026091014                             | Instructor self-profile preference API                                                     | Authenticated active Instructors read and replace only their own exact IANA Account preference through narrowly granted session-derived functions. |
+| 2026091015                             | Instructor profile thumbnail                                                               | A self-only current-thumbnail pointer, exact available-object delivery owner, and durable external put work retain one normalized private WebP thumbnail per active Instructor. |
+| 2026091016                             | Reject-rule response-save deadline                                                        | An owned Student response mutation stops after its pinned reject-rule Assignment due instant while finalization may preserve work already saved on time. |
+| 2026091017                             | Assignment disclosure controls                                                            | Seven independent Assignment disclosure timings persist on current authored state and immutable released snapshots; future answer-bearing feedback defaults to Never while existing explicit settings remain intact. |
+| 2026091018                             | Blueprint content encoding v3                                                            | Immutable v2 Blueprint revisions retain their original JSON and checksum; new Blueprint revisions use v3, which explicitly binds submitted-response disclosure timing. |
+| 2026091019                             | Required Assignment release time limit                                                    | Assignment drafts may omit a duration, but the trusted release validator requires an Instructor-saved positive whole-Attempt duration before it creates an immutable Assignment Revision. |
+| 2026091020                             | New Assignment Question-order default                                                     | New direct Assignments persist one-Question delivery and shuffled Question order; existing authored Assignments, released revisions, and issued Questions remain unchanged. |
+| 2026091021                             | Durable issued Question order                                                             | Initial issuance applies the released Assignment Question-order rule to its complete prepared set and retains the sequence in existing Issued Question positions; source reconstruction uses the released Entry, Question, and revision identity. |
+| 2026091022                             | Idempotent unchanged Assignment save                                                      | An exact current Assignment Workspace retry returns its existing response and Edit Number without mutating Assignment data or selections; an authored change retains the established one-step Edit Number advance. |
+| 2026091023                             | Inline Assignment retime                                                                  | Direct Instructor inline title/due saves update current Unreleased or Released Assignment state under its Edit Number. New Assignment Attempts capture immutable started title and due facts; a captured null due value remains a real no-deadline value, while legacy Attempts use their exact released revision. |
+| 2026091024                             | Native retimed Assignment delivery                                                        | Native PLE and delegated WeBWorK start/resume paths use the active Attempt's captured title and due facts while retaining exact released policy, content, issued Question, and presentation evidence. |
+| 2026091025                             | Student Assignment access history                                                          | The access reader adds Assignment access facts for question count, points possible, and time limit, plus a completed-Attempts history with an independently disclosed current-score receipt. Its private-owner definer uses a Boolean-only receipt capability; `ple_app` stays procedure-only. |
+| 2026091026                             | Student completed Attempt history                                                          | A private-owner definer returns strict current Course `{reference,title,theme}`, Assignment identity, completed Attempt number/state, and selected Question position/state for the exact owned submitted or closed Attempt with active membership. |
+| 2026091027                             | Completed-response source reproduction                                                     | A private-owner definer resolves only authorized pinned native PLE recorded-response source and existing completed asset delivery facts. It returns `question_attempt_id`, `source_object_id`, and `question_seed` as text for the shared source mapper, supports disclosure-safe reproduction without regrading, and omits affected content when source or asset facts are unavailable. |
+| 2026091028                             | Assignments Due Soon read                                                                  | A no-argument, security-definer `ple_api.list_assignments_due_soon()` uses the existing current active-Instructor predicate per Course and returns only Course and Assignment public references and titles, Assignment status, and integer due-at milliseconds. It filters non-null due instants to the implementation-selected seven-day statement-time window, permits only `unreleased` and `released` status, and orders by due instant, Course reference, and Assignment reference. |
 
 ## Ownership boundaries
 
@@ -120,9 +136,13 @@ An immutable Assignment Revision carries the exact resolved delivery schedule,
 Assignment Attempt Time Limit, Attempt Limit, Late Work Rule, Assignment
 Deadline Rule, and all eight independent Assignment Activity Rules. Its
 completion threshold and continuation cap exist only for the rule variants
-that require them. A later Instructor edit creates a new Assignment Revision;
-an Assignment Attempt uses the delivery facts of its referenced revision
-rather than a mutable current policy.
+that require them. Release creates that immutable delivery evidence. Current
+Assignment authoring uses its Edit Number; the implemented M11 title and due
+edit updates current state without a new Assignment Revision. A new Attempt
+captures its started title and due instant while retaining pinned release,
+issued-Question, presentation, and grading evidence. A captured null due value
+is a real no-deadline value; a legacy Attempt uses its exact released Revision
+fallback.
 
 Question Folders organize Question Library lineages for an Account; they do
 not grant visibility or Course authority. Course Invitations are target-bound

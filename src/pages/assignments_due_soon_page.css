@@ -1,0 +1,47 @@
+/* assignments_due_soon_page.css - dense, cross-Course Assignment deadline rows. */
+
+.assignments-due-soon__row {
+  grid-template-columns: minmax(0, 1fr) minmax(13rem, auto) auto;
+}
+
+.assignments-due-soon__due {
+  display: grid;
+  gap: var(--ple-space-1);
+  margin: 0;
+  color: var(--ple-ink);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: end;
+  white-space: nowrap;
+}
+
+.assignments-due-soon__due span {
+  color: var(--ple-muted);
+  font-size: 0.76rem;
+  font-weight: 760;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.assignments-due-soon__window {
+  margin: 0 0 var(--ple-compact-gap);
+  color: var(--ple-muted);
+}
+
+.assignments-due-soon__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (max-width: 46rem) {
+  .assignments-due-soon__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .assignments-due-soon__due,
+  .assignments-due-soon__row .instructor-list__actions {
+    justify-self: start;
+    text-align: start;
+  }
+}

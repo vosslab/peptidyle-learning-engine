@@ -453,6 +453,82 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   and Question presentation owns answer-choice order.
 - Parallel-plan ready: yes.
 
+#### M4/WP-DEF1 partial receipt (2026-09-11)
+
+- Status: complete for WP-DEF1 only. New due-date drafts default to 23:59 in the authenticated
+  Instructor's Account time zone; the browser combines its separate date and time controls into
+  one unconverted `LocalDateAndTime` value for the server to resolve. Existing authored seconds
+  and milliseconds round-trip exactly, and a failed save retains the typed drafts for retry.
+- Default and deadline behavior: the established `Reject` late-work and post-due Attempt defaults
+  remain the single policy source. Forward migration `2026091016` refuses a post-due response save
+  under `Reject` while preserving finalization of work saved on time. This package adds no
+  auto-submit worker.
+- Evidence: independent source and follow-up reviews approved the schedule, SQL, authorization,
+  and scope boundaries. Supported `local_stack.py acceptance` passed its PostgreSQL, MinIO,
+  Profile, and cleanup lanes. The real browser replay proved the Chicago default, raw local wire,
+  exact native-time reload, and `503` draft recovery with no unexpected responses or page errors.
+- Scope and sequence: the renamed M4 due-boundary fixture required a matching M4 consumer update;
+  it was not an M5 defect. WP-DEF2 disclosure controls is active next, followed by WP-DEF3
+  presentation options. M4 and the original Interface Cleanup plan remain active.
+
+#### M4/WP-DEF2 partial receipt (2026-09-11)
+
+- Status: complete for WP-DEF2 only. Assignment Properties keeps the original six independent
+  disclosure timings: score, per-item correctness, correct answer, Question feedback, Question
+  answer explanation, and class statistics. A separate `submitted_response` timing controls only
+  whether previous-attempt history includes the Student's recorded response.
+- Defaults and ownership: new Assignments release score, correctness, and a Student's own prior
+  response after submission. Correct answer, Question feedback, Question answer explanation, and
+  class statistics default to Never; existing explicit Assignment settings remain unchanged. M7
+  owns the later previous-attempt response projection, while M5 continues to return the saved
+  response required to resume an active Attempt.
+- Blueprint compatibility: stored v2 Blueprint revision JSON and checksums remain immutable. The
+  storage boundary supplies `submitted_response: after_submit` only while reading v2 content, then
+  verifies its original v2 checksum. New revisions use strict canonical v3 content and include the
+  field explicitly.
+- Evidence: focused defaults, strict transport, workspace round-trip, PostgreSQL policy and
+  Blueprint compatibility checks passed. Independent disclosure, persistence, Blueprint,
+  secrecy, seed-contract, and constraint reviews passed. Supported live service compatibility
+  acceptance passed after the catalog-derived constraint target correction.
+- Scope and sequence: the final M4 receipt below records WP-DEF3 presentation, the
+  Instructor-chosen required time limit before release, and the full aggregate/browser acceptance.
+  M4 and the original Interface Cleanup plan remain active until that final receipt is complete.
+
+#### M4 completion receipt (2026-09-11)
+
+- Defaulted presentation: new direct Assignments persist `Reject`, one Question at a time, and
+  shuffled Assignment Question order. Policies maps its `Randomize question order` control to
+  `shuffled` or explicit `authoredOrder`; existing authored policy, released revisions, and issued
+  work remain unchanged. Question-pool reuse governs later pool selection, Question variation
+  governs later variation reuse, and answer-choice order remains Question presentation behavior.
+- Issuance and duration: initial issuance applies the released Question-order rule to the complete
+  prepared set and persists its stable sequence in existing Issued Question positions. Resume uses
+  released Entry, Question, and revision identity rather than the display position. Drafts retain a
+  nullable duration, while release requires the Instructor to save a positive whole-Attempt time
+  limit; no numeric default, worker, or timer redesign was introduced.
+- Save recovery: a repeated full Policies save with the current Edit Number now returns the unchanged
+  current resource without a write or Edit Number advance. A changed authored payload continues to
+  take the existing one-step update path; the repair neither changes release history nor adds a
+  revision model.
+- Evidence complete so far: independent final-defaults/release and bounded fixture-repair reviews
+  passed. The exact fresh `./launchers/all_test.sh` run in
+  `/private/tmp/ple-interface-cleanup.QVsF3M/m4-all-test-noop-final.log` (session 59098) exited 0
+  after the explicitly authored demo duration, `authoredOrder`, and unchanged-save corrections:
+  420 Node tests, 6,320 pytest tests, all Rust and PostgreSQL/MinIO/Profile service lanes, and
+  supported cleanup.
+- Browser acceptance: the rebuilt supported runtime started at `https://localhost:55174`
+  (session 11690). The Settings replay (session 12986) passed seven defaults and independent
+  mixed-value reload, raw-millisecond due value, 900-second duration/readiness recovery, repeated
+  valid no-op save, and order off/on save-reload without unexpected errors. Its observations are
+  recorded in `/private/tmp/ple-interface-cleanup.QVsF3M/m4-settings-browser/observations.json`.
+  The normal two-Question setup passed (C-1/A-3), and the Student order/resume replay (session
+  74859) proved both Question fingerprints stable and a saved response restored with no unexpected
+  errors; its observations are in
+  `/private/tmp/ple-interface-cleanup.QVsF3M/m4-question-order-browser/observations.json`.
+- Status: complete. The manager viewed the Settings and resumed-Student screenshots, and supported
+  runtime cleanup exited 0 (session 26132). The original plan and HUMAN_GUIDANCE hashes remained
+  unchanged. Next dependency-ordered milestone: M11 inline Assignment title and due-date editing.
+
 ### Milestone: M11 inline Assignment title and due-date editing
 
 - Depends on: M4 for due-date semantics; M3 for the dense row pattern; M0 for the mutable
@@ -466,6 +542,52 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   existing pinning; keyboard operation is complete; a failed save preserves the typed value and
   states what to fix.
 - Parallel-plan ready: no. One surface, one owner.
+
+#### M11 supporting receipt (2026-09-11)
+
+- Status: supporting Store, route, and delivery work is complete and accepted. WP-INL1 owns the
+  remaining Course Assignment-list editor, keyboard journey, failed-save recovery, and browser
+  acceptance; M11 is not complete.
+- Current-state save: the direct-Instructor inline route accepts only a required title and required
+  nullable raw local due value with the current strong Assignment Edit Number. It permits
+  Unreleased and Released Assignments, returns a six-field list-row projection, leaves an exact
+  retry unchanged, and advances a changed Assignment once without a new revision or undo entry.
+- Attempt evidence: migrations `2026091023` and `2026091024` retain an Attempt's started title and
+  due instant. A non-null captured title distinguishes a post-migration Attempt, so a captured null
+  due instant remains a real no-deadline value; legacy Attempts use their exact released revision.
+  Other released policy, issued Question, presentation, and grading evidence stays pinned.
+- Service evidence: the fresh and no-op 96-migration PostgreSQL acceptance passed the baseline,
+  catalog, restricted-login, persistence, inline CAS/no-op/refusal, native pre/post-edit capture,
+  Course Appearance, MinIO, Profile, and cleanup lanes. The receipt is
+  `/private/tmp/ple-interface-cleanup.QVsF3M/m11-support-service-roster-fixed.log` (session
+  28261, exit 0). Final aggregate and browser evidence remain required after WP-INL1.
+
+#### M11 completion receipt (2026-09-11)
+
+- Status: complete. The Course Assignment list now supports direct inline title and due-date
+  editing for released Assignments. A successful save returns to the current read state without a
+  revision or undo entry; closed and archived rows remain read-only.
+- Interaction and recovery: keyboard editing, cancellation, and focus return are complete. Save
+  busy state is visible; transient save failure retains the typed draft for retry, and a stale Edit
+  Number refreshes the row before retry without losing the edited values.
+- Evidence: final `./launchers/all_test.sh` session 27097 exited 0; its log is
+  `/private/tmp/ple-interface-cleanup.QVsF3M/m11-ui-all-test-final.log` and records Rust, 423
+  Node tests, 6,320 pytest tests, all service lanes, and cleanup. The supported demo start
+  (session 72554) and stop (session 14409) each exited 0; after the stop, `podman ps` was empty.
+- Browser and visual evidence: browser session 83791 exited 0 against the normal seeded released
+  C-1/A-1 Assignment. It proved raw `2026-12-01T13:45:10.125` entry, title-only precision, null
+  clearing, a new-date 11:59 PM default, keyboard cancellation/focus, busy state, retained-draft
+  503 retry, and live 412 refresh/retry without unexpected HTTP or page errors. The observations,
+  browser log, and accepted five-capture visual review are under
+  `/private/tmp/ple-interface-cleanup.QVsF3M/m11-inline-browser/`,
+  `/private/tmp/ple-interface-cleanup.QVsF3M/m11-inline-browser.log`, and
+  `/private/tmp/ple-interface-cleanup.QVsF3M/m11-inline-visual-review.report.md`.
+- Review and scope: fresh re-review accepted the narrow row-cascade repair and retained-draft
+  read-only conflict refresh in
+  `/private/tmp/ple-interface-cleanup.QVsF3M/m11-inline-ui-rereview.report.md`. Browser evidence
+  is one-time disposable acceptance; M9 still owns the final scoped six-pass audit, axe, full
+  screenshot corpus, and close-out evidence. Next dependency-ordered milestone: M7 Start
+  Assignment facts.
 
 ### Milestone: M12 Question-owned answer randomization
 
@@ -604,6 +726,37 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   reason recorded; the migration is forward-only with a clean-volume and no-op run.
 - Parallel-plan ready: no.
 
+#### M16 completion receipt (2026-09-10)
+
+- Status: complete. `CourseTerm` now carries only inclusive ordered `startDate` and `endDate`.
+  An Instructor's plain local entry is checked against those calendar dates before the
+  authenticated Account zone resolves it, retaining the existing DST-gap and ambiguity refusal.
+  Stored deadlines remain absolute instants and render directly in the Account zone, including
+  the fall-back case.
+- Retirement boundary: the browser, generated contracts, Rust model, and active schema no longer
+  carry a Course clock, `CourseTimeZone`, or `CourseLocalDateAndTime`. Forward migration
+  `2026091013_retire_course_time_zone.sql` removes the Course-zone column and obsolete term reader
+  without `CASCADE`, while preserving immutable schedule-revision evidence, foreign keys,
+  membership checks, fixed search paths, grants, and the migration-role reset.
+- Schedule consumers: preview transport is zone-free, Blueprint schedule resolution receives the
+  acting authorized Instructor Account zone at its existing boundary, and the six Course-create
+  browser consumers no longer fill a retired Course-zone control. M9 retains actual
+  screenshot-corpus recapture; the retired-symbol inventory and schema-absence oracle are
+  one-time implementation evidence.
+- Live Demo follow-through: the Course seed emitted the retired `term.timeZone` field and received
+  the resulting strict-contract `422`. It now sends the date-only Course Term payload; seven
+  focused offline seed/provisioning tests and independent rereview passed, and canonical Live Demo
+  startup exited successfully. Account-zone defaults and seeded Student-work flows stay on their
+  existing paths.
+- Acceptance: focused Rust and browser tests cover date bounds, Account-zone resolution, DST
+  refusal, stored-instant rendering, strict DTO shape, and Blueprint behavior. The exact final
+  `./launchers/all_test.sh` run passed full Rust and Wasm checks, 414 Node tests, 6,273 pytest
+  tests, PostgreSQL 17 fresh/no-op/catalog/restricted probes, PostgreSQL-plus-MinIO Course
+  Appearance acceptance, supported cleanup, and `git diff --check`. The extraction keeps the
+  production assignment module within the source-size limit; the obsolete seven-column catalog
+  assertion and six obsolete browser-fill steps were removed with the retired contract.
+- Next dependency-ordered milestone: M17 Instructor Profile page. The full plan remains active.
+
 ### Milestone: M17 Instructor Profile page
 
 - Depends on: M13 for the stored zone; M2 for the Context Control that reaches it.
@@ -614,6 +767,35 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   their instants hold; the page states that effect plainly; the route is a Ribbon Context Control
   rendering with No Selected Ribbon Tab, matching the existing Context Control routes.
 - Parallel-plan ready: no.
+
+#### M17 completion receipt (2026-09-10)
+
+- Status: complete. WP-PRO1 adds a self-only Instructor Profile route and account-zone
+  read/write boundary. It validates the one `timeZone` field against the existing exact IANA
+  validator, derives the Account from the attested session, and exposes neither Account nor
+  deadline identifiers. The browser selector uses the platform zone list together with `UTC` and
+  the stored exact value; the server remains the validation authority.
+- Interface behavior: Profile is an Instructor Product Context Control with No Selected Ribbon Tab.
+  Its copy explains that changing the zone re-renders existing deadline instants and does not move
+  them. The implementation retains an actionable failed-save state.
+- Focused evidence: independent boundary review approved the authorization, strict JSON, private
+  data, and route scope. The focused Node client/Ribbon checks, TypeScript check, Rust format and
+  package checks, and diff check passed. In the core real-browser replay, Assignment `A-6` changed
+  from 12:00 in `America/Los_Angeles` to 14:00 in `America/Chicago` after Profile save, while its
+  stored database instant stayed `1796155200000` milliseconds. The expected anonymous session
+  bootstrap `401` occurred before seeded sign-in and was classified separately from app errors.
+- Authority and recovery: an injected no-store `503` retained the selected zone, stated that the
+  save could not complete, and re-enabled the action; the live retry returned `200`. Student Mary
+  and Sysadmin Morgan have neither Profile control nor route access, and direct GET/PATCH requests
+  return no-store `404`. Expected bootstrap, injected-failure, and refusal responses were
+  classified separately from unexpected page or response failures.
+- Aggregate acceptance: the clean exact `./launchers/all_test.sh` run passed full Rust, Wasm,
+  strict Clippy, frontend (416 Node tests), 6,305 pytest tests, PostgreSQL 17 fresh/no-op/catalog/
+  restricted/persistence probes, PostgreSQL-plus-MinIO Course Appearance acceptance, and supported
+  cleanup. The original plan and human guidance remained unchanged.
+- Next dependency-ordered milestone: M18 profile thumbnail is pending dispatch. The full plan
+  remains active. The current unbacked `assignmentPolicies` catalog item belongs to M4's accepted
+  Settings capability reconciliation, rather than this Profile boundary.
 
 ### Milestone: M18 profile thumbnail
 
@@ -626,6 +808,31 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   crop, rendition, and delivery, reusing the Course Banner boundary; the thumbnail renders behind
   one consistent silhouette wherever it appears; Student upload capability stays absent.
 - Parallel-plan ready: no.
+
+#### M18 completion receipt (2026-09-10)
+
+- Status: complete. Profile accepts an Instructor's useful still image at any source aspect and
+  commits one server-generated, centered 256 by 256 lossless WebP thumbnail. The browser sends
+  bytes only; the server owns decode validation, crop, rendition, typed address, and authorized
+  delivery. No raw source, caller-selected path, crop, or rendition becomes persistent state.
+- Authority and lifecycle: the attested active Instructor determines the Account. Current delivery
+  is self-only and opaque; foreign, retired, and Student access are concealed. Replacement retires
+  the old delivery, and the existing deletion, storage-check, cleanup-manifest, job, and audit
+  receipt lineage handles both replacement and failed-finalization compensation. Forced RLS,
+  explicit definer mode, fixed search paths, and the scoped finalization advisory lock preserve the
+  established cross-store boundary without a new worker.
+- Interface and recovery: one local Profile component renders the fixed rounded-square silhouette.
+  The final 1280 by 800 browser replay showed the centered wide-source image without clipping.
+  Initial metadata `503` recovery, upload `503` retry with the selected file retained, successful
+  replacement, reload, prior-reference concealment, Student denial, and preservation of an unsaved
+  time-zone draft all passed.
+- Acceptance: the Profile Thumbnail PostgreSQL-plus-MinIO saga passed beside the retained Course
+  Banner saga. The exact final `./launchers/all_test.sh` run passed full Rust and Wasm checks,
+  strict Clippy, 417 Node tests, 6,318 pytest tests, PostgreSQL 17 fresh/no-op/catalog/restricted/
+  persistence probes, both cross-store sagas, and supported cleanup. The final source-size repair
+  moved the thumbnail CSS beside its component; format, type, and browser replay passed afterward.
+- Next dependency-ordered milestone: M4 Assignment settings defaults. M9 retains the final
+  screenshot-corpus and axe close-out; the full plan remains active.
 
 ### Milestone: M5 Student one-question delivery
 
@@ -708,6 +915,17 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
 
 ### Milestone: M7 Start Assignment facts
 
+- Status: complete. WP-ACC1 and WP-ACC2 are implemented on the
+  existing `/assignment-attempts/R-n/summary` presentation path. Session 40212
+  `./launchers/all_test.sh` exited 0 (Rust, 431 Node, 6,321 pytest, 99 fresh/no-op migrations,
+  PostgreSQL, MinIO, Profile, Course Appearance, and cleanup); canonical HTTP (session 30817),
+  answer-only/All-Never policy, and UI (session 11049) browser lanes passed at
+  `https://localhost:55230`, including axe 0, focus, 503 retry, and resume. The initial 390 px
+  visual review found a narrow Student header overlap; its reviewed M2 two-row fix passed the
+  independent canonical visual review of all eight captures, including the fresh no-overlap 390 px
+  state. M9 retains the final six-pass audit and full screenshot-corpus close-out. Next
+  dependency-ordered product milestone: M10 Assignments Due Soon, then M19 Active and Inactive
+  Courses.
 - Depends on: M5 for the surviving Student delivery lane; M6 for the vocabulary rules the new copy
   must follow.
 - Deliverables: `LiveAssignmentAccess` extended with question count, points possible, time limit,
@@ -722,6 +940,13 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
 
 ### Milestone: M9 evidence close-out
 
+- Status: in progress. WP-EVI1 passed against all four changed Student surfaces with no serious or
+  critical axe finding. Fresh aggregate acceptance, session 55874, exited 0 with Rust and Wasm,
+  435 Node tests, 6,441 pytest tests, PostgreSQL 17 fresh/no-op migration, MinIO, Profile, Course
+  Appearance, and disposable-cleanup lanes passing. WP-EVI2's replacement 49-capture publication,
+  bound receipt, visual review, and verification replay remain pending; the active 52-capture
+  corpus remains authoritative until that replacement is accepted. WP-EVI3 documentation close-out
+  follows those evidence steps. M19 remains a separate retention-scope blocker.
 - Depends on: every milestone whose surface it captures.
 - Deliverables: axe coverage for the changed Student surfaces; refreshed screenshot corpus entries
   and manifest digest; `docs/CHANGELOG.md` entries; a recommendation on whether an accessibility
@@ -734,6 +959,13 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
 
 ### Milestone: M10 Assignments Due Soon
 
+- Status: complete. WP-DUE1's Instructor-only cross-Course read and WP-DUE2's Product-scope page
+  are accepted. Current evidence covers the exact closed projection, active-Instructor membership
+  and immediate revocation removal, migration fresh/no-op application, Course identity, sorted due
+  rows in the Account zone, public Course and Assignment links, and visible retry recovery.
+  The read-only browser acceptance exited 0 at `https://localhost:55104`; the independent visual
+  review passed. The historical same-build empty capture remains separate from those current
+  populated/error/recovered captures.
 - Depends on: M2 for the Assignments tab that holds the destination; WP-DOC3 for the display-zone
   rule.
 - Deliverables: a cross-course Due Soon view for the current Instructor, with Course identity and
@@ -750,6 +982,9 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
 
 ### Milestone: M19 Active and Inactive Courses
 
+- Status: pending representation direction. Representation reviews reject a bare event or absence predicate because
+  no retention executor or trusted stripping receipt exists. Scope direction remains pending; no
+  product implementation is accepted.
 - Depends on: M0 for the recorded definition; M2 for the Courses task row that holds both
   destinations; M3 for the row pattern the lists reuse.
 - Deliverables: the smallest durable representation of Course activity that supports My Active
@@ -1319,6 +1554,13 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
 ### Work package: WP-ACC1 extend the Assignment access contract
 
 - Owner: `expert_coder`.
+- Status: complete. The access projection now
+  supplies answer-free title/count/points/time/completion and owned previous Attempts with an
+  independently released current score. The selected-history route uses strict Course metadata,
+  Assignment identity, submitted-or-closed Attempt state, and selected Question positions; optional
+  recorded response and Student Feedback remain independently disclosure-gated. Exact pinned native
+  PLE source reproduction never regrades; unavailable source/backend data omits affected content.
+  Private source/replay/IDs remain server-only; explanation and WeBWorK teaching fields are absent.
 - Touch points: `src/api/assignment_attempt_issuance.ts`, its decoder, the server assignment
   access route, and the Store projection behind it.
 - Depends on: WP-DEL1, WP-VOC1, WP-DEF2.
@@ -1333,6 +1575,9 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
 ### Work package: WP-ACC2 present the Start Assignment facts
 
 - Owner: `coder`.
+- Status: complete. It consumes the established `R-n` summary path without introducing a second
+  history path. Its Student browser, axe, focus, retry, and resume evidence passed, and the
+  independent canonical visual review accepted the fresh no-overlap responsive header capture.
 - Touch points: the Student start surface,
   `src/components/student_assignment_presentation.tsx`.
 - Depends on: WP-ACC1.
@@ -1453,6 +1698,13 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   Student identity, responses, and grading state stay outside the projection.
 - Evidence or review, when useful: `reviewer` on authorization; a probe confirming a revoked
   membership drops its rows; migration evidence only if the chosen shape needs a migration.
+- Accepted receipt (2026-09-11): the reviewer found no scoped correctness, authorization, privacy,
+  compatibility, or KISS defect. Migration `2026091028_assignments_due_soon.sql` and the
+  authenticated `GET /api/assignments/due-soon` path passed the PostgreSQL 17 fresh/no-op,
+  catalog, restricted-login, persistence, and cleanup acceptance lanes. The route returns the
+  exact closed six-field item projection in `{ items, nextCursor: null, displayTimeZone }`; the
+  Account display zone is self-only. Revoked Instructor membership removes rows. The owner chose
+  the rolling next-seven-days window as an implementation detail, not a new human-guidance rule.
 - Obvious follow-ons: WP-DUE2.
 
 ### Work package: WP-DUE2 present the Due Soon page
@@ -1466,6 +1718,14 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   empty state says what is absent and what to do next; the destination resolves Available in the
   generated ledger.
 - Evidence or review, when useful: `image_evaluator` at 1280 by 800; regenerated ledger.
+- Accepted receipt (2026-09-11): the current Instructor-only Product Assignments destination
+  presents only the existing fixture's Course identity, Assignment title/status, and Account-zone
+  due time in ascending due-instant order. Read-only browser acceptance at
+  `https://localhost:55104` exited 0 after visible sign-in, Ribbon navigation, public Course and
+  Assignment links, one locally intercepted expected `503`, and successful real-endpoint retry;
+  it made no persistent domain write. The independent 1280 by 800 visual review passed the
+  populated, error, and recovered captures. Its empty-state capture is historical same-build
+  evidence only and is not substituted for the current acceptance run.
 - Obvious follow-ons: none.
 
 ### Work package: WP-CST1 represent Course activity
@@ -1591,18 +1851,22 @@ and PYTEST_STYLE.md:
 - [ ] Ribbon ledger regenerated and matching the catalog.
 - [x] One Student delivery lane with navigation bar, saved state, and timer.
 - [x] Student-visible text carries no Instructor noun.
-- [ ] Start Assignment shows title, counts, points, time limit, and previous attempts.
-- [ ] A deadline is a zone-free instant; Instructor entry and Student display each use their own
+- [x] Start Assignment shows title, counts, points, time limit, and previous attempts.
+- [x] A deadline is a zone-free instant; Instructor entry and Student display each use their own
       account zone; no Course-owned wall-clock concept remains.
-- [ ] Changing a profile zone re-renders deadlines without moving them.
-- [ ] Profile preferences persist with a clean-volume and no-op migration run.
-- [x] Account-zone preference storage passes clean-volume and no-op migration acceptance; Profile
-      editing remains M17 work.
+- [x] Changing a profile zone re-renders deadlines without moving them.
+- [x] Profile preferences persist with a clean-volume and no-op migration run.
+- [x] Account-zone preference storage and M17 Profile editing pass clean-volume and no-op migration
+      acceptance.
 - [x] Instructor wall-clock entry uses the authenticated account zone to store a deadline instant;
-      M15 display and M16 Course-zone retirement remain separate milestones.
+      M15 display and M16 Course-zone retirement are complete.
+- [x] Profile thumbnail handling is self-only, server-normalized, and accepted through the
+      PostgreSQL-plus-MinIO saga.
 - [x] Question presentation owns answer-choice randomization on PLE-native Questions; backend
       questions keep their backend's presentation.
-- [ ] Assignments Due Soon lists only Courses the Instructor currently teaches.
+- [x] Assignments Due Soon lists only Courses the current Instructor teaches; its dense Product
+      page shows Course identity and Account-zone due time, preserves public links, and recovers
+      from the expected local retry state.
 - [ ] Inactive Courses show non-sensitive metadata and no FERPA-sensitive Student data.
 - [ ] Student axe coverage passing; screenshot receipt matching.
 - [ ] `docs/CHANGELOG.md` records accepted evidence; deferred items routed to `docs/TODO.md`.

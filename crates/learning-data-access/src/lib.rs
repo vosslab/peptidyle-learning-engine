@@ -19,6 +19,7 @@ mod course_roster;
 mod course_theme;
 mod imathas_question_backend_session;
 mod instructor_account;
+mod instructor_profile;
 mod invitation_export;
 mod live_gradebook;
 mod live_student_course_landing;
@@ -27,6 +28,7 @@ mod native_ple_submission;
 mod object_record;
 mod pagination;
 pub mod postgres;
+mod profile_thumbnail;
 mod public_asset_publication;
 mod question_asset_delivery;
 mod question_library;
@@ -46,17 +48,22 @@ pub use assignment_attempt::{
 };
 pub use assignment_delivery::{
     IssuedQuestionPresentation, LiveAssignmentAccess, LiveAssignmentAttempt,
-    LiveAssignmentDeliveryStore, LiveAssignmentStartDecision, NativePleIssuanceSource,
+    LiveAssignmentAttemptScore, LiveAssignmentDeliveryStore, LiveAssignmentPreviousAttempt,
+    LiveAssignmentPreviousAttemptState, LiveAssignmentStartDecision, NativePleIssuanceSource,
     NativePlePresentationInput, NativeWebworkIssuanceSource, NativeWebworkPresentationInput,
     ReadyQuestionAssetRendition, StudentAssignmentAttemptContext,
-    StudentAssignmentAttemptFinalization, StudentAssignmentAttemptPresentationSource,
+    StudentAssignmentAttemptFinalization, StudentAssignmentAttemptHistory,
+    StudentAssignmentAttemptHistoryAssignment, StudentAssignmentAttemptHistoryCourse,
+    StudentAssignmentAttemptHistoryEvidence, StudentAssignmentAttemptHistoryQuestion,
+    StudentAssignmentAttemptHistoryResponseSource, StudentAssignmentAttemptPresentationSource,
     StudentAssignmentAttemptSavedResponse,
 };
 pub use assignment_release::{
     AssignmentPreview, AssignmentQuestionPickerEntry, AssignmentReleaseIssue,
     AssignmentReleaseValidation, AuthoredAssignmentQuestion, CourseAssignmentSummary,
-    CreateLiveAssignmentInput, LiveAssignmentStore, LiveAssignmentWorkspace,
-    ReleasedLiveAssignment, SaveLiveAssignmentInput,
+    CreateLiveAssignmentInput, DueSoonAssignmentSummary, DueSoonAssignments, LiveAssignmentStore,
+    LiveAssignmentWorkspace, ReleasedLiveAssignment, SaveLiveAssignmentInlineInput,
+    SaveLiveAssignmentInput,
 };
 pub use authentication_ceremony::{
     AuthenticatedAccount, AuthenticationCeremonyLifetime, AuthenticationCeremonyStore,
@@ -121,6 +128,9 @@ pub use instructor_account::{
     CreateInstructorAccountInput, DeactivateInstructorAccountInput, InstructorAccountList,
     InstructorAccountState, InstructorAccountStore, InstructorAccountSummary,
 };
+pub use instructor_profile::{
+    InstructorProfile, InstructorProfileStore, UpdateInstructorProfileInput,
+};
 pub use invitation_export::{
     InvitationExportStore, InvitationMailerExport, InvitationMailerRecipient,
     PendingInvitationExport, PendingInvitationRecipient,
@@ -139,6 +149,10 @@ pub use object_record::{
     WorkspaceQuestionSourceObjectRecordStore, validate_workspace_question_source_object_record,
 };
 pub use pagination::{Cursor, Page, PageRequest, PageSize, PaginationError};
+pub use profile_thumbnail::{
+    FinalizedProfileThumbnail, PreparedProfileThumbnail, ProfileThumbnailDeleteWork,
+    ProfileThumbnailStore,
+};
 pub use public_asset_publication::{ClaimedQuestionAssetPublication, PublicAssetPublicationStore};
 pub use question_asset_delivery::{QuestionAssetDeliveryStore, ReadyQuestionAssetDelivery};
 pub use question_library::{PublishedQuestionLibraryEntry, QuestionLibraryStore};

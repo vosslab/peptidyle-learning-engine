@@ -83,19 +83,28 @@ def test_success_response_keeps_its_existing_json_contract() -> None:
 
 #============================================
 def test_startable_access_requires_no_active_attempt() -> None:
-	"""Only the exact public new-Attempt projection permits a seeded start."""
+	"""Only required new-Attempt facts permit a seeded start."""
 	activity = local_stack_control.live_demo_course_activity
 
 	assert activity.require_startable_access({
 		"startDecision": "may_start",
 		"activeAssignmentAttempt": None,
+		"title": "Peptide Structure Practice",
+		"questionCount": 4,
+		"pointsPossible": 8,
+		"timeLimitSeconds": 900,
+		"previousAttempts": [],
 	})
 	assert activity.require_startable_access({
 		"startDecision": "may_start",
 		"activeAssignmentAttempt": "R-1",
 	}) is False
-	assert activity.assignment_attempt_reference("R-42") == "R-42"
-	assert activity.assignment_attempt_reference("R-0") is None
+	assert activity.require_startable_access({
+		"startDecision": "closed",
+		"activeAssignmentAttempt": None,
+	}) is False
+	assert activity.require_startable_access({"activeAssignmentAttempt": None}) is False
+	assert activity.require_startable_access({"startDecision": "may_start"}) is False
 
 
 #============================================

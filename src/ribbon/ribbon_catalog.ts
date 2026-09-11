@@ -35,14 +35,12 @@ export type FutureRibbonDestinationId =
   | "supportRoster"
   | "blueprintUpdates"
   | "courseSetup"
-  | "productAssignments"
   | "myActiveCourses"
   | "myInactiveCourses"
   | "searchPublicBlueprintCourses"
   | "myQuestions"
   | "starredQuestions"
   | "watchedQuestions"
-  | "assignmentsDueSoon"
   | "assignmentTemplates";
 
 /** A destination is either a declared route or an honest future identity, never a URL guess. */
@@ -108,15 +106,14 @@ const pairedIconFlags = {
 } as const;
 
 /**
- * Instructor Profile has a settled account-endcap position, but no usable
- * browser path yet. M17 will back this exact declaration.
+ * Instructor Profile is a backed Instructor account-endcap Context Control.
  */
 export const RIBBON_CONTEXT_CONTROL_CATALOG = [
   {
     id: "profile",
     label: "Profile",
     productRole: "instructor",
-    availability: "Unavailable",
+    availability: "Available",
     glyph: "profile",
   },
 ] as const satisfies ReadonlyArray<RibbonContextControlCatalogEntry>;
@@ -149,7 +146,7 @@ export const TAB_CATALOG = [
   {
     id: "productAssignments",
     label: "Assignments",
-    destination: { kind: "future", futureId: "productAssignments" },
+    destination: { kind: "route", routeId: "assignmentsDueSoon" },
     requiredParams: [],
     role: "primary",
     priority: "critical",
@@ -386,7 +383,7 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "assignmentsDueSoon",
     label: "Assignments Due Soon",
-    destination: { kind: "future", futureId: "assignmentsDueSoon" },
+    destination: { kind: "route", routeId: "assignmentsDueSoon" },
     requiredParams: [],
     taskGroup: "instructorAssignments",
     area: "instructorAssignments",

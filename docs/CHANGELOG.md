@@ -1,8 +1,145 @@
 # Changelog
 
+## 2026-09-11
+
+### Additions and New Features
+
+- Completed M10 Assignments Due Soon. The current Instructor's Product-scope Assignments page
+  lists only Assignments from Courses they currently teach, in due-instant order, with Course
+  identity, Assignment status, Account-zone deadline, public Course and Assignment links, an
+  explicit empty state, and local retry recovery. The service remains the exact small
+  Instructor-only projection; it carries no Student, Attempt, response, grading, or answer data.
+
+### Behavior or Interface Changes
+
+- Implemented M7/WP-ACC2 Student Assignment Start and history UI. The Start page now presents the
+  server-authorized Assignment title, questions, points possible, and time limit before its single
+  primary Start action, with prior Attempt links following that action. The retained summary route
+  reads direct `R-n`
+  history, presents only server-disclosed scores, responses, and teaching fields, and uses the
+  authorized Course and Assignment public references for its return path, Ribbon, and theme.
+
+- Implemented M7/WP-ACC1 readable selected-history responses. A Student whose
+  `submitted_response` timing is released now receives only readable content
+  from the exact pinned issued presentation for that owned completed Attempt.
+  Reproduction, source, checksum, or asset unavailability omits that response
+  while retaining the Attempt spine and independently released current grades.
+  Raw private answer and feedback content, canonical response IDs, and source
+  locators remain below the server boundary; independently authorized safe
+  response and teaching projections cross only through their disclosure gates.
+  Completed owned response images use the existing ready-asset authorization path
+  with active membership.
+
+- Implemented M7/WP-ACC1 native PLE selected-history teaching content. Independently released
+  feedback and correct-answer fields now derive from one exact authorized source read without
+  regrading; selected-choice feedback can appear without an outcome, while outcome feedback uses
+  only recorded correctness. Unavailable PLE explanations and all WeBWorK teaching content remain
+  absent, as do individual fields whose pinned source, response, or recorded result is unavailable.
+
+- Completed M11 inline Assignment title and due-date editing. The Course Assignment list now edits
+  a released Assignment's title and raw local due value in place with the current Assignment Edit
+  Number, current-state save semantics, and no revision or undo entry. New Attempts retain their
+  started title and due instant, including a real null no-deadline value; legacy Attempts retain
+  their exact released revision fallback. Final aggregate acceptance passed Rust, 423 Node tests,
+  6,320 pytest tests, the 96-migration PostgreSQL/MinIO/Profile service lanes, and cleanup.
+  Disposable browser acceptance proved raw milliseconds, title-only precision, null deadline
+  clearing, the new-date 11:59 PM default, keyboard cancellation and focus return, busy state,
+  retained-draft 503 retry, and 412 refresh/retry with no unexpected HTTP or page errors.
+
+### Fixes and Maintenance
+
+- Reconciled the active Interface Cleanup tracker with already accepted M7, account-zone, Profile,
+  and thumbnail receipts. The M10 checklist now records its accepted service and page evidence;
+  M9 and M19 remain explicitly incomplete.
+
+- Applied the scoped documentation and comment-audit corrections: durable documentation now states
+  current-state Assignment editing accurately, architecture inventories the Profile, selected
+  history, and Due Soon boundaries, and public Profile Rust items document their self-only and
+  concrete-store responsibilities.
+
+- Completed a fresh scoped six-pass maintenance audit. Its accepted repairs remove two redundant
+  M11 source-label assertions, correct evidence status and module inventories and the Due Soon
+  exact-key record, and clarify Profile Thumbnail Store rustdoc and migration comment tags.
+
+### Removals and Deprecations
+
+- Removed the dead generic Assignment Attempt Summary transport and its decoder-only surface while
+  preserving the live `/assignment-attempts/R-n/summary` browser presentation route and its pinned
+  history endpoint. The separately found duplicate local date-time parser name is deferred by
+  owner direction.
+
+### Decisions and Failures
+
+- The mutation-heavy clear/zone-switch browser harness was denied as optional and outside M10
+  acceptance. The accepted replacement is materially safer read-only replay against the existing
+  fixture; Profile zone changes remain M17 evidence.
+
+- M9 remains open: its connected Student axe run (session 9103) and fresh full
+  `all_test.sh` aggregate (session 55874) passed, while the replacement 49-capture corpus
+  publication, matching manifest receipt, visual review, verification replay, and WP-EVI3
+  documentation remain pending; the active 52-capture corpus remains authoritative meanwhile.
+  M19 remains pending scope direction because no retention executor or trusted stripping receipt
+  exists; no Course-activity product implementation is accepted.
+
+### Developer Tests and Notes
+
+- Fresh aggregate acceptance, session 55874, ran `./launchers/all_test.sh` to exit 0
+  (`/private/tmp/ple-interface-cleanup.QVsF3M/audit20-all-test.log`): Rust and Wasm checks,
+  435 Node tests, 6,441 pytest tests, PostgreSQL 17 fresh/no-op migration acceptance, MinIO,
+  Profile, Course Appearance, and disposable-cleanup lanes all passed. Six fresh scoped audit
+  reports (Plan, Tests, Style, Documentation, Legacy, and Comments) were reviewed; the accepted
+  repairs are recorded above. This checkpoint does not close M9 or M19.
+
+- M10 acceptance combines the accepted WP-DUE1 PostgreSQL 17 fresh/no-op migration and revocation
+  receipt with a final read-only browser run at `https://localhost:55104` that exited 0. It proved
+  the current Instructor-only view, Account-zone rendering, status/order, links, and one expected
+  intercepted `503` retry with no unexpected HTTP, page, or console errors. Independent visual
+  review passed the current populated, error, and recovered captures. A same-build empty capture
+  is historical evidence only. The six scoped Plan, Tests, Style, Documentation, Legacy, and
+  Comment audit reports were reviewed; their accepted fixes are recorded above.
+
+- Accepted M10/WP-DUE1's narrow cross-course Due Soon read path. The authenticated Instructor-only
+  `GET /api/assignments/due-soon` response is exactly `{ items, nextCursor: null, displayTimeZone
+  }`; each item contains only Course reference/title, Assignment reference/title/status, and
+  `dueAtMillis`. The implementation uses an owner-selected rolling next-seven-days window for
+  unreleased and released Assignments. It is not a new product-policy or human-guidance decision.
+  The Store independently applies the existing active-Instructor membership predicate, so revoked
+  membership removes Course rows, and returns no Student, response, Attempt, grading, or answer
+  data. The reviewed PostgreSQL 17 acceptance run passed fresh and no-op migration application,
+  the full catalog through migration `2026091028`, the Due Soon window/status/revocation oracle,
+  restricted-login probes, persistence probes, and disposable cleanup
+  (`/private/tmp/ple-interface-cleanup.QVsF3M/m10-due1-postgres-repaired.log`). Offline
+  `./check_rust.sh` and `./check_codebase.sh` also passed, including 433 Node tests. The initial
+  forced-RLS fixture failure was repaired using the existing authorized writer and remains only a
+  diagnostic history. This WP-DUE1 receipt did not itself claim M9 evidence close-out or a current
+  full `all_test.sh` run.
+
+- M7 acceptance evidence: session 40212 `./launchers/all_test.sh` exited 0 with Rust, 431 Node,
+  6,321 pytest, 99 fresh/no-op migrations, PostgreSQL, MinIO, Profile, Course Appearance, and
+  cleanup lanes passing (`/private/tmp/ple-interface-cleanup.QVsF3M/m7-final-all-test.log`). The
+  prior failed backend and stale-seed receipts remain historical diagnostics, not current status.
+  Canonical HTTP (session 30817), answer-only and All/Never disclosure policy, and UI (session
+  11049) browser lanes passed at `https://localhost:55230`; `m7-ui-accepted.log` records UI
+  automation passing all profiles, axe 0, focus, 503 retry, and resume. Canonical stop session
+  48488 exited 0 (`m7-accepted-stop.log`). The native PLE source
+  mapping now transports `question_attempt_id`, `source_object_id`, and `question_seed` as text,
+  and seed consumers read semantic access facts rather than exact obsolete response shapes.
+
+- M7 is accepted. Independent canonical visual review passed all eight actual captures, including
+  the fresh 390 px Start state with no header overlap. Shared Start/history CSS is owned by the
+  browser entry and compact breadcrumbs remain intact. M9 remains separate: this receipt does not
+  claim its final six-pass audit or full screenshot corpus. The stale M10/Profile keyboard-order
+  harness belongs to M9 evidence and M17 Profile follow-through, not M10 Due Soon scope. Next
+  dependency-ordered product milestone: M10 Assignments Due Soon, then M19 Active and Inactive
+  Courses.
+
 ## 2026-09-10
 
 ### Fixes and Maintenance
+
+- Corrected the Live Demo Course seed after Course-zone retirement. It now sends the strict
+  date-only Course Term payload rather than the removed `term.timeZone` field, restoring canonical
+  startup without changing Account-zone defaults or seeded Student-work flows.
 
 - Kept the Questions-to-Policies link visible after a saved Assignment reload. The Questions
   workspace retains its post-save status message while its Policies route remains keyboard
@@ -72,6 +209,47 @@
 
 ### Behavior or Interface Changes
 
+- Completed M4 Assignment Settings defaults. New direct Assignments default to one-Question
+  delivery and shuffled Assignment Question order; issuance
+  records a stable per-Attempt sequence and resumes by released source identity. Release requires
+  an Instructor-saved positive whole-Attempt time limit, without inventing a duration default.
+  An exact current full-policy retry now returns the unchanged resource and Edit Number without a
+  write; changed authored policy continues to advance once.
+  The fresh aggregate passed 420 Node tests, 6,320 pytest tests, Rust, PostgreSQL/MinIO/Profile
+  service, and cleanup lanes after bounded explicit demo-duration, `authoredOrder`, and unchanged-
+  save fixes. The rebuilt browser acceptance passed seven-policy reload, raw-millisecond due-time,
+  chosen-duration release recovery, repeated valid save, Question-order editing, and stable
+  two-Question Student resume with restored saved work; supported runtime cleanup passed.
+
+- Completed the M4/WP-DEF1 Assignment-schedule foundation. A new due-date draft defaults to
+  11:59 PM in the Instructor's Account time zone and remains a raw local value until the server
+  resolves it. Existing seconds and milliseconds survive save and reload, and failed saves retain
+  the typed schedule. `Reject` remains the late-work default; a forward migration now rejects
+  post-due response saves while preserving finalization of on-time saved work. The six disclosure
+  controls and question-presentation settings remain in the active WP-DEF2 and WP-DEF3 packages.
+
+- Completed the M4/WP-DEF2 disclosure package. Assignment Properties retains independent timing
+  controls for score, correctness, correct answer, Question feedback, Question answer explanation,
+  and class statistics; a separate previous-attempt response control governs only the Student's
+  recorded response. New Assignments release score, correctness, and that response after
+  submission, while answer-bearing authored content and class statistics default to Never.
+  Existing explicit settings and immutable v2 Blueprint content remain usable; new Blueprint
+  revisions record the strict v3 policy shape.
+
+- Completed M18 Profile thumbnail. An Instructor can upload a useful still image at any source
+  aspect, and PLE commits one centered 256 by 256 lossless WebP thumbnail behind the Profile's
+  consistent rounded-square silhouette. The server owns decoded-image validation, crop, rendition,
+  typed address, and authorized delivery; replacement uses the established cleanup, storage-check,
+  manifest, job, and audit-receipt lineage. Browser replay proved centered wide-image rendering,
+  reload, prior-reference concealment, Student denial, and actionable metadata/upload recovery.
+
+- Completed M17 Instructor Profile. An Instructor now reads and saves their own exact IANA time
+  zone through the Profile Context Control, with no selected Ribbon tab. Profile explains that
+  changing the zone re-renders stored deadline instants without moving them; browser acceptance
+  proved an ordinary deadline changed from Los Angeles noon to Chicago 2:00 PM while the stored
+  instant remained unchanged. Self-only authorization, retained-choice save recovery, and
+  Student/Sysadmin route denial passed.
+
 - Added the focused Student Assignment question navigation component. It renders ordered native
   Question controls with visible and announced Not answered, Saved, or Closed states; the current
   Question is marked beyond color, and the compact layout adapts for narrow phones.
@@ -124,6 +302,13 @@
   elapsed time and the existing Wasm timing calculation. A targeted final review found no findings
   and 28/28 focused tests passed. Student presentation mounting remains M7 and Course-zone
   retirement remains M16.
+
+- Completed M16 Course-zone retirement. Course Terms now retain only inclusive ordered calendar
+  dates; an Instructor's local input is bounded by those dates before the authenticated Account
+  zone resolves it, while persisted deadlines remain absolute instants. The forward migration
+  retires the Course clock across the active schema, Rust model, generated contracts, and browser
+  without altering schedule-revision evidence or its authorization boundary. Preview and Blueprint
+  scheduling use the acting authorized Instructor Account zone at their existing boundaries.
 
 - Completed M2 Ribbon, dense top bar, and breadcrumbs. The one dense top bar holds identity, role,
   account, backed Product tabs, and Sign Out; visible Product and task navigation uses icon plus

@@ -12,6 +12,7 @@ export function decodeStudentFeedbackReleaseRule(
   const fields = [
     "score",
     "per_item_correctness",
+    "submitted_response",
     "question_feedback",
     "question_answer",
     "question_answer_explanation",
@@ -29,6 +30,7 @@ export function decodeStudentFeedbackReleaseRule(
   return {
     score: decodeTiming("score"),
     per_item_correctness: decodeTiming("per_item_correctness"),
+    submitted_response: decodeTiming("submitted_response"),
     question_feedback: decodeTiming("question_feedback"),
     question_answer: decodeTiming("question_answer"),
     question_answer_explanation: decodeTiming("question_answer_explanation"),

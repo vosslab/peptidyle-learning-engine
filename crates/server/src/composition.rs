@@ -12,10 +12,11 @@ use learning_data_access::{
         PostgresAuthoringDraftStore, PostgresBlueprintCourseStore, PostgresCourseBannerStore,
         PostgresCourseInstanceStore, PostgresCourseRosterStore, PostgresCourseThemeStore,
         PostgresDraftQuestionSourceBindingStore, PostgresInstructorAccountStore,
-        PostgresInvitationExportStore, PostgresLiveAssignmentDeliveryStore,
-        PostgresLiveAssignmentStore, PostgresLiveDemoGradebookStore,
-        PostgresLiveStudentCourseLandingStore, PostgresNativePleGradingStore,
-        PostgresNativePleSubmissionStore, PostgresPublicAssetPublicationStore,
+        PostgresInstructorProfileStore, PostgresInvitationExportStore,
+        PostgresLiveAssignmentDeliveryStore, PostgresLiveAssignmentStore,
+        PostgresLiveDemoGradebookStore, PostgresLiveStudentCourseLandingStore,
+        PostgresNativePleGradingStore, PostgresNativePleSubmissionStore,
+        PostgresProfileThumbnailStore, PostgresPublicAssetPublicationStore,
         PostgresQuestionAssetDeliveryStore, PostgresQuestionLibraryStore, PostgresSessionStore,
         PostgresSupportCapabilityStore, PostgresWebworkGradingStore, ProductionLoginProfile,
         local_development_pool, production_pool,
@@ -86,6 +87,8 @@ pub async fn production_router_from_env() -> Result<Router> {
     let course_banners = PostgresCourseBannerStore::new(pool.clone());
     let course_roster = PostgresCourseRosterStore::new(pool.clone());
     let instructor_accounts = PostgresInstructorAccountStore::new(pool.clone());
+    let instructor_profiles = PostgresInstructorProfileStore::new(pool.clone());
+    let profile_thumbnails = PostgresProfileThumbnailStore::new(pool.clone());
     let support_capabilities = PostgresSupportCapabilityStore::new(pool.clone());
     let invitation_exports = PostgresInvitationExportStore::new(pool.clone());
     let gradebook = PostgresLiveDemoGradebookStore::new(pool.clone());
@@ -150,6 +153,12 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::instructor_account::instructor_account_router(
             Arc::clone(&sessions),
             instructor_accounts,
+        ))
+        .merge(crate::instructor_profile::instructor_profile_router(
+            Arc::clone(&sessions),
+            instructor_profiles,
+            profile_thumbnails,
+            question_library_objects.clone(),
         ))
         .merge(crate::support_capability::support_capability_router(
             Arc::clone(&sessions),

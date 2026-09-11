@@ -451,8 +451,7 @@ mod tests {
     #[test]
     fn course_creation_binds_exact_source_location_and_request_checksum() {
         let source = source();
-        let term =
-            CourseTerm::from_parts("2026-08-24", "2026-12-12", "America/Chicago").expect("term");
+        let term = CourseTerm::from_parts("2026-08-24", "2026-12-12").expect("term");
         let course_creation = CreateCourseFromBlueprintPreviewView {
             source,
             target_term: term.clone(),
@@ -552,8 +551,7 @@ mod tests {
                     reason: super::super::CourseInstanceScheduleReason::AmbiguousLocalTime,
                 }],
             };
-        let term =
-            CourseTerm::from_parts("2026-08-24", "2026-12-12", "America/Chicago").expect("term");
+        let term = CourseTerm::from_parts("2026-08-24", "2026-12-12").expect("term");
         assert_eq!(
             super::super::CreateCourseFromBlueprintApplyRecord::new(
                 source(),
@@ -620,8 +618,7 @@ mod tests {
             Err(ForkBlueprintCourseCommandError::CreationReservationMismatch)
         );
 
-        let term =
-            CourseTerm::from_parts("2026-08-24", "2026-12-12", "America/Chicago").expect("term");
+        let term = CourseTerm::from_parts("2026-08-24", "2026-12-12").expect("term");
         let create_course = CreateCourseFromBlueprintPreviewView {
             source: source(),
             target_term: term.clone(),

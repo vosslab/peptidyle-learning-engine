@@ -121,8 +121,10 @@ SELECT EXISTS (
        AND revision.assignment_question_display_rule IS NOT DISTINCT FROM assignment.assignment_question_display_rule
        AND revision.assignment_navigation_rule IS NOT DISTINCT FROM assignment.assignment_navigation_rule
        AND revision.assignment_question_order_rule IS NOT DISTINCT FROM assignment.assignment_question_order_rule
+       AND revision.assignment_attempt_time_limit_seconds IS NOT DISTINCT FROM assignment.assignment_attempt_time_limit_seconds
        AND revision.feedback_score IS NOT DISTINCT FROM assignment.feedback_score
        AND revision.feedback_per_item_correctness IS NOT DISTINCT FROM assignment.feedback_per_item_correctness
+       AND revision.feedback_submitted_response IS NOT DISTINCT FROM assignment.feedback_submitted_response
        AND revision.feedback_question_feedback IS NOT DISTINCT FROM assignment.feedback_question_feedback
        AND revision.feedback_question_answer IS NOT DISTINCT FROM assignment.feedback_question_answer
        AND revision.feedback_question_answer_explanation IS NOT DISTINCT FROM assignment.feedback_question_answer_explanation
@@ -134,8 +136,10 @@ SELECT EXISTS (
        AND revision.assignment_question_display_rule = 'one_question_at_a_time'
        AND revision.assignment_navigation_rule = 'free_navigation'
        AND revision.assignment_question_order_rule = 'authored_order'
+       AND revision.assignment_attempt_time_limit_seconds = 1800
        AND revision.feedback_score = 'after_submit'
        AND revision.feedback_per_item_correctness = 'after_submit'
+       AND revision.feedback_submitted_response = 'after_submit'
        AND revision.feedback_question_feedback = 'after_submit'
        AND revision.feedback_question_answer = 'after_submit'
        AND revision.feedback_question_answer_explanation = 'after_submit'

@@ -149,6 +149,7 @@ content = {
         },
         "student_feedback_release_rule": {
             "score": "after_submit", "per_item_correctness": "after_submit",
+            "submitted_response": "after_submit",
             "question_feedback": "after_submit", "question_answer": "never",
             "question_answer_explanation": "never", "class_statistics": "never",
         },

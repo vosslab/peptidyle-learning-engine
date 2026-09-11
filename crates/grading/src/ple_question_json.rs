@@ -19,6 +19,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::AnswerKey;
 
+mod recorded_teaching;
+
+pub use recorded_teaching::PleQuestionJsonRecordedTeachingContent;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum PleQuestionJsonGradingError {
     InvalidResponse(Vec<StudentResponseFormatIssue>),
@@ -266,7 +270,7 @@ impl PleQuestionJsonPrivateGrading {
         let result = evaluate_response(response_format, response, &self.answer_key)?;
         Ok(PleQuestionJsonEvaluation {
             evaluation: result,
-            question_feedback: self.question_feedback_for(response, result)?,
+            question_feedback: self.question_feedback_for(response, result.correct())?,
             question_answer: Some(self.question_answer_for(response_format)?),
             question_answer_explanation: None,
         })
@@ -331,7 +335,22 @@ impl PleQuestionJsonPrivateGrading {
     fn question_feedback_for(
         &self,
         response: &StudentResponse,
-        result: QuestionEvaluation,
+        correct: bool,
+    ) -> Result<QuestionFeedback, PleQuestionJsonError> {
+        let mut feedback = self.selected_choice_feedback_for(response)?;
+        let (correct_feedback, incorrect_feedback) = if correct {
+            (self.outcome_feedback.correct.as_deref(), None)
+        } else {
+            (None, self.outcome_feedback.incorrect.as_deref())
+        };
+        feedback.correct_feedback = correct_feedback.map(markdown_blocks);
+        feedback.incorrect_feedback = incorrect_feedback.map(markdown_blocks);
+        Ok(feedback)
+    }
+
+    fn selected_choice_feedback_for(
+        &self,
+        response: &StudentResponse,
     ) -> Result<QuestionFeedback, PleQuestionJsonError> {
         let mut choice_feedback = Vec::new();
         if let StudentResponse::MultipleChoice { selected } = response {
@@ -345,15 +364,10 @@ impl PleQuestionJsonPrivateGrading {
                 }
             }
         }
-        let (correct_feedback, incorrect_feedback) = if result.correct() {
-            (self.outcome_feedback.correct.as_deref(), None)
-        } else {
-            (None, self.outcome_feedback.incorrect.as_deref())
-        };
         Ok(QuestionFeedback {
             choice_feedback: (!choice_feedback.is_empty()).then_some(choice_feedback),
-            correct_feedback: correct_feedback.map(markdown_blocks),
-            incorrect_feedback: incorrect_feedback.map(markdown_blocks),
+            correct_feedback: None,
+            incorrect_feedback: None,
         })
     }
 

@@ -9,6 +9,8 @@ import {
   DecodeError,
   decodeArray,
   decodeBoolean,
+  decodeFiniteNumber,
+  decodeNonnegativeInteger,
   decodePositiveInteger,
   decodeRecord,
   decodeString,
@@ -47,12 +49,74 @@ function instructions(value: unknown, path: string): string {
   return decoded;
 }
 
+function nonnegativeFiniteNumber(value: unknown, path: string): number {
+  const decoded = decodeFiniteNumber(value, path);
+  if (decoded < 0) throw new DecodeError(path, "a nonnegative finite number");
+  return decoded;
+}
+
+function priorAttempt(
+  value: unknown,
+  path: string,
+): import("../assignment_attempt_issuance").LiveAssignmentPreviousAttempt {
+  const record = decodeRecord(value, path);
+  const allowed = ["assignmentAttempt", "attemptNumber", "state", "score"];
+  requireOnlyFields(record, path, allowed);
+  const reference = field(record, "assignmentAttempt", path);
+  if (typeof reference !== "string") {
+    throw new DecodeError(`${path}.assignmentAttempt`, "an Assignment Attempt R- reference");
+  }
+  const assignmentAttempt = parseAssignmentAttemptReference(reference);
+  if (assignmentAttempt === null) {
+    throw new DecodeError(`${path}.assignmentAttempt`, "an Assignment Attempt R- reference");
+  }
+  const state = decodeString(field(record, "state", path), `${path}.state`);
+  if (state !== "submitted" && state !== "closed") {
+    throw new DecodeError(`${path}.state`, "a completed Assignment Attempt state");
+  }
+  const scoreValue = record.score;
+  let score: { readonly pointsEarned: number; readonly pointsPossible: number } | undefined;
+  if (scoreValue !== undefined) {
+    const scoreRecord = decodeRecord(scoreValue, `${path}.score`);
+    requireOnlyFields(scoreRecord, `${path}.score`, ["pointsEarned", "pointsPossible"]);
+    const pointsEarned = nonnegativeFiniteNumber(
+      field(scoreRecord, "pointsEarned", `${path}.score`),
+      `${path}.score.pointsEarned`,
+    );
+    const pointsPossible = nonnegativeFiniteNumber(
+      field(scoreRecord, "pointsPossible", `${path}.score`),
+      `${path}.score.pointsPossible`,
+    );
+    if (pointsEarned > pointsPossible) {
+      throw new DecodeError(`${path}.score`, "an ordered Assignment Attempt score");
+    }
+    score = { pointsEarned, pointsPossible };
+  }
+  return {
+    assignmentAttempt,
+    attemptNumber: decodePositiveInteger(
+      field(record, "attemptNumber", path),
+      `${path}.attemptNumber`,
+    ),
+    state,
+    ...(score === undefined ? {} : { score }),
+  };
+}
+
 export function decodeLiveAssignmentAccess(
   value: unknown,
   path = "response",
 ): LiveAssignmentAccess {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["startDecision", "activeAssignmentAttempt"]);
+  requireOnlyFields(record, path, [
+    "startDecision",
+    "activeAssignmentAttempt",
+    "title",
+    "questionCount",
+    "pointsPossible",
+    "timeLimitSeconds",
+    "previousAttempts",
+  ]);
   const activeAssignmentAttemptValue = field(record, "activeAssignmentAttempt", path);
   let activeAssignmentAttempt = null;
   if (activeAssignmentAttemptValue !== null) {
@@ -73,6 +137,24 @@ export function decodeLiveAssignmentAccess(
   return {
     startDecision: decision(field(record, "startDecision", path), `${path}.startDecision`),
     activeAssignmentAttempt,
+    title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
+    questionCount: decodeNonnegativeInteger(
+      field(record, "questionCount", path),
+      `${path}.questionCount`,
+    ),
+    pointsPossible: nonnegativeFiniteNumber(
+      field(record, "pointsPossible", path),
+      `${path}.pointsPossible`,
+    ),
+    timeLimitSeconds: ((): number | null => {
+      const value = field(record, "timeLimitSeconds", path);
+      return value === null ? null : decodePositiveInteger(value, `${path}.timeLimitSeconds`);
+    })(),
+    previousAttempts: decodeArray(
+      field(record, "previousAttempts", path),
+      `${path}.previousAttempts`,
+      priorAttempt,
+    ),
   };
 }
 

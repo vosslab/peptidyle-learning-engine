@@ -442,10 +442,10 @@ END
 $$;
 INSERT INTO ple_data.course_schedule_revision (
     course_schedule_revision_id, course_id, revision_number, term_starts_on, term_ends_on,
-    course_time_zone, created_at
+    created_at
 ) VALUES (
     '00000000-0000-0000-0000-000000000109', '00000000-0000-0000-0000-000000000105', 1,
-    '2026-01-01', '2026-12-31', 'America/Chicago', '2026-01-01 00:00:00+00'
+    '2026-01-01', '2026-12-31', '2026-01-01 00:00:00+00'
 );
 INSERT INTO ple_data.assignment (
     assignment_id, course_id, source_blueprint_course_reference_number,
@@ -464,7 +464,7 @@ INSERT INTO ple_data.assignment (
     '2026-01-01 00:00:00+00', 1, 'Assignment Attempt fixture', '',
     NULL, NULL, NULL, NULL, NULL, 'accept', 'auto_submit', 'answer_all', NULL,
     'highest', 'unlimited', NULL, 'reuse_selection', 'new_variation', 'resumable',
-    'all_questions', 'free_navigation', 'authored_order', 'unreleased', NULL
+    'all_questions', 'free_navigation', 'shuffled', 'unreleased', NULL
 );
 INSERT INTO ple_data.assignment_revision (
     assignment_revision_id, assignment_id, course_id, course_schedule_revision_id, revision_number,
@@ -480,7 +480,7 @@ INSERT INTO ple_data.assignment_revision (
     '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000000109', 1,
     'Assignment Attempt fixture', '', NULL, NULL, NULL, NULL, NULL, 'accept',
     'auto_submit', 'answer_all', NULL, 'highest', 'unlimited', NULL, 'reuse_selection',
-    'new_variation', 'resumable', 'all_questions', 'free_navigation', 'authored_order',
+    'new_variation', 'resumable', 'all_questions', 'free_navigation', 'shuffled',
     '2026-01-01 00:00:00+00'
 );
 UPDATE ple_data.assignment
@@ -636,6 +636,57 @@ $$;
 SET ROLE ple_private_owner;
 DO $$
 BEGIN
+    -- A fixed Attempt ID makes the Assignment-owned sequence oracle
+    -- deterministic. Question identity remains the Entry/Question/Revision
+    -- tuple, including the selected pool item, while issued_position is the
+    -- complete persisted Student sequence.
+    IF EXISTS (
+        WITH expected AS (
+            SELECT issued.assignment_entry_id, issued.question_id,
+                   issued.revision_number,
+                   (row_number() OVER (
+                       ORDER BY md5(
+                           '00000000-0000-0000-0000-000000000114' || ':' ||
+                           issued.assignment_entry_id::text || ':' ||
+                           issued.question_id || ':' ||
+                           issued.revision_number::text || ':' ||
+                           issued.issued_question_id::text
+                       ),
+                       issued.assignment_entry_id,
+                       issued.question_id,
+                       issued.revision_number,
+                       issued.issued_question_id
+                   ) - 1)::integer AS issued_position
+              FROM ple_private.issued_question AS issued
+             WHERE issued.assignment_attempt_id =
+                   '00000000-0000-0000-0000-000000000114'::uuid
+        )
+        SELECT 1 FROM (
+            (SELECT assignment_entry_id, question_id, revision_number, issued_position
+               FROM expected
+             EXCEPT ALL
+             SELECT assignment_entry_id, question_id, revision_number, issued_position
+               FROM ple_private.issued_question
+              WHERE assignment_attempt_id =
+                    '00000000-0000-0000-0000-000000000114'::uuid)
+            UNION ALL
+            (SELECT assignment_entry_id, question_id, revision_number, issued_position
+               FROM ple_private.issued_question
+              WHERE assignment_attempt_id =
+                    '00000000-0000-0000-0000-000000000114'::uuid
+             EXCEPT ALL
+             SELECT assignment_entry_id, question_id, revision_number, issued_position
+               FROM expected)
+        ) AS difference
+    ) OR EXISTS (
+        SELECT 1
+          FROM ple_private.issued_question AS issued
+         WHERE issued.assignment_attempt_id =
+               '00000000-0000-0000-0000-000000000114'::uuid
+           AND issued.issued_position NOT IN (0, 1)
+    ) THEN
+        RAISE EXCEPTION 'shuffled Assignment Attempt did not persist one exact deterministic Question sequence';
+    END IF;
     IF NOT EXISTS (
         SELECT 1 FROM ple_private.issued_question
         WHERE assignment_attempt_id = '00000000-0000-0000-0000-000000000114'

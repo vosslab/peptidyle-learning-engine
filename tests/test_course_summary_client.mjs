@@ -13,7 +13,7 @@ function courseSummary() {
     id: COURSE_ID,
     reference: "C-1",
     title: "Molecular Biology",
-    term: { startDate: "2026-01-01", endDate: "2026-05-01", timeZone: "America/Chicago" },
+    term: { startDate: "2026-01-01", endDate: "2026-05-01" },
     role: "student",
   };
 }

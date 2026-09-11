@@ -28,6 +28,53 @@
   justify-items: end;
 }
 
+.student-assignment-start-facts {
+  margin-block: var(--ple-space-5);
+  padding: var(--ple-space-4);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-inset);
+  background: var(--ple-surface-soft);
+}
+
+.student-assignment-start-facts h2 {
+  margin-top: 0;
+}
+
+.assignment-history {
+  margin-block: var(--ple-space-5);
+}
+
+.assignment-history__list {
+  display: grid;
+  gap: var(--ple-list-row-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.assignment-history__list li {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ple-list-row-gap);
+  align-items: baseline;
+  padding: var(--ple-list-row-padding-block) var(--ple-list-row-padding-inline);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-inset);
+  background: var(--ple-surface-soft);
+}
+
+.assignment-history__list a,
+.assignment-history__list span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 56rem) {
+  .assignment-history__list li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 56rem) {
   .student-assignment-action-region {
     grid-template-columns: minmax(0, 1fr);

@@ -545,6 +545,84 @@
   }
 }
 
+/* Student work has one Product Tab, but its signed-in identity and explicit
+   Sign Out still exceed one compact line at phone and tablet widths. Keep
+   those controls in reading order across two dense grid lines so selecting a
+   Tab cannot scroll either end control outside the physical viewport. */
+@media (max-width: 60rem) {
+  .ple-ribbon-shell-grid:has(.ple-app-ribbon[data-ribbon-product-role="student"]) {
+    --ple-ribbon-top-block-size: 5rem;
+  }
+
+  .ple-app-ribbon[data-ribbon-product-role="student"] {
+    --ple-ribbon-top-block-size: 5rem;
+  }
+
+  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__top-bar {
+    display: grid;
+    grid-template-areas:
+      "identity details"
+      "tabs sign-out";
+    /* Both tracks need a bounded share of the row. An intrinsic `auto`
+       metadata track can otherwise consume the entire course title, leaving
+       the identity controls to paint on top of it. */
+    grid-template-columns: minmax(11rem, 1fr) minmax(0, 1fr);
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    column-gap: var(--ple-ribbon-space-row);
+    row-gap: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__top-bar::after {
+    display: none;
+  }
+
+  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__context-identity {
+    grid-area: identity;
+    gap: var(--ple-ribbon-space-tight);
+    padding-inline-end: var(--ple-ribbon-space-tight);
+  }
+
+  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__context-details {
+    grid-area: details;
+    overflow: hidden;
+  }
+
+  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__context-details > span {
+    flex: 0 1 auto;
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__account-label > span {
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__tabs {
+    grid-area: tabs;
+    margin-inline-start: 0;
+  }
+
+  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__sign-out {
+    grid-area: sign-out;
+    margin-inline-start: 0;
+  }
+}
+
+@media (max-width: 60rem) and (pointer: coarse) {
+  .ple-ribbon-shell-grid:has(.ple-app-ribbon[data-ribbon-product-role="student"]) {
+    --ple-ribbon-top-block-size: 5.5rem;
+  }
+
+  .ple-app-ribbon[data-ribbon-product-role="student"] {
+    --ple-ribbon-top-block-size: 5.5rem;
+  }
+}
+
 @media (forced-colors: active) {
   .ple-app-ribbon {
     background-image: none;

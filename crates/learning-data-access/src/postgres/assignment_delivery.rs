@@ -1,5 +1,14 @@
 //! PostgreSQL adapter for Student Assignment Access and initial issue.
-
+use super::{Pool, connection::map_sqlx_error};
+use crate::assignment_delivery::ReadyQuestionAssetRendition;
+use crate::{
+    IssuedQuestionPresentation, LiveAssignmentAccess, LiveAssignmentAttempt,
+    LiveAssignmentDeliveryStore, NativePleIssuanceSource, NativePlePresentationInput,
+    NativeWebworkIssuanceSource, NativeWebworkPresentationInput, SessionTokenHash, StoreError,
+    StudentAssignmentAttemptFinalization, StudentAssignmentAttemptHistoryEvidence,
+    StudentAssignmentAttemptHistoryResponseSource, StudentAssignmentAttemptPresentationSource,
+    StudentAssignmentAttemptSavedResponse,
+};
 use async_trait::async_trait;
 use question_model::{
     AssignmentAttemptReference, AssignmentReference, CourseInstanceReference,
@@ -7,23 +16,11 @@ use question_model::{
     StudentAssignmentAttemptResponseState, StudentResponse,
 };
 use sqlx::{Postgres, Row, Transaction};
-
-use super::{Pool, connection::map_sqlx_error};
-use crate::assignment_delivery::ReadyQuestionAssetRendition;
-use crate::{
-    IssuedQuestionPresentation, LiveAssignmentAccess, LiveAssignmentAttempt,
-    LiveAssignmentDeliveryStore, LiveAssignmentStartDecision, NativePleIssuanceSource,
-    NativePlePresentationInput, NativeWebworkIssuanceSource, NativeWebworkPresentationInput,
-    SessionTokenHash, StoreError, StudentAssignmentAttemptFinalization,
-    StudentAssignmentAttemptPresentationSource, StudentAssignmentAttemptSavedResponse,
-};
-
 /// PostgreSQL Store for the Student delivery boundary.
 #[derive(Clone)]
 pub struct PostgresLiveAssignmentDeliveryStore {
     pub(super) pool: Pool,
 }
-
 impl PostgresLiveAssignmentDeliveryStore {
     /// Binds the attested API pool to Student Assignment Access procedures.
     pub fn new(pool: Pool) -> Self {
@@ -66,7 +63,7 @@ impl PostgresLiveAssignmentDeliveryStore {
             .ok_or(StoreError::NotFound)
     }
 
-    async fn optional_active_attempt_reference(
+    pub(super) async fn optional_active_attempt_reference(
         tx: &mut Transaction<'_, Postgres>,
         course: CourseInstanceReference,
         assignment: AssignmentReference,
@@ -388,7 +385,7 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
             "replay_details": value.replay_details,
         })).collect::<Vec<_>>()).map_err(|_| StoreError::InvalidRecord("Native WeBWorK issue is invalid".to_string()))?;
         let mut tx = self.begin(token).await?;
-        let rows = sqlx::query("SELECT attempt_number, resumed, assignment_title, assignment_instructions, question_id, revision_number, issued_position, question_seed::text, presentation_nonce, presentation_checksum FROM ple_api.start_live_demo_native_webwork_assignment($1, $2, $3)")
+        let rows = sqlx::query("SELECT attempt_number, resumed, assignment_title, assignment_instructions, assignment_entry_id::text, question_id, revision_number, issued_position, question_seed::text, presentation_nonce, presentation_checksum FROM ple_api.start_live_demo_native_webwork_assignment($1, $2, $3)")
             .bind(i64::from(course.number())).bind(i64::from(assignment.number())).bind(&payload)
             .fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
         // A successful, authorized native-issuance call must return every
@@ -413,6 +410,9 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
             .iter()
             .map(|row| {
                 Ok(IssuedQuestionPresentation {
+                    assignment_entry_id: row
+                        .try_get("assignment_entry_id")
+                        .map_err(map_sqlx_error)?,
                     question_id: row
                         .try_get::<String, _>("question_id")
                         .map_err(map_sqlx_error)?
@@ -613,7 +613,7 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
             })).collect::<Vec<_>>(),
         })).collect::<Vec<_>>()).map_err(|_| StoreError::InvalidRecord("Native PLE issue is invalid".to_string()))?;
         let mut tx = self.begin(token).await?;
-        let rows = sqlx::query("SELECT attempt_number, resumed, assignment_title, assignment_instructions, question_id, revision_number, issued_position, question_seed::text, presentation_nonce, presentation_checksum FROM ple_api.start_live_demo_native_ple_assignment($1, $2, $3)")
+        let rows = sqlx::query("SELECT attempt_number, resumed, assignment_title, assignment_instructions, assignment_entry_id::text, question_id, revision_number, issued_position, question_seed::text, presentation_nonce, presentation_checksum FROM ple_api.start_live_demo_native_ple_assignment($1, $2, $3)")
             .bind(i64::from(course.number())).bind(i64::from(assignment.number())).bind(&payload)
             .fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
         // A successful, authorized native-issuance call must return every
@@ -638,6 +638,9 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
             .iter()
             .map(|row| {
                 Ok(IssuedQuestionPresentation {
+                    assignment_entry_id: row
+                        .try_get("assignment_entry_id")
+                        .map_err(map_sqlx_error)?,
                     question_id: row
                         .try_get::<String, _>("question_id")
                         .map_err(map_sqlx_error)?
@@ -706,22 +709,23 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
         course: CourseInstanceReference,
         assignment: AssignmentReference,
     ) -> Result<LiveAssignmentAccess, StoreError> {
-        let mut tx = self.begin(token).await?;
-        let row =
-            sqlx::query("SELECT start_decision FROM ple_api.live_demo_assignment_access($1, $2)")
-                .bind(i64::from(course.number()))
-                .bind(i64::from(assignment.number()))
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(map_sqlx_error)?;
-        let value: String = row.try_get("start_decision").map_err(map_sqlx_error)?;
-        let active_assignment_attempt =
-            Self::optional_active_attempt_reference(&mut tx, course, assignment).await?;
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(LiveAssignmentAccess {
-            start_decision: decision(&value)?,
-            active_assignment_attempt,
-        })
+        super::assignment_delivery_access::read(self, token, course, assignment).await
+    }
+
+    async fn student_assignment_attempt_history(
+        &self,
+        token: SessionTokenHash,
+        assignment_attempt: AssignmentAttemptReference,
+    ) -> Result<StudentAssignmentAttemptHistoryEvidence, StoreError> {
+        super::assignment_delivery_history::read(self, token, assignment_attempt).await
+    }
+
+    async fn student_assignment_attempt_history_response_sources(
+        &self,
+        token: SessionTokenHash,
+        assignment_attempt: AssignmentAttemptReference,
+    ) -> Result<Vec<StudentAssignmentAttemptHistoryResponseSource>, StoreError> {
+        super::assignment_delivery_history_response::read(self, token, assignment_attempt).await
     }
 
     async fn start_live_assignment(
@@ -748,6 +752,7 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
             .iter()
             .map(|row| {
                 Ok(IssuedQuestionPresentation {
+                    assignment_entry_id: String::new(),
                     question_id: row
                         .try_get::<String, _>("question_id")
                         .map_err(map_sqlx_error)?
@@ -789,20 +794,11 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
     }
 }
 
-fn decision(value: &str) -> Result<LiveAssignmentStartDecision, StoreError> {
-    match value {
-        "may_start" => Ok(LiveAssignmentStartDecision::MayStart),
-        "not_yet_available" => Ok(LiveAssignmentStartDecision::NotYetAvailable),
-        "closed" => Ok(LiveAssignmentStartDecision::Closed),
-        "attempt_limit_reached" => Ok(LiveAssignmentStartDecision::AttemptLimitReached),
-        "late_work_refused" => Ok(LiveAssignmentStartDecision::LateWorkRefused),
-        _ => Err(StoreError::InvalidRecord(
-            "Assignment Access decision is invalid".to_string(),
-        )),
-    }
-}
-
-fn positive_i32(row: &sqlx::postgres::PgRow, column: &str, label: &str) -> Result<u32, StoreError> {
+pub(super) fn positive_i32(
+    row: &sqlx::postgres::PgRow,
+    column: &str,
+    label: &str,
+) -> Result<u32, StoreError> {
     u32::try_from(row.try_get::<i32, _>(column).map_err(map_sqlx_error)?)
         .ok()
         .filter(|value| *value > 0)
@@ -830,7 +826,7 @@ fn assignment_attempt_reference(
     })
 }
 
-fn optional_positive_i32(
+pub(super) fn optional_positive_i32(
     row: &sqlx::postgres::PgRow,
     column: &str,
     label: &str,
@@ -871,7 +867,7 @@ mod tests {
     }
 }
 
-fn source_from_row(
+pub(super) fn source_from_row(
     row: &sqlx::postgres::PgRow,
 ) -> Result<StudentAssignmentAttemptPresentationSource, StoreError> {
     let backend: String = row.try_get("backend").map_err(map_sqlx_error)?;

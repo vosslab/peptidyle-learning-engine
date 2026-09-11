@@ -355,8 +355,10 @@ The Policies surface saves the Assignment's current teaching settings:
 Unreleased/Released/Closed/Archived Assignment Status, plain-text Student
 instructions, availability/due/close schedule, whole-Assignment-Attempt and Question Attempt limits,
 Late Work Rule, and Assignment Deadline Rule. Only Released opens lifecycle gate G1.
-Course-local wall-clock input is converted by the server through the course
-IANA zone; the browser never derives an authoritative instant. An active Assignment Attempt
+Zone-free local date-and-time input is bounded by the inclusive Course Term dates
+before the server resolves it through the authenticated Instructor's IANA time zone;
+the resulting stored instant remains absolute, and the browser never derives it.
+An active Assignment Attempt
 does not consume its own attempt-limit slot: completed Assignment Attempts determine whether
 another Assignment Attempt may start, while the current active Assignment Attempt remains resumable.
 

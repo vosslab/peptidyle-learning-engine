@@ -1,0 +1,23 @@
+/* profile_thumbnail.css - one fixed, server-normalized Instructor profile image silhouette. */
+
+.profile-thumbnail {
+  align-items: center;
+  background: var(--ple-surface-soft);
+  border-radius: var(--ple-radius-inset);
+  display: flex;
+  height: 8rem;
+  justify-content: center;
+  overflow: hidden;
+  width: 8rem;
+}
+
+.profile-thumbnail img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.profile-thumbnail-placeholder {
+  color: var(--ple-muted);
+  text-align: center;
+}

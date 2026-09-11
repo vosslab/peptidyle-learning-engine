@@ -78,6 +78,15 @@ test("Instructor Product catalog preserves the owner's tabs and task order", () 
   ]);
 });
 
+test("Product Assignments enters the cross-Course Due Soon route", () => {
+  const productAssignments = TAB_CATALOG.find((control) => control.id === "productAssignments");
+  assert.deepEqual(productAssignments?.destination, {
+    kind: "route",
+    routeId: "assignmentsDueSoon",
+  });
+  assert.deepEqual(productAssignments?.requiredParams, []);
+});
+
 test("Attempt task returns Students to the Assignment access route with its exact public scope", () => {
   const backToAssignment = RIBBON_TASK_CATALOG.find(
     (control) => control.id === "backToAssignments",

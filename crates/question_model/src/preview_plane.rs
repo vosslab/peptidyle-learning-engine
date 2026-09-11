@@ -9,17 +9,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AccommodationAdjustmentView, AccommodationApplicationRuleView, AssignmentDeadlineRule,
-    AssignmentEditNumber, AssignmentReference, CourseMembershipReference, CourseTimeZone,
-    LateWorkRule, LocalDateAndTime, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, TeachingDisplayLabel,
+    AssignmentEditNumber, AssignmentReference, CourseMembershipReference, LateWorkRule,
+    LocalDateAndTime, MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
+    TeachingDisplayLabel,
 };
 
-/// Bounded Instructor wall-clock input. The server resolves it in this exact course zone.
+/// Zone-free Instructor wall-clock input. The authorized Account zone resolves it at the boundary.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct PreviewSelectedMoment {
     pub value: LocalDateAndTime,
-    pub time_zone: CourseTimeZone,
 }
 
 /// Request to construct an identity-free Student View Scenario from direct modifiers.
@@ -503,7 +502,7 @@ mod direct_preview_tests {
         let request = serde_json::json!({
             "assignment": "A-1",
             "edit_number": "1",
-            "selected_moment": { "value": "2026-08-20T09:00:00.000", "time_zone": "America/Chicago" },
+            "selected_moment": { "value": "2026-08-20T09:00:00.000" },
             "modifiers": { "mode": "extend_only", "adjustment": {
                 "available_at": { "kind": "inherit" },
                 "due_at": { "kind": "inherit" },
@@ -517,7 +516,7 @@ mod direct_preview_tests {
         let retired = serde_json::json!({
             "assignment": "A-1",
             "revision": "1",
-            "selectedMoment": { "value": "2026-08-20T09:00:00.000", "timeZone": "America/Chicago" },
+            "selectedMoment": { "value": "2026-08-20T09:00:00.000" },
             "modifiers": { "mode": "extend_only", "adjustment": {
                 "available_at": { "kind": "inherit" },
                 "due_at": { "kind": "inherit" },
@@ -537,7 +536,6 @@ mod direct_preview_tests {
             "1".parse().expect("edit number"),
             PreviewSelectedMoment {
                 value: LocalDateAndTime::parse("2026-08-20T09:00:00.000").expect("moment"),
-                time_zone: CourseTimeZone::parse("America/Chicago").expect("zone"),
             },
             PreviewResolvedPolicy::new(
                 PreviewTimeField {

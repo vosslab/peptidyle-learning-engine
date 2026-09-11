@@ -480,7 +480,8 @@ is private to its current equal Teaching Team Members and enrolled Students and 
 and FERPA state.
 
 Relative schedule values are reusable scheduling intent. They become live deadlines only when a
-CourseInstance preview and apply resolves them against that instance's term and time zone. The
+CourseInstance preview and apply resolve them against that instance's inclusive CourseTerm dates
+and the acting authorized Instructor Account zone. The
 CourseInstance then owns its delivery changes; local edits never flow upstream automatically.
 Referenced BlueprintCourses archive instead of being hard-deleted. A BlueprintCourse change uses an
 explicit publish, fork, or propose-update path. New Blueprint assignments reach daughter
@@ -1117,25 +1118,32 @@ the two Instructor tasks; `src/pages/assignment_attempt_page.tsx` owns Student d
 ### Interface cleanup: account-owned time zones
 
 **Decision.** An Assignment deadline is an absolute instant with no Course or Assignment time-zone
-owner. An Instructor Account owns an IANA zone for entering wall-clock values and Instructor display.
-The server interprets a plain local date and time in that zone and continues to reject DST gaps and
-ambiguities. A Student Account owns its IANA display zone, initially defaultable from the Instructor
-at enrollment. `CourseLocalDateAndTime` and the Course zone retire. Changing a profile zone changes
-only later interpretation and display; it never moves an existing stored deadline.
+owner. `CourseTerm` retains exactly two inclusive, ordered calendar dates (`startDate` and `endDate`)
+and no zone. An Instructor Account owns an IANA zone for entering wall-clock values and Instructor
+display. The server checks the plain local input date against the CourseTerm before interpreting it in
+that authenticated Account zone, and continues to reject DST gaps and ambiguities. A Student Account
+owns its IANA display zone, initially defaultable from the Instructor at enrollment. The Course zone
+retires. Changing a profile zone changes only later interpretation and display; it never moves an
+existing stored deadline.
 
 **Why.** `timestamptz` already correctly stores deadline instants. A Course clock is fictitious for
-a distributed course and creates a second competing preference owner. The audited current
-Course-owned boundary is `crates/question_model/src/assignment/teaching_settings_local.rs:216-259,
-524-561`; its delivery read is
-`schemas/migrations/2026090606_live_demo_assignment_release.sql:160-170`.
+a distributed course and creates a second competing preference owner. The authored-local resolver
+in `crates/question_model/src/assignment/teaching_settings_local.rs` owns the calendar-bound check
+and Account-zone conversion. `crates/domain/src/preview_plane.rs` and
+`crates/question_model/src/blueprint_operations.rs` each receive the acting Account zone at their
+existing preview or schedule-resolution boundary.
 
-**Consequence.** Wall-clock input carries no zone; the authenticated Account supplies it. Every
-display names and uses the applicable Account zone, while countdowns continue to use server-computed
-remaining duration.
+**Consequence.** Wall-clock input carries no zone; the authenticated Account supplies it. Stored
+instants are not universally revalidated through a Course clock when they are read or displayed.
+Preview and Blueprint schedule work resolve with the acting Account zone. Every display names and
+uses the applicable Account zone, while countdowns continue to use server-computed remaining duration.
 
-**Owner.** Account preference storage and its forward migration own the zones;
-`crates/question_model/src/assignment/teaching_settings_local.rs` owns local-time interpretation;
-the due-date editor and display surfaces own their Account-zone presentation.
+**Owner.** Account preference storage and its forward migration own Account zones;
+`crates/question_model/src/course_term.rs` owns calendar-date validation;
+`crates/question_model/src/assignment/teaching_settings_local.rs` owns the local-date bound check
+and local-time interpretation; `crates/domain/src/preview_plane.rs` and
+`crates/question_model/src/blueprint_operations.rs` own their respective Account-zone resolution;
+the due-date editor and display surfaces own Account-zone presentation.
 
 ### Interface cleanup: mutable authoring and evidence snapshots
 
@@ -1165,6 +1173,24 @@ ordinary current-state editing merely because it once selected a snapshot.
 
 **Owner.** The Assignment save/release path and `ple_data.assignment_revision` snapshot boundary
 own the implementation cutover; Student-work issuance and grading own the retained evidence reads.
+
+### Interface cleanup: retimed Assignment delivery facts
+
+**Decision.** An inline title or due-date change updates current Assignment state for later access
+and starts. Every new Assignment Attempt captures its started title and due instant as immutable
+Attempt evidence. A captured null due instant means no deadline; pre-migration Attempts use their
+exact released revision as the compatibility fallback.
+
+**Why.** A released Assignment can be retimed without a generic revision or undo system, while a
+Student's active or completed work must retain the delivery facts it started with.
+
+**Consequence.** Attempt capture does not widen the mutable edit to instructions, availability,
+late-work rules, limits, disclosure, Question membership, issued presentation, or grading. Those
+facts retain their existing released or issued evidence sources.
+
+**Owner.** `2026091023_inline_assignment_retime.sql` owns capture and current-state update;
+`2026091024_native_assignment_retime.sql` owns native delivery consumption; the Course Assignment
+list owns the narrow Instructor editor.
 
 ### Interface cleanup: Course activity
 
@@ -1198,6 +1224,75 @@ Question authoring, issuance, and presentation own the answer-choice declaration
 Questions retain their backend presentation.
 
 **Owner.** Assignment policy owns Question order; Question presentation owns answer-choice order.
+
+### Interface cleanup: Assignment disclosure timing
+
+**Decision.** Assignment policy keeps six independently timed disclosures: score, per-item
+correctness, correct answer, Question feedback, Question answer explanation, and class statistics.
+It also owns a separate `submitted_response` timing for a Student's recorded response in
+previous-attempt history. New Assignments release score, correctness, and submitted response after
+submission; correct answer, Question feedback, Question answer explanation, and class statistics
+default to Never.
+
+**Why.** A recorded Student response, correctness, accepted answer, authored feedback, and score
+are different disclosures. The existing fields could not express the owner's correctness-only
+previous-attempt choice without coupling separate policies. Question-authored feedback can contain
+answer-bearing material, so its safe default is independent from useful normal feedback about the
+Student's own work.
+
+**Consequence.** Assignment Properties presents each timing independently. M7 evaluates
+`submitted_response` when it projects previous-attempt history; M5 continues returning the saved
+response needed to resume an active Attempt. Existing explicit Assignment policy values remain
+unchanged.
+
+**Owner.** `crates/question_model/src/assignment_activity_rules.rs` owns the policy shape;
+`crates/domain/src/student_feedback_release.rs` owns its pure evaluation; the Assignment Workspace
+and its persistence boundary own editing and storage; M7 owns the prior-attempt response projection.
+
+### Interface cleanup: Blueprint disclosure encoding
+
+**Decision.** Immutable Blueprint revision content supports the existing canonical v2 encoding and
+the current canonical v3 encoding. The storage boundary supplies the missing
+`submitted_response: after_submit` value only in memory while decoding verified v2 content. New
+Blueprint revisions serialize and checksum the required field explicitly as v3.
+
+**Why.** Adding the required disclosure field changes canonical JSON and its checksum. Updating
+stored v2 JSON would alter immutable reusable content evidence, while a shared deserialization
+default would weaken strict public Blueprint requests.
+
+**Consequence.** The storage reader performs its narrow in-memory v2 adaptation, then verifies the
+original v2 checksum before returning content to a caller. V3 requests and stored revisions require
+the explicit field. Replacing a v2 head creates the ordinary v3 successor, and unsupported encoding
+versions are rejected.
+
+**Owner.** The versioned Blueprint content encoder in `crates/question_model`, the stored Blueprint
+decoder in `crates/learning-data-access`, and the Blueprint persistence migration boundary own this
+compatibility rule.
+
+### Interface cleanup: effective Assignment Question order
+
+**Decision.** A new Assignment presents one Question at a time and defaults its Assignment-owned
+Question order to Shuffled. Initial issuance deterministically ranks the released prepared set for
+that Attempt and records the resulting contiguous sequence in the existing Issued Question positions.
+Resume reconstructs the source by its released Entry, Question, and revision identity rather than by
+the Student-facing position.
+
+**Why.** The M4 setting must affect the mounted Student issuance path, while an issued Attempt must
+keep its own stable sequence through retry and resume. Position describes presentation sequence; it
+is not a source identity.
+
+**Consequence.** Authored order remains an explicit Assignment choice. Question-pool reuse controls
+whether a later Attempt reuses its pool selection or selects again, and Question variation controls
+whether it reuses or receives a new variation. Those controls do not change answer-choice order,
+which remains Question presentation behavior. A draft may omit a duration, but release requires the
+Instructor to save a positive whole-Attempt time limit; PLE supplies no invented duration default.
+An exact retry of the current full Workspace policy returns its current Edit Number without a
+mutation; a changed policy retains the ordinary one-step Edit Number advance.
+
+**Owner.** `AssignmentActivityRules` and Assignment Workspace own authored policy;
+`2026091021_live_assignment_question_order.sql` owns durable issuance ordering; the delivery Store
+and server own identity-based reconstruction; `2026091022_assignment_unchanged_save.sql` owns the
+unchanged-save return; Question presentation owns answer-choice order.
 
 ### Interface cleanup: Blueprint provenance
 
@@ -1287,6 +1382,31 @@ and Banner saves remain independent behind one authorized appearance reader.
 `src/features/course_appearance/course_theme_registry.ts` owns palette roles; and
 `docs/active_plans/decisions/course_appearance_banner_storage_and_sizing.md` records the measured
 selection.
+
+### Instructor Profile stores one normalized thumbnail
+
+**Decision.** An Instructor Profile accepts a still image at any useful source aspect and stores
+one fixed 256 by 256 centered, lossless WebP thumbnail. The same Profile component presents that
+thumbnail in one rounded-square silhouette. Source bytes, crop choices, storage paths, and
+alternative renditions are not Profile state or caller inputs.
+
+**Why.** A single normalized identity image gives a predictable profile appearance while allowing
+ordinary source photographs. Server-owned normalization and typed object storage preserve the
+existing authorization, checksum, cleanup, and delivery boundaries without creating a media
+platform or Student upload capability.
+
+**Consequence.** The attested active Instructor is the only Profile thumbnail owner and recipient
+of its current opaque delivery reference. Replacement retires the prior delivery and uses the
+existing deletion, storage-check, cleanup-manifest, job, and audit-receipt lineage, including
+compensation after a failed finalization. The durable transaction and delivery boundary stays
+function-only under forced RLS; it retains explicit definer mode, fixed search paths, and a scoped
+transaction advisory lock.
+
+**Owner.** `crates/question_model/src/profile_thumbnail.rs` owns thumbnail identity;
+`crates/learning-data-access/src/profile_thumbnail.rs` owns the Store contract;
+`schemas/migrations/2026091015_profile_thumbnail.sql` owns persistence and database authority;
+`crates/server/src/instructor_profile.rs` owns the self-only HTTP boundary; and
+`src/features/instructor_profile/profile_thumbnail.tsx` owns the shared silhouette.
 
 ## Demonstration and release evidence
 

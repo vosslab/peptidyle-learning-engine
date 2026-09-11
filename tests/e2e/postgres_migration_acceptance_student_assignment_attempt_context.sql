@@ -39,11 +39,13 @@ BEGIN
 END
 $$;
 
--- Make one current untimed attempt, one current timed attempt, and one old
--- completed Attempt that has no Assignment Submission receipt.  The saved
--- response oracle immediately before this one supplies the submitted receipt.
+-- Make one current untimed attempt, one current timed attempt, one
+-- expired timed attempt, and one old completed Attempt that has no Assignment
+-- Submission receipt.  The saved-response oracle immediately before this one
+-- supplies the due-boundary Assignment Revision and the submitted receipt.
 SELECT gen_random_uuid() AS m5_context_untimed_id \gset
 SELECT gen_random_uuid() AS m5_context_timed_id \gset
+SELECT gen_random_uuid() AS m5_context_expired_id \gset
 SELECT gen_random_uuid() AS m5_context_historical_id \gset
 SET ROLE ple_private_owner;
 INSERT INTO ple_private.assignment_attempt (
@@ -71,7 +73,27 @@ SELECT :'m5_context_timed_id'::uuid, student_record_id, assignment_id,
       FROM ple_private.assignment_attempt AS attempt
       JOIN ple_data.assignment_revision AS revision
         ON revision.assignment_revision_id = attempt.assignment_revision_id
-     WHERE revision.assignment_title = 'M5 expired Attempt fixture'
+     WHERE revision.assignment_title = 'M4 due-boundary fixture'
+     ORDER BY attempt.started_at
+     LIMIT 1
+ );
+
+INSERT INTO ple_private.assignment_attempt (
+    assignment_attempt_id, student_record_id, assignment_id, assignment_revision_id,
+    started_at, completed_at, attempt_number, question_pool_reuse_rule,
+    question_variation_rule
+)
+SELECT :'m5_context_expired_id'::uuid, student_record_id, assignment_id,
+       assignment_revision_id, clock_timestamp() - interval '601 seconds', NULL,
+       attempt_number + 21,
+       question_pool_reuse_rule, question_variation_rule
+  FROM ple_private.assignment_attempt
+ WHERE assignment_attempt_id = (
+    SELECT attempt.assignment_attempt_id
+      FROM ple_private.assignment_attempt AS attempt
+      JOIN ple_data.assignment_revision AS revision
+        ON revision.assignment_revision_id = attempt.assignment_revision_id
+     WHERE revision.assignment_title = 'M4 due-boundary fixture'
      ORDER BY attempt.started_at
      LIMIT 1
  );
@@ -100,13 +122,9 @@ SELECT reference_number AS m5_context_historical_reference
   FROM ple_private.assignment_attempt
  WHERE assignment_attempt_id = :'m5_context_historical_id'::uuid
 \gset
-SELECT attempt.reference_number AS m5_context_expired_reference
-  FROM ple_private.assignment_attempt AS attempt
-  JOIN ple_data.assignment_revision AS revision
-    ON revision.assignment_revision_id = attempt.assignment_revision_id
- WHERE revision.assignment_title = 'M5 expired Attempt fixture'
- ORDER BY attempt.started_at
- LIMIT 1
+SELECT reference_number AS m5_context_expired_reference
+  FROM ple_private.assignment_attempt
+ WHERE assignment_attempt_id = :'m5_context_expired_id'::uuid
 \gset
 SELECT attempt.reference_number AS m5_context_submitted_reference
   FROM ple_private.assignment_attempt AS attempt
@@ -169,8 +187,8 @@ BEGIN
               current_setting('ple_e2e.m5_context_timed_reference')::bigint
           ) AS context
          WHERE context.timer_remaining_milliseconds IS NULL
-            OR context.timer_remaining_milliseconds < 0
-            OR context.timer_remaining_milliseconds > 1000
+            OR context.timer_remaining_milliseconds <= 0
+            OR context.timer_remaining_milliseconds > 600000
     ) THEN
         RAISE EXCEPTION 'timed Student Assignment Attempt context is invalid';
     END IF;

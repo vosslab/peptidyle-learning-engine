@@ -41,14 +41,51 @@ test("Student Assignment Attempt progress rejects answer-bearing and extra field
   );
 });
 
-test("Assignment Access carries only its authorized public active Attempt reference", () => {
-  const resumable = { startDecision: "may_start", activeAssignmentAttempt: "R-12" };
-  const startable = { startDecision: "may_start", activeAssignmentAttempt: null };
+test("Assignment Access carries only its authorized answer-free facts and Attempt history", () => {
+  const facts = {
+    title: "Peptide structure practice",
+    questionCount: 4,
+    pointsPossible: 8,
+    timeLimitSeconds: 900,
+    previousAttempts: [
+      {
+        assignmentAttempt: "R-11",
+        attemptNumber: 1,
+        state: "submitted",
+        score: { pointsEarned: 6, pointsPossible: 8 },
+      },
+    ],
+  };
+  const resumable = { startDecision: "may_start", activeAssignmentAttempt: "R-12", ...facts };
+  const startable = { ...resumable, activeAssignmentAttempt: null, timeLimitSeconds: null };
+  const closedWithoutReleasedQuestions = {
+    ...startable,
+    startDecision: "closed",
+    questionCount: 0,
+    pointsPossible: 0,
+  };
   assert.deepEqual(decodeLiveAssignmentAccess(resumable), resumable);
   assert.deepEqual(decodeLiveAssignmentAccess(startable), startable);
+  assert.deepEqual(
+    decodeLiveAssignmentAccess(closedWithoutReleasedQuestions),
+    closedWithoutReleasedQuestions,
+  );
   assert.throws(() => decodeLiveAssignmentAccess({ startDecision: "may_start" }));
   assert.throws(() => decodeLiveAssignmentAccess({ ...resumable, activeAssignmentAttempt: "12" }));
   assert.throws(() => decodeLiveAssignmentAccess({ ...resumable, attemptId: "private" }));
+  assert.throws(() =>
+    decodeLiveAssignmentAccess({
+      ...resumable,
+      previousAttempts: [{ ...facts.previousAttempts[0], response: "secret" }],
+    }),
+  );
+  assert.throws(() =>
+    decodeLiveAssignmentAccess({
+      ...resumable,
+      previousAttempts: [{ ...facts.previousAttempts[0], score: null }],
+    }),
+  );
+  assert.throws(() => decodeLiveAssignmentAccess({ ...resumable, answer: "secret" }));
 });
 
 test("selected presentation accepts only the exact existing public presentation contract", () => {

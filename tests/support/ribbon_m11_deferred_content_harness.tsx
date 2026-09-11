@@ -60,7 +60,7 @@ function instructorCourse(reference: string): CourseRouteView {
       id: `course-${reference}`,
       reference,
       title: `Deferred content evidence course ${reference}`,
-      term: { startDate: "2026-01-12", endDate: "2026-05-08", timeZone: "America/Chicago" },
+      term: { startDate: "2026-01-12", endDate: "2026-05-08" },
       role: "instructor",
     },
     appearance: { theme: "grass", banner: null },

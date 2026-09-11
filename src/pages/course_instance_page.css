@@ -5,6 +5,75 @@
   color: var(--ple-accent-strong);
 }
 
+.instructor-list__row--assignment {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.assignment-inline-editor,
+.assignment-inline-editor__message {
+  grid-column: 1 / -1;
+}
+
+.assignment-inline-editor {
+  padding-top: var(--ple-space-2);
+  border-top: 1px solid var(--ple-border);
+}
+
+.assignment-inline-editor fieldset {
+  display: grid;
+  gap: var(--ple-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.assignment-inline-editor__fields,
+.assignment-inline-editor__schedule {
+  display: grid;
+  gap: var(--ple-space-2);
+}
+
+.assignment-inline-editor__fields {
+  grid-template-columns: minmax(12rem, 1fr) minmax(18rem, 1fr);
+}
+
+.assignment-inline-editor__schedule {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.assignment-inline-editor__field {
+  display: grid;
+  gap: var(--ple-space-1);
+  min-inline-size: 0;
+  color: var(--ple-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.assignment-inline-editor__field input {
+  min-inline-size: 0;
+}
+
+.assignment-inline-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ple-space-2);
+}
+
+.assignment-inline-editor__message {
+  margin: var(--ple-space-2) 0 0;
+  color: var(--ple-muted);
+  font-size: 0.88rem;
+}
+
+@media (max-width: 48rem) {
+  .instructor-list__row--assignment,
+  .assignment-inline-editor__fields,
+  .assignment-inline-editor__schedule {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 48rem) {
   .course-instance-page__actions {
     width: 100%;

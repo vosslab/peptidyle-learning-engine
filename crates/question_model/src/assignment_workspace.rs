@@ -1,7 +1,7 @@
 //! Strict browser contracts for the Instructor assignment workspace.
 //!
 //! These types describe request intent and publication validation only. The
-//! server resolves question references, course-local times, and authority
+//! server resolves question references, Account-local times, and authority
 //! before it changes the authoritative Assignment and its current Assignment Revision.
 
 use serde::{Deserialize, Serialize};
@@ -46,7 +46,7 @@ pub struct ReplaceAssignmentPoliciesRequest {
     pub student_feedback_release_rule: StudentFeedbackReleaseRule,
     /// Completion, grade, practice, and Question Variation Rule.
     pub policies: AssignmentActivityRules,
-    /// Course-local Assignment-authored content resolved by the server before storage.
+    /// Account-local Assignment-authored content resolved by the server before storage.
     pub assignment_authored_content: InstructorAssignmentAuthoredContentLocal,
 }
 
@@ -79,7 +79,7 @@ pub enum AssignmentPoliciesValidationFailureCode {
     deny_unknown_fields
 )]
 pub enum AssignmentPoliciesValidationIssue {
-    /// A course-local Assignment-authored content needs the supplied correction.
+    /// Account-local Assignment-authored content needs the supplied correction.
     AssignmentAuthoredContent {
         correction: crate::AssignmentAuthoredContentValidationFailure,
     },

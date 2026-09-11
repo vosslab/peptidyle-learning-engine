@@ -355,6 +355,7 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
     <section
       class="ple-app-ribbon"
       aria-label="PLE application Ribbon"
+      data-ribbon-product-role={props.model.context.productLabel.toLowerCase()}
       data-ribbon-scope={props.model.scope}
       data-ribbon-task-row={hasReservedTaskRow() ? "reserved" : "absent"}
     >

@@ -29,15 +29,12 @@ function decodeCourseDate(value: unknown, path: string): string {
 /** Strict browser decoder for the course term shared by create inputs and course projections. */
 export function decodeCourseTerm(value: unknown, path: string): CourseTerm {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["startDate", "endDate", "timeZone"]);
+  requireOnlyFields(record, path, ["startDate", "endDate"]);
   const startDate = decodeCourseDate(field(record, "startDate", path), `${path}.startDate`);
   const endDate = decodeCourseDate(field(record, "endDate", path), `${path}.endDate`);
   if (endDate < startDate)
     throw new DecodeError(`${path}.endDate`, "a date on or after the course start date");
-  const timeZone = decodeNonemptyString(field(record, "timeZone", path), `${path}.timeZone`);
-  if (timeZone.length > 255 || timeZone.trim() !== timeZone)
-    throw new DecodeError(`${path}.timeZone`, "a trimmed IANA time-zone name");
-  return { startDate, endDate, timeZone } satisfies CourseTerm;
+  return { startDate, endDate } satisfies CourseTerm;
 }
 
 /** Strict bounded refusal decoder for course-term validation responses. */
@@ -57,13 +54,11 @@ export function decodeCourseTermValidationFailure(
       "term",
       "startDate",
       "endDate",
-      "timeZone",
     ]),
     reason: decodeStringEnum(field(record, "reason", path), `${path}.reason`, [
       "required",
       "invalidCalendarDate",
       "endBeforeStart",
-      "unknownCourseTimeZone",
     ]),
     message,
   } satisfies CourseTermValidationFailure;

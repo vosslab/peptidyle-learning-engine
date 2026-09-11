@@ -37,7 +37,7 @@ function courseMoment(startDate: string): string {
   return `${startDate}T09:00:00.000`;
 }
 
-function normalizeCourseLocalMoment(value: string): string {
+function normalizeAccountLocalMoment(value: string): string {
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/u.test(value)) return `${value}:00.000`;
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/u.test(value)) return `${value}.000`;
   return value;
@@ -354,7 +354,7 @@ function AssignmentPreviewContent(props: AssignmentPreviewContentProps): JSX.Ele
       activeEditNumber === undefined
     )
       return;
-    const selectedMoment = normalizeCourseLocalMoment(moment());
+    const selectedMoment = normalizeAccountLocalMoment(moment());
     setBusy(true);
     setMessage("");
     setModifierError("");
@@ -367,7 +367,7 @@ function AssignmentPreviewContent(props: AssignmentPreviewContentProps): JSX.Ele
           activeEditNumber,
           {
             selected_student_membership: selectedStudentMembership(),
-            selected_moment: { value: selectedMoment, time_zone: selectedCourse.term.timeZone },
+            selected_moment: { value: selectedMoment },
           },
         );
       } else {
@@ -378,7 +378,7 @@ function AssignmentPreviewContent(props: AssignmentPreviewContentProps): JSX.Ele
           selectedAssignment,
           activeEditNumber,
           {
-            selected_moment: { value: selectedMoment, time_zone: selectedCourse.term.timeZone },
+            selected_moment: { value: selectedMoment },
             modifiers,
           },
         );
@@ -527,7 +527,7 @@ function AssignmentPreviewContent(props: AssignmentPreviewContentProps): JSX.Ele
                   </label>
                 </fieldset>
                 <label class="preview-field preview-moment-field">
-                  Selected course-local moment
+                  Selected moment in your Account time zone
                   <input
                     type="datetime-local"
                     step="1"
@@ -535,7 +535,7 @@ function AssignmentPreviewContent(props: AssignmentPreviewContentProps): JSX.Ele
                     onInput={(event) => setMoment(event.currentTarget.value)}
                     required
                   />
-                  <span>{course()?.term.timeZone} (course zone)</span>
+                  <span>Interpreted in your Account time zone.</span>
                 </label>
                 <div class="student-view-scenario-target">
                   <Show when={studentViewScenarioBuilder() === "selectedStudent"}>

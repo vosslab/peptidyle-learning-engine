@@ -48,6 +48,8 @@ pub mod pool_preview;
 pub mod presentation;
 /// Strict non-mutating preview-plane contracts, separate from mutating Teaching Operations.
 pub mod preview_plane;
+/// Opaque self-profile thumbnail identity and fixed rendition contract.
+pub mod profile_thumbnail;
 /// Human-facing route References that resolve to internal identities under authorization.
 pub mod public_route;
 /// Immutable browser-safe Question Authorship display records.
@@ -86,8 +88,7 @@ pub use crate::assignment::{
     AssignmentEntryScoringRule, AssignmentInstructions, AssignmentInstructionsError,
     AssignmentPointValue, AssignmentRevisionNumber, AssignmentRevisionNumberError,
     AssignmentScoringState, AssignmentStatus, AssignmentTitle, AssignmentTitleError,
-    BaseAssignmentPolicy, CourseLocalDateAndTime, CourseLocalDateAndTimeError,
-    FixedQuestionAssignmentEntry, InstructorAssignmentAuthoredContentLocal,
+    BaseAssignmentPolicy, FixedQuestionAssignmentEntry, InstructorAssignmentAuthoredContentLocal,
     InstructorAssignmentAvailabilityView, LateWorkRule, LocalDateAndTime, LocalDateAndTimeError,
     MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
     MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS, MAX_ASSIGNMENT_ORDERED_ENTRIES,
@@ -148,8 +149,7 @@ pub use crate::course_grade::{
 };
 pub use crate::course_term::{
     CourseDate, CourseDateError, CourseTerm, CourseTermError, CourseTermFailureCode,
-    CourseTermFailureReason, CourseTermField, CourseTermValidationFailure, CourseTimeZone,
-    CourseTimeZoneError,
+    CourseTermFailureReason, CourseTermField, CourseTermValidationFailure,
 };
 pub use crate::feedback::{
     QuestionAnswer, QuestionAnswerExplanation, QuestionFeedback, QuestionHint, StudentFeedback,
@@ -191,6 +191,7 @@ pub use crate::preview_plane::{
     StudentFeedbackReleaseView, StudentViewScenario, StudentViewScenarioAdmission,
     StudentViewScenarioOrigin,
 };
+pub use crate::profile_thumbnail::{ProfileThumbnailReference, ProfileThumbnailRendition};
 pub use crate::public_route::{
     AccountReference, AssignmentAttemptReference, AssignmentReference, AuthoringWorkspaceReference,
     BlueprintCourseReference, CourseInstanceReference, CourseInvitationReference,

@@ -3,7 +3,8 @@
 use question_model::generation::QuestionSeed;
 use question_model::{
     CourseBannerReference, CourseBannerRendition, CourseBannerUploadReference, CourseId, ObjectId,
-    QuestionAssetId, QuestionRevisionReference, WorkspaceId, WorkspaceImportId,
+    ProfileThumbnailReference, QuestionAssetId, QuestionRevisionReference, WorkspaceId,
+    WorkspaceImportId,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -56,6 +57,8 @@ pub enum ObjectDataClass {
     QuestionRender,
     /// A Course Banner Upload or saved Course Banner.
     CourseAppearance,
+    /// A normalized, self-authorized Instructor identity thumbnail.
+    ProfileThumbnail,
     /// FERPA-bearing bytes owned by one Student record.
     StudentRecord,
     /// Short-lived bytes used only during processing.
@@ -188,6 +191,11 @@ pub enum ObjectAddress {
         /// Closed, server-owned rendition identity.
         rendition: CourseBannerRendition,
     },
+    /// One normalized private rendition for an Instructor Profile thumbnail.
+    ProfileThumbnail {
+        /// Opaque delivery reference minted only by the server.
+        thumbnail: ProfileThumbnailReference,
+    },
     /// A course-owned Student Record Object.
     StudentRecord {
         /// Exact course whose protected record owns this object.
@@ -214,7 +222,8 @@ impl ObjectAddress {
             | Self::RestrictedQuestionAsset { .. }
             | Self::QuestionRender { .. }
             | Self::CourseBannerSource { .. }
-            | Self::CourseBannerRendition { .. } => ObjectStorageArea::PrivateContent,
+            | Self::CourseBannerRendition { .. }
+            | Self::ProfileThumbnail { .. } => ObjectStorageArea::PrivateContent,
             Self::QuestionAsset { .. } => ObjectStorageArea::PublicAssets,
             Self::CourseBannerUpload { .. } => ObjectStorageArea::TempProcessing,
             Self::StudentRecord { .. } => ObjectStorageArea::StudentRecords,
@@ -238,6 +247,7 @@ impl ObjectAddress {
             Self::CourseBannerUpload { .. }
             | Self::CourseBannerSource { .. }
             | Self::CourseBannerRendition { .. } => ObjectDataClass::CourseAppearance,
+            Self::ProfileThumbnail { .. } => ObjectDataClass::ProfileThumbnail,
             Self::StudentRecord { .. } => ObjectDataClass::StudentRecord,
             Self::Temporary { .. } => ObjectDataClass::TemporaryProcessing,
         }
@@ -324,6 +334,9 @@ impl ObjectAddress {
                 rendition.as_str(),
                 self.object_id()
             ),
+            Self::ProfileThumbnail { thumbnail } => {
+                format!("profiles/thumbnails/{thumbnail}/{}", self.object_id())
+            }
             Self::StudentRecord { course, object } => {
                 format!("courses/{course}/records/{object}")
             }
@@ -355,6 +368,7 @@ impl ObjectAddress {
                 banner,
                 rendition,
             } => course_banner_rendition_object_id(*course, *banner, *rendition),
+            Self::ProfileThumbnail { thumbnail } => profile_thumbnail_object_id(*thumbnail),
         }
     }
 
@@ -382,6 +396,7 @@ impl ObjectAddress {
             | Self::CourseBannerUpload { .. }
             | Self::CourseBannerSource { .. }
             | Self::CourseBannerRendition { .. }
+            | Self::ProfileThumbnail { .. }
             | Self::StudentRecord { .. }
             | Self::Temporary { .. } => None,
         }
@@ -401,6 +416,7 @@ impl ObjectAddress {
                 | Self::RestrictedQuestionAsset { .. }
                 | Self::QuestionRender { .. }
                 | Self::CourseBannerRendition { .. }
+                | Self::ProfileThumbnail { .. }
                 | Self::StudentRecord { .. }
         )
     }
@@ -453,6 +469,14 @@ pub fn course_banner_rendition_object_id(
     domain_separated_object_id(
         b"ple:course-banner-rendition:v1\0",
         [course.as_uuid(), banner.as_uuid(), rendition_uuid],
+    )
+}
+
+/// Derives the immutable physical identity of a normalized profile thumbnail.
+pub fn profile_thumbnail_object_id(thumbnail: ProfileThumbnailReference) -> ObjectId {
+    domain_separated_object_id(
+        b"ple:profile-thumbnail:v1\0",
+        [thumbnail.as_uuid(), uuid::Uuid::nil(), uuid::Uuid::nil()],
     )
 }
 

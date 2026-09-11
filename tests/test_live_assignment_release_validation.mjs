@@ -91,19 +91,28 @@ test("Assignment creation uses the Course Instance assignment boundary", async (
 test("release readiness uses the current direct Assignment validation boundary", async () => {
   const { recordingFetch, requests } = createRecordingFetch(
     async () =>
-      new Response(JSON.stringify({ canRelease: false, issues: ["noPublishedQuestions"] }), {
-        headers: {
-          "cache-control": "no-store",
-          "content-type": "application/json; charset=utf-8",
+      new Response(
+        JSON.stringify({
+          canRelease: false,
+          issues: ["noPublishedQuestions", "timeLimitRequired"],
+        }),
+        {
+          headers: {
+            "cache-control": "no-store",
+            "content-type": "application/json; charset=utf-8",
+          },
         },
-      }),
+      ),
   );
 
   const validation = await createHttpApiClient({
     fetch: recordingFetch,
   }).validateLiveAssignmentRelease(course, assignment);
 
-  assert.deepEqual(validation, { canRelease: false, issues: ["noPublishedQuestions"] });
+  assert.deepEqual(validation, {
+    canRelease: false,
+    issues: ["noPublishedQuestions", "timeLimitRequired"],
+  });
   assert.equal(requests.length, 1);
   assert.equal(requests[0].method, "GET");
   assert.equal(

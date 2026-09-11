@@ -96,20 +96,41 @@ test("Checking remains withheld and Available never exceeds the route role ceili
 
 test("unbacked Instructor Product destinations remain unavailable without invented links", () => {
   for (const id of [
-    "productAssignments",
     "myActiveCourses",
     "myInactiveCourses",
     "searchPublicBlueprintCourses",
     "myQuestions",
     "starred",
     "watched",
-    "assignmentsDueSoon",
     "assignmentTemplates",
   ]) {
     const entry = CAPABILITY_REGISTRY[id];
     assert.equal(entry.capability.kind, "unbacked", id);
     assert.equal(ribbonAvailability(entry, "instructor", RESOLVED_ALLOW), "Unavailable", id);
   }
+});
+
+test("Product Assignments enters the backed Assignments Due Soon reader", () => {
+  const productAssignments = CAPABILITY_REGISTRY.productAssignments;
+  assert.equal(productAssignments.capability.kind, "backed");
+  assert.equal(productAssignments.routeId, "assignmentsDueSoon");
+  assert.equal(productAssignments.capability.clientMethod, "ApiClient.listAssignmentsDueSoon");
+  assert.deepEqual(productAssignments.capability.serverEvidence, {
+    kind: "registeredHandler",
+    handler: "crates/server/src/assignment_release.rs::assignment_release_router",
+  });
+  assert.equal(ribbonAvailability(productAssignments, "instructor", RESOLVED_ALLOW), "Available");
+});
+
+test("Assignments Due Soon is backed by the bounded cross-Course Assignment reader", () => {
+  const dueSoon = CAPABILITY_REGISTRY.assignmentsDueSoon;
+  assert.equal(dueSoon.capability.kind, "backed");
+  assert.equal(dueSoon.capability.clientMethod, "ApiClient.listAssignmentsDueSoon");
+  assert.deepEqual(dueSoon.capability.serverEvidence, {
+    kind: "registeredHandler",
+    handler: "crates/server/src/assignment_release.rs::assignment_release_router",
+  });
+  assert.equal(ribbonAvailability(dueSoon, "instructor", RESOLVED_ALLOW), "Available");
 });
 
 test("Student Attempt navigation is backed by the registered Assignment delivery handler", () => {

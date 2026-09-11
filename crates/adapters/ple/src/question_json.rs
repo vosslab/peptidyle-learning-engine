@@ -10,7 +10,7 @@ use std::fmt::Write as _;
 
 pub use grading::ple_question_json::{
     PleQuestionJsonError, PleQuestionJsonEvaluation, PleQuestionJsonPrivateGrading,
-    validate_ple_question_json_shape,
+    PleQuestionJsonRecordedTeachingContent, validate_ple_question_json_shape,
 };
 use question_model::{NativeChoiceOrder, QuestionContentBlock, QuestionMetadata};
 use question_model::{QuestionHint, QuestionType};

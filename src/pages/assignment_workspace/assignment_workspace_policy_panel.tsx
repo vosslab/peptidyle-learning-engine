@@ -45,25 +45,11 @@ function assignmentAttemptResumeRule(
   throw new Error("Assignment Attempt Resume Rule selection is invalid");
 }
 
-function assignmentQuestionDisplayRule(
-  value: string,
-): AssignmentActivityRules["assignmentQuestionDisplayRule"] {
-  if (value === "allQuestions" || value === "oneQuestionAtATime") return value;
-  throw new Error("Assignment Question Display Rule selection is invalid");
-}
-
 function assignmentNavigationRule(
   value: string,
 ): AssignmentActivityRules["assignmentNavigationRule"] {
   if (value === "freeNavigation" || value === "forwardOnly") return value;
   throw new Error("Assignment Navigation Rule selection is invalid");
-}
-
-function assignmentQuestionOrderRule(
-  value: string,
-): AssignmentActivityRules["assignmentQuestionOrderRule"] {
-  if (value === "authoredOrder" || value === "shuffled") return value;
-  throw new Error("Assignment Question Order Rule selection is invalid");
 }
 
 function studentFeedbackReleaseTiming(value: string): StudentFeedbackReleaseTiming {
@@ -327,24 +313,7 @@ export function AssignmentWorkspacePolicyPanel(
             <option value="singleSession">Students complete one active session</option>
           </select>
         </label>
-        <label class="assignment-editor-field">
-          Question display
-          <select
-            aria-label="Assignment Question Display Rule"
-            value={props.policies().assignmentQuestionDisplayRule}
-            onChange={(event) =>
-              props.onPoliciesChange({
-                ...props.policies(),
-                assignmentQuestionDisplayRule: assignmentQuestionDisplayRule(
-                  event.currentTarget.value,
-                ),
-              })
-            }
-          >
-            <option value="allQuestions">Show all Questions</option>
-            <option value="oneQuestionAtATime">Show one Question at a time</option>
-          </select>
-        </label>
+        <p class="assignment-editor-note">Students see one Question at a time.</p>
         <label class="assignment-editor-field">
           Navigation
           <select
@@ -361,21 +330,20 @@ export function AssignmentWorkspacePolicyPanel(
             <option value="forwardOnly">Students move forward only</option>
           </select>
         </label>
-        <label class="assignment-editor-field">
-          Question order
-          <select
-            aria-label="Assignment Question Order Rule"
-            value={props.policies().assignmentQuestionOrderRule}
+        <label class="assignment-workspace-choice">
+          <input
+            type="checkbox"
+            checked={props.policies().assignmentQuestionOrderRule === "shuffled"}
             onChange={(event) =>
               props.onPoliciesChange({
                 ...props.policies(),
-                assignmentQuestionOrderRule: assignmentQuestionOrderRule(event.currentTarget.value),
+                assignmentQuestionOrderRule: event.currentTarget.checked
+                  ? "shuffled"
+                  : "authoredOrder",
               })
             }
-          >
-            <option value="authoredOrder">Keep authored Question order</option>
-            <option value="shuffled">Shuffle Questions for each Assignment Attempt</option>
-          </select>
+          />
+          <span>Randomize question order</span>
         </label>
       </fieldset>
       <fieldset class="assignment-editor-policy-set assignment-editor-policy-set--disclosure">
@@ -393,6 +361,11 @@ export function AssignmentWorkspacePolicyPanel(
           label="Per-item correctness"
           value={props.studentFeedbackReleaseRule().per_item_correctness}
           onChange={(value) => changeDisclosure("per_item_correctness", value)}
+        />
+        <DisclosureControl
+          label="Previous-attempt response"
+          value={props.studentFeedbackReleaseRule().submitted_response}
+          onChange={(value) => changeDisclosure("submitted_response", value)}
         />
         <DisclosureControl
           label="Question Feedback"

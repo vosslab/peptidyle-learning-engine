@@ -1,6 +1,23 @@
 -- M14 schedule-context authority probe. The browser supplies only a local
 -- wall-clock string; the connected Store resolves it in the authenticated
 -- Instructor Account zone before calling the registered Store save routine.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_attribute AS attribute
+          JOIN pg_catalog.pg_class AS relation ON relation.oid = attribute.attrelid
+          JOIN pg_catalog.pg_namespace AS schema ON schema.oid = relation.relnamespace
+         WHERE schema.nspname = 'ple_data'
+           AND relation.relname = 'course_schedule_revision'
+           AND attribute.attname = 'course_time_zone'
+           AND NOT attribute.attisdropped
+    ) THEN
+        RAISE EXCEPTION 'M16 Course time-zone column survived retirement';
+    END IF;
+END
+$$;
+
 -- Keep the foreign-Instructor denial probe independent from the primary
 -- Assignment fixture. The established second Instructor has no other Course
 -- Membership before the later catalog oracle runs.
@@ -30,7 +47,6 @@ DECLARE
     v_foreign_instructor uuid;
     v_expected_term_starts_on date;
     v_expected_term_ends_on date;
-    v_course_time_zone text;
     v_term_starts_on date;
     v_term_ends_on date;
     v_zone text;
@@ -43,13 +59,13 @@ DECLARE
     v_returned_due_at_millis bigint;
 BEGIN
     SELECT course.reference_number, membership.account_id,
-           schedule.term_starts_on, schedule.term_ends_on, schedule.course_time_zone
+           schedule.term_starts_on, schedule.term_ends_on
       INTO v_course_reference, v_instructor,
-           v_expected_term_starts_on, v_expected_term_ends_on, v_course_time_zone
+           v_expected_term_starts_on, v_expected_term_ends_on
       FROM ple_data.course_instance AS course
       JOIN ple_data.course_membership AS membership ON membership.course_id = course.course_id
       JOIN LATERAL (
-          SELECT revision.term_starts_on, revision.term_ends_on, revision.course_time_zone
+          SELECT revision.term_starts_on, revision.term_ends_on
             FROM ple_data.course_schedule_revision AS revision
            WHERE revision.course_id = course.course_id
            ORDER BY revision.revision_number DESC
@@ -57,10 +73,9 @@ BEGIN
       ) AS schedule ON true
      WHERE membership.role = 'instructor'
        AND ple_data.course_membership_is_active(membership.membership_id)
-       AND schedule.course_time_zone <> 'America/New_York'
      ORDER BY course.reference_number LIMIT 1;
     IF v_course_reference IS NULL THEN
-        RAISE EXCEPTION 'M14 requires an Instructor fixture with a non-New-York legacy Course zone';
+        RAISE EXCEPTION 'M14 requires an Instructor fixture';
     END IF;
     SELECT foreign_membership.account_id INTO v_foreign_instructor
       FROM ple_data.course_membership AS foreign_membership
@@ -91,7 +106,7 @@ BEGIN
     SELECT term_starts_on, term_ends_on, account_time_zone
       INTO v_term_starts_on, v_term_ends_on, v_zone
       FROM ple_api.load_live_demo_assignment_schedule_context(v_course_reference);
-    IF v_zone IS DISTINCT FROM 'America/New_York' OR v_zone = v_course_time_zone THEN
+    IF v_zone IS DISTINCT FROM 'America/New_York' THEN
         RAISE EXCEPTION 'M14 schedule context did not use the authenticated Instructor zone';
     END IF;
     IF v_term_starts_on IS DISTINCT FROM v_expected_term_starts_on
@@ -119,6 +134,7 @@ BEGIN
           'one_question_at_a_time', 'free_navigation', 'authored_order',
           NULL, NULL,
           'after_submit', 'after_submit', 'after_submit',
+          'after_submit',
           'after_submit', 'after_submit', 'never'
       );
     IF v_saved_edit_number <> v_assignment_edit_number + 1 THEN

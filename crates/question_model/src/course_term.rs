@@ -1,8 +1,4 @@
-//! Validated calendar bounds and scheduling zone for a teaching course.
-//!
-//! These values deliberately carry a calendar date and an IANA zone name, not
-//! an instant or UTC offset. Later scheduling packages own local-time
-//! resolution and daylight-saving refusal.
+//! Validated inclusive calendar bounds for a teaching course.
 
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
@@ -83,76 +79,12 @@ impl Display for CourseDateError {
 
 impl Error for CourseDateError {}
 
-/// One exact case-sensitive name in the embedded IANA time-zone database.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct CourseTimeZone(String);
-
-impl CourseTimeZone {
-    /// Validates exact case-sensitive membership in the IANA database.
-    pub fn parse(value: &str) -> Result<Self, CourseTimeZoneError> {
-        let parsed = value
-            .parse::<chrono_tz::Tz>()
-            .map_err(|_| CourseTimeZoneError)?;
-        if parsed.name() != value {
-            return Err(CourseTimeZoneError);
-        }
-        Ok(Self(value.to_string()))
-    }
-
-    /// Returns the exact stable IANA name.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl Display for CourseTimeZone {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.as_str())
-    }
-}
-
-impl FromStr for CourseTimeZone {
-    type Err = CourseTimeZoneError;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Self::parse(value)
-    }
-}
-
-impl TryFrom<String> for CourseTimeZone {
-    type Error = CourseTimeZoneError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::parse(&value)
-    }
-}
-
-impl From<CourseTimeZone> for String {
-    fn from(value: CourseTimeZone) -> Self {
-        value.0
-    }
-}
-
-/// An input is not an exact known IANA time-zone name.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CourseTimeZoneError;
-
-impl Display for CourseTimeZoneError {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        formatter.write_str("course time zone must be an exact known IANA name")
-    }
-}
-
-impl Error for CourseTimeZoneError {}
-
-/// Inclusive calendar bounds and authoritative scheduling zone for one course.
+/// Inclusive calendar bounds for one course.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", try_from = "CourseTermParts")]
 pub struct CourseTerm {
     start_date: CourseDate,
     end_date: CourseDate,
-    time_zone: CourseTimeZone,
 }
 
 #[derive(Deserialize)]
@@ -160,44 +92,33 @@ pub struct CourseTerm {
 struct CourseTermParts {
     start_date: CourseDate,
     end_date: CourseDate,
-    time_zone: CourseTimeZone,
 }
 
 impl TryFrom<CourseTermParts> for CourseTerm {
     type Error = CourseTermError;
 
     fn try_from(parts: CourseTermParts) -> Result<Self, Self::Error> {
-        Self::new(parts.start_date, parts.end_date, parts.time_zone)
+        Self::new(parts.start_date, parts.end_date)
     }
 }
 
 impl CourseTerm {
     /// Constructs a term whose inclusive start is not after its inclusive end.
-    pub fn new(
-        start_date: CourseDate,
-        end_date: CourseDate,
-        time_zone: CourseTimeZone,
-    ) -> Result<Self, CourseTermError> {
+    pub fn new(start_date: CourseDate, end_date: CourseDate) -> Result<Self, CourseTermError> {
         if start_date > end_date {
             return Err(CourseTermError::EndBeforeStart);
         }
         Ok(Self {
             start_date,
             end_date,
-            time_zone,
         })
     }
 
-    /// Parses all three explicit wire values without supplying any fallback.
-    pub fn from_parts(
-        start_date: &str,
-        end_date: &str,
-        time_zone: &str,
-    ) -> Result<Self, CourseTermError> {
+    /// Parses both explicit wire values without supplying any fallback.
+    pub fn from_parts(start_date: &str, end_date: &str) -> Result<Self, CourseTermError> {
         let start_date = CourseDate::parse(start_date).map_err(|_| CourseTermError::StartDate)?;
         let end_date = CourseDate::parse(end_date).map_err(|_| CourseTermError::EndDate)?;
-        let time_zone = CourseTimeZone::parse(time_zone).map_err(|_| CourseTermError::TimeZone)?;
-        Self::new(start_date, end_date, time_zone)
+        Self::new(start_date, end_date)
     }
 
     /// Inclusive first course-calendar date.
@@ -208,11 +129,6 @@ impl CourseTerm {
     /// Inclusive final course-calendar date.
     pub fn end_date(&self) -> &CourseDate {
         &self.end_date
-    }
-
-    /// Course-owned zone for later local schedule resolution.
-    pub fn time_zone(&self) -> &CourseTimeZone {
-        &self.time_zone
     }
 }
 
@@ -225,8 +141,6 @@ pub enum CourseTermError {
     EndDate,
     /// Inclusive end precedes inclusive start.
     EndBeforeStart,
-    /// Zone is not an exact known IANA name.
-    TimeZone,
 }
 
 impl Display for CourseTermError {
@@ -235,7 +149,6 @@ impl Display for CourseTermError {
             Self::StartDate => "course term start date is invalid",
             Self::EndDate => "course term end date is invalid",
             Self::EndBeforeStart => "course term end date is before its start date",
-            Self::TimeZone => "course term time zone is not a known IANA name",
         })
     }
 }
@@ -260,8 +173,6 @@ pub enum CourseTermField {
     StartDate,
     /// Inclusive end date.
     EndDate,
-    /// Authoritative IANA zone.
-    TimeZone,
 }
 
 /// Stable reason the submitted field was refused.
@@ -274,8 +185,6 @@ pub enum CourseTermFailureReason {
     InvalidCalendarDate,
     /// Inclusive end precedes inclusive start.
     EndBeforeStart,
-    /// The zone is not an exact known IANA name.
-    UnknownCourseTimeZone,
 }
 
 /// Answer-free, bounded correction contract for course creation.
@@ -327,42 +236,10 @@ mod tests {
     }
 
     #[test]
-    fn iana_names_require_exact_case_sensitive_database_membership() {
-        for zone in chrono_tz::TZ_VARIANTS {
-            assert_eq!(
-                CourseTimeZone::parse(zone.name()).unwrap().as_str(),
-                zone.name()
-            );
-        }
-        for zone in [
-            "America/Chicago",
-            "Europe/Paris",
-            "Pacific/Kiritimati",
-            "Etc/GMT+1",
-            "UTC",
-        ] {
-            assert_eq!(CourseTimeZone::parse(zone).unwrap().as_str(), zone);
-        }
-        for zone in [
-            "america/chicago",
-            "America/Imaginary",
-            "-06:00",
-            " Chicago ",
-            "America/Chicago\n",
-        ] {
-            assert!(
-                CourseTimeZone::parse(zone).is_err(),
-                "unexpected valid zone: {zone}"
-            );
-        }
-    }
-
-    #[test]
     fn course_term_bounds_are_inclusive_and_ordered() {
-        CourseTerm::from_parts("2026-08-24", "2026-08-24", "America/Chicago")
-            .expect("one-day inclusive term");
+        CourseTerm::from_parts("2026-08-24", "2026-08-24").expect("one-day inclusive term");
         assert_eq!(
-            CourseTerm::from_parts("2026-08-25", "2026-08-24", "America/Chicago"),
+            CourseTerm::from_parts("2026-08-25", "2026-08-24"),
             Err(CourseTermError::EndBeforeStart)
         );
     }
@@ -370,12 +247,14 @@ mod tests {
     #[test]
     fn deserialization_cannot_construct_a_reversed_term() {
         let result = serde_json::from_str::<CourseTerm>(
-            r#"{"startDate":"2026-08-25","endDate":"2026-08-24","timeZone":"America/Chicago"}"#,
+            r#"{"startDate":"2026-08-25","endDate":"2026-08-24"}"#,
         );
         assert!(result.is_err());
-        assert!(serde_json::from_str::<CourseTerm>(
-            r#"{"startDate":"2026-08-24","endDate":"2026-12-18","timeZone":"America/Chicago","offset":"-06:00"}"#,
-        )
-        .is_err());
+        assert!(
+            serde_json::from_str::<CourseTerm>(
+                r#"{"startDate":"2026-08-24","endDate":"2026-12-18","unexpected":"value"}"#,
+            )
+            .is_err()
+        );
     }
 }

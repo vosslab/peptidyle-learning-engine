@@ -16,8 +16,9 @@ use super::{Pool, connection::map_sqlx_error};
 use crate::{
     AssignmentPreview, AssignmentQuestionPickerEntry, AssignmentReleaseIssue,
     AssignmentReleaseValidation, AuthoredAssignmentQuestion, CourseAssignmentSummary,
-    CreateLiveAssignmentInput, LiveAssignmentStore, LiveAssignmentWorkspace,
-    ReleasedLiveAssignment, SaveLiveAssignmentInput, SessionTokenHash, StoreError,
+    CreateLiveAssignmentInput, DueSoonAssignmentSummary, DueSoonAssignments, LiveAssignmentStore,
+    LiveAssignmentWorkspace, ReleasedLiveAssignment, SaveLiveAssignmentInlineInput,
+    SaveLiveAssignmentInput, SessionTokenHash, StoreError,
 };
 
 /// PostgreSQL Store for the direct-Instructor Assignment Workspace.
@@ -61,16 +62,74 @@ impl PostgresLiveAssignmentStore {
 
 #[async_trait]
 impl LiveAssignmentStore for PostgresLiveAssignmentStore {
+    async fn list_assignments_due_soon(
+        &self,
+        token: SessionTokenHash,
+    ) -> Result<DueSoonAssignments, StoreError> {
+        let mut tx = self.begin(token).await?;
+        // ASVS 1.2.4: the function accepts no caller-controlled identifiers;
+        // it derives both the Account and Course authority from this transaction's session.
+        let display_time_zone =
+            sqlx::query_scalar::<_, Option<String>>("SELECT ple_api.current_account_time_zone()")
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_sqlx_error)?
+                .ok_or(StoreError::NotFound)
+                .and_then(|value| {
+                    AccountTimeZone::parse(&value).map_err(|_| invalid("Account Time Zone"))
+                })?;
+        let rows = sqlx::query(concat!(
+            "SELECT course_reference_number, course_title, assignment_reference_number, ",
+            "assignment_title, assignment_status, due_at_millis ",
+            "FROM ple_api.list_assignments_due_soon()",
+        ))
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        let items = rows
+            .iter()
+            .map(|row| {
+                Ok(DueSoonAssignmentSummary {
+                    course_reference: course_reference(
+                        row.try_get("course_reference_number")
+                            .map_err(map_sqlx_error)?,
+                    )?,
+                    course_title: course_title(
+                        row.try_get("course_title").map_err(map_sqlx_error)?,
+                    )?,
+                    assignment_reference: assignment_reference(
+                        row.try_get("assignment_reference_number")
+                            .map_err(map_sqlx_error)?,
+                    )?,
+                    assignment_title: title(
+                        row.try_get("assignment_title").map_err(map_sqlx_error)?,
+                    )?,
+                    assignment_status: status(
+                        row.try_get("assignment_status").map_err(map_sqlx_error)?,
+                    )?,
+                    due_at_millis: row.try_get("due_at_millis").map_err(map_sqlx_error)?,
+                })
+            })
+            .collect::<Result<Vec<_>, StoreError>>()?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(DueSoonAssignments {
+            items,
+            next_cursor: None,
+            display_time_zone,
+        })
+    }
+
     async fn list_course_assignments(
         &self,
         token: SessionTokenHash,
         course: CourseInstanceReference,
     ) -> Result<Vec<CourseAssignmentSummary>, StoreError> {
         let mut tx = self.begin(token).await?;
+        let context = schedule_context(&mut tx, course).await?;
         // ASVS 1.2.3 and 8.2.2: bind the public Course Reference and let the
         // session-authorized database function enforce the exact Course owner.
         let rows = sqlx::query(
-            "SELECT assignment_reference_number, assignment_title, assignment_status, \
+            "SELECT assignment_reference_number, assignment_title, due_at_millis, assignment_status, \
              assignment_edit_number FROM ple_api.list_course_assignments($1)",
         )
         .bind(i64::from(course.number()))
@@ -86,6 +145,20 @@ impl LiveAssignmentStore for PostgresLiveAssignmentStore {
                             .map_err(map_sqlx_error)?,
                     )?,
                     title: title(row.try_get("assignment_title").map_err(map_sqlx_error)?)?,
+                    due_at: row
+                        .try_get::<Option<i64>, _>("due_at_millis")
+                        .map_err(map_sqlx_error)?
+                        .map(|milliseconds| {
+                            LocalDateAndTime::from_activity_timestamp_in_account_time_zone(
+                                Timestamp::from_unix_millis(milliseconds),
+                                &context.term,
+                                &context.account_time_zone,
+                                AssignmentAuthoredContentField::DueAt,
+                            )
+                        })
+                        .transpose()
+                        .map_err(|_| invalid("Due at"))?,
+                    display_time_zone: context.account_time_zone.clone(),
                     status: status(row.try_get("assignment_status").map_err(map_sqlx_error)?)?,
                     edit_number: edit(
                         row.try_get("assignment_edit_number")
@@ -176,7 +249,7 @@ impl LiveAssignmentStore for PostgresLiveAssignmentStore {
                         AssignmentAuthoredContentField::DueAt,
                     )
                     .map(|timestamp| timestamp.as_unix_millis())
-                    .map_err(|_| invalid("Course-local Due at"))
+                    .map_err(|_| invalid("Account-local Due at"))
             })
             .transpose()?;
         let ids = input
@@ -185,7 +258,7 @@ impl LiveAssignmentStore for PostgresLiveAssignmentStore {
             .map(ToString::to_string)
             .collect::<Vec<_>>();
         sqlx::query(
-            "SELECT * FROM ple_api.save_live_demo_assignment($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)",
+            "SELECT * FROM ple_api.save_live_demo_assignment($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)",
         )
         .bind(i64::from(course.number()))
         .bind(i64::from(assignment.number()))
@@ -217,11 +290,71 @@ impl LiveAssignmentStore for PostgresLiveAssignmentStore {
         .bind(feedback_rule_values(&input.student_feedback_release_rule)[3])
         .bind(feedback_rule_values(&input.student_feedback_release_rule)[4])
         .bind(feedback_rule_values(&input.student_feedback_release_rule)[5])
+        .bind(feedback_rule_values(&input.student_feedback_release_rule)[6])
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
         let rows = workspace_rows(&mut tx, course, assignment).await?;
         let result = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(result)
+    }
+
+    async fn save_live_assignment_inline(
+        &self,
+        token: SessionTokenHash,
+        course: CourseInstanceReference,
+        assignment: AssignmentReference,
+        expected_edit_number: AssignmentEditNumber,
+        input: SaveLiveAssignmentInlineInput,
+    ) -> Result<CourseAssignmentSummary, StoreError> {
+        let mut tx = self.begin(token).await?;
+        let context = schedule_context(&mut tx, course).await?;
+        let due_at_millis = input
+            .due_at
+            .as_ref()
+            .map(|value| {
+                value
+                    .resolve_in_account_time_zone(
+                        &context.term,
+                        &context.account_time_zone,
+                        AssignmentAuthoredContentField::DueAt,
+                    )
+                    .map(|timestamp| timestamp.as_unix_millis())
+                    .map_err(|_| invalid("Account-local Due at"))
+            })
+            .transpose()?;
+        let row = sqlx::query("SELECT assignment_reference_number, assignment_title, due_at_millis, assignment_status, assignment_edit_number FROM ple_api.save_live_demo_assignment_inline($1,$2,$3,$4,$5)")
+            .bind(i64::from(course.number())).bind(i64::from(assignment.number()))
+            .bind(i64::try_from(expected_edit_number.value()).map_err(|_| invalid("Assignment Edit Number"))?)
+            .bind(input.title.as_str()).bind(due_at_millis).fetch_one(&mut *tx).await.map_err(map_sqlx_error)?;
+        let due_at = row
+            .try_get::<Option<i64>, _>("due_at_millis")
+            .map_err(map_sqlx_error)?
+            .map(|milliseconds| {
+                LocalDateAndTime::from_activity_timestamp_in_account_time_zone(
+                    Timestamp::from_unix_millis(milliseconds),
+                    &context.term,
+                    &context.account_time_zone,
+                    AssignmentAuthoredContentField::DueAt,
+                )
+            })
+            .transpose()
+            .map_err(|_| invalid("Due at"))?;
+        let result = CourseAssignmentSummary {
+            reference: assignment_reference(
+                row.try_get("assignment_reference_number")
+                    .map_err(map_sqlx_error)?,
+            )?,
+            title: title(row.try_get("assignment_title").map_err(map_sqlx_error)?)?,
+            due_at,
+            display_time_zone: context.account_time_zone,
+            status: status(row.try_get("assignment_status").map_err(map_sqlx_error)?)?,
+            edit_number: edit(
+                row.try_get("assignment_edit_number")
+                    .map_err(map_sqlx_error)?,
+            )?,
+        };
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
     }
@@ -248,6 +381,7 @@ impl LiveAssignmentStore for PostgresLiveAssignmentStore {
                     .map_err(map_sqlx_error)?
                     .as_str()
                 {
+                    "time_limit_required" => Ok(AssignmentReleaseIssue::TimeLimitRequired),
                     "no_published_questions" => Ok(AssignmentReleaseIssue::NoPublishedQuestions),
                     "question_unavailable" => Ok(AssignmentReleaseIssue::QuestionUnavailable),
                     _ => Err(invalid("Assignment Release Issue")),
@@ -344,11 +478,8 @@ async fn schedule_context(
     let account_time_zone: String = row.try_get("account_time_zone").map_err(map_sqlx_error)?;
     let account_time_zone =
         AccountTimeZone::parse(&account_time_zone).map_err(|_| invalid("Account Time Zone"))?;
-    // CourseTerm remains the smallest existing holder for inclusive calendar dates.
-    // Its zone is populated only to satisfy the legacy container invariant and
-    // is never consulted: resolution below takes the Account zone explicitly.
-    let term = CourseTerm::from_parts(&starts_on, &ends_on, account_time_zone.as_str())
-        .map_err(|_| invalid("Course Term"))?;
+    // CourseTerm carries only inclusive calendar dates; the Account zone resolves wall-clock input.
+    let term = CourseTerm::from_parts(&starts_on, &ends_on).map_err(|_| invalid("Course Term"))?;
     Ok(AssignmentScheduleContext {
         term,
         account_time_zone,
@@ -399,7 +530,7 @@ fn decode_workspace(
                 &context.account_time_zone,
                 AssignmentAuthoredContentField::DueAt,
             )
-            .map_err(|_| invalid("Course-local Due at"))
+            .map_err(|_| invalid("Account-local Due at"))
         })
         .transpose()?;
     workspace.late_work_rule =
@@ -443,6 +574,18 @@ fn assignment_reference(value: i64) -> Result<AssignmentReference, StoreError> {
         .ok()
         .and_then(AssignmentReference::new)
         .ok_or_else(|| invalid("Assignment Reference"))
+}
+fn course_reference(value: i64) -> Result<CourseInstanceReference, StoreError> {
+    u64::try_from(value)
+        .ok()
+        .and_then(CourseInstanceReference::new)
+        .ok_or_else(|| invalid("Course Instance Reference"))
+}
+fn course_title(value: String) -> Result<String, StoreError> {
+    if value.is_empty() || value != value.trim() || value.chars().count() > 200 {
+        return Err(invalid("Course Title"));
+    }
+    Ok(value)
 }
 fn edit(value: i64) -> Result<AssignmentEditNumber, StoreError> {
     u64::try_from(value)
@@ -581,6 +724,10 @@ fn feedback_rules(row: &sqlx::postgres::PgRow) -> Result<StudentFeedbackReleaseR
             row.try_get("feedback_per_item_correctness")
                 .map_err(map_sqlx_error)?,
         )?,
+        submitted_response: feedback_timing(
+            row.try_get("feedback_submitted_response")
+                .map_err(map_sqlx_error)?,
+        )?,
         question_feedback: feedback_timing(
             row.try_get("feedback_question_feedback")
                 .map_err(map_sqlx_error)?,
@@ -657,10 +804,11 @@ fn activity_rule_extras(rules: &AssignmentActivityRules) -> (Option<f64>, Option
         },
     )
 }
-fn feedback_rule_values(rule: &StudentFeedbackReleaseRule) -> [&'static str; 6] {
+fn feedback_rule_values(rule: &StudentFeedbackReleaseRule) -> [&'static str; 7] {
     [
         feedback_value(rule.score),
         feedback_value(rule.per_item_correctness),
+        feedback_value(rule.submitted_response),
         feedback_value(rule.question_feedback),
         feedback_value(rule.question_answer),
         feedback_value(rule.question_answer_explanation),

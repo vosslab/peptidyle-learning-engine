@@ -1,7 +1,11 @@
 // Production-browser proof for the Student Assignment Attempt journey.
-// Selector contract: assignment_attempt_page.tsx supplies the named Start, navigation,
-// native response, save, timer, final-submit, and terminal-status controls. The keyboard
-// helper proves their real tab order rather than assigning focus to a control.
+// Selector contract: student_courses_page.tsx:13-15 supplies the visible chooser entry whose
+// public href binds the prepared Course reference; student_course_landing_page.tsx:42-47
+// supplies its Assignment entry whose public href binds the prepared Assignment reference; and
+// assignment_overview_page.tsx:91-117 supplies Start facts and the named Start control.
+// assignment_attempt_page.tsx supplies the attempt navigation, native response, save, timer,
+// final-submit, and terminal-status controls. The keyboard helper proves their real tab order
+// rather than assigning focus to a control.
 
 import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
@@ -36,6 +40,19 @@ page.on("pageerror", (error) => pageErrors.push(error.message));
 
 function attemptSurface() {
   return page.locator('[data-route-surface="assignmentAttempt"]');
+}
+
+async function assertNoSeriousOrCriticalAxeFindings(surface, description) {
+  const axeResults = await new AxeBuilder({ page }).include(surface).analyze();
+  const findings = axeResults.violations
+    .filter((violation) => violation.impact === "serious" || violation.impact === "critical")
+    .map((violation) => ({
+      id: violation.id,
+      impact: violation.impact,
+      help: violation.help,
+      targets: violation.nodes.map((node) => node.target.join(" ")),
+    }));
+  assert.deepEqual(findings, [], `${description} has serious or critical axe findings`);
 }
 
 function questionNavigation() {
@@ -76,8 +93,11 @@ async function chooseAndSaveCurrentResponse({ manualSave }) {
   const firstChoice = responseControl.locator("input[type='radio']").first();
   await focusWithKeyboard(firstChoice, "the first response choice");
   await page.keyboard.press("Space");
-  await responseControl.getByText("Response format is ready.", { exact: true }).waitFor();
   if (manualSave) {
+    await responseControl
+      .getByRole("status", { name: "Response format", exact: true })
+      .getByText("Response format is ready to submit.", { exact: true })
+      .waitFor();
     const save = responseControl.getByRole("button", { name: "Save response", exact: true });
     await focusWithKeyboard(save, "Save response");
     await page.keyboard.press("Enter");
@@ -97,9 +117,39 @@ async function assertNoVisibleUuid() {
 try {
   await page.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Continue as Mary Okafor" }).click();
-  await page.goto(`${origin}/courses/${course}/assignments/${assignment}`, {
-    waitUntil: "domcontentloaded",
-  });
+
+  await page.goto(`${origin}/?choose=1`, { waitUntil: "domcontentloaded" });
+  const courseList = page.locator('[data-route-surface="studentCourses"]');
+  await courseList.getByRole("heading", { name: "Your courses", exact: true }).waitFor();
+  const openAssignedWork = courseList.locator(`a[href="/student/courses/${course}"]`);
+  await openAssignedWork.waitFor({ state: "visible" });
+  await assertNoSeriousOrCriticalAxeFindings(
+    '[data-route-surface="studentCourses"]',
+    "Student course chooser",
+  );
+
+  await openAssignedWork.click();
+  await page.waitForURL(new RegExp(`${origin}/student/courses/${course}$`, "u"));
+  const courseLanding = page.locator('[data-route-surface="studentCourseLanding"]');
+  const openAssignment = courseLanding.locator(
+    `a[href="/courses/${course}/assignments/${assignment}"]`,
+  );
+  await openAssignment.waitFor({ state: "visible" });
+  await assertNoSeriousOrCriticalAxeFindings(
+    '[data-route-surface="studentCourseLanding"]',
+    "Student course landing",
+  );
+
+  await openAssignment.click();
+  await page.waitForURL(new RegExp(`${origin}/courses/${course}/assignments/${assignment}$`, "u"));
+  const assignmentOverview = page.locator('[data-route-surface="assignmentOverview"]');
+  await assignmentOverview
+    .getByRole("heading", { name: "Before you start", exact: true })
+    .waitFor();
+  await assertNoSeriousOrCriticalAxeFindings(
+    '[data-route-surface="assignmentOverview"]',
+    "Student Assignment Start",
+  );
 
   const start = page.getByRole("button", { name: "Start Assignment", exact: true });
   await focusWithKeyboard(start, "Start Assignment");
@@ -121,16 +171,9 @@ try {
   await page.keyboard.press("Shift+Tab");
   await expectKeyboardFocus(questionButton(1, "Not answered", true), "Question 1 navigation");
 
-  const axeResults = await new AxeBuilder({ page })
-    .include('[data-route-surface="assignmentAttempt"]')
-    .analyze();
-  const seriousOrCritical = axeResults.violations.filter(
-    (violation) => violation.impact === "serious" || violation.impact === "critical",
-  );
-  assert.deepEqual(
-    seriousOrCritical.map((violation) => violation.id),
-    [],
-    "Student Assignment Attempt has serious or critical axe findings",
+  await assertNoSeriousOrCriticalAxeFindings(
+    '[data-route-surface="assignmentAttempt"]',
+    "Student Assignment Attempt",
   );
 
   await chooseAndSaveCurrentResponse({ manualSave: false });

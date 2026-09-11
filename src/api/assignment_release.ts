@@ -15,8 +15,34 @@ export type LiveAssignmentStatus = "unreleased" | "released" | "closed" | "archi
 export interface CourseAssignmentSummary {
   readonly reference: AssignmentReference;
   readonly title: string;
+  readonly dueAt: LocalDateAndTime | null;
+  /** Instructor zone governing this row's server-rendered local dueAt value. */
+  readonly displayTimeZone: AccountTimeZone;
   readonly status: LiveAssignmentStatus;
   readonly editNumber: AssignmentEditNumber;
+}
+
+/** One Course-qualified Assignment due in the authenticated Instructor's rolling next-seven-days window. */
+export interface DueSoonAssignmentSummary {
+  readonly courseReference: CourseInstanceReference;
+  readonly courseTitle: string;
+  readonly assignmentReference: AssignmentReference;
+  readonly assignmentTitle: string;
+  readonly assignmentStatus: LiveAssignmentStatus;
+  /** Stored UTC instant as Unix milliseconds; render it in displayTimeZone. */
+  readonly dueAtMillis: number;
+}
+
+/** Bounded cross-Course Due Soon list with the Account-owned display zone. */
+export interface DueSoonAssignments {
+  readonly items: ReadonlyArray<DueSoonAssignmentSummary>;
+  readonly nextCursor: null;
+  readonly displayTimeZone: AccountTimeZone;
+}
+
+export interface SaveLiveAssignmentInlineInput {
+  readonly title: string;
+  readonly dueAt: LocalDateAndTime | null;
 }
 
 export interface AssignmentQuestionPickerEntry {
@@ -67,7 +93,9 @@ export interface SaveLiveAssignmentInput extends CreateLiveAssignmentInput {
 
 export interface AssignmentReleaseValidation {
   readonly canRelease: boolean;
-  readonly issues: ReadonlyArray<"noPublishedQuestions" | "questionUnavailable">;
+  readonly issues: ReadonlyArray<
+    "noPublishedQuestions" | "questionUnavailable" | "timeLimitRequired"
+  >;
 }
 
 /** Deliberately answer-free Instructor preview; it creates no Student delivery. */
@@ -84,9 +112,17 @@ export interface ReleasedLiveAssignment {
 
 /** Same-origin direct-Instructor Assignment Workspace boundary. */
 export interface LiveAssignmentReleaseClient {
+  readonly listAssignmentsDueSoon: () => Promise<DueSoonAssignments>;
   readonly listCourseAssignments: (
     course: CourseInstanceReference,
   ) => Promise<ReadonlyArray<CourseAssignmentSummary>>;
+  /** Saves the mutable title and due date shown on the Course Assignment list row. */
+  readonly saveLiveAssignmentInline: (
+    course: CourseInstanceReference,
+    assignment: AssignmentReference,
+    input: SaveLiveAssignmentInlineInput,
+    editNumber: AssignmentEditNumber,
+  ) => Promise<CourseAssignmentSummary>;
   readonly listLiveAssignmentQuestionPicker: (
     course: CourseInstanceReference,
   ) => Promise<ReadonlyArray<AssignmentQuestionPickerEntry>>;

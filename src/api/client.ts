@@ -16,6 +16,11 @@ import type { CourseGradebookTotalsView } from "../../generated/api/CourseGradeb
 import type { CourseBannerReference } from "../../generated/api/CourseBannerReference";
 import type { CourseBannerUpdate } from "../../generated/api/CourseBannerUpdate";
 import type { CourseBannerUploadReceipt } from "../../generated/api/CourseBannerUploadReceipt";
+import type {
+  InstructorProfile,
+  InstructorProfileThumbnail,
+  UpdateInstructorProfileInput,
+} from "./instructor_profile";
 import type { StudentRecordId } from "../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
@@ -59,7 +64,6 @@ import type {
   CursorPage,
   ImathasQuestionBackendLaunch,
   StudentFeedbackReleaseResponse,
-  AssignmentAttemptSummaryResponse,
   PrefetchedNextQuestion,
   QuestionPoolPreview,
 } from "./contracts";
@@ -73,6 +77,7 @@ import type { LiveCourseRosterClient } from "./course_roster";
 import type { LiveInvitationExportClient } from "./invitation_export";
 import type { LiveAssignmentReleaseClient } from "./assignment_release";
 import type { LiveAssignmentAttemptIssuanceClient } from "./assignment_attempt_issuance";
+import type { StudentAssignmentAttemptHistoryClient } from "./assignment_attempt_history";
 import type { StudentAssignmentAttemptNavigationClient } from "./assignment_attempt_navigation";
 import type { InstructorAccountClient } from "./instructor_account";
 import type { SupportCapabilityClient } from "./support_roster";
@@ -156,6 +161,7 @@ export interface ApiClient
     LiveInvitationExportClient,
     LiveAssignmentReleaseClient,
     LiveAssignmentAttemptIssuanceClient,
+    StudentAssignmentAttemptHistoryClient,
     StudentAssignmentAttemptNavigationClient,
     InstructorAccountClient,
     SupportCapabilityClient,
@@ -164,6 +170,15 @@ export interface ApiClient
     BlueprintOperationsClient,
     GradingOperationsClient,
     CalculatedGradebookClient {
+  /** Reads only the authenticated Instructor's account-owned display zone. */
+  readonly getInstructorProfile: () => Promise<InstructorProfile>;
+  /** Replaces only the authenticated Instructor's account-owned display zone. */
+  readonly updateInstructorProfile: (
+    input: UpdateInstructorProfileInput,
+  ) => Promise<InstructorProfile>;
+  readonly getInstructorProfileThumbnail: () => Promise<InstructorProfileThumbnail>;
+  readonly replaceInstructorProfileThumbnail: (image: Blob) => Promise<InstructorProfileThumbnail>;
+  readonly fetchInstructorProfileThumbnail: (reference: string) => Promise<Blob>;
   /** Instructor-only Assignment Delivery Preview schedule page using public C-/A- route references. */
   readonly listPreviewSchedule: (
     course: CourseInstanceReference,
@@ -336,11 +351,6 @@ export interface ApiClient
   readonly getAssignmentAttempt: (
     assignmentAttemptId: AssignmentAttemptId,
   ) => Promise<AssignmentAttempt>;
-  readonly getAssignmentAttemptSummary: (
-    assignmentAttemptId: AssignmentAttemptId,
-    cursor?: string,
-    pageSize?: number,
-  ) => Promise<AssignmentAttemptSummaryResponse>;
   readonly listQuestionAttempts: (
     assignmentAttemptId: AssignmentAttemptId,
     cursor?: string,

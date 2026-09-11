@@ -71,7 +71,6 @@ async function createSecondCourseThroughVisibleControls(page: Page, title: strin
   await page.getByLabel("Course Instance title").fill(title);
   await page.getByLabel("Course Term start date").fill("2026-09-01");
   await page.getByLabel("Course Term end date").fill("2026-12-18");
-  await page.getByLabel("Course Time Zone (IANA)").fill("America/Chicago");
   await page.getByRole("button", { name: "Create Course Instance", exact: true }).click();
   const course = page.getByRole("article").filter({
     has: page.getByRole("heading", { name: title, exact: true }),

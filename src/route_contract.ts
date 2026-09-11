@@ -64,11 +64,13 @@ export interface RouteContract {
     | "assignmentWorkspacePolicies"
     | "assignmentWorkspaceStudentView"
     | "assignmentWorkspaceGradingOperations"
+    | "assignmentsDueSoon"
     | "gradebook"
     | "studentWorkInspection"
     | "courseGradeSettings"
     | "courseAppearance"
     | "signIn"
+    | "instructorProfile"
     | "courseRoster"
     | "teachingOperations"
     | "assignmentPreview"
@@ -102,6 +104,13 @@ export const ROUTE_CONTRACT = [
       taskGroup: "instructorCourses",
       contentLayout: "reading",
     },
+  },
+  {
+    id: "instructorProfile",
+    path: "/profile",
+    surface: "Instructor account profile preferences",
+    requiredProductRoles: ["instructor"],
+    ribbon: { scope: "product", contentLayout: "reading" },
   },
   {
     id: "signIn",
@@ -263,6 +272,18 @@ export const ROUTE_CONTRACT = [
       tab: "courses",
       taskGroup: "instructorCourses",
       contentLayout: "reading",
+    },
+  },
+  {
+    id: "assignmentsDueSoon",
+    path: "/assignments/due-soon",
+    surface: "Instructor cross-Course Assignments Due Soon",
+    requiredProductRoles: ["instructor"],
+    ribbon: {
+      scope: "product",
+      tab: "productAssignments",
+      taskGroup: "instructorAssignments",
+      contentLayout: "fullWidth",
     },
   },
   {

@@ -8,7 +8,14 @@ mod account_time_zone;
 mod assignment_attempt;
 #[cfg(feature = "postgres")]
 mod assignment_attempt_context;
+#[cfg(feature = "postgres")]
 mod assignment_delivery;
+#[cfg(feature = "postgres")]
+mod assignment_delivery_access;
+#[cfg(feature = "postgres")]
+mod assignment_delivery_history;
+#[cfg(feature = "postgres")]
+mod assignment_delivery_history_response;
 #[cfg(feature = "postgres")]
 mod assignment_release;
 #[cfg(feature = "postgres")]
@@ -30,6 +37,8 @@ mod imathas_question_backend_session;
 #[cfg(feature = "postgres")]
 mod instructor_account;
 #[cfg(feature = "postgres")]
+mod instructor_profile;
+#[cfg(feature = "postgres")]
 mod invitation_export;
 #[cfg(feature = "postgres")]
 mod live_gradebook;
@@ -43,6 +52,8 @@ mod native_ple_grading;
 mod native_ple_submission;
 #[cfg(feature = "postgres")]
 mod object_record;
+#[cfg(feature = "postgres")]
+mod profile_thumbnail;
 #[cfg(feature = "postgres")]
 mod public_asset_publication;
 #[cfg(feature = "postgres")]
@@ -87,6 +98,8 @@ pub use imathas_question_backend_session::PostgresImathasQuestionBackendSessionS
 #[cfg(feature = "postgres")]
 pub use instructor_account::PostgresInstructorAccountStore;
 #[cfg(feature = "postgres")]
+pub use instructor_profile::PostgresInstructorProfileStore;
+#[cfg(feature = "postgres")]
 pub use invitation_export::PostgresInvitationExportStore;
 #[cfg(feature = "postgres")]
 pub use live_gradebook::PostgresLiveDemoGradebookStore;
@@ -104,6 +117,8 @@ pub use native_ple_grading::PostgresNativePleGradingStore;
 pub use native_ple_submission::PostgresNativePleSubmissionStore;
 #[cfg(feature = "postgres")]
 pub use object_record::PostgresWorkspaceQuestionSourceObjectRecordStore;
+#[cfg(feature = "postgres")]
+pub use profile_thumbnail::PostgresProfileThumbnailStore;
 #[cfg(feature = "postgres")]
 pub use public_asset_publication::PostgresPublicAssetPublicationStore;
 #[cfg(feature = "postgres")]

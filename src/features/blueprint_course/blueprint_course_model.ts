@@ -53,7 +53,7 @@ function defaultDefaults(): BlueprintAssignmentDefaults {
   return {
     assignment_attempt_time_limit_seconds: null,
     attempt_limit: null,
-    late_work_rule: "mark_late",
+    late_work_rule: "reject",
     assignment_deadline_rule: "auto_submit",
     activity_rules: {
       assignmentCompletionRule: { kind: "answerAll" },
@@ -62,16 +62,17 @@ function defaultDefaults(): BlueprintAssignmentDefaults {
       questionPoolReuseRule: "reuseSelection",
       questionVariationRule: "newVariation",
       assignmentAttemptResumeRule: "resumable",
-      assignmentQuestionDisplayRule: "allQuestions",
+      assignmentQuestionDisplayRule: "oneQuestionAtATime",
       assignmentNavigationRule: "freeNavigation",
-      assignmentQuestionOrderRule: "authoredOrder",
+      assignmentQuestionOrderRule: "shuffled",
     },
     student_feedback_release_rule: {
       score: "after_submit",
       per_item_correctness: "after_submit",
-      question_feedback: "after_submit",
-      question_answer: "after_close",
-      question_answer_explanation: "after_close",
+      submitted_response: "after_submit",
+      question_feedback: "never",
+      question_answer: "never",
+      question_answer_explanation: "never",
       class_statistics: "never",
     },
   };

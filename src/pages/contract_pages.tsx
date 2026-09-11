@@ -21,11 +21,6 @@ function contractPage(surface: string, title: string, nextMilestone: string): Co
   };
 }
 
-export const AssignmentAttemptSummaryPage = contractPage(
-  "assignmentAttemptSummary",
-  "Assignment Attempt summary",
-  "the Assignment Attempt lane",
-);
 export const LibraryPage = contractPage(
   "library",
   "Question Library",

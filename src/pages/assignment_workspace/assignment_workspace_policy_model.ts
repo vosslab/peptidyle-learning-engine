@@ -5,6 +5,9 @@ import type { AssignmentActivityRules } from "../../../generated/api/AssignmentA
 import type { AssignmentPoliciesValidationIssue } from "../../../generated/api/AssignmentPoliciesValidationIssue";
 import type { AssignmentPoliciesInput } from "../../api/contracts";
 
+/** The teaching default applied when an Instructor chooses a new due date. */
+export const DEFAULT_DUE_TIME = "23:59:00.000";
+
 export type PolicyFocusTarget =
   | "instructions"
   | "availableAt"
@@ -73,8 +76,25 @@ export function assignmentPoliciesInput(
 /** Converts a native local-date-time control value to the explicit wire form. */
 export function canonicalLocalDateAndTime(value: string): string | null {
   if (value === "") return null;
-  const normalized = value.length === 16 ? `${value}:00.000` : value;
-  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u.test(normalized) ? normalized : null;
+  const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/u.exec(value);
+  if (match === null) return null;
+  const [, dateAndMinute, seconds = "00", fraction = ""] = match;
+  return `${dateAndMinute}:${seconds}.${fraction.padEnd(3, "0")}`;
+}
+
+/** Returns the date portion of a stored local deadline for the date control. */
+export function dueDateDraft(value: string | null): string {
+  return value === null ? "" : value.slice(0, 10);
+}
+
+/** Returns the authored time or the teaching default for a newly selected date. */
+export function dueTimeDraft(value: string | null): string {
+  return value === null ? DEFAULT_DUE_TIME : value.slice(11);
+}
+
+/** Combines local date and time controls without converting them to an instant. */
+export function localDueDateAndTime(date: string, time: string): string {
+  return date === "" ? "" : `${date}T${time}`;
 }
 
 function assignmentAuthoredContentTarget(

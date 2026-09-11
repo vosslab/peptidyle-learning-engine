@@ -16,11 +16,7 @@ import { routeScopeKey, type RouteScopeKey } from "../navigation/route_params";
 
 export type RouteScopeQueries = Pick<
   ApplicationApi<OrdinaryBrowserApiClient>["queries"],
-  | "resolveCourse"
-  | "resolveAssignmentAttempt"
-  | "courseScope"
-  | "assignmentAttemptScope"
-  | "assignmentAttemptSummary"
+  "resolveCourse" | "courseScope" | "assignmentAttemptScope" | "assignmentAttemptHistory"
 >;
 
 type ScopeDataEntry =
@@ -75,11 +71,8 @@ function withCourseAppearance(
       return { ...data, course: { ...data.course, appearance } };
     case "assignmentAttempt":
       return data;
-    case "assignmentAttemptSummary":
-      return {
-        ...data,
-        response: { ...data.response, course: { ...data.response.course, appearance } },
-      };
+    case "assignmentAttemptHistory":
+      return data;
   }
 }
 
@@ -96,10 +89,6 @@ export function createRouteScopeController(
   const [cacheVersion, setCacheVersion] = createSignal(0);
   const entries = new Map<string, ScopeDataEntry>();
   const courseIdentities = new Map<string, ReturnType<RouteScopeQueries["resolveCourse"]>>();
-  const assignmentAttemptIdentities = new Map<
-    string,
-    ReturnType<RouteScopeQueries["resolveAssignmentAttempt"]>
-  >();
   const assignmentAttemptScopes = new Map<
     string,
     ReturnType<RouteScopeQueries["assignmentAttemptScope"]>
@@ -112,16 +101,6 @@ export function createRouteScopeController(
     if (cached !== undefined) return cached;
     const request = queries.resolveCourse(reference);
     courseIdentities.set(reference, request);
-    return request;
-  };
-
-  const resolveAssignmentAttempt = (
-    reference: Parameters<RouteScopeQueries["resolveAssignmentAttempt"]>[0],
-  ): ReturnType<RouteScopeQueries["resolveAssignmentAttempt"]> => {
-    const cached = assignmentAttemptIdentities.get(reference);
-    if (cached !== undefined) return cached;
-    const request = queries.resolveAssignmentAttempt(reference);
-    assignmentAttemptIdentities.set(reference, request);
     return request;
   };
 
@@ -152,9 +131,9 @@ export function createRouteScopeController(
           );
           break;
         }
-        request = resolveAssignmentAttempt(scope.assignmentAttemptReference)
-          .then((resolved) => queries.assignmentAttemptSummary(resolved.assignmentAttemptId))
-          .then((response) => ({ kind: "assignmentAttemptSummary", response }) as const);
+        request = queries
+          .assignmentAttemptHistory(scope.assignmentAttemptReference)
+          .then((history) => ({ kind: "assignmentAttemptHistory", history }) as const);
         break;
       case "product":
       case "invalid":
@@ -212,9 +191,7 @@ export function createRouteScopeController(
         courseIdentities.delete(scope.courseReference);
         break;
       case "assignmentAttempt":
-        if (isAssignmentAttemptSummary(pathnameForScope)) {
-          assignmentAttemptIdentities.delete(scope.assignmentAttemptReference);
-        } else {
+        if (!isAssignmentAttemptSummary(pathnameForScope)) {
           assignmentAttemptScopes.delete(scope.assignmentAttemptReference);
         }
         break;

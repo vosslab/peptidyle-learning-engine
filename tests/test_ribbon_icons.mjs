@@ -130,7 +130,7 @@ test("context glyphs remain closed identities rather than invented navigation co
       id: "profile",
       label: "Profile",
       productRole: "instructor",
-      availability: "Unavailable",
+      availability: "Available",
       glyph: "profile",
     },
   ]);

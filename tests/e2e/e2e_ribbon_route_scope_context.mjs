@@ -11,7 +11,7 @@ import {
 } from "../support/ribbon_test_support.ts";
 import {
   assignmentAttemptContext,
-  assignmentAttemptSummaryData,
+  assignmentAttemptHistoryData,
   courseRouteData,
 } from "../support/route_scope_provider_fixtures.ts";
 import { loadRouteScopeProviderHarness } from "../support/route_scope_provider_bundle.ts";
@@ -50,7 +50,7 @@ function createDeferredQueries() {
   const attemptResolvers = new Map();
   const courseViews = new Map();
   const attemptContexts = new Map();
-  const summaries = new Map();
+  const histories = new Map();
   const deferred = (map, key, label) => {
     if (map.has(key)) throw new Error(`redundant ${label} query for ${key}`);
     const value = createDeferredResolution();
@@ -62,7 +62,7 @@ function createDeferredQueries() {
     attemptResolvers,
     courseViews,
     attemptContexts,
-    summaries,
+    histories,
     queries: {
       resolveCourse(reference) {
         return deferred(courseResolvers, reference, "Course resolution").promise;
@@ -76,8 +76,8 @@ function createDeferredQueries() {
       assignmentAttemptScope(reference) {
         return deferred(attemptContexts, reference, "Attempt context").promise;
       },
-      assignmentAttemptSummary(attemptId) {
-        return deferred(summaries, attemptId, "Attempt summary").promise;
+      assignmentAttemptHistory(reference) {
+        return deferred(histories, reference, "Attempt history").promise;
       },
     },
   };
@@ -162,9 +162,9 @@ test(
           fixture.queries.assignmentAttemptScope,
           "test-attempt-context",
         ),
-        assignmentAttemptSummary: queryFunction(
-          fixture.queries.assignmentAttemptSummary,
-          "test-attempt-summary",
+        assignmentAttemptHistory: queryFunction(
+          fixture.queries.assignmentAttemptHistory,
+          "test-attempt-history",
         ),
       },
     };
@@ -228,15 +228,13 @@ test("stable controller retains separate Attempt views", async () => {
   app.navigate("/assignment-attempts/R-1/summary");
   await nextTurn();
   assert.equal(app.controller.data(), undefined);
-  assert.ok(fixture.attemptResolvers.has("R-1"));
-  fixture.attemptResolvers.get("R-1").resolve({ assignmentAttemptId: "attempt-one" });
-  await nextTurn();
-  const summary = assignmentAttemptSummaryData("C-1");
-  fixture.summaries.get("attempt-one").resolve(summary);
+  assert.ok(fixture.histories.has("R-1"));
+  const history = assignmentAttemptHistoryData("C-1");
+  fixture.histories.get("R-1").resolve(history);
   await nextTurn();
   assert.deepEqual(app.controller.data(), {
-    kind: "assignmentAttemptSummary",
-    response: summary,
+    kind: "assignmentAttemptHistory",
+    history,
   });
   app.dispose();
 });

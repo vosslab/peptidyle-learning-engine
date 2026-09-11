@@ -49,6 +49,8 @@ pub struct StudentFeedbackReleaseRule {
     pub score: StudentFeedbackReleaseTiming,
     /// When the Student may see per-item correctness.
     pub per_item_correctness: StudentFeedbackReleaseTiming,
+    /// When the Student may see their recorded response in a previous attempt.
+    pub submitted_response: StudentFeedbackReleaseTiming,
     /// When the Student may see Question Feedback.
     pub question_feedback: StudentFeedbackReleaseTiming,
     /// When the Student may see the display-ready Question Answer.
@@ -68,9 +70,10 @@ impl Default for StudentFeedbackReleaseRule {
         Self {
             score: StudentFeedbackReleaseTiming::AfterSubmit,
             per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
-            question_feedback: StudentFeedbackReleaseTiming::AfterSubmit,
-            question_answer: StudentFeedbackReleaseTiming::AfterSubmit,
-            question_answer_explanation: StudentFeedbackReleaseTiming::AfterSubmit,
+            submitted_response: StudentFeedbackReleaseTiming::AfterSubmit,
+            question_feedback: StudentFeedbackReleaseTiming::Never,
+            question_answer: StudentFeedbackReleaseTiming::Never,
+            question_answer_explanation: StudentFeedbackReleaseTiming::Never,
             class_statistics: StudentFeedbackReleaseTiming::Never,
         }
     }
@@ -343,7 +346,7 @@ impl Default for AssignmentActivityRules {
             assignment_attempt_resume_rule: AssignmentAttemptResumeRule::Resumable,
             assignment_question_display_rule: AssignmentQuestionDisplayRule::OneQuestionAtATime,
             assignment_navigation_rule: AssignmentNavigationRule::FreeNavigation,
-            assignment_question_order_rule: AssignmentQuestionOrderRule::AuthoredOrder,
+            assignment_question_order_rule: AssignmentQuestionOrderRule::Shuffled,
         }
     }
 }
@@ -358,6 +361,20 @@ mod tests {
         let policy = QuestionAttemptLimit { max_attempts: None };
         let json = serde_json::to_string(&policy).expect("serialization should succeed");
         assert!(json.contains(r#""maxAttempts":null"#));
+    }
+
+    #[test]
+    fn new_assignment_defaults_shuffle_one_question_at_a_time() {
+        let rules = AssignmentActivityRules::default();
+
+        assert_eq!(
+            rules.assignment_question_display_rule,
+            AssignmentQuestionDisplayRule::OneQuestionAtATime
+        );
+        assert_eq!(
+            rules.assignment_question_order_rule,
+            AssignmentQuestionOrderRule::Shuffled
+        );
     }
 
     #[test]
@@ -492,6 +509,7 @@ mod tests {
         let rule = StudentFeedbackReleaseRule {
             score: StudentFeedbackReleaseTiming::AfterSubmit,
             per_item_correctness: StudentFeedbackReleaseTiming::AfterDue,
+            submitted_response: StudentFeedbackReleaseTiming::AfterSubmit,
             question_feedback: StudentFeedbackReleaseTiming::DuringAttempt,
             question_answer: StudentFeedbackReleaseTiming::AfterClose,
             question_answer_explanation: StudentFeedbackReleaseTiming::AfterClose,
@@ -501,11 +519,12 @@ mod tests {
         let json = serde_json::to_string(&rule).expect("serialization should succeed");
 
         assert!(json.contains(r#""per_item_correctness":"after_due""#));
+        assert!(json.contains(r#""submitted_response":"after_submit""#));
         assert!(json.contains(r#""class_statistics":"never""#));
     }
 
     #[test]
-    fn default_student_feedback_release_rule_releases_feedback_after_submission() {
+    fn default_student_feedback_releases_response_and_correctness_after_submission() {
         let rule = StudentFeedbackReleaseRule::default();
 
         assert_eq!(rule.score, StudentFeedbackReleaseTiming::AfterSubmit);
@@ -514,16 +533,14 @@ mod tests {
             StudentFeedbackReleaseTiming::AfterSubmit
         );
         assert_eq!(
-            rule.question_feedback,
+            rule.submitted_response,
             StudentFeedbackReleaseTiming::AfterSubmit
         );
-        assert_eq!(
-            rule.question_answer,
-            StudentFeedbackReleaseTiming::AfterSubmit
-        );
+        assert_eq!(rule.question_feedback, StudentFeedbackReleaseTiming::Never);
+        assert_eq!(rule.question_answer, StudentFeedbackReleaseTiming::Never);
         assert_eq!(
             rule.question_answer_explanation,
-            StudentFeedbackReleaseTiming::AfterSubmit
+            StudentFeedbackReleaseTiming::Never
         );
         assert_eq!(rule.class_statistics, StudentFeedbackReleaseTiming::Never);
     }

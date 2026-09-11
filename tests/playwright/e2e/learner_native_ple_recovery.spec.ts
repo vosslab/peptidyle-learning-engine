@@ -97,7 +97,6 @@ async function createCourseAssignment(
   await page.getByLabel("Course Instance title").fill(course);
   await page.getByLabel("Course Term start date").fill("2026-09-01");
   await page.getByLabel("Course Term end date").fill("2026-12-18");
-  await page.getByLabel("Course Time Zone (IANA)").fill("America/Chicago");
   await page.getByRole("button", { name: "Create Course Instance", exact: true }).click();
   await expect(page.getByRole("heading", { name: course, exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Open Course Instance", exact: true }).first().click();
@@ -134,7 +133,8 @@ async function createCourseAssignment(
   ).toBeVisible();
   await page.getByRole("link", { name: "Review assignment policies", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
-  await page.getByLabel("Due date").fill("2026-12-01T12:00");
+  await page.getByLabel("Due date").fill("2026-12-01");
+  await page.getByLabel("Due time").fill("12:00");
   await page.getByLabel("Late-work rule").selectOption("mark_late");
   await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
   await expect(
@@ -182,9 +182,9 @@ async function signInStudentAndStartAssignment(
   const invitation = page
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: courseTitle, exact: true }) });
-  await invitation.getByRole("link", { name: "Review Course Invitation", exact: true }).click();
-  await page.getByRole("button", { name: "Accept Course Invitation", exact: true }).click();
-  await expect(page.getByText("Course Invitation accepted.", { exact: true })).toBeVisible();
+  await invitation.getByRole("link", { name: "Review invitation", exact: true }).click();
+  await page.getByRole("button", { name: "Accept invitation", exact: true }).click();
+  await expect(page.getByText("Invitation accepted.", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Open assigned work", exact: true }).click();
   await expect(page.getByRole("heading", { name: courseTitle, exact: true })).toBeVisible();
   const assignment = page

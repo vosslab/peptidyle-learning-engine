@@ -12,3 +12,4 @@ tree-sitter-rust  # Rust grammar for the Graphify cfg(test) prune step
 
 # Development dependencies
 lxml  # XML parsing for Graphify SVG and documentation utilities
+graphifyy[postgres]

@@ -5,6 +5,64 @@ import {
   decodeInstructorStudentView,
   decodeStudentAssignmentDetail,
 } from "../src/api/decoders/assignment_teaching_delivery.ts";
+import {
+  decodeCourseAssignments as decodeCourseAssignmentRows,
+  decodeSaveLiveAssignmentInlineInput,
+} from "../src/api/decoders/assignment_release.ts";
+
+test("Course Assignment rows require exact due and Instructor-zone display facts", () => {
+  const rows = decodeCourseAssignmentRows([
+    {
+      reference: "A-2",
+      title: "Peptide bonds",
+      dueAt: "2026-09-11T14:30:00.000",
+      displayTimeZone: "America/Chicago",
+      status: "released",
+      editNumber: "3",
+    },
+  ]);
+  assert.equal(rows[0].dueAt, "2026-09-11T14:30:00.000");
+  assert.equal(rows[0].displayTimeZone, "America/Chicago");
+
+  assert.throws(() =>
+    decodeCourseAssignmentRows([
+      {
+        reference: "A-2",
+        title: "Peptide bonds",
+        displayTimeZone: "America/Chicago",
+        status: "released",
+        editNumber: "3",
+      },
+    ]),
+  );
+  assert.throws(() =>
+    decodeCourseAssignmentRows([
+      {
+        reference: "A-2",
+        title: "Peptide bonds",
+        dueAt: "2026-09-11T14:30:00.000",
+        displayTimeZone: "America/Chicago",
+        status: "released",
+        editNumber: "3",
+        extra: true,
+      },
+    ]),
+  );
+});
+
+test("inline Assignment row saves accept only title and a required nullable local due value", () => {
+  assert.deepEqual(decodeSaveLiveAssignmentInlineInput({ title: "Peptide bonds", dueAt: null }), {
+    title: "Peptide bonds",
+    dueAt: null,
+  });
+  assert.throws(() => decodeSaveLiveAssignmentInlineInput({ title: "Peptide bonds" }));
+  assert.throws(() =>
+    decodeSaveLiveAssignmentInlineInput({
+      title: "Peptide bonds",
+      dueAt: "2026-09-11T14:30",
+    }),
+  );
+});
 
 test("Instructor Student view accepts an empty draft and Question Pool redraw without identities", () => {
   const view = decodeInstructorStudentView({
@@ -26,6 +84,7 @@ test("Instructor Student view accepts an empty draft and Question Pool redraw wi
     studentFeedbackReleaseRule: {
       score: "never",
       per_item_correctness: "never",
+      submitted_response: "never",
       question_feedback: "never",
       question_answer: "never",
       question_answer_explanation: "never",
@@ -35,9 +94,18 @@ test("Instructor Student view accepts an empty draft and Question Pool redraw wi
   assert.equal(view.questionsPerAssignmentAttempt, 0);
   assert.equal(view.questionPoolReuseRule, "selectAgain");
   assert.equal(view.questionVariationRule, "newVariation");
+  assert.equal(view.studentFeedbackReleaseRule.submitted_response, "never");
   assert.equal(view.displayTimeZone, "America/Los_Angeles");
   assert.equal("timeZone" in view, false);
   assert.equal("studentLateWorkStatus" in view.delivery, false);
+  const { submitted_response: _submittedResponse, ...withoutSubmittedResponse } =
+    view.studentFeedbackReleaseRule;
+  assert.throws(() =>
+    decodeInstructorStudentView({
+      ...view,
+      studentFeedbackReleaseRule: withoutSubmittedResponse,
+    }),
+  );
   assert.throws(() =>
     decodeInstructorStudentView({ ...view, assignmentId: "00000000-0000-0000-0000-000000000001" }),
   );

@@ -202,11 +202,8 @@ function courseLocalDateAndTime(value: unknown, path: string): string {
 }
 
 function selectedMoment(value: unknown, path: string): PreviewSelectedMoment {
-  const record = closed(value, path, ["value", "time_zone"]);
-  const timeZone = label(record.time_zone, `${path}.time_zone`);
-  if (Array.from(timeZone).length > 255)
-    throw new DecodeError(`${path}.time_zone`, "a bounded IANA zone");
-  return { value: courseLocalDateAndTime(record.value, `${path}.value`), time_zone: timeZone };
+  const record = closed(value, path, ["value"]);
+  return { value: courseLocalDateAndTime(record.value, `${path}.value`) };
 }
 
 function assignmentPolicySourceKind(

@@ -3,7 +3,10 @@ import test from "node:test";
 
 import { build } from "esbuild";
 
-import { assignmentAttemptContext } from "./support/route_scope_provider_fixtures.ts";
+import {
+  assignmentAttemptContext,
+  assignmentAttemptHistoryData,
+} from "./support/route_scope_provider_fixtures.ts";
 import { ROUTE_CONTRACT } from "../src/route_contract.ts";
 import { deriveRibbonModel } from "../src/ribbon/ribbon_contract.ts";
 
@@ -77,13 +80,17 @@ test("unresolved Student Attempt scope withholds its Assignment return path", as
   assert.equal(control.href, undefined);
 });
 
-test("Student Attempt summary never borrows active-screen return parameters", async () => {
+test("Student Attempt history uses its authorized public return parameters", async () => {
   const ribbonParamsFor = await loadRibbonParamsFor();
   const summaryRoute = ROUTE_CONTRACT.find((route) => route.id === "assignmentAttemptSummary");
   assert.ok(summaryRoute, "the Student Attempt summary route is declared");
   const params = ribbonParamsFor(summaryRoute, "/assignment-attempts/R-1/summary", {
-    kind: "assignmentAttempt",
-    context: assignmentAttemptContext("C-1"),
+    kind: "assignmentAttemptHistory",
+    history: assignmentAttemptHistoryData("C-1"),
   });
-  assert.deepEqual(params, { assignmentAttemptRef: "R-1" });
+  assert.deepEqual(params, {
+    assignmentAttemptRef: "R-1",
+    courseRef: "C-1",
+    assignmentRef: "A-1",
+  });
 });

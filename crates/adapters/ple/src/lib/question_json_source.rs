@@ -5,15 +5,15 @@ use std::fmt::Write as _;
 use objects::{ObjectStore, ResolvedQuestionSource};
 use question_model::generation::QuestionSeed;
 use question_model::{
-    QuestionAttemptReproductionDetails, QuestionBackendVersion, QuestionGraderVersion,
-    QuestionRevisionReference, QuestionVariation, QuestionVariationPresentation,
-    SourceObjectChecksum, SourceObjectReference, StudentResponse,
+    GradingResult, QuestionAttemptReproductionDetails, QuestionBackendVersion,
+    QuestionGraderVersion, QuestionRevisionReference, QuestionVariation,
+    QuestionVariationPresentation, SourceObjectChecksum, SourceObjectReference, StudentResponse,
 };
 use sha2::{Digest, Sha256};
 
 use crate::question_json::{
     CompiledPleQuestionJson, PLE_QUESTION_JSON_MEDIA_TYPE, PleQuestionJsonDocument,
-    PleQuestionJsonEvaluation,
+    PleQuestionJsonEvaluation, PleQuestionJsonRecordedTeachingContent,
 };
 use crate::{
     ADAPTER_ID, ADAPTER_VERSION, GRADING_ID, GRADING_VERSION, PleIssuedQuestion,
@@ -126,6 +126,27 @@ impl PleQuestionBackend {
                 source.compiled.presentation().question_type(),
                 source.compiled.presentation().response(),
                 response,
+            )
+            .map_err(PleQuestionBackendError::QuestionSourceDocument)
+    }
+
+    /// Projects teaching content from exact source and already-recorded grading
+    /// evidence without evaluating a Student response.
+    pub fn project_recorded_question_json_teaching_content(
+        &self,
+        source: &ResolvedPleQuestionJsonSource,
+        response: Option<&StudentResponse>,
+        recorded_result: Option<GradingResult>,
+    ) -> Result<PleQuestionJsonRecordedTeachingContent, PleQuestionBackendError> {
+        source
+            .compiled
+            .private()
+            .project_recorded_teaching_content(
+                source.compiled.private().public_content_checksum(),
+                source.compiled.presentation().question_type(),
+                source.compiled.presentation().response(),
+                response,
+                recorded_result,
             )
             .map_err(PleQuestionBackendError::QuestionSourceDocument)
     }

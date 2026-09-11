@@ -52,6 +52,15 @@ function ribbonLabelsFor(
       assignmentAttemptProgress: `Attempt ${String(context.attemptNumber)}`,
     };
   }
+  if (routeData.kind === "assignmentAttemptHistory") {
+    const { history } = routeData;
+    return {
+      accountLabel: accountLabelFor(state),
+      courseTitle: history.course.title,
+      assignmentAttemptTitle: history.assignment.title,
+      assignmentAttemptProgress: `Attempt ${String(history.attemptNumber)}`,
+    };
+  }
   return {
     accountLabel: accountLabelFor(state),
     courseTitle: courseRouteView(routeData).summary.title,
@@ -70,13 +79,18 @@ export function ribbonParamsFor(
 ): RouteParams {
   const params = routeParams(route, pathname);
   if (params === undefined) return undefined;
-  if (route.id !== "assignmentAttempt" || routeData?.kind !== "assignmentAttempt") {
+  if (routeData?.kind !== "assignmentAttempt" && routeData?.kind !== "assignmentAttemptHistory") {
     return params;
   }
+  if (route.id !== "assignmentAttempt" && route.id !== "assignmentAttemptSummary") return params;
+  const assignmentContext =
+    routeData.kind === "assignmentAttempt"
+      ? routeData.context
+      : { course: routeData.history.course, assignment: routeData.history.assignment };
   return Object.freeze({
     ...params,
-    courseRef: routeData.context.course.reference,
-    assignmentRef: routeData.context.assignment.reference,
+    courseRef: assignmentContext.course.reference,
+    assignmentRef: assignmentContext.assignment.reference,
   });
 }
 

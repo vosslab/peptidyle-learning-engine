@@ -17,7 +17,7 @@ import {
 const course = "C-12";
 const assignment = "A-34";
 const editNumber = "7";
-const selectedMoment = { value: "2026-08-25T09:00:00.000", time_zone: "America/Chicago" };
+const selectedMoment = { value: "2026-08-25T09:00:00.000" };
 const inheritedAdjustment = {
   available_at: { kind: "inherit" },
   due_at: { kind: "inherit" },

@@ -16,6 +16,7 @@ SEEDED_ASSIGNMENT_INSTRUCTIONS = (
 	"Complete the four practice questions on peptide structure and properties."
 )
 SEEDED_BLUEPRINT_MODULE_LABEL = "Peptide structure and properties"
+SEEDED_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS = 1800
 
 
 @dataclasses.dataclass(frozen=True)
@@ -24,7 +25,6 @@ class SeededCourseTerm:
 
 	start_date: str
 	end_date: str
-	time_zone: str
 
 
 @dataclasses.dataclass(frozen=True)
@@ -122,7 +122,6 @@ class ObservedState:
 SEEDED_COURSE_TERM = SeededCourseTerm(
 	start_date="2026-08-24",
 	end_date="2026-12-11",
-	time_zone="America/Chicago",
 )
 
 _ACCOUNT_IDS_BY_SETTING = {
@@ -212,8 +211,12 @@ def fixed_question_entry(question_id: str) -> dict:
 
 
 #============================================
-def assignment_activity_rules() -> dict:
-	"""Return the complete reusable Assignment activity rules."""
+def assignment_activity_rules(
+	*,
+	assignment_question_display_rule: str = "allQuestions",
+	assignment_question_order_rule: str = "authoredOrder",
+) -> dict:
+	"""Return complete Assignment activity rules with explicit presentation choices."""
 	rules = {
 		"assignmentCompletionRule": {"kind": "answerAll"},
 		"assignmentAttemptGradeRule": "highest",
@@ -221,9 +224,9 @@ def assignment_activity_rules() -> dict:
 		"questionPoolReuseRule": "reuseSelection",
 		"questionVariationRule": "newVariation",
 		"assignmentAttemptResumeRule": "resumable",
-		"assignmentQuestionDisplayRule": "allQuestions",
+		"assignmentQuestionDisplayRule": assignment_question_display_rule,
 		"assignmentNavigationRule": "freeNavigation",
-		"assignmentQuestionOrderRule": "authoredOrder",
+		"assignmentQuestionOrderRule": assignment_question_order_rule,
 	}
 	return rules
 
@@ -233,6 +236,7 @@ def student_feedback_release_rule() -> dict:
 	"""Return the baseline's explicit Student Feedback Release Rule."""
 	rule = {
 		"score": "after_submit",
+		"submitted_response": "after_submit",
 		"per_item_correctness": "after_submit",
 		"question_feedback": "after_submit",
 		"question_answer": "never",
@@ -280,7 +284,6 @@ def course_payload(blueprint_reference: str, blueprint_revision: str = "1") -> d
 		"term": {
 			"startDate": SEEDED_COURSE_TERM.start_date,
 			"endDate": SEEDED_COURSE_TERM.end_date,
-			"timeZone": SEEDED_COURSE_TERM.time_zone,
 		},
 	}
 	return payload
@@ -317,6 +320,16 @@ def assignment_save_payload(question_ids: tuple[str, ...]) -> dict:
 		"instructions": SEEDED_ASSIGNMENT_INSTRUCTIONS,
 		"dueAt": None,
 		"lateWorkRule": "accept",
+		"assignmentAttemptTimeLimitSeconds": (
+			SEEDED_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS
+		),
+		# The demo activity writes fixed answers by authored Question position.
+		# Keep that walkthrough deterministic while product-created Assignments
+		# retain their independent shuffled default.
+		"activityRules": assignment_activity_rules(
+			assignment_question_display_rule="oneQuestionAtATime",
+			assignment_question_order_rule="authoredOrder",
+		),
 		"questionIds": list(question_ids),
 	}
 	return payload

@@ -207,9 +207,9 @@ try {
       .evaluateAll((controls) =>
         controls.map((control) => control.getAttribute("data-ribbon-control")),
       ),
-    ["courses", "questions", "myBlueprintCourses"],
-    "the current Instructor Product route exposes its admitted Courses and Questions Tabs and " +
-      "the backed My Blueprint Courses task; the unbacked Assignments destination remains unavailable",
+    ["courses", "questions", "productAssignments", "myBlueprintCourses"],
+    "the current Instructor Product route exposes its admitted Courses, Questions, and Assignments " +
+      "Tabs plus the backed My Blueprint Courses task",
   );
   assert.deepEqual(
     await currentCase
@@ -217,7 +217,7 @@ try {
       .evaluateAll((controls) =>
         controls.map((control) => control.getAttribute("data-ribbon-control")),
       ),
-    ["courses", "questions"],
+    ["courses", "questions", "productAssignments"],
     "only backed Product Tabs participate in the dense top-bar keyboard order",
   );
   await page.evaluate(() => {
@@ -228,6 +228,8 @@ try {
     [currentCase.locator(".ple-app-ribbon__brand"), "the Peptidyle home control"],
     [currentCase.locator('[data-ribbon-control="courses"]'), "the Courses Tab"],
     [currentCase.locator('[data-ribbon-control="questions"]'), "the Questions Tab"],
+    [currentCase.locator('[data-ribbon-control="productAssignments"]'), "the Assignments Tab"],
+    [currentCase.getByRole("link", { name: "Profile" }), "the Profile control"],
     [currentCase.getByRole("button", { name: "Sign out" }), "the Sign out action"],
     [
       currentCase.locator('[data-ribbon-control="myBlueprintCourses"]'),

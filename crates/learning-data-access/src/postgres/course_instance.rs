@@ -94,7 +94,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         // this opaque Course ID to the installed session's active membership.
         let row = sqlx::query(
             "SELECT course_id, reference_number, title, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, course_time_zone, membership_role \
+             term_ends_on::text AS term_ends_on, membership_role \
              FROM ple_api.read_course_summary($1)",
         )
         .bind(course.as_uuid())
@@ -119,7 +119,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .await?;
         let rows = sqlx::query(
             "SELECT reference_number, title, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, course_time_zone, course_theme \
+             term_ends_on::text AS term_ends_on, course_theme \
              FROM ple_api.list_live_demo_course_instances()",
         )
         .fetch_all(&mut *transaction)
@@ -144,9 +144,9 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .await?;
         let row = sqlx::query(
             "SELECT reference_number, title, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, course_time_zone, creator_is_assigned_instructor \
+             term_ends_on::text AS term_ends_on, creator_is_assigned_instructor \
              FROM ple_api.create_live_demo_course_instance(\
-             $1, $2, $3, $4, $5, $6, $7, $8, $9::date, $10::date, $11::text, $12)",
+             $1, $2, $3, $4, $5, $6, $7, $8, $9::date, $10::date, $11)",
         )
         .bind(random_uuid()?)
         .bind(random_uuid()?)
@@ -161,7 +161,6 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         .bind(&input.title)
         .bind(input.term.start_date().to_string())
         .bind(input.term.end_date().to_string())
-        .bind(input.term.time_zone().to_string())
         .bind(
             input
                 .assigned_instructor
@@ -179,7 +178,6 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                 term: term(
                     row.try_get("term_starts_on").map_err(map_sqlx_error)?,
                     row.try_get("term_ends_on").map_err(map_sqlx_error)?,
-                    row.try_get("course_time_zone").map_err(map_sqlx_error)?,
                 )?,
                 theme: CourseTheme::default(),
             },
@@ -201,7 +199,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .await?;
         let row = sqlx::query(
             "SELECT reference_number, title, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, course_time_zone, course_theme, is_assigned_instructor, \
+             term_ends_on::text AS term_ends_on, course_theme, is_assigned_instructor, \
              active_instructor_count FROM ple_api.load_live_demo_course_instance($1)",
         )
         .bind(i64::from(reference.number()))
@@ -251,7 +249,6 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceSummary, 
         term: term(
             row.try_get("term_starts_on").map_err(map_sqlx_error)?,
             row.try_get("term_ends_on").map_err(map_sqlx_error)?,
-            row.try_get("course_time_zone").map_err(map_sqlx_error)?,
         )?,
         theme: theme(row.try_get("course_theme").map_err(map_sqlx_error)?)?,
     })
@@ -267,7 +264,6 @@ fn decode_course_summary(row: &sqlx::postgres::PgRow) -> Result<CourseSummary, S
         term: term(
             row.try_get("term_starts_on").map_err(map_sqlx_error)?,
             row.try_get("term_ends_on").map_err(map_sqlx_error)?,
-            row.try_get("course_time_zone").map_err(map_sqlx_error)?,
         )?,
         role: membership_role(&stored_membership_role)?,
     })
@@ -301,8 +297,8 @@ fn account_reference(value: i64) -> Result<AccountReference, StoreError> {
         .ok_or_else(|| invalid("Account Reference"))
 }
 
-fn term(start_date: String, end_date: String, time_zone: String) -> Result<CourseTerm, StoreError> {
-    CourseTerm::from_parts(&start_date, &end_date, &time_zone).map_err(|_| invalid("Course Term"))
+fn term(start_date: String, end_date: String) -> Result<CourseTerm, StoreError> {
+    CourseTerm::from_parts(&start_date, &end_date).map_err(|_| invalid("Course Term"))
 }
 
 fn membership_role(value: &str) -> Result<CourseMembershipRole, StoreError> {

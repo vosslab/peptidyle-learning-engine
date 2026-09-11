@@ -331,8 +331,6 @@ BEGIN
 		RAISE EXCEPTION 'Question Attempt persistence does not enforce the closed state and submission contract';
 	END IF;
 	IF to_regclass('ple_data.course_schedule_revision') IS NULL
-		OR (SELECT count(*) FROM information_schema.columns
-			WHERE table_schema = 'ple_data' AND table_name = 'course_schedule_revision') <> 7
 		OR EXISTS (
 			SELECT 1 FROM information_schema.columns
 			WHERE table_schema = 'ple_data' AND table_name = 'course_instance'

@@ -101,7 +101,7 @@ if not isinstance(items,list):
     raise SystemExit("Course Assignment list is not an array")
 observed={}
 for item in items:
-    if not isinstance(item,dict) or set(item)!={"reference","title","status","editNumber"}:
+    if not isinstance(item,dict) or set(item)!={"reference","title","dueAt","displayTimeZone","status","editNumber"}:
         raise SystemExit("Course Assignment list is not a closed projection")
     if not isinstance(item["reference"],str) or not re.fullmatch(r"A-[1-9][0-9]{0,9}",item["reference"]):
         raise SystemExit("Course Assignment list lacks a public Assignment Reference")
@@ -109,6 +109,10 @@ for item in items:
         raise SystemExit("Course Assignment list contains an invalid Assignment Status")
     if not isinstance(item["editNumber"],str) or not item["editNumber"].isdigit():
         raise SystemExit("Course Assignment list contains an invalid Assignment Edit Number")
+    if item["dueAt"] is not None and (not isinstance(item["dueAt"],str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}",item["dueAt"])):
+        raise SystemExit("Course Assignment list contains an invalid local Due at")
+    if not isinstance(item["displayTimeZone"],str) or not item["displayTimeZone"]:
+        raise SystemExit("Course Assignment list lacks the governing Instructor time zone")
     observed[item["title"]]=item["status"]
 if any(observed.get(title) != status for title,status in expected.items()):
     raise SystemExit("Course Assignment list did not retain released and unreleased Assignments")
@@ -199,7 +203,7 @@ fi
 read -r blueprint_reference blueprint_revision < <(blueprint_reference_and_revision "$(response_body "$blueprints")")
 foreign_payload="$(python3 -c '
 import json, sys
-print(json.dumps({"blueprintCourse":sys.argv[1],"blueprintRevision":sys.argv[2],"title":"M3 foreign Instructor Course","term":{"startDate":"2026-08-24","endDate":"2026-12-11","timeZone":"America/Chicago"},"assignedInstructor":sys.argv[3]},separators=(",",":")))
+print(json.dumps({"blueprintCourse":sys.argv[1],"blueprintRevision":sys.argv[2],"title":"M3 foreign Instructor Course","term":{"startDate":"2026-08-24","endDate":"2026-12-11"},"assignedInstructor":sys.argv[3]},separators=(",",":")))
 ' "$blueprint_reference" "$blueprint_revision" "$foreign_instructor")"
 created_course="$(request '/api/course-instances' "$sysadmin_cookie" POST "$foreign_payload")"
 if [ "$(response_status "$created_course")" != "201" ]; then
