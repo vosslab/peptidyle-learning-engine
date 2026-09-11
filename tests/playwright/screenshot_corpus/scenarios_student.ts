@@ -242,7 +242,24 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
   try {
     await choosePersona(resumedSession.page, "Avery Thompson");
     await openStudentCourse(resumedSession.page);
+    const attemptContextLoaded = resumedSession.page.waitForEvent("requestfinished", {
+      predicate: (request) => {
+        const url = new URL(request.url());
+        return (
+          url.origin === runtime.entryUrl.origin &&
+          /^\/api\/assignment-attempts\/R-[1-9][0-9]{0,9}\/context$/u.test(url.pathname)
+        );
+      },
+    });
     await resumeStudentAssignmentAttempt(resumedSession.page);
+    await attemptContextLoaded;
+    await resumedSession.page.getByText("Question 2 of 4", { exact: true }).waitFor();
+    await attemptSurface(resumedSession)
+      .locator("section.question-response-control")
+      .getByRole("radio")
+      .first()
+      .waitFor();
+    await resumedSession.privacy.settleResponses();
     await resumedSession.page.reload({ waitUntil: "commit" });
     await attemptSurface(resumedSession).waitFor();
     await attemptQuestion(resumedSession, "Question 1: Saved").waitFor();
@@ -270,7 +287,12 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
     await attemptQuestion(submittedSession, "Question 3: Saved, current").waitFor();
     await attemptQuestion(submittedSession, "Question 4: Not answered").click();
     await attemptQuestion(submittedSession, "Question 4: Not answered, current").waitFor();
-    await saveCurrentRadioResponse(submittedSession);
+    const responseControl = attemptSurface(submittedSession).locator(
+      "section.question-response-control",
+    );
+    await responseControl.locator("input[type='checkbox']:visible").first().check();
+    await responseControl.getByRole("button", { name: "Save response", exact: true }).click();
+    await submittedSession.page.getByText("Response saved.", { exact: true }).waitFor();
     await attemptQuestion(submittedSession, "Question 4: Saved, current").waitFor();
     await submittedSession.page
       .getByRole("button", { name: "Submit Assignment", exact: true })

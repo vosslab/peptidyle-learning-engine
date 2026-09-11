@@ -48,6 +48,14 @@
 
 ### Fixes and Maintenance
 
+- Repaired the M7 Student Course landing score disclosure found by the M9 privacy gate: the
+  previously unconditional `pointsEarned`/`pointsPossible` projection now emits an all-or-none
+  score only when trusted PostgreSQL `feedback_score` permits it and the complete unique immutable
+  grading lineage is present. Strict Rust, TypeScript, and UI contracts keep the projection
+  coherent. Focused inline fixture-policy acceptance passed in session 15668; the owner declined a
+  speculative full timing-permutation matrix. M9 corpus publication remains pending, and M19
+  remains incomplete.
+
 - Reconciled the active Interface Cleanup tracker with already accepted M7, account-zone, Profile,
   and thumbnail receipts. The M10 checklist now records its accepted service and page evidence;
   M9 and M19 remain explicitly incomplete.
@@ -60,6 +68,7 @@
 - Completed a fresh scoped six-pass maintenance audit. Its accepted repairs remove two redundant
   M11 source-label assertions, correct evidence status and module inventories and the Due Soon
   exact-key record, and clarify Profile Thumbnail Store rustdoc and migration comment tags.
+- Synchronized shared style guides, tests, and repository support files from the starter template.
 
 ### Removals and Deprecations
 

@@ -12,6 +12,7 @@ interface PrivacyProfile {
 }
 
 const NO_KEYS = new Set<string>();
+const SELECTED_RESPONSE_KEYS = new Set(["pointspossible"]);
 const SELF_AGGREGATE_KEYS = new Set([
   "correct",
   "correctness",
@@ -44,7 +45,7 @@ export const PRIVACY_PROFILES: Readonly<Record<PrivacyProfileId, PrivacyProfile>
     allowFilledEmail: false,
     selectedControl: "required",
     statusHeading: "forbidden",
-    allowedResponseKeys: NO_KEYS,
+    allowedResponseKeys: SELECTED_RESPONSE_KEYS,
   },
   student_self: {
     allowFilledEmail: false,

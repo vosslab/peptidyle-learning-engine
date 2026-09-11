@@ -256,18 +256,24 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
     const deliveryCheckPage = session.context.waitForEvent("page");
     await page.getByRole("link", { name: "Check assignment delivery", exact: true }).click();
     const deliveryCheck = await deliveryCheckPage;
-    await deliveryCheck
-      .getByRole("heading", { name: "Assignment delivery check", exact: true })
-      .waitFor();
-    await deliveryCheck
-      .getByText("Preview only - no Student work or grades are created.", { exact: true })
-      .waitFor();
     const deliveryCheckSession = {
       ...session,
       page: deliveryCheck,
       pageErrors: [],
       privacy: monitorCapturePrivacy(deliveryCheck, runtime.entryUrl.origin),
     };
+    await deliveryCheck
+      .getByRole("heading", { name: "Assignment delivery check", exact: true })
+      .waitFor();
+    await deliveryCheck
+      .getByText("Preview only - no Student work or grades are created.", { exact: true })
+      .waitFor();
+    await deliveryCheck.getByRole("heading", { name: ASSIGNMENT_TITLE, exact: true }).waitFor();
+    await deliveryCheck
+      .getByRole("list", { name: "Assignment Questions", exact: true })
+      .getByRole("listitem")
+      .first()
+      .waitFor();
     await runtime.capture(
       deliveryCheckSession,
       runtime.record(scenario, "assignment_delivery_check"),

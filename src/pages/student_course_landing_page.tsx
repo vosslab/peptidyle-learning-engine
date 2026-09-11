@@ -32,11 +32,17 @@ function AssignmentCard(props: {
         <p>
           {props.assignment.gradedQuestionCount} of {props.assignment.questionCount} questions
           graded
-          {" · "}
-          {props.assignment.assignmentAttemptCompletion === "completed"
-            ? "Score"
-            : "Score so far"}{" "}
-          {formatPointScore(props.assignment.pointsEarned, props.assignment.pointsPossible)}
+          <Show when={props.assignment.score}>
+            {(score) => (
+              <>
+                {" · "}
+                {props.assignment.assignmentAttemptCompletion === "completed"
+                  ? "Score"
+                  : "Score so far"}{" "}
+                {formatPointScore(score().pointsEarned, score().pointsPossible)}
+              </>
+            )}
+          </Show>
         </p>
       </Show>
       <A

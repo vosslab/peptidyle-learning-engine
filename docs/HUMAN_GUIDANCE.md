@@ -27,7 +27,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Robust means the software continues to function despite imperfect inputs, data, state, or behavior.
 - Apply the Keep It Simple, Stupid (KISS) philosophy aggressively.
 - All podman images on the Mac-Studio-36G machine are from this project; you do not have to preserve the project-named
-live-stack data volumes. Since no podman image is needed, I pre-approve all image pruning when needed.
+  live-stack data volumes. Since no podman image is needed, I pre-approve all image pruning when needed.
 - Plans should be finishable by the manager and subagents without additional human interaction.
 - Prefer more small, independently verifiable milestones over a few large milestones.
 - Fix the design that causes a problem rather than adding a workaround for its symptom.

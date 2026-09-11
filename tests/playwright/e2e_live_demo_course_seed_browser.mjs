@@ -131,9 +131,8 @@ async function verifyJack(page) {
   const card = assignmentCard(page);
   await expect(card).toHaveCount(1);
   await expect(card.getByText("In progress", { exact: true })).toBeVisible();
-  await expect(
-    card.getByText("2 of 4 Questions graded · Score so far 1 / 2", { exact: true }),
-  ).toBeVisible();
+  await expect(card.getByText("2 of 4 Questions graded", { exact: true })).toBeVisible();
+  await expect(card.getByText(/Score/u)).toHaveCount(0);
   await openAssignment(page);
   await startAttempt(page, true);
   await signOutVisible(page);

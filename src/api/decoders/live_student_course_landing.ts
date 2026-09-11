@@ -60,8 +60,7 @@ function decodeAssignmentSummary(
     "assignmentAttemptCompletion",
     "gradedQuestionCount",
     "questionCount",
-    "pointsEarned",
-    "pointsPossible",
+    "score",
   ]);
   const assignmentAttemptNumber = decodeNullable(
     field(record, "assignmentAttemptNumber", path),
@@ -82,23 +81,29 @@ function decodeAssignmentSummary(
     field(record, "questionCount", path),
     `${path}.questionCount`,
   );
-  const pointsEarned = decodeFiniteNumber(
-    field(record, "pointsEarned", path),
-    `${path}.pointsEarned`,
-  );
-  const pointsPossible = decodeFiniteNumber(
-    field(record, "pointsPossible", path),
-    `${path}.pointsPossible`,
-  );
+  const scoreValue = record.score;
+  let score: { readonly pointsEarned: number; readonly pointsPossible: number } | undefined;
+  if (scoreValue !== undefined) {
+    const scoreRecord = decodeRecord(scoreValue, `${path}.score`);
+    requireOnlyFields(scoreRecord, `${path}.score`, ["pointsEarned", "pointsPossible"]);
+    const pointsEarned = decodeFiniteNumber(
+      field(scoreRecord, "pointsEarned", `${path}.score`),
+      `${path}.score.pointsEarned`,
+    );
+    const pointsPossible = decodeFiniteNumber(
+      field(scoreRecord, "pointsPossible", `${path}.score`),
+      `${path}.score.pointsPossible`,
+    );
+    if (pointsEarned < 0 || pointsPossible < pointsEarned) {
+      throw new DecodeError(`${path}.score`, "an ordered nonnegative Assignment score");
+    }
+    score = { pointsEarned, pointsPossible };
+  }
   if (
     gradedQuestionCount > questionCount ||
-    pointsEarned < 0 ||
-    pointsPossible < pointsEarned ||
+    (score !== undefined && gradedQuestionCount !== questionCount) ||
     (assignmentAttemptCompletion === null &&
-      (assignmentAttemptNumber !== null ||
-        gradedQuestionCount !== 0 ||
-        pointsEarned !== 0 ||
-        pointsPossible !== 0)) ||
+      (assignmentAttemptNumber !== null || gradedQuestionCount !== 0 || score !== undefined)) ||
     (assignmentAttemptCompletion !== null && assignmentAttemptNumber === null)
   ) {
     throw new DecodeError(path, "internally consistent self-only Assignment progress");
@@ -110,8 +115,7 @@ function decodeAssignmentSummary(
     assignmentAttemptCompletion,
     gradedQuestionCount,
     questionCount,
-    pointsEarned,
-    pointsPossible,
+    ...(score === undefined ? {} : { score }),
   };
 }
 

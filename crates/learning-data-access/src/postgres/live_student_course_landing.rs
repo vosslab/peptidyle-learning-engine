@@ -7,8 +7,9 @@ use sqlx::{Postgres, Row, Transaction};
 use super::Pool;
 use super::connection::map_sqlx_error;
 use crate::{
-    LiveStudentAssignmentLandingSummary, LiveStudentCourseInvitationSummary,
-    LiveStudentCourseLandingStore, LiveStudentCourseLandingSummary, SessionTokenHash, StoreError,
+    LiveAssignmentAttemptScore, LiveStudentAssignmentLandingSummary,
+    LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore,
+    LiveStudentCourseLandingSummary, SessionTokenHash, StoreError,
 };
 
 /// PostgreSQL Store for the active Student Course landing.
@@ -152,16 +153,25 @@ fn decode_assignment(
     };
     let graded_question_count = count(row, "graded_question_count")?;
     let question_count = count(row, "question_count")?;
-    let points_earned = finite_nonnegative(row, "points_earned")?;
-    let points_possible = finite_nonnegative(row, "points_possible")?;
+    let points_earned = optional_finite_nonnegative(row, "points_earned")?;
+    let points_possible = optional_finite_nonnegative(row, "points_possible")?;
+    let score = match (points_earned, points_possible) {
+        (Some(points_earned), Some(points_possible)) if points_earned <= points_possible => {
+            Some(LiveAssignmentAttemptScore {
+                points_earned,
+                points_possible,
+            })
+        }
+        (None, None) => None,
+        _ => return Err(invalid("Assignment score")),
+    };
     if question_count == 0
         || graded_question_count > question_count
-        || points_earned > points_possible
+        || (score.is_some() && graded_question_count != question_count)
         || (assignment_attempt_completion.is_none()
             && (assignment_attempt_number.is_some()
                 || graded_question_count != 0
-                || points_earned != 0.0
-                || points_possible != 0.0))
+                || score.is_some()))
         || (assignment_attempt_completion.is_some() && assignment_attempt_number.is_none())
     {
         return Err(invalid("Assignment progress"));
@@ -178,8 +188,7 @@ fn decode_assignment(
         assignment_attempt_completion,
         graded_question_count,
         question_count,
-        points_earned,
-        points_possible,
+        score,
     })
 }
 
@@ -202,12 +211,17 @@ fn count(row: &sqlx::postgres::PgRow, column: &str) -> Result<u32, StoreError> {
         .map_err(|_| invalid(column))
 }
 
-fn finite_nonnegative(row: &sqlx::postgres::PgRow, column: &str) -> Result<f64, StoreError> {
-    let value = row.try_get::<f64, _>(column).map_err(map_sqlx_error)?;
-    if value.is_finite() && value >= 0.0 {
-        Ok(value)
-    } else {
-        Err(invalid(column))
+fn optional_finite_nonnegative(
+    row: &sqlx::postgres::PgRow,
+    column: &str,
+) -> Result<Option<f64>, StoreError> {
+    let value = row
+        .try_get::<Option<f64>, _>(column)
+        .map_err(map_sqlx_error)?;
+    match value {
+        Some(value) if value.is_finite() && value >= 0.0 => Ok(Some(value)),
+        None => Ok(None),
+        Some(_) => Err(invalid(column)),
     }
 }
 

@@ -195,6 +195,8 @@ psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/test
 echo "PostgreSQL Migration Acceptance Runtime E2E: M7 Student Assignment access oracle PASS"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/postgres_migration_acceptance_student_assignment_history.sql"
 echo "PostgreSQL Migration Acceptance Runtime E2E: M7 Student Assignment Attempt history oracle PASS"
+psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/postgres_migration_acceptance_student_landing_score_disclosure.sql"
+echo "PostgreSQL Migration Acceptance Runtime E2E: M7 Student landing score disclosure oracle PASS"
 echo "PostgreSQL Migration Acceptance Runtime E2E: Question Asset delivery authorization oracle"
 psql_in_container "$BOOTSTRAP_USER" -d "$DATABASE_NAME" < "$repository_root/tests/e2e/question_asset_delivery_oracle.sql"
 echo "PostgreSQL Migration Acceptance Runtime E2E: Question Asset delivery authorization oracle PASS"

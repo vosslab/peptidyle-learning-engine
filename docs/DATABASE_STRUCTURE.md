@@ -9,9 +9,9 @@ authorization; and this document owns the checked-in migration sequence and forw
 
 ## Baseline and migration rules
 
-The current disposable baseline contains the 100 checked migration files from
+The current disposable baseline contains the 101 checked migration files from
 `2026082901_principal_baseline.sql` through
-`2026091028_assignments_due_soon.sql`. The numbered range has no
+`2026091029_student_landing_score_disclosure.sql`. The numbered range has no
 `2026082905` or `2026082927` file; those numbers are not migrations. Apply the
 complete checked-in sequence only to a clean disposable database. The prior
 migration epoch was removed during the fresh pre-production migration reset; it is neither an
@@ -85,6 +85,7 @@ legacy readers, or parallel authorization model.
 | 2026091026                             | Student completed Attempt history                                                          | A private-owner definer returns strict current Course `{reference,title,theme}`, Assignment identity, completed Attempt number/state, and selected Question position/state for the exact owned submitted or closed Attempt with active membership. |
 | 2026091027                             | Completed-response source reproduction                                                     | A private-owner definer resolves only authorized pinned native PLE recorded-response source and existing completed asset delivery facts. It returns `question_attempt_id`, `source_object_id`, and `question_seed` as text for the shared source mapper, supports disclosure-safe reproduction without regrading, and omits affected content when source or asset facts are unavailable. |
 | 2026091028                             | Assignments Due Soon read                                                                  | A no-argument, security-definer `ple_api.list_assignments_due_soon()` uses the existing current active-Instructor predicate per Course and returns only Course and Assignment public references and titles, Assignment status, and integer due-at milliseconds. It filters non-null due instants to the implementation-selected seven-day statement-time window, permits only `unreleased` and `released` status, and orders by due instant, Course reference, and Assignment reference. |
+| 2026091029                             | Student landing score disclosure                                                          | The active Student Course landing binds its optional score pair to the latest Attempt's pinned Assignment Revision. Its private-owner procedure evaluates `feedback_score` at server time, including captured Attempt due facts, and omits both score values unless the release rule permits them. |
 
 ## Ownership boundaries
 

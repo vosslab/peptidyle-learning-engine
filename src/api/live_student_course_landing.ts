@@ -3,6 +3,7 @@
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { AssignmentAttemptCompletion } from "../../generated/api/AssignmentAttemptCompletion";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { LiveAssignmentAttemptScore } from "./assignment_attempt_issuance";
 
 /** One current Student-visible Course Instance, without membership or progress details. */
 export interface LiveStudentCourseLandingSummary {
@@ -24,8 +25,8 @@ export interface LiveStudentAssignmentLandingSummary {
   readonly assignmentAttemptCompletion: AssignmentAttemptCompletion | null;
   readonly gradedQuestionCount: number;
   readonly questionCount: number;
-  readonly pointsEarned: number;
-  readonly pointsPossible: number;
+  /** Omitted unless the pinned Assignment disclosure releases the current score. */
+  readonly score?: LiveAssignmentAttemptScore;
 }
 
 /** Same-origin current-Student Course and Assignment landing capability. */

@@ -98,6 +98,7 @@ function AttemptExperience(props: {
       setProgress(next);
       if (finalized) {
         setSubmissionState("submitted");
+        timerRequest += 1;
         setPosition(null);
         return;
       }
@@ -260,7 +261,7 @@ function AttemptExperience(props: {
   }
 
   function tickTimer(): void {
-    if (timerUnavailable()) return;
+    if (isSubmitted() || timerUnavailable()) return;
     const elapsedMilliseconds = Math.floor(Math.max(0, performance.now() - timerStartedAt));
     timerRequest += 1;
     const request = timerRequest;
@@ -325,11 +326,13 @@ function AttemptExperience(props: {
           <p class="eyebrow">Assignment Attempt {props.context.attemptNumber}</p>
           <h1>{props.context.assignment.title}</h1>
         </div>
-        <span class="calm-status" role="timer">
-          {timerUnavailable()
-            ? "Timer unavailable; the server still enforces the time limit."
-            : formatRemaining(remainingMilliseconds())}
-        </span>
+        <Show when={!isSubmitted()}>
+          <span class="calm-status" role="timer">
+            {timerUnavailable()
+              ? "Timer unavailable; the server still enforces the time limit."
+              : formatRemaining(remainingMilliseconds())}
+          </span>
+        </Show>
       </header>
 
       <Show
@@ -342,9 +345,11 @@ function AttemptExperience(props: {
       >
         {(currentProgress) => (
           <>
-            <p class="eyebrow">
-              Question {currentPosition() ?? ""} of {currentProgress().questionCount}
-            </p>
+            <Show when={currentPosition() !== null}>
+              <p class="eyebrow">
+                Question {currentPosition()} of {currentProgress().questionCount}
+              </p>
+            </Show>
             <StudentAssignmentAttemptNavigation
               positions={positions()}
               currentPosition={currentPosition()}

@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use question_model::{AssignmentAttemptCompletion, AssignmentReference, CourseInstanceReference};
 use serde::Serialize;
 
-use crate::{SessionTokenHash, StoreError};
+use crate::{LiveAssignmentAttemptScore, SessionTokenHash, StoreError};
 
 /// One active Student Course Instance available from the landing page.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -49,10 +49,9 @@ pub struct LiveStudentAssignmentLandingSummary {
     pub graded_question_count: u32,
     /// Total Questions in the released Assignment Revision.
     pub question_count: u32,
-    /// Current Assignment Attempt points earned.
-    pub points_earned: f64,
-    /// Current Assignment Attempt points possible so far.
-    pub points_possible: f64,
+    /// Current aggregate score when the pinned Assignment disclosure permits it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score: Option<LiveAssignmentAttemptScore>,
 }
 
 /// Session-authorized persistence boundary for the Student Course landing.

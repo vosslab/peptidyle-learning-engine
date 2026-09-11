@@ -80,8 +80,8 @@ struct AssignmentSummary {
     assignment_attempt_completion: Option<AssignmentAttemptCompletion>,
     graded_question_count: u32,
     question_count: u32,
-    points_earned: f64,
-    points_possible: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    score: Option<learning_data_access::LiveAssignmentAttemptScore>,
 }
 
 async fn list_courses(State(state): State<RouteState>, headers: HeaderMap) -> Response {
@@ -166,8 +166,7 @@ async fn list_assignments(
                         assignment_attempt_completion: assignment.assignment_attempt_completion,
                         graded_question_count: assignment.graded_question_count,
                         question_count: assignment.question_count,
-                        points_earned: assignment.points_earned,
-                        points_possible: assignment.points_possible,
+                        score: assignment.score,
                     })
                     .collect(),
             })

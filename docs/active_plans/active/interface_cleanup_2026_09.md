@@ -926,6 +926,13 @@ Numbers are labels; `Depends on` is the order. The table is listed in dispatch o
   state. M9 retains the final six-pass audit and full screenshot-corpus close-out. Next
   dependency-ordered product milestone: M10 Assignments Due Soon, then M19 Active and Inactive
   Courses.
+- Follow-up correction owned by M7: the M9 privacy gate found unconditional Student Course landing
+  `pointsEarned`/`pointsPossible` disclosure. The landing response now emits an all-or-none score
+  only when trusted PostgreSQL `feedback_score` permits it and the complete unique immutable
+  grading lineage is present; strict Rust, TypeScript, and UI contracts enforce the projection.
+  Focused inline fixture-policy acceptance passed in session 15668. The owner declined a
+  speculative full timing-permutation matrix; M9 corpus publication remains pending, and M19
+  remains incomplete.
 - Depends on: M5 for the surviving Student delivery lane; M6 for the vocabulary rules the new copy
   must follow.
 - Deliverables: `LiveAssignmentAccess` extended with question count, points possible, time limit,

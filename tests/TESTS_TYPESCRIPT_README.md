@@ -1,5 +1,7 @@
 # TypeScript app quickstart
 
+> This file is vendored. Local changes can and will be overwritten by propagation.
+
 ## What this repo is
 
 This is a TypeScript browser app. You write code in `src/`, bundle it into
@@ -33,7 +35,12 @@ test server, and accepts `--build` to force a rebuild first.
 
 ## Test tiers and homes
 
-The repo has four test tiers. Pick the home by what you are testing.
+The repo has four permanent test lanes plus one ignored temporary workspace. Prefer fewer,
+stronger permanent tests that protect behavior worth preserving. When in doubt, remove the test.
+
+- Temporary tests and one-time checks live in `tests/_temp/`. Pytest-suitable `test_*.py` files
+  participate in the normal pytest run; heavier checks and other formats run explicitly. Promote or
+  remove them before plan completion.
 
 - Fast pytest hygiene under `tests/` covers markdown links, ASCII compliance,
   and file naming. These are cross-ecosystem checks, not the TypeScript
@@ -56,6 +63,7 @@ A typical edit loop runs the tiers in this order:
 - Run `./check_codebase.sh` for the fast gate.
 - Run `./run_web_server.sh` and eyeball the app in a browser.
 - Run `./run_playwright_tests.sh` to confirm browser behavior.
+- Review `tests/_temp/`; promote tests that earned permanence and remove the rest.
 
 ## Ship to GitHub Pages
 
@@ -82,6 +90,10 @@ A typical edit loop runs the tiers in this order:
 Keep the TypeScript toolchain checks (typecheck, lint, format, Node tests)
 inside `./check_codebase.sh`, and keep the pytest tier under `tests/` thin and
 cross-ecosystem. That split keeps each ecosystem verified by its own tools.
+
+Before adding a permanent test, apply the checklist in `docs/PYTEST_STYLE.md`. Use
+`docs/PYTEST_AUTHORING_GUIDE.md` for pytest construction and `docs/E2E_TESTS.md` for permanent
+whole-system coverage.
 
 ## Where to read more
 

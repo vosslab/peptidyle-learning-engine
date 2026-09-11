@@ -215,16 +215,16 @@ observed_grades={(row.get("rosterId"),row.get("assignmentReference")):(row.get("
 if observed_grades != expected_grades:
     raise SystemExit("Elena Gradebook does not distinguish Mary, Jack, and Avery")
 expected_student_progress={
- "mary":(1,"completed",4,4,2.0,4.0),
- "jack":(1,"inProgress",0,4,0.0,0.0),
- "avery":(None,None,0,4,0.0,0.0),
+ "mary":(1,"completed",4,4,{"pointsEarned":2.0,"pointsPossible":4.0}),
+ "jack":(1,"inProgress",0,4,None),
+ "avery":(None,None,0,4,None),
 }
 for persona,landing in (("mary",mary_landing),("jack",jack_landing),("avery",avery_landing)):
     rows=landing.get("assignments") if isinstance(landing,dict) else None
     if not isinstance(rows,list) or len(rows)!=1:
         raise SystemExit(f"{persona.title()} Assignment landing is not exact")
     row=rows[0]
-    progress=(row.get("assignmentAttemptNumber"),row.get("assignmentAttemptCompletion"),row.get("gradedQuestionCount"),row.get("questionCount"),row.get("pointsEarned"),row.get("pointsPossible"))
+    progress=(row.get("assignmentAttemptNumber"),row.get("assignmentAttemptCompletion"),row.get("gradedQuestionCount"),row.get("questionCount"),row.get("score"))
     if row.get("reference")!=assignment_reference or row.get("title")!="Peptide Structure Practice" or progress!=expected_student_progress[persona]:
         raise SystemExit(f"{persona.title()} Assignment landing progress is wrong")
 if access != {"startDecision":"may_start", "activeAssignmentAttempt":None}:
