@@ -20,10 +20,12 @@ use super::{
     InspectedImathasQuestionBackendState, PresentationResponseItemTranslationError,
     QuestionPresentationBinding, QuestionPresentationNonce, QuestionPresentationResponseFormat,
     QuestionPresentationToken, ResponseItemRole, StudentAttemptDescriptor,
-    StudentResponseInspection, project_durable_response_to_presentation_response_item_references,
+    StudentResponseInspection, extract_durable_response_item_bindings,
+    project_durable_response_to_presentation_response_item_references,
     project_presentation_response_item_references_for_inspection,
-    rebuild_public_question_presentation, reproduce_question_presentation,
-    translate_presentation_response_item_references, verify_question_presentation,
+    rebind_durable_response_item_bindings, rebuild_public_question_presentation,
+    reproduce_question_presentation, translate_presentation_response_item_references,
+    verify_question_presentation,
 };
 
 fn question_choice(id: &str, text: &str) -> QuestionChoice {
@@ -174,6 +176,72 @@ fn descriptor_is_stable_answer_free_and_bound_to_every_visible_field() {
     let changed = build_question_presentation_with_nonce_source(&changed, &[], &mut changed_source)
         .expect("changed presentation");
     assert_ne!(presentation.checksum, changed.checksum);
+}
+
+#[test]
+fn retained_response_item_bindings_rebind_only_the_exact_public_set() {
+    let mut source = Nonces::new([[0x11; 16]]);
+    let issued = build_question_presentation_with_nonce_source(&fixture(), &[], &mut source)
+        .expect("issued presentation");
+    let bindings = extract_durable_response_item_bindings(&issued).expect("durable bindings");
+    let rebuilt =
+        rebuild_public_question_presentation(&issued.presentation, &[]).expect("public rebuild");
+    let rebound = rebind_durable_response_item_bindings(rebuilt, &bindings).expect("exact set");
+    assert_eq!(
+        rebound
+            .item_bindings
+            .iter()
+            .map(|binding| binding.response_item_reference.clone())
+            .collect::<Vec<_>>(),
+        issued
+            .item_bindings
+            .iter()
+            .map(|binding| binding.response_item_reference.clone())
+            .collect::<Vec<_>>()
+    );
+
+    let mut missing = bindings.clone();
+    missing.pop();
+    assert!(
+        rebind_durable_response_item_bindings(
+            rebuild_public_question_presentation(&issued.presentation, &[])
+                .expect("public rebuild"),
+            &missing,
+        )
+        .is_err()
+    );
+
+    let mut duplicate = bindings;
+    duplicate[1].presentation_response_item_reference =
+        duplicate[0].presentation_response_item_reference.clone();
+    assert!(
+        rebind_durable_response_item_bindings(
+            rebuild_public_question_presentation(&issued.presentation, &[])
+                .expect("public rebuild"),
+            &duplicate,
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn retained_response_item_bindings_include_the_hotspot_surface() {
+    let issued = hotspot_presentation();
+    let bindings = extract_durable_response_item_bindings(&issued).expect("durable bindings");
+    assert_eq!(bindings.len(), issued.item_bindings.len());
+    assert!(
+        issued
+            .item_bindings
+            .iter()
+            .any(|binding| binding.role == ResponseItemRole::HotspotSurface)
+    );
+    assert!(bindings.iter().any(|binding| {
+        issued.item_bindings.iter().any(|item| {
+            item.role == ResponseItemRole::HotspotSurface
+                && item.presentation_response_item_reference
+                    == binding.presentation_response_item_reference
+        })
+    }));
 }
 
 #[test]

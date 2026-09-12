@@ -13,13 +13,10 @@ import {
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { StudentFeedback } from "../../generated/api/StudentFeedback";
 import type { AssignmentScoringState } from "../../generated/api/AssignmentScoringState";
+import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 import { formatPointScore, formatScoreValue } from "../score_format";
 
-import {
-  recoverProtectedAssetImage,
-  resolveSameOriginAssetUrl,
-  type AssetUrlResolver,
-} from "./question_renderer";
+import { resolveSameOriginAssetUrl, type AssetUrlResolver } from "./question_renderer";
 import { STUDENT_FEEDBACK_PANEL_STYLES } from "./student_feedback_panel_styles";
 
 /**
@@ -39,8 +36,9 @@ export type StudentFeedbackPresentation =
     };
 
 export interface StudentFeedbackPanelProps {
+  readonly questionRevision: QuestionRevisionReference;
   readonly disclosure: StudentFeedbackPresentation;
-  /** A server-projected record of what the student submitted, never a Question Revision. */
+  /** A server-projected record of what the student submitted. */
   readonly studentResponse?: ReadonlyArray<QuestionContentBlock>;
   /** Resolves logical, public asset references without exposing storage locations. */
   readonly assetUrl: AssetUrlResolver;
@@ -88,6 +86,7 @@ function hasBlocks(blocks: ReadonlyArray<QuestionContentBlock> | undefined): boo
 
 function StudentFeedbackBlock(props: {
   readonly block: QuestionContentBlock;
+  readonly questionRevision: QuestionRevisionReference;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   switch (props.block.kind) {
@@ -106,9 +105,12 @@ function StudentFeedbackBlock(props: {
         <figure>
           <img
             class="student-feedback-panel__image"
-            src={resolveSameOriginAssetUrl(props.block.questionAsset, props.assetUrl)}
+            src={resolveSameOriginAssetUrl(
+              props.block.questionAsset,
+              props.questionRevision,
+              props.assetUrl,
+            )}
             alt={props.block.description}
-            onError={recoverProtectedAssetImage}
           />
           <figcaption>{props.block.description}</figcaption>
         </figure>
@@ -149,12 +151,19 @@ function StudentFeedbackBlock(props: {
 /** Renders already server-approved teaching blocks without interpreting their meaning. */
 export function ContentBlockList(props: {
   readonly blocks: ReadonlyArray<QuestionContentBlock>;
+  readonly questionRevision: QuestionRevisionReference;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   return (
     <div class="student-feedback-panel__blocks">
       <For each={props.blocks}>
-        {(block) => <StudentFeedbackBlock block={block} assetUrl={props.assetUrl} />}
+        {(block) => (
+          <StudentFeedbackBlock
+            block={block}
+            questionRevision={props.questionRevision}
+            assetUrl={props.assetUrl}
+          />
+        )}
       </For>
     </div>
   );
@@ -163,12 +172,17 @@ export function ContentBlockList(props: {
 function StudentFeedbackSection(props: {
   readonly title: string;
   readonly blocks: ReadonlyArray<QuestionContentBlock>;
+  readonly questionRevision: QuestionRevisionReference;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   return (
     <section class="student-feedback-panel__section">
       <h3>{props.title}</h3>
-      <ContentBlockList blocks={props.blocks} assetUrl={props.assetUrl} />
+      <ContentBlockList
+        blocks={props.blocks}
+        questionRevision={props.questionRevision}
+        assetUrl={props.assetUrl}
+      />
     </section>
   );
 }
@@ -195,7 +209,7 @@ function scrollNewStudentFeedbackIntoView(heading: HTMLHeadingElement): void {
 
 /**
  * Displays only the server-redacted DTO and optional public Student Response Inspection Feedback.
- * It has no grading, policy, Question Revision, Answer Key, or raw Student Response dependencies.
+ * It has no grading, policy, Answer Key, or raw Student Response dependencies.
  */
 export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Element {
   const headingId = `student-feedback-panel-heading-${createUniqueId()}`;
@@ -248,6 +262,7 @@ export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Elem
         <StudentFeedbackSection
           title="Your response"
           blocks={response()}
+          questionRevision={props.questionRevision}
           assetUrl={props.assetUrl}
         />
       </Show>
@@ -282,6 +297,7 @@ export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Elem
               <StudentFeedbackSection
                 title="Choice Feedback"
                 blocks={released().choiceFeedback ?? []}
+                questionRevision={props.questionRevision}
                 assetUrl={props.assetUrl}
               />
             </Show>
@@ -289,6 +305,7 @@ export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Elem
               <StudentFeedbackSection
                 title="Correct Feedback"
                 blocks={released().correctFeedback ?? []}
+                questionRevision={props.questionRevision}
                 assetUrl={props.assetUrl}
               />
             </Show>
@@ -296,6 +313,7 @@ export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Elem
               <StudentFeedbackSection
                 title="Incorrect Feedback"
                 blocks={released().incorrectFeedback ?? []}
+                questionRevision={props.questionRevision}
                 assetUrl={props.assetUrl}
               />
             </Show>
@@ -303,6 +321,7 @@ export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Elem
               <StudentFeedbackSection
                 title="Question Answer"
                 blocks={released().questionAnswer ?? []}
+                questionRevision={props.questionRevision}
                 assetUrl={props.assetUrl}
               />
             </Show>
@@ -310,6 +329,7 @@ export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Elem
               <StudentFeedbackSection
                 title="Answer Explanation"
                 blocks={released().questionAnswerExplanation ?? []}
+                questionRevision={props.questionRevision}
                 assetUrl={props.assetUrl}
               />
             </Show>

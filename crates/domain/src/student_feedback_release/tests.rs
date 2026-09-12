@@ -2,9 +2,8 @@ use std::num::NonZeroU32;
 
 use question_model::QuestionContentBlock;
 use question_model::{
-    AssignmentDeadlineRule, AssignmentScoringState, GradingResult, LateWorkRule, QuestionAnswer,
-    QuestionAnswerExplanation, QuestionFeedback, StudentFeedbackReleaseRule,
-    StudentFeedbackReleaseTiming, Timestamp,
+    AssignmentScoringState, GradingResult, LateWorkRule, QuestionAnswer, QuestionAnswerExplanation,
+    QuestionFeedback, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, Timestamp,
 };
 
 use super::{
@@ -41,7 +40,6 @@ fn allowed(due_at: Option<Timestamp>, closes_at: Option<Timestamp>) -> Assignmen
             assignment_attempt_time_limit_seconds: resolved(None::<NonZeroU32>),
             attempt_limit: resolved(None::<NonZeroU32>),
             late_work_rule: resolved(LateWorkRule::Accept),
-            assignment_deadline_rule: resolved(AssignmentDeadlineRule::AutoSubmit),
         }),
         start_decision: AssignmentStartDecision::MayStart {
             student_late_work_status: StudentLateWorkStatus::OnTime,

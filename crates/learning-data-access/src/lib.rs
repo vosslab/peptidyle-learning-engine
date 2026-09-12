@@ -49,21 +49,21 @@ pub use assignment_attempt::{
 pub use assignment_delivery::{
     IssuedQuestionPresentation, LiveAssignmentAccess, LiveAssignmentAttempt,
     LiveAssignmentAttemptScore, LiveAssignmentDeliveryStore, LiveAssignmentPreviousAttempt,
-    LiveAssignmentPreviousAttemptState, LiveAssignmentStartDecision, NativePleIssuanceSource,
-    NativePlePresentationInput, NativeWebworkIssuanceSource, NativeWebworkPresentationInput,
+    LiveAssignmentPreviousAttemptState, LiveAssignmentStartDecision, NativeAssignmentIssuanceBatch,
+    NativePleIssuanceSource, NativePresentationInput, NativeWebworkIssuanceSource,
     ReadyQuestionAssetRendition, StudentAssignmentAttemptContext,
     StudentAssignmentAttemptFinalization, StudentAssignmentAttemptHistory,
     StudentAssignmentAttemptHistoryAssignment, StudentAssignmentAttemptHistoryCourse,
     StudentAssignmentAttemptHistoryEvidence, StudentAssignmentAttemptHistoryQuestion,
-    StudentAssignmentAttemptHistoryResponseSource, StudentAssignmentAttemptPresentationSource,
-    StudentAssignmentAttemptSavedResponse,
+    StudentAssignmentAttemptHistoryResponseSource, StudentAssignmentAttemptPresentationEvidence,
+    StudentAssignmentAttemptPresentationSource, StudentAssignmentAttemptSavedResponse,
 };
 pub use assignment_release::{
     AssignmentPreview, AssignmentQuestionPickerEntry, AssignmentReleaseIssue,
-    AssignmentReleaseValidation, AuthoredAssignmentQuestion, CourseAssignmentSummary,
-    CreateLiveAssignmentInput, DueSoonAssignmentSummary, DueSoonAssignments, LiveAssignmentStore,
-    LiveAssignmentWorkspace, ReleasedLiveAssignment, SaveLiveAssignmentInlineInput,
-    SaveLiveAssignmentInput,
+    AssignmentReleaseValidation, AssignmentUnreleaseImpact, AuthoredAssignmentQuestion,
+    CourseAssignmentSourceChoice, CourseAssignmentSummary, CreateLiveAssignmentInput,
+    DueSoonAssignmentSummary, DueSoonAssignments, LiveAssignmentStore, LiveAssignmentWorkspace,
+    SaveLiveAssignmentInlineInput, SaveLiveAssignmentInput, UnreleasedLiveAssignment,
 };
 pub use authentication_ceremony::{
     AuthenticatedAccount, AuthenticationCeremonyLifetime, AuthenticationCeremonyStore,
@@ -80,8 +80,9 @@ pub use authoring::{
 };
 pub use blueprint_course::{
     BlueprintCourseStore, StoredBlueprintAssignment, StoredBlueprintAssignmentContent,
-    StoredBlueprintAssignmentEntry, StoredBlueprintCourse, StoredBlueprintCourseContent,
-    StoredBlueprintCourseSummary, StoredBlueprintModule,
+    StoredBlueprintAssignmentEntry, StoredBlueprintAvailability, StoredBlueprintCourse,
+    StoredBlueprintCourseContent, StoredBlueprintCourseSummary, StoredBlueprintModule,
+    StoredBlueprintRevision,
 };
 pub use course_banner::{
     ClaimedCourseBannerUpload, CourseBannerDeleteWork, CourseBannerObjectMetadata,
@@ -135,7 +136,7 @@ pub use invitation_export::{
     InvitationExportStore, InvitationMailerExport, InvitationMailerRecipient,
     PendingInvitationExport, PendingInvitationRecipient,
 };
-pub use live_gradebook::{LiveDemoGradebook, LiveDemoGradebookStore, LiveDemoStudentWork};
+pub use live_gradebook::{CourseGradebook, CourseGradebookStore, CourseGradebookStudentWork};
 pub use live_student_course_landing::{
     LiveStudentAssignmentLandingSummary, LiveStudentCourseInvitationSummary,
     LiveStudentCourseLandingStore, LiveStudentCourseLandingSummary,
@@ -155,11 +156,14 @@ pub use profile_thumbnail::{
 };
 pub use public_asset_publication::{ClaimedQuestionAssetPublication, PublicAssetPublicationStore};
 pub use question_asset_delivery::{QuestionAssetDeliveryStore, ReadyQuestionAssetDelivery};
-pub use question_library::{PublishedQuestionLibraryEntry, QuestionLibraryStore};
+pub use question_library::{
+    PublishedQuestionAvailability, PublishedQuestionLibraryEntry, QuestionLibraryStore,
+};
 pub use question_source::{
     DraftQuestionEditNumber, DraftQuestionPublicationSourceStore, DraftQuestionSourceBindingInput,
-    DraftQuestionSourceBindingStore, DraftQuestionUuid, NewQuestionLineagePublicationInput,
-    NewQuestionLineagePublicationStore,
+    DraftQuestionSourceBindingStore, DraftQuestionUuid, ExistingQuestionRevisionPublicationError,
+    ExistingQuestionRevisionPublicationInput, ExistingQuestionRevisionPublicationStore,
+    NewQuestionLineagePublicationInput, NewQuestionLineagePublicationStore,
 };
 pub use session::{
     SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash,

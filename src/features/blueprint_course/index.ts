@@ -13,7 +13,7 @@ export {
   emptyReusableContent,
   moveReusableEntry,
   removeReusableEntry,
-  replacementContentFromBlueprintCourse,
+  replacementContentFromBlueprintModules,
   reusableContentInputFromView,
   updateReusableDefaults,
   updateReusablePoolSelectionCount,

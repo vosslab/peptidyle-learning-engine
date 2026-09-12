@@ -242,14 +242,14 @@ const CAPABILITY_DECLARATIONS = {
   },
   gradebook: {
     kind: "backed",
-    clientMethod: "ApiClient.getLiveDemoGradebook",
+    clientMethod: "ApiClient.getCourseGradebook",
     serverEvidence: {
       kind: "registeredHandler",
       handler: "crates/server/src/live_gradebook.rs::live_gradebook_router",
     },
     evidence: [
       "crates/server/src/live_gradebook.rs::live_gradebook_router",
-      "src/api/http_client/live_gradebook.ts::createLiveDemoGradebookClient",
+      "src/api/http_client/live_gradebook.ts::createCourseGradebookClient",
     ],
   },
   teachingOperations: {
@@ -425,12 +425,6 @@ const CAPABILITY_DECLARATIONS = {
       "src/pages/assignment_workspace/assignment_workspace_policies_page.tsx::AssignmentWorkspacePoliciesPage",
       "src/api/http_client/assignment_release.ts::getLiveAssignmentWorkspace",
     ],
-  },
-  assignmentGradingOperations: {
-    kind: "unbacked",
-    reason:
-      "Assignment workspace Grading Operations has no registered production teaching/data handler.",
-    evidence: [...NO_TEACHING_HANDLER, "src/routes.ts::routeComponents"],
   },
   assignmentStudentView: {
     kind: "unbacked",

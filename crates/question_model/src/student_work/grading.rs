@@ -97,8 +97,9 @@ impl GradingResult {
 mod tests {
     use super::*;
     use crate::{
-        AssignmentAttemptId, AssignmentEntryId, AssignmentPointValue, IssuedQuestionId, QuestionId,
-        QuestionRevisionNumber, QuestionRevisionReference,
+        AssignmentAttemptId, AssignmentEntryId, AssignmentPointValue, IssuedQuestionId,
+        QuestionAttemptReproductionDetails, QuestionBackendVersion, QuestionGraderVersion,
+        QuestionId, QuestionRevisionNumber, QuestionRevisionReference, QuestionSeed,
     };
     use uuid::Uuid;
 
@@ -112,6 +113,22 @@ mod tests {
             reference: QuestionRevisionReference {
                 question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("revision"),
+            },
+            question_seed: QuestionSeed::new(1),
+            reproduction_details: QuestionAttemptReproductionDetails {
+                backend: QuestionBackendVersion {
+                    name: "ple".to_string(),
+                    version: "test".to_string(),
+                },
+                renderer_version: None,
+                source_object_reference: None,
+                source_object_checksum: None,
+                asset_objects: vec![],
+                grader: QuestionGraderVersion {
+                    name: "ple".to_string(),
+                    version: "test".to_string(),
+                },
+                rendered_question_sha256: "0".repeat(64),
             },
             point_value: AssignmentPointValue::from_whole(8),
             scoring_rule,

@@ -1,7 +1,7 @@
-//! Session-authorized persistence contracts for reusable Blueprint Courses.
+//! Session-authorized persistence contracts for Blueprint Drafts and publications.
 //!
-//! The stored content keeps exact immutable Question Revision pins. Browser
-//! routes receive only answer-free views assembled from that server record.
+//! A Blueprint Course is a stable lineage. Its owner edits one private Draft;
+//! a deliberate publication copies that Draft into immutable revision evidence.
 
 use std::collections::BTreeMap;
 
@@ -9,131 +9,120 @@ use async_trait::async_trait;
 use question_model::{
     AssignmentEntryScoringRule, AssignmentInstructions, AssignmentPointValue, AssignmentTitle,
     BlueprintAssignmentContent, BlueprintAssignmentContentInput, BlueprintAssignmentEditChoice,
-    BlueprintAssignmentEntryContent, BlueprintAssignmentReference,
-    BlueprintAssignmentReplacementInput, BlueprintContentChecksum, BlueprintCourseContent,
-    BlueprintCourseModuleContent, BlueprintCourseReadAccess, BlueprintCourseReference,
-    BlueprintCourseValidationError, BlueprintModuleEditChoice, BlueprintModuleReference,
+    BlueprintAssignmentEntryContent, BlueprintAssignmentReference, BlueprintAvailability,
+    BlueprintAvailabilityEditNumber, BlueprintCourseContent, BlueprintCourseModuleContent,
+    BlueprintCourseReadAccess, BlueprintCourseReference, BlueprintCourseValidationError,
+    BlueprintDraftEditNumber, BlueprintModuleEditChoice, BlueprintModuleReference,
     BlueprintQuestionPoolContent, BlueprintRevision, BlueprintRevisionContent,
-    CreateBlueprintCourseContentInput, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId,
+    BlueprintRevisionReference, CreateBlueprintCourseContentInput, CreateBlueprintDraftReceipt,
+    PublishBlueprintDraftReceipt, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId,
     QuestionPoolSelectionRule, QuestionRevisionReference, RelativeAssignmentSchedule,
-    ReplaceBlueprintCourseContentInput,
+    ReplaceBlueprintCourseContentInput, RequestChecksum, SaveBlueprintDraftReceipt,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{SessionTokenHash, StoreError};
 
-/// One current Blueprint Course record retained by the server Store.
+/// One current readable Blueprint lineage and the content selected by its read boundary.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StoredBlueprintCourse {
-    /// Browser-safe public route reference.
     pub reference: BlueprintCourseReference,
-    /// Current immutable Blueprint Revision number.
-    pub revision: BlueprintRevision,
-    /// Current caller's closed read classification.
+    pub title: String,
+    pub availability: BlueprintAvailability,
+    pub availability_edit_number: BlueprintAvailabilityEditNumber,
+    pub latest_published_revision: Option<BlueprintRevision>,
     pub read_access: BlueprintCourseReadAccess,
-    /// Complete answer-free content and exact Question Revision pins.
+    /// The owner's Draft or the authorized reader's latest immutable Revision.
+    pub content: StoredBlueprintCourseContent,
+    /// Present only for the private owner Draft.
+    pub draft_edit_number: Option<BlueprintDraftEditNumber>,
+}
+
+/// Compact answer-free readable Blueprint lineage.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredBlueprintCourseSummary {
+    pub reference: BlueprintCourseReference,
+    pub title: String,
+    pub availability: BlueprintAvailability,
+    pub availability_edit_number: BlueprintAvailabilityEditNumber,
+    pub latest_published_revision: Option<BlueprintRevision>,
+    pub read_access: BlueprintCourseReadAccess,
+}
+
+/// Exact immutable Blueprint Revision content, including after lineage archive.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StoredBlueprintRevision {
+    pub reference: BlueprintRevisionReference,
     pub content: StoredBlueprintCourseContent,
 }
 
-/// Compact answer-free result for a Blueprint Course workspace list.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StoredBlueprintCourseSummary {
-    /// Browser-safe public route reference.
-    pub reference: BlueprintCourseReference,
-    /// Current instructor-visible title.
-    pub title: String,
-    /// Current immutable Blueprint Revision number.
-    pub revision: BlueprintRevision,
-    /// Current caller's closed read classification.
-    pub read_access: BlueprintCourseReadAccess,
+/// Current availability result after a qualified lineage transition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StoredBlueprintAvailability {
+    pub availability: BlueprintAvailability,
+    pub edit_number: BlueprintAvailabilityEditNumber,
 }
 
-/// Durable complete Blueprint Revision Content with server-resolved Question pins.
+/// Durable complete Blueprint content with server-resolved Question Revision pins.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct StoredBlueprintCourseContent {
-    /// Instructor-visible Blueprint Course title.
     pub title: String,
-    /// Ordered labelled reusable modules.
     pub modules: Vec<StoredBlueprintModule>,
 }
 
-/// One retained Blueprint Module in complete stored Blueprint Revision Content.
+/// One retained Blueprint Module.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct StoredBlueprintModule {
-    /// Server-allocated stable Blueprint Module lineage identity.
     pub blueprint_module_reference: BlueprintModuleReference,
-    /// Instructor-visible module label.
     pub label: String,
-    /// Ordered reusable Blueprint Assignments.
     pub assignments: Vec<StoredBlueprintAssignment>,
 }
 
-/// One retained Blueprint Assignment in complete stored Blueprint Revision Content.
+/// One retained Blueprint Assignment.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct StoredBlueprintAssignment {
-    /// Server-allocated stable Blueprint Assignment lineage identity.
     pub blueprint_assignment_reference: BlueprintAssignmentReference,
-    /// Complete answer-free reusable assignment content.
     pub content: StoredBlueprintAssignmentContent,
 }
 
-/// Reusable assignment content after Question IDs become exact Question Revision pins.
+/// Reusable assignment content after Question IDs become exact Revision pins.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct StoredBlueprintAssignmentContent {
-    /// Instructor-facing assignment title.
     pub title: String,
-    /// Student-facing reusable instructions.
     pub instructions: AssignmentInstructions,
-    /// Ordered fixed Question and Question Pool entries.
     pub entries: Vec<StoredBlueprintAssignmentEntry>,
-    /// Reusable assignment defaults.
     pub defaults: question_model::BlueprintAssignmentDefaults,
-    /// Optional target-term-relative schedule defaults.
     pub schedule: RelativeAssignmentSchedule,
 }
 
-/// Stored entry retaining exact immutable Question Revision References.
+/// Stored entry retaining exact immutable Question Revision references.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum StoredBlueprintAssignmentEntry {
-    /// One fixed Question Revision pin.
     Fixed {
-        /// Exact Question Revision retained for future course creation.
         question_revision: QuestionRevisionReference,
-        /// Points copied to the future Assignment entry.
         points_possible: AssignmentPointValue,
-        /// Score treatment copied to the future Assignment entry.
         scoring_rule: AssignmentEntryScoringRule,
-        /// Question Attempt retry boundary.
         question_attempt_limit: QuestionAttemptLimit,
-        /// Question Attempt timing boundary.
         question_attempt_time_limit: QuestionAttemptTimeLimit,
     },
-    /// One ordered Question Pool of exact Question Revision pins.
     Pool {
-        /// Exact Question Revision pins in authored order.
         question_revisions: Vec<QuestionRevisionReference>,
-        /// Number of Question Pool Items selected for an Assignment Attempt.
         selection_count: u32,
-        /// Points copied for each selected Question Pool Item.
         points_per_item: AssignmentPointValue,
-        /// Score treatment copied to the future Assignment entry.
         scoring_rule: AssignmentEntryScoringRule,
-        /// Complete reviewed Question Pool selection behavior.
         selection_rule: QuestionPoolSelectionRule,
-        /// Question Attempt retry boundary.
         question_attempt_limit: QuestionAttemptLimit,
-        /// Question Attempt timing boundary.
         question_attempt_time_limit: QuestionAttemptTimeLimit,
     },
 }
 
 impl StoredBlueprintCourseContent {
-    /// Resolves a browser creation request into server-owned child identities and Question pins.
+    /// Resolves a newly accepted browser request into server-owned child identities and pins.
     pub fn from_create(
         input: CreateBlueprintCourseContentInput,
         pins: &BTreeMap<QuestionId, QuestionRevisionReference>,
@@ -170,7 +159,7 @@ impl StoredBlueprintCourseContent {
         Ok(content)
     }
 
-    /// Resolves a complete replacement while retaining only server-owned child identities.
+    /// Resolves a complete Draft replacement while retaining only owned child identities.
     pub fn from_replace(
         input: ReplaceBlueprintCourseContentInput,
         prior: &Self,
@@ -215,7 +204,6 @@ impl StoredBlueprintCourseContent {
         Ok(content)
     }
 
-    /// Returns every requested public Question ID before the Store resolves current pins.
     pub fn requested_question_ids_from_create(
         input: &CreateBlueprintCourseContentInput,
     ) -> Vec<QuestionId> {
@@ -227,7 +215,6 @@ impl StoredBlueprintCourseContent {
             .collect()
     }
 
-    /// Returns every requested public Question ID before the Store resolves current pins.
     pub fn requested_question_ids_from_replace(
         input: &ReplaceBlueprintCourseContentInput,
     ) -> Vec<QuestionId> {
@@ -239,24 +226,8 @@ impl StoredBlueprintCourseContent {
             .collect()
     }
 
-    /// Rebuilds the domain model and returns its canonical Blueprint Content Checksum.
-    pub fn checksum(&self) -> Result<BlueprintContentChecksum, StoreError> {
-        self.checksum_for_encoding_version(
-            question_model::BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION,
-        )?
-        .ok_or_else(|| invalid("Blueprint Content encoding version"))
-    }
-
-    /// Rebuilds one recognized persisted Blueprint Content checksum.
-    ///
-    /// Version two exists only for immutable records written before the
-    /// submitted-response timing field was introduced. The PostgreSQL adapter
-    /// selects it from the persisted encoding version after normalizing that
-    /// one missing legacy field in memory.
-    pub fn checksum_for_encoding_version(
-        &self,
-        version: u8,
-    ) -> Result<Option<BlueprintContentChecksum>, StoreError> {
+    /// Rebuilds the one canonical content checksum used by the new base schema.
+    pub fn checksum(&self) -> Result<question_model::BlueprintContentChecksum, StoreError> {
         let modules = self
             .modules
             .iter()
@@ -272,12 +243,12 @@ impl StoredBlueprintCourseContent {
             .collect::<Result<Vec<_>, StoreError>>()?;
         let course =
             BlueprintCourseContent::new(self.title.clone(), modules).map_err(invalid_content)?;
-        Ok(BlueprintRevisionContent::course(course).checksum_for_encoding_version(version))
+        Ok(BlueprintRevisionContent::course(course).checksum())
     }
 
     fn new_module(
         label: String,
-        assignments: Vec<BlueprintAssignmentReplacementInput>,
+        assignments: Vec<question_model::BlueprintAssignmentReplacementInput>,
         pins: &BTreeMap<QuestionId, QuestionRevisionReference>,
     ) -> Result<StoredBlueprintModule, StoreError> {
         let assignments = assignments
@@ -305,7 +276,7 @@ impl StoredBlueprintCourseContent {
     }
 
     fn replacement_assignment(
-        assignment: BlueprintAssignmentReplacementInput,
+        assignment: question_model::BlueprintAssignmentReplacementInput,
         prior_module: &StoredBlueprintModule,
         pins: &BTreeMap<QuestionId, QuestionRevisionReference>,
     ) -> Result<StoredBlueprintAssignment, StoreError> {
@@ -428,37 +399,57 @@ impl StoredBlueprintAssignmentContent {
     }
 }
 
-/// Store boundary for current published Blueprint Course lifecycle operations.
+/// Store boundary for the direct Blueprint Draft, publication, and availability lifecycle.
 #[async_trait]
 pub trait BlueprintCourseStore: Send + Sync {
-    /// Lists Blueprint Courses readable by this active Instructor.
     async fn list_blueprint_courses(
         &self,
-        session_token_hash: SessionTokenHash,
+        session: SessionTokenHash,
     ) -> Result<Vec<StoredBlueprintCourseSummary>, StoreError>;
-
-    /// Loads one current readable Blueprint Course and its exact stored revision content.
     async fn load_blueprint_course(
         &self,
-        session_token_hash: SessionTokenHash,
+        session: SessionTokenHash,
         reference: BlueprintCourseReference,
     ) -> Result<StoredBlueprintCourse, StoreError>;
-
-    /// Creates and publishes an initial immutable Blueprint Revision.
-    async fn create_blueprint_course(
+    async fn load_blueprint_revision(
         &self,
-        session_token_hash: SessionTokenHash,
+        session: SessionTokenHash,
+        reference: BlueprintRevisionReference,
+    ) -> Result<StoredBlueprintRevision, StoreError>;
+    async fn create_blueprint_draft(
+        &self,
+        session: SessionTokenHash,
+        request_checksum: RequestChecksum,
         input: CreateBlueprintCourseContentInput,
-    ) -> Result<StoredBlueprintCourse, StoreError>;
-
-    /// Replaces the current owner head with a successor published Blueprint Revision.
-    async fn replace_blueprint_course(
+    ) -> Result<CreateBlueprintDraftReceipt, StoreError>;
+    async fn save_blueprint_draft(
         &self,
-        session_token_hash: SessionTokenHash,
+        session: SessionTokenHash,
         reference: BlueprintCourseReference,
-        expected_revision: BlueprintRevision,
+        expected_edit_number: BlueprintDraftEditNumber,
+        request_checksum: RequestChecksum,
         input: ReplaceBlueprintCourseContentInput,
-    ) -> Result<StoredBlueprintCourse, StoreError>;
+    ) -> Result<SaveBlueprintDraftReceipt, StoreError>;
+    async fn publish_blueprint_draft(
+        &self,
+        session: SessionTokenHash,
+        reference: BlueprintCourseReference,
+        expected_edit_number: BlueprintDraftEditNumber,
+        request_checksum: RequestChecksum,
+    ) -> Result<PublishBlueprintDraftReceipt, StoreError>;
+    async fn archive_blueprint(
+        &self,
+        session: SessionTokenHash,
+        reference: BlueprintCourseReference,
+        expected_edit_number: BlueprintAvailabilityEditNumber,
+        confirmation_title: &str,
+    ) -> Result<StoredBlueprintAvailability, StoreError>;
+    async fn restore_blueprint(
+        &self,
+        session: SessionTokenHash,
+        reference: BlueprintCourseReference,
+        expected_edit_number: BlueprintAvailabilityEditNumber,
+    ) -> Result<StoredBlueprintAvailability, StoreError>;
 }
 
 fn requested_question_ids(input: &BlueprintAssignmentContentInput) -> Vec<QuestionId> {

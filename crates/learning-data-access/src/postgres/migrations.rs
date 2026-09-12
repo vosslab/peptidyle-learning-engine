@@ -1,31 +1,39 @@
-//! Embedded SQLx migration status, administration, and application checks.
+//! Small, read-mostly PostgreSQL schema lifecycle checks.
 //!
-//! This module owns the immutable migration epoch and the two deliberately
-//! distinct verification paths: privileged ledger inspection for project tools, and
-//! the restricted `ple_app` compatibility projection used at application startup.
+//! The base installer owns DDL. This module serializes the one database
+//! lifecycle coordinator, checks the installed base plus SQLx forward ledger,
+//! and exposes the restricted application check.
 
 use std::collections::BTreeMap;
 use std::fmt;
-use std::path::Path;
 
 use sqlx::Row;
-use sqlx::postgres::{PgAdvisoryLock, PgAdvisoryLockKey, PgPool};
+use sqlx::pool::PoolConnection;
+use sqlx::postgres::{
+    PgAdvisoryLock, PgAdvisoryLockGuard, PgAdvisoryLockKey, PgConnection, PgPool, Postgres,
+};
 
 use super::connection::is_connection_error;
 
-static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../schemas/migrations");
+static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!();
 
-// ASCII `PLE_SCHM` in PostgreSQL's signed 64-bit advisory-lock keyspace. This
-// stable project key serializes the complete repository-owned schema epoch
-// while SQLx applies its embedded DDL.
-const SCHEMA_EPOCH_LOCK_KEY: i64 = 0x504c_455f_5343_484d;
+/// ASCII `PLE_SCHM` in PostgreSQL's signed advisory-lock keyspace.
+const SCHEMA_LIFECYCLE_LOCK_KEY: i64 = 0x504c_455f_5343_484d;
+/// Release identity expected from the immutable base's restricted projection.
+///
+/// The first approved production cutover changes this value together with the
+/// frozen base source; before then every disposable base uses this development
+/// identity.
+pub const BASE_RELEASE_IDENTITY: &str = "pre-production";
+const PRE_PRODUCTION_BASE_RELEASE_IDENTITY: &str = "pre-production";
+const FORWARD_LEDGER: &str = "ple_migration._sqlx_migrations";
 
-/// Read-only state of one embedded migration relative to a database.
+/// Internal state of one fixed embedded forward migration relative to a database.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum MigrationCheckResult {
+enum ForwardMigrationStatus {
     /// The exact embedded checksum is recorded as successful.
     Applied,
-    /// The migration is known to the application but absent from the ledger.
+    /// The migration is known to the executable but absent from the ledger.
     Pending,
     /// The recorded checksum differs from the immutable embedded migration.
     Changed,
@@ -33,96 +41,44 @@ pub enum MigrationCheckResult {
     Incomplete,
 }
 
-/// Status of one migration in the initial database epoch.
+/// Internal comparison of fixed embedded forward migrations with the restricted
+/// schema-state projection.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MigrationCheckEntry {
-    version: i64,
-    description: String,
-    result: MigrationCheckResult,
-}
-
-impl MigrationCheckEntry {
-    /// Returns the ordered SQLx migration version.
-    pub fn version(&self) -> i64 {
-        self.version
-    }
-
-    /// Returns the filename-derived migration description.
-    pub fn description(&self) -> &str {
-        &self.description
-    }
-
-    /// Returns the Migration Check Result for this migration.
-    pub fn result(&self) -> MigrationCheckResult {
-        self.result
-    }
-}
-
-/// Read-only comparison of the embedded epoch with the SQLx ledger.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MigrationCheck {
-    ledger_present: bool,
-    entries: Vec<MigrationCheckEntry>,
+struct ForwardMigrationCheck {
+    entries: Vec<ForwardMigrationStatus>,
     unexpected_applied_versions: Vec<i64>,
 }
 
-impl MigrationCheck {
-    /// Returns whether SQLx has created its authoritative ledger.
-    pub fn ledger_present(&self) -> bool {
-        self.ledger_present
-    }
-
-    /// Returns every known migration in version order.
-    pub fn entries(&self) -> &[MigrationCheckEntry] {
-        &self.entries
-    }
-
-    /// Returns applied versions absent from the embedded immutable epoch.
-    pub fn unexpected_applied_versions(&self) -> &[i64] {
-        &self.unexpected_applied_versions
-    }
-
-    /// Returns true only for an exact, successful, complete epoch.
-    pub fn is_compatible(&self) -> bool {
-        self.ledger_present
-            && self.unexpected_applied_versions.is_empty()
+impl ForwardMigrationCheck {
+    fn is_compatible(&self) -> bool {
+        self.unexpected_applied_versions.is_empty()
             && self
                 .entries
                 .iter()
-                .all(|entry| entry.result == MigrationCheckResult::Applied)
+                .all(|status| *status == ForwardMigrationStatus::Applied)
     }
 
-    fn incompatibility_reason(&self) -> String {
-        if !self.ledger_present {
-            return "the SQLx migration ledger is absent".to_string();
+    fn incompatibility_reason(&self) -> &'static str {
+        if !self.unexpected_applied_versions.is_empty() {
+            return "the forward migration ledger has an unknown version";
         }
-        if let Some(version) = self.unexpected_applied_versions.first() {
-            return format!("applied migration {version} is absent from the embedded epoch");
+        if self.entries.contains(&ForwardMigrationStatus::Changed) {
+            return "a forward migration checksum differs";
         }
-        if let Some(entry) = self
-            .entries
-            .iter()
-            .find(|entry| entry.result != MigrationCheckResult::Applied)
-        {
-            let state = match entry.result {
-                MigrationCheckResult::Applied => "applied",
-                MigrationCheckResult::Pending => "pending",
-                MigrationCheckResult::Changed => "changed",
-                MigrationCheckResult::Incomplete => "incomplete",
-            };
-            return format!("migration {} is {state}", entry.version);
+        if self.entries.contains(&ForwardMigrationStatus::Incomplete) {
+            return "a forward migration is incomplete";
         }
-        "the database migration state is incompatible".to_string()
+        "a required forward migration is pending"
     }
 }
 
-/// Startup migration verification failure with credential-safe diagnostics.
+/// Startup compatibility failure with credential-safe diagnostics.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SchemaCompatibilityError {
-    /// PostgreSQL could not be reached, so the stateless API may start degraded.
+    /// PostgreSQL could not be reached.
     Unavailable,
-    /// PostgreSQL was reachable but its schema was not the exact embedded epoch.
-    Incompatible(String),
+    /// PostgreSQL was reachable but does not provide the exact expected state.
+    Incompatible(&'static str),
 }
 
 impl fmt::Display for SchemaCompatibilityError {
@@ -138,18 +94,25 @@ impl fmt::Display for SchemaCompatibilityError {
 
 impl std::error::Error for SchemaCompatibilityError {}
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct AppliedMigrationState {
     version: i64,
     success: bool,
     checksum: Vec<u8>,
 }
 
-fn evaluate_migration_check(
+#[derive(Debug)]
+struct SchemaStateRow {
+    base_release: String,
+    version: Option<i64>,
+    success: Option<bool>,
+    checksum: Option<Vec<u8>>,
+}
+
+fn evaluate_forward_migration_check(
     migrator: &sqlx::migrate::Migrator,
-    ledger_present: bool,
     applied: Vec<AppliedMigrationState>,
-) -> MigrationCheck {
+) -> ForwardMigrationCheck {
     let mut applied_by_version = applied
         .into_iter()
         .map(|migration| (migration.version, migration))
@@ -157,137 +120,207 @@ fn evaluate_migration_check(
     let entries = migrator
         .iter()
         .filter(|migration| !migration.migration_type.is_down_migration())
-        .map(|migration| {
-            let result = match applied_by_version.remove(&migration.version) {
-                None => MigrationCheckResult::Pending,
-                Some(applied) if !applied.success => MigrationCheckResult::Incomplete,
+        .map(
+            |migration| match applied_by_version.remove(&migration.version) {
+                None => ForwardMigrationStatus::Pending,
+                Some(applied) if !applied.success => ForwardMigrationStatus::Incomplete,
                 Some(applied) if applied.checksum.as_slice() != migration.checksum.as_ref() => {
-                    MigrationCheckResult::Changed
+                    ForwardMigrationStatus::Changed
                 }
-                Some(_) => MigrationCheckResult::Applied,
-            };
-            MigrationCheckEntry {
-                version: migration.version,
-                description: migration.description.to_string(),
-                result,
-            }
-        })
+                Some(_) => ForwardMigrationStatus::Applied,
+            },
+        )
         .collect();
-    MigrationCheck {
-        ledger_present,
+    ForwardMigrationCheck {
         entries,
         unexpected_applied_versions: applied_by_version.into_keys().collect(),
     }
 }
 
-fn undefined_relation(error: &sqlx::Error) -> bool {
-    matches!(
-        error,
-        sqlx::Error::Database(database_error)
-            if database_error.code().as_deref() == Some("42P01")
+async fn read_schema_state(
+    connection: &mut PgConnection,
+) -> Result<Vec<SchemaStateRow>, sqlx::Error> {
+    sqlx::query(
+        "SELECT base_release, version, success, checksum \
+           FROM ple_api.ple_schema_state ORDER BY version NULLS FIRST",
     )
-}
-
-async fn read_migration_rows(
-    pool: &PgPool,
-) -> Result<(bool, Vec<AppliedMigrationState>), sqlx::Error> {
-    let rows = match sqlx::query(
-        "SELECT version, success, checksum FROM public._sqlx_migrations ORDER BY version",
-    )
-    .fetch_all(pool)
-    .await
-    {
-        Ok(rows) => rows,
-        Err(error) if undefined_relation(&error) => return Ok((false, Vec::new())),
-        Err(error) => return Err(error),
-    };
-    let applied = rows
-        .into_iter()
-        .map(|row| {
-            Ok(AppliedMigrationState {
-                version: row.try_get("version")?,
-                success: row.try_get("success")?,
-                checksum: row.try_get("checksum")?,
-            })
+    .fetch_all(&mut *connection)
+    .await?
+    .into_iter()
+    .map(|row| {
+        Ok(SchemaStateRow {
+            base_release: row.try_get("base_release")?,
+            version: row.try_get("version")?,
+            success: row.try_get("success")?,
+            checksum: row.try_get("checksum")?,
         })
-        .collect::<Result<Vec<_>, sqlx::Error>>()?;
-    Ok((true, applied))
+    })
+    .collect()
 }
 
-/// Reports known, pending, dirty, modified, and unexpected migrations without mutation.
-///
-/// A database with no SQLx ledger is reported as a clean pending epoch so the
-/// migration command can explain what it will apply.
-///
-/// # Errors
-///
-/// Returns a database error when PostgreSQL is unreachable or the ledger cannot be
-/// read safely.
-pub async fn migration_check(pool: &PgPool) -> Result<MigrationCheck, sqlx::Error> {
-    let (ledger_present, applied) = read_migration_rows(pool).await?;
-    Ok(evaluate_migration_check(&MIGRATOR, ledger_present, applied))
+fn schema_state_applied(rows: &[SchemaStateRow]) -> Option<Vec<AppliedMigrationState>> {
+    if rows.is_empty()
+        || rows
+            .iter()
+            .any(|row| row.base_release != BASE_RELEASE_IDENTITY)
+    {
+        return None;
+    }
+    let null_rows = rows.iter().filter(|row| row.version.is_none()).count();
+    if null_rows > 0 {
+        if rows.len() != 1 || rows[0].success.is_some() || rows[0].checksum.is_some() {
+            return None;
+        }
+        return Some(Vec::new());
+    }
+    rows.iter()
+        .map(
+            |row| match (row.version, row.success, row.checksum.clone()) {
+                (Some(version), Some(success), Some(checksum)) => Some(AppliedMigrationState {
+                    version,
+                    success,
+                    checksum,
+                }),
+                _ => None,
+            },
+        )
+        .collect()
 }
 
-/// Compares the SQLx ledger with a caller-supplied migration directory.
-///
-/// This is intentionally read-only. The administrative E2E gate uses it with
-/// a disposable copied directory to prove that a changed migration checksum is
-/// reported without editing the tracked schema epoch.
-///
-/// # Errors
-///
-/// Returns an error when the directory is not a valid SQLx migration source or
-/// the database ledger cannot be read safely.
-pub async fn migration_status_from_directory(
-    pool: &PgPool,
-    directory: &Path,
-) -> Result<MigrationCheck, sqlx::Error> {
-    let migrator = sqlx::migrate::Migrator::new(directory).await?;
-    let (ledger_present, applied) = read_migration_rows(pool).await?;
-    Ok(evaluate_migration_check(&migrator, ledger_present, applied))
+fn validate_base_projection(
+    rows: &[SchemaStateRow],
+) -> Result<Vec<AppliedMigrationState>, SchemaCompatibilityError> {
+    schema_state_applied(rows).ok_or(SchemaCompatibilityError::Incompatible(
+        "the schema-state projection is malformed",
+    ))
 }
 
-/// Verifies the exact application-visible schema epoch through a read-only transaction.
-///
-/// This deliberately queries the narrow `ple_api.ple_migration_state`
-/// projection as `ple_app`; application startup never creates the SQLx ledger
-/// or applies DDL.
-///
-/// # Errors
-///
-/// Returns [`SchemaCompatibilityError::Unavailable`] when PostgreSQL cannot be
-/// reached. A reachable database with a missing projection, rejected app role,
-/// unknown version, dirty row, pending migration, or checksum mismatch returns
-/// [`SchemaCompatibilityError::Incompatible`].
+fn base_is_pre_production(rows: &[SchemaStateRow]) -> Result<bool, SchemaCompatibilityError> {
+    validate_base_projection(rows)?;
+    Ok(release_is_pre_production(&rows[0].base_release))
+}
+
+fn release_is_pre_production(release: &str) -> bool {
+    release == PRE_PRODUCTION_BASE_RELEASE_IDENTITY
+}
+
+fn verify_schema_state(rows: &[SchemaStateRow]) -> Result<(), SchemaCompatibilityError> {
+    let applied = validate_base_projection(rows)?;
+    let status = evaluate_forward_migration_check(&MIGRATOR, applied);
+    if status.is_compatible() {
+        Ok(())
+    } else {
+        Err(SchemaCompatibilityError::Incompatible(
+            status.incompatibility_reason(),
+        ))
+    }
+}
+
+fn forward_migrator() -> sqlx::migrate::Migrator {
+    let migrations = MIGRATOR.iter().cloned().collect();
+    let mut migrator = sqlx::migrate::Migrator::with_migrations(migrations);
+    migrator.dangerous_set_table_name(FORWARD_LEDGER);
+    migrator.set_locking(false);
+    migrator
+}
+
+/// One exclusive session lock held across base installation, forward migration,
+/// and privileged verification.
+pub struct SchemaLifecycleGuard {
+    connection: PgAdvisoryLockGuard<PoolConnection<Postgres>>,
+}
+
+impl SchemaLifecycleGuard {
+    /// Acquires the existing stable `PLE_SCHM` exclusive session advisory lock.
+    ///
+    /// Hold this value while an external `psql` base install runs; the lock stays
+    /// live on this connection even though `psql` uses a separate connection.
+    pub async fn acquire(pool: &PgPool) -> Result<Self, sqlx::Error> {
+        let lock = PgAdvisoryLock::with_key(PgAdvisoryLockKey::BigInt(SCHEMA_LIFECYCLE_LOCK_KEY));
+        let connection = pool.acquire().await?;
+        Ok(Self {
+            connection: lock.acquire(connection).await?,
+        })
+    }
+
+    /// Returns whether the base's application-visible state projection exists.
+    ///
+    /// The base installer is the source of truth for an uninstalled dedicated
+    /// database. A present projection is validated before SQLx is permitted to
+    /// write its qualified forward ledger.
+    pub async fn base_is_installed(&mut self) -> Result<bool, sqlx::Error> {
+        sqlx::query_scalar("SELECT to_regclass('ple_api.ple_schema_state') IS NOT NULL")
+            .fetch_one(&mut *self.connection)
+            .await
+    }
+
+    /// Checks the base release identity and projection shape before forward writes.
+    pub async fn verify_base_projection(&mut self) -> Result<(), SchemaCompatibilityError> {
+        let rows = read_schema_state(&mut self.connection)
+            .await
+            .map_err(|error| {
+                verify_step_error(&error, "the schema-state projection is unavailable")
+            })?;
+        validate_base_projection(&rows).map(|_| ())
+    }
+
+    /// Returns whether this database still uses the editable pre-production base.
+    pub async fn base_is_pre_production(&mut self) -> Result<bool, SchemaCompatibilityError> {
+        let rows = read_schema_state(&mut self.connection)
+            .await
+            .map_err(|error| {
+                verify_step_error(&error, "the schema-state projection is unavailable")
+            })?;
+        base_is_pre_production(&rows)
+    }
+
+    /// Applies only known forward migrations while this guard supplies mutual exclusion.
+    ///
+    /// The base installer creates the exact qualified ledger. SQLx's own lock is
+    /// disabled because this session already holds `PLE_SCHM`.
+    pub async fn apply_forward_migrations(&mut self) -> Result<(), SchemaCompatibilityError> {
+        if self.base_is_pre_production().await? {
+            return Err(SchemaCompatibilityError::Incompatible(
+                "forward migrations are unavailable while the base release is pre-production",
+            ));
+        }
+        forward_migrator()
+            .run_direct(None, &mut *self.connection, false)
+            .await
+            .map_err(|error| {
+                verify_step_error(
+                    &error.into(),
+                    "recognized forward migrations could not be applied",
+                )
+            })
+    }
+
+    /// Returns the connected administration principal without exposing credentials.
+    pub async fn migration_principal(&mut self) -> Result<String, sqlx::Error> {
+        sqlx::query_scalar("SELECT current_user")
+            .fetch_one(&mut *self.connection)
+            .await
+    }
+
+    /// Verifies base identity, projection, and forward ledger on this locked connection.
+    pub async fn verify_privileged(&mut self) -> Result<(), SchemaCompatibilityError> {
+        let rows = read_schema_state(&mut self.connection)
+            .await
+            .map_err(|error| {
+                verify_step_error(&error, "the schema-state projection is unavailable")
+            })?;
+        verify_schema_state(&rows)
+    }
+}
+
+/// Acquires the exclusive session guard used by the one administrative coordinator.
+pub async fn acquire_schema_lifecycle(pool: &PgPool) -> Result<SchemaLifecycleGuard, sqlx::Error> {
+    SchemaLifecycleGuard::acquire(pool).await
+}
+
+/// Verifies application-visible schema state through the restricted projection.
+/// Application startup has no DDL, ledger-write, or repair path.
 pub async fn verify_application_schema(pool: &PgPool) -> Result<(), SchemaCompatibilityError> {
-    verify_schema_as(pool, SchemaVerificationProfile::Application).await
-}
-
-#[derive(Clone, Copy)]
-enum SchemaVerificationProfile {
-    Application,
-}
-
-impl SchemaVerificationProfile {
-    const fn role_sql(self) -> &'static str {
-        match self {
-            Self::Application => "SET LOCAL ROLE ple_app",
-        }
-    }
-
-    const fn migration_state_sql(self) -> &'static str {
-        match self {
-            Self::Application => {
-                "SELECT version, success, checksum FROM ple_api.ple_migration_state ORDER BY version"
-            }
-        }
-    }
-}
-
-async fn verify_schema_as(
-    pool: &PgPool,
-    profile: SchemaVerificationProfile,
-) -> Result<(), SchemaCompatibilityError> {
     let mut transaction = pool
         .begin()
         .await
@@ -296,133 +329,63 @@ async fn verify_schema_as(
         .execute(&mut *transaction)
         .await
         .map_err(|_| SchemaCompatibilityError::Unavailable)?;
-    acquire_schema_epoch_shared_lock(&mut transaction).await?;
-    sqlx::query(profile.role_sql())
+    // ASVS 8.3.1: application startup verifies only its restricted projection.
+    sqlx::query("SELECT pg_advisory_xact_lock_shared($1)")
+        .bind(SCHEMA_LIFECYCLE_LOCK_KEY)
+        .execute(&mut *transaction)
+        .await
+        .map_err(|error| verify_step_error(&error, "the schema lifecycle lock is unavailable"))?;
+    sqlx::query("SET LOCAL ROLE ple_app")
         .execute(&mut *transaction)
         .await
         .map_err(|error| verify_step_error(&error, "the application principal is unavailable"))?;
-    let rows = sqlx::query(profile.migration_state_sql())
-        .fetch_all(&mut *transaction)
-        .await
-        .map_err(|error| {
-            verify_step_error(&error, "the migration-state projection is unavailable")
-        })?;
-    let applied = rows
-        .into_iter()
-        .map(|row| {
-            let version = row.try_get("version").map_err(|_| {
-                SchemaCompatibilityError::Incompatible(
-                    "the migration-state projection has an invalid version".to_string(),
-                )
-            })?;
-            let success = row.try_get("success").map_err(|_| {
-                SchemaCompatibilityError::Incompatible(
-                    "the migration-state projection has an invalid state".to_string(),
-                )
-            })?;
-            let checksum = row.try_get("checksum").map_err(|_| {
-                SchemaCompatibilityError::Incompatible(
-                    "the migration-state projection has an invalid checksum".to_string(),
-                )
-            })?;
-            Ok(AppliedMigrationState {
-                version,
-                success,
-                checksum,
-            })
+    let rows = sqlx::query(
+        "SELECT base_release, version, success, checksum \
+           FROM ple_api.ple_schema_state ORDER BY version NULLS FIRST",
+    )
+    .fetch_all(&mut *transaction)
+    .await
+    .map_err(|error| verify_step_error(&error, "the schema-state projection is unavailable"))?
+    .into_iter()
+    .map(|row| {
+        Ok(SchemaStateRow {
+            base_release: row.try_get("base_release").map_err(|_| {
+                SchemaCompatibilityError::Incompatible("the schema-state projection is malformed")
+            })?,
+            version: row.try_get("version").map_err(|_| {
+                SchemaCompatibilityError::Incompatible("the schema-state projection is malformed")
+            })?,
+            success: row.try_get("success").map_err(|_| {
+                SchemaCompatibilityError::Incompatible("the schema-state projection is malformed")
+            })?,
+            checksum: row.try_get("checksum").map_err(|_| {
+                SchemaCompatibilityError::Incompatible("the schema-state projection is malformed")
+            })?,
         })
-        .collect::<Result<Vec<_>, SchemaCompatibilityError>>()?;
-    let status = evaluate_migration_check(&MIGRATOR, true, applied);
-    if !status.is_compatible() {
-        return Err(SchemaCompatibilityError::Incompatible(
-            status.incompatibility_reason(),
-        ));
-    }
+    })
+    .collect::<Result<Vec<_>, SchemaCompatibilityError>>()?;
+    verify_schema_state(&rows)?;
     transaction
         .commit()
         .await
-        .map_err(|_| SchemaCompatibilityError::Unavailable)?;
-    Ok(())
+        .map_err(|_| SchemaCompatibilityError::Unavailable)
 }
 
-fn verify_step_error(error: &sqlx::Error, incompatible: &str) -> SchemaCompatibilityError {
+fn verify_step_error(error: &sqlx::Error, incompatible: &'static str) -> SchemaCompatibilityError {
     if is_connection_error(error) {
         SchemaCompatibilityError::Unavailable
     } else {
-        SchemaCompatibilityError::Incompatible(incompatible.to_string())
+        SchemaCompatibilityError::Incompatible(incompatible)
     }
-}
-
-async fn acquire_schema_epoch_shared_lock(
-    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-) -> Result<(), SchemaCompatibilityError> {
-    sqlx::query("SELECT pg_advisory_xact_lock_shared($1)")
-        .bind(SCHEMA_EPOCH_LOCK_KEY)
-        .execute(&mut **transaction)
-        .await
-        .map_err(|error| verify_step_error(&error, "the schema epoch lock is unavailable"))?;
-    Ok(())
-}
-
-/// Applies every embedded, checksummed schema migration in version order.
-///
-/// # Errors
-///
-/// Returns a database or migration-integrity failure.
-pub async fn apply_migrations(pool: &PgPool) -> Result<(), sqlx::Error> {
-    let lock = PgAdvisoryLock::with_key(PgAdvisoryLockKey::BigInt(SCHEMA_EPOCH_LOCK_KEY));
-    let connection = pool.acquire().await?;
-    let mut guard = lock.acquire(connection).await?;
-    let application_result = async {
-        if let Err(error) = MIGRATOR.run(&mut *guard).await {
-            let error: sqlx::Error = error.into();
-            // SQLx rechecks its public-schema ledger after applying the epoch.
-            // The principal baseline deliberately removes the migrator's CREATE
-            // privilege from that schema, so PostgreSQL can reject that final
-            // idempotent ledger check after every migration was committed. The
-            // durable ledger is the authoritative outcome: accept the error
-            // only when it proves the exact embedded epoch is already present.
-            if !migration_check(pool).await?.is_compatible() {
-                return Err(error);
-            }
-        }
-        Ok::<(), sqlx::Error>(())
-    }
-    .await;
-    let release_result = guard.release_now().await.map(|_| ());
-    match (application_result, release_result) {
-        (Err(error), _) => Err(error),
-        (Ok(()), Err(error)) => Err(error),
-        (Ok(()), Ok(())) => Ok(()),
-    }
-}
-
-/// Returns the PostgreSQL principal used by the migration connection.
-///
-/// The caller may use this only for a role-policy decision; it must not log a
-/// connection URL or credential material.
-pub async fn migration_principal(pool: &PgPool) -> Result<String, sqlx::Error> {
-    sqlx::query_scalar("SELECT current_user")
-        .fetch_one(pool)
-        .await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::borrow::Cow;
 
-    #[test]
-    fn application_schema_profile_reads_the_baseline_api_projection() {
-        let profile = SchemaVerificationProfile::Application;
-        assert_eq!(profile.role_sql(), "SET LOCAL ROLE ple_app");
-        assert_eq!(
-            profile.migration_state_sql(),
-            "SELECT version, success, checksum FROM ple_api.ple_migration_state ORDER BY version"
-        );
-    }
-
-    fn exact_applied_epoch() -> Vec<AppliedMigrationState> {
-        MIGRATOR
+    fn exact_applied_epoch(migrator: &sqlx::migrate::Migrator) -> Vec<AppliedMigrationState> {
+        migrator
             .iter()
             .filter(|migration| !migration.migration_type.is_down_migration())
             .map(|migration| AppliedMigrationState {
@@ -433,63 +396,100 @@ mod tests {
             .collect()
     }
 
+    fn test_migrator() -> sqlx::migrate::Migrator {
+        sqlx::migrate::Migrator::with_migrations(vec![sqlx::migrate::Migration::new(
+            1,
+            Cow::Borrowed("test forward"),
+            sqlx::migrate::MigrationType::Simple,
+            sqlx::SqlStr::from_static("SELECT 1"),
+            false,
+        )])
+    }
+
     #[test]
-    fn exact_successful_epoch_is_compatible() {
-        let status = evaluate_migration_check(&MIGRATOR, true, exact_applied_epoch());
+    fn exact_successful_forward_epoch_is_compatible() {
+        let migrator = test_migrator();
+        let status = evaluate_forward_migration_check(&migrator, exact_applied_epoch(&migrator));
         assert!(status.is_compatible());
-        assert!(
-            status
-                .entries()
-                .iter()
-                .all(|entry| entry.result() == MigrationCheckResult::Applied)
-        );
     }
 
     #[test]
-    fn absent_known_migration_is_pending() {
-        let mut applied = exact_applied_epoch();
-        let missing = applied.remove(0).version;
-        let status = evaluate_migration_check(&MIGRATOR, true, applied);
+    fn pending_forward_migration_is_not_compatible() {
+        let migrator = test_migrator();
+        let status = evaluate_forward_migration_check(&migrator, Vec::new());
         assert!(!status.is_compatible());
-        assert!(status.entries().iter().any(|entry| {
-            entry.version() == missing && entry.result() == MigrationCheckResult::Pending
-        }));
     }
 
     #[test]
-    fn checksum_change_is_modified() {
-        let mut applied = exact_applied_epoch();
-        let modified = applied
-            .first_mut()
-            .expect("embedded database epoch has a first migration");
-        modified.checksum[0] ^= 0xff;
-        let version = modified.version;
-        let status = evaluate_migration_check(&MIGRATOR, true, applied);
-        assert!(status.entries().iter().any(|entry| {
-            entry.version() == version && entry.result() == MigrationCheckResult::Changed
-        }));
-    }
-
-    #[test]
-    fn failed_and_unknown_versions_are_incompatible() {
-        let mut applied = exact_applied_epoch();
-        applied
-            .first_mut()
-            .expect("embedded database epoch has a first migration")
-            .success = false;
+    fn changed_incomplete_and_unknown_versions_are_invalid() {
+        let migrator = test_migrator();
+        let mut applied = exact_applied_epoch(&migrator);
+        let changed = applied.first_mut().expect("embedded migration exists");
+        changed.checksum[0] ^= 0xff;
         applied.push(AppliedMigrationState {
             version: i64::MAX,
-            success: true,
-            checksum: vec![0; 48],
+            success: false,
+            checksum: vec![0; 32],
         });
-        let status = evaluate_migration_check(&MIGRATOR, true, applied);
-        assert!(!status.is_compatible());
-        assert_eq!(status.unexpected_applied_versions(), &[i64::MAX]);
-        assert!(
-            status
-                .entries()
-                .iter()
-                .any(|entry| entry.result() == MigrationCheckResult::Incomplete)
+        let status = evaluate_forward_migration_check(&migrator, applied);
+        assert_eq!(
+            status.incompatibility_reason(),
+            "the forward migration ledger has an unknown version"
         );
+    }
+
+    #[test]
+    fn schema_state_allows_one_null_forward_row_for_zero_forward_files() {
+        let rows = vec![SchemaStateRow {
+            base_release: BASE_RELEASE_IDENTITY.to_string(),
+            version: None,
+            success: None,
+            checksum: None,
+        }];
+        assert!(schema_state_applied(&rows).unwrap().is_empty());
+    }
+
+    #[test]
+    fn schema_state_rejects_mixed_or_wrong_base_rows() {
+        let mixed = vec![
+            SchemaStateRow {
+                base_release: BASE_RELEASE_IDENTITY.to_string(),
+                version: None,
+                success: None,
+                checksum: None,
+            },
+            SchemaStateRow {
+                base_release: BASE_RELEASE_IDENTITY.to_string(),
+                version: Some(1),
+                success: Some(true),
+                checksum: Some(vec![0]),
+            },
+        ];
+        assert!(schema_state_applied(&mixed).is_none());
+        assert!(
+            schema_state_applied(&[SchemaStateRow {
+                base_release: "wrong".to_string(),
+                version: None,
+                success: None,
+                checksum: None,
+            }])
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn pre_production_base_disables_forward_migrations() {
+        let rows = vec![SchemaStateRow {
+            base_release: BASE_RELEASE_IDENTITY.to_string(),
+            version: None,
+            success: None,
+            checksum: None,
+        }];
+        assert!(base_is_pre_production(&rows).unwrap());
+    }
+
+    #[test]
+    fn frozen_base_enables_forward_migrations() {
+        assert!(!release_is_pre_production("production-baseline"));
     }
 }

@@ -233,13 +233,13 @@ BEGIN
       FROM pg_proc AS proc
       JOIN pg_namespace AS namespace ON namespace.oid = proc.pronamespace
      WHERE namespace.nspname = 'ple_api'
-       AND proc.proname = 'export_live_demo_pending_course_invitations'
+       AND proc.proname = 'export_pending_course_invitations'
        AND pg_get_function_identity_arguments(proc.oid) = 'p_course_reference_number bigint';
     SELECT proc.oid INTO v_course
       FROM pg_proc AS proc
       JOIN pg_namespace AS namespace ON namespace.oid = proc.pronamespace
      WHERE namespace.nspname = 'ple_api'
-       AND proc.proname = 'load_live_demo_invitation_export_course'
+       AND proc.proname = 'load_invitation_export_course'
        AND pg_get_function_identity_arguments(proc.oid) = 'p_course_reference_number bigint';
     IF v_export IS NULL OR v_course IS NULL
        OR NOT has_function_privilege('ple_app', v_export, 'EXECUTE')
@@ -247,6 +247,7 @@ BEGIN
        OR has_function_privilege('public', v_export, 'EXECUTE')
        OR has_function_privilege('public', v_course, 'EXECUTE')
        OR has_table_privilege('ple_app', 'ple_private.course_invitation', 'SELECT')
+       OR has_table_privilege('ple_app', 'ple_private.course_invitation', 'UPDATE')
        OR has_table_privilege('ple_app', 'ple_private.course_roster_profile', 'SELECT')
        OR position('current_session_account_is_course_instructor' IN pg_get_functiondef(v_export)) = 0
        OR position('current_session_account_is_course_instructor' IN pg_get_functiondef(v_course)) = 0

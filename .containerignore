@@ -10,5 +10,12 @@
 !containers/Containerfile.api
 !containers/Containerfile.gateway
 !schemas
+!schemas/base_schema
+!schemas/base_schema/**
 !schemas/migrations
 !schemas/migrations/**
+!schemas/installation_data
+!schemas/installation_data/**
+!content
+!content/pilot
+!content/pilot/**

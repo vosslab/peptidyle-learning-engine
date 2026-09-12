@@ -6,7 +6,7 @@ fn course_appearance_workspace() -> std::path::PathBuf {
     let workspace = super::tests::temp_workspace();
     fs::write(
         workspace.join(MANIFEST_NAME),
-        b"schema_version: 1\nkind: ple.disposable_postgres_minio_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: course_appearance_cross_store\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n  minio_endpoint: secrets/minio-endpoint.url\n  minio_region: secrets/minio-region\n  minio_access_key_id: secrets/minio-access-key-id\n  minio_secret_access_key: secrets/minio-secret-access-key\n",
+        b"schema_version: 1\nkind: ple.disposable_postgres_minio_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: course_appearance_cross_store\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_migrator_url: secrets/postgres-migrator.url\n  postgres_admin_password: secrets/postgres-admin.password\n  minio_endpoint: secrets/minio-endpoint.url\n  minio_region: secrets/minio-region\n  minio_access_key_id: secrets/minio-access-key-id\n  minio_secret_access_key: secrets/minio-secret-access-key\n",
     )
     .unwrap();
     for (name, contents) in [
@@ -33,13 +33,13 @@ fn course_appearance_runtime_loads_typed_redacted_cross_store_inputs() {
     let workspace = course_appearance_workspace();
     let shared = load_from_locator_unix(&workspace.join(MANIFEST_NAME)).unwrap();
     assert_eq!(
-        shared.admin_url().expose(),
-        "postgres://ple_e2e_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline"
+        shared.migration_url().expose(),
+        "postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline"
     );
     let runtime = load_course_appearance_from_locator_unix(&workspace.join(MANIFEST_NAME)).unwrap();
     assert_eq!(
-        runtime.admin_url().expose(),
-        "postgres://ple_e2e_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline"
+        runtime.migration_url().expose(),
+        "postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline"
     );
     assert_eq!(runtime.minio().endpoint_url(), "http://127.0.0.1:19000");
     assert_eq!(runtime.minio().region(), "us-east-1");

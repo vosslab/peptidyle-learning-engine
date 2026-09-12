@@ -59,7 +59,7 @@ impl SupportCapabilityStore for PostgresSupportCapabilityStore {
     ) -> Result<SupportCapabilityReceipt, StoreError> {
         input.validate()?;
         let mut tx = self.begin(token).await?;
-        let row = sqlx::query("SELECT capability_id, course_reference_number, sysadmin_reference_number, purpose, expires_at_millis, revoked_at_millis FROM ple_api.issue_live_demo_course_roster_support($1, $2, $3, $4)")
+        let row = sqlx::query("SELECT capability_id, course_reference_number, sysadmin_reference_number, purpose, expires_at_millis, revoked_at_millis FROM ple_api.issue_course_roster_support($1, $2, $3, $4)")
             .bind(i64::from(course.number())).bind(i64::from(input.sysadmin_reference.number())).bind(&input.purpose).bind(random_uuid()?).fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?.ok_or(StoreError::NotFound)?;
         let receipt = decode(&row)?;
         tx.commit().await.map_err(map_sqlx_error)?;
@@ -72,7 +72,7 @@ impl SupportCapabilityStore for PostgresSupportCapabilityStore {
         capability_id: Uuid,
     ) -> Result<SupportCapabilityReceipt, StoreError> {
         let mut tx = self.begin(token).await?;
-        let row = sqlx::query("SELECT capability_id, course_reference_number, sysadmin_reference_number, purpose, expires_at_millis, revoked_at_millis FROM ple_api.revoke_live_demo_course_roster_support($1, $2)")
+        let row = sqlx::query("SELECT capability_id, course_reference_number, sysadmin_reference_number, purpose, expires_at_millis, revoked_at_millis FROM ple_api.revoke_course_roster_support($1, $2)")
             .bind(i64::from(course.number())).bind(capability_id).fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?.ok_or(StoreError::NotFound)?;
         let receipt = decode(&row)?;
         tx.commit().await.map_err(map_sqlx_error)?;
@@ -84,8 +84,13 @@ impl SupportCapabilityStore for PostgresSupportCapabilityStore {
         capability_id: Uuid,
     ) -> Result<Vec<CourseRosterEntry>, StoreError> {
         let mut tx = self.begin(token).await?;
-        let rows = sqlx::query("SELECT roster_id, roster_email, state FROM ple_api.list_live_demo_support_course_roster($1)")
-            .bind(capability_id).fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
+        let rows = sqlx::query(
+            "SELECT roster_id, roster_email, state FROM ple_api.read_course_roster_support($1)",
+        )
+        .bind(capability_id)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
         let entries = rows
             .iter()
             .map(|row| {

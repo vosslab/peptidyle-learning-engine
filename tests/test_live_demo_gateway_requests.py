@@ -32,7 +32,6 @@ def test_persona_session_argv_writes_the_jar_without_exposing_a_cookie(
 
 	assert secret not in " ".join(argv)
 
-
 #============================================
 def test_demo_request_argv_reads_the_jar_without_exposing_a_cookie(tmp_path: pathlib.Path) -> None:
 	"""Product requests pass the private jar filename rather than its contents."""

@@ -16,7 +16,13 @@ function history() {
     },
     assignment: { reference: "A-4", title: "Peptide structure practice" },
     state: "submitted",
-    questions: [{ position: 1, responseState: "submitted" }],
+    questions: [
+      {
+        position: 1,
+        questionRevision: { questionId: "7K3-M9QP", revisionNumber: 2 },
+        responseState: "submitted",
+      },
+    ],
   };
 }
 

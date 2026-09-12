@@ -26,17 +26,14 @@ COMPOSE_ENVIRONMENT = "secrets/compose.env"
 CLEANUP_CAPABILITY = "secrets/cleanup.capability"
 POSTGRES_ADMIN_URL = "secrets/postgres-admin.url"
 POSTGRES_ADMIN_PASSWORD = "secrets/postgres-admin.password"
+POSTGRES_MIGRATOR_URL = "secrets/postgres-migrator.url"
 MINIO_ENDPOINT = "secrets/minio-endpoint.url"
 MINIO_REGION = "secrets/minio-region"
 MINIO_ACCESS_KEY_ID = "secrets/minio-access-key-id"
 MINIO_SECRET_ACCESS_KEY = "secrets/minio-secret-access-key"
 DATABASE_NAME = "ple_e2e_baseline"
-POSTGRES_MIGRATION_ACCEPTANCE_DIRECTORY = "postgres_migration_acceptance"
-POSTGRES_MIGRATION_ACCEPTANCE_KIND = "ple.postgres_migration_acceptance"
-POSTGRES_MIGRATION_ACCEPTANCE_PROFILE = "postgres_migration_acceptance"
-POSTGRES_MIGRATION_ACCEPTANCE_MIGRATOR_ROLE = "ple_migrator"
-POSTGRES_MIGRATION_ACCEPTANCE_MIGRATOR_URL = "secrets/postgres-migrator.url"
 POSTGRES_USER = "ple_e2e_migrator"
+POSTGRES_MIGRATOR_ROLE = "ple_migrator"
 
 
 MAX_MANIFEST_BYTES = 4_096
@@ -58,6 +55,7 @@ class DatabaseBaselineRuntime:
 	cleanup_capability_path: pathlib.Path
 	admin_url_path: pathlib.Path
 	admin_password_path: pathlib.Path
+	migrator_url_path: pathlib.Path
 
 
 @dataclasses.dataclass(frozen=True)
@@ -70,6 +68,7 @@ class CourseAppearanceCrossStoreRuntime:
 	cleanup_capability_path: pathlib.Path
 	admin_url_path: pathlib.Path
 	admin_password_path: pathlib.Path
+	migrator_url_path: pathlib.Path
 	minio_endpoint_path: pathlib.Path
 	minio_region_path: pathlib.Path
 	minio_access_key_id_path: pathlib.Path
@@ -413,6 +412,7 @@ def _load_course_appearance_cross_store_runtime(
 		"cleanup_capability": CLEANUP_CAPABILITY,
 		"postgres_admin_url": POSTGRES_ADMIN_URL,
 		"postgres_admin_password": POSTGRES_ADMIN_PASSWORD,
+		"postgres_migrator_url": POSTGRES_MIGRATOR_URL,
 		"minio_endpoint": MINIO_ENDPOINT,
 		"minio_region": MINIO_REGION,
 		"minio_access_key_id": MINIO_ACCESS_KEY_ID,
@@ -430,6 +430,12 @@ def _load_course_appearance_cross_store_runtime(
 			raise _error("acceptance runtime cleanup capability is invalid")
 		admin_password = _url_secret(secrets_descriptor, "postgres-admin.url", POSTGRES_USER, "postgres admin URL")
 		_admin_password_secret(secrets_descriptor, admin_password)
+		_url_secret(
+			secrets_descriptor,
+			"postgres-migrator.url",
+			POSTGRES_MIGRATOR_ROLE,
+			"postgres migrator URL",
+		)
 		_minio_endpoint_secret(secrets_descriptor)
 		_minio_text_secret(secrets_descriptor, "minio-region", "us-east-1", "minio region")
 		_minio_text_secret(secrets_descriptor, "minio-access-key-id", None, "minio access key")
@@ -443,6 +449,7 @@ def _load_course_appearance_cross_store_runtime(
 		cleanup_capability_path=workspace / CLEANUP_CAPABILITY,
 		admin_url_path=workspace / POSTGRES_ADMIN_URL,
 		admin_password_path=workspace / POSTGRES_ADMIN_PASSWORD,
+		migrator_url_path=workspace / POSTGRES_MIGRATOR_URL,
 		minio_endpoint_path=workspace / MINIO_ENDPOINT,
 		minio_region_path=workspace / MINIO_REGION,
 		minio_access_key_id_path=workspace / MINIO_ACCESS_KEY_ID,
@@ -537,6 +544,7 @@ def _validated_runtime_and_service_passwords(
 			"cleanup_capability",
 			"postgres_admin_url",
 			"postgres_admin_password",
+			"postgres_migrator_url",
 		),
 		"secrets",
 	)
@@ -545,6 +553,7 @@ def _validated_runtime_and_service_passwords(
 		"cleanup_capability": CLEANUP_CAPABILITY,
 		"postgres_admin_url": POSTGRES_ADMIN_URL,
 		"postgres_admin_password": POSTGRES_ADMIN_PASSWORD,
+		"postgres_migrator_url": POSTGRES_MIGRATOR_URL,
 	}
 	if secret_values != expected:
 		raise _error("acceptance runtime secret paths are invalid")
@@ -575,6 +584,12 @@ def _validated_runtime_and_service_passwords(
 			"postgres admin URL",
 		)
 		_admin_password_secret(secrets_descriptor, admin_password)
+		_url_secret(
+			secrets_descriptor,
+			"postgres-migrator.url",
+			POSTGRES_MIGRATOR_ROLE,
+			"postgres migrator URL",
+		)
 	finally:
 		os.close(secrets_descriptor)
 	runtime = DatabaseBaselineRuntime(
@@ -584,29 +599,9 @@ def _validated_runtime_and_service_passwords(
 		cleanup_capability_path=workspace / CLEANUP_CAPABILITY,
 		admin_url_path=workspace / POSTGRES_ADMIN_URL,
 		admin_password_path=workspace / POSTGRES_ADMIN_PASSWORD,
+		migrator_url_path=workspace / POSTGRES_MIGRATOR_URL,
 	)
 	return runtime, ()
-
-
-#============================================
-def main(argv: list[str] | None = None) -> None:
-	"""Provide the closed PostgreSQL Migration Acceptance Runtime bootstrap helper."""
-	arguments = sys.argv[1:] if argv is None else argv
-	commands = {
-		"--emit-migration-acceptance-bootstrap": emit_postgres_migration_acceptance_bootstrap,
-	}
-	if len(arguments) != 2 or arguments[0] not in commands:
-		print(
-			"   or: python3 -m local_stack_control.runtime_manifest "
-			"--emit-migration-acceptance-bootstrap WORKSPACE",
-			file=sys.stderr,
-		)
-		raise SystemExit(2)
-	try:
-		commands[arguments[0]](pathlib.Path(arguments[1]))
-	except local_stack_control.models.ControllerError:
-		print("PostgreSQL Migration Acceptance Runtime bootstrap is unavailable", file=sys.stderr)
-		raise SystemExit(2) from None
 
 
 #============================================
@@ -637,6 +632,14 @@ def _write_private_file_at(parent_descriptor: int, name: str, content: bytes) ->
 
 
 #============================================
+def main(argv: list[str] | None = None) -> None:
+	"""Reject command-line use; runtime credentials have no printable interface."""
+	del argv
+	print("acceptance runtime manifest has no command-line interface", file=sys.stderr)
+	raise SystemExit(2)
+
+
+#============================================
 def write_database_baseline_runtime(workspace: pathlib.Path, port: int) -> DatabaseBaselineRuntime:
 	"""Create the complete closed runtime handoff before starting the private child."""
 	_require_private_platform()
@@ -657,10 +660,15 @@ def write_database_baseline_runtime(workspace: pathlib.Path, port: int) -> Datab
 		)
 		try:
 			postgres_password = secrets.token_urlsafe(24)
+			migrator_password = secrets.token_urlsafe(24)
 			capability = secrets.token_bytes(32)
 			capability_digest = hashlib.sha256(capability).hexdigest()
 			endpoint = f"@127.0.0.1:{port}/{DATABASE_NAME}\n"
-			base = (
+			migrator_url = (
+				f"postgres://{POSTGRES_MIGRATOR_ROLE}:"
+				f"{urllib.parse.quote(migrator_password, safe='')}{endpoint}"
+			)
+			admin_url = (
 				f"postgres://{POSTGRES_USER}:"
 				f"{urllib.parse.quote(postgres_password, safe='')}{endpoint}"
 			)
@@ -686,135 +694,23 @@ def write_database_baseline_runtime(workspace: pathlib.Path, port: int) -> Datab
 				f"  cleanup_capability: {CLEANUP_CAPABILITY}\n"
 				f"  postgres_admin_url: {POSTGRES_ADMIN_URL}\n"
 				f"  postgres_admin_password: {POSTGRES_ADMIN_PASSWORD}\n"
+				f"  postgres_migrator_url: {POSTGRES_MIGRATOR_URL}\n"
 			).encode("ascii")
 			_write_private_file_at(secrets_descriptor, "compose.env", compose_environment)
 			_write_private_file_at(secrets_descriptor, "cleanup.capability", capability)
-			_write_private_file_at(secrets_descriptor, "postgres-admin.url", base.encode("ascii"))
+			_write_private_file_at(secrets_descriptor, "postgres-admin.url", admin_url.encode("ascii"))
 			_write_private_file_at(
 				secrets_descriptor,
 				"postgres-admin.password",
 				postgres_password.encode("ascii") + b"\n",
 			)
+			_write_private_file_at(secrets_descriptor, "postgres-migrator.url", migrator_url.encode("ascii"))
 			_write_private_file_at(workspace_descriptor, MANIFEST_NAME, manifest)
 		finally:
 			os.close(secrets_descriptor)
 	finally:
 		os.close(workspace_descriptor)
 	return load_database_baseline_runtime(workspace)
-
-
-#============================================
-def write_postgres_migration_acceptance_runtime(workspace: pathlib.Path, port: int) -> pathlib.Path:
-	"""Create the nested private PostgreSQL Migration Acceptance Runtime."""
-	# ASVS 1.2.4, 2.2.1, and 8.3.1: the migrator URL is generated privately and
-	# the child receives only its exact closed profile locator.
-	_require_private_platform()
-	workspace = workspace.absolute()
-	if not isinstance(port, int) or isinstance(port, bool) or not 1024 <= port <= 65535:
-		raise _error("acceptance runtime port is invalid")
-	workspace_descriptor = _open_private_workspace(workspace)
-	try:
-		try:
-			os.mkdir(POSTGRES_MIGRATION_ACCEPTANCE_DIRECTORY, 0o700, dir_fd=workspace_descriptor)
-		except OSError as error:
-			raise _error("PostgreSQL Migration Acceptance Runtime is unavailable") from error
-		postgres_migration_acceptance_descriptor = _open_private_directory_at(
-			workspace_descriptor,
-			POSTGRES_MIGRATION_ACCEPTANCE_DIRECTORY,
-			"PostgreSQL Migration Acceptance Runtime directory",
-		)
-		try:
-			try:
-				os.mkdir(SECRETS_DIRECTORY, 0o700, dir_fd=postgres_migration_acceptance_descriptor)
-			except OSError as error:
-				raise _error("PostgreSQL Migration Acceptance Runtime is unavailable") from error
-			secrets_descriptor = _open_private_directory_at(
-				postgres_migration_acceptance_descriptor,
-				SECRETS_DIRECTORY,
-				"PostgreSQL Migration Acceptance Runtime secrets directory",
-			)
-			try:
-				password = secrets.token_urlsafe(24)
-				endpoint = f"@127.0.0.1:{port}/{DATABASE_NAME}\n"
-				url = (
-					f"postgres://{POSTGRES_MIGRATION_ACCEPTANCE_MIGRATOR_ROLE}:"
-					f"{urllib.parse.quote(password, safe='')}{endpoint}"
-				).encode("ascii")
-				manifest = (
-					"schema_version: 1\n"
-					f"kind: {POSTGRES_MIGRATION_ACCEPTANCE_KIND}\n"
-					"identity:\n"
-					f"  owner: {local_stack_control.models.LIVE_DEMO_BROWSER_OWNER}\n"
-					f"  project: {local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT}\n"
-					f"  profile: {POSTGRES_MIGRATION_ACCEPTANCE_PROFILE}\n"
-					"secrets:\n"
-					f"  postgres_migrator_url: {POSTGRES_MIGRATION_ACCEPTANCE_MIGRATOR_URL}\n"
-				).encode("ascii")
-				_write_private_file_at(secrets_descriptor, "postgres-migrator.url", url)
-				_write_private_file_at(postgres_migration_acceptance_descriptor, MANIFEST_NAME, manifest)
-			finally:
-				os.close(secrets_descriptor)
-		finally:
-			os.close(postgres_migration_acceptance_descriptor)
-	finally:
-		os.close(workspace_descriptor)
-	return workspace / POSTGRES_MIGRATION_ACCEPTANCE_DIRECTORY / MANIFEST_NAME
-
-
-#============================================
-def emit_postgres_migration_acceptance_bootstrap(workspace: pathlib.Path) -> None:
-	"""Emit private SQL that binds the bootstrap-created role to its URL secret."""
-	_require_private_platform()
-	workspace = workspace.absolute()
-	workspace_descriptor = _open_private_workspace(workspace)
-	try:
-		postgres_migration_acceptance_descriptor = _open_private_directory_at(
-			workspace_descriptor,
-			POSTGRES_MIGRATION_ACCEPTANCE_DIRECTORY,
-			"PostgreSQL Migration Acceptance Runtime directory",
-		)
-		try:
-			secrets_descriptor = _open_private_directory_at(
-				postgres_migration_acceptance_descriptor,
-				SECRETS_DIRECTORY,
-				"PostgreSQL Migration Acceptance Runtime secrets directory",
-			)
-			try:
-				password = _url_secret(
-					secrets_descriptor,
-					"postgres-migrator.url",
-					POSTGRES_MIGRATION_ACCEPTANCE_MIGRATOR_ROLE,
-					"PostgreSQL Migration Acceptance Runtime migrator URL",
-				)
-			finally:
-				os.close(secrets_descriptor)
-		finally:
-			os.close(postgres_migration_acceptance_descriptor)
-	finally:
-		os.close(workspace_descriptor)
-	print("BEGIN;")
-	# PostgreSQL 17 grants a non-superuser role creator an unremovable ADMIN
-	# membership in its created role.  This bootstrap runs as the disposable
-	# superuser, so it can establish the isolated Publisher capability without
-	# leaving a ple_migrator control edge. The three capability roles below are
-	# all consumed by later migrations, so create them at the same boundary.
-	print(
-		"CREATE ROLE ple_public_asset_publisher "
-		"NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE "
-		"NOREPLICATION NOBYPASSRLS;"
-	)
-	print(
-		"CREATE ROLE ple_native_ple_grading_worker "
-		"NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE "
-		"NOREPLICATION NOBYPASSRLS;"
-	)
-	print(
-		"CREATE ROLE ple_webwork_grading_worker "
-		"NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE "
-		"NOREPLICATION NOBYPASSRLS;"
-	)
-	print(f"ALTER ROLE {POSTGRES_MIGRATION_ACCEPTANCE_MIGRATOR_ROLE} PASSWORD '{password}';")
-	print("COMMIT;")
 
 
 #============================================
@@ -845,15 +741,21 @@ def write_course_appearance_cross_store_runtime(
 		secrets_descriptor = _open_private_directory_at(workspace_descriptor, SECRETS_DIRECTORY, "secrets directory")
 		try:
 			postgres_password = secrets.token_urlsafe(24)
+			migrator_password = secrets.token_urlsafe(24)
 			# Hex remains opaque data through the shell and MinIO CLI boundary.
 			minio_access_key_id = secrets.token_hex(16)
 			minio_secret_access_key = secrets.token_hex(16)
 			capability = secrets.token_bytes(32)
 			capability_digest = hashlib.sha256(capability).hexdigest()
 			endpoint = f"@127.0.0.1:{postgres_port}/{DATABASE_NAME}\n"
-			def database_url(user: str, password: str) -> bytes:
-				value = f"postgres://{user}:{urllib.parse.quote(password, safe='')}{endpoint}"
-				return value.encode("ascii")
+			migrator_url = (
+				f"postgres://{POSTGRES_MIGRATOR_ROLE}:"
+				f"{urllib.parse.quote(migrator_password, safe='')}{endpoint}"
+			).encode("ascii")
+			admin_url = (
+				f"postgres://{POSTGRES_USER}:"
+				f"{urllib.parse.quote(postgres_password, safe='')}{endpoint}"
+			).encode("ascii")
 			password_path = workspace / POSTGRES_ADMIN_PASSWORD
 			compose_environment = (
 				f"POSTGRES_USER={POSTGRES_USER}\n"
@@ -879,6 +781,7 @@ def write_course_appearance_cross_store_runtime(
 				f"  cleanup_capability: {CLEANUP_CAPABILITY}\n"
 				f"  postgres_admin_url: {POSTGRES_ADMIN_URL}\n"
 				f"  postgres_admin_password: {POSTGRES_ADMIN_PASSWORD}\n"
+				f"  postgres_migrator_url: {POSTGRES_MIGRATOR_URL}\n"
 				f"  minio_endpoint: {MINIO_ENDPOINT}\n"
 				f"  minio_region: {MINIO_REGION}\n"
 				f"  minio_access_key_id: {MINIO_ACCESS_KEY_ID}\n"
@@ -886,8 +789,9 @@ def write_course_appearance_cross_store_runtime(
 			).encode("ascii")
 			_write_private_file_at(secrets_descriptor, "compose.env", compose_environment)
 			_write_private_file_at(secrets_descriptor, "cleanup.capability", capability)
-			_write_private_file_at(secrets_descriptor, "postgres-admin.url", database_url(POSTGRES_USER, postgres_password))
+			_write_private_file_at(secrets_descriptor, "postgres-admin.url", admin_url)
 			_write_private_file_at(secrets_descriptor, "postgres-admin.password", postgres_password.encode("ascii") + b"\n")
+			_write_private_file_at(secrets_descriptor, "postgres-migrator.url", migrator_url)
 			_write_private_file_at(secrets_descriptor, "minio-endpoint.url", f"http://127.0.0.1:{minio_port}\n".encode("ascii"))
 			_write_private_file_at(secrets_descriptor, "minio-region", b"us-east-1\n")
 			_write_private_file_at(secrets_descriptor, "minio-access-key-id", minio_access_key_id.encode("ascii") + b"\n")
@@ -898,7 +802,3 @@ def write_course_appearance_cross_store_runtime(
 	finally:
 		os.close(workspace_descriptor)
 	return load_course_appearance_cross_store_runtime(workspace)
-
-
-if __name__ == "__main__":
-	main()

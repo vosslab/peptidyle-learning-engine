@@ -80,7 +80,7 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query(
             "SELECT course_reference_number, course_short_name, course_long_name \
-             FROM ple_api.list_pending_live_student_course_invitations()",
+             FROM ple_api.list_pending_student_course_invitations()",
         )
         .fetch_all(&mut *transaction)
         .await

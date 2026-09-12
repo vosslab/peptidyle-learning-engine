@@ -8,7 +8,7 @@ readonly repository_root
 readonly project_name="ple-live-demo-browser"
 readonly workspace="local_stack_state/live_demo_browser/workspace"
 readonly runtime_environment_path="$workspace/env.local"
-readonly report_path="$workspace/live_demo_course_report.json"
+readonly live_demo_course_long_name="Biochemistry 301: Proteins and Peptides"
 
 # shellcheck disable=SC1091
 source "$repository_root/source_me.sh"
@@ -140,12 +140,12 @@ theme_payload() {
 }
 
 cleanup_synthetic_sessions() {
-	local cookie token token_hash postgres sql observer_end_event_id cleanup_failed=0
+	local cookie token token_hash postgres sql cleanup_failed=0
 	if ! postgres="$(service_id postgres)"; then
 		echo "Course Appearance evidence: synthetic fixture cleanup could not resolve PostgreSQL" >&2
 		return 1
 	fi
-	for cookie in "${observer_cookie:-}" "${inactive_member_cookie:-}"; do
+	for cookie in "${inactive_member_cookie:-}"; do
 		[ -n "$cookie" ] || continue
 		token="${cookie#*=}"
 		if ! token_hash="$(python3 -c 'import base64, hashlib, sys; print(hashlib.sha256(base64.urlsafe_b64decode(sys.argv[1] + "=" * (-len(sys.argv[1]) % 4))).hexdigest())' "$token")"; then
@@ -159,17 +159,6 @@ cleanup_synthetic_sessions() {
 			cleanup_failed=1
 		fi
 	done
-	if [ -n "${observer_account_id:-}" ] && [ -n "${course:-}" ]; then
-		if ! observer_end_event_id="$(python3 -c 'import uuid; print(uuid.uuid4())')"; then
-			echo "Course Appearance evidence: observer relationship cleanup identity failed" >&2
-			return 1
-		fi
-		sql="INSERT INTO ple_private.course_observer_relationship_event (course_observer_relationship_event_id, course_id, course_observer_account_id, recorded_by_account_id, event_kind, occurred_at) SELECT '$observer_end_event_id', '$course', '$observer_account_id', email.account_id, 'ended', pg_catalog.clock_timestamp() FROM ple_private.account_authentication_email AS email WHERE email.normalized_email = 'elena.rivera@live-demo.invalid' ON CONFLICT (course_id, course_observer_account_id, event_kind) DO NOTHING;"
-		if ! podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$1"' sh "$sql" >/dev/null; then
-			echo "Course Appearance evidence: observer relationship end event failed" >&2
-			cleanup_failed=1
-		fi
-	fi
 	return "$cleanup_failed"
 }
 
@@ -193,11 +182,17 @@ restore_original_theme_on_exit() {
 course_reference() {
 	python3 -c '
 import json, re, sys
-value=json.load(open(sys.argv[1], encoding="utf-8")); reference=value.get("course_reference")
+value=json.loads(sys.argv[1]); long_name=sys.argv[2]
+if not isinstance(value,dict) or set(value)!={"items","nextCursor"} or value["nextCursor"] is not None or not isinstance(value["items"],list):
+    raise SystemExit("Course list is not the closed current projection")
+matches=[item for item in value["items"] if isinstance(item,dict) and item.get("longName")==long_name]
+if len(matches)!=1 or set(matches[0])!={"reference","shortName","longName","term","theme"}:
+    raise SystemExit("Live Demo Course is absent, duplicated, or malformed")
+reference=matches[0]["reference"]
 if not isinstance(reference,str) or not re.fullmatch(r"C-[1-9][0-9]{0,9}",reference):
-    raise SystemExit("seeded Course report has no public Course reference")
+    raise SystemExit("Live Demo Course has no canonical public reference")
 print(reference)
-' "$report_path"
+' "$1" "$live_demo_course_long_name"
 }
 
 course_uuid() {
@@ -231,37 +226,25 @@ foreign_course_reference() {
 }
 
 synthetic_concealed_cookie() {
-	local kind="$1" course="$2" supplied_account_id="${3:-}" postgres account_id membership_id session_id token_pair token token_hash observer_start_event_id inactive_membership_end_event_id sql
+	local kind="$1" course="$2" postgres account_id membership_id session_id token_pair token token_hash inactive_membership_end_event_id sql
 	case "$kind" in
-		observer)
-			[ -n "$supplied_account_id" ] || fail "observer fixture needs one Account identity"
-			account_id="$supplied_account_id"
-			membership_id=""
-			;;
 		inactive_member)
 			read -r account_id membership_id inactive_membership_end_event_id <<<"$(python3 -c 'import uuid; print(uuid.uuid4(), uuid.uuid4(), uuid.uuid4())')"
 			;;
 		*) fail "unknown synthetic concealed persona" ;;
 	esac
 	token_pair="$(python3 -c 'import base64, hashlib, secrets, uuid; raw=secrets.token_bytes(32); print(base64.urlsafe_b64encode(raw).decode().rstrip("="), hashlib.sha256(raw).hexdigest(), uuid.uuid4(), uuid.uuid4())')"
-	read -r token token_hash session_id observer_start_event_id <<<"$token_pair"
+	read -r token token_hash session_id _ <<<"$token_pair"
 	postgres="$(service_id postgres)"
-	if [ "$kind" = observer ]; then
-		sql="INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES ('$account_id', 'instructor', pg_catalog.clock_timestamp()) ON CONFLICT (account_id) DO NOTHING; INSERT INTO ple_private.course_observer_relationship_event (course_observer_relationship_event_id, course_id, course_observer_account_id, recorded_by_account_id, event_kind, occurred_at) SELECT '$observer_start_event_id', '$course', '$account_id', email.account_id, 'started', pg_catalog.clock_timestamp() FROM ple_private.account_authentication_email AS email WHERE email.normalized_email = 'elena.rivera@live-demo.invalid' ON CONFLICT (course_id, course_observer_account_id, event_kind) DO NOTHING;"
-	else
-		sql="INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES ('$account_id', 'instructor', pg_catalog.clock_timestamp()) ON CONFLICT (account_id) DO NOTHING; INSERT INTO ple_data.course_membership (membership_id, course_id, account_id, role, joined_at, student_record_id) VALUES ('$membership_id', '$course', '$account_id', 'instructor', pg_catalog.clock_timestamp(), NULL) ON CONFLICT (membership_id) DO NOTHING; INSERT INTO ple_data.course_membership_event (course_membership_event_id, membership_id, event_kind, occurred_at, reason) VALUES ('$inactive_membership_end_event_id', '$membership_id', 'ended', pg_catalog.clock_timestamp(), 'disposable Course Summary refusal fixture');"
-	fi
+	sql="INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES ('$account_id', 'instructor', pg_catalog.clock_timestamp()) ON CONFLICT (account_id) DO NOTHING; INSERT INTO ple_data.course_membership (membership_id, course_id, account_id, role, joined_at, student_record_id) VALUES ('$membership_id', '$course', '$account_id', 'instructor', pg_catalog.clock_timestamp(), NULL) ON CONFLICT (membership_id) DO NOTHING; INSERT INTO ple_data.course_membership_event (course_membership_event_id, membership_id, event_kind, occurred_at, reason) VALUES ('$inactive_membership_end_event_id', '$membership_id', 'ended', pg_catalog.clock_timestamp(), 'disposable Course Summary refusal fixture');"
 	sql="$sql INSERT INTO ple_private.authenticated_session (session_id, account_id, product_role, token_hash, created_at, expires_at) VALUES ('$session_id', '$account_id', 'instructor', decode('$token_hash', 'hex'), pg_catalog.clock_timestamp(), '2100-01-01 00:00:00+00') ON CONFLICT (token_hash) DO NOTHING;"
 	podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$1"' sh "$sql" >/dev/null
 	printf '__Host-ple_session=%s\n' "$token"
 }
 
 require_live_demo
-# The seeded Course is the required Instructor-plus-enrolled-Student fixture.
+# The seeded Course is discovered through the Instructor's ordinary current projection.
 bash "$repository_root/tests/e2e/e2e_live_demo_course_seed.sh" --state >/dev/null
-# Course-state convergence writes the report on a first use; only then is it a
-# valid setup identity for the read-only UUID lookup below.
-[ -f "$report_path" ] || fail "seeded Course report was not produced"
 # This establishes an exact foreign Course without relying on a hidden session
 # or direct data mutation; the later appearance calls remain ordinary HTTP.
 foreign_course="$(find_foreign_course_uuid)"
@@ -275,21 +258,22 @@ foreign_reference="$(foreign_course_reference "$foreign_course")"
 instructor_cookie="$(persona_cookie elenaInstructor)"
 student_cookie="$(persona_cookie maryStudent)"
 sysadmin_cookie="$(persona_cookie morganSysadmin)"
-course="$(course_uuid "$(course_reference)")"
+course_list="$(request '/api/course-instances' "$instructor_cookie")"
+assert_no_store "$course_list" 200
+course_public_reference="$(course_reference "$(body "$course_list")")"
+course="$(course_uuid "$course_public_reference")"
 trap restore_original_theme_on_exit EXIT
-observer_account_id="$(python3 -c 'import uuid; print(uuid.uuid4())')"
-observer_cookie="$(synthetic_concealed_cookie observer "$course" "$observer_account_id")"
 inactive_member_cookie="$(synthetic_concealed_cookie inactive_member "$course")"
 path="/api/courses/$course/appearance"
 summary_path="/api/courses/$course"
-navigation_path="/api/navigation/$(course_reference)"
+navigation_path="/api/navigation/$course_public_reference"
 
 instructor_summary="$(request "$summary_path" "$instructor_cookie")"
 student_summary="$(request "$summary_path" "$student_cookie")"
 assert_no_store "$instructor_summary" 200
 assert_no_store "$student_summary" 200
-assert_course_summary "$(body "$instructor_summary")" "$course" "$(course_reference)" instructor
-assert_course_summary "$(body "$student_summary")" "$course" "$(course_reference)" student
+assert_course_summary "$(body "$instructor_summary")" "$course" "$course_public_reference" instructor
+assert_course_summary "$(body "$student_summary")" "$course" "$course_public_reference" student
 assert_same_course_summary_identity "$(body "$instructor_summary")" "$(body "$student_summary")"
 
 instructor_navigation="$(request "$navigation_path" "$instructor_cookie")"
@@ -323,33 +307,28 @@ assert_no_store "$foreign" 404
 summary_anonymous="$(request "$summary_path")"
 summary_sysadmin="$(request "$summary_path" "$sysadmin_cookie")"
 summary_foreign="$(request "/api/courses/$foreign_course" "$instructor_cookie")"
-summary_observer="$(request "$summary_path" "$observer_cookie")"
 summary_inactive_member="$(request "$summary_path" "$inactive_member_cookie")"
 assert_no_store "$summary_anonymous" 404
 assert_no_store "$summary_sysadmin" 404
 assert_no_store "$summary_foreign" 404
-assert_no_store "$summary_observer" 404
 assert_no_store "$summary_inactive_member" 404
 [ "$(body "$summary_anonymous")" = "$(body "$summary_sysadmin")" ] && \
 	[ "$(body "$summary_anonymous")" = "$(body "$summary_foreign")" ] && \
-	[ "$(body "$summary_anonymous")" = "$(body "$summary_observer")" ] && \
 	[ "$(body "$summary_anonymous")" = "$(body "$summary_inactive_member")" ] ||
 fail "Course Summary concealed caller responses differ"
 
 navigation_anonymous="$(request "$navigation_path")"
 navigation_sysadmin="$(request "$navigation_path" "$sysadmin_cookie")"
 navigation_foreign="$(request "/api/navigation/$foreign_reference" "$instructor_cookie")"
-navigation_observer="$(request "$navigation_path" "$observer_cookie")"
 navigation_inactive_member="$(request "$navigation_path" "$inactive_member_cookie")"
 navigation_malformed="$(request "/api/navigation/C-0" "$instructor_cookie")"
 navigation_non_course="$(request "/api/navigation/R-1" "$instructor_cookie")"
 for response in "$navigation_anonymous" "$navigation_sysadmin" "$navigation_foreign" \
-	"$navigation_observer" "$navigation_inactive_member" "$navigation_malformed" "$navigation_non_course"; do
+	"$navigation_inactive_member" "$navigation_malformed" "$navigation_non_course"; do
 	assert_no_store "$response" 404
 done
 [ "$(body "$navigation_anonymous")" = "$(body "$navigation_sysadmin")" ] && \
 	[ "$(body "$navigation_anonymous")" = "$(body "$navigation_foreign")" ] && \
-	[ "$(body "$navigation_anonymous")" = "$(body "$navigation_observer")" ] && \
 	[ "$(body "$navigation_anonymous")" = "$(body "$navigation_inactive_member")" ] && \
 	[ "$(body "$navigation_anonymous")" = "$(body "$navigation_malformed")" ] && \
 	[ "$(body "$navigation_anonymous")" = "$(body "$navigation_non_course")" ] ||

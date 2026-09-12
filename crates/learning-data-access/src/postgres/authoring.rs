@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use super::Pool;
 use super::connection::map_sqlx_error;
+use crate::authoring::validate_initial_draft_source_binding;
 use crate::{
     AuthoringDraft, AuthoringDraftStore, AuthoringDraftSummary, CreateAuthoringDraftInput,
     DraftQuestionEditNumber, DraftQuestionUuid, SaveAuthoringDraftInput, SessionTokenHash,
@@ -99,13 +100,17 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         input: CreateAuthoringDraftInput,
     ) -> Result<AuthoringDraft, StoreError> {
         validate_workspace_question_source_object_record(workspace, &input.source_record)?;
+        validate_initial_draft_source_binding(
+            &input.source_record.media_type,
+            input.webwork_pg_path.as_deref(),
+        )?;
         let address = encode_address(&input.source_record)?;
         let size = postgres_size(input.source_record.size_bytes)?;
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let reference_number: i64 = sqlx::query_scalar(
-            "SELECT ple_api.create_authoring_draft($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+            "SELECT ple_api.create_authoring_draft($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
         )
         .bind(workspace.as_uuid())
         .bind(input.draft_question_uuid.as_uuid())
@@ -117,6 +122,8 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         .bind(input.source_record.created_at.as_unix_millis())
         .bind(&input.title)
         .bind(&input.description)
+        .bind(&input.language)
+        .bind(&input.webwork_pg_path)
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -161,20 +168,23 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
-        sqlx::query("SELECT ple_api.save_authoring_draft($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)")
-            .bind(i64::from(input.reference.number()))
-            .bind(input.expected_edit_number.as_postgres_bigint())
-            .bind(input.source_record.id.as_uuid())
-            .bind(address)
-            .bind(input.source_record.sha256.as_bytes().to_vec())
-            .bind(size)
-            .bind(&input.source_record.media_type)
-            .bind(input.source_record.created_at.as_unix_millis())
-            .bind(&input.title)
-            .bind(&input.description)
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
+        sqlx::query(
+            "SELECT ple_api.save_authoring_draft($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+        )
+        .bind(i64::from(input.reference.number()))
+        .bind(input.expected_edit_number.as_postgres_bigint())
+        .bind(input.source_record.id.as_uuid())
+        .bind(address)
+        .bind(input.source_record.sha256.as_bytes().to_vec())
+        .bind(size)
+        .bind(&input.source_record.media_type)
+        .bind(input.source_record.created_at.as_unix_millis())
+        .bind(&input.title)
+        .bind(&input.description)
+        .bind(&input.language)
+        .execute(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         self.load_authoring_draft(session_token_hash, input.reference)
             .await

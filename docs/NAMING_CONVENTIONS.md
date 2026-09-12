@@ -82,8 +82,8 @@ Name every identifying value for its exact boundary, representation, and role:
 | Human-usable locator                                      | Its reviewed product name                 | `CourseInstanceReference`, `BlueprintCourseReference` |
 | Reviewed public identifier whose product name includes ID | `Id`                                      | `QuestionId`                                          |
 | Physical UUID column                                      | Complete subject plus `_uuid`             | `assignment_attempt_uuid`                             |
-| Immutable revision number                                 | Complete subject plus `RevisionNumber`    | `AssignmentRevisionNumber`                            |
-| Immutable revision reference                              | Complete subject plus `RevisionReference` | `AssignmentRevisionReference`                         |
+| Immutable published revision number                       | Complete subject plus `RevisionNumber`    | `QuestionRevisionNumber`                              |
+| Immutable published revision reference                    | Complete subject plus `RevisionReference` | `BlueprintRevisionReference`                           |
 | Recalculation or worker fence                             | Complete subject plus `Generation`        | `ScoringGeneration`                                   |
 | Integrity value                                           | Complete subject plus `Checksum`          | `RequestChecksum`                                     |
 | Secret or bearer value                                    | Complete subject plus `Token`             | `WorkerLeaseToken`                                    |
@@ -162,8 +162,9 @@ Use dependency order to move existing PLE-owned role names to the canonical voca
    model-to-client change.
 4. Work-routing and submission-status Stores converge on `StudentWork*` together with their server
    consumers.
-5. PostgreSQL role-bearing names converge through forward migrations before the first schema
-   freeze; accepted migrations remain immutable evidence of the schema path.
+5. Before the production freeze, PostgreSQL role-bearing names change in their
+   owning base-schema module. After the freeze, an accepted forward migration is
+   the immutable record of the structural change.
 
 Each step owns its source, generated contracts, focused validation, and documentation as one atomic
 change. `learning` remains the correct adjective for system concepts such as learning data and
@@ -213,8 +214,11 @@ learning outcomes.
   `updated_at`, `occurred_at`, `expires_at`, and `revoked_at`.
 - Name serialized documents with a `_payload` suffix and their SHA-256 companions with
   `_payload_sha256`, such as `report_payload` and `report_payload_sha256`.
-- Use `revision` for one row or aggregate's optimistic revision. Qualify other revision and
-  generation counters by subject, such as `schedule_revision` and `scoring_generation`.
+- Use a qualified `*_edit_number` for an aggregate's optimistic concurrency
+  token, such as `assignment_edit_number` or `blueprint_draft_edit_number`.
+  Reserve an immutable `*_revision_number` for a Question Revision or Blueprint
+  Revision; use a qualified generation counter such as `scoring_generation` for
+  worker recalculation fences.
 - Lead primary keys, foreign keys, and important indexes with the owning domain
   subject when the relationship permits it. Composite constraints use the
   narrowest parent chain, such as `course_instance_uuid`, `assignment_uuid`,
@@ -230,9 +234,10 @@ learning outcomes.
 
 ## Historical and external names
 
-- Immutable migration filenames, migration IDs, and archived evidence may retain historical
-  scope text so their lineage stays exact. These names are metadata only; they do
-  not authorize a record or define the fresh single-installation schema.
+- Immutable forward-migration filenames, migration IDs, and archived evidence
+  may retain their accepted scope text so their lineage stays exact. These names
+  are metadata only; they do not authorize a record or define the canonical base
+  schema.
 - Registered external protocol fields, headers, XML/JSON names, and vendor identifiers retain their
   owner's spelling, including a historical scope field when required for interoperability.
   External names are protocol metadata, not PLE Account, membership, course, or worker authority.
@@ -245,8 +250,9 @@ learning outcomes.
   under `generated/api/` retain generator-owned `UpperCamelCase.ts` names. Generated TypeScript
   constant modules retain generator-owned `SCREAMING_SNAKE_CASE.ts` names that match their Rust
   constant identity directly.
-- Migration filenames use a sortable numeric allocation followed by a lowercase snake-case
-  description, such as `2026081847_blueprint_operations_public_bridge.sql`.
+- Forward-migration filenames use a sortable timestamp allocation followed by a
+  lowercase snake-case description, such as
+  `202609120001_add_assignment_policy.sql`.
 - Compose project, service, network, and container-facing names use lowercase kebab case when the
   owning Compose field permits it, such as `ple-live-demo-browser`.
 - PLE scenario IDs, evidence context IDs, durable namespaces, and similar machine-selected names use

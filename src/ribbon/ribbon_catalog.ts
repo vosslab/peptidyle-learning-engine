@@ -79,7 +79,6 @@ export type RibbonTaskId =
   | "assignmentOverview"
   | "assignmentQuestions"
   | "assignmentPolicies"
-  | "assignmentGradingOperations"
   | "assignmentStudentView"
   | "gradeSettings"
   | "appearance"
@@ -432,18 +431,6 @@ export const RIBBON_TASK_CATALOG = [
     id: "assignmentPolicies",
     label: "Policies",
     destination: { kind: "route", routeId: "assignmentWorkspacePolicies" },
-    requiredParams: ["courseRef", "assignmentRef"],
-    taskGroup: "assignment",
-    area: "assignment",
-    role: "supporting",
-    priority: "normal",
-    presentation: "standard",
-    ...pairedIconFlags,
-  },
-  {
-    id: "assignmentGradingOperations",
-    label: "Grading Operations",
-    destination: { kind: "route", routeId: "assignmentWorkspaceGradingOperations" },
     requiredParams: ["courseRef", "assignmentRef"],
     taskGroup: "assignment",
     area: "assignment",

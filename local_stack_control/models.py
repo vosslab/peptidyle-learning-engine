@@ -103,7 +103,7 @@ LIVE_DEMO_PROFILE_POLICIES = (
 			"tests/e2e/compose.live-demo-browser.yaml",
 		),
 		child_capabilities=(
-			"browser_lifecycle", "readiness_fault", "seed_inventory", "worker_lifecycle",
+			"browser_lifecycle", "readiness_fault", "worker_lifecycle",
 			"native_ple_worker_lifecycle",
 			"webwork_renderer_lifecycle",
 		),

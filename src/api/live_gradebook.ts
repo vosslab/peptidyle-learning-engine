@@ -5,7 +5,7 @@ import type { AssignmentAttemptCompletion } from "../../generated/api/Assignment
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 
 /** One answer-free progress aggregate for an active Student. */
-export interface LiveDemoStudentWork {
+export interface CourseGradebookStudentWork {
   readonly rosterId: string;
   readonly assignmentReference: AssignmentReference;
   readonly assignmentAttemptCompletion: AssignmentAttemptCompletion | null;
@@ -16,12 +16,12 @@ export interface LiveDemoStudentWork {
 }
 
 /** The complete browser projection for one current Instructor Course. */
-export interface LiveDemoGradebook {
+export interface CourseGradebook {
   readonly courseReference: CourseInstanceReference;
-  readonly studentWork: ReadonlyArray<LiveDemoStudentWork>;
+  readonly studentWork: ReadonlyArray<CourseGradebookStudentWork>;
 }
 
 /** Same-origin current-Instructor Gradebook read capability. */
-export interface LiveDemoGradebookClient {
-  readonly getLiveDemoGradebook: (course: CourseInstanceReference) => Promise<LiveDemoGradebook>;
+export interface CourseGradebookClient {
+  readonly getCourseGradebook: (course: CourseInstanceReference) => Promise<CourseGradebook>;
 }

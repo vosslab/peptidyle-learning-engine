@@ -226,19 +226,31 @@ async function listBlueprintAssignmentSources(
 ): Promise<
   ReadonlyArray<Extract<QuestionPickerSource, { readonly kind: "blueprintCourseAssignment" }>>
 > {
-  const currentCourses = await Promise.all(
-    courses.map(async (course) => await client.getBlueprintCourse(course.reference)),
+  const publishedRevisions = await Promise.all(
+    courses
+      .filter(
+        (
+          course,
+        ): course is BlueprintCourseSummaryView & {
+          readonly latest_published_revision: NonNullable<
+            BlueprintCourseSummaryView["latest_published_revision"]
+          >;
+        } => course.availability === "available" && course.latest_published_revision !== null,
+      )
+      .map(async (course) => {
+        const revision = course.latest_published_revision;
+        return await client.getBlueprintRevision(revision.reference, revision.revision);
+      }),
   );
-  return currentCourses.flatMap(({ blueprintCourse }) =>
-    blueprintCourse.modules.flatMap((module) =>
+  return publishedRevisions.flatMap((revision) =>
+    revision.modules.flatMap((module) =>
       module.assignments.map((content) => ({
         kind: "blueprintCourseAssignment" as const,
         source: {
-          reference: blueprintCourse.reference,
-          revision: blueprintCourse.revision,
+          blueprint_revision: revision.blueprintRevision,
           blueprint_assignment_reference: content.blueprint_assignment_reference,
         },
-        label: `Blueprint Course: ${blueprintCourse.title} - ${module.label} - ${content.content.title}`,
+        label: `Blueprint Course: ${revision.title} - ${module.label} - ${content.content.title}`,
       })),
     ),
   );

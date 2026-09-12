@@ -65,73 +65,6 @@ class GatewayPortRunner(local_stack_control.process.CommandRunner):
 
 
 #============================================
-def test_ready_tls_live_demo_runs_course_provisioning_in_its_private_workspace(
-	tmp_path: pathlib.Path,
-	monkeypatch: pytest.MonkeyPatch,
-) -> None:
-	"""Only the owned TLS lane receives post-readiness teaching-data convergence."""
-	selected = lifecycle_target(tmp_path, "ple-live-demo-browser", "workspace/env.local")
-	disposable = local_stack_control.models.DisposableComposeTarget(
-		target=selected,
-		owner_policy="live-demo-browser",
-		capability_file=tmp_path / "capability",
-		project_prefix="ple-live-demo-browser",
-		private_environment_file=selected.env_file,
-		live_demo_profile=local_stack_control.models.LiveDemoProfile.BROWSER,
-	)
-	captured: list[tuple[object, object, pathlib.Path, object]] = []
-	monkeypatch.setattr(
-		local_stack_control.live_demo_gateway,
-		"is_tls_target",
-		lambda target: True,
-	)
-	monkeypatch.setattr(
-		local_stack_control.lifecycle,
-		"provision_live_demo_course",
-		lambda runner, target, workspace, stop_after=None: captured.append(
-			(runner, target, workspace, stop_after)
-		),
-	)
-	runner = UnexpectedRunner()
-
-	local_stack_control.lifecycle.provision_ready_live_demo(disposable, runner)
-
-	assert captured == [(runner, disposable, selected.env_file.parent, None)]
-
-
-#============================================
-def test_ready_tls_live_demo_forwards_one_debug_provisioning_checkpoint(
-	tmp_path: pathlib.Path,
-	monkeypatch: pytest.MonkeyPatch,
-) -> None:
-	"""A requested recovery checkpoint reaches only the existing provisioner harness."""
-	selected = lifecycle_target(tmp_path, "ple-live-demo-browser", "workspace/env.local")
-	disposable = local_stack_control.models.DisposableComposeTarget(
-		target=selected,
-		owner_policy="live-demo-browser",
-		capability_file=tmp_path / "capability",
-		project_prefix="ple-live-demo-browser",
-		private_environment_file=selected.env_file,
-		live_demo_profile=local_stack_control.models.LiveDemoProfile.BROWSER,
-	)
-	captured: list[object] = []
-	monkeypatch.setattr(local_stack_control.live_demo_gateway, "is_tls_target", lambda target: True)
-	monkeypatch.setattr(
-		local_stack_control.lifecycle,
-		"provision_live_demo_course",
-		lambda runner, target, workspace, stop_after=None: captured.append(stop_after),
-	)
-
-	local_stack_control.lifecycle.provision_ready_live_demo(
-		disposable,
-		UnexpectedRunner(),
-		local_stack_control.live_demo_course_seed.Stage.RELEASE,
-	)
-
-	assert captured == [local_stack_control.live_demo_course_seed.Stage.RELEASE]
-
-
-#============================================
 def lifecycle_target(tmp_path: pathlib.Path, project: str, env_name: str) -> local_stack_control.models.ComposeTarget:
 	"""Build one selected target without reading a tracked configuration file."""
 	env_file = tmp_path / env_name
@@ -236,24 +169,87 @@ def replica_readiness_snapshot(
 
 
 #============================================
-def test_validation_rejects_invalid_selected_env_before_any_process(tmp_path: pathlib.Path) -> None:
-	"""Read-only validation refuses malformed selected configuration without a child effect."""
-	target = lifecycle_target(tmp_path, "custom", "custom.env")
-	target.env_file.write_text("PLE_WEBWORK_RENDERER_IMAGE=unsafe;image\n", encoding="ascii")
-	target.env_file.chmod(0o600)
-	with pytest.raises(local_stack_control.models.ControllerError):
-		local_stack_control.lifecycle.validate_lifecycle(target, UnexpectedRunner(), tmp_path)
-	assert target.env_file.exists()
+@pytest.mark.parametrize(
+	("build", "expected_first"),
+	((True, "application-image-build"), (False, None)),
+)
+def test_teaching_stack_verifies_application_schema_before_application_start(
+	tmp_path: pathlib.Path,
+	monkeypatch: pytest.MonkeyPatch,
+	build: bool,
+	expected_first: str | None,
+) -> None:
+	"""Every teaching stack verifies its generated app login before API processes run."""
+	selected = lifecycle_target(tmp_path, "baseline", "baseline/env.local")
+	target = local_stack_control.models.DisposableComposeTarget(
+		target=selected,
+		owner_policy="live-demo-baseline",
+		capability_file=tmp_path / "capability",
+		project_prefix="ple-live-demo-baseline",
+		private_environment_file=selected.env_file,
+	)
+	options = local_stack_control.lifecycle.LifecycleOptions(1.0, build, False, False)
+	events: list[str] = []
+	database_events: list[str] = []
+	values = {"PLE_WEBWORK_RENDERER_IMAGE": "localhost/renderer:tag"}
 
+	monkeypatch.setattr(local_stack_control.lifecycle, "require_lifecycle_inputs", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.lifecycle, "require_disposable_ownership", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.lifecycle, "bootstrap_default_state", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.env_file, "require_mutation_env_file", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.lifecycle, "validate_static", lambda *args: values)
+	monkeypatch.setattr(local_stack_control.lifecycle_validation, "require_mutation_engine", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.lifecycle, "validate_compose", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.lifecycle, "child_environment", lambda *args: {})
+	monkeypatch.setattr(local_stack_control.lifecycle, "build_artifacts", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.renderer, "ensure_renderer_oci_id", lambda *args: "sha256:" + "a" * 64)
+	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_postgres", lambda *args: None)
+	monkeypatch.setattr(
+		local_stack_control.lifecycle,
+		"synchronize_database",
+		lambda *args: database_events.append("synchronize"),
+	)
+	monkeypatch.setattr(
+		local_stack_control.lifecycle_migrations,
+		"database_operation_for",
+		lambda *args: database_events.append("operation") or "initialize",
+	)
+	monkeypatch.setattr(local_stack_control.lifecycle, "run_migrations", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.process_logins, "setup_service_logins", lambda *args: events.append("logins"))
+	monkeypatch.setattr(local_stack_control.lifecycle, "verify_migrated_application_schema", lambda *args: events.append("verify"))
+	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_one_shot", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_renderer_ready", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.lifecycle, "attest_renderer", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.lifecycle, "run_api_initializers", lambda *args: None)
+	monkeypatch.setattr(
+		local_stack_control.lifecycle,
+		"should_provision_live_demo",
+		lambda *args: True,
+	)
+	monkeypatch.setattr(local_stack_control.lifecycle, "remove_live_demo_persona_configuration", lambda *args: None)
+	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_complete_ready", lambda *args: "http://127.0.0.1:8080/")
+	monkeypatch.setattr(local_stack_control.lifecycle, "provision_ready_live_demo", lambda *args: events.append("provision"))
+	monkeypatch.setattr(local_stack_control.live_demo_gateway, "is_tls_target", lambda *args: False)
 
-#============================================
-def test_custom_start_refuses_missing_environment_before_engine_mutation(tmp_path: pathlib.Path) -> None:
-	"""A custom target never inherits default bootstrap authority."""
-	target = lifecycle_target(tmp_path, "custom", "custom.env")
-	options = local_stack_control.lifecycle.LifecycleOptions(1.0, False, False, False)
-	with pytest.raises(local_stack_control.models.ControllerError):
-		local_stack_control.lifecycle.start_lifecycle(target, UnexpectedRunner(), tmp_path, options)
-	assert not target.env_file.exists()
+	def record_compose(
+		_target: local_stack_control.models.ComposeTarget,
+		_runner: local_stack_control.process.CommandRunner,
+		arguments: list[str],
+	) -> None:
+		if arguments == ["build", "api"]:
+			events.append("application-image-build")
+		elif "api" in arguments:
+			events.append("application-start")
+
+	monkeypatch.setattr(local_stack_control.lifecycle, "compose_run", record_compose)
+
+	local_stack_control.lifecycle.start_lifecycle(target, UnexpectedRunner(), tmp_path, options)
+
+	expected = ["logins", "verify", "application-start", "provision"]
+	if expected_first is not None:
+		expected.insert(0, expected_first)
+	assert events == expected
+	assert database_events[:2] == ["operation", "synchronize"]
 
 
 #============================================
@@ -766,30 +762,46 @@ def test_live_teaching_bootstrap_keeps_seed_inputs_without_local_auth_files(
 
 
 #============================================
-def test_publisher_storage_projection_is_the_closed_m4_asset_grant() -> None:
-	"""The local publisher cannot be configured for another private or public key."""
-	restricted, public = local_stack_control.lifecycle.publisher_asset_storage_paths()
-	assert restricted == (
-		"questions/PNE-0004/versions/1/restricted-assets/"
-		"00000000-0000-0000-0000-000000001204/"
-		"00000000-0000-0000-0000-000000001304"
-	)
-	assert public == (
-		"questions/PNE-0004/versions/1/assets/"
-		"00000000-0000-0000-0000-000000001204/"
-		"00000000-0000-0000-0000-000000001404"
-	)
-
-
 #============================================
 def test_minio_bootstrap_replaces_a_retained_publisher_policy_before_attachment() -> None:
-	"""A named policy from a retained volume cannot survive publisher bootstrap."""
+	"""The generic publisher receives only Question-object access after policy replacement."""
 	compose = pathlib.Path("containers/compose.yaml").read_text(encoding="utf-8")
 	remove = "mc admin policy remove local ple-public-asset-publisher"
 	create = "mc admin policy create local ple-public-asset-publisher \"$$policy_file\""
 	attach = "mc admin policy attach local ple-public-asset-publisher --user"
 	assert "if ! mc admin policy info local ple-public-asset-publisher" not in compose
 	assert compose.index(remove) < compose.index(create) < compose.index(attach)
+	assert 'arn:aws:s3:::private-content/questions/*' in compose
+	assert 'arn:aws:s3:::public-assets/questions/*' in compose
+	assert "PLE_PUBLISHER_RESTRICTED_ASSET_PATH" not in compose
+	assert "PLE_PUBLISHER_PUBLIC_ASSET_PATH" not in compose
+
+
+#============================================
+def test_database_migrator_projects_only_the_existing_installation_data_capabilities() -> None:
+	"""The one-shot installer receives ordinary publication inputs without an API image change."""
+	compose = pathlib.Path("containers/compose.yaml").read_text(encoding="utf-8")
+	migrator = compose[compose.index("  database-migrator:"):compose.index("  postgres-major-guard:")]
+	for value in (
+		"PLE_MIGRATION_DATABASE_URL:",
+		"DATABASE_URL: ${PLE_API_DATABASE_URL:-postgres://ple_api_login:service-login-setup-required",
+		"PLE_STORAGE_TOPOLOGY:",
+		"PLE_BROWSER_ORIGIN: ${PLE_BROWSER_ORIGIN:-}",
+		"PLE_S3_ENDPOINT: http://minio:9000",
+		"PLE_PUBLIC_ASSETS_BUCKET: public-assets",
+		"PLE_PRIVATE_CONTENT_BUCKET: private-content",
+		"PLE_STUDENT_RECORDS_BUCKET: student-records",
+		"PLE_TEMP_PROCESSING_BUCKET: temp-processing",
+		"AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}",
+		"AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}",
+		"PLE_QUESTION_ID_SECRET_FILE: /run/ple-secrets/question_id_secret",
+		"source: ple_identity_runtime",
+		"target: /run/ple-secrets",
+		"read_only: true",
+	):
+		assert value in migrator
+	assert "PLE_INVITATION_TOKEN_SECRET_FILE" not in migrator
+	assert "PLE_PUBLISHER_DATABASE_URL" not in migrator
 
 
 #============================================

@@ -1,8 +1,6 @@
 //! Validated Blueprint Revision Content and target-term schedule resolution.
 
 use std::collections::BTreeSet;
-use std::num::NonZeroU64;
-use std::str::FromStr;
 
 use chrono::{Duration, NaiveDate};
 use serde::{Deserialize, Serialize};
@@ -11,12 +9,12 @@ use sha2::{Digest, Sha256};
 use crate::{
     AccountTimeZone, AssignmentAuthoredContentField, AssignmentAuthoredContentLocalError,
     AssignmentEntryScoringRule, AssignmentInstructions, AssignmentPointValue, AssignmentTitle,
-    BaseAssignmentPolicy, BlueprintAssignmentDefaults, BlueprintCourseValidationError,
-    CourseInstanceReference, CourseTerm, LocalDateAndTime, LocalTimeOfDay,
-    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
-    MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-    QuestionRevisionReference, RelativeAssignmentSchedule, RelativeAssignmentScheduleMoment,
-    Timestamp, validate_blueprint_course_title,
+    BaseAssignmentPolicy, BlueprintAssignmentDefaults, BlueprintCourseValidationError, CourseTerm,
+    LocalDateAndTime, LocalTimeOfDay, MAX_ASSIGNMENT_ORDERED_ENTRIES,
+    MAX_ASSIGNMENT_QUESTION_POOL_ITEMS, MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionRevisionReference,
+    RelativeAssignmentSchedule, RelativeAssignmentScheduleMoment, Timestamp,
+    validate_blueprint_course_title,
 };
 
 mod contracts;
@@ -441,7 +439,6 @@ struct EncodedBlueprintAssignmentDefaultsV2<'a> {
     assignment_attempt_time_limit_seconds: &'a Option<std::num::NonZeroU32>,
     attempt_limit: &'a Option<std::num::NonZeroU32>,
     late_work_rule: crate::LateWorkRule,
-    assignment_deadline_rule: crate::AssignmentDeadlineRule,
     activity_rules: &'a crate::AssignmentActivityRules,
     student_feedback_release_rule: EncodedStudentFeedbackReleaseRuleV2,
 }
@@ -614,7 +611,6 @@ fn encode_assignment_v2(assignment: &BlueprintAssignmentContent) -> EncodedAssig
                 .assignment_attempt_time_limit_seconds,
             attempt_limit: &assignment.defaults().attempt_limit,
             late_work_rule: assignment.defaults().late_work_rule,
-            assignment_deadline_rule: assignment.defaults().assignment_deadline_rule,
             activity_rules: &assignment.defaults().activity_rules,
             student_feedback_release_rule: EncodedStudentFeedbackReleaseRuleV2 {
                 score: feedback.score,
@@ -626,85 +622,6 @@ fn encode_assignment_v2(assignment: &BlueprintAssignmentContent) -> EncodedAssig
             },
         },
         schedule: assignment.schedule(),
-    }
-}
-
-/// Positive revision number within one Course Instance's schedule history.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct CourseScheduleRevisionNumber(NonZeroU64);
-impl CourseScheduleRevisionNumber {
-    /// Rebuilds a positive PostgreSQL-`BIGINT` revision.
-    pub fn new(value: u64) -> Option<Self> {
-        (value > 0 && value <= i64::MAX as u64).then_some(Self(NonZeroU64::new(value)?))
-    }
-    /// Returns the exact positive revision scalar.
-    pub fn value(self) -> u64 {
-        self.0.get()
-    }
-}
-impl FromStr for CourseScheduleRevisionNumber {
-    type Err = CourseScheduleRevisionNumberError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        if value.is_empty()
-            || value.starts_with('0')
-            || !value.bytes().all(|byte| byte.is_ascii_digit())
-        {
-            return Err(CourseScheduleRevisionNumberError);
-        }
-        value
-            .parse()
-            .ok()
-            .and_then(Self::new)
-            .ok_or(CourseScheduleRevisionNumberError)
-    }
-}
-impl TryFrom<String> for CourseScheduleRevisionNumber {
-    type Error = CourseScheduleRevisionNumberError;
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
-    }
-}
-impl From<CourseScheduleRevisionNumber> for String {
-    fn from(value: CourseScheduleRevisionNumber) -> Self {
-        value.value().to_string()
-    }
-}
-impl std::fmt::Display for CourseScheduleRevisionNumber {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "{}", self.value())
-    }
-}
-/// A Course Schedule Revision Number was not one canonical positive decimal value.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CourseScheduleRevisionNumberError;
-
-impl std::fmt::Display for CourseScheduleRevisionNumberError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("course schedule revision must be a canonical positive decimal")
-    }
-}
-
-impl std::error::Error for CourseScheduleRevisionNumberError {}
-
-/// Exact immutable Course Schedule Revision Reference.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct CourseScheduleRevisionReference {
-    pub course: CourseInstanceReference,
-    pub revision_number: CourseScheduleRevisionNumber,
-}
-
-impl CourseScheduleRevisionReference {
-    /// Binds one positive schedule revision number to its exact Course Instance.
-    pub const fn new(
-        course: CourseInstanceReference,
-        revision_number: CourseScheduleRevisionNumber,
-    ) -> Self {
-        Self {
-            course,
-            revision_number,
-        }
     }
 }
 
@@ -857,6 +774,35 @@ fn resolve(
 #[cfg(test)]
 mod wire_tests {
     use super::*;
+
+    #[test]
+    fn question_pool_keeps_the_exact_question_revision_pin() {
+        let question_id: crate::QuestionId = "7K3-M9QX".parse().expect("Question ID");
+        let pinned = QuestionRevisionReference {
+            question_id: question_id.clone(),
+            revision_number: crate::QuestionRevisionNumber::new(1).expect("revision"),
+        };
+        let newer_revision = QuestionRevisionReference {
+            question_id,
+            revision_number: crate::QuestionRevisionNumber::new(2).expect("revision"),
+        };
+        let pool = BlueprintQuestionPoolContent::new(
+            vec![pinned.clone()],
+            1,
+            AssignmentPointValue::from_whole(1),
+            AssignmentEntryScoringRule::Normal,
+            crate::QuestionPoolSelectionRule {
+                selected_question_order:
+                    crate::QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
+            },
+            QuestionAttemptLimit { max_attempts: None },
+            QuestionAttemptTimeLimit::Unlimited,
+        )
+        .expect("one exact Question Revision is a valid pool");
+
+        assert_eq!(pool.items(), &[pinned]);
+        assert_ne!(pool.items(), &[newer_revision]);
+    }
 
     #[test]
     fn resolved_schedule_uses_snake_case_and_refuses_unknown_fields() {

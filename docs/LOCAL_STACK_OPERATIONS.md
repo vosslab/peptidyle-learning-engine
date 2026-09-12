@@ -42,9 +42,10 @@ is only a lookup/input value; it cannot establish authority.
 Current Teaching Team Members are equal. Course creation inserts the creator's first
 ordinary Instructor membership and does not create an elevated owner. Students
 see only their own work in enrolled courses. Published questions remain in one
-shared Instructor Question Library after publication. Question Revision
-Availability is `Available` or `Archived`; only `Available` Question Revisions
-are eligible for ordinary new selection. Draft Question Source Bindings and Answer Keys remain private.
+shared Instructor Question Library after publication. Published Question
+lineage availability is `Available` or `Archived`; only an `Available` Published
+Question is eligible for ordinary new selection. Exact archived Question
+Revisions remain resolvable. Draft Question Source Bindings and Answer Keys remain private.
 
 Institution names, roster IDs, display labels, provider IDs, renderer IDs, and
 similar fields are metadata for presentation, audit, provenance, or routing.
@@ -93,10 +94,10 @@ disposable owner keeps the selected adapter for its lifecycle and still passes
 its explicit no-pod option. It does not retry a mutating
 Compose operation through another adapter after that operation begins.
 
-The controller runs its short-lived migration and application-schema verifier
-inside the Compose data network. The local PostgreSQL loopback port remains an
-operator diagnostic endpoint; lifecycle correctness does not depend on its
-host port-forwarding behavior.
+The controller runs its short-lived base-schema/forward-migration coordinator
+and application-schema verifier inside the Compose data network. The local
+PostgreSQL loopback port remains an operator diagnostic endpoint; lifecycle
+correctness does not depend on its host port-forwarding behavior.
 
 `ple_pgdata` and `ple_miniodata` are named volumes. A normal container stop or
 rebuild retains them. The read-only `postgres-major-guard` accepts an empty
@@ -136,10 +137,10 @@ profile: browser
 ```
 
 The owner holds one lease through build, private capability generation,
-PostgreSQL bootstrap, migration, seed, Question Renderer Version, readiness, and
-cleanup. It accepts no project, environment, identity, SMTP, or skipped-build
-selector. Bare `podman compose up` against an empty database is not an
-equivalent bootstrap path.
+PostgreSQL bootstrap, canonical database initialization, installation data,
+Question Renderer Version, readiness, and cleanup. It accepts no project,
+environment, identity, SMTP, or skipped-build selector. Bare `podman compose
+up` against an empty database is not an equivalent bootstrap path.
 
 If you request `./launchers/run_live_demo.sh stop` while that owner is still starting, the
 command waits for its authenticated stop endpoint rather than attempting a second cleanup. It then
@@ -153,135 +154,17 @@ only the normal identity-verification ceremony with a known persona key. The
 server resolves the global Account and issues an ordinary session; it does not
 accept a browser role claim.
 
-Startup has two seed layers and one product write path. The foundational SQL
-seed creates the five global Accounts, their authentication facts, and four
-Published Questions with private source and asset-publication records. It
-creates no Course-domain record. After all services are ready, the convergent
-provisioner uses ordinary authenticated HTTP routes to create Elena's Blueprint
-Course, Course Instance, roster invitations and claims, released Assignment,
-Mary and Jack's real work, and their Grading Results. Avery remains enrolled
-without an Assignment Attempt.
+The default local installation runs `cargo tools installation-data provision`
+after the API and supporting services are ready. It creates the database-owned
+Pilot publication, ordinary Accounts, Blueprint Draft and Revision, Course,
+roster, and released Assignment, then uses ordinary authenticated routes for
+the cross-system Student Work and grading effects. Mary and Jack receive real
+Assignment Attempts; Avery remains enrolled without one. The database-owned
+manifest is convergent; the full provision command is the canonical owner for
+the complete known-good Live Demo.
 
-The private manifest is the first identity source for the created Blueprint
-Course, Course Instance, and Assignment. Recovery uses an exact Blueprint
-Course or Assignment title, or an exact Course Instance short-and-long-name
-pair, only when a stored public Reference is absent or stale. Each observation
-produces a plan of missing stages; a repeated provision reports no stages and
-creates no duplicate product objects. The bounded mode-0600 report is written to
-`local_stack_state/live_demo_browser/workspace/live_demo_course_report.json`.
-
-The sealed `seed-inventory` receipt reports only named aggregate counts for the
-foundational Accounts, Published Questions, source bindings, publication
-events, source and asset Objects, delivery, Job, and asset-publication records;
-it never reports answer-bearing source content. Re-run the disposable installer
-and its idempotence proof with:
-
-```bash
-bash tests/e2e/e2e_live_demo_seeded_baseline.sh --install
-bash tests/e2e/e2e_live_demo_seeded_baseline.sh --replay
-```
-
-`--replay` performs an install followed by a second start and requires the
-same fixed inventory. It is data-foundation evidence; the separate M5 command
-proves the available Instructor Question Library route and browser task:
-
-```bash
-bash tests/e2e/e2e_live_demo_question_library.sh
-```
-
-That command proves Instructor browse/detail success and the same concealed
-response for Student and anonymous requests. It does not claim Course,
-Student-delivery, grading, or Sysadmin workflow completion.
-
-Inspect or interrupt Course-domain convergence only while debugging the fixed
-disposable owner:
-
-```bash
-source source_me.sh && python3 -m local_stack_control.disposable_stack_command \
-  provision-course \
-  --manifest local_stack_state/live_demo_browser/workspace/disposable.manifest \
-  --report
-source source_me.sh && python3 -m local_stack_control.disposable_stack_command \
-  provision-course \
-  --manifest local_stack_state/live_demo_browser/workspace/disposable.manifest \
-  --stop-after roster
-```
-
-`--report` is read-only. `--stop-after` is a recovery harness for manufacturing
-one partial state; it is not part of normal startup. A later ordinary start
-observes that partial state and resumes from the next missing product stage.
-
-M6 adds the separate private Instructor task `My Question Drafts`. Its browser
-route receives only an opaque Draft Question Reference and its Edit Number;
-the server resolves the Authoring Workspace and private source Object Record.
-Publication validates the private PLE Question JSON, copies it into an immutable
-Question Revision-owned source object, and hands the Instructor to the real
-Question Library without serializing a Draft Question UUID, workspace UUID,
-source address, or checksum. Prove both the API boundary and browser task with:
-
-```bash
-bash tests/e2e/e2e_live_demo_authoring.sh --draft
-bash tests/e2e/e2e_live_demo_authoring.sh --publish
-```
-
-The publication command includes the Chromium task. It does not claim a
-Blueprint Course, Course Instance, Assignment, Student delivery, grading, or
-Sysadmin workflow.
-
-M7 adds the reusable Blueprint Course lifecycle. An Instructor can create and
-publish an answer-free Blueprint Course with exact available Question Revision
-References; its Blueprint Course Owner can publish a successor Blueprint
-Revision, while another Active Instructor receives only closed Blueprint Course
-Read Access. Prove this focused disposable acceptance separately from permanent
-tests with:
-
-```bash
-bash tests/e2e/e2e_live_demo_blueprint_course.sh --service
-bash tests/e2e/e2e_live_demo_blueprint_course.sh --browser
-```
-
-The service command uses a rolling-back temporary Active Instructor only to
-prove the required non-owner read path without changing the fixed baseline.
-The browser command uses the visible Ribbon, picker, creation, publication, and
-return-to-list path. Neither command claims Course Instance creation, roster,
-Assignment delivery, Student work, grading, or Sysadmin workflow.
-
-M8 adds a Course Instance from one exact Available published Blueprint Revision.
-The creation transaction records immutable Course Origin, Course Schedule
-Revision 1 for the Course Term, the initial Assigned Instructor Course
-Membership and event, and creation audit evidence. A Sysadmin may create only
-for a named Active Instructor and gains no ambient Course access. Prove this
-focused disposable acceptance separately from permanent tests with:
-
-```bash
-bash tests/e2e/e2e_live_demo_course_instance.sh --authority
-bash tests/e2e/e2e_live_demo_course_instance.sh --browser
-```
-
-The authority command verifies source, membership, concealment, and absence of
-Student Records and Assignments. The Chromium command signs in as the Assigned
-Instructor, creates the Course Instance through the Courses Ribbon, and opens
-its Teaching Team. Neither command establishes roster, invitations, Assignment
-delivery, Student work, grading, or M19 serial-browser acceptance.
-
-M9 adds Course Roster Import for a direct current Instructor. The atomic import
-resolves or creates a Student Account by immutable Student Authentication Email
-and records a pending Course Invitation plus course-scoped roster profile. The
-authenticated invitation target separately creates or reuses its exact Student
-Record and active Student Course Membership; revocation ends access without
-deleting educational records. Prove this focused disposable acceptance
-separately from permanent tests with:
-
-```bash
-bash tests/e2e/e2e_live_demo_roster.sh --import
-bash tests/e2e/e2e_live_demo_roster.sh --browser
-```
-
-The authority command proves idempotent resolution, exact course scope, claim,
-and immediate revocation. The Chromium command creates a Course Instance,
-enters Students, imports a reviewed roster row, and sees its protected pending
-projection. These commands do not establish email delivery, Assignment
-delivery, Student work, grading, export, or M19 serial-browser acceptance.
+`--without-live-demo` skips this optional product data before provisioning. It
+does not select a different schema, role model, or lifecycle.
 
 ## Startup order
 
@@ -290,12 +173,16 @@ Question Renderer Version before mutating the selected target. It then:
 
 1. removes the prior fixed project while retaining no stale owner resources;
 2. runs `postgres-major-guard`, starts PostgreSQL, and waits for readiness;
-3. applies the migration set and sets up bounded runtime service logins;
+3. initializes the modular base on an empty database (or applies recognized
+   forward migrations), verifies the result, and sets up bounded runtime
+   service logins;
 4. starts MinIO and idempotently creates its declared buckets;
 5. starts, probes, and attests the private renderer;
 6. starts API initializers, builds API and gateway images, and starts API and
-   gateway; and
-7. waits for API semantic health before reporting the HTTPS origin.
+   gateway;
+7. waits for API semantic health; and
+8. runs complete Live Demo provisioning unless `--without-live-demo` was
+   selected.
 
 The API receives its one bounded runtime database URL. Migration children receive
 administrator authority only for their bounded startup calls. Raw passwords and

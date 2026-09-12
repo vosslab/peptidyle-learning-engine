@@ -20,7 +20,6 @@ export interface StudentAssignmentPresentationDelivery {
   readonly assignmentAttemptTimeLimitSeconds: number | null;
   readonly attemptLimit: number | null;
   readonly lateWorkRule: "accept" | "mark_late" | "reject";
-  readonly assignmentDeadlineRule: "auto_submit";
   readonly studentLateWorkStatus?: StudentLateWorkStatus;
 }
 
@@ -101,7 +100,6 @@ export function toStudentAssignmentPresentationData(
           assignment.delivery.assignment_attempt_time_limit_seconds,
         attemptLimit: assignment.delivery.attempt_limit,
         lateWorkRule: assignment.delivery.late_work_rule,
-        assignmentDeadlineRule: assignment.delivery.assignment_deadline_rule,
       },
       questionsPerAssignmentAttempt: assignment.questionsPerAssignmentAttempt,
       questionPoolReuseRule: assignment.questionPoolReuseRule,
@@ -121,7 +119,6 @@ export function toStudentAssignmentPresentationData(
       assignmentAttemptTimeLimitSeconds: assignment.delivery.assignment_attempt_time_limit_seconds,
       attemptLimit: assignment.delivery.attempt_limit,
       lateWorkRule: assignment.delivery.late_work_rule,
-      assignmentDeadlineRule: assignment.delivery.assignment_deadline_rule,
       studentLateWorkStatus: assignment.delivery.student_late_work_status,
     },
     questionsPerAssignmentAttempt: assignment.entries.reduce(

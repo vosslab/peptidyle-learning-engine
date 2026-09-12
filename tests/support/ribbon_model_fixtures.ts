@@ -202,7 +202,6 @@ export const M6_RIBBON_FIXTURES = {
         control("assignmentOverview", { selected: true }),
         control("assignmentQuestions"),
         control("assignmentPolicies"),
-        control("assignmentGradingOperations"),
         control("assignmentStudentView"),
       ]),
     ],

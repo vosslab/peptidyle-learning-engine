@@ -1,15 +1,13 @@
 // Strict browser decoder for Instructor Assignment Authored Content Local.
 
-import type { SuccessorAssignmentRevisionRequired } from "../../../generated/api/SuccessorAssignmentRevisionRequired";
 import type { AssignmentReleaseValidation } from "../../../generated/api/AssignmentReleaseValidation";
 import type { AssignmentCapabilityViolation, AssignmentEditorDetail } from "../contracts";
-import { DecodeError, decodeArray, decodeRecord, decodeString, decodeStringEnum } from "../decoder";
+import { DecodeError, decodeArray, decodeRecord, decodeStringEnum } from "../decoder";
 import {
   decodeInstructorAssignmentAvailabilityView,
   decodeInstructorAssignmentAuthoredContentLocal,
 } from "./assignment_teaching_delivery";
 import { decodeAssignmentSummary } from "./question_library";
-import { decodeAssignmentReference } from "./shared";
 import {
   decodeCapability,
   decodeQuestionTitle,
@@ -72,34 +70,6 @@ export function decodeAssignmentEditorDetail(
     assignmentAvailability,
     assignmentReleaseValidation,
   } satisfies Omit<AssignmentEditorDetail, "revision">;
-  return decoded;
-}
-
-/** Decodes the exact 409 body requiring a successor Assignment. */
-export function decodeSuccessorAssignmentRevisionRequired(
-  value: unknown,
-  path = "response",
-): SuccessorAssignmentRevisionRequired {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["baseRevision"]);
-  const baseRevisionPath = `${path}.baseRevision`;
-  const baseRevision = decodeRecord(field(record, "baseRevision", path), baseRevisionPath);
-  requireOnlyFields(baseRevision, baseRevisionPath, ["assignment", "revision_number"]);
-  const revisionNumber = decodeString(
-    field(baseRevision, "revision_number", baseRevisionPath),
-    `${baseRevisionPath}.revision_number`,
-  );
-  if (!/^[1-9][0-9]*$/u.test(revisionNumber))
-    throw new DecodeError(`${baseRevisionPath}.revision_number`, "a positive revision number");
-  const decoded = {
-    baseRevision: {
-      assignment: decodeAssignmentReference(
-        field(baseRevision, "assignment", baseRevisionPath),
-        `${baseRevisionPath}.assignment`,
-      ),
-      revision_number: revisionNumber,
-    },
-  } satisfies SuccessorAssignmentRevisionRequired;
   return decoded;
 }
 

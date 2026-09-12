@@ -16,7 +16,8 @@ use question_model::{
     CourseBannerAlternativeText, CourseBannerInformativeText, CourseBannerReference,
     CourseBannerUpdate, CourseBannerUploadReference, CourseId, ObjectId, Timestamp,
 };
-use sqlx::Row;
+use sqlx::postgres::PgConnection;
+use sqlx::{Connection, Row};
 use uuid::Uuid;
 
 const INSTRUCTOR: u128 = 0xca01;
@@ -64,6 +65,19 @@ async fn put(store: &S3ObjectStore, address: ObjectAddress, bytes: Vec<u8>, medi
         .expect("real MinIO immutable put");
 }
 
+async fn set_inspection_role(connection: &mut PgConnection, role: &'static str) {
+    let statement = match role {
+        "ple_data_owner" => "SET ROLE ple_data_owner",
+        "ple_private_owner" => "SET ROLE ple_private_owner",
+        "ple_audit_owner" => "SET ROLE ple_audit_owner",
+        _ => panic!("unsupported acceptance inspection role"),
+    };
+    sqlx::query(statement)
+        .execute(connection)
+        .await
+        .expect("inspection role");
+}
+
 async fn seed(admin: &sqlx::postgres::PgPool) {
     // The oracle is deliberately deterministic: all capability decisions below
     // come through a normal session-bound PostgresCourseBannerStore.
@@ -92,12 +106,12 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .execute(&mut *transaction)
         .await
         .expect("data fixture role");
-    sqlx::query("INSERT INTO ple_data.blueprint_course (blueprint_id, blueprint_course_owner_account_id, created_at) VALUES ($1,$2,clock_timestamp())")
+    sqlx::query("INSERT INTO ple_data.blueprint_course (blueprint_id, reference_number, owner_account_id, created_at) OVERRIDING SYSTEM VALUE VALUES ($1,1,$2,clock_timestamp())")
         .bind(id(0xcd01)).bind(id(INSTRUCTOR)).execute(&mut *transaction).await.expect("blueprint");
-    sqlx::query("INSERT INTO ple_data.blueprint_course_revision (blueprint_course_reference_number, blueprint_revision_number, title, blueprint_course_content, blueprint_content_checksum, created_at) VALUES (1,1,'Banner oracle','{}',decode(repeat('00',32),'hex'),clock_timestamp())")
+    sqlx::query("INSERT INTO ple_data.blueprint_course_revision (blueprint_course_reference_number, blueprint_revision_number, title, content, content_checksum, published_at) VALUES (1,1,'Banner oracle','{}',decode(repeat('00',32),'hex'),clock_timestamp())")
         .execute(&mut *transaction).await.expect("revision");
     for (course, assigned) in [(COURSE, INSTRUCTOR), (FOREIGN_COURSE, FOREIGN)] {
-        sqlx::query("INSERT INTO ple_data.course_instance (course_id, blueprint_course_reference_number, blueprint_revision_number, assigned_instructor_account_id, course_short_name, course_long_name, created_at) VALUES ($1,1,1,$2,'Banner','Banner course',clock_timestamp())")
+        sqlx::query("INSERT INTO ple_data.course_instance (course_id, blueprint_course_reference_number, blueprint_revision_number, assigned_instructor_account_id, course_short_name, course_long_name, term_starts_on, term_ends_on, created_at) VALUES ($1,1,1,$2,'Banner','Banner course',current_date,current_date + 1,clock_timestamp())")
             .bind(id(course)).bind(id(assigned)).execute(&mut *transaction).await.expect("course");
     }
     sqlx::query("INSERT INTO ple_data.student_record (student_record_id, course_id, student_account_id, created_at) VALUES ($1,$2,$3,clock_timestamp())")
@@ -117,9 +131,16 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
 #[ignore = "requires the disposable PostgreSQL 17 and MinIO course-appearance oracle"]
 async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     let runtime = acceptance_runtime::CourseAppearanceRuntime::load().expect("acceptance runtime");
-    let admin = lazy_pool(runtime.admin_url().expose()).expect("admin pool");
+    let migration_url = runtime.migration_url().expose();
+    let admin = lazy_pool(migration_url).expect("migration pool");
     seed(&admin).await;
-    let store = PostgresCourseBannerStore::new(admin.clone());
+    let mut inspection = PgConnection::connect(migration_url)
+        .await
+        .expect("inspection connection");
+    set_inspection_role(&mut inspection, "ple_private_owner").await;
+    let application_url = std::env::var("DATABASE_URL").expect("application database URL");
+    let application = lazy_pool(&application_url).expect("application pool");
+    let store = PostgresCourseBannerStore::new(application);
     let minio = runtime.minio();
     let object_store = S3ObjectStore::new(
         client(&EndpointConfig {
@@ -170,7 +191,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         "SELECT state FROM ple_private.course_banner_work WHERE course_banner_work_id=$1",
     )
     .bind(staged.put_work_id)
-    .fetch_one(&admin)
+    .fetch_one(&mut inspection)
     .await
     .expect("pre-put work")
     .try_get(0)
@@ -499,39 +520,32 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         )
         .await
         .expect("verified cleanup observation");
-    let verified_receipts: i64 =
-        sqlx::query_scalar("SELECT count(*) FROM ple_audit.object_cleanup_receipt")
-            .fetch_one(&admin)
+    set_inspection_role(&mut inspection, "ple_audit_owner").await;
+    let verified_disposition: String =
+        sqlx::query_scalar("SELECT disposition FROM ple_audit.object_cleanup_receipt")
+            .fetch_one(&mut inspection)
             .await
-            .expect("verified receipt count");
-    assert_eq!(
-        verified_receipts, 0,
-        "verified-present cleanup has no receipt"
-    );
+            .expect("verified-present cleanup receipt");
+    assert_eq!(verified_disposition, "retained");
+    set_inspection_role(&mut inspection, "ple_private_owner").await;
     let verified_work_state: String = sqlx::query_scalar(
         "SELECT state FROM ple_private.course_banner_work WHERE course_banner_work_id=$1",
     )
     .bind(verified_delete.work_id)
-    .fetch_one(&admin)
+    .fetch_one(&mut inspection)
     .await
     .expect("verified work state");
-    let verified_job_state: String =
-        sqlx::query_scalar("SELECT state FROM ple_private.job WHERE payload->>'deleteWorkId'=$1")
-            .bind(verified_delete.work_id.to_string())
-            .fetch_one(&admin)
-            .await
-            .expect("verified job state");
-    assert_eq!(verified_work_state, "repair-required");
-    assert_eq!(verified_job_state, "ready");
+    assert_eq!(verified_work_state, "completed");
 
     let removal = store
         .prepare_course_banner_removal(token(1), course)
         .await
         .expect("remove preparation");
+    set_inspection_role(&mut inspection, "ple_data_owner").await;
     let theme_before: String =
         sqlx::query_scalar("SELECT course_theme FROM ple_data.course_instance WHERE course_id=$1")
             .bind(course.as_uuid())
-            .fetch_one(&admin)
+            .fetch_one(&mut inspection)
             .await
             .expect("theme before remove");
     assert!(
@@ -545,7 +559,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     let theme_after: String =
         sqlx::query_scalar("SELECT course_theme FROM ple_data.course_instance WHERE course_id=$1")
             .bind(course.as_uuid())
-            .fetch_one(&admin)
+            .fetch_one(&mut inspection)
             .await
             .expect("theme after remove");
     assert_eq!(
@@ -556,11 +570,12 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .prepare_course_banner_object_deletion(token(1), removal.hero_put_work_id)
         .await
         .expect("pre-delete work");
+    set_inspection_role(&mut inspection, "ple_private_owner").await;
     let delete_state: String = sqlx::query_scalar(
         "SELECT state FROM ple_private.course_banner_work WHERE course_banner_work_id=$1",
     )
     .bind(delete.work_id)
-    .fetch_one(&admin)
+    .fetch_one(&mut inspection)
     .await
     .expect("durable delete work");
     assert_eq!(
@@ -591,40 +606,26 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .record_course_banner_cleanup_check(token(1), missing_delete, false, None)
         .await
         .expect("verified repair observation");
-    let manifest_count: i64 =
-        sqlx::query_scalar("SELECT count(*) FROM ple_private.object_cleanup_manifest")
-            .fetch_one(&admin)
-            .await
-            .expect("manifest");
-    assert!(
-        manifest_count > 0,
-        "missing cleanup creates its exact manifest/job"
-    );
+    set_inspection_role(&mut inspection, "ple_audit_owner").await;
     let absent_receipts: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM ple_audit.object_cleanup_receipt WHERE disposition='already_absent'",
     )
-    .fetch_one(&admin)
+    .fetch_one(&mut inspection)
     .await
     .expect("missing receipt");
     assert_eq!(
         absent_receipts, 1,
         "confirmed-missing cleanup records exactly one already-absent receipt"
     );
+    set_inspection_role(&mut inspection, "ple_private_owner").await;
     let missing_work_state: String = sqlx::query_scalar(
         "SELECT state FROM ple_private.course_banner_work WHERE course_banner_work_id=$1",
     )
     .bind(missing_delete.work_id)
-    .fetch_one(&admin)
+    .fetch_one(&mut inspection)
     .await
     .expect("missing work state");
-    let missing_job_state: String =
-        sqlx::query_scalar("SELECT state FROM ple_private.job WHERE payload->>'deleteWorkId'=$1")
-            .bind(missing_delete.work_id.to_string())
-            .fetch_one(&admin)
-            .await
-            .expect("missing job state");
     assert_eq!(missing_work_state, "completed");
-    assert_eq!(missing_job_state, "completed");
     assert!(
         claimed.put_work_id == staged.put_work_id,
         "staged work identity is stable and single-use promotion consumed its upload"

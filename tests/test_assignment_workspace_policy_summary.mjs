@@ -35,7 +35,6 @@ const baseInput = {
     assignment_attempt_time_limit_seconds: 900,
     attempt_limit: 2,
     late_work_rule: "mark_late",
-    assignment_deadline_rule: "auto_submit",
   },
   assignmentAttemptTimeLimitSecondsDraft: "900",
   attemptLimitDraft: "2",
@@ -58,7 +57,6 @@ test("Assignment policy summary covers every Policies-owned decision in readable
   assert.match(schedule, /900s time limit/);
   assert.match(schedule, /2 attempts/);
   assert.match(schedule, /Instructor time zone/);
-  assert.match(schedule, /auto-submits.*effective deadline/);
   const disclosure = valueFor("disclosure");
   for (const category of [
     "Score",

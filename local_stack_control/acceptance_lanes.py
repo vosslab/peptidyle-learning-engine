@@ -34,6 +34,11 @@ def lanes() -> tuple[ValidationLane, ...]:
 			EvidenceBoundary.REAL_SERVICE,
 		),
 		ValidationLane(
+			"ordinary installation-data provision and explicit opt-out",
+			("bash", "tests/e2e/e2e_installation_data.sh"),
+			EvidenceBoundary.REAL_SERVICE,
+		),
+		ValidationLane(
 			"course-appearance PostgreSQL and MinIO coherence oracle",
 			("bash", "tests/e2e/e2e_course_appearance.sh"),
 			EvidenceBoundary.REAL_SERVICE,

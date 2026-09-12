@@ -8,6 +8,7 @@ import {
   decodeCourseGradeSchemeView,
   decodeCourseGradebookTotalsView,
 } from "../src/api/decoders/course_grade.ts";
+import { decodeCourseGradebook } from "../src/api/decoders/live_gradebook.ts";
 import {
   ApiProtocolError,
   CourseGradeSchemeConflictError,
@@ -132,6 +133,25 @@ test("course-grade decoder rejects out-of-sequence mappings, weights, and privat
     privateTotals.rows[0][field] = value;
     assert.throws(() => decodeCourseGradebookTotalsView(privateTotals), /known field/u);
   }
+
+  const answerFreeGradebook = {
+    courseReference: "C-1",
+    studentWork: [
+      {
+        rosterId: "student-01",
+        assignmentReference: "A-1",
+        assignmentAttemptCompletion: "completed",
+        gradedQuestionCount: 1,
+        questionCount: 1,
+        pointsEarned: 1,
+        pointsPossible: 1,
+      },
+    ],
+  };
+  assert.deepEqual(decodeCourseGradebook(answerFreeGradebook), answerFreeGradebook);
+  const answerBearingGradebook = structuredClone(answerFreeGradebook);
+  answerBearingGradebook.studentWork[0].studentResponse = "private answer";
+  assert.throws(() => decodeCourseGradebook(answerBearingGradebook), /response contract/u);
 });
 
 test("course-grade model renumbers category positions and explains invalid weighted drafts", () => {

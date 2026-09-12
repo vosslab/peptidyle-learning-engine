@@ -49,7 +49,6 @@ const assignmentAuthoredContent = {
   assignment_attempt_time_limit_seconds: null,
   attempt_limit: null,
   late_work_rule: "mark_late",
-  assignment_deadline_rule: "auto_submit",
 };
 
 test("focused policy input preserves direct delivery settings", () => {

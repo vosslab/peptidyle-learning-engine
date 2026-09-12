@@ -11,7 +11,8 @@ use crate::{
 };
 use question_model::{
     AssignmentAttemptReference, AssignmentReference, CourseInstanceReference, CourseTheme,
-    GradingResult, StudentFeedback, StudentFeedbackReleaseRule, Timestamp,
+    GradingResult, QuestionId, QuestionRevisionNumber, QuestionRevisionReference, StudentFeedback,
+    StudentFeedbackReleaseRule, Timestamp,
 };
 use serde::Deserialize;
 use sqlx::Row;
@@ -20,6 +21,8 @@ use sqlx::Row;
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct StoredQuestion {
     position: u32,
+    question_id: String,
+    revision_number: u32,
     response_state: LiveAssignmentPreviousAttemptState,
 }
 
@@ -73,13 +76,8 @@ pub(super) async fn read(
     })?;
     let questions = stored_questions
         .into_iter()
-        .map(|question| StudentAssignmentAttemptHistoryQuestion {
-            position: question.position,
-            response_state: question.response_state,
-            response: None,
-            feedback: StudentFeedback::empty(),
-        })
-        .collect::<Vec<_>>();
+        .map(decode_question)
+        .collect::<Result<Vec<_>, StoreError>>()?;
     let feedback_rule = serde_json::from_value::<StudentFeedbackReleaseRule>(
         row.try_get("feedback_rule").map_err(map_sqlx_error)?,
     )
@@ -171,6 +169,33 @@ fn timestamp(value: Option<i64>) -> Option<Timestamp> {
     value.map(Timestamp::from_unix_millis)
 }
 
+fn public_issued_position(position: u32) -> Result<u32, StoreError> {
+    (position > 0)
+        .then_some(position)
+        .ok_or_else(|| StoreError::InvalidRecord("Issued Question position is invalid".to_string()))
+}
+
+fn decode_question(
+    question: StoredQuestion,
+) -> Result<StudentAssignmentAttemptHistoryQuestion, StoreError> {
+    let question_id = QuestionId::from_str(&question.question_id)
+        .map_err(|_| StoreError::InvalidRecord("Issued Question ID is invalid".to_string()))?;
+    let revision_number = QuestionRevisionNumber::new(question.revision_number).map_err(|_| {
+        StoreError::InvalidRecord("Issued Question Revision Number is invalid".to_string())
+    })?;
+    let position = public_issued_position(question.position)?;
+    Ok(StudentAssignmentAttemptHistoryQuestion {
+        position,
+        question_revision: QuestionRevisionReference {
+            question_id,
+            revision_number,
+        },
+        response_state: question.response_state,
+        response: None,
+        feedback: StudentFeedback::empty(),
+    })
+}
+
 fn decode_results(
     value: serde_json::Value,
     questions: &[StudentAssignmentAttemptHistoryQuestion],
@@ -182,7 +207,10 @@ fn decode_results(
     let stored = serde_json::from_value::<Vec<StoredGradingResult>>(value).map_err(|_| {
         StoreError::InvalidRecord("Assignment Attempt grading results are invalid".to_string())
     })?;
-    if stored.len() != questions.len()
+    if stored
+        .iter()
+        .any(|result| public_issued_position(result.position).is_err())
+        || stored.len() != questions.len()
         || stored
             .iter()
             .zip(questions)
@@ -212,4 +240,69 @@ fn decode_results(
         })
         .collect::<Result<Vec<_>, StoreError>>()?;
     Ok(results)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn history_question_uses_the_exact_retained_issued_revision() {
+        let question = decode_question(StoredQuestion {
+            position: 1,
+            question_id: "ABCDEF1".to_string(),
+            revision_number: 3,
+            response_state: LiveAssignmentPreviousAttemptState::Submitted,
+        })
+        .expect("retained issued Question evidence is valid");
+
+        assert_eq!(
+            question.question_revision.question_id.to_string(),
+            "ABC-DEF1"
+        );
+        assert_eq!(question.question_revision.revision_number.get(), 3);
+    }
+
+    #[test]
+    fn history_question_rejects_invalid_issued_revision_evidence() {
+        let error = decode_question(StoredQuestion {
+            position: 1,
+            question_id: "ABCDEF1".to_string(),
+            revision_number: 0,
+            response_state: LiveAssignmentPreviousAttemptState::Closed,
+        })
+        .expect_err("invalid issued Question evidence fails closed");
+
+        assert!(matches!(error, StoreError::InvalidRecord(_)));
+    }
+
+    #[test]
+    fn history_rejects_zero_based_public_issued_positions() {
+        let question = decode_question(StoredQuestion {
+            position: 0,
+            question_id: "ABCDEF1".to_string(),
+            revision_number: 1,
+            response_state: LiveAssignmentPreviousAttemptState::Submitted,
+        });
+        assert!(matches!(question, Err(StoreError::InvalidRecord(_))));
+
+        let retained_question = decode_question(StoredQuestion {
+            position: 1,
+            question_id: "ABCDEF1".to_string(),
+            revision_number: 1,
+            response_state: LiveAssignmentPreviousAttemptState::Submitted,
+        })
+        .expect("one-based Question evidence is valid");
+        let results = decode_results(
+            serde_json::json!([{
+                "position": 0,
+                "correct": true,
+                "pointsEarned": 1.0,
+                "pointsPossible": 1.0,
+            }]),
+            &[retained_question],
+            true,
+        );
+        assert!(matches!(results, Err(StoreError::InvalidRecord(_))));
+    }
 }

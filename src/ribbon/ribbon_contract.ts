@@ -537,13 +537,11 @@ function breadcrumbsFor(
           ]);
     case "assignmentWorkspaceQuestions":
     case "assignmentWorkspacePolicies":
-    case "assignmentWorkspaceStudentView":
-    case "assignmentWorkspaceGradingOperations": {
+    case "assignmentWorkspaceStudentView": {
       const section = {
         assignmentWorkspaceQuestions: "Questions",
         assignmentWorkspacePolicies: "Settings",
         assignmentWorkspaceStudentView: "Student View",
-        assignmentWorkspaceGradingOperations: "Grading Operations",
       }[routeState.route.id];
       const base = courseTrail(assignmentLabel, courseAssignments);
       if (base.length === 0 || instructorAssignment === undefined) return Object.freeze([]);
@@ -563,8 +561,6 @@ function breadcrumbsFor(
       return Object.freeze(courseTrail("Delivery Check", courseAssignments));
     case "gradebook":
       return Object.freeze(courseTrail("Gradebook", courseAssignments));
-    case "studentWorkInspection":
-      return Object.freeze(courseTrail("Student Work", courseAssignments));
     case "courseGradeSettings":
       return Object.freeze(courseTrail("Grade Settings", courseAssignments));
     case "courseAppearance":
@@ -619,10 +615,8 @@ function breadcrumbPreludeReservedFor(route: RouteContract): boolean {
     case "assignmentWorkspaceQuestions":
     case "assignmentWorkspacePolicies":
     case "assignmentWorkspaceStudentView":
-    case "assignmentWorkspaceGradingOperations":
     case "assignmentPreview":
     case "gradebook":
-    case "studentWorkInspection":
     case "courseGradeSettings":
     case "courseAppearance":
     case "courseRoster":

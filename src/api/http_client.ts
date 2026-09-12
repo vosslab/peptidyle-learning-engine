@@ -16,30 +16,25 @@ import { createBlueprintCourseClient } from "./http_client/blueprint_course";
 import { createCourseInstanceClient } from "./http_client/course_instance";
 import { createLiveCourseRosterClient } from "./http_client/course_roster";
 import { createLiveInvitationExportClient } from "./http_client/invitation_export";
-import { createBlueprintOperationsClient } from "./http_client/blueprint_operations";
-import { createGradingOperationsClient } from "./http_client/grading_operations";
-import { createCalculatedGradebookClient } from "./http_client/calculated_gradebook";
 import { createLiveAssignmentReleaseClient } from "./http_client/assignment_release";
 import { createLiveAssignmentAttemptIssuanceClient } from "./http_client/assignment_attempt_issuance";
 import { createStudentAssignmentAttemptHistoryClient } from "./http_client/assignment_attempt_history";
 import { createStudentAssignmentAttemptNavigationClient } from "./http_client/assignment_attempt_navigation";
 import { createInstructorAccountClient } from "./http_client/instructor_account";
 import { createSupportCapabilityClient } from "./http_client/support_roster";
-import { createLiveDemoGradebookClient } from "./http_client/live_gradebook";
+import { createCourseGradebookClient } from "./http_client/live_gradebook";
 import { createLiveStudentCourseLandingClient } from "./http_client/live_student_course_landing";
+import { createQuestionAvailabilityClient } from "./http_client/question_availability";
 
 export {
   ApiProtocolError,
   ApiRequestError,
   AssignmentConflictError,
-  AssignmentSuccessorRevisionRequiredError,
   AssignmentPoliciesValidationError,
   CourseGradeSchemeConflictError,
   BlueprintCourseConflictError,
-  resolveAssignmentContentSaveFailure,
 } from "./http_client/error";
 export type { ApiFetch, HttpApiClientConfig } from "./http_client/request";
-export type { AssignmentContentSaveFailure } from "./http_client/error";
 export { browserFetch };
 
 /** Creates the strict same-origin transport from independently owned capabilities. */
@@ -65,11 +60,9 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createStudentAssignmentAttemptNavigationClient(fetchImplementation, basePath),
     createInstructorAccountClient(fetchImplementation, basePath),
     createSupportCapabilityClient(fetchImplementation, basePath),
-    createLiveDemoGradebookClient(fetchImplementation, basePath),
+    createCourseGradebookClient(fetchImplementation, basePath),
     createLiveStudentCourseLandingClient(fetchImplementation, basePath),
-    createBlueprintOperationsClient(fetchImplementation, basePath),
-    createGradingOperationsClient(fetchImplementation, basePath),
-    createCalculatedGradebookClient(fetchImplementation, basePath),
+    createQuestionAvailabilityClient(fetchImplementation, basePath),
     responses,
     requests,
   );

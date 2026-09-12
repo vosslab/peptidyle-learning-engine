@@ -1,6 +1,6 @@
 // Immutable browser drafts for the one reusable Blueprint Course model.
 
-import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
+import type { BlueprintModuleView } from "../../../generated/api/BlueprintModuleView";
 import type { CreateBlueprintCourseContentInput } from "../../../generated/api/CreateBlueprintCourseContentInput";
 import type { BlueprintAssignmentDefaults } from "../../../generated/api/BlueprintAssignmentDefaults";
 import type { BlueprintAssignmentContentInput } from "../../../generated/api/BlueprintAssignmentContentInput";
@@ -54,7 +54,6 @@ function defaultDefaults(): BlueprintAssignmentDefaults {
     assignment_attempt_time_limit_seconds: null,
     attempt_limit: null,
     late_work_rule: "reject",
-    assignment_deadline_rule: "auto_submit",
     activity_rules: {
       assignmentCompletionRule: { kind: "answerAll" },
       assignmentAttemptGradeRule: "highest",
@@ -368,13 +367,14 @@ export function reusableContentInputFromView(
   };
 }
 
-/** Converts a BlueprintCourseView to editable complete Blueprint Revision Content. */
-export function replacementContentFromBlueprintCourse(
-  view: BlueprintCourseView,
+/** Converts one owner Draft or exact immutable Revision content to an editable Draft command. */
+export function replacementContentFromBlueprintModules(
+  title: string,
+  modules: ReadonlyArray<BlueprintModuleView>,
 ): import("../../../generated/api/ReplaceBlueprintCourseContentInput").ReplaceBlueprintCourseContentInput {
   return {
-    title: view.title,
-    modules: view.modules.map((module) => ({
+    title,
+    modules: modules.map((module) => ({
       choice: {
         kind: "retained",
         blueprint_module_reference: module.blueprint_module_reference,

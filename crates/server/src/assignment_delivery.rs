@@ -1,6 +1,6 @@
 //! Student Assignment Access and answer-free Assignment start routes.
 
-use std::{collections::BTreeMap, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
 use adapter_ple::{PleQuestionBackend, ResolvedPleQuestionJsonSource};
 use adapter_webwork::{
@@ -14,9 +14,10 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post, put},
 };
+use browser_api_contract::assignment_delivery::StudentQuestionPresentation;
 use learning_data_access::{
-    LiveAssignmentAttempt, LiveAssignmentDeliveryStore, NativePleIssuanceSource,
-    NativePlePresentationInput, NativeWebworkIssuanceSource, NativeWebworkPresentationInput,
+    LiveAssignmentAttempt, LiveAssignmentDeliveryStore, NativeAssignmentIssuanceBatch,
+    NativePleIssuanceSource, NativePresentationInput, NativeWebworkIssuanceSource,
     SessionTokenHash, StoreError,
     postgres::{
         PostgresLiveAssignmentDeliveryStore, PostgresNativePleSubmissionStore, PostgresSessionStore,
@@ -25,15 +26,11 @@ use learning_data_access::{
 use objects::s3::S3ObjectStore;
 use question_model::{
     AssignmentAttemptReference, AssignmentReference, CourseInstanceReference, ObjectId,
-    ProductRole, QuestionAssetReference, QuestionAssetRendition, QuestionContentBlock, QuestionId,
-    QuestionPresentation, QuestionPresentationBinding, QuestionPresentationChecksum,
-    QuestionPresentationResponseFormat, QuestionRevisionNumber, QuestionRevisionReference,
-    SourceObjectChecksum, SourceObjectReference, StudentResponse, Timestamp,
+    ProductRole, QuestionPresentation, QuestionPresentationChecksum, QuestionRevisionNumber,
+    QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference, StudentResponse,
+    Timestamp,
 };
-use question_model::{
-    generation::QuestionSeed,
-    presentation::{build_question_presentation, reproduce_question_presentation},
-};
+use question_model::{generation::QuestionSeed, presentation::build_question_presentation};
 use serde::Serialize;
 
 use crate::auth::{AuthError, resolve_session};
@@ -41,7 +38,12 @@ use crate::auth::{AuthError, resolve_session};
 mod context;
 mod history;
 mod history_response;
+mod presentation_assets;
 mod submission;
+
+pub(super) use presentation_assets::{
+    question_asset_renditions, question_asset_renditions_from_ready,
+};
 
 #[derive(serde::Deserialize)]
 struct PositionQuery {
@@ -170,13 +172,14 @@ async fn student_question(
     };
     let source = match state
         .delivery
-        .student_assignment_attempt_presentation_source(token, assignment_attempt, query.position)
+        .student_assignment_attempt_presentation_evidence(token, assignment_attempt, query.position)
         .await
     {
         Ok(value) => value,
         Err(value) => return store_error(value),
     };
-    let issued = match reproduce_selected_issued_presentation(&state, source).await {
+    let question_revision = source.question_revision.clone();
+    let issued = match reproduce_selected_issued_presentation(source) {
         Ok(value) => value,
         Err(StartError::Store(value)) => return store_error(value),
         Err(StartError::Unavailable) => {
@@ -205,7 +208,11 @@ async fn student_question(
     crate::auth::no_store(
         Json(SelectedPresentationResponse {
             position: query.position,
-            presentation: issued.presentation.into(),
+            presentation: StudentQuestionPresentation {
+                question_revision,
+                prompt: issued.presentation.prompt,
+                response: issued.presentation.response,
+            },
             saved_response,
         })
         .into_response(),
@@ -220,62 +227,32 @@ struct SelectedPresentationResponse {
     saved_response: Option<StudentResponse>,
 }
 
-/// Browser-safe selected Question facts. Pinned source, seed, nonce, checksum,
-/// revision, and authored title remain on the server-side replay boundary.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct StudentQuestionPresentation {
-    prompt: Vec<QuestionContentBlock>,
-    response: QuestionPresentationResponseFormat,
-}
-
-impl From<QuestionPresentation> for StudentQuestionPresentation {
-    fn from(value: QuestionPresentation) -> Self {
-        Self {
-            prompt: value.prompt,
-            response: value.response,
-        }
-    }
-}
-
-pub(super) async fn reproduce_selected_issued_presentation(
-    state: &StateData,
-    source: learning_data_access::StudentAssignmentAttemptPresentationSource,
+pub(super) fn reproduce_selected_issued_presentation(
+    evidence: learning_data_access::StudentAssignmentAttemptPresentationEvidence,
 ) -> Result<question_model::presentation::IssuedQuestionPresentation, StartError> {
-    match source {
-        learning_data_access::StudentAssignmentAttemptPresentationSource::Ple {
-            source, ..
-        } => {
-            let resolved = resolve_source(&state.objects, &source).await?;
-            history::reproduce_ple_issued_presentation(&source, &resolved)
-        }
-        learning_data_access::StudentAssignmentAttemptPresentationSource::Webwork {
-            source,
-            question_seed,
-            presentation_nonce,
-            presentation_checksum,
-            ..
-        } => {
-            let issued = state
-                .webwork
-                .reproduce(
-                    QuestionSeed::new(question_seed),
-                    &resolve_webwork_source(&state.objects, &source).await?,
-                )
-                .await
-                .map_err(|_| StartError::Unavailable)?;
-            let nonce = question_model::QuestionPresentationNonce::parse(&presentation_nonce)
-                .map_err(|_| StartError::Invalid)?;
-            let checksum = QuestionPresentationChecksum::parse_hex(&presentation_checksum)
-                .map_err(|_| StartError::Invalid)?;
-            reproduce_question_presentation(
-                &issued.presentation,
-                &[],
-                QuestionPresentationBinding::new(nonce, checksum),
-            )
-            .map_err(|_| StartError::Invalid)
-        }
+    let presentation = serde_json::from_value::<QuestionPresentation>(evidence.presentation)
+        .map_err(|_| StartError::Invalid)?;
+    if presentation.question_revision != evidence.question_revision
+        || presentation.question_seed.value() != evidence.question_seed
+        || presentation.presentation_nonce.to_hex() != evidence.presentation_nonce
+    {
+        return Err(StartError::Invalid);
     }
+    let checksum = QuestionPresentationChecksum::parse_hex(&evidence.presentation_checksum)
+        .map_err(|_| StartError::Invalid)?;
+    let issued = question_model::presentation::rebuild_public_question_presentation(
+        &presentation,
+        &question_asset_renditions_from_ready(&evidence.question_asset_renditions),
+    )
+    .map_err(|_| StartError::Invalid)?;
+    if issued.checksum != checksum {
+        return Err(StartError::Invalid);
+    }
+    question_model::presentation::rebind_durable_response_item_bindings(
+        issued,
+        &evidence.response_item_bindings,
+    )
+    .map_err(|_| StartError::Invalid)
 }
 
 async fn access(
@@ -358,93 +335,117 @@ async fn issue_native_ple_presentation(
     course: CourseInstanceReference,
     assignment: AssignmentReference,
 ) -> Result<LiveAssignmentAttemptResponse, StartError> {
-    let sources = state
+    let batch = state
         .delivery
-        .prepare_native_ple_issuance(token, course, assignment)
+        .prepare_native_assignment_issuance(token, course, assignment)
         .await
         .map_err(StartError::Store)?;
-    let webwork_sources = state
-        .delivery
-        .prepare_native_webwork_issuance(token, course, assignment)
-        .await
-        .map_err(StartError::Store)?;
-    if !sources.is_empty() && !webwork_sources.is_empty() {
-        return issue_mixed_native_presentation(
-            state,
-            token,
-            course,
-            assignment,
-            &sources,
-            &webwork_sources,
-        )
-        .await;
+    issue_native_assignment_batch(state, token, batch).await
+}
+
+async fn issue_native_assignment_batch(
+    state: &StateData,
+    token: SessionTokenHash,
+    batch: NativeAssignmentIssuanceBatch,
+) -> Result<LiveAssignmentAttemptResponse, StartError> {
+    if let Some(attempt) = batch.committed_attempt {
+        if batch.retained_presentations.len() != attempt.questions.len() {
+            return Err(StartError::Invalid);
+        }
+        let questions = batch
+            .retained_presentations
+            .into_iter()
+            .zip(&attempt.questions)
+            .map(|(evidence, issued)| {
+                if evidence.question_revision.question_id != issued.question_id
+                    || evidence.question_revision.revision_number.get() != issued.revision_number
+                    || evidence.question_seed != issued.question_seed
+                    || evidence.presentation_nonce != issued.presentation_nonce
+                    || evidence.presentation_checksum != issued.presentation_checksum
+                {
+                    return Err(StartError::Invalid);
+                }
+                Ok(reproduce_selected_issued_presentation(evidence)?.presentation)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        return Ok(LiveAssignmentAttemptResponse {
+            assignment_attempt: attempt.assignment_attempt,
+            assignment: attempt.assignment,
+            attempt_number: attempt.attempt_number,
+            resumed: batch.attempt_was_resumed,
+            title: attempt.title,
+            instructions: attempt.instructions,
+            questions,
+        });
     }
-    if sources.is_empty() {
-        return issue_native_webwork_presentation_from_sources(
-            state,
-            token,
-            course,
-            assignment,
-            &webwork_sources,
-        )
-        .await;
-    }
-    let resumed = sources.first().ok_or(StartError::Invalid)?.resumed;
-    if sources.iter().any(|source| source.resumed != resumed) {
+    let sources = &batch.ple_sources;
+    let webwork_sources = &batch.webwork_sources;
+    if sources.is_empty() && webwork_sources.is_empty() {
         return Err(StartError::Invalid);
     }
 
-    let source_by_entry = sources
-        .iter()
-        .map(|source| {
-            (
-                (
-                    source.assignment_entry_id.as_str(),
-                    &source.question_id,
-                    source.revision_number,
-                ),
-                source,
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
-    if source_by_entry.len() != sources.len() {
-        return Err(StartError::Invalid);
-    }
-
-    let prepared = if resumed {
+    let prepared = if !batch.requires_presentation_commit() {
         Vec::new()
     } else {
-        issue_new_presentations(&state.objects, &sources).await?
+        let mut values = issue_new_presentations(&state.objects, sources).await?;
+        values.extend(issue_new_webwork_presentations(state, webwork_sources).await?);
+        values.sort_by_key(|value| value.position);
+        values
     };
     let attempt = state
         .delivery
-        .commit_native_ple_issuance(token, course, assignment, prepared)
+        .commit_native_assignment_issuance(token, batch.assignment_attempt_id, prepared)
         .await
         .map_err(StartError::Store)?;
-    let questions = reproduce_presentations(&state.objects, &source_by_entry, &attempt).await?;
+    let questions = rebuild_committed_attempt_presentations(state, token, &attempt).await?;
     Ok(LiveAssignmentAttemptResponse {
         assignment_attempt: attempt.assignment_attempt,
         assignment: attempt.assignment,
         attempt_number: attempt.attempt_number,
-        resumed: attempt.resumed,
+        resumed: batch.attempt_was_resumed,
         title: attempt.title,
         instructions: attempt.instructions,
         questions,
     })
 }
 
+async fn rebuild_committed_attempt_presentations(
+    state: &StateData,
+    token: SessionTokenHash,
+    attempt: &LiveAssignmentAttempt,
+) -> Result<Vec<QuestionPresentation>, StartError> {
+    let mut presentations = Vec::with_capacity(attempt.questions.len());
+    for issued in &attempt.questions {
+        let evidence = state
+            .delivery
+            .student_assignment_attempt_presentation_evidence(
+                token,
+                attempt.assignment_attempt,
+                issued.position,
+            )
+            .await
+            .map_err(StartError::Store)?;
+        if evidence.question_revision.question_id != issued.question_id
+            || evidence.question_revision.revision_number.get() != issued.revision_number
+            || evidence.question_seed != issued.question_seed
+            || evidence.presentation_nonce != issued.presentation_nonce
+            || evidence.presentation_checksum != issued.presentation_checksum
+        {
+            return Err(StartError::Invalid);
+        }
+        presentations.push(reproduce_selected_issued_presentation(evidence)?.presentation);
+    }
+    Ok(presentations)
+}
+
 async fn issue_new_presentations(
     objects: &S3ObjectStore,
     sources: &[NativePleIssuanceSource],
-) -> Result<Vec<NativePlePresentationInput>, StartError> {
+) -> Result<Vec<NativePresentationInput>, StartError> {
     let backend = PleQuestionBackend::new();
     let mut inputs = Vec::with_capacity(sources.len());
     for source in sources {
-        let mut seed = [0_u8; 8];
-        getrandom::fill(&mut seed).map_err(|_| StartError::Unavailable)?;
-        // Question Presentation exposes the exact seed, so retain only the
-        // 53 bits every browser Number can represent without rounding.
-        let seed = QuestionSeed::new(u64::from_be_bytes(seed) & ((1_u64 << 53) - 1));
+        let seed = QuestionSeed::new(source.question_seed.ok_or(StartError::Invalid)?);
         let resolved = resolve_source(objects, source).await?;
         let issued = backend
             .issue_question_json(&resolved, seed)
@@ -452,8 +453,11 @@ async fn issue_new_presentations(
         let assets = question_asset_renditions(source);
         let presentation = build_question_presentation(&issued.presentation, &assets)
             .map_err(|_| StartError::Unavailable)?;
-        inputs.push(NativePlePresentationInput {
-            issued_question_id: uuid::Uuid::now_v7().to_string(),
+        inputs.push(NativePresentationInput {
+            issued_question_id: source
+                .issued_question_id
+                .ok_or(StartError::Invalid)?
+                .to_string(),
             assignment_entry_id: source.assignment_entry_id.clone(),
             position: source.position,
             question_id: source.question_id.clone(),
@@ -462,309 +466,24 @@ async fn issue_new_presentations(
             parameter_hash: issued.parameter_hash,
             reproduction_details: serde_json::to_value(issued.reproduction_details)
                 .map_err(|_| StartError::Invalid)?,
+            presentation: serde_json::to_value(&presentation.presentation)
+                .map_err(|_| StartError::Invalid)?,
             presentation_nonce: presentation.presentation.presentation_nonce.to_hex(),
             presentation_checksum: presentation.checksum.to_hex(),
+            response_item_bindings:
+                question_model::presentation::extract_durable_response_item_bindings(&presentation)
+                    .map_err(|_| StartError::Invalid)?,
             question_asset_renditions: source.question_asset_renditions.clone(),
+            replay_details: None,
         });
     }
     Ok(inputs)
 }
 
-async fn reproduce_presentations(
-    objects: &S3ObjectStore,
-    source_by_entry: &BTreeMap<(&str, &QuestionId, u32), &NativePleIssuanceSource>,
-    attempt: &LiveAssignmentAttempt,
-) -> Result<Vec<QuestionPresentation>, StartError> {
-    let backend = PleQuestionBackend::new();
-    let mut questions = Vec::with_capacity(attempt.questions.len());
-    for issued_attempt in &attempt.questions {
-        let source = source_by_entry
-            .get(&(
-                issued_attempt.assignment_entry_id.as_str(),
-                &issued_attempt.question_id,
-                issued_attempt.revision_number,
-            ))
-            .copied()
-            .ok_or(StartError::Invalid)?;
-        if source.question_id != issued_attempt.question_id
-            || source.revision_number != issued_attempt.revision_number
-        {
-            return Err(StartError::Invalid);
-        }
-        let resolved = resolve_source(objects, source).await?;
-        let issued = backend
-            .issue_question_json(&resolved, QuestionSeed::new(issued_attempt.question_seed))
-            .map_err(|_| StartError::Invalid)?;
-        let nonce =
-            question_model::QuestionPresentationNonce::parse(&issued_attempt.presentation_nonce)
-                .map_err(|_| StartError::Invalid)?;
-        let checksum =
-            QuestionPresentationChecksum::parse_hex(&issued_attempt.presentation_checksum)
-                .map_err(|_| StartError::Invalid)?;
-        let assets = question_asset_renditions(source);
-        let presentation = reproduce_question_presentation(
-            &issued.presentation,
-            &assets,
-            QuestionPresentationBinding::new(nonce, checksum),
-        )
-        .map_err(|_| StartError::Invalid)?;
-        questions.push(presentation.presentation);
-    }
-    Ok(questions)
-}
-
-/// Issues or reproduces an immutable WeBWorK render.  Renderer form mappings
-/// are persisted only by the store's private replay table and never reach the
-/// browser response. ASVS 8.2.1/8.2.2.
-async fn issue_native_webwork_presentation_from_sources(
-    state: &StateData,
-    token: SessionTokenHash,
-    course: CourseInstanceReference,
-    assignment: AssignmentReference,
-    sources: &[NativeWebworkIssuanceSource],
-) -> Result<LiveAssignmentAttemptResponse, StartError> {
-    let resumed = sources.first().ok_or(StartError::Invalid)?.resumed;
-    if sources.iter().any(|source| source.resumed != resumed) {
-        return Err(StartError::Invalid);
-    }
-    let by_entry = sources
-        .iter()
-        .map(|source| {
-            (
-                (
-                    source.assignment_entry_id.as_str(),
-                    &source.question_id,
-                    source.revision_number,
-                ),
-                source,
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
-    if by_entry.len() != sources.len() {
-        return Err(StartError::Invalid);
-    }
-    let prepared = if resumed {
-        Vec::new()
-    } else {
-        issue_new_webwork_presentations(state, sources).await?
-    };
-    let attempt = state
-        .delivery
-        .commit_native_webwork_issuance(token, course, assignment, prepared)
-        .await
-        .map_err(StartError::Store)?;
-    let mut questions = Vec::with_capacity(attempt.questions.len());
-    for issued_attempt in &attempt.questions {
-        let source = by_entry
-            .get(&(
-                issued_attempt.assignment_entry_id.as_str(),
-                &issued_attempt.question_id,
-                issued_attempt.revision_number,
-            ))
-            .copied()
-            .ok_or(StartError::Invalid)?;
-        if source.question_id != issued_attempt.question_id
-            || source.revision_number != issued_attempt.revision_number
-        {
-            return Err(StartError::Invalid);
-        }
-        let issued = state
-            .webwork
-            .reproduce(
-                QuestionSeed::new(issued_attempt.question_seed),
-                &resolve_webwork_source(&state.objects, source).await?,
-            )
-            .await
-            .map_err(|_| StartError::Unavailable)?;
-        let nonce =
-            question_model::QuestionPresentationNonce::parse(&issued_attempt.presentation_nonce)
-                .map_err(|_| StartError::Invalid)?;
-        let checksum =
-            QuestionPresentationChecksum::parse_hex(&issued_attempt.presentation_checksum)
-                .map_err(|_| StartError::Invalid)?;
-        questions.push(
-            reproduce_question_presentation(
-                &issued.presentation,
-                &[],
-                QuestionPresentationBinding::new(nonce, checksum),
-            )
-            .map_err(|_| StartError::Invalid)?
-            .presentation,
-        );
-    }
-    Ok(LiveAssignmentAttemptResponse {
-        assignment_attempt: attempt.assignment_attempt,
-        assignment: attempt.assignment,
-        attempt_number: attempt.attempt_number,
-        resumed: attempt.resumed,
-        title: attempt.title,
-        instructions: attempt.instructions,
-        questions,
-    })
-}
-
-/// A released Assignment may contain both supported native source backends.
-/// Build all exact pins before the single locked commit; the commit's
-/// set-equality check then prevents issuing a partial Assignment Attempt.
-async fn issue_mixed_native_presentation(
-    state: &StateData,
-    token: SessionTokenHash,
-    course: CourseInstanceReference,
-    assignment: AssignmentReference,
-    ple_sources: &[NativePleIssuanceSource],
-    webwork_sources: &[NativeWebworkIssuanceSource],
-) -> Result<LiveAssignmentAttemptResponse, StartError> {
-    let resumed = ple_sources.first().ok_or(StartError::Invalid)?.resumed;
-    if ple_sources.iter().any(|source| source.resumed != resumed)
-        || webwork_sources
-            .iter()
-            .any(|source| source.resumed != resumed)
-    {
-        return Err(StartError::Invalid);
-    }
-    let ple_by_entry = ple_sources
-        .iter()
-        .map(|source| {
-            (
-                (
-                    source.assignment_entry_id.as_str(),
-                    &source.question_id,
-                    source.revision_number,
-                ),
-                source,
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
-    let webwork_by_entry = webwork_sources
-        .iter()
-        .map(|source| {
-            (
-                (
-                    source.assignment_entry_id.as_str(),
-                    &source.question_id,
-                    source.revision_number,
-                ),
-                source,
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
-    if ple_by_entry.len() != ple_sources.len()
-        || webwork_by_entry.len() != webwork_sources.len()
-        || ple_by_entry
-            .keys()
-            .any(|entry| webwork_by_entry.contains_key(entry))
-    {
-        return Err(StartError::Invalid);
-    }
-    let prepared = if resumed {
-        Vec::new()
-    } else {
-        let mut values = issue_new_presentations(&state.objects, ple_sources)
-            .await?
-            .into_iter()
-            .map(|value| NativeWebworkPresentationInput {
-                issued_question_id: value.issued_question_id,
-                assignment_entry_id: value.assignment_entry_id,
-                position: value.position,
-                question_id: value.question_id,
-                revision_number: value.revision_number,
-                question_seed: value.question_seed,
-                parameter_hash: value.parameter_hash,
-                reproduction_details: value.reproduction_details,
-                presentation_nonce: value.presentation_nonce,
-                presentation_checksum: value.presentation_checksum,
-                question_asset_renditions: value.question_asset_renditions,
-                replay_details: None,
-            })
-            .collect::<Vec<_>>();
-        values.extend(issue_new_webwork_presentations(state, webwork_sources).await?);
-        values.sort_by_key(|value| value.position);
-        values
-    };
-    let attempt = state
-        .delivery
-        .commit_native_webwork_issuance(token, course, assignment, prepared)
-        .await
-        .map_err(StartError::Store)?;
-    let mut questions = Vec::with_capacity(attempt.questions.len());
-    for issued_attempt in &attempt.questions {
-        let nonce =
-            question_model::QuestionPresentationNonce::parse(&issued_attempt.presentation_nonce)
-                .map_err(|_| StartError::Invalid)?;
-        let checksum =
-            QuestionPresentationChecksum::parse_hex(&issued_attempt.presentation_checksum)
-                .map_err(|_| StartError::Invalid)?;
-        let binding = QuestionPresentationBinding::new(nonce, checksum);
-        let presentation = if let Some(source) = ple_by_entry
-            .get(&(
-                issued_attempt.assignment_entry_id.as_str(),
-                &issued_attempt.question_id,
-                issued_attempt.revision_number,
-            ))
-            .copied()
-        {
-            if source.question_id != issued_attempt.question_id
-                || source.revision_number != issued_attempt.revision_number
-            {
-                return Err(StartError::Invalid);
-            }
-            let issued = PleQuestionBackend::new()
-                .issue_question_json(
-                    &resolve_source(&state.objects, source).await?,
-                    QuestionSeed::new(issued_attempt.question_seed),
-                )
-                .map_err(|_| StartError::Invalid)?;
-            reproduce_question_presentation(
-                &issued.presentation,
-                &question_asset_renditions(source),
-                binding,
-            )
-            .map_err(|_| StartError::Invalid)?
-            .presentation
-        } else if let Some(source) = webwork_by_entry
-            .get(&(
-                issued_attempt.assignment_entry_id.as_str(),
-                &issued_attempt.question_id,
-                issued_attempt.revision_number,
-            ))
-            .copied()
-        {
-            if source.question_id != issued_attempt.question_id
-                || source.revision_number != issued_attempt.revision_number
-            {
-                return Err(StartError::Invalid);
-            }
-            let issued = state
-                .webwork
-                .reproduce(
-                    QuestionSeed::new(issued_attempt.question_seed),
-                    &resolve_webwork_source(&state.objects, source).await?,
-                )
-                .await
-                .map_err(|_| StartError::Unavailable)?;
-            reproduce_question_presentation(&issued.presentation, &[], binding)
-                .map_err(|_| StartError::Invalid)?
-                .presentation
-        } else {
-            return Err(StartError::Invalid);
-        };
-        questions.push(presentation);
-    }
-    Ok(LiveAssignmentAttemptResponse {
-        assignment_attempt: attempt.assignment_attempt,
-        assignment: attempt.assignment,
-        attempt_number: attempt.attempt_number,
-        resumed: attempt.resumed,
-        title: attempt.title,
-        instructions: attempt.instructions,
-        questions,
-    })
-}
-
 async fn issue_new_webwork_presentations(
     state: &StateData,
     sources: &[NativeWebworkIssuanceSource],
-) -> Result<Vec<NativeWebworkPresentationInput>, StartError> {
+) -> Result<Vec<NativePresentationInput>, StartError> {
     let mut inputs = Vec::with_capacity(sources.len());
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -773,9 +492,7 @@ async fn issue_new_webwork_presentations(
         i64::try_from(now.as_millis()).map_err(|_| StartError::Unavailable)?,
     );
     for source in sources {
-        let mut bytes = [0_u8; 8];
-        getrandom::fill(&mut bytes).map_err(|_| StartError::Unavailable)?;
-        let seed = QuestionSeed::new(u64::from_be_bytes(bytes) & ((1_u64 << 53) - 1));
+        let seed = QuestionSeed::new(source.question_seed);
         let issued = state
             .webwork
             .issue(
@@ -786,10 +503,16 @@ async fn issue_new_webwork_presentations(
             .await
             .map_err(|_| StartError::Unavailable)?;
         let replay = issued.replay.ok_or(StartError::Invalid)?;
-        let presentation = build_question_presentation(&issued.presentation, &[])
-            .map_err(|_| StartError::Unavailable)?;
-        inputs.push(NativeWebworkPresentationInput {
-            issued_question_id: uuid::Uuid::now_v7().to_string(),
+        let presentation = build_question_presentation(
+            &issued.presentation,
+            &question_asset_renditions_from_ready(&source.question_asset_renditions),
+        )
+        .map_err(|_| StartError::Unavailable)?;
+        inputs.push(NativePresentationInput {
+            issued_question_id: source
+                .issued_question_id
+                .ok_or(StartError::Invalid)?
+                .to_string(),
             assignment_entry_id: source.assignment_entry_id.clone(),
             position: source.position,
             question_id: source.question_id.clone(),
@@ -798,9 +521,14 @@ async fn issue_new_webwork_presentations(
             parameter_hash: issued.parameter_hash,
             reproduction_details: serde_json::to_value(issued.reproduction_details)
                 .map_err(|_| StartError::Invalid)?,
+            presentation: serde_json::to_value(&presentation.presentation)
+                .map_err(|_| StartError::Invalid)?,
             presentation_nonce: presentation.presentation.presentation_nonce.to_hex(),
             presentation_checksum: presentation.checksum.to_hex(),
-            question_asset_renditions: Vec::new(),
+            response_item_bindings:
+                question_model::presentation::extract_durable_response_item_bindings(&presentation)
+                    .map_err(|_| StartError::Invalid)?,
+            question_asset_renditions: source.question_asset_renditions.clone(),
             replay_details: Some(serde_json::to_value(replay).map_err(|_| StartError::Invalid)?),
         });
     }
@@ -872,29 +600,6 @@ pub(super) fn refs(
     ))
 }
 
-pub(super) fn question_asset_renditions(
-    source: &NativePleIssuanceSource,
-) -> Vec<QuestionAssetRendition> {
-    question_asset_renditions_from_ready(&source.question_asset_renditions)
-}
-
-pub(super) fn question_asset_renditions_from_ready(
-    renditions: &[learning_data_access::ReadyQuestionAssetRendition],
-) -> Vec<QuestionAssetRendition> {
-    renditions
-        .iter()
-        .map(|rendition| QuestionAssetRendition {
-            question_asset: QuestionAssetReference {
-                question_asset: rendition.question_asset,
-                checksum: rendition.question_asset_checksum.clone(),
-            },
-            rendition_checksum: rendition.rendition_checksum.clone(),
-            intrinsic_width: Some(rendition.intrinsic_width),
-            intrinsic_height: Some(rendition.intrinsic_height),
-        })
-        .collect()
-}
-
 pub(super) async fn student(
     state: &StateData,
     headers: &HeaderMap,
@@ -931,6 +636,10 @@ pub(super) fn store_error(value: StoreError) -> Response {
         StoreError::Conflict | StoreError::RetryableTransaction => {
             error(StatusCode::PRECONDITION_FAILED, "Assignment start changed")
         }
+        StoreError::LifecycleConflict => error(
+            StatusCode::CONFLICT,
+            "Assignment is not available for a new Attempt",
+        ),
         StoreError::InvalidRecord(_) => error(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Assignment start is invalid",
@@ -954,6 +663,10 @@ pub(super) fn submission_store_error(value: StoreError) -> Response {
                 "Question Submission changed",
             )
         }
+        StoreError::LifecycleConflict => error(
+            StatusCode::CONFLICT,
+            "Question Submission lifecycle conflict",
+        ),
         StoreError::InvalidRecord(_) => error(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Student Response is invalid",

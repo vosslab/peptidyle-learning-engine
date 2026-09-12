@@ -148,7 +148,7 @@ locals {
     { name = "PLE_STUDENT_RECORDS_KMS_KEY_ARN", value = aws_kms_key.object["student_records"].arn },
     { name = "PLE_TEMP_PROCESSING_KMS_KEY_ARN", value = aws_kms_key.object["temp_processing"].arn }
   ]
-  api_required_secret_keys = ["DATABASE_URL", "PLE_AUTOMATED_GRADING_DATABASE_URL", "PLE_TRUSTED_PROXY_CIDRS", "PLE_PUBLIC_ASSET_BASE_URL", "PLE_QUESTION_ID_SECRET"]
+  api_required_secret_keys = ["DATABASE_URL", "PLE_AUTOMATED_GRADING_DATABASE_URL", "PLE_TRUSTED_PROXY_CIDRS", "PLE_PUBLIC_ASSET_BASE_URL"]
   smtp_secret_keys         = ["PLE_SMTP_RELAY", "PLE_SMTP_PORT", "PLE_SMTP_TLS_MODE", "PLE_SMTP_USERNAME", "PLE_SMTP_FROM", "PLE_PUBLIC_APP_BASE_URL"]
   webwork_secret_keys      = ["PLE_WEBWORK_RENDERER_BASE_URL", "PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS", "PLE_WEBWORK_MAX_RESPONSE_BYTES", "PLE_WEBWORK_RENDERER_ID", "PLE_WEBWORK_RENDERER_VERSION"]
   api_secrets = [
@@ -179,19 +179,19 @@ resource "aws_ecs_task_definition" "api" {
   execution_role_arn       = aws_iam_role.api_execution.arn
   task_role_arn            = aws_iam_role.api.arn
   container_definitions = jsonencode(concat(
-    var.enable_smtp ? [{
+    [{
       name             = "secret-files", image = var.secret_file_writer_image, essential = false, user = "10001", readonlyRootFilesystem = true, stopTimeout = 45,
       environment      = [{ name = "PLE_SECRET_OUTPUT_DIR", value = "/run/ple-secrets" }],
-      secrets          = var.enable_smtp ? [for key in ["PLE_SMTP_PASSWORD", "PLE_INVITATION_TOKEN_SECRET"] : { name = key, valueFrom = "${var.api_application_secrets_arn}:${key}::" }] : [],
+      secrets          = [for key in concat(["PLE_QUESTION_ID_SECRET"], var.enable_smtp ? ["PLE_SMTP_PASSWORD", "PLE_INVITATION_TOKEN_SECRET"] : []) : { name = key, valueFrom = "${var.api_application_secrets_arn}:${key}::" }],
       mountPoints      = [{ sourceVolume = "runtime-secrets", containerPath = "/run/ple-secrets", readOnly = false }],
       linuxParameters  = { initProcessEnabled = true },
       logConfiguration = { logDriver = "awslogs", options = { awslogs-group = aws_cloudwatch_log_group.application["api"].name, awslogs-region = var.aws_region, awslogs-stream-prefix = "secret-files" } }
-    }] : [],
+    }],
     [{
       name             = "api", image = var.api_image, essential = true, user = "10001", readonlyRootFilesystem = true, stopTimeout = 45,
-      dependsOn        = var.enable_smtp ? [{ containerName = "secret-files", condition = "SUCCESS" }] : [],
+      dependsOn        = [{ containerName = "secret-files", condition = "SUCCESS" }],
       portMappings     = [{ containerPort = 3000, protocol = "tcp" }],
-      environment      = concat(local.runtime_environment, var.enable_smtp ? [{ name = "PLE_SMTP_PASSWORD_FILE", value = "/run/ple-secrets/smtp-password" }, { name = "PLE_INVITATION_TOKEN_SECRET_FILE", value = "/run/ple-secrets/invitation-token" }] : []), secrets = concat(local.api_secrets, local.fast_path_secrets),
+      environment      = concat(local.runtime_environment, [{ name = "PLE_QUESTION_ID_SECRET_FILE", value = "/run/ple-secrets/question-id-secret" }], var.enable_smtp ? [{ name = "PLE_SMTP_PASSWORD_FILE", value = "/run/ple-secrets/smtp-password" }, { name = "PLE_INVITATION_TOKEN_SECRET_FILE", value = "/run/ple-secrets/invitation-token" }] : []), secrets = concat(local.api_secrets, local.fast_path_secrets),
       mountPoints      = [{ sourceVolume = "runtime-secrets", containerPath = "/run/ple-secrets", readOnly = true }],
       linuxParameters  = { initProcessEnabled = true },
       logConfiguration = { logDriver = "awslogs", options = { awslogs-group = aws_cloudwatch_log_group.application["api"].name, awslogs-region = var.aws_region, awslogs-stream-prefix = "ecs" } },

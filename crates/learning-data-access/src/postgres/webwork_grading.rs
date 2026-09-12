@@ -35,7 +35,7 @@ impl WebworkGradingStore for PostgresWebworkGradingStore {
             "SELECT job_id, question_attempt_id, question_id, revision_number, source_object_id, \
              source_object_checksum, webwork_pg_path, question_seed::text AS question_seed, \
              student_response, replay_details \
-             FROM ple_api.claim_live_demo_webwork_grading_job(\
+             FROM ple_api.claim_webwork_grading_job(\
                  $1, to_timestamp($2::double precision / 1000.0)\
              )",
         )
@@ -95,7 +95,7 @@ impl WebworkGradingStore for PostgresWebworkGradingStore {
             .execute(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
-        sqlx::query("SELECT ple_api.commit_live_demo_webwork_grading($1, $2, $3, $4, to_timestamp($5::double precision / 1000.0))")
+        sqlx::query("SELECT ple_api.commit_webwork_grading($1, $2, $3, $4, to_timestamp($5::double precision / 1000.0))")
             .bind(lease.job_id).bind(lease.lease_token).bind(correct).bind(normalized_credit).bind(committed_at_unix_millis)
             .execute(&mut *transaction).await.map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)
@@ -111,7 +111,7 @@ impl WebworkGradingStore for PostgresWebworkGradingStore {
             .execute(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
-        sqlx::query("SELECT ple_api.fail_live_demo_webwork_grading($1, $2, to_timestamp($3::double precision / 1000.0))")
+        sqlx::query("SELECT ple_api.fail_webwork_grading($1, $2, to_timestamp($3::double precision / 1000.0))")
             .bind(lease.job_id).bind(lease.lease_token).bind(completed_at_unix_millis)
             .execute(&mut *transaction).await.map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)

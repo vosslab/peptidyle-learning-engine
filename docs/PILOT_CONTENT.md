@@ -48,13 +48,20 @@ selected MC/MATCH Blackboard record shape, strict PLE Question JSON version 3 co
 answer-free Question Content, private-key binding, and correct-versus-wrong server grading for
 all four static questions.
 
-The fixed live-demo seed/manifest and Rust behavior tests own Chapter One
-publication, exact rerun, and grading semantics. The one disposable live-demo
-lifecycle installs that reviewed baseline into PostgreSQL and MinIO; Chapter
-One no longer creates a separately named stack or browser owner. Historical
-pilot evidence used `P-...-v1` references, but current instructor-facing IDs use
-canonical `AAA-BBBB` Crockford Question IDs while immutable snapshots stay
-internal for grading and Question Attempt Reproduction Details.
+The production-installation orchestrator defaults to a complete known-good Live
+Demo and accepts an explicit opt-out. It publishes this eight-Question inventory
+through the content compiler and owning object-publication path; each publication
+supplies one exact immutable Question Revision. The database-owned subject
+organization follows in `schemas/installation_data/live_demo.sql`. That manifest
+also creates every other wholly PostgreSQL-owned teaching fact; existing owner
+paths create only cross-system effects. Its fixed manifest and Rust behavior
+tests own Chapter One replay and grading semantics; the graph has its ordinary
+product lifecycle rather than seed-specific permanence. The local persona selector
+and throwaway storage remain confined to private bootstrap/local disposable use
+and are absent before a public gateway. Historical pilot evidence used
+`P-...-v1` references, but current instructor-facing IDs use canonical `AAA-BBBB`
+Crockford Question IDs while immutable snapshots stay internal for grading and
+Question Attempt Reproduction Details.
 
 Browser student behavior is selected only through the canonical wrapper:
 

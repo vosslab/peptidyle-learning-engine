@@ -57,6 +57,7 @@ adapter_qti.workspace = true
 # and the AWS SDK stays inside `objects`, so this crate never names either.
 objects = { workspace = true, features = ["s3"] }
 learning-data-access = { workspace = true, features = ["postgres"] }
+browser-api-contract.workspace = true
 
 [dev-dependencies]
 tower.workspace = true

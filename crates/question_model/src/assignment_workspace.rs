@@ -2,14 +2,13 @@
 //!
 //! These types describe request intent and publication validation only. The
 //! server resolves question references, Account-local times, and authority
-//! before it changes the authoritative Assignment and its current Assignment Revision.
+//! before it changes the authoritative current Assignment.
 
 use serde::{Deserialize, Serialize};
 
-use crate::blueprint_operations::AssignmentRevisionReference;
 use crate::{
-    AccountTimeZone, AssignmentActivityRules, AssignmentDeadlineRule, AssignmentEditNumber,
-    AssignmentEntry, AssignmentEntryAvailability, AssignmentEntryScoringRule, AssignmentOverview,
+    AccountTimeZone, AssignmentActivityRules, AssignmentEditNumber, AssignmentEntry,
+    AssignmentEntryAvailability, AssignmentEntryScoringRule, AssignmentOverview,
     AssignmentPointValue, AssignmentQuestionVariationRule, AssignmentStatus, AssignmentTitle,
     Capability, InstructorAssignmentAuthoredContentLocal, LateWorkRule, QuestionAttemptLimit,
     QuestionAttemptTimeLimit, QuestionId, QuestionPoolItemAvailability, QuestionPoolReuseRule,
@@ -95,15 +94,6 @@ pub enum AssignmentPoliciesValidationIssue {
     },
 }
 
-/// Closed structural-content refusal that requires a successor Assignment Revision.
-/// Ordinary `409` responses still cover retryable aggregate conflicts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct SuccessorAssignmentRevisionRequired {
-    /// Immutable revision whose existing Student work must remain unchanged.
-    pub base_revision: AssignmentRevisionReference,
-}
-
 /// One ordered browser content entry. The server resolves every `question_id`
 /// to an immutable publication before it builds a Store command.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -149,7 +139,7 @@ pub enum AssignmentReleaseIssue {
 /// An empty issue list means the Assignment Content has the currently known minimum
 /// conditions for publication. This Assignment Release Validation is intentionally derived rather than
 /// a second persisted state, so future closed blockers can extend it without
-/// changing the Assignment or its current Assignment Revision.
+/// changing the current Assignment.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssignmentReleaseValidation {
@@ -198,8 +188,6 @@ pub struct InstructorStudentViewDelivery {
     pub attempt_limit: Option<u32>,
     #[serde(rename = "late_work_rule")]
     pub late_work_rule: LateWorkRule,
-    #[serde(rename = "assignment_deadline_rule")]
-    pub assignment_deadline_rule: AssignmentDeadlineRule,
 }
 
 impl InstructorStudentView {
@@ -259,11 +247,11 @@ impl AssignmentReleaseValidation {
 
     /// Returns whether this stable Assignment status is valid for the current
     /// Assignment and its released teaching history.
-    pub fn permits_status(&self, status: AssignmentStatus, has_revision: bool) -> bool {
+    pub fn permits_status(&self, status: AssignmentStatus, has_released_history: bool) -> bool {
         match status {
             AssignmentStatus::Unreleased | AssignmentStatus::Archived => true,
             AssignmentStatus::Released => self.is_ready(),
-            AssignmentStatus::Closed => has_revision,
+            AssignmentStatus::Closed => has_released_history,
         }
     }
 }
@@ -334,27 +322,6 @@ mod tests {
     }
 
     #[test]
-    fn successor_assignment_revision_requirement_is_a_closed_browser_contract() {
-        let requirement = SuccessorAssignmentRevisionRequired {
-            base_revision: serde_json::from_str(r#"{"assignment":"A-1","revision_number":"1"}"#)
-                .expect("exact Assignment Revision Reference"),
-        };
-
-        let value = serde_json::to_value(requirement).expect("successor requirement serializes");
-        assert_eq!(
-            value,
-            serde_json::json!({ "baseRevision": { "assignment": "A-1", "revision_number": "1" } })
-        );
-        assert!(serde_json::from_value::<SuccessorAssignmentRevisionRequired>(value).is_ok());
-        assert!(
-            serde_json::from_value::<SuccessorAssignmentRevisionRequired>(
-                serde_json::json!({ "baseRevision": { "assignment": "A-1", "revision_number": "1" }, "extra": true })
-            )
-            .is_err()
-        );
-    }
-
-    #[test]
     fn content_and_policy_requests_use_closed_camel_case_contracts() {
         let content = serde_json::from_str::<ReplaceAssignmentContentRequest>(
             r#"{"baseEditNumber":"1","title":"Protein folding","entries":[{"kind":"questionPool","questionIds":["7K3-M9QP"],"availability":"available","scoringRule":"normal","selectionCount":1,"pointsPerItem":"1","selectionRule":{"selectedQuestionOrder":"questionPoolOrder"},"questionAttemptLimit":{"maxAttempts":null},"questionAttemptTimeLimit":{"kind":"unlimited"}}]}"#,
@@ -387,7 +354,6 @@ mod tests {
                 None,
                 None,
                 crate::LateWorkRule::Accept,
-                crate::AssignmentDeadlineRule::AutoSubmit,
             )
             .expect("Assignment settings"),
         };

@@ -27,37 +27,38 @@ mock_provider "aws" {
   alias = "us_east_1"
 }
 
+variables {
+  aws_region                                = "us-west-2"
+  environment                               = "staging"
+  deployment_id                             = "audit-20260812"
+  domain_name                               = "learn.example.edu"
+  certificate_arn                           = "arn:aws:acm:us-east-1:111122223333:certificate/00000000-0000-0000-0000-000000000000"
+  origin_certificate_arn                    = "arn:aws:acm:us-west-2:111122223333:certificate/00000000-0000-0000-0000-000000000000"
+  origin_domain_name                        = "origin.learn.example.edu"
+  origin_hosted_zone_id                     = "Z000000000000000000000"
+  vpc_cidr                                  = "10.42.0.0/20"
+  availability_zones                        = ["us-west-2a", "us-west-2b"]
+  api_image                                 = "111122223333.dkr.ecr.us-west-2.amazonaws.com/ple-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  worker_image                              = "111122223333.dkr.ecr.us-west-2.amazonaws.com/ple-worker@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  secret_file_writer_image                  = "111122223333.dkr.ecr.us-west-2.amazonaws.com/ple-secret-file-writer@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  api_application_secrets_arn               = "arn:aws:secretsmanager:us-west-2:111122223333:secret:ple-api-runtime-test"
+  worker_application_secrets_arn            = "arn:aws:secretsmanager:us-west-2:111122223333:secret:ple-worker-runtime-test"
+  recovery_application_secrets_arn          = "arn:aws:secretsmanager:us-west-2:111122223333:secret:ple-accepted-submission-recovery-test"
+  fast_path_application_secrets_arn         = "arn:aws:secretsmanager:us-west-2:111122223333:secret:ple-accepted-submission-fast-path-test"
+  api_application_secrets_kms_key_arn       = "arn:aws:kms:us-west-2:111122223333:key/00000000-0000-0000-0000-000000000001"
+  worker_application_secrets_kms_key_arn    = "arn:aws:kms:us-west-2:111122223333:key/00000000-0000-0000-0000-000000000002"
+  recovery_application_secrets_kms_key_arn  = "arn:aws:kms:us-west-2:111122223333:key/00000000-0000-0000-0000-000000000004"
+  fast_path_application_secrets_kms_key_arn = "arn:aws:kms:us-west-2:111122223333:key/00000000-0000-0000-0000-000000000005"
+  publisher_application_secrets_arn         = "arn:aws:secretsmanager:us-west-2:111122223333:secret:ple-publisher-runtime-test"
+  publisher_application_secrets_kms_key_arn = "arn:aws:kms:us-west-2:111122223333:key/00000000-0000-0000-0000-000000000003"
+  smtp_security_group_id                    = "sg-11111111111111111"
+  imathas_security_group_id                 = "sg-22222222222222222"
+  renderer_security_group_id                = "sg-33333333333333333"
+  alert_email                               = "operations@example.edu"
+}
+
 run "security_baseline_plan" {
   command = plan
-  variables {
-    aws_region                                = "us-west-2"
-    environment                               = "staging"
-    deployment_id                             = "audit-20260812"
-    domain_name                               = "learn.example.edu"
-    certificate_arn                           = "arn:aws:acm:us-east-1:111122223333:certificate/00000000-0000-0000-0000-000000000000"
-    origin_certificate_arn                    = "arn:aws:acm:us-west-2:111122223333:certificate/00000000-0000-0000-0000-000000000000"
-    origin_domain_name                        = "origin.learn.example.edu"
-    origin_hosted_zone_id                     = "Z000000000000000000000"
-    vpc_cidr                                  = "10.42.0.0/20"
-    availability_zones                        = ["us-west-2a", "us-west-2b"]
-    api_image                                 = "111122223333.dkr.ecr.us-west-2.amazonaws.com/ple-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    worker_image                              = "111122223333.dkr.ecr.us-west-2.amazonaws.com/ple-worker@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-    secret_file_writer_image                  = "111122223333.dkr.ecr.us-west-2.amazonaws.com/ple-secret-file-writer@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-    api_application_secrets_arn               = "arn:aws:secretsmanager:us-west-2:111122223333:secret:ple-api-runtime-test"
-    worker_application_secrets_arn            = "arn:aws:secretsmanager:us-west-2:111122223333:secret:ple-worker-runtime-test"
-    recovery_application_secrets_arn          = "arn:aws:secretsmanager:us-west-2:111122223333:secret:ple-accepted-submission-recovery-test"
-    fast_path_application_secrets_arn         = "arn:aws:secretsmanager:us-west-2:111122223333:secret:ple-accepted-submission-fast-path-test"
-    api_application_secrets_kms_key_arn       = "arn:aws:kms:us-west-2:111122223333:key/00000000-0000-0000-0000-000000000001"
-    worker_application_secrets_kms_key_arn    = "arn:aws:kms:us-west-2:111122223333:key/00000000-0000-0000-0000-000000000002"
-    recovery_application_secrets_kms_key_arn  = "arn:aws:kms:us-west-2:111122223333:key/00000000-0000-0000-0000-000000000004"
-    fast_path_application_secrets_kms_key_arn = "arn:aws:kms:us-west-2:111122223333:key/00000000-0000-0000-0000-000000000005"
-    publisher_application_secrets_arn         = "arn:aws:secretsmanager:us-west-2:111122223333:secret:ple-publisher-runtime-test"
-    publisher_application_secrets_kms_key_arn = "arn:aws:kms:us-west-2:111122223333:key/00000000-0000-0000-0000-000000000003"
-    smtp_security_group_id                    = "sg-11111111111111111"
-    imathas_security_group_id                 = "sg-22222222222222222"
-    renderer_security_group_id                = "sg-33333333333333333"
-    alert_email                               = "operations@example.edu"
-  }
 
   assert {
     condition     = aws_db_instance.postgres.publicly_accessible == false && aws_db_instance.postgres.storage_encrypted && aws_db_instance.postgres.deletion_protection
@@ -174,5 +175,38 @@ run "security_baseline_plan" {
   assert {
     condition     = alltrue([for key in ["PLE_WEBAUTHN_ORIGIN", "PLE_WEBAUTHN_RP_ID", "PLE_WEBAUTHN_RP_NAME"] : !strcontains(aws_ecs_task_definition.api.container_definitions, key)])
     error_message = "Deferred passkey configuration must not be required or distributed to the API task."
+  }
+  assert {
+    condition     = length([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container if container.name == "api"]) == 1 && alltrue([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container.readonlyRootFilesystem && contains([for mount in try(container.mountPoints, []) : "${mount.sourceVolume}:${mount.containerPath}:${mount.readOnly}"], "runtime-secrets:/run/ple-secrets:true") && contains([for entry in try(container.environment, []) : entry.name], "PLE_QUESTION_ID_SECRET_FILE") && contains([for entry in try(container.environment, []) : "${entry.name}=${entry.value}"], "PLE_QUESTION_ID_SECRET_FILE=/run/ple-secrets/question-id-secret") && !contains([for entry in try(container.environment, []) : entry.name], "PLE_QUESTION_ID_SECRET") && !contains([for entry in try(container.secrets, []) : entry.name], "PLE_QUESTION_ID_SECRET") if container.name == "api"])
+    error_message = "API must receive the Question ID capability only as the documented secret-file path, never as the raw secret."
+  }
+  assert {
+    condition     = length([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container if container.name == "secret-files"]) == 1 && alltrue([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container.user == "10001" && container.readonlyRootFilesystem && contains([for mount in try(container.mountPoints, []) : "${mount.sourceVolume}:${mount.containerPath}:${mount.readOnly}"], "runtime-secrets:/run/ple-secrets:false") && contains([for entry in try(container.environment, []) : "${entry.name}=${entry.value}"], "PLE_SECRET_OUTPUT_DIR=/run/ple-secrets") && contains([for entry in try(container.secrets, []) : entry.name], "PLE_QUESTION_ID_SECRET") if container.name == "secret-files"])
+    error_message = "The non-root secret-file sidecar must own the raw Question ID capability and write it into the shared runtime-secret volume."
+  }
+  assert {
+    condition     = alltrue([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : contains([for dependency in try(container.dependsOn, []) : "${dependency.containerName}:${dependency.condition}"], "secret-files:SUCCESS") if container.name == "api"])
+    error_message = "API startup must always wait for the secret-file sidecar to finish successfully."
+  }
+}
+
+run "question_id_secret_without_smtp_plan" {
+  command = plan
+
+  variables {
+    enable_smtp = false
+  }
+
+  assert {
+    condition     = length(jsondecode(aws_ecs_task_definition.api.container_definitions)) == 2 && length([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container if container.name == "api"]) == 1 && length([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : container if container.name == "secret-files"]) == 1
+    error_message = "Question ID file delivery requires exactly the API and its secret-file sidecar when SMTP is disabled."
+  }
+  assert {
+    condition     = alltrue([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : contains([for entry in try(container.secrets, []) : entry.name], "PLE_QUESTION_ID_SECRET") && !contains([for entry in try(container.secrets, []) : entry.name], "PLE_SMTP_PASSWORD") && !contains([for entry in try(container.secrets, []) : entry.name], "PLE_INVITATION_TOKEN_SECRET") if container.name == "secret-files"])
+    error_message = "SMTP-disabled secret-files must retain only the raw Question ID capability from this optional group."
+  }
+  assert {
+    condition     = alltrue([for container in jsondecode(aws_ecs_task_definition.api.container_definitions) : contains([for entry in try(container.environment, []) : "${entry.name}=${entry.value}"], "PLE_QUESTION_ID_SECRET_FILE=/run/ple-secrets/question-id-secret") && !contains([for entry in try(container.environment, []) : entry.name], "PLE_SMTP_PASSWORD_FILE") && !contains([for entry in try(container.environment, []) : entry.name], "PLE_INVITATION_TOKEN_SECRET_FILE") && !contains([for entry in try(container.secrets, []) : entry.name], "PLE_QUESTION_ID_SECRET") if container.name == "api"])
+    error_message = "SMTP-disabled API must retain only the Question ID secret-file path and no SMTP or raw Question ID secret."
   }
 }

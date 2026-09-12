@@ -4,6 +4,7 @@ import type { InstructorAssignmentAuthoredContentLocal } from "../../../generate
 import type { AssignmentActivityRules } from "../../../generated/api/AssignmentActivityRules";
 import type { AssignmentPoliciesValidationIssue } from "../../../generated/api/AssignmentPoliciesValidationIssue";
 import type { AssignmentPoliciesInput } from "../../api/contracts";
+import type { SaveLiveAssignmentInput } from "../../api/assignment_release";
 
 /** The teaching default applied when an Instructor chooses a new due date. */
 export const DEFAULT_DUE_TIME = "23:59:00.000";
@@ -71,6 +72,29 @@ export function assignmentPoliciesInput(
   assignmentAuthoredContent: InstructorAssignmentAuthoredContentLocal,
 ): AssignmentPoliciesInput {
   return { studentFeedbackReleaseRule, policies, assignmentAuthoredContent };
+}
+
+/** Replaces policy-owned values while carrying current Entries and access bounds unchanged. */
+export function assignmentPolicySaveInput(
+  current: SaveLiveAssignmentInput,
+  replacement: Pick<
+    SaveLiveAssignmentInput,
+    | "instructions"
+    | "dueAt"
+    | "lateWorkRule"
+    | "assignmentAttemptTimeLimitSeconds"
+    | "attemptLimit"
+    | "activityRules"
+    | "studentFeedbackReleaseRule"
+  >,
+): SaveLiveAssignmentInput {
+  return {
+    ...current,
+    ...replacement,
+    entries: current.entries,
+    availableAt: current.availableAt,
+    closesAt: current.closesAt,
+  };
 }
 
 /** Converts a native local-date-time control value to the explicit wire form. */

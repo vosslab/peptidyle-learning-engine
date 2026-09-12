@@ -61,7 +61,7 @@ def adapter_argv(
 
 #============================================
 def default_operations(
-	provision_stop_after: str | None,
+	without_live_demo: bool,
 	launch_diagnostic: Callable[[str], str],
 ) -> DeveloperOperations:
 	"""Use the same production manifest, gateway, and auth path as Playwright."""
@@ -90,8 +90,8 @@ def default_operations(
 			"--timeout-seconds",
 			str(int(LIFECYCLE_LAUNCH_TIMEOUT_SECONDS)),
 		)
-		if provision_stop_after is not None:
-			arguments += ("--stop-after", provision_stop_after)
+		if without_live_demo:
+			arguments += ("--without-live-demo",)
 		argv = adapter_argv("launch", target.manifest_path, arguments)
 		environment = local_stack_control.env_file.sanitized_runtime_environment(
 			local_stack_control.process.current_environment()

@@ -1,0 +1,3 @@
+[migrate]
+table-name = "ple_migration._sqlx_migrations"
+migrations-dir = "../../schemas/migrations"

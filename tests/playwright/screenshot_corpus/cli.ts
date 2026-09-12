@@ -14,12 +14,7 @@ import {
   writeReplayArtifacts,
   type PublishedImage,
 } from "./publication";
-import {
-  createScenarioRuntime,
-  loadSeededReferences,
-  requireEntryUrl,
-  requireProducedClosure,
-} from "./runtime";
+import { createScenarioRuntime, requireEntryUrl, requireProducedClosure } from "./runtime";
 import { SCREENSHOT_SCENARIOS } from "./scenario_registry";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -28,10 +23,6 @@ const manifestPath = path.join(screenshotRoot, "current_capture_manifest.json");
 const receiptPath = path.join(screenshotRoot, "current_capture_receipt.json");
 const atlasPath = path.join(repositoryRoot, "docs/SCREENSHOT_ATLAS.md");
 const resultRoot = path.join(repositoryRoot, "test-results/screenshot-corpus");
-const reportPath = path.join(
-  repositoryRoot,
-  "local_stack_state/live_demo_browser/workspace/live_demo_course_report.json",
-);
 
 interface LoadedContract {
   readonly manifest: CaptureManifest;
@@ -70,7 +61,6 @@ async function replay(
   const publishedBefore = mode === "verify" ? await verifyPublished() : undefined;
   const contract = publishedBefore ?? (await loadContract());
   const entryUrl = requireEntryUrl(entryArgument);
-  const references = await loadSeededReferences(reportPath);
   const outputRoot = path.join(resultRoot, mode === "publish" ? "staging" : "verify");
   await prepareOutputRoot(outputRoot);
   const browser = await chromium.launch({ headless: true });
@@ -80,7 +70,6 @@ async function replay(
       entryUrl,
       outputRoot,
       manifest: contract.manifest,
-      references,
     });
     for (const scenario of SCREENSHOT_SCENARIOS) {
       console.log(`Running screenshot scenario ${scenario.id}`);

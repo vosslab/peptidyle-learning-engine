@@ -1,7 +1,7 @@
 // runtime.ts - shared browser and capture assertions for screenshot scenarios.
 
 import path from "node:path";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 
 import type { Browser, BrowserContext, Page } from "playwright";
 
@@ -14,11 +14,6 @@ import {
   type ViewportId,
 } from "./manifest";
 import { monitorCapturePrivacy, type PrivacyMonitor } from "./privacy_profiles";
-
-export interface SeededReferences {
-  readonly course: string;
-  readonly assignment: string;
-}
 
 export interface CaptureSession {
   readonly context: BrowserContext;
@@ -33,7 +28,6 @@ export interface ScenarioRuntime {
   readonly entryUrl: URL;
   readonly outputRoot: string;
   readonly manifest: CaptureManifest;
-  readonly references: SeededReferences;
   readonly producedPaths: Set<string>;
   readonly record: (scenario: string, checkpoint: string) => CaptureRecord;
   readonly open: (record: CaptureRecord) => Promise<CaptureSession>;
@@ -54,25 +48,6 @@ export function requireEntryUrl(argument: string | undefined): URL {
     throw new Error("capture entry must be the local HTTPS sign-in URL");
   }
   return url;
-}
-
-export async function loadSeededReferences(reportPath: string): Promise<SeededReferences> {
-  const parsed = JSON.parse(await readFile(reportPath, "utf8")) as unknown;
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("Live Demo Course report must be an object");
-  }
-  const report = parsed as Record<string, unknown>;
-  const course = report["course_reference"];
-  const assignment = report["assignment_reference"];
-  if (
-    typeof course !== "string" ||
-    !/^C-[1-9][0-9]{0,9}$/u.test(course) ||
-    typeof assignment !== "string" ||
-    !/^A-[1-9][0-9]{0,9}$/u.test(assignment)
-  ) {
-    throw new Error("Live Demo Course report lacks canonical Course and Assignment references");
-  }
-  return { course, assignment };
 }
 
 function requireNoPageErrors(session: CaptureSession): void {
@@ -127,7 +102,6 @@ export function createScenarioRuntime(options: {
   readonly entryUrl: URL;
   readonly outputRoot: string;
   readonly manifest: CaptureManifest;
-  readonly references: SeededReferences;
 }): ScenarioRuntime {
   const producedPaths = new Set<string>();
 
@@ -203,7 +177,6 @@ export function createScenarioRuntime(options: {
     entryUrl: options.entryUrl,
     outputRoot: options.outputRoot,
     manifest: options.manifest,
-    references: options.references,
     producedPaths,
     record,
     open,

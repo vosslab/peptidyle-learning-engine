@@ -9,9 +9,8 @@ use std::num::NonZeroU32;
 
 pub use question_model::StudentLateWorkStatus;
 use question_model::{
-    AssignmentDeadlineRule, AssignmentStatus, BaseAssignmentPolicy, LateWorkRule,
-    MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, StudentRecordId,
-    Timestamp,
+    AssignmentStatus, BaseAssignmentPolicy, LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
+    MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, StudentRecordId, Timestamp,
 };
 
 use crate::active_student_course_membership::{
@@ -55,7 +54,9 @@ pub fn is_legal_assignment_status_transition(from: AssignmentStatus, to: Assignm
                 AssignmentStatus::Released | AssignmentStatus::Archived
             ) | (
                 AssignmentStatus::Released,
-                AssignmentStatus::Closed | AssignmentStatus::Archived
+                AssignmentStatus::Unreleased
+                    | AssignmentStatus::Closed
+                    | AssignmentStatus::Archived
             ) | (
                 AssignmentStatus::Closed,
                 AssignmentStatus::Released | AssignmentStatus::Archived
@@ -110,7 +111,6 @@ pub struct EffectiveAssignmentPolicy {
     pub assignment_attempt_time_limit_seconds: EffectiveAssignmentPolicyValue<Option<NonZeroU32>>,
     pub attempt_limit: EffectiveAssignmentPolicyValue<Option<NonZeroU32>>,
     pub late_work_rule: EffectiveAssignmentPolicyValue<LateWorkRule>,
-    pub assignment_deadline_rule: EffectiveAssignmentPolicyValue<AssignmentDeadlineRule>,
 }
 
 /// A sparse direct-Student accommodation adjustment. Assignment-owned late and
@@ -417,7 +417,6 @@ fn base_policy(base: BaseAssignmentPolicy) -> EffectiveAssignmentPolicy {
         assignment_attempt_time_limit_seconds: resolved(base.assignment_attempt_time_limit_seconds),
         attempt_limit: resolved(base.attempt_limit),
         late_work_rule: resolved(base.late_work_rule),
-        assignment_deadline_rule: resolved(base.assignment_deadline_rule),
     }
 }
 

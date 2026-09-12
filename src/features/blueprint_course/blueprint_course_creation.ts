@@ -12,6 +12,7 @@ export type BlueprintCourseCreationResult<Created> =
 export async function createBlueprintCourseWhenReady(
   client: BlueprintCourseClient,
   content: CreateBlueprintCourseContentInput,
+  idempotencyKey: string,
 ): Promise<
   BlueprintCourseCreationResult<Awaited<ReturnType<BlueprintCourseClient["createBlueprintCourse"]>>>
 > {
@@ -22,5 +23,5 @@ export async function createBlueprintCourseWhenReady(
       message: validation.message ?? "Complete the Blueprint Course before creating it.",
     };
   }
-  return { kind: "created", value: await client.createBlueprintCourse(content) };
+  return { kind: "created", value: await client.createBlueprintCourse(content, idempotencyKey) };
 }

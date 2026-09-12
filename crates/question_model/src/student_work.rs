@@ -14,22 +14,25 @@ use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use uuid::Uuid;
 
+mod attempt_evidence;
 mod grading;
 mod source_object_checksum;
 #[cfg(test)]
 #[path = "student_work/source_object_checksum_tests.rs"]
 mod source_object_checksum_tests;
 
+pub use attempt_evidence::{
+    AssignmentAttempt, AssignmentAttemptCompletion, AssignmentAttemptEvidence,
+    AssignmentAttemptPolicySource, AssignmentAttemptPolicySources, AssignmentGrade,
+};
 pub use grading::{GradingResult, QuestionEvaluation, QuestionEvaluationError};
 pub use source_object_checksum::{SourceObjectChecksum, SourceObjectChecksumError};
 
-use crate::QuestionRevisionReference;
 use crate::assignment::{AssignmentEntryScoringRule, AssignmentPointValue};
-use crate::assignment_activity_rules::{AssignmentQuestionVariationRule, QuestionPoolReuseRule};
 use crate::generation::QuestionSeed;
 use crate::identity::ObjectId;
 use crate::response::StudentResponse;
-use crate::{AssignmentAttemptReference, AssignmentRevisionReference};
+use crate::{AssignmentAttemptReference, QuestionRevisionReference};
 
 /// Answer-free, server-authorized navigation state for an issued Assignment
 /// Attempt. This is a projection, never a mutable "current question" record.
@@ -86,92 +89,6 @@ impl Timestamp {
     /// Returns the server-supplied Unix millisecond value.
     pub fn as_unix_millis(&self) -> i64 {
         self.0
-    }
-}
-
-/// Authoritative completion state of one Assignment Attempt.
-///
-/// Successor availability is deliberately separate: an Assignment Attempt can have no next
-/// attempt because it completed or because it exhausted its attempt policy.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum AssignmentAttemptCompletion {
-    /// The Assignment Attempt has not satisfied its assignment completion requirement.
-    InProgress,
-    /// The Assignment Attempt has satisfied its assignment completion requirement.
-    Completed,
-}
-
-/// One pass through an assignment.
-///
-/// There is deliberately no stored `complete` boolean. The domain derives
-/// within-Assignment-Attempt completion from current question states, then records the
-/// resulting completion timestamp and score as one transition.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AssignmentAttempt {
-    /// Durable Assignment Attempt identity.
-    pub id: AssignmentAttemptId,
-    /// Stable Assignment Attempt Reference used in application navigation.
-    pub reference: AssignmentAttemptReference,
-    /// Student Record that owns this Assignment Attempt.
-    pub student_record: StudentRecordId,
-    /// Assignment that this Student Record attempts.
-    pub assignment: AssignmentId,
-    /// Exact Released Assignment Revision expanded into this Assignment Attempt.
-    ///
-    /// This Assignment Revision preserves immutable Assignment Content and delivery rules
-    /// used for this Student's work.
-    pub assignment_revision: AssignmentRevisionReference,
-    /// One-based attempt number for this Student Record and Assignment.
-    pub attempt_number: u32,
-    /// Server time at which the Assignment Attempt began.
-    pub started_at: Timestamp,
-    /// Server time at which derived completion was recorded, if complete.
-    pub completed_at: Option<Timestamp>,
-    /// Score fraction recorded on completion, if complete.
-    pub score: Option<f64>,
-    /// Question Pool Reuse Rule applied when this Assignment Attempt was issued.
-    pub question_pool_reuse_rule: QuestionPoolReuseRule,
-    /// Question Variation Rule applied when this Assignment Attempt was issued.
-    pub question_variation_rule: AssignmentQuestionVariationRule,
-}
-
-/// The policy-selected course result for one Student Record and Assignment.
-///
-/// This record owns selected-score pointers only. Immutable Student Work remains
-/// under Assignment Attempts and their Issued Questions.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub struct AssignmentGrade {
-    /// Student Record whose course result this is.
-    pub student_record: StudentRecordId,
-    /// Assignment whose policy selected this result.
-    pub assignment: AssignmentId,
-    /// First time an Assignment Attempt satisfied completion.
-    pub first_completed_at: Option<Timestamp>,
-    /// Assignment Attempt currently selected by the grade rule.
-    pub current_assignment_attempt: Option<AssignmentAttemptId>,
-    /// Score earned by the Assignment Attempt currently selected by the grade rule.
-    pub current_score: Option<f64>,
-    /// Highest-scoring completed Assignment Attempt.
-    pub best_assignment_attempt: Option<AssignmentAttemptId>,
-    /// Score earned by the highest-scoring completed Assignment Attempt.
-    pub best_score: Option<f64>,
-    /// Most recently completed Assignment Attempt.
-    pub latest_assignment_attempt: Option<AssignmentAttemptId>,
-    /// Score earned by the most recently completed Assignment Attempt.
-    pub latest_score: Option<f64>,
-}
-
-impl AssignmentAttempt {
-    /// Returns the completion state recorded by the authoritative Assignment Attempt.
-    pub fn completion(&self) -> AssignmentAttemptCompletion {
-        if self.completed_at.is_some() {
-            AssignmentAttemptCompletion::Completed
-        } else {
-            AssignmentAttemptCompletion::InProgress
-        }
     }
 }
 
@@ -287,6 +204,10 @@ pub struct IssuedQuestion {
     pub issued_position: u32,
     /// Exact immutable Question Library version selected for delivery.
     pub reference: QuestionRevisionReference,
+    /// Question seed that binds this issued selection to one variation.
+    pub question_seed: QuestionSeed,
+    /// Exact rendering and reproduction binding retained for this issue.
+    pub reproduction_details: QuestionAttemptReproductionDetails,
     /// Exact Assignment-owned point value frozen when this Question was issued.
     pub point_value: AssignmentPointValue,
     /// Exact Assignment scoring treatment frozen when this Question was issued.
@@ -673,28 +594,80 @@ impl AssignmentGrade {
 mod tests {
     use super::*;
 
+    fn attempt_evidence() -> AssignmentAttemptEvidence {
+        AssignmentAttemptEvidence {
+            title: crate::AssignmentTitle::try_new("Assignment".to_string()).expect("valid title"),
+            instructions: crate::AssignmentInstructions::default(),
+            base_policy: crate::BaseAssignmentPolicy::default(),
+            activity_rules: crate::AssignmentActivityRules::default(),
+            student_feedback_release_rule: crate::StudentFeedbackReleaseRule::default(),
+            effective_policy_sources: AssignmentAttemptPolicySources::default(),
+        }
+    }
+
+    fn reproduction_details() -> QuestionAttemptReproductionDetails {
+        QuestionAttemptReproductionDetails {
+            backend: QuestionBackendVersion {
+                name: "ple".to_string(),
+                version: "test".to_string(),
+            },
+            renderer_version: None,
+            source_object_reference: None,
+            source_object_checksum: None,
+            asset_objects: vec![],
+            grader: QuestionGraderVersion {
+                name: "ple".to_string(),
+                version: "test".to_string(),
+            },
+            rendered_question_sha256: "0".repeat(64),
+        }
+    }
+
     #[test]
-    fn assignment_attempt_binds_a_student_record_and_released_assignment_revision() {
+    fn assignment_attempt_retains_interpretation_evidence() {
+        let accommodation = AccommodationId::from_uuid(Uuid::from_u128(4));
+        let mut evidence = attempt_evidence();
+        evidence.effective_policy_sources.schedule =
+            AssignmentAttemptPolicySource::Accommodation { accommodation };
+        evidence.activity_rules.question_pool_reuse_rule =
+            crate::QuestionPoolReuseRule::SelectAgain;
+        evidence.activity_rules.question_variation_rule =
+            crate::AssignmentQuestionVariationRule::ReuseVariation;
         let attempt = AssignmentAttempt {
             id: AssignmentAttemptId::from_uuid(Uuid::from_u128(1)),
             reference: AssignmentAttemptReference::new(1).expect("valid attempt reference"),
             student_record: StudentRecordId::from_uuid(Uuid::from_u128(2)),
             assignment: AssignmentId::from_uuid(Uuid::from_u128(3)),
-            assignment_revision: AssignmentRevisionReference {
-                assignment: crate::AssignmentReference::new(3).expect("valid assignment reference"),
-                revision_number: crate::AssignmentRevisionNumber::INITIAL,
-            },
+            evidence,
             attempt_number: 1,
             started_at: Timestamp::from_unix_millis(1_000),
             completed_at: None,
             score: None,
-            question_pool_reuse_rule: QuestionPoolReuseRule::ReuseSelection,
-            question_variation_rule: AssignmentQuestionVariationRule::NewVariation,
         };
 
         assert_eq!(attempt.student_record.as_uuid(), Uuid::from_u128(2));
         assert_eq!(attempt.assignment.as_uuid(), Uuid::from_u128(3));
-        assert_eq!(attempt.assignment_revision.revision_number.value(), 1);
+        assert_eq!(attempt.evidence.title.as_str(), "Assignment");
+        assert_eq!(
+            attempt.question_pool_reuse_rule(),
+            crate::QuestionPoolReuseRule::SelectAgain
+        );
+        assert_eq!(
+            attempt.question_variation_rule(),
+            crate::AssignmentQuestionVariationRule::ReuseVariation
+        );
+        assert_eq!(
+            attempt.evidence.effective_policy_sources.schedule,
+            AssignmentAttemptPolicySource::Accommodation { accommodation }
+        );
+        assert_eq!(
+            serde_json::to_value(attempt.evidence.effective_policy_sources)
+                .expect("qualified evidence serializes")["schedule"],
+            serde_json::json!({
+                "kind": "accommodation",
+                "accommodation": accommodation.to_string(),
+            })
+        );
     }
     #[test]
     fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
@@ -723,6 +696,8 @@ mod tests {
             assignment_content_entry_index: 0,
             issued_position: 0,
             reference,
+            question_seed: QuestionSeed::new(7),
+            reproduction_details: reproduction_details(),
             point_value: crate::AssignmentPointValue::from_whole(1),
             scoring_rule: crate::AssignmentEntryScoringRule::Normal,
             question_statistics_eligibility: true,

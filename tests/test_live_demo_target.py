@@ -109,7 +109,7 @@ def test_closed_profiles_have_exact_topology_and_child_capabilities() -> None:
 		"tests/e2e/compose.live-demo-browser.yaml",
 	)
 	assert browser.child_capabilities == (
-		"browser_lifecycle", "readiness_fault", "seed_inventory", "worker_lifecycle",
+		"browser_lifecycle", "readiness_fault", "worker_lifecycle",
 		"native_ple_worker_lifecycle",
 		"webwork_renderer_lifecycle",
 	)
@@ -160,9 +160,6 @@ def test_writer_emits_fixed_production_auth_manifest(
 	)
 	assert values["PLE_E2E_OWNER"] == "live-demo-browser"
 	assert values["PLE_BROWSER_ORIGIN"] == "https://localhost:55001"
-	restricted, public = local_stack_control.lifecycle.publisher_asset_storage_paths()
-	assert values["PLE_PUBLISHER_RESTRICTED_ASSET_PATH"] == restricted
-	assert values["PLE_PUBLISHER_PUBLIC_ASSET_PATH"] == public
 	assert len(values["PLE_PUBLISHER_S3_ACCESS_KEY_ID"]) == 32
 	assert len(values["PLE_PUBLISHER_S3_SECRET_ACCESS_KEY"]) == 64
 	assert values["PLE_PUBLISHER_S3_ACCESS_KEY_ID"] != values["MINIO_ROOT_USER"]

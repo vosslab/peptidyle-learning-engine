@@ -26,9 +26,6 @@ import local_stack_control.process_logins
 import local_stack_control.renderer
 import local_stack_control.status
 import local_stack_control.live_demo_gateway
-import local_stack_control.live_demo_bootstrap
-import local_stack_control.live_demo_course_provision
-import local_stack_control.live_demo_course_seed
 import local_stack_control.live_demo_seed
 
 
@@ -39,42 +36,10 @@ LOCAL_APPROVAL_CANDIDATE_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_
 LOCAL_MORGAN_SYSADMIN_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[4].account_id
 MIGRATION_DATABASE_OWNER = local_stack_control.lifecycle_database.MIGRATION_DATABASE_OWNER
 MIGRATION_ROLE = local_stack_control.lifecycle_database.MIGRATION_ROLE
-
-
-#============================================
-def publisher_asset_storage_paths() -> tuple[str, str]:
-	"""Return the two fixed M4 object keys granted to the one-shot publisher."""
-	asset = local_stack_control.live_demo_seed.SEEDED_QUESTION_ASSET_PUBLICATION
-	restricted = local_stack_control.live_demo_seed.restricted_question_asset_object_path()
-	public = (
-		f"questions/{asset.question_id}/versions/{asset.revision_number}/assets/"
-		f"{asset.asset_id}/{asset.public_object_id}"
-	)
-	return restricted, public
-
-
-#============================================
-def require_publisher_storage_settings(values: dict[str, str]) -> None:
-	"""Refuse a local publisher identity or policy projection outside its M4 grant."""
-	restricted, public = publisher_asset_storage_paths()
-	required = (
-		"PLE_PUBLISHER_S3_ACCESS_KEY_ID",
-		"PLE_PUBLISHER_S3_SECRET_ACCESS_KEY",
-		"PLE_PUBLISHER_RESTRICTED_ASSET_PATH",
-		"PLE_PUBLISHER_PUBLIC_ASSET_PATH",
-	)
-	require_values(values, required)
-	if (
-		len(values["PLE_PUBLISHER_S3_ACCESS_KEY_ID"]) != 32
-		or len(values["PLE_PUBLISHER_S3_SECRET_ACCESS_KEY"]) != 64
-		or not values["PLE_PUBLISHER_S3_ACCESS_KEY_ID"].isalnum()
-		or not values["PLE_PUBLISHER_S3_SECRET_ACCESS_KEY"].isalnum()
-		or values["PLE_PUBLISHER_RESTRICTED_ASSET_PATH"] != restricted
-		or values["PLE_PUBLISHER_PUBLIC_ASSET_PATH"] != public
-	):
-		raise local_stack_control.models.ControllerError(
-			"selected publisher storage capability is incompatible"
-		)
+LIVE_DEMO_PERSONA_SETTINGS = tuple(
+	account.setting for account in local_stack_control.live_demo_seed.SEEDED_ACCOUNTS
+)
+LIVE_DEMO_COURSE_ID = "00000000-0000-0000-0000-000000000220"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -85,7 +50,7 @@ class LifecycleOptions:
 	build: bool
 	release: bool
 	open_browser: bool
-	provision_stop_after: local_stack_control.live_demo_course_seed.Stage | None = None
+	without_live_demo: bool = False
 
 
 @dataclasses.dataclass(frozen=True)
@@ -113,13 +78,6 @@ child_environment = local_stack_control.lifecycle_commands.child_environment
 compose_run = local_stack_control.lifecycle_commands.compose_run
 require_command = local_stack_control.lifecycle_commands.require_command
 validate_compose = local_stack_control.lifecycle_commands.validate_compose
-seed_live_demo_source_objects = local_stack_control.live_demo_bootstrap.seed_live_demo_source_objects
-seed_live_demo_baseline = local_stack_control.live_demo_bootstrap.seed_live_demo_baseline
-provision_live_demo_course = (
-	local_stack_control.live_demo_course_provision.provision_live_demo_course
-)
-
-
 #============================================
 def target_of(
 	target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget,
@@ -131,27 +89,6 @@ def target_of(
 
 
 #============================================
-def provision_ready_live_demo(
-	target: LifecycleTarget,
-	runner: local_stack_control.process.CommandRunner,
-	stop_after: local_stack_control.live_demo_course_seed.Stage | None = None,
-) -> None:
-	"""Converge Course-domain teaching data only for the fixed TLS Live Demo."""
-	selected = target_of(target)
-	if not local_stack_control.live_demo_gateway.is_tls_target(selected):
-		return
-	if not isinstance(target, local_stack_control.models.DisposableComposeTarget):
-		raise local_stack_control.models.ControllerError(
-			"fixed TLS Live Demo provisioning requires disposable ownership"
-		)
-	provision_live_demo_course(
-		runner,
-		target,
-		selected.env_file.parent,
-		stop_after=stop_after,
-	)
-
-
 def bootstrap_default_state(
 	target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget,
 	runner: local_stack_control.process.CommandRunner | None = None,
@@ -192,7 +129,6 @@ def configure_default_environment(
 	values = local_stack_control.env_file.env_settings(target.env_file)
 	runtime_directory = target.env_file.parent
 	secret_directory = runtime_directory / ".secrets"
-	publisher_restricted_path, publisher_public_path = publisher_asset_storage_paths()
 	defaults = {
 		"POSTGRES_PASSWORD": os.urandom(24).hex(),
 		"MINIO_ROOT_PASSWORD": os.urandom(24).hex(),
@@ -214,17 +150,14 @@ def configure_default_environment(
 		"PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY": secrets.token_hex(32),
 		"PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID": secrets.token_hex(16),
 		"PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY": secrets.token_hex(32),
-		"PLE_PUBLISHER_RESTRICTED_ASSET_PATH": publisher_restricted_path,
-		"PLE_PUBLISHER_PUBLIC_ASSET_PATH": publisher_public_path,
 	}
-	if local_stack_control.live_demo_gateway.is_tls_target(target):
-		defaults.update({
-			"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID": LOCAL_INSTRUCTOR_ACCOUNT_ID,
-			"PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID": LOCAL_MARY_ACCOUNT_ID,
-			"PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID": LOCAL_JACK_ACCOUNT_ID,
-			"PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID": LOCAL_APPROVAL_CANDIDATE_ACCOUNT_ID,
-			"PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID": LOCAL_MORGAN_SYSADMIN_ACCOUNT_ID,
-		})
+	defaults.update({
+		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID": LOCAL_INSTRUCTOR_ACCOUNT_ID,
+		"PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID": LOCAL_MARY_ACCOUNT_ID,
+		"PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID": LOCAL_JACK_ACCOUNT_ID,
+		"PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID": LOCAL_APPROVAL_CANDIDATE_ACCOUNT_ID,
+		"PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID": LOCAL_MORGAN_SYSADMIN_ACCOUNT_ID,
+	})
 	changed = False
 	for name, value in defaults.items():
 		if values.get(name, "") in ("", "change-me-before-first-run", "openwebwork-webwork2"):
@@ -238,6 +171,21 @@ def configure_default_environment(
 	if changed:
 		content = "".join(f"{name}={value}\n" for name, value in values.items()).encode("utf-8")
 		local_stack_control.private_files.write_atomic_file(target.env_file, content, 0o600)
+
+
+#============================================
+def remove_live_demo_persona_configuration(
+	target: local_stack_control.models.ComposeTarget,
+) -> None:
+	"""Keep opt-out and non-browser profiles free of the Demo persona selector."""
+	local_stack_control.env_file.require_mutation_env_file(target.env_file)
+	settings = local_stack_control.env_file.env_settings(target.env_file)
+	if not any(name in settings for name in LIVE_DEMO_PERSONA_SETTINGS):
+		return
+	for name in LIVE_DEMO_PERSONA_SETTINGS:
+		settings.pop(name, None)
+	content = "".join(f"{name}={value}\n" for name, value in settings.items()).encode("utf-8")
+	local_stack_control.private_files.write_atomic_file(target.env_file, content, 0o600)
 
 
 #============================================
@@ -312,8 +260,6 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 			"PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID",
 		)
 	require_values(values, required)
-	if local_stack_control.live_demo_gateway.is_tls_target(target):
-		require_publisher_storage_settings(values)
 	for name in (
 		"PLE_POSTGRES_IMAGE_SHA256", "PLE_MINIO_IMAGE_SHA256", "PLE_MINIO_MC_IMAGE_SHA256",
 		"PLE_GATEWAY_IMAGE_SHA256", "PLE_SECRET_INIT_IMAGE_SHA256",
@@ -389,6 +335,11 @@ def start_lifecycle(
 	validate_compose(selected, runner, repo_root)
 	environment = child_environment(selected)
 	build_artifacts(runner, repo_root, options)
+	if options.build:
+		# `api` owns the shared application image.  Rebuild it before any
+		# application service starts so the selected stack cannot reuse a stale
+		# tag after a Rust source change.
+		compose_run(selected, runner, ["build", "api"])
 	oci_id = local_stack_control.renderer.ensure_renderer_oci_id(
 		runner, repo_root, values["PLE_WEBWORK_RENDERER_IMAGE"], environment, options.build
 	)
@@ -401,22 +352,30 @@ def start_lifecycle(
 	compose_run(selected, runner, ["--profile", "maintenance", "run", "--rm", "--no-deps", "-T", "postgres-major-guard"])
 	compose_run(selected, runner, ["up", "-d", "postgres"])
 	wait_for_postgres(selected, runner, values, options)
+	initial_database_install = (
+		local_stack_control.lifecycle_migrations.database_operation_for(target)
+		== "initialize"
+	)
 	synchronize_database(target, runner, values, options)
 	run_migrations(target, runner, repo_root, values, environment)
 	if local_stack_control.lifecycle_profiles.uses_local_teaching_state(target):
 		local_stack_control.process_logins.setup_service_logins(
 			selected, runner, values, child_environment(selected)
 		)
-		if local_stack_control.live_demo_gateway.is_tls_target(selected):
-			verify_migrated_application_schema(selected, runner)
+		verify_migrated_application_schema(selected, runner)
 	compose_run(selected, runner, ["up", "-d", "minio", "createbuckets"])
 	wait_for_one_shot(selected, runner, options, "createbuckets")
-	seed_live_demo_baseline(selected, runner, values)
-	publish_seeded_question_asset(selected, runner)
 	compose_run(selected, runner, ["up", "-d", "--force-recreate", "--no-deps", "webwork-renderer"])
 	wait_for_renderer_ready(selected, runner, options, oci_id)
 	attest_renderer(selected, runner, repo_root, values, oci_id)
 	run_api_initializers(selected, runner, options)
+	provision_live_demo = should_provision_live_demo(
+		target, options, initial_database_install
+	)
+	if not retains_live_demo_persona_configuration(
+		target, options
+	):
+		remove_live_demo_persona_configuration(selected)
 	compose_run(selected, runner, ["build", "gateway"])
 	application_services = ["api", "worker", "native-ple-worker", "webwork-worker", "gateway"]
 	application_scale_arguments = local_stack_control.lifecycle_profiles.application_scale_arguments(
@@ -432,7 +391,8 @@ def start_lifecycle(
 		],
 	)
 	gateway_url = wait_for_complete_ready(target, runner, options)
-	provision_ready_live_demo(target, runner, options.provision_stop_after)
+	if provision_live_demo:
+		provision_ready_live_demo(target, runner)
 	if local_stack_control.lifecycle_profiles.is_default_target(selected):
 		local_stack_control.image_cleanup.prune_superseded_images(runner, repo_root)
 	if options.open_browser:
@@ -676,25 +636,6 @@ run_migrations = local_stack_control.lifecycle_migrations.run_migrations
 
 
 #============================================
-#============================================
-def publish_seeded_question_asset(
-	target: local_stack_control.models.ComposeTarget,
-	runner: local_stack_control.process.CommandRunner,
-) -> None:
-	"""Run the isolated publisher once, after M4 has committed its pending job."""
-	if not local_stack_control.live_demo_gateway.is_tls_target(target):
-		return
-	# The publisher uses the API image but is a separate non-listening process;
-	# build it before the one-shot invocation rather than widening the worker.
-	compose_run(target, runner, ["build", "api"])
-	compose_run(
-		target,
-		runner,
-		["--profile", "publisher", "run", "--rm", "--no-deps", "public-asset-publisher"],
-	)
-
-
-#============================================
 verify_migrated_application_schema = (
 	local_stack_control.lifecycle_migrations.verify_migrated_application_schema
 )
@@ -784,6 +725,104 @@ def run_api_initializers(target: local_stack_control.models.ComposeTarget, runne
 
 
 #============================================
+def should_provision_live_demo(
+	target: LifecycleTarget,
+	options: LifecycleOptions,
+	initial_database_install: bool,
+) -> bool:
+	"""Decide whether this initial local teaching install needs Demo provisioning."""
+	return (
+		not options.without_live_demo
+		and initial_database_install
+		and local_stack_control.lifecycle_profiles.uses_local_teaching_state(target)
+	)
+
+
+#============================================
+def retains_live_demo_persona_configuration(
+	target: LifecycleTarget,
+	options: LifecycleOptions,
+) -> bool:
+	"""Keep the closed selector only for a default or browser-profile Live Demo."""
+	if options.without_live_demo:
+		return False
+	return (
+		local_stack_control.lifecycle_profiles.is_default_target(target_of(target))
+		or (
+			isinstance(target, local_stack_control.models.DisposableComposeTarget)
+			and target.owner_policy == local_stack_control.models.LIVE_DEMO_BROWSER_OWNER
+			and target.live_demo_profile is local_stack_control.models.LiveDemoProfile.BROWSER
+		)
+	)
+
+
+#============================================
+def provision_ready_live_demo(
+	target: LifecycleTarget,
+	runner: local_stack_control.process.CommandRunner,
+) -> None:
+	"""Run the one canonical cross-system Demo provisioning command after readiness."""
+	selected = target_of(target)
+	result = runner.run(
+		local_stack_control.compose.compose_argv(
+			selected,
+			[
+				"--profile", "migration", "run", "--rm", "--no-deps",
+				"database-migrator", "installation-data", "provision",
+			],
+		),
+		child_environment(selected),
+		selected.repo_root,
+	)
+	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+		selected.env_file
+	)
+	require_command(result, "Live Demo provisioning", private_values)
+
+
+#============================================
+def require_installation_data_absent(
+	target: LifecycleTarget,
+	runner: local_stack_control.process.CommandRunner,
+) -> None:
+	"""Prove the Pilot publication and Live Demo roots are absent through ple_app."""
+	selected = target_of(target)
+	# The migrator image alone carries psql, but its DATABASE_URL is the same
+	# private API login used by the running service.  The fixed query switches to
+	# ple_app and reads only existing API projections for the two top-level
+	# installation-data products.  It grants neither a generic SQL interface nor
+	# a broader database role to this acceptance path.
+	script = (
+		"exec psql \"$DATABASE_URL\" --no-psqlrc --set=ON_ERROR_STOP=1 "
+		"--quiet --tuples-only --no-align --command \""
+		"BEGIN; SET LOCAL ROLE ple_app; "
+		f"SET LOCAL ple.session_account_id = '{LOCAL_INSTRUCTOR_ACCOUNT_ID}'; "
+		f"SELECT CASE WHEN EXISTS (SELECT 1 FROM ple_api.read_course_theme('{LIVE_DEMO_COURSE_ID}'::uuid)) "
+		"OR EXISTS (SELECT 1 FROM ple_api.published_question_summary) "
+		"THEN 'present' ELSE 'absent' END; COMMIT;\""
+	)
+	result = runner.run(
+		local_stack_control.compose.compose_argv(
+			selected,
+			[
+				"--profile", "migration", "run", "--rm", "--no-deps",
+				"--entrypoint", "/bin/sh", "database-migrator", "-ec", script,
+			],
+		),
+		child_environment(selected),
+		selected.repo_root,
+	)
+	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+		selected.env_file
+	)
+	require_command(result, "Live Demo absence oracle", private_values)
+	if result.stdout.strip() != "absent":
+		raise local_stack_control.models.ControllerError(
+			"installation-data absence oracle found a Pilot Question or Live Demo Course root"
+		)
+
+
+#============================================
 def status_report(
 	target: LifecycleTarget,
 	runner: local_stack_control.process.CommandRunner,
@@ -866,27 +905,7 @@ def wait_for_complete_ready(
 		return unavailable_report(selected)
 	local_stack_control.lifecycle_wait.poll_ready(read_report, options.timeout_seconds)
 	require_complete_ready(target, runner)
-	require_live_demo_session_entry(selected, runner, url)
 	return url
-
-
-#============================================
-def require_live_demo_session_entry(
-	target: local_stack_control.models.ComposeTarget,
-	runner: local_stack_control.process.CommandRunner,
-	url: str,
-) -> None:
-	"""Require the browser demo can mint a first-party session before reporting ready."""
-	if not local_stack_control.live_demo_gateway.is_tls_target(target):
-		return
-	# ASVS 3.5.1: the probe uses the canonical first-party Origin and asks for
-	# only the closed Elena persona; its issued cookie stays in curl's process.
-	result = runner.run(
-		local_stack_control.live_demo_gateway.seeded_session_probe_argv(url),
-		child_environment(target),
-		target.repo_root,
-	)
-	require_command(result, "live-demo Account session entry")
 
 
 #============================================

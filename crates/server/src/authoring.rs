@@ -30,7 +30,8 @@ use learning_data_access::{
 use objects::{ObjectAddress, ObjectStore, PutObject, s3::S3ObjectStore};
 use question_model::{
     DraftQuestionReference, ObjectId, QuestionAuthor, QuestionAuthorDisplayName,
-    QuestionAuthorship, QuestionLicense, QuestionRevisionReason, Timestamp,
+    QuestionAuthorship, QuestionId, QuestionLicense, QuestionRevisionNumber,
+    QuestionRevisionReason, QuestionRevisionReference, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -38,6 +39,7 @@ use uuid::Uuid;
 use crate::{
     auth::{AuthError, resolve_session},
     question_publication::{
+        ExistingQuestionRevisionPublicationCommand, ExistingQuestionRevisionPublisher,
         HmacQuestionIdIssuer, NewQuestionLineagePublicationCommand, NewQuestionLineagePublisher,
     },
 };
@@ -71,6 +73,10 @@ pub fn authoring_router(
         .route(
             "/api/authoring/drafts/{reference}/publish",
             post(publish_draft),
+        )
+        .route(
+            "/api/authoring/drafts/{reference}/publish-revision",
+            post(publish_revision_draft),
         )
         .with_state(AuthoringRouteState {
             sessions,
@@ -112,6 +118,20 @@ struct PublishDraftRequest {
 #[serde(rename_all = "camelCase")]
 struct PublishedDraftResponse {
     question_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct PublishRevisionDraftRequest {
+    question_id: String,
+    parent_revision_number: u32,
+    reason_for_edit: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PublishedRevisionDraftResponse {
+    question_revision: QuestionRevisionReference,
 }
 
 async fn list_drafts(State(state): State<AuthoringRouteState>, headers: HeaderMap) -> Response {
@@ -183,8 +203,10 @@ async fn create_draft(
             CreateAuthoringDraftInput {
                 draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::now_v7()),
                 source_record,
+                webwork_pg_path: None,
                 title: source.title,
                 description: source.description,
+                language: source.language,
             },
         )
         .await;
@@ -306,15 +328,19 @@ async fn save_source(
                 source_record,
                 title: source.title,
                 description: source.description,
+                language: source.language,
             },
         )
         .await
     {
         Ok(draft) => edit_number_response(draft.edit_number),
         Err(StoreError::Conflict | StoreError::RetryableTransaction) => private_error(
-            StatusCode::CONFLICT,
+            StatusCode::PRECONDITION_FAILED,
             "Draft Question changed before this save",
         ),
+        Err(StoreError::LifecycleConflict) => {
+            private_error(StatusCode::CONFLICT, "Draft Question lifecycle conflict")
+        }
         Err(error) => private_store_error(error),
     }
 }
@@ -405,10 +431,108 @@ async fn publish_draft(
     }
 }
 
+async fn publish_revision_draft(
+    State(state): State<AuthoringRouteState>,
+    headers: HeaderMap,
+    Path(reference): Path<String>,
+    Json(request): Json<PublishRevisionDraftRequest>,
+) -> Response {
+    let reference = match parse_reference(&reference) {
+        Ok(reference) => reference,
+        Err(response) => return *response,
+    };
+    let expected_edit_number = match expected_edit_number(&headers) {
+        Ok(number) => number,
+        Err(response) => return *response,
+    };
+    let parent_question_revision = match existing_parent_question_revision(
+        &state.question_id_issuer,
+        request.question_id,
+        request.parent_revision_number,
+    ) {
+        Ok(revision) => revision,
+        Err(()) => return concealed(),
+    };
+    let revision_reason = match QuestionRevisionReason::new(request.reason_for_edit) {
+        Ok(reason) => reason,
+        Err(_) => {
+            return private_error(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Question Revision requires a reviewed reason for edit",
+            );
+        }
+    };
+    let session_hash = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let draft = match state
+        .drafts
+        .load_authoring_draft(session_hash, reference)
+        .await
+    {
+        Ok(draft) => draft,
+        Err(error) => return private_store_error(error),
+    };
+    let bytes = match load_verified_source(&state.objects, &draft).await {
+        Ok(bytes) => bytes,
+        Err(()) => {
+            return private_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Authoring storage is unavailable",
+            );
+        }
+    };
+    if validated_source(&bytes).is_err() {
+        return private_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Draft Question cannot be published",
+        );
+    }
+    let publisher =
+        ExistingQuestionRevisionPublisher::new(state.objects.clone(), state.publication.clone());
+    match publisher
+        .publish(
+            session_hash,
+            ExistingQuestionRevisionPublicationCommand {
+                draft_question_uuid: draft.draft_question_uuid,
+                expected_draft_question_edit_number: expected_edit_number,
+                workspace: draft.workspace,
+                parent_question_revision,
+                question_revision_reason: revision_reason,
+            },
+            now(),
+        )
+        .await
+    {
+        Ok(question_revision) => crate::auth::no_store(
+            Json(PublishedRevisionDraftResponse { question_revision }).into_response(),
+        ),
+        Err(error) => publication_error(error),
+    }
+}
+
+fn existing_parent_question_revision(
+    question_id_issuer: &HmacQuestionIdIssuer,
+    question_id: String,
+    parent_revision_number: u32,
+) -> Result<QuestionRevisionReference, ()> {
+    let question_id = question_id.parse::<QuestionId>().map_err(|_| ())?;
+    if !question_id_issuer.validates_question_id(&question_id) {
+        return Err(());
+    }
+    let revision_number = QuestionRevisionNumber::new(parent_revision_number).map_err(|_| ())?;
+    Ok(QuestionRevisionReference {
+        question_id,
+        revision_number,
+    })
+}
+
 struct ValidatedSource {
     bytes: Vec<u8>,
     title: String,
     description: String,
+    language: String,
     license: Option<QuestionLicense>,
 }
 
@@ -437,6 +561,7 @@ fn validated_source(bytes: &[u8]) -> Result<ValidatedSource, Box<Response>> {
         bytes,
         title: metadata.question_title.clone(),
         description: metadata.question_description.clone(),
+        language: metadata.language.clone(),
         license: metadata.question_license.clone(),
     })
 }
@@ -583,9 +708,12 @@ fn private_store_error(error: StoreError) -> Response {
     match error {
         StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => concealed(),
         StoreError::Conflict | StoreError::RetryableTransaction => private_error(
-            StatusCode::CONFLICT,
+            StatusCode::PRECONDITION_FAILED,
             "Draft Question changed before this operation",
         ),
+        StoreError::LifecycleConflict => {
+            private_error(StatusCode::CONFLICT, "Draft Question lifecycle conflict")
+        }
         StoreError::InvalidRecord(_) => private_error(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Draft Question is invalid",
@@ -601,11 +729,23 @@ fn private_store_error(error: StoreError) -> Response {
 
 fn publication_error(error: crate::question_publication::QuestionPublicationError) -> Response {
     match error {
+        crate::question_publication::QuestionPublicationError::StaleQuestionRevision => {
+            private_error(
+                StatusCode::PRECONDITION_FAILED,
+                "Question Revision changed before publication",
+            )
+        }
         crate::question_publication::QuestionPublicationError::Store(
             StoreError::Conflict | StoreError::RetryableTransaction,
         ) => private_error(
-            StatusCode::CONFLICT,
+            StatusCode::PRECONDITION_FAILED,
             "Draft Question changed before publication",
+        ),
+        crate::question_publication::QuestionPublicationError::Store(
+            StoreError::LifecycleConflict,
+        ) => private_error(
+            StatusCode::CONFLICT,
+            "Question publication lifecycle conflict",
         ),
         crate::question_publication::QuestionPublicationError::Store(error) => {
             private_store_error(error)
@@ -642,4 +782,27 @@ fn now() -> Timestamp {
         .map(|duration| duration.as_millis())
         .unwrap_or_default();
     Timestamp::from_unix_millis(i64::try_from(milliseconds).unwrap_or(i64::MAX))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::question_publication::{QuestionIdIssuer, QuestionIdSecret};
+
+    #[test]
+    fn same_lineage_publication_requires_a_server_validated_positive_parent_revision() {
+        let issuer = HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes([9; 32]));
+        let question_id = issuer.issue_question_id().expect("issued Question ID");
+
+        assert_eq!(
+            existing_parent_question_revision(&issuer, question_id.to_string(), 1),
+            Ok(QuestionRevisionReference {
+                question_id: question_id.clone(),
+                revision_number: QuestionRevisionNumber::new(1)
+                    .expect("positive Question Revision Number"),
+            })
+        );
+        assert!(existing_parent_question_revision(&issuer, question_id.to_string(), 0).is_err());
+        assert!(existing_parent_question_revision(&issuer, "000-0000".to_string(), 1).is_err());
+    }
 }

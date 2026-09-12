@@ -18,7 +18,7 @@ use crate::{SessionTokenHash, StoreError};
 /// Exact server-selected Question Pool Items for one Question Pool Assignment Entry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PreparedQuestionPoolSelection {
-    /// Exact Question Pool Assignment Entry in the released Assignment Revision.
+    /// Exact Question Pool Assignment Entry in the current released Assignment.
     pub question_pool_assignment_entry: AssignmentEntryId,
     /// Earlier same-Student Selection whose exact Question Pool Items are retained.
     pub reused_from_question_pool_selection: Option<QuestionPoolSelectionId>,
@@ -29,14 +29,14 @@ pub struct PreparedQuestionPoolSelection {
 /// One exact Question to issue for a new Assignment Attempt.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PreparedIssuedQuestion {
-    /// The released Assignment Entry pins one exact fixed Question Revision.
+    /// The current released Assignment Entry pins one exact fixed Question Revision.
     FixedQuestion {
         /// Exact fixed Assignment Entry.
         assignment_entry: AssignmentEntryId,
         /// Exact pinned Question Revision.
         reference: QuestionRevisionReference,
     },
-    /// One Question Pool Item selected from a released Question Pool Assignment Entry.
+    /// One Question Pool Item selected from a current released Question Pool Assignment Entry.
     QuestionPoolItem {
         /// Exact Question Pool Assignment Entry.
         assignment_entry: AssignmentEntryId,
@@ -56,7 +56,7 @@ pub struct AssignmentAttemptStart {
     pub student_record: StudentRecordId,
     /// Exact released Assignment to start.
     pub assignment: AssignmentId,
-    /// One prepared Selection for each released Question Pool Assignment Entry.
+    /// One prepared Selection for each current released Question Pool Assignment Entry.
     pub question_pool_selections: Vec<PreparedQuestionPoolSelection>,
     /// Fixed and pooled Questions in their intended issued order.
     pub issued_questions: Vec<PreparedIssuedQuestion>,

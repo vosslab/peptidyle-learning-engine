@@ -64,7 +64,7 @@ variable "worker_image" {
 }
 variable "secret_file_writer_image" {
   type        = string
-  description = "Reviewed, digest-pinned secret-file writer that writes exactly smtp-password and invitation-token under PLE_SECRET_OUTPUT_DIR, mode 0600, then exits successfully."
+  description = "Reviewed, digest-pinned secret-file writer that writes question-id-secret and, when SMTP is enabled, smtp-password and invitation-token under PLE_SECRET_OUTPUT_DIR as UID 10001 mode-0600 files, then exits successfully."
   validation {
     condition     = can(regex("@sha256:[0-9a-f]{64}$", var.secret_file_writer_image))
     error_message = "secret_file_writer_image must be digest pinned."

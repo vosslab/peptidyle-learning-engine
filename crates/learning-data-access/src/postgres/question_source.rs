@@ -10,10 +10,17 @@ use super::Pool;
 use super::connection::map_sqlx_error;
 use crate::{
     DraftQuestionPublicationSourceStore, DraftQuestionSourceBindingInput,
-    DraftQuestionSourceBindingStore, DraftQuestionUuid, NewQuestionLineagePublicationInput,
-    NewQuestionLineagePublicationStore, SessionTokenHash, StoreError,
+    DraftQuestionSourceBindingStore, DraftQuestionUuid, ExistingQuestionRevisionPublicationError,
+    ExistingQuestionRevisionPublicationInput, ExistingQuestionRevisionPublicationStore,
+    NewQuestionLineagePublicationInput, NewQuestionLineagePublicationStore, SessionTokenHash,
+    StoreError,
 };
 use question_model::WorkspaceId;
+
+// This is the only uniqueness boundary that means a freshly minted Question
+// ID collided.  Other unique constraints in the publication aggregate signal
+// a malformed or conflicting publication and must not drive identity retry.
+const PUBLISHED_QUESTION_PRIMARY_KEY: &str = "published_question_pkey";
 
 /// PostgreSQL implementation of the session-authorized Draft Question Source Binding Store.
 #[derive(Clone)]
@@ -192,7 +199,6 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
             StoreError::InvalidRecord("Question Authorship cannot be encoded".to_string())
         })?;
         let question_license = wire_string(&input.question_license, "Question License")?;
-
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
@@ -213,7 +219,7 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
                 .as_postgres_bigint(),
         )
         .bind(input.workspace.as_uuid())
-        .bind(input.question_id.to_string())
+        .bind(question_id_for_persistence(&input.question_id))
         .bind(object_record.id.as_uuid())
         .bind(object_address)
         .bind(object_record.sha256.as_bytes().to_vec())
@@ -228,10 +234,148 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
         .bind(input.question_availability_event_id)
         .execute(&mut *transaction)
         .await
-        .map_err(map_sqlx_error)?;
+        .map_err(map_new_question_lineage_publication_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(question_revision)
     }
+}
+
+#[async_trait]
+impl ExistingQuestionRevisionPublicationStore for PostgresDraftQuestionSourceBindingStore {
+    async fn publish_question_revision(
+        &self,
+        session_token_hash: SessionTokenHash,
+        input: ExistingQuestionRevisionPublicationInput,
+    ) -> Result<question_model::QuestionRevisionReference, ExistingQuestionRevisionPublicationError>
+    {
+        input
+            .validate()
+            .map_err(ExistingQuestionRevisionPublicationError::Store)?;
+        let question_revision = input
+            .question_revision()
+            .map_err(ExistingQuestionRevisionPublicationError::Store)?;
+        let object_record = &input.question_source_object_record;
+        let object_address = serde_json::to_value(&object_record.address).map_err(|_| {
+            ExistingQuestionRevisionPublicationError::Store(StoreError::InvalidRecord(
+                "Question Revision Publication Object Address cannot be encoded".to_string(),
+            ))
+        })?;
+        let size_bytes = i64::try_from(object_record.size_bytes).map_err(|_| {
+            ExistingQuestionRevisionPublicationError::Store(StoreError::InvalidRecord(
+                "Question Revision Publication source size exceeds PostgreSQL bigint".to_string(),
+            ))
+        })?;
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await
+            .map_err(ExistingQuestionRevisionPublicationError::Store)?;
+        // ASVS 1.2.4, 2.2.2, 2.3.1-2.3.4, and 8.2.1-8.3.1: parameters
+        // carry the browser-selected exact parent only. PostgreSQL locks the
+        // lineage, repeats current owner and parent checks, and returns a
+        // retryable conflict before it can register a stale successor.
+        let row = sqlx::query(
+            "SELECT ple_api.publish_question_revision(\
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13\
+             ) AS revision_number",
+        )
+        .bind(input.draft_question_uuid.as_uuid())
+        .bind(
+            input
+                .expected_draft_question_edit_number
+                .as_postgres_bigint(),
+        )
+        .bind(input.workspace.as_uuid())
+        .bind(question_id_for_persistence(
+            &input.parent_question_revision.question_id,
+        ))
+        .bind(
+            i32::try_from(input.parent_question_revision.revision_number.get()).map_err(|_| {
+                ExistingQuestionRevisionPublicationError::Store(StoreError::InvalidRecord(
+                    "Question parent Revision Number is invalid".to_string(),
+                ))
+            })?,
+        )
+        .bind(object_record.id.as_uuid())
+        .bind(object_address)
+        .bind(object_record.sha256.as_bytes().to_vec())
+        .bind(size_bytes)
+        .bind(&object_record.media_type)
+        .bind(object_record.created_at.as_unix_millis())
+        .bind(input.question_revision_reason.as_str())
+        .bind(input.question_publication_event_id)
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(map_existing_question_revision_publication_error)?;
+        let revision_number: i32 = row
+            .try_get("revision_number")
+            .map_err(map_sqlx_error)
+            .map_err(ExistingQuestionRevisionPublicationError::Store)?;
+        let revision_number = u32::try_from(revision_number)
+            .ok()
+            .and_then(|value| question_model::QuestionRevisionNumber::new(value).ok())
+            .ok_or_else(|| {
+                ExistingQuestionRevisionPublicationError::Store(StoreError::InvalidRecord(
+                    "Question Revision Publication returned an invalid revision".to_string(),
+                ))
+            })?;
+        if revision_number != question_revision.revision_number {
+            return Err(ExistingQuestionRevisionPublicationError::Store(
+                StoreError::InvalidRecord(
+                    "Question Revision Publication returned an unexpected revision".to_string(),
+                ),
+            ));
+        }
+        transaction
+            .commit()
+            .await
+            .map_err(map_sqlx_error)
+            .map_err(ExistingQuestionRevisionPublicationError::Store)?;
+        Ok(question_revision)
+    }
+}
+
+fn map_existing_question_revision_publication_error(
+    error: sqlx::Error,
+) -> ExistingQuestionRevisionPublicationError {
+    if let sqlx::Error::Database(database_error) = &error
+        && database_error.code().as_deref() == Some("PQR01")
+    {
+        // This procedure's dedicated SQLSTATE is raised before any insert.
+        // It proves the transaction rolled back, which lets the coordinator
+        // remove only its just-written target object without inspecting a
+        // database message or treating a genuine serialization failure as
+        // conclusive.
+        return ExistingQuestionRevisionPublicationError::Stale;
+    }
+    ExistingQuestionRevisionPublicationError::Store(map_sqlx_error(error))
+}
+
+fn map_new_question_lineage_publication_error(error: sqlx::Error) -> StoreError {
+    if let sqlx::Error::Database(database_error) = &error
+        && database_error.code().as_deref() == Some("23505")
+    {
+        return if is_published_question_identity_collision(
+            database_error.code().as_deref(),
+            database_error.constraint(),
+        ) {
+            StoreError::AlreadyExists
+        } else {
+            // Do not expose a PostgreSQL constraint name beyond this adapter.
+            // A different uniqueness violation is not an ID-allocation race.
+            StoreError::InvalidRecord(
+                "Question Publication violates a database uniqueness invariant".to_string(),
+            )
+        };
+    }
+    map_sqlx_error(error)
+}
+
+fn is_published_question_identity_collision(code: Option<&str>, constraint: Option<&str>) -> bool {
+    code == Some("23505") && constraint == Some(PUBLISHED_QUESTION_PRIMARY_KEY)
+}
+
+fn question_id_for_persistence(question_id: &question_model::QuestionId) -> &str {
+    question_id.as_compact_str()
 }
 
 fn wire_string(value: &impl Serialize, label: &str) -> Result<String, StoreError> {
@@ -240,5 +384,39 @@ fn wire_string(value: &impl Serialize, label: &str) -> Result<String, StoreError
         _ => Err(StoreError::InvalidRecord(format!(
             "{label} must have one scalar canonical wire value"
         ))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn only_the_published_question_primary_key_is_an_identity_collision() {
+        assert!(is_published_question_identity_collision(
+            Some("23505"),
+            Some(PUBLISHED_QUESTION_PRIMARY_KEY),
+        ));
+        assert!(!is_published_question_identity_collision(
+            Some("23505"),
+            Some("question_publication_event_question_id_revision_number_key"),
+        ));
+        assert!(!is_published_question_identity_collision(
+            Some("23505"),
+            None
+        ));
+        assert!(!is_published_question_identity_collision(
+            Some("23503"),
+            Some(PUBLISHED_QUESTION_PRIMARY_KEY),
+        ));
+    }
+
+    #[test]
+    fn new_lineage_publication_binds_the_compact_database_question_id() {
+        let question_id = question_model::QuestionId::from_str("ABC-DEFG")
+            .expect("display Question ID is accepted at the model boundary");
+
+        assert_eq!(question_id_for_persistence(&question_id), "ABCDEFG");
     }
 }

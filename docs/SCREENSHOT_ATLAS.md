@@ -193,10 +193,8 @@ human review.
 | assignmentWorkspaceQuestions | captured | instructor_assignment_release_draft_laptop |
 | assignmentWorkspacePolicies | captured | instructor_assignment_release_released_laptop |
 | assignmentWorkspaceStudentView | deferred | The legacy multi-tab Assignment workspace is retired; no separate Student-view capture remains. |
-| assignmentWorkspaceGradingOperations | deferred | The default Live Demo has no meaningful automated-grading operations state to review. |
 | assignmentsDueSoon | captured | instructor_assignments_due_soon_empty_laptop |
 | gradebook | captured | instructor_gradebook_laptop |
-| studentWorkInspection | deferred | Individual Student-work inspection needs a dedicated privacy-reviewed fixture beyond the default atlas. |
 | courseGradeSettings | deferred | Grade Settings is not an available current Product Ribbon capability. |
 | courseAppearance | deferred | Course Appearance is an admitted Instructor Ribbon destination; the current atlas has no dedicated Appearance capture. The completed M11 browser scenario separately proves reload, enrolled-Student propagation, and second-Course isolation. |
 | signIn | captured | public_sign_in_laptop, public_sign_in_phone |
@@ -242,7 +240,6 @@ human review.
 | task:assignmentOverview | deferred | The legacy multi-tab Assignment workspace is retired. |
 | task:assignmentQuestions | deferred | The legacy multi-tab Assignment workspace is retired. |
 | task:assignmentPolicies | deferred | The legacy multi-tab Assignment workspace is retired. |
-| task:assignmentGradingOperations | deferred | The default Live Demo has no meaningful grading-operations fixture. |
 | task:assignmentStudentView | deferred | The answer-free release preview is the current Student-view surface. |
 | task:gradeSettings | deferred | Grade Settings is not admitted by the current Live Demo capability registry. |
 | task:appearance | deferred | Course Appearance is an admitted Instructor Ribbon task; the current atlas has no dedicated Appearance capture. The completed M11 browser scenario separately proves reload, enrolled-Student propagation, and second-Course isolation. |

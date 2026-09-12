@@ -883,9 +883,13 @@ fn store_error_response(error: StoreError) -> Response {
         // ASVS 1.2.3 and 8.2.2: neither an absent Course nor a foreign
         // membership is distinguishable through this Course-scoped reader.
         StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => concealed(),
-        StoreError::Conflict
-        | StoreError::RetryableTransaction
-        | StoreError::InvalidRecord(_)
+        StoreError::LifecycleConflict => {
+            route_error(StatusCode::CONFLICT, "Course Appearance lifecycle conflict")
+        }
+        StoreError::Conflict | StoreError::RetryableTransaction => {
+            route_error(StatusCode::PRECONDITION_FAILED, "Course Appearance changed")
+        }
+        StoreError::InvalidRecord(_)
         | StoreError::AlreadyExists
         | StoreError::AssignmentActivity(_)
         | StoreError::TimedOut

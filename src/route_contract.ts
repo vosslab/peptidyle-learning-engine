@@ -63,10 +63,8 @@ export interface RouteContract {
     | "assignmentWorkspaceQuestions"
     | "assignmentWorkspacePolicies"
     | "assignmentWorkspaceStudentView"
-    | "assignmentWorkspaceGradingOperations"
     | "assignmentsDueSoon"
     | "gradebook"
-    | "studentWorkInspection"
     | "courseGradeSettings"
     | "courseAppearance"
     | "signIn"
@@ -86,10 +84,6 @@ export interface RouteContract {
   readonly requiredProductRoles: ReadonlyArray<ProductRole>;
   readonly ribbon: RouteRibbonContract;
 }
-
-const STUDENT_WORK_INSPECTION_PATH =
-  "/instructor/courses/:courseRef/gradebook/students/:membershipRef/assignments/" +
-  ":assignmentRef/assignment-attempts/:assignmentAttemptRef";
 
 /** Product route order used by the application. */
 export const ROUTE_CONTRACT = [
@@ -342,19 +336,6 @@ export const ROUTE_CONTRACT = [
     },
   },
   {
-    id: "assignmentWorkspaceGradingOperations",
-    path: "/instructor/courses/:courseRef/assignments/:assignmentRef/grading-operations",
-    surface: "Instructor automated-grading operations workspace",
-    // ASVS 8.3.1: mirror the server's explicit Instructor authority boundary.
-    requiredProductRoles: ["instructor"],
-    ribbon: {
-      scope: "courseInstance",
-      tab: "assignments",
-      taskGroup: "assignment",
-      contentLayout: "fullWidth",
-    },
-  },
-  {
     id: "assignmentPreview",
     path: "/instructor/courses/:courseRef/assignments/:assignmentRef/delivery-check",
     surface: "Instructor-only assignment delivery check",
@@ -364,16 +345,9 @@ export const ROUTE_CONTRACT = [
   {
     id: "gradebook",
     path: "/instructor/courses/:courseRef/gradebook",
-    surface: "Calculated Gradebook",
+    surface: "Answer-free Gradebook evidence",
     requiredProductRoles: ["instructor"],
     ribbon: { scope: "courseInstance", tab: "gradebook", contentLayout: "fullWidth" },
-  },
-  {
-    id: "studentWorkInspection",
-    path: STUDENT_WORK_INSPECTION_PATH,
-    surface: "Audited Student-work inspection",
-    requiredProductRoles: ["instructor"],
-    ribbon: { scope: "courseInstance", tab: "gradebook", contentLayout: "reading" },
   },
   {
     id: "courseGradeSettings",

@@ -219,6 +219,10 @@ fn store_error_response(error: StoreError) -> Response {
             StatusCode::PRECONDITION_FAILED,
             "Student Course landing changed",
         ),
+        StoreError::LifecycleConflict => route_error(
+            StatusCode::CONFLICT,
+            "Student Course landing lifecycle conflict",
+        ),
         StoreError::InvalidRecord(_) => route_error(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Student Course landing is invalid",

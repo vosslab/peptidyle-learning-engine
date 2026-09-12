@@ -1,8 +1,8 @@
 // question_picker_model.ts - reusable, answer-free Question Picker contracts.
 
 import { normalizeQuestionIdSyntax } from "../../question_id";
-import type { BlueprintAssignmentRevisionReference } from "../../../generated/api/BlueprintAssignmentRevisionReference";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
+import type { BlueprintAssignmentSource } from "../../api/assignment_release";
 import {
   EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
   decodeQuestionLibraryBrowsePage,
@@ -36,7 +36,8 @@ export type QuestionPickerSource =
     }
   | {
       readonly kind: "blueprintCourseAssignment";
-      readonly source: BlueprintAssignmentRevisionReference;
+      /** Exact immutable Blueprint Revision provenance for this reusable content. */
+      readonly source: BlueprintAssignmentSource;
       readonly label: string;
     };
 
@@ -262,17 +263,20 @@ function reusableQuestionLibraryRow(item: {
 }
 
 function selectedBlueprintAssignment(
-  source: BlueprintAssignmentRevisionReference,
-  course: Awaited<ReturnType<BlueprintCourseClient["getBlueprintCourse"]>>["blueprintCourse"],
+  source: BlueprintAssignmentSource,
+  revision: Awaited<ReturnType<BlueprintCourseClient["getBlueprintRevision"]>>,
 ): Awaited<
-  ReturnType<BlueprintCourseClient["getBlueprintCourse"]>
->["blueprintCourse"]["modules"][number]["assignments"][number] {
-  if (course.reference !== source.reference || course.revision !== source.revision) {
+  ReturnType<BlueprintCourseClient["getBlueprintRevision"]>
+>["modules"][number]["assignments"][number] {
+  if (
+    revision.blueprintRevision.reference !== source.blueprint_revision.reference ||
+    revision.blueprintRevision.revision !== source.blueprint_revision.revision
+  ) {
     throw new Error(
-      "The selected Blueprint Course changed. Choose a current Blueprint Assignment.",
+      "The selected Blueprint Revision did not resolve. Choose a published Blueprint Assignment.",
     );
   }
-  for (const module of course.modules) {
+  for (const module of revision.modules) {
     const content = module.assignments.find(
       (assignment) =>
         assignment.blueprint_assignment_reference === source.blueprint_assignment_reference,
@@ -280,7 +284,7 @@ function selectedBlueprintAssignment(
     if (content !== undefined) return content;
   }
   throw new Error(
-    "The selected Blueprint Assignment is no longer available in this Blueprint Course.",
+    "The selected Blueprint Assignment is not available in this exact Blueprint Revision.",
   );
 }
 
@@ -331,10 +335,12 @@ export function blueprintCourseQuestionPickerRepository(
       const offset = pickerPageOffset(request.cursor);
       let rows: ReadonlyArray<QuestionLibraryBrowseRow>;
       if (request.source.kind === "blueprintCourseAssignment") {
-        const observed = await client.getBlueprintCourse(request.source.source.reference);
-        rows = contentRows(
-          selectedBlueprintAssignment(request.source.source, observed.blueprintCourse).content,
+        const source = request.source.source;
+        const revision = await client.getBlueprintRevision(
+          source.blueprint_revision.reference,
+          source.blueprint_revision.revision,
         );
+        rows = contentRows(selectedBlueprintAssignment(source, revision).content);
       } else {
         throw new Error("Choose a Blueprint Course source for this picker composition.");
       }

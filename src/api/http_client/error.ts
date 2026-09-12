@@ -19,63 +19,12 @@ export class ApiProtocolError extends Error {
   }
 }
 
-/** A revisioned assignment save lost its server-side compare-and-swap race. */
+/** A current Assignment mutation cannot proceed in its present lifecycle or edit state. */
 export class AssignmentConflictError extends ApiRequestError {
   public constructor(status: 409 | 412 | 428, path: string) {
     super(status, path);
     this.name = "AssignmentConflictError";
   }
-}
-
-/** A 409 content-save refusal that requires a successor Assignment. */
-export class AssignmentSuccessorRevisionRequiredError extends ApiRequestError {
-  declare public readonly status: 409;
-  public readonly requirement: import("../../../generated/api/SuccessorAssignmentRevisionRequired").SuccessorAssignmentRevisionRequired;
-
-  public constructor(
-    path: string,
-    requirement: import("../../../generated/api/SuccessorAssignmentRevisionRequired").SuccessorAssignmentRevisionRequired,
-  ) {
-    super(409, path);
-    this.name = "AssignmentSuccessorRevisionRequiredError";
-    this.requirement = requirement;
-  }
-}
-
-export type AssignmentContentSaveFailure =
-  | { readonly kind: "staleRevision"; readonly message: string }
-  | { readonly kind: "successorRevisionRequired"; readonly message: string }
-  | { readonly kind: "retryable"; readonly message: string };
-
-/**
- * Maps the closed content-save transport boundary to semantic instructor copy.
- *
- * The returned text intentionally contains no endpoint, status, or internal
- * identity diagnostics.  Callers retain their local draft for every outcome.
- */
-export function resolveAssignmentContentSaveFailure(error: unknown): AssignmentContentSaveFailure {
-  if (error instanceof AssignmentSuccessorRevisionRequiredError) {
-    return {
-      kind: "successorRevisionRequired",
-      message:
-        "Student work already pins this Assignment Revision. Create a successor Assignment for structural question changes.",
-    };
-  }
-  if (
-    (error instanceof AssignmentConflictError && error.status === 412) ||
-    (error instanceof ApiRequestError && error.status === 412)
-  ) {
-    return {
-      kind: "staleRevision",
-      message:
-        "This assignment changed before your questions could be saved. Your entered title and question changes are still here.",
-    };
-  }
-  return {
-    kind: "retryable",
-    message:
-      "Questions could not be saved. Your entered title and question changes are still here.",
-  };
 }
 
 /** A course-grade save lost its strong ETag race; the caller must retain its draft. */

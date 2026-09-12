@@ -1,5 +1,8 @@
 //! Browser-safe shared Question Library metadata.
 
+use std::num::NonZeroU64;
+use std::str::FromStr;
+
 use serde::{Deserialize, Serialize};
 
 use crate::question_license::QuestionLicense;
@@ -53,21 +56,22 @@ pub struct QuestionId(String);
 
 impl QuestionId {
     /// Canonical seven-character storage value without the display hyphen.
-    pub fn compact(&self) -> String {
-        self.0
-            .chars()
-            .filter(|character| *character != '-')
-            .collect()
+    ///
+    /// This is the spelling for database, object-address, and deterministic
+    /// machine boundaries. Browser-facing serialization and [`Display`] use
+    /// the grouped human form instead.
+    pub fn as_compact_str(&self) -> &str {
+        &self.0
     }
 
     /// Returns the six-character identity without allocating.
-    pub fn identifier_compact(&self) -> String {
-        self.compact()[..QUESTION_ID_IDENTIFIER_LENGTH].to_string()
+    pub fn identifier_compact(&self) -> &str {
+        &self.0[..QUESTION_ID_IDENTIFIER_LENGTH]
     }
 
     /// Canonical validation character.
     pub fn validation_character(&self) -> char {
-        self.0.as_bytes()[7] as char
+        self.0.as_bytes()[QUESTION_ID_IDENTIFIER_LENGTH] as char
     }
 
     /// Builds a canonical ID from server-generated canonical components.
@@ -81,18 +85,13 @@ impl QuestionId {
         {
             return Err("question ID components are not canonical Crockford Base32");
         }
-        Ok(Self(format!(
-            "{}-{}{}",
-            &identifier[..3],
-            &identifier[3..],
-            validation
-        )))
+        Ok(Self(format!("{identifier}{validation}")))
     }
 }
 
 impl std::fmt::Display for QuestionId {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str(&self.0)
+        write!(formatter, "{}-{}", &self.0[..3], &self.0[3..])
     }
 }
 
@@ -142,7 +141,7 @@ impl TryFrom<String> for QuestionId {
 
 impl From<QuestionId> for String {
     fn from(value: QuestionId) -> Self {
-        value.0
+        value.to_string()
     }
 }
 
@@ -157,28 +156,26 @@ pub struct QuestionRevisionReference {
     pub revision_number: QuestionRevisionNumber,
 }
 
-/// Current selection availability for an already published Question Revision.
+/// Current selection availability for a stable Published Question lineage.
+/// Exact Question Revisions remain resolvable after an archive transition.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "availability",
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum QuestionRevisionAvailability {
+pub enum QuestionAvailability {
     /// Discoverable and eligible for ordinary new selection.
     Available,
-    /// Discoverable historical content, ineligible for ordinary new selection,
-    /// and retained for authorized stable-ID and exact-pin resolution.
-    Archived {
-        /// Archived-availability explanation retained for the record.
-        reason: String,
-    },
+    /// Hidden from ordinary browsing and new selection. Existing exact pins
+    /// still resolve under their normal authorization path.
+    Archived,
 }
 
-impl QuestionRevisionAvailability {
+impl QuestionAvailability {
     /// Whether Question Library browsing should include the immutable publication.
     pub fn is_discoverable(&self) -> bool {
-        matches!(self, Self::Available | Self::Archived { .. })
+        matches!(self, Self::Available)
     }
 
     /// Whether this publication can create a new reference through ordinary selection.
@@ -188,15 +185,96 @@ impl QuestionRevisionAvailability {
         matches!(self, Self::Available)
     }
 
-    /// Whether a stable Question ID can resolve this publication for an
-    /// authorized read.
+    /// Whether an existing exact Question Revision Reference remains resolvable
+    /// for an authorized read.
     ///
-    /// Published Question Revisions remain resolvable by their stable identity.
-    /// Resolution does not make an Archived Question Revision eligible for
-    /// ordinary new selection.
-    pub fn is_resolvable_by_stable_question_id(&self) -> bool {
-        matches!(self, Self::Available | Self::Archived { .. })
+    /// Availability controls discovery and new selection; it does not erase
+    /// immutable revision provenance.
+    pub fn permits_existing_exact_revision_resolution(&self) -> bool {
+        true
     }
+}
+
+/// Positive compare-and-swap number for one Published Question lineage's
+/// availability transition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct QuestionAvailabilityEditNumber(NonZeroU64);
+
+impl QuestionAvailabilityEditNumber {
+    pub const INITIAL: Self = Self(NonZeroU64::MIN);
+
+    pub fn new(value: u64) -> Option<Self> {
+        (value > 0 && value <= i64::MAX as u64).then_some(Self(NonZeroU64::new(value)?))
+    }
+
+    pub const fn value(self) -> u64 {
+        self.0.get()
+    }
+
+    pub fn checked_next(self) -> Option<Self> {
+        Self::new(self.value().checked_add(1)?)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct QuestionAvailabilityEditNumberError;
+
+impl std::fmt::Display for QuestionAvailabilityEditNumberError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .write_str("question availability edit number must be a canonical positive decimal")
+    }
+}
+
+impl std::error::Error for QuestionAvailabilityEditNumberError {}
+
+impl FromStr for QuestionAvailabilityEditNumber {
+    type Err = QuestionAvailabilityEditNumberError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if value.is_empty()
+            || value.starts_with('0')
+            || !value.bytes().all(|byte| byte.is_ascii_digit())
+        {
+            return Err(QuestionAvailabilityEditNumberError);
+        }
+        value
+            .parse::<u64>()
+            .ok()
+            .and_then(Self::new)
+            .ok_or(QuestionAvailabilityEditNumberError)
+    }
+}
+
+impl TryFrom<String> for QuestionAvailabilityEditNumber {
+    type Error = QuestionAvailabilityEditNumberError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<QuestionAvailabilityEditNumber> for String {
+    fn from(value: QuestionAvailabilityEditNumber) -> Self {
+        value.to_string()
+    }
+}
+
+impl std::fmt::Display for QuestionAvailabilityEditNumber {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.value().fmt(formatter)
+    }
+}
+
+/// Immutable availability-transition evidence for a stable Published Question.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuestionAvailabilityEvent {
+    pub question_id: QuestionId,
+    pub actor: crate::AccountId,
+    pub availability: QuestionAvailability,
+    pub edit_number: QuestionAvailabilityEditNumber,
+    pub recorded_at: Timestamp,
 }
 
 /// Question Backend without source paths or package identifiers.
@@ -247,7 +325,7 @@ pub struct QuestionSummary {
     pub authorship: crate::QuestionAuthorship,
     /// Current availability for ordinary new selection; publication itself is
     /// separate immutable history.
-    pub availability: QuestionRevisionAvailability,
+    pub availability: QuestionAvailability,
     /// Database-authoritative publication time.
     pub published_at: Timestamp,
 }
@@ -391,7 +469,7 @@ mod tests {
     fn question_ids_normalize_forgiving_input_without_accepting_other_characters() {
         let canonical: QuestionId = "7K3-M9QX".parse().expect("canonical ID parses");
         assert_eq!(canonical.to_string(), "7K3-M9QX");
-        assert_eq!(canonical.compact(), "7K3M9QX");
+        assert_eq!(canonical.as_compact_str(), "7K3M9QX");
         assert_eq!(canonical.identifier_compact(), "7K3M9Q");
         assert_eq!(canonical.validation_character(), 'X');
         assert_eq!(
@@ -468,16 +546,14 @@ mod tests {
     }
 
     #[test]
-    fn only_available_content_is_eligible_for_ordinary_new_selection() {
-        assert!(QuestionRevisionAvailability::Available.is_discoverable());
-        assert!(QuestionRevisionAvailability::Available.is_eligible_for_ordinary_new_selection());
-        assert!(QuestionRevisionAvailability::Available.is_resolvable_by_stable_question_id());
-        let archived = QuestionRevisionAvailability::Archived {
-            reason: "Historical".to_string(),
-        };
-        assert!(archived.is_discoverable());
+    fn archive_blocks_new_selection_but_preserves_exact_revision_resolution() {
+        assert!(QuestionAvailability::Available.is_discoverable());
+        assert!(QuestionAvailability::Available.is_eligible_for_ordinary_new_selection());
+        assert!(QuestionAvailability::Available.permits_existing_exact_revision_resolution());
+        let archived = QuestionAvailability::Archived;
+        assert!(!archived.is_discoverable());
         assert!(!archived.is_eligible_for_ordinary_new_selection());
-        assert!(archived.is_resolvable_by_stable_question_id());
+        assert!(archived.permits_existing_exact_revision_resolution());
     }
 
     #[test]
@@ -545,7 +621,7 @@ mod tests {
                     .expect("valid Question Author"),
                 }])
                 .expect("valid Question Authorship"),
-                availability: QuestionRevisionAvailability::Available,
+                availability: QuestionAvailability::Available,
                 published_at: Timestamp::from_unix_millis(0),
             },
             prompt: QuestionDetailsPromptView::Static { blocks: Vec::new() },

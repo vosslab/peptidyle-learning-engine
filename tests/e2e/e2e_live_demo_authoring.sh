@@ -123,6 +123,7 @@ print(json.dumps({
 draft_reference=""
 draft_edit=""
 instructor_cookie=""
+published_question_id=""
 
 prove_draft() {
 	local anonymous student_cookie student instructor created body source anonymous_source student_source saved stale list
@@ -174,8 +175,8 @@ print(reference, edit)
 		exit 1
 	fi
 	stale="$(request "/api/authoring/drafts/$draft_reference/source" "$instructor_cookie" PUT "$(source_payload)" 'application/vnd.peptidyle.question+json' "\"$draft_edit\"")"
-	if [ "$(response_status "$stale")" != "409" ]; then
-		echo "stale Draft Question Edit Number was accepted" >&2
+	if [ "$(response_status "$stale")" != "412" ]; then
+		echo "stale Draft Question Edit Number did not return Precondition Failed" >&2
 		exit 1
 	fi
 	draft_edit="$((draft_edit + 1))"
@@ -198,14 +199,14 @@ for forbidden in ("draftQuestionUuid", "workspaceId", "objectAddress", "sourceOb
 }
 
 prove_publish() {
-	local published question_id library
+	local published library
 	if [ -z "$draft_reference" ]; then prove_draft; fi
 	published="$(request "/api/authoring/drafts/$draft_reference/publish" "$instructor_cookie" POST '{"authors":["Live Demo Instructor"]}' 'application/json' "\"$draft_edit\"")"
 	if [ "$(response_status "$published")" != "200" ]; then
 		echo "Instructor could not publish the saved Draft Question" >&2
 		exit 1
 	fi
-	question_id="$(python3 -c '
+	published_question_id="$(python3 -c '
 import json, re, sys
 value = json.loads(sys.argv[1])
 if set(value) != {"questionId"} or not isinstance(value["questionId"], str):
@@ -232,8 +233,56 @@ rendered = json.dumps(payload, sort_keys=True)
 for forbidden in ("draftQuestion", "draftQuestionUuid", "workspaceId", "objectAddress", "sourceObject", "sourceChecksum"):
     if forbidden in rendered:
         raise SystemExit("Question Library publication view exposed a private Draft Question fact")
-' "$(response_body "$library")" "$question_id"
+' "$(response_body "$library")" "$published_question_id"
 	echo "Question Publication API: immutable Question Revision exposed through Question Library"
+}
+
+prove_successor_revision() {
+	local created body successor_reference successor_edit published request_body
+	if [ -z "$published_question_id" ]; then prove_publish; fi
+	created="$(request '/api/authoring/drafts' "$instructor_cookie" POST "$(source_payload)" 'application/vnd.peptidyle.question+json')"
+	if [ "$(response_status "$created")" != "201" ]; then
+		echo "Instructor could not create a successor Draft Question (HTTP $(response_status "$created"))" >&2
+		exit 1
+	fi
+	body="$(response_body "$created")"
+	read -r successor_reference successor_edit < <(python3 -c '
+import json, re, sys
+value = json.loads(sys.argv[1])
+reference = value.get("draftQuestion")
+edit = value.get("editNumber")
+if not isinstance(reference, str) or not re.fullmatch(r"D-[1-9][0-9]{0,9}", reference):
+    raise SystemExit("Successor Draft Question creation did not return its opaque reference")
+if not isinstance(edit, int) or edit <= 0:
+    raise SystemExit("Successor Draft Question creation did not return a positive Edit Number")
+print(reference, edit)
+' "$body")
+	if [ "$successor_reference" = "$draft_reference" ]; then
+		echo "Successor Draft Question creation reused the original Draft Question Reference" >&2
+		exit 1
+	fi
+	request_body="$(python3 -c '
+import json, sys
+print(json.dumps({
+    "questionId": sys.argv[1],
+    "parentRevisionNumber": 1,
+    "reasonForEdit": "Live Demo successor publication",
+}, separators=(",", ":")))
+' "$published_question_id")"
+	published="$(request "/api/authoring/drafts/$successor_reference/publish-revision" "$instructor_cookie" POST "$request_body" 'application/json' "\"$successor_edit\"")"
+	if [ "$(response_status "$published")" != "200" ]; then
+		echo "Instructor could not publish the successor Question Revision (HTTP $(response_status "$published"))" >&2
+		exit 1
+	fi
+	python3 -c '
+import json, sys
+value = json.loads(sys.argv[1])
+question_id = sys.argv[2]
+revision = value.get("questionRevision")
+if not isinstance(revision, dict) or revision != {"questionId": question_id, "revisionNumber": 2}:
+    raise SystemExit("Successor publication did not return the exact immutable Question Revision")
+' "$(response_body "$published")" "$published_question_id"
+	echo "Question Publication API: successor Revision keeps exact Question lineage provenance"
 }
 
 prove_browser() {
@@ -248,11 +297,13 @@ case "$mode" in
 	draft) prove_draft ;;
 	publish)
 		prove_publish
+		prove_successor_revision
 		prove_browser
 		;;
 	all)
 		prove_draft
 		prove_publish
+		prove_successor_revision
 		prove_browser
 		;;
 esac

@@ -7,20 +7,23 @@ import type {
   CourseAssignmentSummary,
   DueSoonAssignments,
   LiveAssignmentReleaseClient,
-  RevisionedLiveAssignmentWorkspace,
+  LiveAssignmentWorkspaceResponse,
+  UnreleasedLiveAssignment,
 } from "../assignment_release";
 import {
   decodeAssignmentPreview,
   decodeAssignmentQuestionPicker,
   decodeAssignmentReleaseValidation,
+  decodeAssignmentUnreleaseImpact,
   decodeCourseAssignmentSummary,
+  decodeCourseAssignmentSourceChoices,
   decodeCourseAssignments,
   decodeDueSoonAssignments,
   decodeCreateLiveAssignmentInput,
   decodeLiveAssignmentWorkspace,
-  decodeReleasedLiveAssignment,
   decodeSaveLiveAssignmentInlineInput,
   decodeSaveLiveAssignmentInput,
+  decodeUnreleasedLiveAssignment,
 } from "../decoders/assignment_release";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
@@ -147,7 +150,16 @@ export function createLiveAssignmentReleaseClient(
           decodeAssignmentQuestionPicker,
         )
       ).body,
-    createLiveAssignment: async (course, input): Promise<RevisionedLiveAssignmentWorkspace> => {
+    listCourseAssignmentSourceChoices: async (course) =>
+      (
+        await assignmentJson(
+          fetchImplementation,
+          basePath,
+          `${coursePath(course)}/assignment-source-choices`,
+          decodeCourseAssignmentSourceChoices,
+        )
+      ).body,
+    createLiveAssignment: async (course, input): Promise<LiveAssignmentWorkspaceResponse> => {
       const path = `${coursePath(course)}/assignments`;
       const result = await assignmentJson(
         fetchImplementation,
@@ -168,7 +180,7 @@ export function createLiveAssignmentReleaseClient(
     getLiveAssignmentWorkspace: async (
       course,
       assignment,
-    ): Promise<RevisionedLiveAssignmentWorkspace> => {
+    ): Promise<LiveAssignmentWorkspaceResponse> => {
       const path = assignmentPath(course, assignment);
       const result = await assignmentJson(
         fetchImplementation,
@@ -186,7 +198,7 @@ export function createLiveAssignmentReleaseClient(
       assignment,
       input,
       etag,
-    ): Promise<RevisionedLiveAssignmentWorkspace> => {
+    ): Promise<LiveAssignmentWorkspaceResponse> => {
       const path = assignmentPath(course, assignment);
       const result = await assignmentJson(
         fetchImplementation,
@@ -223,19 +235,60 @@ export function createLiveAssignmentReleaseClient(
           decodeAssignmentPreview,
         )
       ).body,
-    releaseLiveAssignment: async (course, assignment, etag) =>
+    releaseLiveAssignment: async (
+      course,
+      assignment,
+      etag,
+    ): Promise<LiveAssignmentWorkspaceResponse> => {
+      const path = `${assignmentPath(course, assignment)}/release`;
+      const result = await assignmentJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeLiveAssignmentWorkspace,
+        {
+          method: "POST",
+          etag,
+          status: 200,
+        },
+      );
+      return {
+        workspace: result.body,
+        etag: requireWorkspaceEtag(result.response, result.body.editNumber, path),
+      };
+    },
+    getLiveAssignmentUnreleaseImpact: async (course, assignment) =>
       (
         await assignmentJson(
           fetchImplementation,
           basePath,
-          `${assignmentPath(course, assignment)}/release`,
-          decodeReleasedLiveAssignment,
-          {
-            method: "POST",
-            etag,
-            status: 201,
-          },
+          `${assignmentPath(course, assignment)}/unrelease-impact`,
+          decodeAssignmentUnreleaseImpact,
         )
       ).body,
+    unreleaseLiveAssignment: async (
+      course,
+      assignment,
+      confirmationTitle,
+      etag,
+    ): Promise<{ readonly result: UnreleasedLiveAssignment; readonly etag: string }> => {
+      const path = `${assignmentPath(course, assignment)}/unrelease`;
+      const result = await assignmentJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeUnreleasedLiveAssignment,
+        {
+          method: "POST",
+          body: { confirmationTitle },
+          etag,
+          status: 200,
+        },
+      );
+      return {
+        result: result.body,
+        etag: requireWorkspaceEtag(result.response, result.body.assignment.editNumber, path),
+      };
+    },
   };
 }

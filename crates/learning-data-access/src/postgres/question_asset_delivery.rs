@@ -2,9 +2,7 @@
 
 use async_trait::async_trait;
 use objects::Sha256Checksum;
-use question_model::{
-    ObjectId, QuestionAssetId, QuestionRevisionNumber, QuestionRevisionReference,
-};
+use question_model::{ObjectId, QuestionAssetId, QuestionRevisionReference};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -53,27 +51,25 @@ impl QuestionAssetDeliveryStore for PostgresQuestionAssetDeliveryStore {
     async fn resolve_ready_question_asset_delivery(
         &self,
         token: SessionTokenHash,
+        question_revision: QuestionRevisionReference,
         asset_id: QuestionAssetId,
     ) -> Result<ReadyQuestionAssetDelivery, StoreError> {
         let mut transaction = self.begin(token).await?;
         let row = sqlx::query(
-            "SELECT question_id, revision_number, asset_id, public_object_id, rendition_checksum \
-             FROM ple_api.resolve_ready_live_demo_question_asset($1)",
+            "SELECT public_object_id, rendition_checksum \
+             FROM ple_api.resolve_ready_question_asset($1, $2, $3)",
+        )
+        .bind(question_revision.question_id.as_compact_str())
+        .bind(
+            i32::try_from(question_revision.revision_number.get()).map_err(|_| {
+                StoreError::InvalidRecord("Question Revision number is invalid".to_string())
+            })?,
         )
         .bind(asset_id.as_uuid())
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::NotFound)?;
-        let revision_number = u32::try_from(
-            row.try_get::<i32, _>("revision_number")
-                .map_err(map_sqlx_error)?,
-        )
-        .ok()
-        .and_then(|value| QuestionRevisionNumber::new(value).ok())
-        .ok_or_else(|| {
-            StoreError::InvalidRecord("Question Revision number is invalid".to_string())
-        })?;
         let checksum: [u8; 32] = row
             .try_get::<Vec<u8>, _>("rendition_checksum")
             .map_err(map_sqlx_error)?
@@ -82,15 +78,8 @@ impl QuestionAssetDeliveryStore for PostgresQuestionAssetDeliveryStore {
                 StoreError::InvalidRecord("Question Asset checksum is invalid".to_string())
             })?;
         let value = ReadyQuestionAssetDelivery {
-            question_revision: QuestionRevisionReference {
-                question_id: row
-                    .try_get::<String, _>("question_id")
-                    .map_err(map_sqlx_error)?
-                    .parse()
-                    .map_err(|_| StoreError::InvalidRecord("Question ID is invalid".to_string()))?,
-                revision_number,
-            },
-            asset_id: QuestionAssetId::from_uuid(row.try_get("asset_id").map_err(map_sqlx_error)?),
+            question_revision,
+            asset_id,
             public_object_id: ObjectId::from_uuid(
                 row.try_get("public_object_id").map_err(map_sqlx_error)?,
             ),

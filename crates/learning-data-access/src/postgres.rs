@@ -17,7 +17,15 @@ mod assignment_delivery_history;
 #[cfg(feature = "postgres")]
 mod assignment_delivery_history_response;
 #[cfg(feature = "postgres")]
+mod assignment_delivery_source;
+#[cfg(feature = "postgres")]
+mod assignment_delivery_start;
+#[cfg(feature = "postgres")]
 mod assignment_release;
+#[cfg(feature = "postgres")]
+mod assignment_workspace_policy;
+#[cfg(feature = "postgres")]
+mod assignment_workspace_save;
 #[cfg(feature = "postgres")]
 mod authoring;
 #[cfg(feature = "postgres")]
@@ -102,14 +110,13 @@ pub use instructor_profile::PostgresInstructorProfileStore;
 #[cfg(feature = "postgres")]
 pub use invitation_export::PostgresInvitationExportStore;
 #[cfg(feature = "postgres")]
-pub use live_gradebook::PostgresLiveDemoGradebookStore;
+pub use live_gradebook::PostgresCourseGradebookStore;
 #[cfg(feature = "postgres")]
 pub use live_student_course_landing::PostgresLiveStudentCourseLandingStore;
 #[cfg(feature = "postgres")]
 pub use migrations::{
-    MigrationCheck, MigrationCheckEntry, MigrationCheckResult, SchemaCompatibilityError,
-    apply_migrations, migration_check, migration_principal, migration_status_from_directory,
-    verify_application_schema,
+    BASE_RELEASE_IDENTITY, SchemaCompatibilityError, SchemaLifecycleGuard,
+    acquire_schema_lifecycle, verify_application_schema,
 };
 #[cfg(feature = "postgres")]
 pub use native_ple_grading::PostgresNativePleGradingStore;

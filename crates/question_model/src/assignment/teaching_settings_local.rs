@@ -4,9 +4,8 @@ use chrono::{DateTime, LocalResult, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    AssignmentAuthoredContent, AssignmentDeadlineRule, AssignmentInstructions, AssignmentStatus,
-    BaseAssignmentPolicy, LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
+    AssignmentAuthoredContent, AssignmentInstructions, AssignmentStatus, BaseAssignmentPolicy,
+    LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
 };
 use crate::{AccountTimeZone, AssignmentActivityRules, CourseTerm, Timestamp};
 
@@ -201,9 +200,6 @@ pub struct InstructorAssignmentAuthoredContentLocal {
     /// Treatment of work after the ordinary due instant.
     #[serde(rename = "late_work_rule")]
     pub late_work_rule: LateWorkRule,
-    /// Server behavior at an effective assignment deadline.
-    #[serde(rename = "assignment_deadline_rule")]
-    pub assignment_deadline_rule: AssignmentDeadlineRule,
 }
 
 impl InstructorAssignmentAuthoredContentLocal {
@@ -217,7 +213,6 @@ impl InstructorAssignmentAuthoredContentLocal {
         assignment_attempt_time_limit_seconds: Option<NonZeroU32>,
         attempt_limit: Option<NonZeroU32>,
         late_work_rule: LateWorkRule,
-        assignment_deadline_rule: AssignmentDeadlineRule,
     ) -> Result<Self, AssignmentAuthoredContentLocalError> {
         if assignment_attempt_time_limit_seconds
             .is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS)
@@ -236,7 +231,6 @@ impl InstructorAssignmentAuthoredContentLocal {
             assignment_attempt_time_limit_seconds,
             attempt_limit,
             late_work_rule,
-            assignment_deadline_rule,
         })
     }
 
@@ -294,7 +288,6 @@ impl InstructorAssignmentAuthoredContentLocal {
                 assignment_attempt_time_limit_seconds: self.assignment_attempt_time_limit_seconds,
                 attempt_limit: self.attempt_limit,
                 late_work_rule: self.late_work_rule,
-                assignment_deadline_rule: self.assignment_deadline_rule,
             },
             activity_rules,
         })
@@ -366,7 +359,6 @@ impl InstructorAssignmentAuthoredContentLocal {
             settings.base_policy.assignment_attempt_time_limit_seconds,
             settings.base_policy.attempt_limit,
             settings.base_policy.late_work_rule,
-            settings.base_policy.assignment_deadline_rule,
         )
     }
 }
@@ -379,7 +371,7 @@ pub enum AssignmentAuthoredContentFailureCode {
     AssignmentAuthoredContentInvalid,
 }
 
-/// Browser-safe field that needs a correction in an Assignment Revision.
+/// Browser-safe field that needs a correction in current Assignment content.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AssignmentAuthoredContentField {

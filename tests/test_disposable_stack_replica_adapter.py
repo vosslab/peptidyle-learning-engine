@@ -7,7 +7,6 @@ import pytest
 import local_stack_control.disposable_stack_adapter
 import local_stack_control.models
 import local_stack_control.disposable_stack_command
-import local_stack_control.live_demo_seed
 import local_stack_control.process
 
 
@@ -55,15 +54,6 @@ def fixed_replica_target(
 	for path in compose_files:
 		path.parent.mkdir(parents=True, exist_ok=True)
 		path.write_text("services: {}\n", encoding="ascii")
-	seed_directory = root / local_stack_control.live_demo_seed.SEED_SOURCE_DIRECTORY
-	seed_directory.mkdir(parents=True, exist_ok=True)
-	for question in local_stack_control.live_demo_seed.SEEDED_PUBLISHED_QUESTIONS:
-		(seed_directory / question.source_filename).write_bytes(b"{}")
-	asset = local_stack_control.live_demo_seed.SEEDED_QUESTION_ASSET_PUBLICATION
-	repository_asset = local_stack_control.live_demo_seed.question_asset_path(
-		pathlib.Path(__file__).parents[1]
-	)
-	(seed_directory / asset.filename).write_bytes(repository_asset.read_bytes())
 	environment = root / "env.local"
 	environment.write_text(
 		"POSTGRES_USER=ple_live_demo_browser\nPOSTGRES_DB=ple_live_demo_browser\n",
@@ -203,43 +193,6 @@ def test_postgresql_count_rejects_other_fixed_profiles(
 			target,
 			"00000000-0000-4000-8000-000000000200",
 		)
-
-
-#============================================
-def test_seed_inventory_is_limited_to_the_browser_profile_and_safe_projection(
-	tmp_path: pathlib.Path,
-) -> None:
-	"""M4 may read only fixed aggregate baseline counts from its own profile."""
-	target = fixed_replica_target(tmp_path, local_stack_control.models.LiveDemoProfile.BROWSER)
-	argv, environment, sql = local_stack_control.disposable_stack_adapter.seed_inventory_command(target)
-
-	assert argv[-3:] == ["-tA", "-F", "|"] and environment["COMPOSE_PROJECT_NAME"] == "ple-live-demo-browser"
-	assert "count(*)" in sql.lower() and "correctchoice" not in sql.lower()
-	with pytest.raises(local_stack_control.models.ControllerError, match="fixed browser profile"):
-		local_stack_control.disposable_stack_adapter.seed_inventory_command(
-			fixed_replica_target(tmp_path / "replica")
-		)
-
-
-#============================================
-def test_seed_inventory_cli_emits_only_the_named_counts(
-	tmp_path: pathlib.Path,
-	monkeypatch: pytest.MonkeyPatch,
-	capsys: pytest.CaptureFixture[str],
-) -> None:
-	"""The baseline receipt reveals only the bounded aggregate inventory."""
-	target = fixed_replica_target(tmp_path, local_stack_control.models.LiveDemoProfile.BROWSER)
-	monkeypatch.setattr(
-		local_stack_control.disposable_stack_adapter,
-		"require_current_resource_capability",
-		lambda selected_runner, disposable: None,
-	)
-	counts = "5|4|4|4|4|1|1|1|1"
-	result = local_stack_control.disposable_stack_command.run_seed_inventory(
-		CountRunner(counts + "\n"), target
-	)
-
-	assert result == 0 and capsys.readouterr().out == counts + "\n"
 
 
 #============================================

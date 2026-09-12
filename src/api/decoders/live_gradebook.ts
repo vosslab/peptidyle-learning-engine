@@ -3,7 +3,7 @@
 import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
 import type { AssignmentAttemptCompletion } from "../../../generated/api/AssignmentAttemptCompletion";
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
-import type { LiveDemoGradebook, LiveDemoStudentWork } from "../live_gradebook";
+import type { CourseGradebook, CourseGradebookStudentWork } from "../live_gradebook";
 import {
   DecodeError,
   decodeArray,
@@ -55,7 +55,7 @@ function nonNegativeFinite(value: unknown, path: string): number {
   return decoded;
 }
 
-function studentWork(value: unknown, path: string): LiveDemoStudentWork {
+function studentWork(value: unknown, path: string): CourseGradebookStudentWork {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "rosterId",
@@ -111,7 +111,7 @@ function studentWork(value: unknown, path: string): LiveDemoStudentWork {
 }
 
 /** Rejects any field outside the declared answer-free projection. */
-export function decodeLiveDemoGradebook(value: unknown, path = "response"): LiveDemoGradebook {
+export function decodeCourseGradebook(value: unknown, path = "response"): CourseGradebook {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["courseReference", "studentWork"]);
   return {

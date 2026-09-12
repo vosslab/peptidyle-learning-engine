@@ -339,12 +339,10 @@ impl ImathasGradingContext {
     ///
     /// Version 1 is exactly: Question Attempt UUID bytes, canonical unprefixed
     /// Question ID UTF-8 bytes, Question Revision Number big-endian bytes, and
-    /// Question Seed big-endian bytes. The canonical Question ID display has
-    /// eight UTF-8 bytes (for example, `123-4567`) and is intentionally not
-    /// length-prefixed. Keep this byte sequence stable while row-530
-    /// authentication records exist.
+    /// Question Seed big-endian bytes. The compact Question ID has seven UTF-8
+    /// bytes (for example, `1234567`) and is intentionally not length-prefixed.
     pub fn authentication_payload_v1(&self) -> Vec<u8> {
-        let question_id = self.question_revision.question_id.to_string();
+        let question_id = self.question_revision.question_id.as_compact_str();
         let mut payload = Vec::with_capacity(16 + question_id.len() + 4 + 8);
         payload.extend_from_slice(self.question_attempt.as_uuid().as_bytes());
         payload.extend_from_slice(question_id.as_bytes());

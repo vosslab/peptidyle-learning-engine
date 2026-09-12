@@ -12,8 +12,6 @@ import local_stack_control.browser_suite_ownership
 import local_stack_control.compose
 import local_stack_control.discovery
 import local_stack_control.env_file
-import local_stack_control.live_demo_course_seed
-import local_stack_control.live_demo_seed
 import local_stack_control.models
 import local_stack_control.process
 import local_stack_control.runtime_manifest
@@ -316,10 +314,21 @@ def live_demo_profile_policy(
 
 
 #============================================
+def require_browser_profile(
+	disposable: local_stack_control.models.DisposableComposeTarget,
+) -> None:
+	"""Require the one full teaching profile before an installation-data action."""
+	if live_demo_profile_policy(disposable).profile is not local_stack_control.models.LiveDemoProfile.BROWSER:
+		raise local_stack_control.models.ControllerError(
+			"installation-data acceptance requires the fixed browser profile"
+		)
+
+
+#============================================
 def lifecycle_options(
 	disposable: local_stack_control.models.DisposableComposeTarget,
 	timeout_seconds: int,
-	provision_stop_after: local_stack_control.live_demo_course_seed.Stage | None = None,
+	without_live_demo: bool = False,
 ) -> "local_stack_control.lifecycle.LifecycleOptions":
 	"""Form the closed lifecycle request allowed to full-stack disposable owners."""
 	policy = disposable_policy(disposable)
@@ -334,7 +343,7 @@ def lifecycle_options(
 		)
 	from local_stack_control import lifecycle
 	return lifecycle.LifecycleOptions(
-		float(timeout_seconds), True, False, False, provision_stop_after
+		float(timeout_seconds), True, False, False, without_live_demo,
 	)
 
 
@@ -660,43 +669,6 @@ def postgresql_count_command(
 
 
 #============================================
-def seed_inventory_command(
-	disposable: local_stack_control.models.DisposableComposeTarget,
-) -> tuple[list[str], dict[str, str], str]:
-	"""Form the browser profile's one answer-free seeded-baseline projection."""
-	if disposable.owner_policy != local_stack_control.models.LIVE_DEMO_BROWSER_OWNER:
-		raise local_stack_control.models.ControllerError(
-			"seed inventory is limited to the fixed browser profile"
-		)
-	profile = live_demo_profile_policy(disposable)
-	if (
-		profile.profile is not local_stack_control.models.LiveDemoProfile.BROWSER
-		or "seed_inventory" not in profile.child_capabilities
-	):
-		raise local_stack_control.models.ControllerError(
-			"seed inventory is limited to the fixed browser profile"
-		)
-	values = local_stack_control.env_file.env_settings(disposable.target.env_file)
-	postgres_user = values.get("POSTGRES_USER")
-	postgres_database = values.get("POSTGRES_DB")
-	if not postgres_user or not postgres_database:
-		raise local_stack_control.models.ControllerError(
-			"seed inventory target omits its database selection"
-		)
-	# ASVS 8.2.2 and 14.2.4: this sealed projection returns only named aggregate
-	# counts. It omits source bytes, answer keys, Account identifiers, and roles.
-	argv = local_stack_control.compose.compose_argv(
-		disposable.target,
-		[
-			"exec", "-T", "postgres", "psql", "-v", "ON_ERROR_STOP=1",
-			"-U", postgres_user, "-d", postgres_database, "-tA", "-F", "|",
-		],
-	)
-	sql = local_stack_control.live_demo_seed.inventory_sql(disposable.target.repo_root)
-	return argv, compose_environment(disposable), sql
-
-
-#============================================
 def require_replica_stopped(
 	disposable: local_stack_control.models.DisposableComposeTarget,
 	snapshot: local_stack_control.models.ProjectSnapshot,
@@ -732,11 +704,20 @@ def compose_command(
 		if profile.profile is local_stack_control.models.LiveDemoProfile.DATABASE_BASELINE:
 			if "database_baseline_oracle" not in profile.child_capabilities:
 				raise local_stack_control.models.ControllerError("live-demo profile capability is invalid")
+			is_postgres_ready = arguments == [
+				"exec", "-T", "postgres", "pg_isready", "-U", "ple_e2e_migrator", "-d", "postgres",
+			]
+			is_postgres_psql = len(arguments) >= 5 and arguments[:4] == ["exec", "-T", "postgres", "psql"]
+			is_migrator_build = arguments == ["--profile", "migration", "build", "database-migrator"]
+			is_migrator_initialize = arguments == [
+				"--profile", "migration", "run", "--rm", "--no-deps",
+				"database-migrator", "database", "initialize",
+			]
 			if arguments != ["up", "-d", "postgres"] and not (
-				len(arguments) >= 5 and arguments[:4] == ["exec", "-T", "postgres", "psql"]
+				is_postgres_ready or is_postgres_psql or is_migrator_build or is_migrator_initialize
 			):
 				raise local_stack_control.models.ControllerError(
-					"database baseline Compose commands are limited to PostgreSQL startup and psql"
+					"database baseline Compose commands are limited to PostgreSQL startup, readiness, psql, and canonical initialization"
 				)
 			if disposable.acceptance_runtime_workspace is not None:
 				local_stack_control.runtime_manifest.require_database_baseline_compose_password(
@@ -752,11 +733,17 @@ def compose_command(
 				"--profile", "course-appearance-initialization",
 				"run", "--rm", "-T", "createbuckets",
 			]
+			is_migrator_build = arguments == ["--profile", "migration", "build", "database-migrator"]
+			is_migrator_initialize = arguments == [
+				"--profile", "migration", "run", "--rm", "--no-deps",
+				"database-migrator", "database", "initialize",
+			]
 			if arguments != ["up", "-d", "postgres", "minio"] and not (
 				is_postgres_ready or is_minio_ready or is_postgres_psql or is_bucket_initialization
+				or is_migrator_build or is_migrator_initialize
 			):
 				raise local_stack_control.models.ControllerError(
-					"cross-store Compose commands are limited to startup, readiness, bucket creation, and PostgreSQL psql"
+					"cross-store Compose commands are limited to startup, readiness, bucket creation, PostgreSQL psql, and canonical initialization"
 				)
 			if disposable.acceptance_runtime_workspace is not None:
 				local_stack_control.runtime_manifest.require_course_appearance_cross_store_compose_credentials(

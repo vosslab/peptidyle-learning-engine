@@ -4,6 +4,7 @@ import type {
   AssignmentRouteReference,
   CourseInstanceRouteReference,
 } from "../../navigation/public_route";
+import type { CourseAssignmentSourceChoice } from "../../api/assignment_release";
 
 import { assignmentWorkspacePath } from "./assignment_workspace_paths";
 
@@ -18,4 +19,14 @@ export function createdAssignmentQuestionsPath(
 /** Keeps transport details outside the visible draft-creation recovery path. */
 export function assignmentWorkspaceCreateErrorMessage(): string {
   return "The Assignment could not be created. Your title is still here. Try again.";
+}
+
+/** Resolves only the Instructor's deliberate stable Blueprint Assignment choice. */
+export function selectedAssignmentSource(
+  choices: ReadonlyArray<CourseAssignmentSourceChoice>,
+  blueprintAssignmentReference: string,
+): CourseAssignmentSourceChoice | undefined {
+  return choices.find(
+    (choice) => choice.source.blueprint_assignment_reference === blueprintAssignmentReference,
+  );
 }

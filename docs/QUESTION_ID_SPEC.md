@@ -14,21 +14,20 @@ operation resolves an assignment through an implicit latest version.
 
 ## Format
 
-The canonical Question ID is `AAA-BBBB`, using seven Crockford Base32 characters
-in a `3-4` display grouping:
+The canonical stored Question ID is seven compact Crockford Base32 characters.
+Its canonical browser display is `AAA-BBBB`, using a `3-4` grouping:
 
 ```text
 7K3-M9QP
 ```
 
-The first six characters are the random lineage identity. The seventh character
-is a server-validated HMAC-SHA-256 check character. The hyphen is presentation
-only and is not part of the stored identifier.
+The compact stored form of this example is `7K3M9QP`. The first six characters
+are the random lineage identity. The seventh character is a server-validated
+HMAC-SHA-256 check character. The hyphen is presentation-only and is not part
+of the stored identifier.
 
-The identifier is non-sequential and copyable. The product may enforce its
-independent 100,000,000-question limit without exposing creation order. Six
-Crockford Base32 identity characters provide 32^6 possible values, so the
-encoded namespace is larger than that product limit.
+The identifier is non-sequential and copyable. Six Crockford Base32 identity
+characters provide 32^6 possible identities without exposing creation order.
 
 ## Crockford alphabet
 
@@ -41,7 +40,8 @@ Use this Crockford Base32 alphabet:
 Canonical stored and displayed IDs use uppercase characters. Input parsing is
 forgiving at the transcription boundary:
 
-- Ignore the display hyphen.
+- Accept either the compact seven-character form or one hyphen in the canonical
+  `3-4` display position.
 - Accept lowercase and normalize to uppercase.
 - Accept `O` or `o` as `0`.
 - Accept `I`, `i`, `L`, or `l` as `1`.
@@ -80,13 +80,23 @@ The publish transition mints a Question ID only for a new published lineage:
 
 1. Generate six random Crockford Base32 characters from a cryptographically
    secure source.
-2. Reject a candidate already assigned to another lineage.
-3. Derive its validation character.
-4. Persist the Question ID with the new lineage and its first immutable version.
-5. Never reassign an issued Question ID to another lineage.
+2. Derive its validation character.
+3. Copy the immutable source bytes to their server-created target address and
+   atomically persist the Question ID with its new lineage and first immutable
+   version.
+4. Never reassign an issued Question ID to another lineage.
 
-On collision, generate another candidate. The product question-count limit is
-enforced independently of the larger encoded namespace.
+`published_question.question_id` is the sole database uniqueness boundary for
+Question ID allocation. The base schema checks the compact uppercase Crockford
+shape; the trusted server verifies the HMAC character before identifier-based
+resolution. Correctly minted full IDs already uniquely determine their
+six-character identity for one deployment secret, so the schema has no
+redundant first-six-character uniqueness constraint.
+
+The publisher retries only a PostgreSQL `23505` violation of that primary key.
+It deletes the just-written target object before that conclusive retry; another
+database or object-store outcome is reported without treating it as an ID
+collision or deleting potentially committed evidence.
 
 ## Lineage and versions
 
@@ -126,10 +136,9 @@ Assignment Access for that reference.
 meanings. Question Publication Requirements name the conditions for one Draft
 Question Revision; Question Publication Validation returns its ordered Question
 Publication Issues. A Question Publication Event creates the first Question Revision
-in a new lineage. A Question Revision Availability Event records whether an immutable
-revision is Available or Archived for ordinary selection.
-Both availability values preserve exact historical resolution through the same
-Question Revision Reference.
+in a new lineage. A Question Availability Event records the stable lineage's current
+Available or Archived state for ordinary browsing and new selection. Either state
+preserves exact historical resolution through the same Question Revision Reference.
 
 ## Authorization boundary
 

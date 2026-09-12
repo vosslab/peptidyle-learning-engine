@@ -811,11 +811,6 @@
         "reason": "The legacy multi-tab Assignment workspace is retired; no separate Student-view capture remains."
       },
       {
-        "routeId": "assignmentWorkspaceGradingOperations",
-        "status": "deferred",
-        "reason": "The default Live Demo has no meaningful automated-grading operations state to review."
-      },
-      {
         "routeId": "assignmentsDueSoon",
         "status": "captured",
         "captureIds": ["instructor_assignments_due_soon_empty_laptop"]
@@ -824,11 +819,6 @@
         "routeId": "gradebook",
         "status": "captured",
         "captureIds": ["instructor_gradebook_laptop"]
-      },
-      {
-        "routeId": "studentWorkInspection",
-        "status": "deferred",
-        "reason": "Individual Student-work inspection needs a dedicated privacy-reviewed fixture beyond the default atlas."
       },
       {
         "routeId": "courseGradeSettings",
@@ -1050,11 +1040,6 @@
         "id": "task:assignmentPolicies",
         "status": "deferred",
         "reason": "The legacy multi-tab Assignment workspace is retired."
-      },
-      {
-        "id": "task:assignmentGradingOperations",
-        "status": "deferred",
-        "reason": "The default Live Demo has no meaningful grading-operations fixture."
       },
       {
         "id": "task:assignmentStudentView",

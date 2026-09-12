@@ -1,8 +1,3 @@
-# Accepted migration ledgers are immutable after application. They remain
-# reviewable as whole forward-only migrations and must not be split or rewritten.
-schemas/migrations/2026080802_catalog_authoring.sql
-schemas/migrations/2026080805_operations_analytics.sql
-schemas/migrations/2026080806_retention.sql
 
 # Changelog rotation uses its owning archive policy rather than the maintained
 # code-module line limit.

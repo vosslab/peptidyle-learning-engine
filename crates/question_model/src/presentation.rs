@@ -11,14 +11,17 @@ mod builder;
 mod choice_order;
 mod codec;
 mod model;
+mod public_response_items;
 mod response_translation;
 mod response_validation;
 
 pub use binding::QuestionPresentationBinding;
 pub use builder::{
-    IssuedQuestionPresentation, OperatingSystemQuestionPresentationNonceSource,
-    PresentationBuildError, QuestionPresentationNonceSource, ResponseItemBinding, ResponseItemRole,
+    DurableResponseItemBinding, IssuedQuestionPresentation,
+    OperatingSystemQuestionPresentationNonceSource, PresentationBuildError,
+    QuestionPresentationNonceSource, ResponseItemBinding, ResponseItemRole,
     build_question_presentation, build_question_presentation_with_nonce_source,
+    extract_durable_response_item_bindings, rebind_durable_response_item_bindings,
     rebuild_public_question_presentation, reproduce_question_presentation,
 };
 pub use codec::{

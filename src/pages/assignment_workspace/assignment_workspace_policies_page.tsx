@@ -1,17 +1,20 @@
 import { A } from "@solidjs/router";
-import { For, Show, createSignal, type JSX } from "solid-js";
+import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 
 import type { LateWorkRule } from "../../../generated/api/LateWorkRule";
 import type {
+  AssignmentUnreleaseImpact,
   AssignmentReleaseValidation,
   SaveLiveAssignmentInput,
 } from "../../api/assignment_release";
 import { useApplicationApi } from "../../api/application_api";
+import { ApiRequestError } from "../../api/http_client/error";
 import { LiveAssignmentWorkspaceConflictError } from "../../api/http_client/assignment_release";
 import { assignmentWorkspacePath } from "./assignment_workspace_paths";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
 import {
   canonicalLocalDateAndTime,
+  assignmentPolicySaveInput,
   dueDateDraft,
   dueTimeDraft,
   localDueDateAndTime,
@@ -35,10 +38,6 @@ const FEEDBACK_FIELDS = [
   ],
 ] as const;
 
-function inputFrom(workspace: SaveLiveAssignmentInput): SaveLiveAssignmentInput {
-  return { ...workspace };
-}
-
 /** Edits the full direct resource while keeping timing and feedback controls independent. */
 export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   const workspace = useAssignmentWorkspace();
@@ -59,6 +58,8 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   const [needsReload, setNeedsReload] = createSignal(false);
   const [releaseValidation, setReleaseValidation] = createSignal<AssignmentReleaseValidation>();
   const [validationFailed, setValidationFailed] = createSignal(false);
+  const [unreleaseImpact, setUnreleaseImpact] = createSignal<AssignmentUnreleaseImpact>();
+  const [confirmationTitle, setConfirmationTitle] = createSignal("");
 
   function integer(value: string): number | null | undefined {
     if (value === "") return null;
@@ -75,19 +76,15 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       parsedAttemptLimit === undefined
     )
       return null;
-    return {
-      ...inputFrom({
-        title: base.title,
-        instructions: instructions(),
-        questionIds: base.questions.map((question) => question.questionId),
-        dueAt: parsedDueAt,
-        lateWorkRule: lateWorkRule(),
-        assignmentAttemptTimeLimitSeconds: parsedTimeLimit,
-        attemptLimit: parsedAttemptLimit,
-        activityRules: activityRules(),
-        studentFeedbackReleaseRule: feedbackRules(),
-      }),
-    };
+    return assignmentPolicySaveInput(base, {
+      instructions: instructions(),
+      dueAt: parsedDueAt,
+      lateWorkRule: lateWorkRule(),
+      assignmentAttemptTimeLimitSeconds: parsedTimeLimit,
+      attemptLimit: parsedAttemptLimit,
+      activityRules: activityRules(),
+      studentFeedbackReleaseRule: feedbackRules(),
+    });
   }
   function updateOrder(shuffled: boolean): void {
     setActivityRules((current) => ({
@@ -122,7 +119,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     try {
       await workspace.save(input);
       setReleaseValidation(undefined);
-      setMessage("Assignment policies saved. The current assignment now uses the new revision.");
+      setMessage("Assignment policies saved. Future Attempts use the current policy values.");
     } catch (error: unknown) {
       const conflict = error instanceof LiveAssignmentWorkspaceConflictError;
       setNeedsReload(conflict);
@@ -193,9 +190,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     try {
       const current = workspace.assignment();
       const released = await workspace.release(current.etag);
-      await workspace.reloadAssignment();
+      await loadUnreleaseImpact();
       setReleaseValidation(undefined);
-      setMessage(`Assignment released as revision ${released.revisionNumber}.`);
+      setMessage(`Assignment released. Current edit number: ${released.workspace.editNumber}.`);
     } catch (error: unknown) {
       const conflict = error instanceof LiveAssignmentWorkspaceConflictError;
       setNeedsReload(conflict);
@@ -208,6 +205,70 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       setBusy(false);
     }
   }
+  async function loadUnreleaseImpact(): Promise<void> {
+    if (workspace.assignment().workspace.status !== "released") return;
+    try {
+      const impact = await applicationApi.client.getLiveAssignmentUnreleaseImpact(
+        workspace.courseReference,
+        workspace.assignmentReference,
+      );
+      setUnreleaseImpact(impact);
+    } catch (error: unknown) {
+      setUnreleaseImpact(undefined);
+      if (error instanceof ApiRequestError && error.status === 404) return;
+      setValidationFailed(true);
+      setMessage("Unrelease impact could not be loaded. Try loading the current assignment again.");
+    }
+  }
+  function unreleaseFailureMessage(error: unknown): string {
+    if (!(error instanceof ApiRequestError))
+      return "The assignment could not be unreleased. Try again.";
+    if (error.status === 404) return "This assignment workspace is unavailable.";
+    if (error.status === 409)
+      return "This assignment is no longer released. Load the current assignment.";
+    if (error.status === 422)
+      return "Enter the current Assignment title exactly to confirm Unrelease.";
+    return "The assignment could not be unreleased. Try again.";
+  }
+  async function unrelease(): Promise<void> {
+    const impact = unreleaseImpact();
+    if (impact === undefined) {
+      setMessage("Load the current Unrelease impact before confirming this action.");
+      return;
+    }
+    if (confirmationTitle() !== impact.confirmationTitle) {
+      setValidationFailed(true);
+      setMessage("Enter the current Assignment title exactly to confirm Unrelease.");
+      return;
+    }
+    if (needsReload()) {
+      setMessage("Reload the latest assignment before unreleasing it.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await workspace.unrelease(confirmationTitle());
+      setUnreleaseImpact(undefined);
+      setConfirmationTitle("");
+      setReleaseValidation(undefined);
+      setValidationFailed(false);
+      setMessage(
+        `Assignment unreleased. Deleted ${result.deleted.attemptCount} Attempts, ${result.deleted.submissionCount} submissions, and ${result.deleted.gradeCount} grades.`,
+      );
+    } catch (error: unknown) {
+      const conflict = error instanceof LiveAssignmentWorkspaceConflictError;
+      setNeedsReload(conflict);
+      setValidationFailed(true);
+      setMessage(
+        conflict
+          ? "This assignment changed elsewhere. Reload latest assignment before unreleasing it."
+          : unreleaseFailureMessage(error),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  onMount(() => void loadUnreleaseImpact());
   const questionsPath = assignmentWorkspacePath(
     workspace.courseReference,
     workspace.assignmentReference,
@@ -404,6 +465,56 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                   Review assignment Questions
                 </A>
               </Show>
+            </section>
+          )}
+        </Show>
+        <Show when={workspace.assignment().workspace.status === "released" && unreleaseImpact()}>
+          {(impact) => (
+            <section
+              class="assignment-workspace-unrelease-danger-zone"
+              aria-labelledby="assignment-unrelease-heading"
+            >
+              <h2 id="assignment-unrelease-heading">Danger Zone: Unrelease assignment</h2>
+              <p>
+                Unreleasing makes this Assignment unavailable to Students and permanently deletes
+                its Student Work. The current Assignment definition remains available for later
+                editing and release.
+              </p>
+              <dl aria-label="Unrelease deletion impact">
+                <div>
+                  <dt>Attempts</dt>
+                  <dd>{impact().attemptCount}</dd>
+                </div>
+                <div>
+                  <dt>Submissions</dt>
+                  <dd>{impact().submissionCount}</dd>
+                </div>
+                <div>
+                  <dt>Grades</dt>
+                  <dd>{impact().gradeCount}</dd>
+                </div>
+              </dl>
+              <label class="assignment-editor-field">
+                Type <strong>{impact().confirmationTitle}</strong> to confirm
+                <input
+                  aria-describedby="assignment-unrelease-confirmation-help"
+                  autocomplete="off"
+                  value={confirmationTitle()}
+                  onInput={(event) => setConfirmationTitle(event.currentTarget.value)}
+                />
+              </label>
+              <p id="assignment-unrelease-confirmation-help">
+                Unrelease permanently deletes the Student Work represented by these counts. No
+                Student names, responses, or grade details are displayed here.
+              </p>
+              <button
+                class="assignment-workspace-danger-action"
+                type="button"
+                disabled={needsReload() || confirmationTitle() !== impact().confirmationTitle}
+                onClick={() => void unrelease()}
+              >
+                {busy() ? "Unreleasing assignment..." : "Unrelease and delete Student Work"}
+              </button>
             </section>
           )}
         </Show>

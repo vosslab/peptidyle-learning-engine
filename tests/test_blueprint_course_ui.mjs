@@ -23,6 +23,7 @@ test("incomplete Blueprint Course drafts remain local", async () => {
   const result = await createBlueprintCourseWhenReady(
     client,
     draft(emptyReusableContent("Local draft")),
+    "create-local",
   );
 
   assert.equal(result.kind, "invalid");
@@ -46,6 +47,7 @@ test("complete Blueprint Course meaning invokes its one live create capability",
         { kind: "fixed", question_id: "AAA-BBBB", points_possible: "1", scoring_rule: "normal" },
       ],
     }),
+    "create-ready",
   );
 
   assert.equal(result.kind, "created");

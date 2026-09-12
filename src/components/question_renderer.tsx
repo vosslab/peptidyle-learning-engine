@@ -7,6 +7,7 @@ import type { QuestionAssetReference } from "../../generated/api/QuestionAssetRe
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { QuestionResponseFormat } from "../../generated/api/QuestionResponseFormat";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
+import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 
 import { QUESTION_RENDERER_STYLES } from "./question_renderer_styles";
 
@@ -95,15 +96,15 @@ type SafeMathMlElementNode = {
 
 type SanitizedMathMl = { readonly root: SafeMathMlElementNode };
 
-/** A narrow callback that must derive the documented application asset route from an QuestionAssetReference. */
+/** A narrow callback that closes over one exact Question Revision asset route. */
 export type AssetUrlResolver = (questionAsset: QuestionAssetReference) => URL;
 
 /**
- * The identity-free Question Variation Presentation that the browser renderer needs. Published
- * Question Presentations and private workspace previews can share this content without sharing a
- * publication identity.
+ * The renderable Question Variation Presentation with the exact immutable identity required for
+ * its asset URLs.
  */
 export interface QuestionVariationPresentation {
+  readonly questionRevision: QuestionRevisionReference;
   readonly prompt: ReadonlyArray<QuestionContentBlock>;
   readonly response: QuestionResponseFormat;
 }
@@ -117,6 +118,7 @@ export interface QuestionRendererProps {
 
 /** The semantic, answer-free prompt block surface shared by question views. */
 export interface QuestionPromptRendererProps {
+  readonly questionRevision: QuestionRevisionReference;
   readonly blocks: ReadonlyArray<QuestionContentBlock>;
   readonly assetUrl: AssetUrlResolver;
 }
@@ -240,13 +242,14 @@ function renderLatexToMathMl(latex: string): SanitizedMathMl {
   return { root };
 }
 
-/** Refuse every route except the authorized, logical application asset endpoint. */
+/** Refuse every route except the authorized exact Question Revision asset endpoint. */
 export function resolveSameOriginAssetUrl(
   questionAsset: QuestionAssetReference,
+  questionRevision: QuestionRevisionReference,
   resolver: AssetUrlResolver,
 ): string {
   const url = resolver(questionAsset);
-  const expectedPath = `/api/assets/${encodeURIComponent(questionAsset.questionAsset)}`;
+  const expectedPath = `/api/questions/${encodeURIComponent(questionRevision.questionId)}/revisions/${questionRevision.revisionNumber}/assets/${encodeURIComponent(questionAsset.questionAsset)}`;
   if (
     url.origin !== globalThis.location.origin ||
     url.pathname !== expectedPath ||
@@ -256,61 +259,10 @@ export function resolveSameOriginAssetUrl(
     url.password !== ""
   ) {
     throw new QuestionContentError(
-      "Question assets must use the authorized logical /api/assets/{asset-id} route.",
+      "Question assets must use the authorized exact Question Revision asset route.",
     );
   }
   return url.href;
-}
-
-/**
- * Recovers a protected image after its intentionally concealed logical GET
- * returns 404. The recovery is an explicit same-origin POST; it is never
- * attempted for a URL outside the logical asset route and it runs once only.
- * Public immutable assets keep their ordinary cacheable GET path.
- */
-export function recoverProtectedAssetImage(event: Event): void {
-  const image = event.currentTarget;
-  if (!(image instanceof HTMLImageElement)) return;
-  if (image.dataset.pleDeliveryAttempted === "true") return;
-  let logical: URL;
-  try {
-    logical = new URL(image.currentSrc || image.src, globalThis.location.origin);
-  } catch (_error: unknown) {
-    return;
-  }
-  if (
-    logical.origin !== globalThis.location.origin ||
-    !/^\/api\/assets\/[^/]+$/u.test(logical.pathname) ||
-    logical.search !== "" ||
-    logical.hash !== ""
-  )
-    return;
-  image.dataset.pleDeliveryAttempted = "true";
-  const delivery = new URL(`${logical.pathname}/delivery`, logical.origin);
-  void globalThis
-    .fetch(delivery, {
-      method: "POST",
-      headers: { accept: "application/json" },
-      credentials: "same-origin",
-      cache: "no-store",
-    })
-    .then(async (response) => {
-      if (!response.ok) return;
-      const body: unknown = await response.json();
-      if (typeof body !== "object" || body === null || Array.isArray(body)) return;
-      const value = (body as Record<string, unknown>).url;
-      if (typeof value !== "string") return;
-      const signed = new URL(value);
-      if (
-        (signed.protocol !== "https:" && signed.protocol !== "http:") ||
-        signed.username !== "" ||
-        signed.password !== ""
-      )
-        return;
-      image.referrerPolicy = "no-referrer";
-      image.src = signed.href;
-    })
-    .catch(() => undefined);
 }
 
 function appendSafeMathMlNode(document: Document, parent: Node, node: SafeMathMlNode): void {
@@ -356,6 +308,7 @@ function RenderedMath(props: {
 
 function QuestionContentBlockRenderer(props: {
   readonly block: QuestionContentBlock;
+  readonly questionRevision: QuestionRevisionReference;
   readonly assetUrl: AssetUrlResolver;
 }): JSX.Element {
   switch (props.block.kind) {
@@ -377,9 +330,12 @@ function QuestionContentBlockRenderer(props: {
         <figure class="question-renderer__figure">
           <img
             class="question-renderer__image"
-            src={resolveSameOriginAssetUrl(props.block.questionAsset, props.assetUrl)}
+            src={resolveSameOriginAssetUrl(
+              props.block.questionAsset,
+              props.questionRevision,
+              props.assetUrl,
+            )}
             alt={description}
-            onError={recoverProtectedAssetImage}
           />
           <figcaption>{description}</figcaption>
         </figure>
@@ -452,7 +408,13 @@ export function QuestionPromptRenderer(props: QuestionPromptRendererProps): JSX.
     <>
       <style>{QUESTION_RENDERER_STYLES}</style>
       <For each={props.blocks}>
-        {(block) => <QuestionContentBlockRenderer block={block} assetUrl={props.assetUrl} />}
+        {(block) => (
+          <QuestionContentBlockRenderer
+            block={block}
+            questionRevision={props.questionRevision}
+            assetUrl={props.assetUrl}
+          />
+        )}
       </For>
     </>
   );
@@ -463,7 +425,11 @@ function QuestionContent(props: QuestionRendererProps): JSX.Element {
     <section class="question-renderer" aria-labelledby="question-prompt-heading">
       <div class="question-renderer__prompt">
         <h2 id="question-prompt-heading">Question</h2>
-        <QuestionPromptRenderer blocks={props.presentation.prompt} assetUrl={props.assetUrl} />
+        <QuestionPromptRenderer
+          blocks={props.presentation.prompt}
+          questionRevision={props.presentation.questionRevision}
+          assetUrl={props.assetUrl}
+        />
       </div>
     </section>
   );
@@ -488,10 +454,16 @@ export function QuestionRenderer(props: QuestionRendererProps): JSX.Element {
 
 /** Renders the prompt from one issued Student Question Presentation without projecting its format. */
 export function QuestionPresentationRenderer(props: {
-  /** The prompt is sufficient for rendering; response entry stays with its own control. */
-  readonly presentation: Pick<QuestionPresentation, "prompt">;
+  /** The exact publication identity authorizes every prompt asset. */
+  readonly presentation: Pick<QuestionPresentation, "prompt" | "questionRevision">;
   readonly assetUrl: AssetUrlResolver;
   readonly onRetry?: () => void;
 }): JSX.Element {
-  return <QuestionPromptRenderer blocks={props.presentation.prompt} assetUrl={props.assetUrl} />;
+  return (
+    <QuestionPromptRenderer
+      blocks={props.presentation.prompt}
+      questionRevision={props.presentation.questionRevision}
+      assetUrl={props.assetUrl}
+    />
+  );
 }

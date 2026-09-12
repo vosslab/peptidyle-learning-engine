@@ -1,9 +1,8 @@
-//! Session-authorized Assignment Workspace persistence for the Live Demo.
+//! Session-authorized persistence for one current Course Assignment workspace.
 //!
-//! This is deliberately the first small Course-owned Assignment boundary: an
-//! Instructor selects a bounded ordered set of currently Available Published
-//! Questions, saves with an Assignment Edit Number, validates, previews, and
-//! releases one immutable Assignment Revision. Student delivery uses its own boundary.
+//! The workspace writes the stable Assignment aggregate with its qualified
+//! Edit Number. Every entry pins an exact Question Revision; release changes
+//! Assignment Status and never creates an Assignment Revision.
 
 use std::collections::BTreeSet;
 
@@ -11,11 +10,13 @@ use async_trait::async_trait;
 use std::num::NonZeroU32;
 
 use question_model::{
-    AccountTimeZone, AssignmentActivityRules, AssignmentEditNumber, AssignmentInstructions,
-    AssignmentReference, AssignmentStatus, AssignmentTitle, CourseInstanceReference, LateWorkRule,
-    LocalDateAndTime, QuestionId, StudentFeedbackReleaseRule,
+    AccountTimeZone, AssignmentActivityRules, AssignmentEditNumber, AssignmentEntry,
+    AssignmentInstructions, AssignmentReference, AssignmentStatus, AssignmentTitle,
+    BlueprintAssignmentSource, CourseInstanceReference, LateWorkRule, LocalDateAndTime,
+    QuestionRevisionReference, StudentFeedbackReleaseRule,
 };
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::{SessionTokenHash, StoreError};
 
@@ -23,6 +24,8 @@ use crate::{SessionTokenHash, StoreError};
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CreateLiveAssignmentInput {
+    /// Stable Blueprint Assignment selected from the source Blueprint Revision.
+    pub blueprint_assignment_reference: Uuid,
     /// Instructor-facing Assignment Title.
     pub title: AssignmentTitle,
     /// Plain-text Student-facing instructions; empty text remains valid.
@@ -43,7 +46,13 @@ pub struct SaveLiveAssignmentInput {
     /// Optional exact local Due at; the Store resolves it in the authenticated Instructor zone.
     #[serde(default)]
     pub due_at: Option<LocalDateAndTime>,
-    /// Student-work rule captured by a later immutable Assignment Revision.
+    /// Optional local first instant at which future Attempts may begin.
+    #[serde(default)]
+    pub available_at: Option<LocalDateAndTime>,
+    /// Optional local hard-close instant for future Attempts.
+    #[serde(default)]
+    pub closes_at: Option<LocalDateAndTime>,
+    /// Current late-work rule used by future Attempts.
     #[serde(default = "default_late_work_rule")]
     pub late_work_rule: LateWorkRule,
     /// Whole-attempt limit in seconds, when the Assignment is timed.
@@ -58,8 +67,9 @@ pub struct SaveLiveAssignmentInput {
     /// The seven independently configured Student feedback timings.
     #[serde(default)]
     pub student_feedback_release_rule: StudentFeedbackReleaseRule,
-    /// Ordered Available Published Questions selected for the Assignment.
-    pub question_ids: Vec<QuestionId>,
+    /// Ordered normalized current Assignment Entries. Every entry pins exact
+    /// Question Revision content for future Attempts.
+    pub entries: Vec<AssignmentEntry>,
 }
 
 fn initial_assignment_edit_number() -> AssignmentEditNumber {
@@ -73,21 +83,19 @@ fn default_late_work_rule() -> LateWorkRule {
 impl SaveLiveAssignmentInput {
     /// Rejects only the bounded invalid selection shapes this first workspace owns.
     pub fn validate(&self) -> Result<(), StoreError> {
-        if self.question_ids.len() > 25 {
+        if self.entries.len() > 1024 {
             return Err(StoreError::InvalidRecord(
-                "Assignment Workspace may select at most twenty-five Published Questions"
-                    .to_string(),
+                "Assignment Workspace may select at most 1,024 Assignment Entries".to_string(),
             ));
         }
         let mut identifiers = BTreeSet::new();
         if self
-            .question_ids
+            .entries
             .iter()
-            .map(ToString::to_string)
-            .any(|question_id| !identifiers.insert(question_id))
+            .any(|entry| !identifiers.insert(entry_id(entry)))
         {
             return Err(StoreError::InvalidRecord(
-                "Assignment Workspace repeats a Published Question".to_string(),
+                "Assignment Workspace repeats an Assignment Entry identity".to_string(),
             ));
         }
         Ok(())
@@ -98,24 +106,36 @@ impl SaveLiveAssignmentInput {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssignmentQuestionPickerEntry {
-    /// Stable global Published Question ID.
-    pub question_id: QuestionId,
+    /// Exact currently accepted Question Revision that a new Entry will pin.
+    pub reference: QuestionRevisionReference,
     /// Answer-free Question description supplied by the current Question Library metadata.
     pub description: String,
+}
+
+/// One ordinary Blueprint Assignment available to create an Assignment in a
+/// specific Course.  Its exact Blueprint Revision is inherited from the
+/// Course, rather than selected independently by the browser.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CourseAssignmentSourceChoice {
+    /// Exact immutable reusable-content provenance retained by a created Assignment.
+    pub source: BlueprintAssignmentSource,
+    /// Answer-free human-readable selection label from that immutable Blueprint Revision.
+    pub label: String,
 }
 
 /// Browser-safe current authored fixed-Question selection.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthoredAssignmentQuestion {
-    /// Stable global Published Question ID.
-    pub question_id: QuestionId,
+    /// Exact Question Revision retained by this current Assignment entry.
+    pub reference: QuestionRevisionReference,
     /// Answer-free Question description for Instructor review and Assignment Preview.
     pub description: String,
 }
 
 /// Browser-safe Assignment summary for one direct Course Instructor.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CourseAssignmentSummary {
     /// Public Assignment Reference; internal Assignment identity remains server-side.
@@ -192,12 +212,19 @@ pub struct LiveAssignmentWorkspace {
     pub edit_number: AssignmentEditNumber,
     /// Stable Assignment lifecycle, separate from future Assignment Access.
     pub status: AssignmentStatus,
+    /// Immutable reusable-content provenance selected when this Assignment was created.
+    /// This database-derived value is read-only; browser requests cannot supply it.
+    pub source: BlueprintAssignmentSource,
     /// Current Instructor-authored title.
     pub title: AssignmentTitle,
     /// Current Student-facing instructions.
     pub instructions: AssignmentInstructions,
     /// Optional exact Due at projected in the authenticated Instructor zone.
     pub due_at: Option<LocalDateAndTime>,
+    /// Optional first local instant at which future Attempts may begin.
+    pub available_at: Option<LocalDateAndTime>,
+    /// Optional local hard-close instant for future Attempts.
+    pub closes_at: Option<LocalDateAndTime>,
     /// Current canonical Late Work Rule.
     pub late_work_rule: LateWorkRule,
     /// Whole-attempt limit in seconds, when configured.
@@ -210,23 +237,25 @@ pub struct LiveAssignmentWorkspace {
     pub student_feedback_release_rule: StudentFeedbackReleaseRule,
     /// Authenticated Instructor display zone; never accepted in a request.
     pub display_time_zone: AccountTimeZone,
-    /// Ordered current fixed-Question selection.
+    /// Ordered complete normalized entries for future Assignment Attempts.
+    pub entries: Vec<AssignmentEntry>,
+    /// Ordered current selected exact Question Revision pins.
     pub questions: Vec<AuthoredAssignmentQuestion>,
 }
 
 /// One complete calculated Assignment Release Issue.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AssignmentReleaseIssue {
     /// An Assignment Attempt duration must be chosen before release.
     TimeLimitRequired,
-    /// An immutable Assignment Revision requires at least one selected Question.
+    /// The current Assignment requires at least one selected Question.
     NoPublishedQuestions,
     /// A previously selected Question Revision is no longer Available for release.
     QuestionUnavailable,
 }
 
-/// Calculated release validation; it creates no Revision or Student work.
+/// Calculated release validation changes neither Assignment nor Student work.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssignmentReleaseValidation {
@@ -238,14 +267,39 @@ pub struct AssignmentReleaseValidation {
 
 #[cfg(test)]
 mod tests {
-    use super::{AssignmentReleaseIssue, SaveLiveAssignmentInlineInput};
+    use super::{
+        AssignmentUnreleaseImpact, SaveLiveAssignmentInlineInput, SaveLiveAssignmentInput,
+    };
+    use question_model::{AssignmentEditNumber, AssignmentTitle};
 
     #[test]
     fn time_limit_required_is_a_stable_browser_issue() {
         assert_eq!(
-            serde_json::to_value(AssignmentReleaseIssue::TimeLimitRequired)
+            serde_json::to_value(super::AssignmentReleaseIssue::TimeLimitRequired)
                 .expect("release issue serializes"),
             serde_json::json!("timeLimitRequired")
+        );
+    }
+
+    #[test]
+    fn unrelease_impact_exposes_only_aggregate_deletion_counts() {
+        let impact = AssignmentUnreleaseImpact {
+            confirmation_title: AssignmentTitle::try_new("Peptide bonds".to_string())
+                .expect("valid title"),
+            edit_number: AssignmentEditNumber::new(3).expect("valid edit number"),
+            attempt_count: 2,
+            submission_count: 5,
+            grade_count: 3,
+        };
+        assert_eq!(
+            serde_json::to_value(impact).expect("impact serializes"),
+            serde_json::json!({
+                "confirmationTitle": "Peptide bonds",
+                "editNumber": "3",
+                "attemptCount": 2,
+                "submissionCount": 5,
+                "gradeCount": 3
+            })
         );
     }
 
@@ -296,6 +350,27 @@ mod tests {
             .is_err()
         );
     }
+
+    #[test]
+    fn workspace_save_requires_an_exact_question_revision_pin() {
+        let input: SaveLiveAssignmentInput = serde_json::from_value(serde_json::json!({
+            "title": "Peptide bonds",
+            "instructions": "Answer every question.",
+            "entries": [{
+                "kind": "fixedQuestion",
+                "id": "00000000-0000-0000-0000-000000000001",
+                "reference": { "questionId": "7K3-M9QP", "revisionNumber": 1 },
+                "pointsPossible": "1",
+                "availability": "available",
+                "scoringRule": "normal",
+                "questionAttemptLimit": { "maxAttempts": null },
+                "questionAttemptTimeLimit": { "kind": "unlimited" }
+            }]
+        }))
+        .expect("exact Question Revision selection deserializes");
+        assert_eq!(input.entries.len(), 1);
+        assert!(input.validate().is_ok());
+    }
 }
 
 /// Answer-free Instructor-authorized Assignment Preview for the current Assignment.
@@ -310,14 +385,33 @@ pub struct AssignmentPreview {
     pub questions: Vec<AuthoredAssignmentQuestion>,
 }
 
-/// Result of one successful immutable Assignment Release.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+/// Aggregate, non-identifying Student Work affected by a proposed Unrelease.
+///
+/// This projection exists only while the current Assignment is Released.  It
+/// intentionally contains no Student, response, or grade detail.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ReleasedLiveAssignment {
-    /// The Assignment that selected the new immutable Revision.
-    pub reference: AssignmentReference,
-    /// Positive immutable revision number selected for future Student delivery.
-    pub revision_number: u64,
+pub struct AssignmentUnreleaseImpact {
+    /// Current Assignment Title that the Instructor must repeat to confirm.
+    pub confirmation_title: AssignmentTitle,
+    /// Exact compare-and-swap value required by the destructive transition.
+    pub edit_number: AssignmentEditNumber,
+    /// Assignment Attempts that the transition will delete.
+    pub attempt_count: u64,
+    /// All Question and Assignment submissions that the transition will delete.
+    pub submission_count: u64,
+    /// Grading results that the transition will delete.
+    pub grade_count: u64,
+}
+
+/// Result of one accepted Assignment Unrelease transition.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnreleasedLiveAssignment {
+    /// The complete current Assignment aggregate after it becomes Unreleased.
+    pub assignment: LiveAssignmentWorkspace,
+    /// Aggregate deletion receipt; detailed Student Work never leaves the database.
+    pub deleted: AssignmentUnreleaseImpact,
 }
 
 /// Store boundary for Assignment Workspace and release operations.
@@ -342,6 +436,15 @@ pub trait LiveAssignmentStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         course: CourseInstanceReference,
     ) -> Result<Vec<AssignmentQuestionPickerEntry>, StoreError>;
+
+    /// Lists the stable Blueprint Assignments in this Course's exact pinned
+    /// Blueprint Revision.  The browser selects one stable member identity;
+    /// PostgreSQL derives and retains the complete exact provenance.
+    async fn list_course_assignment_source_choices(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course: CourseInstanceReference,
+    ) -> Result<Vec<CourseAssignmentSourceChoice>, StoreError>;
 
     /// Creates one Unreleased Assignment without Question selection or Student activity.
     async fn create_live_assignment(
@@ -394,12 +497,39 @@ pub trait LiveAssignmentStore: Send + Sync {
         assignment: AssignmentReference,
     ) -> Result<AssignmentPreview, StoreError>;
 
-    /// Creates the next immutable Assignment Revision after exact Edit Number validation.
+    /// Transitions the current Assignment from Unreleased to Released after
+    /// exact Edit Number and current-content validation.
     async fn release_live_assignment(
         &self,
         session_token_hash: SessionTokenHash,
         course: CourseInstanceReference,
         assignment: AssignmentReference,
         expected_edit_number: AssignmentEditNumber,
-    ) -> Result<ReleasedLiveAssignment, StoreError>;
+    ) -> Result<LiveAssignmentWorkspace, StoreError>;
+
+    /// Reads the exact, aggregate impact of Unrelease for a currently Released Assignment.
+    async fn read_live_assignment_unrelease_impact(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course: CourseInstanceReference,
+        assignment: AssignmentReference,
+    ) -> Result<AssignmentUnreleaseImpact, StoreError>;
+
+    /// Atomically deletes rooted Student Work and restores the current Assignment
+    /// to Unreleased after exact Edit Number and title confirmation.
+    async fn unrelease_live_assignment(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course: CourseInstanceReference,
+        assignment: AssignmentReference,
+        expected_edit_number: AssignmentEditNumber,
+        confirmation_title: AssignmentTitle,
+    ) -> Result<UnreleasedLiveAssignment, StoreError>;
+}
+
+fn entry_id(entry: &AssignmentEntry) -> String {
+    match entry {
+        AssignmentEntry::FixedQuestion(value) => value.id.to_string(),
+        AssignmentEntry::QuestionPool(value) => value.id.to_string(),
+    }
 }

@@ -128,64 +128,188 @@
       "reference": "R-1",
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
       "assignment": "0198e000-0000-7000-8000-000000000006",
-      "assignmentRevision": {
-        "assignment": "A-1",
-        "revision_number": "1"
+      "evidence": {
+        "title": "Peptide bond mastery",
+        "instructions": "",
+        "basePolicy": {
+          "available_at": null,
+          "due_at": null,
+          "closes_at": null,
+          "assignment_attempt_time_limit_seconds": null,
+          "attempt_limit": null,
+          "late_work_rule": "reject"
+        },
+        "activityRules": {
+          "assignmentCompletionRule": { "kind": "allCorrect" },
+          "assignmentAttemptGradeRule": "highest",
+          "assignmentAttemptContinuationRule": { "kind": "unlimited" },
+          "questionPoolReuseRule": "reuseSelection",
+          "questionVariationRule": "newVariation",
+          "assignmentAttemptResumeRule": "resumable",
+          "assignmentQuestionDisplayRule": "allQuestions",
+          "assignmentNavigationRule": "freeNavigation",
+          "assignmentQuestionOrderRule": "authoredOrder"
+        },
+        "studentFeedbackReleaseRule": {
+          "score": "after_submit",
+          "per_item_correctness": "after_submit",
+          "submitted_response": "after_submit",
+          "question_feedback": "after_submit",
+          "question_answer": "after_submit",
+          "question_answer_explanation": "after_submit",
+          "class_statistics": "never"
+        },
+        "effectivePolicySources": {
+          "schedule": { "kind": "assignment" },
+          "assignmentAttemptTimeLimit": { "kind": "assignment" },
+          "attemptLimit": { "kind": "assignment" }
+        }
       },
       "attemptNumber": 1,
       "startedAt": 1786000001000,
       "completedAt": 1786000001300,
-      "score": 0,
-      "questionPoolReuseRule": "reuseSelection",
-      "questionVariationRule": "newVariation"
+      "score": 0
     },
     {
       "id": "0198e000-0000-7000-8000-000000000021",
       "reference": "R-2",
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
       "assignment": "0198e000-0000-7000-8000-000000000006",
-      "assignmentRevision": {
-        "assignment": "A-1",
-        "revision_number": "1"
+      "evidence": {
+        "title": "Peptide bond mastery",
+        "instructions": "",
+        "basePolicy": {
+          "available_at": null,
+          "due_at": null,
+          "closes_at": null,
+          "assignment_attempt_time_limit_seconds": null,
+          "attempt_limit": null,
+          "late_work_rule": "reject"
+        },
+        "activityRules": {
+          "assignmentCompletionRule": { "kind": "allCorrect" },
+          "assignmentAttemptGradeRule": "highest",
+          "assignmentAttemptContinuationRule": { "kind": "unlimited" },
+          "questionPoolReuseRule": "reuseSelection",
+          "questionVariationRule": "newVariation",
+          "assignmentAttemptResumeRule": "resumable",
+          "assignmentQuestionDisplayRule": "allQuestions",
+          "assignmentNavigationRule": "freeNavigation",
+          "assignmentQuestionOrderRule": "authoredOrder"
+        },
+        "studentFeedbackReleaseRule": {
+          "score": "after_submit",
+          "per_item_correctness": "after_submit",
+          "submitted_response": "after_submit",
+          "question_feedback": "after_submit",
+          "question_answer": "after_submit",
+          "question_answer_explanation": "after_submit",
+          "class_statistics": "never"
+        },
+        "effectivePolicySources": {
+          "schedule": { "kind": "assignment" },
+          "assignmentAttemptTimeLimit": { "kind": "assignment" },
+          "attemptLimit": { "kind": "assignment" }
+        }
       },
       "attemptNumber": 2,
       "startedAt": 1786000002000,
       "completedAt": 1786000002300,
-      "score": 1,
-      "questionPoolReuseRule": "reuseSelection",
-      "questionVariationRule": "newVariation"
+      "score": 1
     },
     {
       "id": "0198e000-0000-7000-8000-000000000022",
       "reference": "R-3",
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
       "assignment": "0198e000-0000-7000-8000-000000000006",
-      "assignmentRevision": {
-        "assignment": "A-1",
-        "revision_number": "1"
+      "evidence": {
+        "title": "Peptide bond mastery",
+        "instructions": "",
+        "basePolicy": {
+          "available_at": null,
+          "due_at": null,
+          "closes_at": null,
+          "assignment_attempt_time_limit_seconds": null,
+          "attempt_limit": null,
+          "late_work_rule": "reject"
+        },
+        "activityRules": {
+          "assignmentCompletionRule": { "kind": "allCorrect" },
+          "assignmentAttemptGradeRule": "highest",
+          "assignmentAttemptContinuationRule": { "kind": "unlimited" },
+          "questionPoolReuseRule": "reuseSelection",
+          "questionVariationRule": "newVariation",
+          "assignmentAttemptResumeRule": "resumable",
+          "assignmentQuestionDisplayRule": "allQuestions",
+          "assignmentNavigationRule": "freeNavigation",
+          "assignmentQuestionOrderRule": "authoredOrder"
+        },
+        "studentFeedbackReleaseRule": {
+          "score": "after_submit",
+          "per_item_correctness": "after_submit",
+          "submitted_response": "after_submit",
+          "question_feedback": "after_submit",
+          "question_answer": "after_submit",
+          "question_answer_explanation": "after_submit",
+          "class_statistics": "never"
+        },
+        "effectivePolicySources": {
+          "schedule": { "kind": "assignment" },
+          "assignmentAttemptTimeLimit": { "kind": "assignment" },
+          "attemptLimit": { "kind": "assignment" }
+        }
       },
       "attemptNumber": 3,
       "startedAt": 1786000003000,
       "completedAt": 1786000003300,
-      "score": 0,
-      "questionPoolReuseRule": "reuseSelection",
-      "questionVariationRule": "newVariation"
+      "score": 0
     },
     {
       "id": "0198e000-0000-7000-8000-000000000023",
       "reference": "R-4",
       "studentRecord": "0198e000-0000-7000-8000-000000000007",
       "assignment": "0198e000-0000-7000-8000-000000000006",
-      "assignmentRevision": {
-        "assignment": "A-1",
-        "revision_number": "1"
+      "evidence": {
+        "title": "Peptide bond mastery",
+        "instructions": "",
+        "basePolicy": {
+          "available_at": null,
+          "due_at": null,
+          "closes_at": null,
+          "assignment_attempt_time_limit_seconds": null,
+          "attempt_limit": null,
+          "late_work_rule": "reject"
+        },
+        "activityRules": {
+          "assignmentCompletionRule": { "kind": "allCorrect" },
+          "assignmentAttemptGradeRule": "highest",
+          "assignmentAttemptContinuationRule": { "kind": "unlimited" },
+          "questionPoolReuseRule": "reuseSelection",
+          "questionVariationRule": "newVariation",
+          "assignmentAttemptResumeRule": "resumable",
+          "assignmentQuestionDisplayRule": "allQuestions",
+          "assignmentNavigationRule": "freeNavigation",
+          "assignmentQuestionOrderRule": "authoredOrder"
+        },
+        "studentFeedbackReleaseRule": {
+          "score": "after_submit",
+          "per_item_correctness": "after_submit",
+          "submitted_response": "after_submit",
+          "question_feedback": "after_submit",
+          "question_answer": "after_submit",
+          "question_answer_explanation": "after_submit",
+          "class_statistics": "never"
+        },
+        "effectivePolicySources": {
+          "schedule": { "kind": "assignment" },
+          "assignmentAttemptTimeLimit": { "kind": "assignment" },
+          "attemptLimit": { "kind": "assignment" }
+        }
       },
       "attemptNumber": 4,
       "startedAt": 1786000004000,
       "completedAt": null,
-      "score": null,
-      "questionPoolReuseRule": "reuseSelection",
-      "questionVariationRule": "newVariation"
+      "score": null
     }
   ],
   "issuedQuestions": [
@@ -194,10 +318,24 @@
       "assignmentAttempt": "0198e000-0000-7000-8000-000000000020",
       "assignmentEntry": "0198e000-0000-7000-8000-000000000017",
       "assignmentContentEntryIndex": 0,
-      "issuedPosition": 0,
+      "issuedPosition": 1,
       "reference": {
         "questionId": "7K3-M9QP",
         "revisionNumber": 1
+      },
+      "questionSeed": 1001,
+      "reproductionDetails": {
+        "backend": { "name": "ple-question-backend", "version": "1" },
+        "rendererVersion": null,
+        "generator": null,
+        "sourceObjectReference": { "object": "0198e000-0000-7000-8000-000000000015" },
+        "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
+        "assetObjects": [
+          "0198e000-0000-7000-8000-000000000011",
+          "0198e000-0000-7000-8000-000000000013"
+        ],
+        "grader": { "name": "generic-grader", "version": "1" },
+        "renderedQuestionSha256": "b36347ff4f36e10f24193f610163845c35e557559c7f891e330fed89f28ad338"
       },
       "pointValue": "1",
       "scoringRule": "normal",
@@ -210,10 +348,24 @@
       "assignmentAttempt": "0198e000-0000-7000-8000-000000000021",
       "assignmentEntry": "0198e000-0000-7000-8000-000000000017",
       "assignmentContentEntryIndex": 0,
-      "issuedPosition": 0,
+      "issuedPosition": 1,
       "reference": {
         "questionId": "7K3-M9QP",
         "revisionNumber": 1
+      },
+      "questionSeed": 1002,
+      "reproductionDetails": {
+        "backend": { "name": "ple-question-backend", "version": "1" },
+        "rendererVersion": null,
+        "generator": null,
+        "sourceObjectReference": { "object": "0198e000-0000-7000-8000-000000000015" },
+        "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
+        "assetObjects": [
+          "0198e000-0000-7000-8000-000000000011",
+          "0198e000-0000-7000-8000-000000000013"
+        ],
+        "grader": { "name": "generic-grader", "version": "1" },
+        "renderedQuestionSha256": "bbe0d81641ea36e7ba639bf6962b75605a5a630cb74b9c86427184a27d32f139"
       },
       "pointValue": "1",
       "scoringRule": "normal",
@@ -226,10 +378,24 @@
       "assignmentAttempt": "0198e000-0000-7000-8000-000000000022",
       "assignmentEntry": "0198e000-0000-7000-8000-000000000017",
       "assignmentContentEntryIndex": 0,
-      "issuedPosition": 0,
+      "issuedPosition": 1,
       "reference": {
         "questionId": "7K3-M9QP",
         "revisionNumber": 1
+      },
+      "questionSeed": 1003,
+      "reproductionDetails": {
+        "backend": { "name": "ple-question-backend", "version": "1" },
+        "rendererVersion": null,
+        "generator": null,
+        "sourceObjectReference": { "object": "0198e000-0000-7000-8000-000000000015" },
+        "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
+        "assetObjects": [
+          "0198e000-0000-7000-8000-000000000011",
+          "0198e000-0000-7000-8000-000000000013"
+        ],
+        "grader": { "name": "generic-grader", "version": "1" },
+        "renderedQuestionSha256": "b68840b11f32bb96de15c068e2de683db9dbf79935b69a858793fa095db9492f"
       },
       "pointValue": "1",
       "scoringRule": "normal",
@@ -242,10 +408,24 @@
       "assignmentAttempt": "0198e000-0000-7000-8000-000000000023",
       "assignmentEntry": "0198e000-0000-7000-8000-000000000017",
       "assignmentContentEntryIndex": 0,
-      "issuedPosition": 0,
+      "issuedPosition": 1,
       "reference": {
         "questionId": "7K3-M9QP",
         "revisionNumber": 1
+      },
+      "questionSeed": 1004,
+      "reproductionDetails": {
+        "backend": { "name": "ple-question-backend", "version": "1" },
+        "rendererVersion": null,
+        "generator": null,
+        "sourceObjectReference": { "object": "0198e000-0000-7000-8000-000000000015" },
+        "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
+        "assetObjects": [
+          "0198e000-0000-7000-8000-000000000011",
+          "0198e000-0000-7000-8000-000000000013"
+        ],
+        "grader": { "name": "generic-grader", "version": "1" },
+        "renderedQuestionSha256": "d52aa286360dd86a09ad858ed69a9bd2534b06903b70a295c474181dab1419a6"
       },
       "pointValue": "1",
       "scoringRule": "normal",

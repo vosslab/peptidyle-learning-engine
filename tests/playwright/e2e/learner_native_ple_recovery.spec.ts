@@ -149,7 +149,7 @@ async function createCourseAssignment(
   await page.getByLabel("Late-work rule").selectOption("mark_late");
   await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
   await expect(
-    page.getByText("Assignment policies saved. The current assignment now uses the new revision."),
+    page.getByText("Assignment policies saved. Future Attempts use the current policy values."),
   ).toBeVisible();
   const deliveryCheckPage = page.context().waitForEvent("page");
   await page.getByRole("link", { name: "Check assignment delivery", exact: true }).click();
@@ -170,7 +170,9 @@ async function createCourseAssignment(
   ).toBeVisible();
   await deliveryCheck.close();
   await page.getByRole("button", { name: "Release assignment", exact: true }).click();
-  await expect(page.getByText(/^Assignment released as revision [1-9][0-9]*\.$/u)).toBeVisible();
+  await expect(
+    page.getByText(/^Assignment released\. Current edit number: [1-9][0-9]*\.$/u),
+  ).toBeVisible();
 }
 
 async function signInStudentAndStartAssignment(

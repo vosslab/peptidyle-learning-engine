@@ -12,9 +12,9 @@ import {
 } from "solid-js";
 
 import type {
-  ReleasedLiveAssignment,
-  RevisionedLiveAssignmentWorkspace,
+  LiveAssignmentWorkspaceResponse,
   SaveLiveAssignmentInput,
+  UnreleasedLiveAssignment,
 } from "../../api/assignment_release";
 import { useApplicationApi } from "../../api/application_api";
 import {
@@ -26,7 +26,6 @@ import {
 import "./assignment_workspace_authoring.css";
 import { type AssignmentWorkspaceSection } from "./assignment_workspace_paths";
 import { AssignmentWorkspaceOverviewPage } from "./assignment_workspace_overview_page";
-import { AssignmentWorkspaceOperationsPage } from "./assignment_workspace_operations_page";
 import { AssignmentWorkspacePoliciesPage } from "./assignment_workspace_policies_page";
 import { AssignmentWorkspaceQuestionsPage } from "./assignment_workspace_questions_page";
 import { AssignmentWorkspaceStudentViewPage } from "./assignment_workspace_student_view_page";
@@ -35,11 +34,12 @@ import "./assignment_workspace.css";
 export interface AssignmentWorkspaceContextValue {
   readonly courseReference: CourseInstanceRouteReference;
   /** Shared direct resource and exact ETag for every child page. */
-  readonly assignment: Accessor<RevisionedLiveAssignmentWorkspace>;
+  readonly assignment: Accessor<LiveAssignmentWorkspaceResponse>;
   readonly assignmentReference: AssignmentRouteReference;
-  readonly save: (input: SaveLiveAssignmentInput) => Promise<RevisionedLiveAssignmentWorkspace>;
-  readonly release: (etag: string) => Promise<ReleasedLiveAssignment>;
-  readonly reloadAssignment: () => Promise<RevisionedLiveAssignmentWorkspace>;
+  readonly save: (input: SaveLiveAssignmentInput) => Promise<LiveAssignmentWorkspaceResponse>;
+  readonly release: (etag: string) => Promise<LiveAssignmentWorkspaceResponse>;
+  readonly unrelease: (confirmationTitle: string) => Promise<UnreleasedLiveAssignment>;
+  readonly reloadAssignment: () => Promise<LiveAssignmentWorkspaceResponse>;
 }
 
 const AssignmentWorkspaceContext = createContext<AssignmentWorkspaceContextValue>();
@@ -115,8 +115,6 @@ function WorkspaceChild(props: { readonly section: AssignmentWorkspaceSection })
       return <AssignmentWorkspacePoliciesPage />;
     case "studentView":
       return <AssignmentWorkspaceStudentViewPage />;
-    case "gradingOperations":
-      return <AssignmentWorkspaceOperationsPage />;
   }
 }
 
@@ -150,7 +148,7 @@ function AssignmentWorkspaceLiveContent(props: AssignmentWorkspaceLivePageProps)
         assignmentReference,
       );
       const [currentAssignment, setCurrentAssignment] = createSignal(assignment);
-      const reloadAssignment = async (): Promise<RevisionedLiveAssignmentWorkspace> => {
+      const reloadAssignment = async (): Promise<LiveAssignmentWorkspaceResponse> => {
         const latest = await applicationApi.client.getLiveAssignmentWorkspace(
           courseReference,
           assignmentReference,
@@ -160,7 +158,7 @@ function AssignmentWorkspaceLiveContent(props: AssignmentWorkspaceLivePageProps)
       };
       const save = async (
         input: SaveLiveAssignmentInput,
-      ): Promise<RevisionedLiveAssignmentWorkspace> => {
+      ): Promise<LiveAssignmentWorkspaceResponse> => {
         const saved = await applicationApi.client.saveLiveAssignment(
           courseReference,
           assignmentReference,
@@ -170,17 +168,31 @@ function AssignmentWorkspaceLiveContent(props: AssignmentWorkspaceLivePageProps)
         setCurrentAssignment(saved);
         return saved;
       };
-      const release = async (etag: string): Promise<ReleasedLiveAssignment> =>
-        await applicationApi.client.releaseLiveAssignment(
+      const release = async (etag: string): Promise<LiveAssignmentWorkspaceResponse> => {
+        const released = await applicationApi.client.releaseLiveAssignment(
           courseReference,
           assignmentReference,
           etag,
         );
+        setCurrentAssignment(released);
+        return released;
+      };
+      const unrelease = async (confirmationTitle: string): Promise<UnreleasedLiveAssignment> => {
+        const result = await applicationApi.client.unreleaseLiveAssignment(
+          courseReference,
+          assignmentReference,
+          confirmationTitle,
+          currentAssignment().etag,
+        );
+        setCurrentAssignment({ workspace: result.result.assignment, etag: result.etag });
+        return result.result;
+      };
       setWorkspace({
         courseReference,
         assignment: currentAssignment,
         assignmentReference,
         release,
+        unrelease,
         save,
         reloadAssignment,
       });

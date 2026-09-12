@@ -16,6 +16,8 @@ chapters:
     questions:
       - slug: genetics-disorders-webwork-mc
         question_title: "Genetic disorders: Which one?"
+        question_description: "Identify a genetic disorder from its clinical description."
+        language: en-US
         backend: webwork
         question_type: multipleChoice
         points: 1
@@ -26,6 +28,8 @@ chapters:
           - Replaced apostrophe escapes with PG-translator-safe q literals.
       - slug: genetics-disorders-webwork-matching
         question_title: "Genetic disorders: Matching"
+        question_description: "Match genetic disorders to their characteristic findings."
+        language: en-US
         backend: webwork
         question_type: matching
         points: 4
@@ -38,6 +42,8 @@ chapters:
           - Kept partial-credit scores numeric in the renderer JSON contract.
       - slug: genetics-disorders-ple-question-json-mc
         question_title: "Genetics Chapter 1: Phenylalanine metabolism"
+        question_description: "Identify the metabolic consequence of a phenylalanine pathway defect."
+        language: en-US
         backend: pleQuestionJson
         question_type: multipleChoice
         points: 1
@@ -45,9 +51,11 @@ chapters:
         source_sha256: d1555789992c6249b22d34c9852546209b1fa4989465500aa46d09106c3cd9a6
         source_item: 8894_6964
         payload: ple_question_json/genetics-disorders-mc.json
-        payload_sha256: 7e27162d0933b75b26c3cce46fdf77047950eb15fd7cde2aeefb2cacd9c7ee63
+        payload_sha256: 6caad6081615bd2127263fee6c3f5d0437997c5bc9c256ff27e4693a8d02c851
       - slug: genetics-disorders-ple-question-json-matching
         question_title: "Genetics Chapter 1: Genetic disorder matching"
+        question_description: "Match genetic-disorder descriptions to the corresponding condition."
+        language: en-US
         backend: pleQuestionJson
         question_type: matching
         points: 4
@@ -55,7 +63,7 @@ chapters:
         source_sha256: 10f25986c8faa47a449a71cf299eb99d15c51ecb1986c431e6cbb6f74f1823ed
         source_item: ce62_fc20
         payload: ple_question_json/genetics-disorders-matching.json
-        payload_sha256: e961f96bcd3b23555eba878307e58509967c8564dd21aae1e26054a1fc8ab4c7
+        payload_sha256: 3961b0dfd425d38f9b1ac788892a6976ef3ff9bb9a7fe15141861b1c04cc552a
 
   - slug: biochemistry-chapter-1
     course: Biochemistry
@@ -65,6 +73,8 @@ chapters:
     questions:
       - slug: biochemistry-functional-groups-webwork-mc
         question_title: "Biochemical functional groups: Which one?"
+        question_description: "Identify a biochemical functional group from its molecular properties."
+        language: en-US
         backend: webwork
         question_type: multipleChoice
         points: 1
@@ -77,6 +87,8 @@ chapters:
           - Corrected the source description grammar.
       - slug: biochemistry-functional-groups-webwork-matching
         question_title: "Biochemical functional groups: Matching"
+        question_description: "Match biochemical functional groups to their structures and properties."
+        language: en-US
         backend: webwork
         question_type: matching
         points: 4
@@ -91,6 +103,8 @@ chapters:
           - Kept partial-credit scores numeric in the renderer JSON contract.
       - slug: biochemistry-functional-groups-ple-question-json-mc
         question_title: "Biochemistry Chapter 1: Charged functional groups"
+        question_description: "Identify the charged functional group in a biochemical context."
+        language: en-US
         backend: pleQuestionJson
         question_type: multipleChoice
         points: 1
@@ -98,9 +112,11 @@ chapters:
         source_sha256: 12f176f64fb223f75ef699f51a688cd7029242a8cd61e9cf7f38e25e8ea8792c
         source_item: 1138_f177
         payload: ple_question_json/biochemistry-functional-groups-mc.json
-        payload_sha256: 8cfa1727b9bc19568b1a2c9d26b4db53763966945f72cf9cb8704552951bbdf8
+        payload_sha256: 49445388d2260eafe8c3038b89736c748c587b8279094349ac192bb51c6820af
       - slug: biochemistry-functional-groups-ple-question-json-matching
         question_title: "Biochemistry Chapter 1: Functional group matching"
+        question_description: "Match functional groups to their biochemical names and characteristics."
+        language: en-US
         backend: pleQuestionJson
         question_type: matching
         points: 4
@@ -108,4 +124,4 @@ chapters:
         source_sha256: 331a5e806e4a5dd751640eaf22f8911e3870cbbf8b4019da79632ad77f391e44
         source_item: c4c1_c919
         payload: ple_question_json/biochemistry-functional-groups-matching.json
-        payload_sha256: 49865846ca0f0d2861e4ac191925b921dbb4744d59a86250288b4e2434050db2
+        payload_sha256: 51c89588ec7cc317b60f91df76e93690f950f5e4c704093cea9190abee8177e0

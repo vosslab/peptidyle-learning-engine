@@ -22,7 +22,7 @@ not a new authorization claim.
 | Account, Authentication Email, future passkey, session          | Global `AccountId` and Authenticated Session                          | Account/session contract; passkeys are deferred                 |
 | Published question and presentation asset                       | Stable `QuestionId` lineage and immutable Question Revision Reference | Every active Instructor                                         |
 | Draft Question or private curriculum workspace                  | `WorkspaceId` and Authoring Workspace relationship                    | Authoring Workspace Owner or Workspace Collaborator             |
-| Draft Blueprint Revision                                        | Exact Blueprint Course and revision                                   | Blueprint Course Owner or Blueprint Collaborator                |
+| Blueprint Draft or Blueprint Revision                           | Exact Blueprint Course and Draft/Revision reference                   | Blueprint Course Owner                                          |
 | Course, roster, assignment, schedule                            | Exact `CourseId` and child identity                                   | Current Instructor Course Membership                            |
 | Assignment Attempt, Question Attempt, response, grade, artifact | Exact `CourseId` plus Student owner                                   | Student self or current course Instructor                       |
 | Question Folder, Star, Watch, or Saved Question Search          | Account-owned reference to a Published Question                       | Exact Account relationship; Question Folder Shares are explicit |
@@ -113,8 +113,8 @@ is accepted; deleting a populated volume is not an upgrade procedure.
 
 Caddy resolves the `api` service through dynamic Compose DNS and round-robins
 current API addresses. Its active check calls the API's semantic `/health`
-route. The API returns `200 {"status":"ready"}` only after migration state and
-checksums match the binary and a real object-store bucket probe succeeds. A
+route. The API returns `200 {"status":"ready"}` only after its compatible
+schema state and a real object-store bucket probe succeed. A
 dependency failure returns `503` with safe failing-dependency names. A feature
 local failure, such as the private renderer, does not by itself evict a healthy
 API replica.
@@ -272,7 +272,7 @@ deployment evidence. This document does not claim those runs occurred.
 | --------------------------- | ------------------------------------------------------------- | ------------------------------------------------------ |
 | API replica stops           | Gateway retries a healthy peer; shared records preserve state | Replace the replica and run the replica oracle         |
 | API readiness is `503`      | Gateway removes that replica from rotation                    | Repair database, object store, or schema compatibility |
-| PostgreSQL is unavailable   | API is not ready; workers do not drain                        | Restore the database and verify migrations             |
+| PostgreSQL is unavailable   | API is not ready; workers do not drain                        | Restore the database and run schema verification        |
 | Object store is unavailable | Object delivery fails closed; relational records remain       | Restore endpoint, bucket, credentials, or network      |
 | Worker crashes after claim  | Lease expires; bounded reclaim is possible                    | Inspect redacted worker evidence and queue depth       |
 | Renderer fails              | PG-backed work fails closed; PLE records remain               | Recreate and re-attest the renderer                    |

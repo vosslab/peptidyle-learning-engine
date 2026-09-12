@@ -1,147 +1,130 @@
 # Install
 
-For a developer checkout, installation means starting the real, disposable PLE session-entry demo.
-The primary command prepares missing JavaScript dependencies, builds the production browser artifact,
-and starts the production-shaped HTTPS stack with PostgreSQL, MinIO, API, gateway, and a private
-WeBWorK renderer. It establishes only the current seeded session-entry boundary.
+Installation prepares a contributor checkout and, when selected by the installer,
+creates PLE's canonical database structure and ordinary Live Demo data. PLE remains
+pre-production; these instructions describe local development and controlled
+installation operations, not a production deployment procedure.
 
 ## Requirements
 
-- Git and Bash.
-- Node.js and npm. The first launch installs the dependencies declared by `package.json`.
-- Current stable Rust through `rustup`; [rust-toolchain.toml](../rust-toolchain.toml) selects
+- Bash, Git, `curl`, `awk`, `openssl`, `xxd`, and `lsof`.
+- Node.js and npm for the browser build; dependencies are declared in
+  [package.json](../package.json).
+- Stable Rust via `rustup`; [rust-toolchain.toml](../rust-toolchain.toml) selects
   `rustfmt`, Clippy, and `wasm32-unknown-unknown`.
-- Homebrew on macOS. `brew bundle` installs the system-wide Python interpreter and Podman
-  declared by [Brewfile](../Brewfile).
-- Python available as `python3`, with the runtime dependencies from
-  [pip_requirements.txt](../pip_requirements.txt) installed.
-- Podman and a usable Compose adapter for the local stack. The controller tries `podman compose`,
-  the Python `podman-compose` provider from `pip_requirements.txt`, and a standalone
-  `podman-compose` executable in that order. On macOS, also start a Podman machine; see
-  [MACOS_PODMAN.md](MACOS_PODMAN.md).
-- `curl`, `awk`, `openssl`, `xxd`, and `lsof`, which the typed stack lifecycle uses.
+- Python available as `python3`; [pip_requirements.txt](../pip_requirements.txt)
+  declares PyYAML and `podman-compose`. Developer checks also use
+  [pip_requirements-dev.txt](../pip_requirements-dev.txt).
+- Podman and a usable Compose adapter for the local stack. On macOS, use
+  [Brewfile](../Brewfile) and [MACOS_PODMAN.md](MACOS_PODMAN.md).
+- PostgreSQL 17 is supplied by the local stack's migrator image; do not substitute
+  an unreviewed client for canonical schema operations.
 
-## Fresh-clone success
-
-Clone the repository and run its one supported developer front door:
+## Set up a checkout
 
 ```bash
 git clone https://github.com/vosslab/peptidyle-learning-engine.git
 cd peptidyle-learning-engine
 brew bundle
 source source_me.sh && python3 -m pip install --requirement pip_requirements.txt
-./launchers/run_live_demo.sh
+./devel/setup_typescript.sh
 ```
 
-`./launchers/run_live_demo.sh` is the supported live-demo front door. It resolves the checkout
-from its own filesystem location, sources the repository `source_me.sh`, and invokes
-`python3 local_stack.py`. When starting, it runs `devel/setup_typescript.sh`; that helper owns
-TypeScript dependency setup. Cargo
-restores its checkout-local build artifacts during the build. The launcher then builds the
-production `dist/` bundle and creates the
-disposable `ple-live-demo-browser` HTTPS session, and prints its ready origin. Open that URL in your
-browser, or run `./launchers/run_live_demo.sh open` to open an already-running demo automatically. Use
-`./launchers/run_live_demo.sh start --open` to create a fresh demo and open it. Select a seeded persona in the
-visible PLE sign-in flow. The server derives its Account and ordinary
-Authenticated Session from disposable seeded state, then permits the
-role- and relationship-gated product routes supported by that session. The
-browser can download protected invitation-export input but cannot send mail.
-M19 recorded fresh sealed-stack production-browser proof on 2026-09-07.
-
-Each launch first completes owner-scoped cleanup of the previous `ple-live-demo-browser` session,
-then creates a fresh seeded installation. Relaunching therefore discards records created in the
-previous disposable demo while leaving unrelated Podman projects untouched. The stack is
-production-shaped; this is not a browser mock or a separate WebWork2 application.
-
-Use the non-opening form when a browser is unavailable:
+`brew bundle` is the documented macOS dependency path. Rust is installed through
+`rustup`; its selected toolchain downloads required components when Cargo first runs.
+Install developer-only Python requirements before the full local test lanes:
 
 ```bash
-./launchers/run_live_demo.sh --headless
+source source_me.sh && python3 -m pip install \
+  --requirement pip_requirements.txt --requirement pip_requirements-dev.txt
 ```
 
-It starts the same stack and prints the HTTPS origin. Stop the session through its owner when you
-finish:
-
-```bash
-./launchers/run_live_demo.sh stop
-```
-
-## Developer tools
-
-Install or refresh the declared runtime and developer dependencies for the selected `python3`
-before running developer tools or tests:
-
-```bash
-source source_me.sh && python3 -m pip install --requirement pip_requirements.txt --requirement pip_requirements-dev.txt
-```
-
-The repository toolchain and Cargo lockfile provide the Rust dependencies. Keep the developer live
-demo on its fixed Compose project and runtime identity so its owner-scoped lifecycle remains valid.
-
-## Browser test setup
-
-Install the Chromium and Firefox browsers used by the Playwright lanes after the JavaScript
-dependencies are present:
+Install Playwright browsers only when running browser checks:
 
 ```bash
 ./devel/setup_playwright.sh
 ```
 
-The script requires `node_modules`; run `./devel/setup_typescript.sh` first when starting from a
-checkout that has not yet run `./launchers/run_live_demo.sh`. Browser installation is optional for the
-headless live-demo start and for offline Rust, TypeScript, and Python checks.
+## Initialize a database
 
-## Seeded accounts
+The DDL-only base manifest is [schemas/base_schema/install.sql](../schemas/base_schema/install.sql).
+First run the platform bootstrap transaction that creates every PLE PostgreSQL
+role. The canonical administration command then reads
+`PLE_MIGRATION_DATABASE_URL`, requires the `ple_migrator` PostgreSQL role,
+initializes only an empty PLE database, applies recognized forward migrations
+after production freeze, and verifies the resulting schema:
 
-After the browser opens, use the visible **Explore this live demo** panel on the PLE sign-in page:
+```bash
+cargo tools database initialize
+```
 
-- Choose the seeded Instructor, Student, or Sysadmin persona. Current personas are Elena
-  (Instructor), Mary, Jack, and Avery (Students), and Morgan (Sysadmin).
-- The resulting session permits only its role- and relationship-gated product routes. The
-  browser can download protected invitation-export input without receiving permission to send
-  mail.
-- Persona selection only replaces the identity-verification ceremony. The server still resolves the
-  ordinary Account and session; course and authorization decisions remain server-derived.
-- The seeded data belongs to this disposable installation. Relaunching the demo restores the
-  baseline and discards changes from the prior session.
-- Email-code authentication remains future work. The passkey capability is deferred: this build has
-  no passkey configuration, setup credential, installation command, Server Route, or Browser Surface.
-  Seeded entry is the current local-demo identity-verification path.
+While the base identity is `pre-production`, `initialize` installs and verifies
+only the editable base and `migrate` rejects the request. After the base schema
+has been frozen by the first approved production deployment, use the same
+migration credential for later structural changes:
+
+```bash
+cargo tools database migrate
+```
+
+Do not use `migrate` for an empty database. The base schema stays editable only until
+that freeze; see [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and
+[DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md).
+
+## Installation data and Live Demo
+
+After services are ready, the default installation-data phase creates the
+complete ordinary, removable Live Demo teaching graph. The fixed operation is:
+
+```bash
+cargo tools installation-data provision
+```
+
+`provision` runs the Pilot publication and database-owned graph, then creates
+cross-system Student Work and grading effects through their owning product
+paths. `apply` is the narrower convergent SQL/Pilot graph operation and does
+not create a complete Live Demo. The local-stack controller supplies the
+required migrator, publisher, storage, API, and worker capabilities. The graph
+is documented in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and uses the same schema
+and lifecycle as other teaching records.
+
+For a local disposable stack, Live Demo data is selected by default. Explicitly
+opt out before provisioning with the controller command below; the convenience
+launcher does not expose this option:
+
+```bash
+source source_me.sh && python3 local_stack.py start --headless --without-live-demo
+```
 
 ## Verify install
 
-From a fresh checkout, use the non-opening launch as the installation verification:
+Use a restricted application connection in `DATABASE_URL`; it has no DDL or
+migration-ledger authority. The command checks the application-safe schema
+projection:
+
+```bash
+cargo tools database verify
+```
+
+For a local developer stack, start the default Live Demo and stop it through its
+owner:
 
 ```bash
 ./launchers/run_live_demo.sh --headless
 ./launchers/run_live_demo.sh stop
 ```
 
-The first command must print a ready HTTPS origin; the second must confirm owner-scoped cleanup.
-This proves the named disposable deployment and session-entry boundary, not a browser teaching journey.
-For an offline cross-language verification after installing the developer tools, run:
+The local-stack start establishes its named disposable environment. It does not by
+itself prove the connected service or visible browser acceptance gates. See
+[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the applicable evidence.
 
-```bash
-./check_rust.sh
-./check_codebase.sh
-source source_me.sh && python3 -m pytest tests/
-```
+## Production installation
 
-Run `./check_rust.sh` before `./check_codebase.sh`: it generates the ignored TypeScript API and
-fixture projections consumed by the codebase gate. See [DEVELOPMENT.md](DEVELOPMENT.md) for focused
-gates and [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the complete Validation suite.
-
-## Troubleshooting
-
-When a lifecycle or cleanup fails, follow [TROUBLESHOOTING.md](TROUBLESHOOTING.md) and
-[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for the fixed-owner contract. The controller
-has read-only diagnostics; [USAGE.md](USAGE.md) lists the supported commands.
-
-## Known gaps
-
-- The local demo proves its named deployment and session boundaries only. It does not provide a
-  visible Course, Question Library, authoring, delivery, grading, Gradebook, or administration
-  journey, and it is not release evidence. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and
-  [ROADMAP.md](ROADMAP.md).
-- TODO: Verify PG/PGML compatibility beyond the reviewed Chapter 1 MC/MATCH sources with separate
-  source and live evidence.
+After the structural base, API, worker, publisher, object storage, and browser
+origin are ready, the short-lived audited administration environment runs
+`cargo tools installation-data provision` to create the complete known-good
+Live Demo. An installation owner can instead run
+`cargo tools installation-data provision --without-live-demo` before data is
+created. OpenTofu intentionally leaves this final product-data step to that
+audited workflow; it does not receive database or application secrets or create
+a one-shot provisioning subsystem.

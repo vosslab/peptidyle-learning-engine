@@ -1,165 +1,120 @@
 # Live Demo specification
 
-## Current executable boundary
-
-The Live Demo is a disposable HTTPS deployment of the current PLE application.
-Its development entry admits the closed five-persona set: Elena Rivera, Instructor;
-Mary Okafor, Jack Nguyen, and Avery Thompson, Students; and Morgan Delgado,
-Sysadmin. Choosing a persona replaces
-identity verification only. The server resolves the configured Account and
-issues the ordinary Authenticated Session.
-Configuration is evaluated per persona: an absent, malformed, or ambiguously
-duplicated mapping is omitted rather than coerced. When at least one valid
-mapping remains, seeded entry stays usable for those personas and reports only
-the bounded count of unavailable demo Accounts. A stored Account whose Product
-Role does not match its fixed persona yields a bounded unavailable result after
-the unexposed session is revoked. When no configuration mapping remains, only
-seeded entry is absent; health and ordinary session/logout routes remain
-available.
-
-Seeded entry does not grant a Product Role, Course Membership, Student record,
-course authority, or object access. Every authorization decision derives from
-stored Account and relationship data. The application then exposes the
-implemented role- and relationship-gated routes listed in
-[API_CONTRACTS.md](API_CONTRACTS.md).
-
-The demo's database and object storage are disposable. Regeneration replaces
-their seeded state. The current connected-browser receipt is the 2026-09-11
-owner run against a fresh disposable HTTPS stack.
-
 ## Purpose
 
-The Live Demo is the connected PLE workflow, not a presentation substitute.
-Current implementation includes Instructor Question authoring and publication,
-Blueprint and Course Instance setup, roster invitation and claim, Assignment
-authoring and release, Student delivery and response controls, submission and
-recovery, WeBWorK grading, Gradebook, Sysadmin Instructor Account management,
-scoped roster support, and Instructor-only invitation export. Each protected
-operation retains its server and Store authorization boundary.
+The Live Demo is one complete, known-good teaching environment built with the
+ordinary PLE product model. It gives a new installation useful data for
+end-to-end demonstration and acceptance; it is not a second schema, a mock
+application, or a special lifecycle of its own.
 
-The primary success criterion is human: after `./launchers/run_live_demo.sh`, a
-reviewer can use the seeded Instructor and Student personas to exercise the
-major launch-critical workflows and decide whether PLE is ready for real users.
-Seeded data exists to expose those workflows and their accumulated product
-state; it never creates a parallel demonstration model.
+After canonical database structure initialization, the operator runs the
+explicit installation-data provision command. That operation includes this
+environment by default; `--without-live-demo` makes it a no-data opt-out. The
+choice never changes the installed schema or application model. Once
+provisioned, every record follows the same archive, retention, Unrelease, and
+deletion rules as corresponding product data. There is no demo-specific marker,
+role, teardown capability, or report artifact.
 
-## Required teaching-data baseline
+Local disposable stacks use the same installation-data path. Resetting one of
+those stacks replaces its storage; it is a development convenience, not a
+separate product-data contract.
 
-A successful `./launchers/run_live_demo.sh` start establishes one fictional,
-disposable teaching graph through ordinary product HTTP contracts. The SQL
-seed remains limited to the five foundational Accounts, three Student
-Authentication Emails, and four Published Questions. After service readiness,
-Elena Rivera and the three Student Accounts create the Course-domain records
-through the same relationship-gated routes used by ordinary product workflows.
+## Installation boundary
 
-The reusable source is the Blueprint Course `Biochemistry 301: Proteins and
-Peptides`. Elena Rivera owns its published Blueprint Revision. Her Fall 2026
-Course Instance is independently named `BCHM 301` (short name) and
-`Biochemistry 301: Proteins and Peptides` (long name), runs from 2026-08-24
-through 2026-12-11 in `America/Chicago`, and has Elena as its Assigned
-Instructor. Its released Assignment `Peptide Structure Practice` contains
-PNE-0001, PNE-0002, PNE-0003, and PNE-0004 in that order. It has no due date,
-accepts late work, and tells Students: `Complete the four practice questions on
-peptide structure and properties.`
+The canonical base schema is DDL-only and creates no product data. The separate,
+explicit installation-data provision command includes the Live Demo by default. It
+first uses the ordinary Pilot Question publisher to create the required
+published Question Revisions and their object bindings, then applies the
+database-owned Live Demo graph. The publisher returns exact Question Revision
+references to the SQL manifest; the manifest validates that mapping before it
+creates dependent records. `--without-live-demo` leaves all installation data
+unprovisioned.
 
-The roster-driven import and claim workflow establishes the three active
-Student Course Memberships and course-scoped Student Records. Their declared
-startup facts are:
+Question identifiers are ordinary opaque identifiers. Their canonical stored
+form is the compact seven-character Crockford Base32 value; APIs display the
+same value as `AAA-BBBB`. Pilot source slugs and source checksums select the
+reviewed content internally, but are neither public Question IDs nor a special
+Question namespace.
 
-| Student        | Roster ID      | Product facts after startup                                                      |
-| -------------- | -------------- | -------------------------------------------------------------------------------- |
-| Mary Okafor    | `BIO301-MARY`  | 1 completed Attempt; 4 Question Submissions; 4 terminal Grading Results          |
-| Jack Nguyen    | `BIO301-JACK`  | 1 open Attempt; 2 saved responses; 2 unanswered Issued Questions                 |
-| Avery Thompson | `BIO301-AVERY` | An available released Assignment and no Assignment Attempt                       |
+The idempotent SQL installation-data layer owns the facts for which PostgreSQL
+owns the complete invariant. It creates the same ordinary data graph on a
+fresh installation:
 
-Jack has zero current Question Submission rows. His saved responses are not
-Question Submissions.
+- fixed fictional Accounts and their ordinary roles;
+- subject organization;
+- a Blueprint Course, its Draft, published Blueprint Revision, and exact
+  Question Revision pins;
+- a Course Instance, Instructor relationship, invitations, Student records,
+  and Course Memberships; and
+- the released Assignment and its exact Question Revision pins.
 
-The interface derives completed, in-progress, and not-started labels from
-those records. Provisioning never writes a parallel demo-only Assignment or
-grade state. Repeated starts detect each stage through its product read route
-and apply only missing operations. A retained disposable manifest identifies
-the created Blueprint Course, Course Instance, and Assignment by their public
-References. Recovery uses an exact Blueprint Course or Assignment title, or an
-exact Course Instance short-and-long-name pair, only when that manifest fact is
-absent or stale. The current mode-0600 baseline report is
-`local_stack_state/live_demo_browser/workspace/live_demo_course_report.json`;
-its public References and outstanding-stage list are controller evidence, not a
-browser data source.
+The manifest is intentionally not a substitute for systems that own effects
+outside PostgreSQL. The established owner paths create Attempts, retained
+presentation bindings, responses, submissions, grading, and related
+statistics when a demonstration needs them. This preserves the same object
+storage, renderer, worker, and grading behavior used by product workflows.
 
-This graph is launch-readiness evidence only when Elena can inspect its roster
-and Gradebook, Mary can inspect completed graded work, Jack can resume the open
-attempt, and Avery can start from the beginning. Authorization remains bound
-to exact Account, Course Membership, Student Record, Assignment Attempt, and
-Question Attempt relationships. Student Work Records are FERPA-sensitive, and
-Morgan Delgado's Sysadmin Product Role supplies no ambient academic access.
-The projections expose only the fields required for each workflow (ASVS
-8.1.1, 8.1.2, 14.1.1, and 14.2.6).
+## Known-good teaching graph
 
-## Visual evidence profiles
+The reusable Blueprint Course is **Biochemistry 301: Proteins and Peptides**.
+Elena Rivera owns its ordinary published Blueprint Revision. The resulting
+Course Instance is `BCHM 301`, also named **Biochemistry 301: Proteins and
+Peptides**, runs from 2026-08-24 through 2026-12-11 in `America/Chicago`, and
+has Elena as its Assigned Instructor.
 
-M20's current role-owned captures use the `laptop` profile (1280 by 800 CSS
-pixels) for Instructor, Student, and Sysadmin. Responsive captures use
-`tablet` (800 by 1280), `phone` (393 by 852), and `square` (800 by 800) where
-composition or access presentation changes materially. The manifest lists
-their exact safe surfaces in
-`docs/screenshots/current_capture_manifest.json`; rendered captures remain
-visual evidence rather than a substitute for the serial browser owner.
-[SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md) defines the role ownership: the
-Live Demo supplies seeded execution data, not separate presentation chrome.
+Its released Assignment, **Chapter 1 Pilot Practice**, uses the eight reviewed
+Pilot Questions selected by
+[`content/pilot/chapter_1_assignments.yaml`](../content/pilot/chapter_1_assignments.yaml).
+Each entry pins the exact published Question Revision supplied by the ordinary
+publisher. The Assignment instructions are: "Complete the eight reviewed
+Chapter 1 practice questions."
 
-## Current boundaries
+The database-owned graph includes the three ordinary Student records and
+Course Memberships below. The cross-system activity owner may then establish
+the demonstration work states through normal delivery and grading paths.
 
-Students receive Questions only through an allowed Assignment Access decision
-for their exact Course, Assignment, and Student record. Submission and grading
-preserve accepted evidence; recovery does not ask a Student to resend a
-response. The status projection is bound to the current Question Presentation
-nonce and reports only its grading state. It does not disclose correctness,
-point totals, Answer Keys, source, private feedback internals, or raw grader
-input; Student Feedback remains a separate policy-evaluated projection.
+| Student | Roster ID | Demonstration state |
+| --- | --- | --- |
+| Mary Okafor | `BIO301-MARY` | Completed and graded work |
+| Jack Nguyen | `BIO301-JACK` | Open work with saved responses |
+| Avery Thompson | `BIO301-AVERY` | Released Assignment available to start |
 
-The browser downloads the protected Course Invitation export but does not send
-mail. `launchers/send_invitations.py` remains the local attended mail action.
-Sysadmin roster access requires one registered, time-bounded support capability;
-it does not create ambient Course or Student-record authority.
+These are ordinary relationships and Student Work records. Instructor views,
+Student views, and Gradebook results derive from them under the normal
+authorization and evidence rules.
 
-## Instructor perspective
+## Local identity selector
 
-The seeded Elena Rivera Instructor Account can use the implemented Question Library,
-authoring, Blueprint Course, Course Instance, roster, Assignment Workspace,
-release, Gradebook, and invitation-export routes subject to their stored
-relationships. The browser cannot send invitation mail.
+The disposable local HTTPS entry currently offers a fixed five-persona
+identity selector: Elena Rivera (Instructor); Mary Okafor, Jack Nguyen, and
+Avery Thompson (Students); and Morgan Delgado (Sysadmin). It replaces only
+identity verification, then the server resolves the configured Account and
+issues an ordinary authenticated session. Stored roles and relationships still
+decide every authorization result.
 
-## Student perspective
+The selector remains available in the default local browser Live Demo after
+provisioning, so its ordinary teaching journeys remain usable on restart.
+`--without-live-demo`, non-browser profiles, and public deployments use normal
+authentication instead. It grants no Course Membership, Student record,
+academic authority, or object access by itself. Morgan's Sysadmin role likewise grants no ambient
+academic access.
 
-Each seeded Student can claim an invitation, enter their Course and released
-Assignment landing pages, start an authorized Assignment Attempt, complete
-native controls, and submit a response. Student-visible feedback is not implied
-by terminal grading state and is released only through its separate policy.
+## Product boundaries
 
-## Sysadmin perspective
+Students receive Questions only through authorized Assignment access for their
+exact Course, Assignment, and Student record. Retained Attempt and Issued
+Question evidence keeps old work interpretable after later Assignment edits.
+Submission, grading, feedback, asset access, and Gradebook projections retain
+their own authorization and disclosure boundaries; a terminal grade does not
+by itself disclose answers or feedback.
 
-The seeded Morgan Delgado Sysadmin Account can use the Instructor Accounts task and a registered
-scoped roster-support operation. Those routes do not grant academic Course
-authority, Question correction, or unbounded Student-record access.
+The Instructor can use the ordinary Question Library, Blueprint Course, Course
+Instance, roster, Assignment, release, Gradebook, and invitation-export
+workflows within stored authority. Invitation export does not send mail;
+`launchers/send_invitations.py` remains the attended local mail action.
 
-## Demo authentication
-
-The closed seeded persona set replaces only the normal identity-verification
-ceremony. It has no password, first-claim, or setup-code step. The server
-creates a host-only, Secure, HttpOnly, first-party session cookie and resolves
-the session from durable server storage. Passkey and email-code adapters remain
-future authentication acceptance work. The passkey capability is deferred and
-supplies no route, setup credential, or Browser Surface; seeded entry is the
-current local-demo identity-verification path.
-
-## Connected-browser evidence
-
-On 2026-09-11, the owner ran `./devel/run_playwright_tests.sh` against a fresh
-disposable HTTPS stack; it exited 0. The four Playwright scenarios passed:
-authentication and authorization, Instructor authoring, Course Appearance
-propagation, and learner native-PLE recovery. The maintained visible journeys
-also passed: Assignment release, WeBWorK render, Instructor Accounts, support
-capability, invitation export, and Course seed. Focused service and earlier
-milestone evidence remain narrower evidence and do not substitute for this
-connected-browser receipt.
+The current local browser surfaces use the `laptop` profile (1280 by 800 CSS
+pixels) for the principal Instructor, Student, and Sysadmin workflows.
+`tablet`, `phone`, and `square` captures cover materially different responsive
+or access presentation. The selected surfaces are listed in
+[`docs/screenshots/current_capture_manifest.json`](screenshots/current_capture_manifest.json).

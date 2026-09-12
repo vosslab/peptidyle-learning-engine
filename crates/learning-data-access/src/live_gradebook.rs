@@ -9,7 +9,7 @@ use crate::{SessionTokenHash, StoreError};
 /// One Course-local answer-free progress row for an active Student.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LiveDemoStudentWork {
+pub struct CourseGradebookStudentWork {
     pub roster_id: String,
     pub assignment_reference: question_model::AssignmentReference,
     pub assignment_attempt_completion: Option<question_model::AssignmentAttemptCompletion>,
@@ -22,18 +22,18 @@ pub struct LiveDemoStudentWork {
 /// The current Course Instructor's answer-free Gradebook evidence projection.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LiveDemoGradebook {
+pub struct CourseGradebook {
     pub course_reference: CourseInstanceReference,
-    pub student_work: Vec<LiveDemoStudentWork>,
+    pub student_work: Vec<CourseGradebookStudentWork>,
 }
 
 #[async_trait]
-pub trait LiveDemoGradebookStore: Send + Sync {
+pub trait CourseGradebookStore: Send + Sync {
     /// Reads the exact Course Instructor's answer-free Student Work progress.
     /// Foreign and unavailable Courses remain concealed.
-    async fn live_demo_gradebook(
+    async fn course_gradebook(
         &self,
         session_token_hash: SessionTokenHash,
         course: CourseInstanceReference,
-    ) -> Result<LiveDemoGradebook, StoreError>;
+    ) -> Result<CourseGradebook, StoreError>;
 }

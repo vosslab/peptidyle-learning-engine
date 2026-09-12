@@ -11,6 +11,23 @@ import { courseThemeTokens } from "../features/course_appearance/course_theme_re
 import { courseInstanceRouteReference } from "../navigation/public_route";
 import { StudentCoursesPage } from "./student_courses_page";
 
+type PublishedAvailableBlueprintCourse = BlueprintCourseSummaryView & {
+  readonly latest_published_revision: NonNullable<
+    BlueprintCourseSummaryView["latest_published_revision"]
+  >;
+};
+
+function isPublishedAvailableBlueprintCourse(
+  blueprint: BlueprintCourseSummaryView,
+): blueprint is PublishedAvailableBlueprintCourse {
+  return blueprint.availability === "available" && blueprint.latest_published_revision !== null;
+}
+
+function blueprintSourceValue(blueprint: PublishedAvailableBlueprintCourse): string {
+  const revision = blueprint.latest_published_revision;
+  return `${revision.reference}:${revision.revision}`;
+}
+
 function CourseInstanceRow(props: { readonly course: CourseInstanceSummary }): JSX.Element {
   const reference = courseInstanceRouteReference(props.course.reference);
   const theme = courseThemeTokens(props.course.theme);
@@ -39,7 +56,7 @@ function CourseInstanceRow(props: { readonly course: CourseInstanceSummary }): J
 }
 
 function BlueprintSourceSelect(props: {
-  readonly blueprints: ReadonlyArray<BlueprintCourseSummaryView>;
+  readonly blueprints: ReadonlyArray<PublishedAvailableBlueprintCourse>;
   readonly value: string;
   readonly onChange: (value: string) => void;
 }): JSX.Element {
@@ -56,8 +73,8 @@ function BlueprintSourceSelect(props: {
         <option value="">Choose a reusable Blueprint Course</option>
         <For each={props.blueprints}>
           {(blueprint) => (
-            <option value={`${blueprint.reference}:${blueprint.revision}`}>
-              {blueprint.title} · Revision {blueprint.revision}
+            <option value={blueprintSourceValue(blueprint)}>
+              {blueprint.title} · Revision {blueprint.latest_published_revision.revision}
             </option>
           )}
         </For>
@@ -101,13 +118,15 @@ function TeachingCourseListPage(): JSX.Element {
       return true;
     });
   });
-  const availableBlueprints = createMemo(() => blueprints()?.items ?? []);
+  const availableBlueprints = createMemo(() =>
+    (blueprints()?.items ?? []).filter(isPublishedAvailableBlueprintCourse),
+  );
 
   async function createCourseInstance(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     if (isCreating()) return;
     const selected = availableBlueprints().find(
-      (blueprint) => `${blueprint.reference}:${blueprint.revision}` === source(),
+      (blueprint) => blueprintSourceValue(blueprint) === source(),
     );
     if (selected === undefined) {
       setCreationError("Choose the exact Blueprint Course Revision for this Course Instance.");
@@ -131,7 +150,7 @@ function TeachingCourseListPage(): JSX.Element {
     try {
       const created = await applicationApi.client.createCourseInstance({
         blueprintCourse: selected.reference,
-        blueprintRevision: selected.revision,
+        blueprintRevision: selected.latest_published_revision.revision,
         shortName: shortName(),
         longName: longName(),
         term: { startDate: startDate(), endDate: endDate() },

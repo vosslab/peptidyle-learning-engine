@@ -24,12 +24,7 @@ shift
 runtime_manifest="$2"
 workspace="$(pwd -P)"
 runtime_manifest_path="$workspace/$runtime_manifest"
-postgres_migration_acceptance_runtime_manifest_path="$workspace/postgres_migration_acceptance/runtime.yaml"
 compose_started=0
-
-readonly database_name="ple_e2e_baseline"
-readonly bootstrap_user="ple_e2e_migrator"
-readonly postgres_database="postgres"
 
 fail() {
 	echo "course appearance E2E: $*" >&2
@@ -66,44 +61,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-wait_for_postgres() {
-	for _ in {1..30}; do
-		if compose exec -T postgres pg_isready -U "$bootstrap_user" -d "$postgres_database" \
-			>/dev/null 2>&1; then
-			return 0
-		fi
-		sleep 1
-	done
-	fail "disposable PostgreSQL did not become ready"
-}
-
-wait_for_minio() {
-	for _ in {1..30}; do
-		if compose exec -T minio mc ready local >/dev/null 2>&1; then
-			return 0
-		fi
-		sleep 1
-	done
-	fail "disposable MinIO did not become ready"
-}
-
-run_project_tools() {
-	(
-		cd "$workspace"
-		cargo run --manifest-path "$REPO_ROOT/Cargo.toml" --quiet -p project-tools -- \
-			database "$@" --acceptance-runtime
-	)
-}
-
-run_postgres_migration_acceptance_project_tools() {
-	(
-		cd "$workspace"
-		PLE_ACCEPTANCE_RUNTIME_MANIFEST="$postgres_migration_acceptance_runtime_manifest_path" \
-			cargo run --manifest-path "$REPO_ROOT/Cargo.toml" --quiet -p project-tools -- \
-			database "$@" --acceptance-runtime
-	)
-}
-
 run_live_cargo_test() {
 	local label="$1"
 	shift
@@ -129,32 +86,9 @@ require_command python3
 source "$REPO_ROOT/source_me.sh"
 export PLE_ACCEPTANCE_RUNTIME_MANIFEST="$runtime_manifest_path"
 
-echo "course appearance E2E: starting leased PostgreSQL and MinIO"
+echo "course appearance E2E: using the owner-prepared canonical database build"
 compose_started=1
-compose up -d postgres minio
-wait_for_postgres
-wait_for_minio
 compose -- --profile course-appearance-initialization run --rm -T createbuckets
-compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$bootstrap_user" -d "$postgres_database" <<'SQL'
-CREATE ROLE ple_database_owner NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
-    NOREPLICATION NOBYPASSRLS;
-CREATE ROLE ple_migrator LOGIN NOINHERIT NOSUPERUSER NOCREATEDB CREATEROLE
-    NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 2;
-GRANT ple_database_owner TO ple_migrator WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
-CREATE DATABASE ple_e2e_baseline OWNER ple_database_owner;
-SQL
-(
-	cd "$REPO_ROOT"
-	python3 -m local_stack_control.runtime_manifest --emit-migration-acceptance-bootstrap "$workspace"
-) | compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$bootstrap_user" -d "$postgres_database"
-compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$bootstrap_user" -d "$postgres_database" -c \
-	"REVOKE CONNECT, CREATE, TEMPORARY ON DATABASE $database_name FROM PUBLIC; GRANT CONNECT ON DATABASE $database_name TO ple_migrator"
-compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U "$bootstrap_user" -d "$database_name" -c \
-	'REVOKE ALL ON SCHEMA public FROM PUBLIC; GRANT CREATE, USAGE ON SCHEMA public TO ple_migrator; GRANT USAGE ON SCHEMA pg_catalog TO ple_migrator'
-
-echo "course appearance E2E: applying and verifying the accepted migration set"
-run_postgres_migration_acceptance_project_tools migration-acceptance-migrate
-run_postgres_migration_acceptance_project_tools migration-acceptance-verify
 
 echo "course appearance E2E: MinIO object-store conformance"
 run_live_cargo_test "MinIO object-store conformance" cargo test -p objects --features s3 \

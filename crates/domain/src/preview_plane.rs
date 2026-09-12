@@ -10,10 +10,9 @@ use question_model::{
     AccountTimeZone, ActiveStudentCourseMembershipDenialReason,
     ActiveStudentCourseMembershipGrantReason, ActiveStudentCourseMembershipOutcome,
     AssignmentAuthoredContentField, AssignmentPolicySourceKind, CourseTerm,
-    EffectiveAssignmentPolicyView, LocalDateAndTime, PreviewAssignmentDeadlineRuleField,
-    PreviewDenialReason, PreviewDisclosureFlags, PreviewDisclosureMoment,
-    PreviewDisclosureUnavailableReason, PreviewLateWorkRuleField, PreviewLimitField,
-    PreviewResolvedPolicy, PreviewTimeField, StudentFeedbackReleaseRule,
+    EffectiveAssignmentPolicyView, LocalDateAndTime, PreviewDenialReason, PreviewDisclosureFlags,
+    PreviewDisclosureMoment, PreviewDisclosureUnavailableReason, PreviewLateWorkRuleField,
+    PreviewLimitField, PreviewResolvedPolicy, PreviewTimeField, StudentFeedbackReleaseRule,
     StudentFeedbackReleaseView, Timestamp,
 };
 
@@ -69,7 +68,6 @@ pub fn project_preview_policy(
         limit(&policy.assignment_attempt_time_limit_seconds),
         limit(&policy.attempt_limit),
         late(&policy.late_work_rule),
-        deadline(&policy.assignment_deadline_rule),
     )
 }
 fn time(
@@ -113,17 +111,6 @@ fn late(
         source: assignment_policy_source_kind(&field.source),
     }
 }
-fn deadline(
-    field: &crate::effective_assignment_policy::EffectiveAssignmentPolicyValue<
-        question_model::AssignmentDeadlineRule,
-    >,
-) -> PreviewAssignmentDeadlineRuleField {
-    PreviewAssignmentDeadlineRuleField {
-        value: field.value,
-        source: assignment_policy_source_kind(&field.source),
-    }
-}
-
 /// Projects only the reusable window and limit fields.
 pub fn project_preview_schedule(
     policy: &EffectiveAssignmentPolicy,
@@ -152,7 +139,6 @@ pub fn project_preview_schedule(
         assignment_attempt_time_limit_seconds: limit(&policy.assignment_attempt_time_limit_seconds),
         attempt_limit: limit(&policy.attempt_limit),
         late_work_rule: late(&policy.late_work_rule),
-        assignment_deadline_rule: deadline(&policy.assignment_deadline_rule),
     })
 }
 
@@ -253,9 +239,8 @@ mod tests {
     };
     use chrono::TimeZone;
     use question_model::{
-        AccountId, AssignmentDeadlineRule, AssignmentId, BaseAssignmentPolicy, CourseId,
-        CourseMembershipId, CourseTerm, LateWorkRule, StudentFeedbackReleaseRule,
-        StudentFeedbackReleaseTiming, StudentRecordId,
+        AccountId, AssignmentId, BaseAssignmentPolicy, CourseId, CourseMembershipId, CourseTerm,
+        LateWorkRule, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, StudentRecordId,
     };
     use std::num::NonZeroU32;
     use uuid::Uuid;
@@ -290,7 +275,6 @@ mod tests {
                 assignment_attempt_time_limit_seconds: None,
                 attempt_limit: None,
                 late_work_rule: LateWorkRule::Accept,
-                assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
             },
             accommodation: None,
         })
@@ -412,10 +396,6 @@ mod tests {
                 value: LateWorkRule::Accept,
                 source: AssignmentPolicySource::Base,
             },
-            assignment_deadline_rule: EffectiveAssignmentPolicyValue {
-                value: AssignmentDeadlineRule::AutoSubmit,
-                source: AssignmentPolicySource::Base,
-            },
         };
         let term = CourseTerm::from_parts("2026-08-01", "2026-08-31").unwrap();
         let account_time_zone = AccountTimeZone::parse("America/Chicago").unwrap();
@@ -456,10 +436,6 @@ mod tests {
         );
         assert_eq!(projected.attempt_limit().value, Some(3));
         assert_eq!(projected.late_work_rule().value, LateWorkRule::Accept);
-        assert_eq!(
-            projected.assignment_deadline_rule().value,
-            AssignmentDeadlineRule::AutoSubmit
-        );
         assert_eq!(schedule.available_at, *projected.available_at());
         assert_eq!(schedule.due_at, *projected.due_at());
         assert_eq!(schedule.closes_at, *projected.closes_at());
@@ -469,10 +445,6 @@ mod tests {
         );
         assert_eq!(schedule.attempt_limit, *projected.attempt_limit());
         assert_eq!(schedule.late_work_rule, *projected.late_work_rule());
-        assert_eq!(
-            schedule.assignment_deadline_rule,
-            *projected.assignment_deadline_rule()
-        );
 
         let wire = serde_json::to_string(&projected).unwrap();
         for forbidden in [
@@ -505,7 +477,6 @@ mod tests {
                 assignment_attempt_time_limit_seconds: None,
                 attempt_limit: None,
                 late_work_rule: LateWorkRule::Accept,
-                assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
             },
             accommodation: None,
         })
@@ -572,10 +543,6 @@ mod tests {
             },
             late_work_rule: EffectiveAssignmentPolicyValue {
                 value: LateWorkRule::Accept,
-                source: AssignmentPolicySource::Base,
-            },
-            assignment_deadline_rule: EffectiveAssignmentPolicyValue {
-                value: AssignmentDeadlineRule::AutoSubmit,
                 source: AssignmentPolicySource::Base,
             },
         };

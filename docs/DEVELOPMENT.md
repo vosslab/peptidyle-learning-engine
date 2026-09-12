@@ -111,13 +111,22 @@ Change the Rust contract, fixture source, browser source, or build pipeline that
 then rerun the appropriate front-door script. Do not edit a derived file to make a build appear
 current.
 
-## Disposable fixture identities
+## Installation data
 
-The Chapter 1 disposable seed mints fresh opaque Authoring Workspace Reference, Question ID, Question Revision Number,
-and Source Object Reference. Its answer-free protected manifest is the replay marker:
-replay resolves the assigned Question IDs and requires exact immutable records
-and reviewed source content before reuse. The manifest must never appear in
-instructor-visible UI, URLs, copyable links, or public fixtures.
+The optional Live Demo is ordinary product data on the canonical schema, not a
+fixture namespace or alternate model. `cargo tools installation-data provision`
+first runs `apply`, which publishes the eight reviewed Pilot Questions through
+the ordinary publisher and applies the idempotent SQL manifest for the
+database-owned teaching graph. `provision` then uses the owning application
+paths for presentation, submission, grading, and other cross-system records.
+The manifest receives the publisher's exact Question Revision references.
+
+The default local stack runs `provision` for a fresh database. Start with
+`--without-live-demo` to opt out before provisioning. Re-running `apply`
+converges on the same ordinary Accounts, Authoring Workspace, Blueprint,
+Course, roster, and released Assignment. See
+[LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and
+[schemas/installation_data/README.md](../schemas/installation_data/README.md).
 
 ## Choose the right gate
 
@@ -165,8 +174,8 @@ Connected and one-time evidence is opt-in and remains separate from the permanen
   It is not a browser suite and does not substitute for visible-workflow evidence.
 
 Do not promote a probe, inventory, screenshot, count, or live diagnostic to a permanent test unless
-it satisfies the admission rules in [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) and
-[PYTEST_STYLE.md](PYTEST_STYLE.md#is-this-a-good-pytest).
+it satisfies the admission rules in [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) and the
+[PYTEST_STYLE.md](PYTEST_STYLE.md#permanent-test-checklist) permanent-test checklist.
 
 ### Production-browser execution
 
@@ -186,15 +195,19 @@ MinIO, role/RLS, migration, restart, and private-renderer claims require their n
 real disposable services. Do not treat a memory-backend pass as evidence for a live storage or
 authorization boundary.
 
-The roster schema is pre-production-only. After changing its checked-in baseline, discard and
-recreate the disposable PostgreSQL volume before rerunning SQLx; a ledger checksum mismatch is a
-clean-volume reset signal, never an instruction to edit the database ledger in place.
+Before the first approved production deployment, the checked-in base schema is
+the editable source of truth. After changing it, recreate a disposable
+PostgreSQL volume and run `cargo tools database initialize`; do not append a
+corrective migration to an evolving base. Once the approved production baseline
+is recorded, keep those base files unchanged and use timestamped SQLx forward
+migrations for later structural changes. A forward-ledger checksum mismatch is
+a clean-volume reset signal, never an instruction to edit the ledger in place.
 
 Keep permanent tests small, deterministic, and behavior-focused. A one-time migration probe,
 manual inspection, or live diagnostic is useful implementation evidence, but it belongs in the
-work-package record rather than the permanent fast suite unless it satisfies the checklist in
-[PYTEST_STYLE.md](PYTEST_STYLE.md#is-this-a-good-pytest). Record both the evidence run and any
-unrun live boundary in the handoff.
+work-package record rather than the permanent fast suite unless it satisfies the
+[PYTEST_STYLE.md](PYTEST_STYLE.md#permanent-test-checklist) permanent-test checklist. Record both
+the evidence run and any unrun live boundary in the handoff.
 
 For Python tools, make routine operator choices visible in the small `argparse`
 surface or in an explicitly selected config file. Do not add undocumented
@@ -204,23 +217,22 @@ explicit argument, with each reader validating the file's schema and private
 filesystem boundary. Test that durable contract offline; record the real
 Podman/browser execution separately as one-time evidence.
 
-For the first teaching set, run `cargo tools pilot-content` for the tracked
-source/compiler contract. Fixed seed/manifest and Rust behavior tests own its
-publication semantics; the canonical live-demo lifecycle installs that baseline.
-The fresh browser owner accepted M19 on 2026-09-07; browser scenarios remain separate from the
-permanent fast lane and should be rerun when a material change affects their declared boundary.
+Run `cargo tools pilot-content` to validate the tracked Pilot source and
+compiler contract. The installation-data operation is the sole supported
+path for publishing those Questions as part of the Live Demo: it uses the
+ordinary publisher and then the idempotent database manifest. The result is
+ordinary published content and ordinary product data, so no protected
+host-only replay manifest is retained.
 
-Chapter 1 replay is manifest-resume only. The answer-free host-only manifest records the assigned
-Question IDs and exact immutable internal references from the first publication; a replay resolves
-those Question IDs and verifies the same reviewed content before reuse. Keep the protected local
-manifest with a retained teaching set: if it is missing, the local controller refuses to mint duplicates.
+Browser scenarios remain separate from the permanent fast lane and should be
+rerun when a material change affects their declared boundary.
 
 ## Run local services
 
 Use the fixed owner when a work package needs the supported PostgreSQL, MinIO,
 API, gateway, private standalone WeBWorK PG renderer, and one internal worker
-Service Identity. The worker's Job claim, lease, and commit capabilities remain
-future M3 work:
+Service Identity. Jobs use the implemented claim, lease, and commit boundary;
+the workers perform their own authorized grading responsibilities:
 
 ```bash
 source source_me.sh && python3 local_stack.py start --headless
@@ -261,8 +273,8 @@ Keep controller parsing, ownership, confirmation, and topology behavior in
 fast deterministic permanent tests. Run Podman, PostgreSQL, MinIO, renderer,
 restart, and browser evidence only through their named opt-in disposable/live
 commands. A focused probe while rebuilding a workflow
-is useful evidence, but does not become a permanent test unless it satisfies
-the repository checklist in [PYTEST_STYLE.md](PYTEST_STYLE.md#is-this-a-good-pytest).
+is useful evidence, but does not become a permanent test unless it satisfies the repository
+checklist in [PYTEST_STYLE.md](PYTEST_STYLE.md#permanent-test-checklist).
 
 Every goal must finish its bounded scope's full Validation test suite on the
 final material tree. The suite includes all required permanent gates, named

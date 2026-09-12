@@ -1,646 +1,171 @@
 # Question model
 
-The backend-agnostic contracts implemented by every Question Backend live in
-`crates/question_model`. Each backend retains its complete format-specific
-Question Source and maps operation results into the shared Question
-Presentation, Student Response, evaluation, and Student Feedback boundaries.
-
-One shared pipeline lets PLE Question JSON, WeBWorK, H5P, iMathAS, and future
-registered technologies flow through the same Draft Question, publication,
-Assignment, attempt, Gradebook, and export operations. Supported QTI imports
-become PLE Question JSON before joining that pipeline.
-
-## The rule for what belongs here
-
-A public type belongs in this crate when it is answer-free and may cross a
-browser-facing boundary. A type that would let a caller learn a correct
-response belongs in `crates/grading`, which runs server-side and sits outside
-the WebAssembly dependency closure. This is a security classification, not a
-claim that every answer-free model field belongs in every Student payload: the
-Question Presentation further removes Question Attempt Reproduction Details and
-grading-adjacent details the renderer does not need.
-
-Applied to answers, the split is:
-
-| Belongs here                                                       | Belongs in `crates/grading` |
-| ------------------------------------------------------------------ | --------------------------- |
-| The Numeric Response Tolerance a number is compared within         | The expected value          |
-| The Text Response Match Rule (Exact, Case Insensitive, Normalized) | The accepted text           |
-| How many choices may be selected                                   | Which choices are correct   |
-| Correctness-neutral response constraints                           | Accepted-response facts     |
-
-The left column is answer-free shared-model information. An individual
-a Student's Question Presentation may still omit it when it is not needed to render an input;
-for example, the current issued `QuestionPresentationResponseFormat` omits Numeric
-Response Tolerance and Text Response Match Rule.
-Everything in the right column decides correctness and remains server-only.
-
-## Types
-
-### Identity
-
-`WorkspaceId`, `QuestionAssetId`, `CourseId`, and the activity identifiers are distinct
-newtypes over `Uuid`. `QuestionId` is a validated stable text identity and
-`QuestionRevisionNumber` is a validated positive integer. They cannot substitute for one
-another, so passing a draft identifier where published content is expected or
-an assignment identifier where a course is required fails to compile.
-
-Fresh server-minted identifiers are UUIDv7: random enough that a Question Library record number
-reveals no volume information, time-ordered enough to index well, and never
-sequential. The storage and wire contract is the canonical 36-character UUID
-shape backed by PostgreSQL's native 16-byte `uuid` value; it does not require a
-v7 nibble when reading an existing deterministic/local identity. Minting sits
-behind the `generate` feature, which the server enables and the WebAssembly
-bridge leaves off, because identifiers are created server-side on the publish
-transition.
-
-`IssuedQuestionId` is the deterministic issued-record identity: the server derives it as a
-UUIDv5 from the opaque Assignment Attempt, exact Assignment Entry, and the
-optional frozen Question Pool Item. A resume therefore resolves the same
-Issued Question without selecting again. The value remains a durable server
-record identity, not browser authority.
-
-Every Assignment Attempt also retains its exact Released Assignment Revision
-Reference. The stable Assignment owns its later revisions; the retained revision
-is the immutable Assignment Revision and delivery policy expanded into that Student's
-Issued Questions. A Student cannot begin an Assignment Attempt unless the
-stable Assignment is Released and selects that exact revision; Closed and
-Archived Assignments also refuse new access.
-
-UUIDs name durable records; they are not credentials, authorization evidence,
-or browser-facing choice codes. A submission places its `QuestionAttemptId`
-once in the route. The server resolves Student, Assignment, Question Revision, Question Seed,
-Question Backend, and policy from that authenticated attempt instead of asking the
-browser to resend their UUIDs.
-
-The draft rule is carried by separate records rather than a flag: one mutable
-`DraftQuestion` has no Question identity, while immutable `QuestionRevision`
-requires both a Question ID and Question Revision Number. A Draft Question's
-positive Edit Number is its save and publication concurrency token.
-
-`QuestionId` is stable across one question lineage. Each publication in that
-lineage has a fresh immutable `QuestionRevisionNumber`, and `QuestionRevisionReference` keeps the
-exact `(QuestionId, QuestionRevisionNumber)` evidence only in trusted delivery, grading,
-replay, audit, assignment pins, and optional non-operative Question Attempt Reproduction Details.
-An allowed original-lineage correction may retain the `QuestionId` while
-archiving the replaced version. A major objective, task, or Question Type
-change is a fork: its creator edits a private draft and publication gives it a
-new `QuestionId`, a new version, and exact source ancestry. Every successful
-publication enters one installation-wide shared Question Library for approved
-Instructors. Private content remains a draft and therefore has no published
-identity.
-
-Question Library is the shared authoritative set of Published Questions.
-My Questions filters it to Published Questions owned by the current Account,
-while My Question Drafts is a separate private Authoring Workspace View for
-Draft Questions the current Account may edit. Its placement in the Question Library
-interface area is navigation, not Library membership. Draft Questions remain absent
-from published search, facets, statistics, Stars, Watches, and Assignment selection.
-Question Tags guide search within the Question Library; they do not
-partition questions by subject, author, course, or audience. Every assignment item
-resolves a Question ID already present in the Question Library. A draft must
-validate and publish before an Instructor can place it in an assignment, so an
-Assignment cannot contain a Draft Question or Draft Question Content.
-
-`QuestionSummary` is the current Question Search summary record. It contains the Question
-ID, exact `latestQuestionRevision` reference, Question Backend, capabilities,
-metadata, Question Revision Availability, and publication time, but not prompt,
-response, private backend-specific location fields, or private source data. Latest means
-the accepted revision with the greatest Question Revision Number in the stable
-lineage; it is independent of Question Revision Availability. Trusted server
-work resolves the exact reference and loads the separate internal
-`QuestionRevision` payload. Question Details uses that safe `QuestionSummary`
-and presents one selected immutable version within the stable lineage. Approved
-Instructors may inspect this published content even when another course
-references it; that access does not expose the other course's assignment
-composition or Student records.
-
-The Question Library uses semantic change classes to define compatible evolution.
-Transport-size limits protect request handling and do not define compatibility.
-The original creator or an authorized lineage steward may publish only an
-allowed same-lineage correction or compatible improvement under the existing
-Question ID. A grading-semantic correction records an impact and starts a
-controlled recalculation operation; it never silently rewrites issued evidence.
-Major objective, task, or Question Type changes require a fork and new
-identity. Any active Instructor may create a fork draft, but that draft is
-private to its creator until validation succeeds. The published fork is global,
-records exact Question ID and version ancestry, and preserves the improvement
-thread without granting the fork author access to edit the source.
-
-`QuestionChangeProposal` is the lightweight improvement workflow. Any vetted
-Instructor submits one patch and rationale against one exact immutable base
-version. Question Publication Validation and semantic/grading-impact analysis complete
-before submission reaches the lineage owner, who accepts or rejects it. A
-stale base requires rebase and resubmission. An accepted `ModerateEdit` creates
-a new immutable version in the original `QuestionId` lineage, preserves
-Question Authorship and the existing compatible Question License, records contributor credit and
-proposal ancestry, and leaves all assignment and evidence pins unchanged.
-`ModerateEdit` is a compatible same-lineage operation; `FullFork` is the
-separate major-change operation that creates a creator-private draft and, after
-validation, a new global Question ID; `ForcedQuestionCorrection` is the
-separate Sysadmin-only emergency replacement operation. The user-facing action
-is **Suggest an improvement**. A GitHub analogy is documentation-only and
-does not define the domain or authorization contract.
-
-Existing assignments pin their exact Question ID and `QuestionRevisionReference`.
-Future availability changes only through an explicit, revision-checked
-assignment update; publication, correction, lifecycle work, and recalculation
-never advance an assignment automatically. Star is one vetted-Instructor-visible
-endorsement per Question ID; active Instructors may see its count and the
-identities of vetted Instructors who starred. Students and anonymous callers
-see neither the identity list nor Star state. Watch is a private notification
-subscription for versions, forks, improvements, and impact events. Neither
-changes Question Library visibility or grants course authority.
-
-The shared Question Library is not a Student delivery path. A Student receives question
-content only after the server confirms the authenticated Student's Active Student
-Course Membership, exact `CourseId`, `AssignmentId`, Assignment Status, and
-current policy. Anonymous requests have no Question Library access authority and cannot use Question IDs to obtain
-published content.
-
-`CourseMembershipRole` represents only the student and instructor values that
-may be stored on a direct membership. There is no second effective-course-role
-enum.
-
-Every `QuestionSearchResult` is already published, with its immutable Question
-Publication Event retained separately from its current Question Revision
-Availability. The ordinary new-assignment selector accepts only `Available`
-versions. `Archived` versions remain discoverable and resolvable for exact
-references, evidence, Question Fork Source, and retained assignments, with their stated
-reason.
-
-Question Statistics evidence is version-specific and excludes previews and the Instructor
-Student view. After the configured privacy threshold, the safe aggregate may
-expose accepted-attempt count, graded-attempt count, correct count, and
-eligible-choice selection counts for supported choice Question Types. Below the
-threshold it exposes availability only; it never exposes raw responses,
-small-cell counts, linkable cohorts, or Student identities. Course-local
-Assignment Question Analysis metrics remain separately authorized and never become global
-Question Statistics.
-
-### ForcedQuestionCorrection
-
-Published versions are immutable. A Sysadmin may approve a closed
-`ForcedQuestionCorrection` only for `security_flaw` or
-`critical_correctness_flaw`. It immediately activates the authoritative mapping
-from the flawed version to the validated replacement, so new selection and
-issuance resolve to the replacement. The old version is preserved solely as
-immutable historical evidence and is never edited or deleted.
-
-Replacement publication requires validated content and a closed, privacy-safe
-impact manifest. The resulting Correction Generation is handed to bounded,
-Correction-Generation-fenced workers for active-binding and remediation
-updates across every active Blueprint, CourseInstance, assignment,
-selection-pool, and future-issuance reference. A deterministic compatibility
-check governs reissue or excuse for in-progress work. Issued or graded evidence
-remains pinned to the original immutable version; completed work receives
-superseding receipts and deterministic recalculation under the correction.
-
-The operation has no per-course approval step. Instructors receive audited,
-course-authorized results, while Sysadmin access exposes no FERPA-bearing
-course or Student records. Every approval, validation, manifest, atomic
-advance, reissue, excuse, superseding receipt, recalculation, and publication
-event is append-only audited.
-
-`Sysadmin` is a Product Role, never a Course Membership Role; it cannot
-replace current Instructor Course Membership for general FERPA access or view the
-Question ID Star identity list or any private Watch state. `CourseSummary`
-and `AssignmentSummary` are Rust-owned browser results. Their Question Pool
-selection summaries carry Question IDs and safe display metadata,
-never an opaque `QuestionRevisionReference` or question payload.
-
-### Capabilities
-
-`Capability` has the specification's eight variants, and `QuestionBackendCapabilities`
-is a set of them. The support question has exactly one implementation,
-`supports`, and `missing_from` returns every gap rather than the first, because
-an instructor fixing an assignment wants the whole list.
-
-The eight: `algorithmicGeneration`, `clientRendering`, `serverGrading`,
-`partialCredit`, `hints`, `questionAttemptTimeLimit`, `printExport`,
-`offlinePreview`.
-
-An enum rather than eight booleans means a violation can name the capability it
-is about, and adding a ninth makes every exhaustive match stop compiling until
-it is handled.
-
-`domain::policy::validate_assignment_config` receives selected key-free
-Question Revisions, each adapter's declared capabilities, and any
-assignment-wide delivery requirements. It returns every missing
-question/capability pair in question order and capability declaration order.
-The editor calls it through WebAssembly and the publish route calls the same
-Rust function.
-
-Question Revisions imply these requirements:
-
-| Question feature                  | Required backend capability         |
-| --------------------------------- | ----------------------------------- |
-| Seeded randomization              | `algorithmicGeneration`             |
-| All-or-nothing grading            | `serverGrading`                     |
-| Partial-credit grading            | `serverGrading` and `partialCredit` |
-| Immediate correctness with a hint | `hints`                             |
-| Per-question timer                | `questionAttemptTimeLimit`          |
-| Untimed, ungraded static question | None                                |
-
-Assignment delivery can additionally require `clientRendering`, `printExport`,
-or `offlinePreview` from every selected backend. Duplicate requirements produce
-one violation. `crates/domain/tests/capability_violation_cases.json` is the
-reviewed table covering all eight capabilities and the return-all behavior.
-
-### Question Revision
-
-`QuestionRevision` owns one immutable Question Source, its exact Question
-Backend and Question Format routing, and the exact historical facts assigned to
-that revision. The stable Published Question owns mutable discovery metadata
-such as Question Title and Question Description. Draft Question and Published
-Question metadata use parallel persistence tables with shared field validation
-and separate ownership, access, indexing, and retention. Publication copies
-accepted values rather than sharing a draft row. Backend
-locations remain qualified routing facts, such as WeBWorK PG Path or iMathAS
-Item Reference. Prompt, response structure, and evaluation semantics remain
-inside the complete format-specific source. Assignment Entries own point value,
-scoring treatment, Question Attempt Limit, and Question Attempt Time Limit.
-QTI Package Item Reference remains Workspace Import evidence for a Question
-converted into PLE Question JSON rather than a runtime Question Revision field.
-
-### Response shapes
-
-`QuestionType` classifies the educational interaction independently of Question
-Format, Question Backend, and the browser control. `QuestionResponseFormat` and
-`StudentResponse` are parallel enums: numeric, multiple choice or multiple
-answer, short text, multi-blank, matching, ordering, hotspot, and iMathAS
-Question Backend. Within a variant, invalid field combinations are unrepresentable, so a
-matching response carries only prompt-to-choice associations and a hotspot
-response carries only selected Hotspot Region references.
-`ResponseItemReference` is the durable semantic identifier used by this shared
-model; it is not a visible letter or display position.
-
-`QuestionResponseControl` names the browser interaction. `ImathasQuestionBackendResponseControl` is a
-fieldless marker variant in both response enums. It carries no
-provider, launch, answer, score, token, or completion data. The server
-owns the later iMathAS Result Exchange through its server-owned boundary, so the
-Question Presentation and generic submission record remain answer-free.
-
-Agreement _between_ the two and variant-specific format rules live in
-`domain::validation::validate_response_format`. The browser calls that pure
-function through WebAssembly, and the server repeats it before grading. A
-client-side check is a convenience rather than an authority.
-
-Choices, blanks, matching prompts, ordering items, and hotspot regions are
-compared by identifier rather than by displayed label or position. Presenting
-them in a different order therefore does not change answer meaning. A Hotspot
-selection submits an authored Hotspot Region Reference; its rectangle or ellipse
-geometry belongs to the Question Response Format rather than the Student Response.
-
-Server-side grading resolves the attempt's exact published Question Revision and
-format-specific Question Source through its Question Backend. The backend evaluates the Student
-Response, while the Assignment Entry separately supplies points and scoring treatment; no generic
-Question Grading Rule participates in that boundary. Keys remain server-only, format-specific
-grading material. Grading is deterministic and automated for every supported Question Type.
-
-### Attempt presentation
-
-`QuestionPresentation` is the narrow, issued contract for every Student screen.
-It projects the public rendering portion of one `QuestionVariationPresentation`
-for a specific attempt and provides a consistency binding for that presentation.
-
-`QuestionPresentation` contains the immutable Question Revision, issued Question Seed,
-server-minted Question Presentation Nonce, Question Title, prompt, and an answer-free
-`QuestionPresentationResponseFormat`. It is the issued response format for the durable
-Question Response Format: it replaces durable Response Item References with
-Presentation Response Item References while preserving the exact response shape. The schema currently
-covers the eight PLE Question JSON Question Types and the exact iMathAS backend marker:
-
-| `QuestionPresentationResponseFormat` | Shared Question Response Format |
-| ------------------------------------ | ------------------------------- |
-| `singleChoice`                       | exactly-one multiple choice     |
-| `multipleAnswer`                     | one-or-more multiple choice     |
-| `fillIn`                             | short text                      |
-| `multiFillIn`                        | multi-blank                     |
-| `numerical`                          | numeric                         |
-| `matching`                           | matching                        |
-| `ordering`                           | ordering                        |
-| `hotspot`                            | hotspot                         |
-| `imathasQuestionBackend`             | iMathAS Question Backend        |
-
-The durable Question Response Format names the item role at the model boundary:
-Multiple Choice has Question Choices; MATCH has Matching Prompts and Matching
-Choices; Ordering has Ordering Items. Each record combines its Response Item
-Reference with the learner-visible content. This keeps similar wire shapes from
-becoming interchangeable application meanings.
-
-`imathasQuestionBackend` is a fieldless issued marker. It selects the
-server-owned iMathAS launch lifecycle without exposing a provider URL, token,
-result, score, or backend state in the Question Presentation.
-
-For selectable and addressable objects, the builder projects durable IDs to a
-presentation-scoped Response Item Reference (`PresentationResponseItemReference` in the current
-machine contract): four lowercase hexadecimal characters produced by
-CRC-16/CCITT-FALSE. Its input is domain-separated and includes the
-Question Presentation Nonce, Question Revision, Question Seed, Response Item Role, ordinal, durable Response Item Reference, and canonical
-public item basis. Choices, blanks, matching sides, ordering items, and each
-Hotspot Region are separately addressable. The builder permits at most 32 addressable items, requires
-IDs to be unique across the complete presentation, and retries with a fresh
-nonce up to eight times if a CRC16 collision occurs. The server retains the
-ability to rebuild the Presentation Response Item Reference-to-durable Response Item Binding from the exact Question Revision
-and persisted presentation binding; the four-character value is neither a
-durable identity nor a security credential.
-
-The canonical binary descriptor covers the Question Presentation, Presentation Response Item Reference
-bases, and Question Asset Renditions. PLE stores its full Question Presentation Checksum with the attempt and gives
-the Student only a 128-bit `pd1_` base64url prefix in
-`StudentAttemptDescriptor`. The browser can rebuild and check the public
-descriptor through Wasm; the server checks the full Question Presentation Checksum when reproducing
-the attempt. The Question Presentation Checksum and Presentation Response Item References detect a stale or incoherent render,
-but do not authenticate a Student, authorize a request, or determine whether
-an answer is correct.
-
-The current Assignment Attempt route delivers `QuestionPresentation` unchanged for every
-issued Question. Its Student Response Control uses the associated
-`QuestionPresentationResponseFormat` and presentation-scoped Response Item References. The
-server translates those references only through the exact server-held `IssuedQuestionPresentation`.
-The iMathAS Question Backend marker selects its exact server-owned launch route; `notApplicable`
-remains a lifecycle fact and does not change the Student delivery contract.
-
-### Content blocks
-
-`QuestionContentBlock` is a closed set: text, math, image, code, table. Closed so the
-renderer's match is exhaustive and adding a kind points the compiler at the
-renderer.
-
-Every variant carrying visual content also carries a required description.
-Required rather than optional: a figure with no description is unusable with a
-screen reader, and the Question Presentation renderer surfaces a missing description as an authoring
-error.
-
-### Policies
-
-Fixed and Question Pool Assignment Entries own `QuestionAttemptLimit` (a retry bound) and
-`QuestionAttemptTimeLimit` (time and grace for one Question Attempt). Their immutable Assignment
-Revision Entry snapshots retain nullable positive limits/seconds, nullable nonnegative grace, and a
-paired time/grace invariant. Draft Question and Question Revision records no longer carry generic
-attempt-control duplicates; BaseAssignmentPolicy attempt/time controls remain assignment-wide and
-distinct. Student Feedback Release is not a Question policy: the
-assignment owns its five-field `StudentFeedbackReleaseRule` and the server evaluates it for current
-Student Feedback.
-
-A Question Hint is requested before a Student selects or submits a response.
-Question Feedback is selected only after automatic grading and remains three
-separate optional authoring forms: Choice Feedback, Correct Feedback, and
-Incorrect Feedback. The Student Feedback Release Rule controls whether the
-applicable Question Feedback form reaches the Student as Student Feedback; it
-does not govern a Question Hint.
-For timed work, `QuestionAttemptTiming.deadline` is the server-issued base
-deadline. Assignment Activity timing applies any authorized, audited pause extension before it
-evaluates the inclusive grace boundary.
-
-The explicit Assignment activity rules are chosen per Assignment and are independent enums.
-The later-Attempt rules split Question Pool membership from Question Variation:
-`QuestionPoolReuseRule` chooses Reuse Selection or Select Again, while
-`AssignmentQuestionVariationRule` chooses Reuse Variation or New Variation. This lets an
-instructor express mastery-required practice that keeps the selected Questions
-while using new Question Variations, or any other meaningful combination,
-without a combined mode hiding either decision.
-
-Each top-level Fixed Question or Question Pool has Assignment Entry Availability:
-Available includes it in future Assignment Attempts and Retired preserves historical
-Issued Questions without future delivery. Each Question Pool Item has its own
-Question Pool Item Availability, separate from the owning pool's availability.
-Each top-level entry also carries its Assignment Entry Scoring Rule: Normal,
-Full Credit, Extra Credit, or Excluded. An Issued Question freezes the rule and
-point value from its source entry.
-Question Pool Selection Rule combines the reviewed selection algorithm
-and output ordering for one pool. The Assignment-owned Question Variation Rule
-separately controls whether later Assignment Attempts reuse Question Variations
-or issue new Question Variations; it never redraws a Question Pool Selection.
-
-Assignment editing is a direct, closed Assignment contract.
-`AssignmentAuthoredContent` carries validated plain-text
-`AssignmentInstructions` and the absolute `BaseAssignmentPolicy` for the
-editable Assignment. `AssignmentStatus` belongs to that Assignment and selects
-a Released Assignment Revision only after Assignment Release.
-`AssignmentTitle` is the separate validated short name for the Assignment or
-released revision, rather than generic text at a shared contract boundary.
-Every Questions, Policies, and fixed-question replacement request carries its
-reviewed `AssignmentEditNumber` as `baseEditNumber`; the HTTP strong ETag is
-the transport concurrency condition for that exact Assignment.
-New Assignments default to Unreleased and therefore are not Student-visible
-until an Instructor explicitly releases one immutable Assignment Revision. The
-Instructor transport uses `InstructorAssignmentAuthoredContentLocal`:
-local timestamps include
-milliseconds and the exact course IANA zone, but the server performs every
-DST, term, ordering, and integer-bound conversion before storage.
-`InstructorAssignmentAvailabilityView` is a separate closed server View
-for Unreleased, Scheduled, Available, Closed, or Archived at one authoritative
-instant. Its scheduled and clock-closed variants carry only the matching
-course-local boundary, so a browser displays Assignment availability without
-inferring it.
-
-Students receive `StudentAssignmentDetail`, not the Instructor aggregate. Its
-delivery values are already resolved from exact Assignment Access and omit
-Assignment Status, Assignment Policy Source, course identifiers, and evaluation
-clocks. `AssignmentScoringState`
-is also independent: Current allows the otherwise authorized Student
-`AssignmentProgress` result;
-Recalculating and Failed retain the semantic score state while omitting every
-numeric Student score, Grading Result, and disclosed point value.
-
-### Question variation
-
-Current PLE Question JSON is static by its exact format. Its Question Seed remains
-exact server-held backend and attempt input; it
-does not select a PLE-authored generated variation. Question Backend, Renderer,
-and Grader Version remain distinct reproduction evidence.
-
-A future Question Generator must arrive as immutable registered Question
-Generator source data owned by a Draft Question or Question Revision,
-with its parser, publication, issue, grading, repair, and reproduction path.
-
-### Licensing and future classification
-
-Question Tags are free-form search labels. Question Classification remains a
-future mapping to one real supported external or institutional system through
-its Classification System, Classification Code, and Classification Name. It has
-no current Question Model field, PLE Question JSON member, search facet, or
-browser control. Question Bloom Classification is PLE's dedicated
-two-dimensional future classification and therefore has its own closed fields
-instead of using a generic mapping.
-
-Question License is the exact versioned SPDX expression governing one Question
-Revision. Publication accepts only a Question License compatible with Question
-Library sharing and full forks. See
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md#question-content-and-stewardship)
-for the complete Question Metadata vocabulary.
-
-#### Bloom classification
-
-Once automatic AI classification completes, every Published Question Revision
-has one current Question Bloom Classification derived from exactly two independently selected
-closed fields:
-
-- Bloom Cognitive Process: Remember, Understand, Apply, Analyze, Evaluate, or
-  Create.
-- Bloom Knowledge Dimension: Factual Knowledge, Conceptual Knowledge,
-  Procedural Knowledge, or Metacognitive Knowledge.
-
-The Instructor interface labels the fields Cognitive Process Dimension and
-Knowledge Dimension. Their ordered pair alone determines the combined label
-and matrix position. Question Search exposes each field as an independent facet
-and may show their derived 4 by 6 intersection.
-
-Classify the performance required for full credit on the exact Question
-Revision:
-
-1. Read the complete Question Prompt, Question Response Format, Answer Key,
-   scoring criteria, and any rubric that determines full credit.
-2. Identify the primary thing the Student must know and select its Knowledge
-   Dimension.
-3. Identify the primary cognitive work the Student must perform with that
-   knowledge and select its Cognitive Process Dimension.
-4. Check the pair against the actual grading requirement. The complete task
-   determines the pair; a command verb or Question Type alone does not.
-5. For a Question with several tasks, use the best-supported pair representing
-   the dominant full-credit performance. An Instructor can correct the assigned
-   pair later.
-
-Use these short category meanings:
-
-| Cognitive process | Student performance required for full credit              |
-| ----------------- | --------------------------------------------------------- |
-| Remember          | Retrieve relevant knowledge                               |
-| Understand        | Construct meaning from presented or recalled knowledge    |
-| Apply             | Use a procedure in a situation                            |
-| Analyze           | Separate material into parts and relate those parts       |
-| Evaluate          | Make a judgment using stated or appropriate criteria      |
-| Create            | Assemble elements into a coherent or functional new whole |
-
-| Knowledge dimension     | Primary knowledge used by the Question                |
-| ----------------------- | ----------------------------------------------------- |
-| Factual Knowledge       | Terminology, specific details, and elements           |
-| Conceptual Knowledge    | Categories, principles, theories, models, and systems |
-| Procedural Knowledge    | Skills, algorithms, techniques, methods, and use      |
-| Metacognitive Knowledge | Strategies and awareness of one's own cognition       |
-
-Prior learning and course context can change the cognitive work a task demands.
-Publishing creates the exact immutable Question Revision with Bloom classification
-unassigned. AI classification work searches for unassigned Published Question
-Revisions and supplies each initial two-enum pair. The Question remains Published
-and discoverable while unassigned. An Instructor may later edit either value for
-that exact Question Revision. This classification edit changes discovery metadata
-without changing Question content or creating a Question Revision.
-
-The later AI integration plan owns model execution, scheduling, the answer-bearing
-input boundary, concurrent work claims, retry behavior, and operational evidence.
-This Question Model defines the classification result and its timing without selecting
-those implementation details.
-
-The reference two-dimensional graphic uses one hue family for each Cognitive
-Process column. PLE retains these sampled associations:
-
-| Cognitive process | Reference hue | Reference anchor |
-| ----------------- | ------------- | ---------------- |
-| Remember          | Blue          | `#64A4D9`        |
-| Understand        | Green         | `#A2D4B4`        |
-| Apply             | Yellow-green  | `#B9D438`        |
-| Analyze           | Yellow        | `#E7E028`        |
-| Evaluate          | Orange        | `#E8A264`        |
-| Create            | Pink          | `#E3759F`        |
-
-Interface owners derive accessible surface, border, text, focus, selected, and
-dark-mode tokens from these anchors. Every control and matrix cell shows its
-text labels alongside color. The Knowledge Dimension remains the labeled
-second axis.
-
-The local reference image identifies itself as Rex Heer's Iowa State
-University graphic under CC BY-NC-SA 3.0, while PLE's distributable non-code
-work permits commercial reuse. PLE keeps the image as an external design
-reference and distributes its own accessible components. The Anderson and
-Krathwohl 2001 revision owns the dimensions and category terminology. Marzano's
-New Taxonomy remains a separate learning-goal framework.
-
-## Wire format
-
-**Current pre-WN1 behavior:** serialization is JSON with camelCase field names. WN1-A assigns each
-public serializable type to one atomic `WN1-QM` closure after C routes project route-only values to
-`browser-api-contract`. The approved target uses direct `snake_case` Rust and TypeScript data-object
-properties. Enums carrying data are internally tagged, so a client can switch on one discriminant:
-
-```json
-{ "kind": "per_attempt", "seconds": 1800, "grace_seconds": 30 }
-```
-
-Unit-only enums serialize as plain strings:
-
-```json
-"case_insensitive"
-```
-
-Two serde rules are in play and are easy to confuse. On an enum, `rename_all`
-renames the _variants_, while `rename_all_fields` renames the fields _inside_
-variants. Both move with their complete type closure so fields and portable values become snake_case
-together; WN1-B does not change their effective Serde spelling.
-
-### PLE Question JSON authoring source
-
-[PLE Question JSON](QTI-JSON_OBJECT_FORMAT.md) is a narrow answer-bearing
-authoring format for ordinary static questions. It is not another public
-question model. A PLE Question JSON Draft Question retains one complete private
-source. The PLE Question Backend interprets that source through the same
-backend-agnostic validation, preview, publication, issuance, presentation,
-submission, evaluation, and feedback-release operations used for every
-Question technology. Published browser and Question Library results use shared
-answer-free contracts whether the Instructor authored PLE Question JSON
-directly or imported a supported QTI profile.
-
-PLE Question JSON version 3 is the sole current PLE source shape: a closed contract with eight
-Question Types, `singleChoice`, `multipleAnswer`, `fillIn`, `multiFillIn`, `numeric`, `matching`,
-`ordering`, and `hotspot`. Version 3 input is answer-bearing private PLE Question JSON source, not a
-Student payload. It does not claim browser file-selection or iMathAS Question Backend authoring
-support. The backend derives the answer-free Question Presentation, Grading
-Result, and any policy-released teaching content required by the current
-operation from the exact complete source.
-
-The distinction matters when evolving either contract: the source format owns
-author ergonomics, durable Question Choice References, Question Answers, and private Question Feedback; this crate
-owns the shared backend-agnostic runtime contracts. QTI-specific XML and profile
-facts remain Workspace Import evidence rather than fields in PLE Question JSON.
-
-## Generated TypeScript
-
-The project tools (`crates/project-tools`) read this crate's source and write TypeScript into the ignored
-root `generated/api/` directory, one file per type. Regenerate with `./build.sh`,
-or `cargo tsgen` while iterating.
-
-The rule for what gets exported is the boundary rule stated above: every public
-struct or enum that derives `Serialize` or `Deserialize`. A type that must stay
-server-side stays out of the client bundle by not being serializable here.
-
-Mapping:
-
-| Rust                     | TypeScript                     |
-| ------------------------ | ------------------------------ |
-| unit-only enum           | string union                   |
-| tagged enum with data    | discriminated union on the tag |
-| struct with named fields | object type                    |
-| newtype struct           | alias to the inner type        |
-| `Option<T>`              | `T \| null`                    |
-| `Vec<T>`, `BTreeSet<T>`  | `Array<T>`                     |
-| `BTreeMap<K, V>`         | `Record<K, V>`                 |
-| `Uuid`, `String`         | `string`                       |
-| integer and float types  | `number`                       |
-
-The generated files pass `tsc --noEmit`, ESLint, and `prettier --check`
-unchanged, which is why the generator emits Prettier-shaped output rather than
-relying on a reformatting pass.
-
-An enum carrying data is required to declare `#[serde(tag = "...")]`. The
-generator refuses an untagged one, because serde's externally tagged form
-produces TypeScript a client cannot switch on cleanly.
+PLE separates a reusable published Question from the exact immutable content
+that was used. This guide describes the answer-free shared model and the
+database facts that make that distinction durable. The terminology authority is
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md); the detailed human-facing
+rules are in [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md).
+
+## Question identity and lineage
+
+A **Question ID** identifies one stable published Question lineage. It is a
+human-facing reference, not a UUID, sequence number, credential, or authority
+decision.
+
+- PostgreSQL stores the compact seven-character uppercase Crockford Base32
+  value, for example `7K3M9QP`.
+- Browser display and copy use the grouped `AAA-BBBB` form, for example
+  `7K3-M9QP`. The hyphen is presentation only.
+- The first six characters are generated from a cryptographically secure
+  source. The seventh is the server-validated HMAC-SHA-256-derived check
+  character. Syntax parsing accepts documented transcription normalization;
+  the server validates the check character before resolving the lineage.
+- Creation order is not represented in the identifier. A uniqueness conflict
+  at the Question-ID boundary causes a newly generated candidate to be tried.
+
+`QuestionRevisionReference { question_id, revision_number }` identifies one
+immutable published Question Revision. A revision number is positive and
+monotonic only within its lineage. A Draft Question has a private workspace
+identity and Draft Question Edit Number, but no Question ID or Question
+Revision.
+
+The database keeps the stable lineage in `published_question` and immutable
+versions in `question_revision`. A Published Question has current
+**Available** or **Archived** state and a qualified Availability Edit Number.
+Append-only availability events retain actor, transition, edit number, reason
+where required, and time. Publishing a later revision does not change that
+current availability.
+
+Available lineages appear in ordinary Question Library browsing and can be
+newly selected. Archived lineages are absent from ordinary browsing and new
+selection, while authorized exact revision reads, retained Assignment pins,
+Issued Question evidence, grading, and audit continue to resolve. Archive is
+an explicit owner transition with the exact title confirmation and Edit Number;
+restore is the corresponding revision-checked transition.
+
+Question IDs are references, never bearer tokens. A valid ID does not reveal
+existence, grant Question Library access, establish ownership, or grant course
+or Student authority. Library access is limited to the appropriate active
+Instructor path; Student content is available only through authorized
+Assignment access.
+
+## Drafts, publication, and stewardship
+
+A Draft Question is mutable authoring state in an Authoring Workspace. Draft
+saves use its Draft Question Edit Number. Its metadata and complete source
+binding are private. Publication validates the complete Draft and atomically
+creates either:
+
+- a new lineage, its first immutable Question Revision, initial Available
+  state, owner, reviewed authorship, license, acceptance, exact source-object
+  binding, and publication/availability evidence; or
+- a later immutable Question Revision in an existing lineage, after locking
+  the lineage, verifying current owner and workspace authority, and checking
+  the expected parent revision.
+
+The published source binding preserves the exact backend, format-specific
+routing facts, source Object Record, checksum, size, media type, and object
+address for that Question Revision. It is not reconstructed from mutable Draft
+state. Publication evidence records the editor, accepter, reason, parent
+revision where applicable, authorship, license, ownership, and fork ancestry.
+These revision and stewardship facts are immutable.
+
+The stable lineage holds current discovery metadata such as title, description,
+and language. A same-lineage publication can update that current metadata while
+leaving every earlier Question Revision and its provenance intact. A semantic
+change requiring a different Question lineage is published from a fork Draft
+and receives a new Question ID. A same-lineage publication receives the next
+revision number under the existing ID.
+
+Question ownership is an append-only lineage history. The current owner is
+derived from it; authorship is historical credit, not owner authority.
+
+## Assignment pins and Student Work evidence
+
+An Assignment is one current aggregate with an Assignment Edit Number. It is
+not a revision lineage. A fixed Assignment Entry and every Question Pool Item
+pin an exact `QuestionRevisionReference`. A current Assignment update may
+deliberately choose a different Available revision. Publishing a Question,
+archiving or restoring its lineage, background work, and correction processing
+do not advance an Assignment pin implicitly.
+
+Released Assignment edits that pass current release validation affect future
+Attempts. Existing Student Work remains interpretable because an Assignment
+Attempt retains its effective policy and schedule facts, and each Issued
+Question retains:
+
+- its stable Assignment Entry identity and issued position;
+- the exact Question Revision Reference;
+- its server-generated Question Seed and reproduction/presentation binding;
+- point value, scoring rule, statistics eligibility, and effective
+  per-question limits; and
+- Question Pool selection and item evidence when it came from a pool.
+
+Question Pool selections preserve the selected exact revisions and their
+historical source identities. They are evidence, not pointers to mutable
+current Assignment configuration. Attempt delivery, response saving,
+submission, grading, history, and statistics read retained Attempt and Issued
+Question evidence; they do not reconstruct old work from current Assignment
+content.
+
+## Source, assets, and presentation
+
+`crates/question_model` contains answer-free shared contracts that can cross a
+browser-facing boundary. Correct responses, answer keys, and grading-only
+facts remain server-side in `crates/grading` and backend-specific trusted
+paths. A Question Backend retains its full format-specific source and maps
+authorized results into shared presentation, response, evaluation, and
+feedback boundaries.
+
+Question Revisions support the currently registered `ple`, `webwork`, and
+`imathas` backends. Their exact source binding carries the backend and its
+format-specific routing facts. PLE Question JSON is an answer-bearing
+authoring format, not a second public Question model.
+
+Assets are bound to an exact Question Revision. The private source Object,
+verified public rendition, delivery record, checksums, media type, dimensions,
+and publication job form one constrained publication relationship. A rendition
+is used for Student delivery only after its exact publication is ready and its
+delivery is available. Attempt presentation retains the rendition facts it
+used, so later changes to delivery state cannot alter a resumed presentation.
+
+`QuestionPresentation` is the narrow per-issued-question Student contract. It
+contains only the rendering facts needed for the exact revision and seed, plus
+presentation-scoped response references and consistency data. These references
+and checksums detect an incoherent or stale presentation; they are neither
+credentials nor correctness data. The server resolves submitted response
+references only against the retained issued presentation and grades using the
+exact retained Question Revision and backend source.
+
+Question statistics are revision-specific aggregate evidence. They are derived
+from eligible surviving observations, subject to the product's privacy and
+authorization rules; raw Student responses and small-cell information are not
+Question Library data.
+
+## Change boundaries
+
+Question Revision and Blueprint Revision are PLE's only product Revision
+concepts. Assignment, Course schedule, retention, and proposal state use their
+own current-state models where those capabilities exist.
+
+Forced Question Correction preserves the flawed immutable revision and records
+the authorized replacement and remediation evidence. It does not rewrite
+Issued Question or grading history. Its exact operational behavior is owned by
+the correction and Student Work contracts.
+
+Question Change Proposal is not a persisted capability in this baseline. The
+implemented paths are owner publication, fork publication, and Forced Question
+Correction. A future proposal workflow belongs in [TODO.md](TODO.md) until it
+has a bounded Store, Server, authorization, and user workflow; it does not
+require proposal Revision tables or compatibility fields.
 
 ## Related documents
 
-- [CONTRACTS.md](CONTRACTS.md): the durable module catalog and ownership register.
-- [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md): crate boundaries and the two
-  guarantees the structure enforces.
-- [RUST_STYLE.md](RUST_STYLE.md): section 9 on encoding invalid states out of
-  existence, which is the rule the capability and policy types follow.
+- [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md) defines Question-ID generation,
+  storage, validation, and display.
+- [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) defines the semantic
+  lifecycle and stewardship vocabulary.
+- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) defines Student
+  Work and presentation payload boundaries.
+- [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) defines account and
+  course authorization boundaries.

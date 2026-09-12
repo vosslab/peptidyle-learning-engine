@@ -1,10 +1,17 @@
-# Implementation status and handoff
+# Archived implementation-status snapshot (2026-09-04)
 
-Last updated: 2026-09-04. This is the sole mutable registry for the global current-package handoff and shared migration allocations. The [implementation plan](implementation_plan.md) and active [release completion plan](release_completion_plan.md) own architecture, scope, dependency order, validation, and acceptance. SD1 cutover authority is recorded in this registry and its current plan. Durable product decisions remain in [Human Guidance](../HUMAN_GUIDANCE.md); package history and detailed receipts remain in the [changelog](../CHANGELOG.md). Closed package receipts remain in the changelog and retained package reports. Work-package labels such as `WP-INST-G2` are temporary plan coordinates. They identify the current handoff while the plan is active and retire with the planning layer; product contracts and durable data use domain identifiers.
+This retained snapshot records the former package handoff and migration-allocation
+process. It is not a current plan, registry, or authority, and its package
+labels, active-plan links, and completion claims do not direct current work.
+Current product decisions belong in [Human Guidance](../HUMAN_GUIDANCE.md),
+[TERMINOLOGY_CONTRACT.md](../TERMINOLOGY_CONTRACT.md), and the canonical
+documentation named by those authorities; durable receipts remain in the
+[changelog](../CHANGELOG.md). The historical entries below are preserved only
+to explain then-current work-package references in other archived material.
 
 **Vocabulary-ledger synchronization (2026-09-04).** `VOCABULARY_REPLACEMENTS.md` has no unchecked rows. Historical package receipts below may retain their then-current row status; those statements do not allocate current vocabulary work. Any remaining product capability remains with its named package or plan rather than with the vocabulary ledger.
 
-## Current handoff
+## Historical handoff snapshot
 
 - **Implemented, acceptance-open `WP-SD1-A-TERM-01-BMOD1` (Blueprint Module direct vocabulary cutover).** Current Question Model, regenerated contracts, strict decoder, Blueprint Course editor, and focused browser/model tests use `BlueprintModuleView`, `BlueprintModuleReference`, `blueprint_module_reference`, `BlueprintModuleEditChoice`, and `BlueprintAssignmentEditChoice`.
   The edit wire uses `choice`; strict decoding rejects `handle` and `module_id`, and no compatibility path or fixture was added. The vocabulary cutover is complete. The separately open product capability is an immutable Blueprint Revision Content Store and Server Route over the currently unconstrained `blueprint_course_content` JSONB; focused Question Model (6), TypeScript generation/checking, and browser client/picker (5) gates pass.

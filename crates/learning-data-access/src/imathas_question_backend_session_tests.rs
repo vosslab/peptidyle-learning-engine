@@ -4,7 +4,8 @@ use question_model::{
     AccountId, AssignmentAttemptId, AssignmentEntryId, AssignmentEntryScoringRule, AssignmentId,
     AssignmentPointValue, CourseId, ImathasDeploymentReference, ImathasItemReference,
     ImathasProfile, ImathasQuestionBackendBinding, IssuedQuestion, IssuedQuestionId, ObjectId,
-    QuestionAttemptId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
+    QuestionAttemptId, QuestionAttemptReproductionDetails, QuestionBackendVersion,
+    QuestionGraderVersion, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
     SourceObjectChecksum, SourceObjectReference, Timestamp,
 };
 use uuid::Uuid;
@@ -113,8 +114,8 @@ fn grading_context_authentication_payload_v1_has_the_locked_row_530_bytes() {
     assert_eq!(
         context.authentication_payload_v1(),
         vec![
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, b'1', b'2', b'3', b'-', b'4', b'5',
-            b'6', b'7', 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 7,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, b'1', b'2', b'3', b'4', b'5', b'6',
+            b'7', 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 7,
         ]
     );
     assert_eq!(format!("{context:?}"), "ImathasGradingContext([redacted])");
@@ -525,6 +526,26 @@ fn issued_question(
             question_id: "123-4567".parse().expect("question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("revision"),
         },
+        question_seed: QuestionSeed::new(7),
+        reproduction_details: QuestionAttemptReproductionDetails {
+            backend: QuestionBackendVersion {
+                name: "imathas".to_string(),
+                version: "test".to_string(),
+            },
+            renderer_version: None,
+            source_object_reference: Some(SourceObjectReference {
+                object: ObjectId::from_uuid(Uuid::from_u128(43)),
+            }),
+            source_object_checksum: Some(
+                SourceObjectChecksum::parse("d".repeat(64)).expect("source checksum"),
+            ),
+            asset_objects: vec![],
+            grader: QuestionGraderVersion {
+                name: "imathas".to_string(),
+                version: "test".to_string(),
+            },
+            rendered_question_sha256: "e".repeat(64),
+        },
         point_value,
         scoring_rule,
         question_statistics_eligibility: true,
@@ -820,6 +841,32 @@ fn cipher_binds_every_immutable_fact_with_deterministic_nonces_and_redaction() {
     let mut tampered = cipher.clone();
     tampered.ciphertext[0] ^= 1;
     assert!(tampered.open(&key_ring, &session).is_err());
+}
+
+#[test]
+fn encrypted_state_aad_uses_the_compact_question_id() {
+    let account = AccountId::from_uuid(Uuid::from_u128(1));
+    let (create, _) = facts(account);
+    let (session, _) = create.into_session(ImathasQuestionBackendSessionReference::from_uuid(
+        Uuid::from_u128(7),
+    ));
+
+    let aad = protected_state::imathas_question_backend_state_aad(&session);
+    let mut cursor = 1;
+    let mut fields = Vec::new();
+    while cursor < aad.len() {
+        let length = u32::from_be_bytes(
+            aad[cursor..cursor + 4]
+                .try_into()
+                .expect("AAD field length"),
+        ) as usize;
+        cursor += 4;
+        fields.push(&aad[cursor..cursor + length]);
+        cursor += length;
+    }
+
+    assert_eq!(fields[5], b"1234567");
+    assert_ne!(fields[5], b"123-4567");
 }
 
 #[test]

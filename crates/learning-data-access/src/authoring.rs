@@ -46,10 +46,15 @@ pub struct CreateAuthoringDraftInput {
     pub draft_question_uuid: DraftQuestionUuid,
     /// Exact source Object Record written before persistence registration.
     pub source_record: ObjectRecord,
+    /// Registered OPL-style PG location for a WeBWorK source. Native PLE
+    /// Question JSON carries no WeBWorK routing field.
+    pub webwork_pg_path: Option<String>,
     /// Source-derived Question Title.
     pub title: String,
     /// Source-derived Question Description.
     pub description: String,
+    /// Source-derived language retained when the Draft becomes a Question Revision.
+    pub language: String,
 }
 
 /// Complete server-validated replacement for a saved Draft Question Source.
@@ -65,6 +70,37 @@ pub struct SaveAuthoringDraftInput {
     pub title: String,
     /// Source-derived Question Description.
     pub description: String,
+    /// Source-derived language retained when the Draft becomes a Question Revision.
+    pub language: String,
+}
+
+/// Confirms that the initial Draft Question binding can be derived exactly
+/// from the source media type. The database repeats this invariant inside the
+/// creation transaction before it records the mutable Draft state.
+#[cfg(feature = "postgres")]
+pub(crate) fn validate_initial_draft_source_binding(
+    media_type: &str,
+    webwork_pg_path: Option<&str>,
+) -> Result<(), StoreError> {
+    match (media_type, webwork_pg_path) {
+        ("application/vnd.peptidyle.question+json", None) => Ok(()),
+        ("text/x-wework-pg", Some(path)) if valid_webwork_pg_path(path) => Ok(()),
+        _ => Err(StoreError::InvalidRecord(
+            "Draft Question source media type and initial source binding are inconsistent"
+                .to_string(),
+        )),
+    }
+}
+
+#[cfg(feature = "postgres")]
+fn valid_webwork_pg_path(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 1_024
+        && !value.starts_with('/')
+        && !value.contains(['\\', '\0'])
+        && !value
+            .split('/')
+            .any(|part| part.is_empty() || matches!(part, "." | ".."))
 }
 
 /// Session-authorized private Authoring Workspace and Draft Question Store.
@@ -105,4 +141,32 @@ pub trait AuthoringDraftStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         input: SaveAuthoringDraftInput,
     ) -> Result<AuthoringDraft, StoreError>;
+}
+
+#[cfg(all(test, feature = "postgres"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn initial_draft_source_binding_matches_its_supported_media_type() {
+        assert_eq!(
+            validate_initial_draft_source_binding("application/vnd.peptidyle.question+json", None,),
+            Ok(())
+        );
+        assert_eq!(
+            validate_initial_draft_source_binding("text/x-wework-pg", Some("Library/Algebra.pg")),
+            Ok(())
+        );
+        for (media_type, path) in [
+            (
+                "application/vnd.peptidyle.question+json",
+                Some("Library/Algebra.pg"),
+            ),
+            ("text/x-wework-pg", None),
+            ("text/x-wework-pg", Some("../Algebra.pg")),
+            ("application/json", None),
+        ] {
+            assert!(validate_initial_draft_source_binding(media_type, path).is_err());
+        }
+    }
 }

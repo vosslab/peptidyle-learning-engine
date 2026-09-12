@@ -6,9 +6,12 @@ import type { CourseInstanceReference } from "../../generated/api/CourseInstance
 import type { CourseTheme } from "../../generated/api/CourseTheme";
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { StudentFeedback } from "../../generated/api/StudentFeedback";
+import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 
 export interface StudentAssignmentAttemptHistoryQuestion extends StudentFeedback {
   readonly position: number;
+  /** Exact immutable Question Revision identity required for disclosed asset delivery. */
+  readonly questionRevision: QuestionRevisionReference;
   readonly responseState: "submitted" | "closed";
   /** Readable recorded response, independently released from grading. */
   readonly response?: ReadonlyArray<QuestionContentBlock>;

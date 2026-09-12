@@ -25,6 +25,7 @@ pub trait QuestionAssetDeliveryStore: Send + Sync {
     async fn resolve_ready_question_asset_delivery(
         &self,
         session_token_hash: SessionTokenHash,
+        question_revision: QuestionRevisionReference,
         asset_id: QuestionAssetId,
     ) -> Result<ReadyQuestionAssetDelivery, StoreError>;
 }

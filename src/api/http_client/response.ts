@@ -590,6 +590,10 @@ export function createResponseClient(
       fetchCourseBanner(fetchImplementation, basePath, bannerReference),
     fetchCourseBannerCard: (bannerReference) =>
       fetchCourseBannerCard(fetchImplementation, basePath, bannerReference),
-    assetUrl: (assetId) => requestPath(basePath, `/api/assets/${encodedId(assetId)}`),
+    assetUrl: (questionRevision, assetId) =>
+      requestPath(
+        basePath,
+        `/api/questions/${encodedId(questionRevision.questionId)}/revisions/${questionRevision.revisionNumber}/assets/${encodedId(assetId)}`,
+      ),
   };
 }

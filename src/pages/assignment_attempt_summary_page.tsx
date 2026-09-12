@@ -16,6 +16,7 @@ import {
 function ReleasedBlocks(props: {
   readonly title: string;
   readonly blocks: ReadonlyArray<QuestionContentBlock> | undefined;
+  readonly questionRevision: StudentAssignmentAttemptHistory["questions"][number]["questionRevision"];
   readonly assetUrl: Parameters<typeof ContentBlockList>[0]["assetUrl"];
 }): JSX.Element {
   return (
@@ -23,7 +24,11 @@ function ReleasedBlocks(props: {
       {(blocks) => (
         <section class="attempt-summary__disclosure">
           <h4>{props.title}</h4>
-          <ContentBlockList blocks={blocks()} assetUrl={props.assetUrl} />
+          <ContentBlockList
+            blocks={blocks()}
+            questionRevision={props.questionRevision}
+            assetUrl={props.assetUrl}
+          />
         </section>
       )}
     </Show>
@@ -34,8 +39,15 @@ function AssignmentAttemptHistoryContent(props: {
   readonly history: StudentAssignmentAttemptHistory;
 }): JSX.Element {
   const applicationApi = useApplicationApi();
-  const assetUrl: Parameters<typeof ContentBlockList>[0]["assetUrl"] = (asset) =>
-    new URL(applicationApi.client.assetUrl(asset.questionAsset), window.location.origin);
+  function assetUrlForQuestion(
+    questionRevision: StudentAssignmentAttemptHistory["questions"][number]["questionRevision"],
+  ): Parameters<typeof ContentBlockList>[0]["assetUrl"] {
+    return (asset) =>
+      new URL(
+        applicationApi.client.assetUrl(questionRevision, asset.questionAsset),
+        window.location.origin,
+      );
+  }
   return (
     <section class="page attempt-summary" data-route-surface="assignmentAttemptSummary">
       <p class="eyebrow">Previous Assignment attempt</p>
@@ -71,32 +83,43 @@ function AssignmentAttemptHistoryContent(props: {
                 </p>
               </Show>
               <Show when={question.response} fallback={<p>Your response is not available.</p>}>
-                {(response) => <ContentBlockList blocks={response()} assetUrl={assetUrl} />}
+                {(response) => (
+                  <ContentBlockList
+                    blocks={response()}
+                    questionRevision={question.questionRevision}
+                    assetUrl={assetUrlForQuestion(question.questionRevision)}
+                  />
+                )}
               </Show>
               <ReleasedBlocks
                 title="Feedback"
                 blocks={question.choiceFeedback}
-                assetUrl={assetUrl}
+                questionRevision={question.questionRevision}
+                assetUrl={assetUrlForQuestion(question.questionRevision)}
               />
               <ReleasedBlocks
                 title="Feedback"
                 blocks={question.correctFeedback}
-                assetUrl={assetUrl}
+                questionRevision={question.questionRevision}
+                assetUrl={assetUrlForQuestion(question.questionRevision)}
               />
               <ReleasedBlocks
                 title="Feedback"
                 blocks={question.incorrectFeedback}
-                assetUrl={assetUrl}
+                questionRevision={question.questionRevision}
+                assetUrl={assetUrlForQuestion(question.questionRevision)}
               />
               <ReleasedBlocks
                 title="Correct answer"
                 blocks={question.questionAnswer}
-                assetUrl={assetUrl}
+                questionRevision={question.questionRevision}
+                assetUrl={assetUrlForQuestion(question.questionRevision)}
               />
               <ReleasedBlocks
                 title="Answer explanation"
                 blocks={question.questionAnswerExplanation}
-                assetUrl={assetUrl}
+                questionRevision={question.questionRevision}
+                assetUrl={assetUrlForQuestion(question.questionRevision)}
               />
             </article>
           )}

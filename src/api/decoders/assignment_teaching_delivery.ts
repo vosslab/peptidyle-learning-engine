@@ -41,7 +41,6 @@ export function decodeStudentAssignmentLandingSummary(
 }
 
 const LATE_POLICIES = ["accept", "mark_late", "reject"] as const;
-const ASSIGNMENT_DEADLINE_RULES = ["auto_submit"] as const;
 const STUDENT_LATE_WORK_STATUSES = ["on_time", "accepted_late", "marked_late"] as const;
 const ASSIGNMENT_AUTHORED_CONTENT_FAILURE_FIELDS = [
   "assignmentAuthoredContent",
@@ -127,7 +126,6 @@ export function decodeInstructorAssignmentAuthoredContentLocal(
     "assignment_attempt_time_limit_seconds",
     "attempt_limit",
     "late_work_rule",
-    "assignment_deadline_rule",
   ]);
   return {
     instructions: decodeInstructions(field(record, "instructions", path), `${path}.instructions`),
@@ -151,11 +149,6 @@ export function decodeInstructorAssignmentAuthoredContentLocal(
       field(record, "late_work_rule", path),
       `${path}.late_work_rule`,
       LATE_POLICIES,
-    ),
-    assignment_deadline_rule: decodeStringEnum(
-      field(record, "assignment_deadline_rule", path),
-      `${path}.assignment_deadline_rule`,
-      ASSIGNMENT_DEADLINE_RULES,
     ),
   };
 }
@@ -216,7 +209,6 @@ export function decodeStudentAssignmentDetail(
     "assignment_attempt_time_limit_seconds",
     "attempt_limit",
     "late_work_rule",
-    "assignment_deadline_rule",
     "student_late_work_status",
   ]);
   const delivery: StudentAssignmentDelivery = {
@@ -247,11 +239,6 @@ export function decodeStudentAssignmentDetail(
       field(deliveryRecord, "late_work_rule", `${path}.delivery`),
       `${path}.delivery.late_work_rule`,
       LATE_POLICIES,
-    ),
-    assignment_deadline_rule: decodeStringEnum(
-      field(deliveryRecord, "assignment_deadline_rule", `${path}.delivery`),
-      `${path}.delivery.assignment_deadline_rule`,
-      ASSIGNMENT_DEADLINE_RULES,
     ),
     student_late_work_status: decodeStringEnum(
       field(deliveryRecord, "student_late_work_status", `${path}.delivery`),
@@ -297,7 +284,6 @@ export function decodeInstructorStudentView(
     "assignment_attempt_time_limit_seconds",
     "attempt_limit",
     "late_work_rule",
-    "assignment_deadline_rule",
   ]);
   const delivery: InstructorStudentViewDelivery = {
     available_at: decodeNullable(
@@ -327,11 +313,6 @@ export function decodeInstructorStudentView(
       field(deliveryRecord, "late_work_rule", `${path}.delivery`),
       `${path}.delivery.late_work_rule`,
       LATE_POLICIES,
-    ),
-    assignment_deadline_rule: decodeStringEnum(
-      field(deliveryRecord, "assignment_deadline_rule", `${path}.delivery`),
-      `${path}.delivery.assignment_deadline_rule`,
-      ASSIGNMENT_DEADLINE_RULES,
     ),
   };
   return {

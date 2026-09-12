@@ -72,24 +72,12 @@ const routeCases = [
     courseKey("C-1"),
   ],
   [
-    "assignmentWorkspaceGradingOperations",
-    "/instructor/courses/C-1/assignments/A-1/grading-operations",
-    { courseRef: "C-1", assignmentRef: "A-1" },
-    courseKey("C-1"),
-  ],
-  [
     "assignmentPreview",
     "/instructor/courses/C-1/assignments/A-1/delivery-check",
     { courseRef: "C-1", assignmentRef: "A-1" },
     courseKey("C-1"),
   ],
   ["gradebook", "/instructor/courses/C-1/gradebook", { courseRef: "C-1" }, courseKey("C-1")],
-  [
-    "studentWorkInspection",
-    "/instructor/courses/C-1/gradebook/students/M-1/assignments/A-1/assignment-attempts/R-1",
-    { courseRef: "C-1", membershipRef: "M-1", assignmentRef: "A-1", assignmentAttemptRef: "R-1" },
-    courseKey("C-1"),
-  ],
   [
     "courseGradeSettings",
     "/instructor/courses/C-1/grade-settings",
@@ -219,13 +207,6 @@ test("all declared parameter parsers reject malformed route data without changin
     ["C", (value) => `/courses/${value}`, "courseInstance"],
     ["A", (value) => `/courses/C-1/assignments/${value}`, "courseInstance"],
     ["R", (value) => `/assignment-attempts/${value}`, "assignmentAttempt"],
-    [
-      "M",
-      (value) =>
-        `/instructor/courses/C-1/gradebook/students/${value}` +
-        "/assignments/A-1/assignment-attempts/R-1",
-      "courseInstance",
-    ],
   ];
   for (const [prefix, pathnameFor, scope] of numericFamilies) {
     for (const suffix of [
@@ -256,21 +237,6 @@ test("all declared parameter parsers reject malformed route data without changin
     assert.deepEqual(routeScopeKey(`/blueprint-courses/${invalid}`), {
       kind: "invalid",
       scope: "product",
-    });
-  }
-});
-
-test("every nested reference is validated before a course scope key is issued", () => {
-  const base =
-    "/instructor/courses/C-1/gradebook/students/M-1/assignments/A-1/assignment-attempts/R-1";
-  for (const [from, to] of [
-    ["M-1", "M-0"],
-    ["A-1", "A-0"],
-    ["R-1", "R-0"],
-  ]) {
-    assert.deepEqual(routeScopeKey(base.replace(from, to)), {
-      kind: "invalid",
-      scope: "courseInstance",
     });
   }
 });

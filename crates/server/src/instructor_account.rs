@@ -162,6 +162,10 @@ fn store_error_response(error: StoreError) -> Response {
             StatusCode::PRECONDITION_FAILED,
             "Instructor Account changed",
         ),
+        StoreError::LifecycleConflict => route_error(
+            StatusCode::CONFLICT,
+            "Instructor Account lifecycle conflict",
+        ),
         StoreError::InvalidRecord(_) => route_error(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Instructor Account is invalid",

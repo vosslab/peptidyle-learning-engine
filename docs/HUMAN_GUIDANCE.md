@@ -26,6 +26,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Finish the obvious. Continue while the next safe step is defined by the plan, implied by the current task, or required to verify the work.
 - Robust means the software continues to function despite imperfect inputs, data, state, or behavior.
 - Apply the Keep It Simple, Stupid (KISS) philosophy aggressively.
+- Treat tests as liabilities as well as assets. Keep only requirements and gates grounded in actual needs.
+- Temporary investigations and review reports are working evidence, not a second durable documentation system.
+- While PLE is pre-production, the canonical modular base schema is editable source. After the first
+  human-approved production deployment, structural changes use forward migrations.
+- Fresh production installation defaults to the complete Live Demo, with an explicit opt-out. Once provisioned,
+  its records follow ordinary product lifecycle and deletion rules.
+- Use direct SQL for state wholly owned by PostgreSQL. Use the owning path where required effects cross into another system.
 - All podman images on the Mac-Studio-36G machine are from this project; you do not have to preserve the project-named
   live-stack data volumes. Since no podman image is needed, I pre-approve all image pruning when needed.
 - Plans should be finishable by the manager and subagents without additional human interaction.
@@ -117,8 +124,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Course Instance** data defaults to notice after 30 days, archive after 100 days, and permanent deletion after 365 days.
 - Course-owned assignment definitions should be kept when **Student** records are archived or deleted.
 - Course work, attempts, submissions, and grades follow the course retention policy independently of the lifetime of the Student Account.
-- Be conservative tracking revisions, like assignments, course instances, and draft question do not need revisions, their current state can be changed, but we do not need an undo option.
-- Published reusable content gets revisions. Mutable working state gets Edit Numbers when needed for concurrency. Student attempts, issued work, submissions, and grading create their own records and retain the exact evidence they depend on.
+- Be conservative tracking revisions. Assignments, Course Instances, and Draft Questions use current state;
+  only Published Questions and Blueprint Courses have immutable revisions.
+- Mutable working state gets Edit Numbers when needed for concurrency. Student Work retains the exact evidence needed
+  to interpret attempts, issued work, submissions, and grading after teaching configuration changes.
 - Assignment deadlines are stored as instants. Instructor dates and times use the Instructor's
   IANA time zone.
 - Students have their own IANA time zone for displaying dates and times.
@@ -136,7 +145,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - QTI is for import, export, and archival interchange rather than the internal source model.
 - WeBWorK and iMathAS are PLE-managed Question Backends. Use exact
   backend-specific terms when a concrete implementation or lifecycle matters.
-- **Published Questions** use one copyable Crockford Base32 Question ID in the form `AAA-BBBB`. where the final character is a checksum.
+- **Published Questions** use opaque copyable Crockford Base32 Question IDs in the form `AAA-BBBB`: six
+  cryptographically chosen identity characters plus one HMAC validation character. Creation order is never exposed.
 - **Published Questions** maintain version history, so updates can be propagated to other courses.
 - **Published Questions** should have a limit on the amount of change allowed, to avoid trolling or completely changing the content.
 - **Published Questions** have two editing paths: moderate edits by the question owner and full forks by any **Instructor**.
@@ -166,14 +176,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Watch = subscription. It drives the watching **Instructor's** in-app notifications for versions, forks, improvement threads, and impact notices; the watch list remains private unless you later choose otherwise.
 - **Students** and anonymous users see neither the **Instructor** identity list nor watch state.
 - Statistics are version-specific first: accepted graded attempt count, correct count, and eligible choice counts. Privacy-safe question-level rollups may combine versions only when clearly labeled and disclosure thresholds are met.
-- **Published Questions** support four change paths: moderate edits, change proposals, full forks, and forced corrections.
+- **Published Questions** support moderate edits, full forks, and forced corrections.
 - Moderate edits are made by the question owner and create a new immutable version in the same lineage.
-- A **Change Proposal** can be submitted by any **Instructor** against an exact version. The owner reviews the validated proposal, and acceptance creates a new version in the same lineage with contributor credit.
 - Full forks can be created by any **Instructor** as private **Draft Questions** and later published as separate lineages with source attribution.
 - Forced corrections are audited **Sysadmin** actions reserved for critical flaws.
-- **Change Proposals** must pass Question Publication Validation before submission and show their semantic and grading impact.
-- A **Change Proposal** must be rebased or resubmitted if the question lineage advances before acceptance.
-- Question authorship, contributor credit, history, and compatible CC licensing are preserved across edits, proposals, and forks.
+- Question change proposals are a future workflow that needs its own approved product design, not dormant persistence.
+- Question authorship, contributor credit, history, and compatible CC licensing are preserved across edits and forks.
 - Assignments and graded work remain pinned to exact immutable versions and are never changed automatically by later revisions.
 - Answer-choice randomization belongs to the Question.
 - PLE-native Questions can control their own answer-choice randomization.
@@ -193,7 +201,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   choices and FERPA-bearing activity.
 - **Blueprint Courses** and **Course Instances** can only contain **Published Questions**.
 - All **Course Instances** have a parent **Blueprint Course**.
-- The reuse path lets an **Instructor** deliberately publish a **Course Instance's** reusable structure as a new **Blueprint Course** or propose controlled updates to its parent.
+- The reuse path lets an **Instructor** deliberately publish a **Course Instance's** reusable structure as a new **Blueprint Course**.
 - A course can have multiple co-**Instructors** with equal teaching authority for that course.
 - **Sysadmins** can create courses, but **Instructors** teach them. Every course must have an assigned **Instructor** who owns the course.
 - Active Courses are current teaching Courses.

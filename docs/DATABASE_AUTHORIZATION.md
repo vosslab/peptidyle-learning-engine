@@ -1,269 +1,177 @@
 # Database authorization
 
-## Intended database model
+This document describes the PostgreSQL authority boundary implemented by the
+canonical base schema. [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) defines product
+authority, and [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) defines the
+meaning of product terms. This document explains how PostgreSQL enforces those
+decisions.
 
-PLE is one installation. Global accounts use `AccountId`; there is no institution selector, installation
-identity, leading scope key, or client-selected database context. This reference is the sole durable
-PostgreSQL authorization authority and the database authorization target for the fresh
-pre-production migration epoch. [SECURITY_MODEL.md](SECURITY_MODEL.md) provides the cross-cutting security model and points
-here for all durable PostgreSQL authorization detail. [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md)
-records the checked-in migration sequence; existing pre-epoch schema documents are migration input,
-not an alternate model.
+## Principle
 
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) supersedes this document for
-the meaning of PLE-owned terms. This document owns PostgreSQL authorization
-implementation only.
+PLE application accounts are not PostgreSQL roles. A request authenticates an
+Account, then its protected transaction installs that trusted account identity
+in `ple.session_account_id`. Database functions resolve the account's active
+state and exact current relationship before they read or change protected data.
+Browser input, URLs, queue payloads, object addresses, and worker payloads are
+untrusted scope claims, not authority.
 
-## PostgreSQL service identities
+The database is default-deny. Protected tables use forced row-level security
+(RLS); schemas, tables, sequences, and functions receive explicit grants; and
+the runtime has no owner, superuser, database-creation, role-creation, or
+`BYPASSRLS` capability. A missing session identity or current relationship
+denies the operation in the same transaction as the data access.
 
-PostgreSQL records database roles, role memberships, privileges, and object
-ownership in its system catalogs. These principals are database security
-configuration, not rows in PLE Account or application-data tables. Human access
-begins with a PLE Account; database roles never create a Student, Instructor, or
-Sysadmin Product Role.
+## Bootstrap, ownership, and migration
 
-Each Database Schema Owner Role is a non-login Service Identity for one physical
-schema and its protected objects. For example, `ple_private_owner` owns the
-`ple_private` schema. The migration login temporarily assumes the appropriate
-owner through `SET LOCAL ROLE` when PostgreSQL requires the object's owner to
-perform a schema change. Runtime access instead follows the explicitly granted
-application role, the authenticated Account context, and the applicable
-row-level-security policy. The principal-baseline migration and PostgreSQL
-catalog acceptance checks are the executable authority for the exact role and
-privilege set.
+The platform bootstrap is deliberately outside the application. One privileged
+bootstrap transaction creates every PLE PostgreSQL role: the non-login
+`ple_database_owner`; four non-login schema owners
+(`ple_data_owner`, `ple_private_owner`, `ple_audit_owner`, and
+`ple_api_owner`); the ordinary application capabilities; the typed worker
+capabilities; the no-login Unrelease executor; and the non-inheriting
+`ple_migrator` login.
 
-The server derives an Authenticated Session from a valid global Authenticated
-Session. Session issuance resolves Product Role from the Account, and the
-persisted session keeps that immutable, role-pinned Account fact. Account State
-is checked by database authority; deactivation or closure blocks new sessions
-and revokes existing ones. Each protected database transaction sets only the
-trusted, transaction-local `ple.session_account_id` value.
-Forced RLS accepts the resolved authenticated Account value for the operation.
-Routes, browser fields, queue payloads, Object Addresses, and Question Backend responses are evidence or input;
-they establish only their exact membership, workspace, course, or worker authority.
+The base validates that complete role graph, then creates its schemas, objects,
+and explicit grants. `ple_migrator` is `NOCREATEROLE` and has exactly six
+direct `SET`-only memberships: the database owner, the four schema owners,
+and `ple_unrelease_executor`. It has no membership in `ple_app`, `ple_auth`,
+or `ple_student`.
 
-## Authority relationships
+`ple_migrator` installs the base through the small `base_schema/install.sql`
+manifest and is the only principal that can write the schema-qualified SQLx
+ledger, `ple_migration._sqlx_migrations`. It has no database-wide `CREATE`
+privilege: its SQLx `CREATE` privilege is confined to `ple_migration` because
+SQLx checks its ledger on every forward-migration run. The migration schema and
+ledger are unavailable to `PUBLIC`.
 
-An Active Instructor Account has Product Role `instructor` and Account State `active`.
-Sysadmin vetting occurs before that Account is created; it does not create a second
-authorization predicate. An Active Instructor Account authorizes global Instructor capabilities:
-course creation, publication, Question Library discovery, Question Folders, Question Stars,
-Question Watches, Saved Question Searches, reuse, and improvement. Account deactivation closes
-each capability in the protected transaction.
+The application does not read the ledger directly. `ple_api.ple_schema_state`
+is a read-only, security-barrier projection of the current base release
+identity and forward SQLx ledger. It reports `pre-production` today. At the
+first human-approved production cutover, the SQL projection and Rust
+`BASE_RELEASE_IDENTITY` change together to one immutable production-baseline
+identifier recorded in [CHANGELOG.md](CHANGELOG.md). `ple_app` selects the
+projection for application verification, and `ple_migrator` selects it for the
+coordinator's post-install verification. The direct migrator read is limited to
+that projection; it does not give a runtime capability ledger-write or DDL
+authority. `ple_app` cannot alter the projection, ledger, or any schema object.
 
-The `sysadmin` Product Role does not satisfy the Instructor Account predicate. A Sysadmin
-creates an Instructor Account after Instructor Vetting; a person who needs both roles uses
-separate Accounts. Course creation then atomically creates the first ordinary
-Instructor membership; Sysadmin status does not add creator authority.
+Before the first human-approved production deployment, structural corrections
+belong in their owning base-schema module. That cutover freezes the base; later
+structural changes are immutable SQLx forward migrations. This lifecycle rule
+keeps authorization simple rather than adding another authorization mechanism.
 
-Create Instructor Account captures the current session Account once and accepts
-only an Active Sysadmin Account. In the same transaction it creates the
-server-generated Instructor Account, immutable Product Role, initial Account
-State, Authentication Email, and immutable qualified evidence naming that
-Sysadmin. The audit relation has forced RLS, no runtime table access, no update
-or delete path, and a narrow internal writer. Its evidence is not a credential
-or browser-data store and does not create a new application authority.
+## Runtime principals
 
-`current_course_instructor(account_id, course_id)` requires a current Instructor Course Membership
-for that exact course. The membership foreign key requires an Instructor Account. Course creation atomically creates
-the first ordinary Instructor membership. It does not create a creator, owner, or privileged
-course-authority row. Every current Teaching Team Member receives the same teaching mutation and FERPA-read
-decision for equivalent state; audit rows identify the authenticated account without changing authority.
+The base provides three ordinary no-login capabilities:
 
-Student work requires the exact course relationship and Student ownership of the durable child
-record. A private authoring input requires its current Authoring Workspace Owner or Workspace
-Collaborator relationship; a Draft Blueprint Revision requires its own Blueprint Collaborator
-relationship. A published question has exactly one Instructor-visible Question Library
-state: every active Instructor can discover and reuse its safe Question Library data while its visible
-lifecycle is Question Revision Availability `Available` or `Archived`. Selection eligibility is separate: only `Available`
-Question Revisions are eligible for ordinary new selection; Archived Question Revisions remain available
-for discovery and exact historical references but are excluded from ordinary new selection. Drafts
-remain private until successful validated publication.
+| Capability | Purpose |
+| --- | --- |
+| `ple_app` | Authenticated application operations and read-only schema verification. |
+| `ple_auth` | Session resolution and authentication operations. |
+| `ple_student` | Bounded student-facing operations where a separate capability is required. |
 
-`Sysadmin` is a platform role, not ambient FERPA authority. A Sysadmin reads or changes Student work
-only through a narrow, audited support capability or an ordinary current Instructor membership.
+Platform provisioning creates separate `LOGIN NOINHERIT` service identities.
+Each has only the direct `SET` memberships required by its process. In
+particular, `ple_api_login` can assume `ple_app` and `ple_auth`; the individual
+grading and publisher logins can assume only their matching worker capability.
+They are non-administrative and have neither object ownership nor unrelated
+memberships. A process connects as its login and explicitly assumes its one
+operation capability; it does not gain authority from a broad shared database
+role.
 
-| Durable target                                                  | Database authority                               | Boundary that remains private                            |
-| --------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
-| Account, session, passkey                                       | Exact global account/session                     | Credentials and authentication evidence                  |
-| Published Question                                              | Active Instructor Account                        | Answer keys, private grading, source, and credentials    |
-| Draft Question authoring                                        | Authoring Workspace Owner/Workspace Collaborator | Unshared source and author preview                       |
-| Draft Blueprint Revision contribution                           | Blueprint Course Owner/Blueprint Collaborator    | Other Blueprint Courses, revisions, and Course Instances |
-| Course, roster, assignment                                      | `current_course_instructor`                      | Other courses and former memberships                     |
-| Assignment Attempt, Question Attempt, response, grade, artifact | Student ownership or current course Instructor   | Other Students, courses, and inactive records            |
-| Job, object, Question Backend state                             | Locked typed lease and durable target            | Caller-supplied scope and foreign targets                |
+Worker capabilities receive only the registered claim, lease, read, and commit
+functions for their typed work. For example, the iMathAS grading capability
+executes its two claim/commit procedures but has no direct protected-table
+access. A worker locks a durable, typed lease before acting; the function checks
+that the job kind, target type, and exact target agree. This prevents a queue
+message or backend response from widening its scope.
 
-Question Revision Availability does not narrow Active Instructor Account discovery. The Question Library safely
-returns Question Revision Availability on every Published Question. Assignment creation
-and other ordinary new-selection operations require `Available`; exact historical
-resolution and retained assignment references may resolve `Archived` Question
-Revisions without making them newly selectable.
+## Application authority
 
-## Course relationships
+`ple_api` functions resolve the transaction-local Account and use current
+database facts for authorization:
 
-Current Course Membership episodes represent only Student and Instructor participation. Their
-Active or Ended state derives from immutable Course Membership Events. Course Invitation acceptance
-verifies the target's Instructor Product Role, exact Invitation state, and membership transition
-in one transaction. A deactivated Account or ended membership closes course-Instructor operations
-immediately in the protected transaction.
+- an active Instructor plus current Instructor membership authorizes teaching
+  operations for that exact course;
+- a Student owns only their current course record and derived Attempt data;
+- authoring operations require their current workspace relationship, and
+  Blueprint Draft operations require the current Blueprint owner relationship;
+  and
+- a Sysadmin is a product role, not ambient Student-record or teaching
+  authority. Support access remains a separately scoped, audited capability.
 
-Course Observer access uses the distinct Course Observer Relationship. It binds an Active
-Instructor Account to one exact Course Instance for its closed answer-free read scope and never
-satisfies Student-owner, Teaching Team, Gradebook, response, export, Assignment-write, or worker
-predicates. Student Observer and Grader relationships remain separate future product designs.
+Course membership, account state, availability, workspace, and Blueprint owner
+facts are checked when the protected operation runs. Revoking a relationship or
+deactivating an account therefore closes the relevant capability without relying
+on an earlier route-level decision. The API uses non-enumerating failures for
+targets that the session may not resolve.
 
-- A Grader receives only the bounded grading work in its completed relationship package.
-- A Course Observer receives a separately typed anonymous aggregate-grade result with disclosure
-  thresholds; it contains no subject, enrollment, row, small-cell, or linkable metadata.
-- A Student Observer receives a distinct one-Student result only with explicit revocable consent
-  and its own disclosure contract.
+Question and Blueprint revisions are immutable evidence. Their stable
+lineages hold availability, and an archived lineage is excluded from new
+selection while exact historical references continue to resolve. Assignment
+state is current and protected by its qualified Assignment Edit Number; Student
+Work retains the evidence needed to interpret an existing Attempt after a later
+Assignment change.
 
-Fabricated, expired, and revoked future grants fail all current FERPA predicates.
+## RLS and trusted function seams
 
-## Row-level security
+Every protected relation enables and forces RLS. Policies are role-specific and
+use the current Account, membership, ownership, workspace, or lease predicate
+that applies to the operation. Table owners do not bypass these policies merely
+because they own the table.
 
-Every protected table enables and forces PostgreSQL RLS. Policies use the transaction-local authenticated Account
-and operation-specific predicates for current Instructor membership, Student ownership, workspace
-relationship, or a leased capability. A policy must deny when required context or relationship is
-missing. The protected Store/PostgreSQL operation performs the predicate and data operation in the
-same transaction, preventing a route-level check from outliving revocation.
+Some operations need a small privileged seam: immutable-event triggers,
+cross-table invariants, session resolution, scoped API operations, and typed
+worker commits. Those functions use `SECURITY DEFINER` only for their declared
+capability, have a fixed trusted `search_path` beginning with `pg_catalog`, and
+are revoked from `PUBLIC`. The calling role receives execution only where the
+base grants that exact function. This keeps a necessary invariant close to the
+data without turning a schema owner into a runtime identity.
 
-The application uses least-privilege roles. Runtime logins are `NOINHERIT`, `NOSUPERUSER`, and do
-use no `BYPASSRLS`; table owners, superusers, and broad capability-role membership are not runtime account
-identities. The public schema is private by default, and grants are explicit per table, view, and
-function.
+## Student Work and Assignment Unrelease
 
-Security-definer authorization functions implement only a registered capability whose arguments, authenticated Account, durable
-target, and audit effect they verify. Function owners may have the limited privilege necessary for
-that one operation, while ordinary application roles receive no direct shortcut to private grading,
-retention, queue, object, or Question Backend data. `ple_app` performs only authenticated Session
-create, load, lease, and stage operations. `ple_worker_login` may `SET ROLE` only to
-`ple_imathas_question_backend_grading_worker`; that capability executes only the grading
-claim/commit `SECURITY DEFINER` procedures and has no direct protected-table access. Session lookup,
-migration tooling, API Store work, workers, grading, and registered capabilities use distinct database
-credentials or roles with only their needed grants.
+Student Work is immutable to ordinary runtime roles. Its root is an Assignment
+Attempt; dependent Issued Questions, Question Attempts, responses,
+presentations, submissions, grading evidence, backend exchanges, pool
+selections, observation receipts, and related records follow root-oriented
+foreign-key cascades. Shared Questions, assets, current Assignment structure,
+and course membership are outside that closure.
 
-Private invariant triggers that must run after more than one authorized writer use the protected object's
-Database Schema Owner Role as a security definer with a fixed trusted search path and no public or
-runtime-role execute grant. The Assignment Attempt completion trigger therefore applies the released
-Assignment Completion Rule and updates `completed_at` as `ple_private_owner` inside the Grading Result
-transaction; `ple_api_owner` and grading workers retain no direct privilege to update that column.
+`ple_unrelease_executor` is a dedicated no-login capability. It owns the
+single `SECURITY DEFINER` Unrelease operation and has the narrow grants needed
+to lock the Assignment, read redacted impact counts, update its lifecycle
+state, delete the Attempt root, rebuild affected Question Revision statistics,
+and append the audit event. It is not a service login and no API or worker
+capability inherits its authority.
 
-## Typed operations and objects
+Unrelease first locks the Assignment using the same ordering as Attempt start,
+save, submission, and grading. It then verifies current teaching authority,
+Released state, exact Assignment Edit Number, and exact title confirmation.
+The status transition, complete Student Work closure deletion, statistics
+rebuild, and redacted audit event commit together. The audit event contains the
+actor, Assignment, aggregate counts, outcome, and time; it excludes Student
+identities, responses, and grades. A rejected precondition leaves all of those
+facts unchanged.
 
-A worker first locks a current lease. The immutable job manifest and lease derive the job's typed
-course, workspace, Question Library, object, retention, or system target. Job Kind Registration,
-generation, Job claim-and-lease grant, and target type must agree before a handler reads, writes, dispatches, or
-finalizes anything. Queue payloads, retry input, Question Backend responses, and object references cannot
-widen that scope.
+## Deployment boundary
 
-Each object metadata and delivery record has one typed scope: Question Library presentation asset, private
-workspace asset, or course-record asset. Public Question Library presentation delivery is distinct from
-private source delivery. Course-record delivery rechecks its course/Student authority and retention
-fence; opaque object identifiers and signed URLs do not bypass it.
+The short-lived database-migrator image contains the PostgreSQL 17 client, the
+base manifest, optional installation-data manifest, and forward migrations. It
+is the only shipped image that carries `psql` or schema-installation material.
+API and worker runtime images contain neither `psql` nor DDL authority.
 
-iMathAS Question Backend Sessions and iMathAS Render Cache Entries bind to
-their exact course, Assignment Attempt, and Question Attempt relationships.
-Question Backend credentials and answer-bearing payloads remain server-only.
-The Course Retention schema foundation records a Plan Revision, typed Job,
-retention Event, Object Cleanup Manifest, and Object Cleanup Receipt. It has
-no current retention Store, procedure, route, worker, reader, frozen manifest
-membership, or lease-driven execution authority.
+Production provisioning occurs from a short-lived, audited administration
+environment in the private network. It bootstraps the platform identities,
+installs and verifies the base, provisions the narrowly scoped service logins,
+and then deploys application processes with their own TLS-verified credentials.
+The application pool verifies its login and capability contract at startup;
+successful infrastructure provisioning alone is not authorization evidence.
 
-## Radioactive records and retention
+## Verification scope
 
-`Radioactive` is the operational label for a relation that can contain or directly locate a
-Student's course record. It is not a human or PostgreSQL role. The following exact record categories
-receive the same account-and-relationship-scoped RLS, minimum-field, audit, retention, incident-response, and backup
-handling. Partition children, views, staging relations, query results, exports, diagnostics, and
-restores inherit the highest label of their inputs.
-
-| Record category                                       | Radioactive relations                                                                                                                                                                                                                                                                                      |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Roster and invitation                                 | `course_membership`, `course_membership_event`, `student_record`, `course_invitation`, `course_invitation_event`                                                                                                                                                                                           |
-| Student work and Gradebook evidence                   | `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, `assignment_grade_calculation`, `assignment_grade`, `assignment_grade_event`                                                                                                                  |
-| Assignment Analysis                                   | `assignment_analysis`, `assignment_question_analysis`, `assignment_analysis_receipt`                                                                                                                                                                                                                       |
-| Course and attempt linkage                            | `course_instance`, `course_object_reference`, `assignment`, `assignment_revision`, `assignment_attempt`, `issued_question`, `question_attempt`, `question_submission`, `assignment_submission`, and protected receipt records                                                                              |
-| iMathAS Question Backend, delivery, and audit linkage | `imathas_question_backend_result_exchange`, `imathas_question_backend_session`, iMathAS Question Backend Reference, `imathas_render_cache_entry`, `object_delivery`, exact Object Delivery owner relationships, Object Delivery Access Event (Account, allowed-or-denied decision, and access time), `job` |
-| Retention evidence                                    | `course_retention_plan_revision`, `course_retention_event`                                                                                                                                                                                                                                                 |
-
-Global account/session records are restricted account/security data, not FERPA data by themselves.
-Private source, Answer Keys, Question Feedback, Question Answer Explanations,
-and format-specific Question Grading Input are highly restricted for assessment integrity,
-not Student records unless joined to Student activity. The global published aggregate remains
-identity-free; its Student-linked contribution receipt is radioactive, and course-local analysis is
-radioactive because small cohorts can be identifiable.
-
-The intended Course Retention policy keeps shared published Question Library
-content and private drafts outside Course Student Record deletion. The present
-database baseline is only its schema foundation:
-`course_retention_plan_revision`, typed `job`,
-`course_retention_event`, `object_cleanup_manifest`, and
-`object_cleanup_receipt`. Those records neither determine a current Course
-Retention State nor authorize archive, purge, notice, manifest membership, or
-Object Cleanup execution.
-
-A future complete Course Retention boundary must add the exact Course
-Retention State, Course Retention Notice, Assignment Revision Retention Rule,
-frozen manifest-membership relation, authorization, Store, PostgreSQL
-procedures, route, worker, reader, renewed lease, and connected acceptance
-evidence together. Until then, no current Instructor or browser capability
-executes retention work. [RETENTION_POLICY.md](RETENTION_POLICY.md) is the
-authoritative current-foundation and future-boundary description.
-
-## Fresh migration epoch
-
-The fresh pre-production migration epoch creates the single-installation schema only on freshly cleaned disposable stack data. It does
-not preserve an installation-scope compatibility layer. The Migration Allocation Registry allocates the exact next available
-number in these ranges:
-
-| Range                                                                            | Allocated capability scope                                                                                                                                          |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `2026082901`                                                                     | Principal baseline, schemas, capability roles, and default ACLs                                                                                                     |
-| `2026082902`-`2026082904`, `2026082906`, `2026082933`-`2026082934`, `2026090401` | Accounts, credential foundations, Instructor vetting, authenticated-session resolution, Create Instructor Account, and its qualified immutable audit evidence       |
-| `2026082907`-`2026082909`                                                        | Global Published Question lineages, immutable Question Revisions, publication, discovery, and stewardship                                                           |
-| `2026082910`-`2026082912`                                                        | Private authoring, Blueprints, Question Folders, and Saved Question Searches                                                                                        |
-| `2026082913`-`2026082916`                                                        | Courses, equal Teaching Team Members, Students, invitations, curricula                                                                                              |
-| `2026082917`-`2026082920`                                                        | Assignment Attempts, schedules, Issued Questions, submissions, artifacts                                                                                            |
-| `2026082921`-`2026082924`                                                        | Automated grading, Gradebook, analysis, improvement threads                                                                                                         |
-| `2026082925`-`2026082926`, `2026082928`                                          | Typed Jobs and leases; Course Retention schema foundation; Object Delivery, storage checks, cleanup manifests, and cleanup receipts                                 |
-| `2026082929`-`2026082936`                                                        | Authorization Checks, forced RLS, grants, schema acceptance helpers, Create Instructor Account, Draft Blueprint Revision, and Question Revision Statistics evidence |
-| `2026082937`-`2026082940`                                                        | Assignment pool and released-entry snapshots, authenticated Assignment Attempt start, and Object Record/source-object authority in the fresh baseline               |
-| `2026082942`                                                                     | Session-authorized Bind Question Source operation                                                                                                                   |
-| `2026082943`                                                                     | Question credit and stewardship                                                                                                                                     |
-| `2026082944`                                                                     | Question Revision Source Binding publication completeness predicate                                                                                                 |
-| `2026082945`                                                                     | Question fork source                                                                                                                                                |
-| `2026090101`                                                                     | Latest Question Revision summary                                                                                                                                    |
-| `2026090102`                                                                     | iMathAS Question Backend Session                                                                                                                                    |
-
-Each migration owns its local relations, keys, constraints, indexes, functions, policies, grants,
-and comments. It uses global content keys and exact Account, Authoring Workspace,
-Course Instance, Course Membership, Student Record, lease, and immutable-content
-identities rather than a legacy scope key.
-
-## Validation lanes
-
-Permanent offline tests prove domain authorization, Store conformance, strict browser contracts,
-immutable evidence, grading, repeated-operation outcomes, revocation, and concealment. A data-driven operation
-matrix proves identical creator/Teaching Team Member allow and deny decisions in Memory and Store
-conformance.
-
-Recurring service acceptance proves the current connected service lanes:
-fresh migration convergence; RLS refusal without a resolved Account; Student
-self versus other-Student and other-course denial; Teaching Team Member
-mutation and Gradebook read; immediate membership revocation and
-approval-withdrawal denial; narrow audited Sysadmin support; observer
-non-escalation; typed-worker confused-deputy refusal; Object Delivery;
-iMathAS Question Backend; Object Cleanup foundations; and migration
-repeatability/checksum status. A future Course Retention service requires its
-own complete connected acceptance evidence; the schema foundation is not that
-service.
-
-Production-browser acceptance proves Question Library discovery/reuse, equal Teaching Team Member behavior,
-immediate revocation, Student submission-to-Gradebook convergence, answer-free Question Library responses,
-accessible interaction, and role-appropriate screenshots on the production browser against the real stack.
-
-Graphify maps, retired-identifier inventories, old-to-new schema allocation, clean-volume schema
-fingerprints, and Migration Check evidence are one-time evidence. They are not permanent test
-cases. The final material tree runs `source source_me.sh && ./launchers/all_test.sh` only after focused and
-connected required gates are green; skipped required lanes keep the package incomplete.
+Permanent checks cover the durable security properties: default-deny grants,
+forced RLS, owner and runtime-role separation, fixed-path privileged functions,
+worker capability membership, restricted schema-state access, non-enumeration,
+and the Unrelease closure. Fresh-installation, failed-install rollback, and
+connected service exercises remain integration evidence rather than a catalog
+inventory frozen into this document.

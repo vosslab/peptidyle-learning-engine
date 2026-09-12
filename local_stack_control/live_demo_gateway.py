@@ -1,4 +1,4 @@
-"""Policy-owned HTTPS gateway details for the disposable live-demo browser lane."""
+"""Loopback gateway and product-request details for Live Demo."""
 
 # Standard Library
 import json
@@ -21,10 +21,18 @@ SEEDED_DEMO_PERSONAS = (
 
 #============================================
 def live_demo_origin(url: str) -> str:
-	"""Return the fixed HTTPS origin accepted by first-party demo requests."""
-	if not url.startswith("https://localhost:") or not url.endswith("/"):
+	"""Return one fixed loopback origin accepted by first-party demo requests."""
+	parsed = urllib.parse.urlsplit(url)
+	if (
+		parsed.scheme not in ("http", "https")
+		or parsed.hostname not in ("127.0.0.1", "localhost")
+		or parsed.port is None
+		or parsed.path != "/"
+		or parsed.query
+		or parsed.fragment
+	):
 		raise local_stack_control.models.ControllerError(
-			"live-demo request requires the fixed HTTPS origin"
+			"live-demo request requires a fixed loopback origin"
 		)
 	origin = url.removesuffix("/")
 	return origin

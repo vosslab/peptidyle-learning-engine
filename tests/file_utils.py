@@ -749,11 +749,14 @@ def discover_files(
 		# Step 7: Layer 2 -- repo-local hygiene excludes from conftest.
 		if any(fnmatch.fnmatchcase(rel, pattern) for pattern in hygiene_patterns):
 			continue
-		# Step 8: Layer 3 -- per-test selection filter on the relative path.
-		if extra_filter is not None and not extra_filter(rel):
-			continue
-		# Step 9: keep only real files.
+		# Step 8: keep only real files before a caller's content-aware selector.
+		# A tracked deletion remains in ``git ls-files`` until it is staged, but
+		# hygiene scans operate on the working tree.  Do not invoke selectors that
+		# open those absent paths.
 		if not os.path.isfile(abs_path):
+			continue
+		# Step 9: Layer 3 -- per-test selection filter on the relative path.
+		if extra_filter is not None and not extra_filter(rel):
 			continue
 		matches.append(abs_path)
 

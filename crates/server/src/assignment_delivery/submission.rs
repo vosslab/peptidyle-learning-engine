@@ -54,13 +54,13 @@ pub(super) async fn save_selected_response(
     };
     let source = match state
         .delivery
-        .student_assignment_attempt_presentation_source(token, assignment_attempt, position)
+        .student_assignment_attempt_presentation_evidence(token, assignment_attempt, position)
         .await
     {
         Ok(value) => value,
         Err(value) => return submission_store_error(value),
     };
-    let issued = match reproduce_selected_issued_presentation(&state, source).await {
+    let issued = match reproduce_selected_issued_presentation(source) {
         Ok(value) => value,
         Err(StartError::Unavailable) => {
             return error(

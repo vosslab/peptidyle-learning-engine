@@ -61,7 +61,7 @@ impl WebworkSubmissionStore for PostgresWebworkSubmissionStore {
         let assignment = i64::try_from(assignment)
             .map_err(|_| StoreError::InvalidRecord("Assignment reference is invalid".into()))?;
         let mut transaction = self.begin(token).await?;
-        let row = sqlx::query("SELECT question_attempt_id, question_id, revision_number, source_object_id::text, source_object_checksum, webwork_pg_path, question_seed::text AS question_seed, presentation_nonce, presentation_checksum, replay_details FROM ple_api.resolve_live_demo_webwork_submission($1, $2, $3)")
+        let row = sqlx::query("SELECT question_attempt_id, question_id, revision_number, source_object_id::text, source_object_checksum, webwork_pg_path, question_seed::text AS question_seed, presentation_nonce, presentation_checksum, replay_details FROM ple_api.resolve_webwork_submission($1, $2, $3)")
             .bind(course).bind(assignment).bind(nonce).fetch_optional(&mut *transaction).await.map_err(map_sqlx_error)?.ok_or(StoreError::Forbidden)?;
         let question_id = row
             .try_get::<String, _>("question_id")
@@ -115,7 +115,7 @@ impl WebworkSubmissionStore for PostgresWebworkSubmissionStore {
             )
         })?;
         let mut transaction = self.begin(token).await?;
-        sqlx::query("SELECT ple_api.accept_live_demo_webwork_submission($1, $2, $3, $4, $5)")
+        sqlx::query("SELECT ple_api.accept_webwork_submission($1, $2, $3, $4, $5)")
             .bind(submission.question_attempt.as_uuid())
             .bind(submission.student_response)
             .bind(submission_id)

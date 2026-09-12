@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use question_model::{
     AssignmentAttemptReference, AssignmentReference, CourseInstanceReference, CourseTheme,
-    GradingResult, QuestionAssetId, QuestionAttemptId, QuestionId,
+    GradingResult, QuestionAssetId, QuestionAttemptId, QuestionId, QuestionRevisionReference,
     StudentAssignmentAttemptProgress, StudentFeedback, StudentFeedbackReleaseRule, StudentResponse,
     Timestamp,
 };
@@ -118,6 +118,12 @@ pub struct StudentAssignmentAttemptHistoryAssignment {
 #[serde(rename_all = "camelCase")]
 pub struct StudentAssignmentAttemptHistoryQuestion {
     pub position: u32,
+    /// Exact immutable Question Revision retained by the Issued Question.
+    ///
+    /// This history projection never resolves a current Question or Assignment
+    /// entry: its revision identity is part of the durable Student Work
+    /// evidence that makes old presentations and their assets interpretable.
+    pub question_revision: QuestionRevisionReference,
     pub response_state: LiveAssignmentPreviousAttemptState,
     /// Readable submitted response, released independently from all grading
     /// and feedback fields. Omitted when withheld or exact reproduction fails.
@@ -159,8 +165,13 @@ pub struct StudentAssignmentAttemptHistoryResponseSource {
     pub position: u32,
     /// Canonical durable response identifiers, retained below the HTTP seam.
     pub response: Option<StudentResponse>,
-    /// Exact pinned source required to reproduce the issued presentation.
-    pub presentation_source: StudentAssignmentAttemptPresentationSource,
+    /// Complete immutable answer-free descriptor and its binding.  Submitted
+    /// responses are interpreted from this retained evidence, independently of
+    /// the source object or renderer remaining available.
+    pub presentation_evidence: StudentAssignmentAttemptPresentationEvidence,
+    /// Exact native PLE source retained only for released teaching-content
+    /// projection. Student response interpretation uses `presentation_evidence`.
+    pub presentation_source: Option<StudentAssignmentAttemptPresentationSource>,
 }
 
 /// One answer-free fixed Question presentation issued to the Student.
@@ -176,7 +187,7 @@ pub struct IssuedQuestionPresentation {
     pub question_id: QuestionId,
     /// Answer-free Question description for this first delivery slice.
     pub description: String,
-    /// Stable zero-based position in this Assignment Attempt.
+    /// Stable one-based Student-facing position in this Assignment Attempt.
     pub position: u32,
     /// Private reproduction facts consumed by the server before serialization.
     #[serde(skip_serializing)]
@@ -199,8 +210,6 @@ pub struct LiveAssignmentAttempt {
     pub assignment: AssignmentReference,
     /// One-based Student-specific Attempt sequence.
     pub attempt_number: u32,
-    /// Whether the existing unfinished Attempt was returned.
-    pub resumed: bool,
     /// Released Student-facing Assignment title.
     pub title: String,
     /// Released Student-facing Assignment instructions.
@@ -215,6 +224,10 @@ pub struct LiveAssignmentAttempt {
 /// resulting answer-free Question Presentation, never its source locator.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NativePleIssuanceSource {
+    /// Canonical Issued Question identity selected by PostgreSQL for this
+    /// presentation commit. It is absent only when decoding an already
+    /// committed presentation source, which never creates a new commit.
+    pub issued_question_id: Option<uuid::Uuid>,
     pub assignment_entry_id: String,
     pub position: u32,
     pub question_id: QuestionId,
@@ -222,12 +235,13 @@ pub struct NativePleIssuanceSource {
     pub source_object_id: String,
     pub source_object_address: serde_json::Value,
     pub source_object_checksum: String,
-    /// True only when the durable attempt is available for exact reproduction.
-    pub resumed: bool,
     /// Persisted only for an existing Question Attempt; never browser data here.
     pub question_seed: Option<u64>,
     pub presentation_nonce: Option<String>,
     pub presentation_checksum: Option<String>,
+    /// Complete immutable descriptor when this position was already committed.
+    /// New issuance leaves this absent until its one commit succeeds.
+    pub retained_presentation: Option<StudentAssignmentAttemptPresentationEvidence>,
     /// Ready, exact-revision public asset renditions. These contain no object
     /// locator or source bytes and are bound into the Question Presentation.
     pub question_asset_renditions: Vec<ReadyQuestionAssetRendition>,
@@ -244,24 +258,6 @@ pub struct ReadyQuestionAssetRendition {
     pub intrinsic_height: u32,
 }
 
-/// Private server-prepared evidence for one atomic native PLE issue commit.
-#[derive(Debug, Clone)]
-pub struct NativePlePresentationInput {
-    pub issued_question_id: String,
-    pub assignment_entry_id: String,
-    pub position: u32,
-    pub question_id: QuestionId,
-    pub revision_number: u32,
-    pub question_seed: u64,
-    pub parameter_hash: String,
-    pub reproduction_details: serde_json::Value,
-    pub presentation_nonce: String,
-    pub presentation_checksum: String,
-    /// Exact ready public asset renditions incorporated into this immutable
-    /// Question Presentation. This remains server-only commit evidence.
-    pub question_asset_renditions: Vec<ReadyQuestionAssetRendition>,
-}
-
 /// Server-only immutable-source facts for native WeBWorK issuance.
 ///
 /// The registered PG path and source pins are never serialized.  They cross
@@ -269,6 +265,10 @@ pub struct NativePlePresentationInput {
 /// to the private renderer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NativeWebworkIssuanceSource {
+    /// Canonical Issued Question identity selected by PostgreSQL for this
+    /// presentation commit. It is absent only when decoding an already
+    /// committed presentation source, which never creates a new commit.
+    pub issued_question_id: Option<uuid::Uuid>,
     pub assignment_entry_id: String,
     pub position: u32,
     pub question_id: QuestionId,
@@ -276,12 +276,19 @@ pub struct NativeWebworkIssuanceSource {
     pub source_object_id: String,
     pub source_object_checksum: String,
     pub webwork_pg_path: String,
-    pub resumed: bool,
+    /// OS-CSPRNG seed retained by canonical Assignment Attempt start.
+    pub question_seed: u64,
+    /// Complete immutable descriptor when this position was already committed.
+    /// New issuance leaves this absent until its one commit succeeds.
+    pub retained_presentation: Option<StudentAssignmentAttemptPresentationEvidence>,
+    /// Exact retained asset renditions. Resume uses these bindings rather than
+    /// consulting mutable current publication state.
+    pub question_asset_renditions: Vec<ReadyQuestionAssetRendition>,
 }
 
 /// Private, write-once evidence for one WeBWorK Question Attempt.
 #[derive(Debug, Clone)]
-pub struct NativeWebworkPresentationInput {
+pub struct NativePresentationInput {
     pub issued_question_id: String,
     pub assignment_entry_id: String,
     pub position: u32,
@@ -290,13 +297,58 @@ pub struct NativeWebworkPresentationInput {
     pub question_seed: u64,
     pub parameter_hash: String,
     pub reproduction_details: serde_json::Value,
+    /// Complete answer-free rendered descriptor retained with the Attempt.
+    pub presentation: serde_json::Value,
     pub presentation_nonce: String,
     pub presentation_checksum: String,
+    /// Exact durable response-item mappings extracted before answer-free
+    /// presentation persistence. Scalar formats carry an empty vector.
+    pub response_item_bindings: Vec<question_model::presentation::DurableResponseItemBinding>,
     /// Exact ready PLE renditions for a mixed native Assignment. WeBWorK-only
     /// entries carry an empty list; this never crosses the browser boundary.
     pub question_asset_renditions: Vec<ReadyQuestionAssetRendition>,
     /// Provider form/value mapping; this is never browser data.
     pub replay_details: Option<serde_json::Value>,
+}
+
+/// One complete native issuance operation. The Attempt identity and start
+/// decision belong to this batch, rather than being repeated on every source.
+#[derive(Debug, Clone)]
+pub struct NativeAssignmentIssuanceBatch {
+    pub assignment_attempt_id: uuid::Uuid,
+    /// The result of the one canonical Attempt-start operation.
+    pub attempt_was_resumed: bool,
+    /// All native positions already have a complete immutable presentation.
+    pub presentation_is_committed: bool,
+    pub committed_attempt: Option<LiveAssignmentAttempt>,
+    pub retained_presentations: Vec<StudentAssignmentAttemptPresentationEvidence>,
+    pub ple_sources: Vec<NativePleIssuanceSource>,
+    pub webwork_sources: Vec<NativeWebworkIssuanceSource>,
+}
+
+/// Private, immutable answer-free evidence for one issued Question Attempt.
+///
+/// PostgreSQL returns this only after proving Student ownership.  It contains
+/// no current Assignment or Question configuration and is the authoritative
+/// input for selected-presentation and saved-response interpretation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StudentAssignmentAttemptPresentationEvidence {
+    pub question_revision: QuestionRevisionReference,
+    pub question_seed: u64,
+    pub presentation_nonce: String,
+    pub presentation_checksum: String,
+    pub presentation: serde_json::Value,
+    /// Exact normalized durable identities for each public response item.
+    pub response_item_bindings: Vec<question_model::presentation::DurableResponseItemBinding>,
+    pub question_asset_renditions: Vec<ReadyQuestionAssetRendition>,
+}
+
+impl NativeAssignmentIssuanceBatch {
+    /// New source pins require one commit; a complete retained bundle is only
+    /// reproduced and is never written again.
+    pub fn requires_presentation_commit(&self) -> bool {
+        !self.presentation_is_committed
+    }
 }
 
 /// Private immutable facts needed to reproduce one selected issued Question.
@@ -314,6 +366,33 @@ pub enum StudentAssignmentAttemptPresentationSource {
         presentation_nonce: String,
         presentation_checksum: String,
     },
+}
+
+#[cfg(test)]
+mod presentation_source_tests {
+    use super::*;
+
+    #[test]
+    fn batch_keeps_one_started_attempt_identity_and_separates_commit_state() {
+        let assignment_attempt_id = uuid::Uuid::nil();
+        let new = NativeAssignmentIssuanceBatch {
+            assignment_attempt_id,
+            attempt_was_resumed: false,
+            presentation_is_committed: false,
+            committed_attempt: None,
+            retained_presentations: Vec::new(),
+            ple_sources: Vec::new(),
+            webwork_sources: Vec::new(),
+        };
+        assert_eq!(new.assignment_attempt_id, assignment_attempt_id);
+        assert!(new.requires_presentation_commit());
+
+        let committed = NativeAssignmentIssuanceBatch {
+            presentation_is_committed: true,
+            ..new
+        };
+        assert!(!committed.requires_presentation_commit());
+    }
 }
 
 /// Confirmation that one owned working response was saved at its fixed position.
@@ -396,46 +475,29 @@ pub trait LiveAssignmentDeliveryStore: Send + Sync {
         assignment_attempt: AssignmentAttemptReference,
     ) -> Result<StudentAssignmentAttemptProgress, StoreError>;
 
-    /// Resolves exactly one already-issued position inside the authenticated Student boundary.
-    async fn student_assignment_attempt_presentation_source(
+    /// Reads exactly one immutable issued-presentation bundle inside the authenticated Student boundary.
+    async fn student_assignment_attempt_presentation_evidence(
         &self,
         session_token_hash: SessionTokenHash,
         assignment_attempt: AssignmentAttemptReference,
         position: u32,
-    ) -> Result<StudentAssignmentAttemptPresentationSource, StoreError>;
-    /// Resolves only the Student-authorized fixed WeBWorK source pins for the
-    /// private renderer boundary.
-    async fn prepare_native_webwork_issuance(
+    ) -> Result<StudentAssignmentAttemptPresentationEvidence, StoreError>;
+    /// Starts exactly one current Attempt and resolves every native source pin
+    /// for its one presentation transaction.
+    async fn prepare_native_assignment_issuance(
         &self,
         session_token_hash: SessionTokenHash,
         course: CourseInstanceReference,
         assignment: AssignmentReference,
-    ) -> Result<Vec<NativeWebworkIssuanceSource>, StoreError>;
+    ) -> Result<NativeAssignmentIssuanceBatch, StoreError>;
 
-    /// Commits immutable WeBWorK presentation and replay evidence, or returns
-    /// the prior durable issue set without rewriting it.
-    async fn commit_native_webwork_issuance(
+    /// Commits all native presentation evidence in one atomic operation, or
+    /// returns its already-complete immutable issue set.
+    async fn commit_native_assignment_issuance(
         &self,
         session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assignment: AssignmentReference,
-        presentations: Vec<NativeWebworkPresentationInput>,
-    ) -> Result<LiveAssignmentAttempt, StoreError>;
-    /// Resolves only the Student-authorized fixed PLE source pins for server issuance.
-    async fn prepare_native_ple_issuance(
-        &self,
-        session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assignment: AssignmentReference,
-    ) -> Result<Vec<NativePleIssuanceSource>, StoreError>;
-
-    /// Commits all private native issue evidence, or returns its prior durable issue set.
-    async fn commit_native_ple_issuance(
-        &self,
-        session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assignment: AssignmentReference,
-        presentations: Vec<NativePlePresentationInput>,
+        assignment_attempt_id: uuid::Uuid,
+        presentations: Vec<NativePresentationInput>,
     ) -> Result<LiveAssignmentAttempt, StoreError>;
     /// Calculates current Assignment Access for the authenticated Student only.
     async fn live_assignment_access(
@@ -460,12 +522,4 @@ pub trait LiveAssignmentDeliveryStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         assignment_attempt: AssignmentAttemptReference,
     ) -> Result<Vec<StudentAssignmentAttemptHistoryResponseSource>, StoreError>;
-
-    /// Atomically starts or resumes the exact released Assignment Revision.
-    async fn start_live_assignment(
-        &self,
-        session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assignment: AssignmentReference,
-    ) -> Result<LiveAssignmentAttempt, StoreError>;
 }

@@ -1,8 +1,9 @@
 // assignment_workspace_create_page.tsx - title-only Assignment creation for the workspace.
 
 import { A, useNavigate, useParams } from "@solidjs/router";
-import { Show, createSignal, type JSX } from "solid-js";
+import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 
+import type { CourseAssignmentSourceChoice } from "../../api/assignment_release";
 import { useApplicationApi } from "../../api/application_api";
 import { useSessionBootstrap } from "../../auth/session_context";
 import { courseRouteView } from "../../features/course_appearance/course_theme_context";
@@ -16,6 +17,7 @@ import { useRouteScopeData } from "../../ribbon/route_scope_context";
 import {
   assignmentWorkspaceCreateErrorMessage,
   createdAssignmentQuestionsPath,
+  selectedAssignmentSource,
 } from "./assignment_workspace_create_model";
 
 type CreateState = "ready" | "saving" | "unavailable";
@@ -28,6 +30,11 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
   const params = useParams();
   const navigate = useNavigate();
   const [title, setTitle] = createSignal("");
+  const [sourceChoices, setSourceChoices] = createSignal<
+    ReadonlyArray<CourseAssignmentSourceChoice>
+  >([]);
+  const [sourceReference, setSourceReference] = createSignal("");
+  const [sourcesLoaded, setSourcesLoaded] = createSignal(false);
   const [message, setMessage] = createSignal("");
   const [state, setState] = createSignal<CreateState>("ready");
   let titleInput: HTMLInputElement | undefined;
@@ -48,6 +55,20 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
     );
   };
 
+  onMount(() => void loadSourceChoices());
+
+  async function loadSourceChoices(): Promise<void> {
+    const reference = courseReference();
+    if (reference === null || !mayCreate()) return;
+    try {
+      setSourceChoices(await applicationApi.client.listCourseAssignmentSourceChoices(reference));
+    } catch {
+      setMessage("Assignment sources could not load. Try again before creating an Assignment.");
+    } finally {
+      setSourcesLoaded(true);
+    }
+  }
+
   async function createAssignment(): Promise<void> {
     const currentCourse = course();
     const reference = courseReference();
@@ -59,10 +80,16 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
       setMessage("Enter an Assignment Title to create the Assignment.");
       return;
     }
+    const source = selectedAssignmentSource(sourceChoices(), sourceReference());
+    if (source === undefined) {
+      setMessage("Choose a Blueprint Assignment from this Course's exact Blueprint Revision.");
+      return;
+    }
     setState("saving");
     setMessage("");
     try {
       const created = await applicationApi.client.createLiveAssignment(reference, {
+        blueprintAssignmentReference: source.source.blueprint_assignment_reference,
         title: title(),
         instructions: "",
       });
@@ -125,11 +152,43 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
               }}
             />
           </label>
+          <label class="assignment-editor-field" for="assignment-blueprint-source">
+            Blueprint Assignment source
+            <select
+              id="assignment-blueprint-source"
+              value={sourceReference()}
+              disabled={state() === "saving" || !sourcesLoaded()}
+              onInput={(event) => {
+                setSourceReference(event.currentTarget.value);
+                setMessage("");
+              }}
+            >
+              <option value="">Choose an Assignment from this Course's Blueprint Revision</option>
+              <For each={sourceChoices()}>
+                {(choice) => (
+                  <option value={choice.source.blueprint_assignment_reference}>
+                    {choice.label}
+                  </option>
+                )}
+              </For>
+            </select>
+          </label>
+          <Show when={sourcesLoaded() && sourceChoices().length === 0}>
+            <p class="assignment-editor-note">
+              This Course's Blueprint Revision has no Assignment to use. Publish a Blueprint with an
+              Assignment, then create the Course again.
+            </p>
+          </Show>
           <p class="assignment-editor-note">
-            The draft is saved now. Add at least one question in the next step before publishing.
+            The source is retained as exact Blueprint provenance. Questions and policies become the
+            current Assignment state after creation.
           </p>
           <div class="assignment-editor-actions">
-            <button class="primary-action" type="submit" disabled={state() === "saving"}>
+            <button
+              class="primary-action"
+              type="submit"
+              disabled={state() === "saving" || !sourcesLoaded() || sourceChoices().length === 0}
+            >
               {state() === "saving" ? "Creating Assignment..." : "Create Assignment"}
             </button>
             <A class="quiet-link" href={`/courses/${courseReference()!}`}>

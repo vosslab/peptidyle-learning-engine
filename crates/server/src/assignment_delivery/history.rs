@@ -22,17 +22,12 @@ use learning_data_access::{
     LiveAssignmentAttemptScore, LiveAssignmentDeliveryStore, StudentAssignmentAttemptHistory,
     StudentAssignmentAttemptHistoryEvidence,
 };
-use question_model::generation::QuestionSeed;
-use question_model::presentation::reproduce_question_presentation;
-use question_model::{
-    AssignmentAttemptReference, QuestionFeedback, QuestionPresentationBinding,
-    QuestionPresentationChecksum, StudentFeedback,
-};
-use question_model::{AssignmentDeadlineRule, AssignmentScoringState, LateWorkRule, Timestamp};
+use question_model::{AssignmentAttemptReference, QuestionFeedback, StudentFeedback};
+use question_model::{AssignmentScoringState, LateWorkRule, Timestamp};
 
 use super::{
-    StateData, concealed, question_asset_renditions, reproduce_selected_issued_presentation,
-    resolve_source, store_error, student,
+    StateData, concealed, reproduce_selected_issued_presentation, resolve_source, store_error,
+    student,
 };
 
 pub(super) async fn student_history(
@@ -56,8 +51,7 @@ pub(super) async fn student_history(
         Ok(value) => {
             let decision = history_decision(&value);
             let mut history = project_history(&value);
-            if decision.submitted_response || decision.question_feedback || decision.question_answer
-            {
+            if needs_released_content(decision) {
                 project_released_content(
                     &state,
                     token,
@@ -72,6 +66,15 @@ pub(super) async fn student_history(
         }
         Err(value) => store_error(value),
     }
+}
+
+fn needs_released_content(
+    decision: domain::student_feedback_release::StudentFeedbackReleaseDecision,
+) -> bool {
+    decision.submitted_response
+        || decision.question_feedback
+        || decision.question_answer
+        || decision.question_answer_explanation
 }
 
 fn project_history(
@@ -149,6 +152,7 @@ async fn project_released_content(
         let learning_data_access::StudentAssignmentAttemptHistoryResponseSource {
             position,
             response,
+            presentation_evidence,
             presentation_source,
         } = source;
         let Some(question_index) = history
@@ -164,11 +168,20 @@ async fn project_released_content(
             .cloned()
             .flatten();
         let question = &mut history.questions[question_index];
+        if decision.submitted_response
+            && let Ok(presentation) =
+                reproduce_selected_issued_presentation(presentation_evidence.clone())
+        {
+            project_response(question, response.clone(), &presentation);
+        }
         match presentation_source {
-            learning_data_access::StudentAssignmentAttemptPresentationSource::Ple {
+            Some(learning_data_access::StudentAssignmentAttemptPresentationSource::Ple {
                 source: ple_source,
                 ..
-            } => {
+            }) if decision.question_feedback
+                || decision.question_answer
+                || decision.question_answer_explanation =>
+            {
                 let Ok(resolved) = resolve_source(&state.objects, &ple_source).await else {
                     continue;
                 };
@@ -186,28 +199,8 @@ async fn project_released_content(
                     continue;
                 };
                 project_teaching_feedback(question, decision, recorded_result, teaching);
-                if decision.submitted_response {
-                    let Ok(presentation) =
-                        reproduce_ple_issued_presentation(&ple_source, &resolved)
-                    else {
-                        continue;
-                    };
-                    project_response(question, response, &presentation);
-                }
             }
-            source => {
-                if !decision.submitted_response {
-                    continue;
-                }
-                let Some(response) = response else {
-                    continue;
-                };
-                let Ok(presentation) = reproduce_selected_issued_presentation(state, source).await
-                else {
-                    continue;
-                };
-                project_response(question, Some(response), &presentation);
-            }
+            _ => {}
         }
     }
 }
@@ -257,38 +250,6 @@ fn project_response(
     question.response = Some(response);
 }
 
-pub(super) fn reproduce_ple_issued_presentation(
-    source: &learning_data_access::NativePleIssuanceSource,
-    resolved: &adapter_ple::ResolvedPleQuestionJsonSource,
-) -> Result<question_model::presentation::IssuedQuestionPresentation, super::StartError> {
-    let issued = adapter_ple::PleQuestionBackend::new()
-        .issue_question_json(
-            resolved,
-            QuestionSeed::new(source.question_seed.ok_or(super::StartError::Invalid)?),
-        )
-        .map_err(|_| super::StartError::Invalid)?;
-    let nonce = question_model::QuestionPresentationNonce::parse(
-        source
-            .presentation_nonce
-            .as_deref()
-            .ok_or(super::StartError::Invalid)?,
-    )
-    .map_err(|_| super::StartError::Invalid)?;
-    let checksum = QuestionPresentationChecksum::parse_hex(
-        source
-            .presentation_checksum
-            .as_deref()
-            .ok_or(super::StartError::Invalid)?,
-    )
-    .map_err(|_| super::StartError::Invalid)?;
-    reproduce_question_presentation(
-        &issued.presentation,
-        &question_asset_renditions(source),
-        QuestionPresentationBinding::new(nonce, checksum),
-    )
-    .map_err(|_| super::StartError::Invalid)
-}
-
 fn history_policy(
     due_at: Option<Timestamp>,
     closes_at: Option<Timestamp>,
@@ -300,7 +261,6 @@ fn history_policy(
         assignment_attempt_time_limit_seconds: base(None::<NonZeroU32>),
         attempt_limit: base(None::<NonZeroU32>),
         late_work_rule: base(LateWorkRule::Accept),
-        assignment_deadline_rule: base(AssignmentDeadlineRule::AutoSubmit),
     }
 }
 
@@ -319,7 +279,8 @@ mod tests {
         StudentAssignmentAttemptHistoryCourse, StudentAssignmentAttemptHistoryQuestion,
     };
     use question_model::{
-        AssignmentReference, CourseInstanceReference, CourseTheme, GradingResult, StudentFeedback,
+        AssignmentReference, CourseInstanceReference, CourseTheme, GradingResult, QuestionId,
+        QuestionRevisionNumber, QuestionRevisionReference, StudentFeedback,
         StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
     };
 
@@ -342,6 +303,12 @@ mod tests {
                 score: None,
                 questions: vec![StudentAssignmentAttemptHistoryQuestion {
                     position: 1,
+                    question_revision: QuestionRevisionReference {
+                        question_id: QuestionId::from_canonical_parts("ABCDEF", '1')
+                            .expect("Question ID"),
+                        revision_number: QuestionRevisionNumber::new(3)
+                            .expect("Question Revision Number"),
+                    },
                     response_state: LiveAssignmentPreviousAttemptState::Submitted,
                     response: None,
                     feedback: StudentFeedback::empty(),
@@ -387,5 +354,31 @@ mod tests {
 
         assert!(history_decision(&evidence).submitted_response);
         assert!(project_history(&evidence).score.is_none());
+    }
+
+    #[test]
+    fn answer_explanation_release_reads_retained_exact_source() {
+        let mut evidence = evidence();
+        evidence.feedback_rule.question_answer_explanation =
+            StudentFeedbackReleaseTiming::AfterSubmit;
+
+        let decision = history_decision(&evidence);
+
+        assert!(decision.question_answer_explanation);
+        assert!(needs_released_content(decision));
+    }
+
+    #[test]
+    fn history_wire_keeps_the_exact_issued_question_revision() {
+        let wire = serde_json::to_value(project_history(&evidence())).expect("history serializes");
+
+        assert_eq!(
+            wire["questions"][0]["questionRevision"]["questionId"],
+            "ABC-DEF1"
+        );
+        assert_eq!(
+            wire["questions"][0]["questionRevision"]["revisionNumber"],
+            3
+        );
     }
 }

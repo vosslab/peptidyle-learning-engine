@@ -305,7 +305,7 @@ mod tests {
                 "\"storageArea\":\"private-content\",",
                 "\"dataClass\":\"question-source\",",
                 "\"address\":{\"kind\":\"questionSource\",",
-                "\"questionRevision\":{\"questionId\":\"ABC-DEFG\",\"revisionNumber\":2},",
+                "\"questionRevision\":{\"questionId\":\"ABCDEFG\",\"revisionNumber\":2},",
                 "\"object\":\"00000000-0000-0000-0000-000000000003\"},",
                 "\"sha256\":\"000102030405060708090a0b0c0d0e0f",
                 "101112131415161718191a1b1c1d1e1f\",",

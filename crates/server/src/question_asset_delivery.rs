@@ -19,17 +19,21 @@ use learning_data_access::{
     postgres::{PostgresQuestionAssetDeliveryStore, PostgresSessionStore},
 };
 use objects::ObjectAddress;
-use question_model::{ProductRole, QuestionAssetId};
+use question_model::{
+    ProductRole, QuestionAssetId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
+};
 use url::Url;
 use uuid::Uuid;
 
 use crate::auth::{AuthError, resolve_session};
+use crate::question_publication::HmacQuestionIdIssuer;
 
 #[derive(Clone)]
 struct QuestionAssetDeliveryRouteState {
     sessions: Arc<PostgresSessionStore>,
     store: PostgresQuestionAssetDeliveryStore,
     public_asset_base_url: Url,
+    question_id_issuer: HmacQuestionIdIssuer,
 }
 
 /// Registers the only public-asset GET route. The configured base is
@@ -38,13 +42,18 @@ pub fn question_asset_delivery_router(
     sessions: Arc<PostgresSessionStore>,
     store: PostgresQuestionAssetDeliveryStore,
     public_asset_base_url: Url,
+    question_id_issuer: HmacQuestionIdIssuer,
 ) -> Router {
     Router::new()
-        .route("/api/assets/{asset_id}", get(get_public_question_asset))
+        .route(
+            "/api/questions/{question_id}/revisions/{revision_number}/assets/{asset_id}",
+            get(get_public_question_asset),
+        )
         .with_state(QuestionAssetDeliveryRouteState {
             sessions,
             store,
             public_asset_base_url,
+            question_id_issuer,
         })
 }
 
@@ -74,8 +83,14 @@ pub(crate) fn public_asset_base_url(value: &str) -> Result<Url, String> {
 async fn get_public_question_asset(
     State(state): State<QuestionAssetDeliveryRouteState>,
     headers: HeaderMap,
-    Path(asset_id): Path<String>,
+    Path((question_id, revision_number, asset_id)): Path<(String, String, String)>,
 ) -> Response {
+    let question_revision =
+        match verified_question_revision(&state.question_id_issuer, &question_id, &revision_number)
+        {
+            Some(value) => value,
+            None => return concealed(),
+        };
     let asset_id = match Uuid::parse_str(&asset_id) {
         Ok(value) => QuestionAssetId::from_uuid(value),
         Err(_) => return concealed(),
@@ -86,7 +101,7 @@ async fn get_public_question_asset(
     };
     let rendition = match state
         .store
-        .resolve_ready_question_asset_delivery(session_hash, asset_id)
+        .resolve_ready_question_asset_delivery(session_hash, question_revision, asset_id)
         .await
     {
         Ok(value) => value,
@@ -99,6 +114,31 @@ async fn get_public_question_asset(
         Ok(response) => response,
         Err(()) => unavailable(),
     }
+}
+
+/// Parses the browser route's complete immutable Question Revision identity.
+///
+/// The shared model owns syntax; the server-held issuer validates the HMAC
+/// character before this authorization-sensitive Store lookup (ASVS 2.2.1,
+/// 2.2.2, and 11.4.1). Invalid and unauthorized references share the opaque
+/// response below.
+fn verified_question_revision(
+    question_id_issuer: &HmacQuestionIdIssuer,
+    question_id: &str,
+    revision_number: &str,
+) -> Option<QuestionRevisionReference> {
+    let question_id = question_id.parse::<QuestionId>().ok()?;
+    if !question_id_issuer.validates_question_id(&question_id) {
+        return None;
+    }
+    let revision_value = revision_number.parse::<u32>().ok()?;
+    if revision_value.to_string() != revision_number {
+        return None;
+    }
+    Some(QuestionRevisionReference {
+        question_id,
+        revision_number: QuestionRevisionNumber::new(revision_value).ok()?,
+    })
 }
 
 async fn asset_session_hash(
@@ -173,6 +213,7 @@ mod tests {
     use question_model::{ObjectId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference};
 
     use super::*;
+    use crate::question_publication::QuestionIdSecret;
 
     fn rendition() -> ReadyQuestionAssetDelivery {
         ReadyQuestionAssetDelivery {
@@ -194,7 +235,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::FOUND);
         assert_eq!(
             response.headers()["location"],
-            "https://assets.example.test/public-assets/questions/ABC-DEF1/versions/1/assets/00000000-0000-0000-0000-000000000002/00000000-0000-0000-0000-000000000003"
+            "https://assets.example.test/public-assets/questions/ABCDEF1/versions/1/assets/00000000-0000-0000-0000-000000000002/00000000-0000-0000-0000-000000000003"
         );
         assert_eq!(
             response.headers()["cache-control"],
@@ -213,6 +254,31 @@ mod tests {
             "file:///tmp/public-assets",
         ] {
             assert!(public_asset_base_url(value).is_err(), "{value}");
+        }
+    }
+
+    #[test]
+    fn asset_route_requires_a_verified_exact_question_revision() {
+        let issuer =
+            HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes(std::array::from_fn(|index| {
+                index as u8
+            })));
+        let reference = verified_question_revision(&issuer, "000-000N", "1")
+            .expect("documented issuer vector and positive revision");
+        assert_eq!(reference.question_id.to_string(), "000-000N");
+        assert_eq!(reference.revision_number.get(), 1);
+
+        for (question_id, revision_number) in [
+            ("000-000P", "1"),
+            ("000-0000", "1"),
+            ("000-000N", "0"),
+            ("000-000N", "01"),
+            ("000-000N", "+1"),
+        ] {
+            assert!(
+                verified_question_revision(&issuer, question_id, revision_number).is_none(),
+                "{question_id}/{revision_number} must not reach the Store"
+            );
         }
     }
 }

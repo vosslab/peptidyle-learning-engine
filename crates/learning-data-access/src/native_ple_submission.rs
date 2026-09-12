@@ -6,7 +6,17 @@ use serde_json::Value;
 
 use crate::{ReadyQuestionAssetRendition, SessionTokenHash, StoreError};
 
-pub use question_model::StudentQuestionSubmissionGradingState;
+/// Student-visible state of a native PLE Question Submission.
+///
+/// This is a Store result rather than a Question-model grading operation: the
+/// submission boundary exposes only the safe status of its own asynchronous
+/// grading work. It carries no response, score, or recovery-operation detail.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StudentQuestionSubmissionGradingState {
+    Pending,
+    Graded,
+    InstructorAttention,
+}
 
 /// A server-validated canonical Student Response for one issued native PLE
 /// Question Attempt.  The server validates and normalizes this value against

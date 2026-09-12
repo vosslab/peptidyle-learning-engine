@@ -1,253 +1,141 @@
 # Frontend architecture
 
-PLE is a SolidJS single-page application backed by one Rust API and one
-answer-free Rust WebAssembly facade. The browser presents server-owned course,
-assignment, and Student reader data. It never decides correctness, timing,
-authorization, publication, or release.
+PLE is a SolidJS single-page application backed by a same-origin Rust API and
+an answer-free Rust WebAssembly facade. The browser presents authorized,
+server-owned course, assignment, and Student Work data. The server owns
+authorization, release, availability, timing, publication, grading, and
+retained evidence interpretation.
 
-This document applies [SOLID_MODEL.md](SOLID_MODEL.md),
-[NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md),
-[COLOR_CONTRAST_ACCESSIBILITY.md](COLOR_CONTRAST_ACCESSIBILITY.md), and
-[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md). Wire and security authority
-remains in [CONTRACTS.md](CONTRACTS.md), [API_CONTRACTS.md](API_CONTRACTS.md),
-and [SECURITY_MODEL.md](SECURITY_MODEL.md).
+[CONTRACTS.md](CONTRACTS.md) and [API_CONTRACTS.md](API_CONTRACTS.md) own the
+wire contract. [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns the
+meaning of current state and immutable Revisions. This document describes the
+browser implementation boundary.
 
-## Primary flow
-
-```text
-authenticated course context
-  -> BlueprintCourse workspace or CourseInstance teaching route
-  -> strict API decoder
-  -> local presentation model
-  -> visible edit, preview, or delivery action
-  -> typed server command
-  -> authoritative response and revision
-```
-
-Blueprint Course is the reusable source surface. A published Blueprint Course
-`BlueprintCourseView` is visible and reusable to every vetted Instructor; a draft is
-visible only to its Blueprint Course Owner and authorized Blueprint Collaborators. Course Instance
-pages are private to current equal Teaching Team Members and enrolled Students. Each
-Course Instance route and response carries the exact destination Course ID; its
-immutable Blueprint parent and applied revision are server-owned.
-
-## Route map
-
-| Route                                                                  | Surface                                            | Authority                                                                                     |
-| ---------------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| /                                                                      | Signed-in course list                              | Account and course summaries                                                                  |
-| /sign-in                                                               | Deployment-gated seeded Live Demo Account selector | Authenticated Session contract                                                                |
-| /courses/:courseId                                                     | CourseInstance assignments                         | Current course relationship                                                                   |
-| /courses/:courseId/assignments/:assignmentId                           | Assignment overview                                | Exact CourseId and assignment relationship                                                    |
-| `/assignment-attempts/:assignmentAttemptId` (target)                   | Assignment Attempt                                 | Issued Assignment Attempt and Assignment Access                                               |
-| `/assignment-attempts/:assignmentAttemptId/summary` (target)           | Assignment Attempt summary and practice entry      | Disclosed Assignment Attempt Summary                                                          |
-| /library                                                               | Question Library                                   | Vetted Instructor Question Library authority                                                  |
-| /blueprint-courses                                                     | BlueprintCourse workspace                          | Blueprint Course Owner/Blueprint Collaborator drafts and shared `BlueprintCourseView` results |
-| /blueprint-courses/:blueprintCourseRef                                 | BlueprintCourse detail/editor                      | Blueprint reference plus active session                                                       |
-| /workspace                                                             | My Question Drafts                                 | Workspace relationship                                                                        |
-| /workspace/:workspaceRef                                               | My Question Draft editor and preview               | Workspace relationship                                                                        |
-| /instructor/courses/:courseRef/assignments/new                         | New Assignment                                     | Current course Instructor                                                                     |
-| /instructor/courses/:courseRef/assignments/:assignmentRef              | Assignment home                                    | Exact CourseId and assignment                                                                 |
-| /instructor/courses/:courseRef/assignments/:assignmentRef/questions    | Questions                                          | Assignment revision                                                                           |
-| /instructor/courses/:courseRef/assignments/:assignmentRef/policies     | Policies                                           | Assignment revision                                                                           |
-| /instructor/courses/:courseRef/assignments/:assignmentRef/student-view | Instructor Student view                            | Course Instructor, answer-free                                                                |
-| /instructor/courses/:courseId/gradebook                                | Gradebook                                          | Current course Instructor                                                                     |
-| /instructor/courses/:courseId/students                                 | Roster and enrollment                              | Current course Instructor                                                                     |
-| /blueprint-courses                                                     | Blueprint Course adoption and imports              | Course Instance destination authority                                                         |
-
-Assignment Attempt screens use `/assignment-attempts/:assignmentAttemptRef` and
-the Assignment Attempt terms in
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
-
-src/routes.ts is the executable route map. Route preflight and response
-decoding remain server/API responsibilities; a URL reference never grants
-authority.
-
-## Component ownership
+## Application structure
 
 ```text
-API runtime provider
-- Wasm facade and runtime status
-- Router
-  - App shell and route error boundary
-    - Route resource
-      - Feature/page state
-        - Answer-free presentation or Question Response Control
+src/routes.ts and src/route_contract.ts
+  -> route access boundary and application shell
+    -> page composition in src/pages/
+      -> feature workflows in src/features/
+        -> typed same-origin API client in src/api/
+          -> strict decoding of server JSON
 ```
 
-src/api/application_api.tsx creates one typed Application API. src/api/http_client/
-contains same-origin transport. src/api/decoders/ converts unknown JSON into
-strict local types. src/features/ owns capability workflows; src/pages/ owns
-route composition; src/components/ owns reusable presentation and keyboard
-interaction. The production browser consumes dist/ through the HTTPS gateway;
-browser-free fixtures are test seams only.
+[src/routes.ts](../src/routes.ts) derives every product route from the single
+[src/route_contract.ts](../src/route_contract.ts) declaration. A route's
+product-role check is presentation admission only; each request independently
+receives server authorization. Opaque route references locate a candidate and
+never grant access.
 
-## BlueprintCourse workspace
+[src/api/application_api.tsx](../src/api/application_api.tsx) provides one
+typed client and router-owned query identities. [src/api/client.ts](../src/api/client.ts)
+is the browser-safe client shape. [src/api/http_client/](../src/api/http_client/)
+owns same-origin transport, no-store response handling, and HTTP error mapping.
+The decoders in [src/api/decoders/](../src/api/decoders/) accept closed,
+bounded JSON shapes before pages use them. Rust owns serialized field spelling;
+the TypeScript types in `generated/api/` are derived from Rust contract roots.
 
-The reusable source client is owned by:
+## Product routes
 
-- src/api/blueprint_course.ts: one BlueprintCourse client contract.
-- src/api/http_client/blueprint_course.ts: list, get, create, replace, and
-  lifecycle requests with strong ETags and no-store reads.
-- src/api/decoders/blueprint_course.ts: strict nested-tree decoder.
-- src/features/blueprint_course/: one list/detail/editor workspace and
-  local draft model.
-- src/pages/blueprint_course_route_page.tsx and
-  src/pages/blueprint_course_detail_route_page.tsx: route composition.
+The executable route contract includes these user-facing areas:
 
-The workspace displays ordered modules and ordered assignments. Its Question Picker Source Descriptor
-contains one Blueprint reference and normalized module
-and assignment positions. A one-assignment selection is a bounded `BlueprintCourseView`
-of the same tree, not another source type. The editor keeps draft input locally,
-sends complete Blueprint Revision Content with the observed revision, and preserves the local
-draft after a stale or invalid response.
+| Area | Routes | Browser responsibility |
+| --- | --- | --- |
+| Account and invitations | `/`, `/sign-in`, `/profile`, invitation routes | Session-oriented navigation and account-owned actions |
+| Student delivery | Student Course landing, Assignment access, `R-*` Attempt and summary routes | Answer-free start, resume, response, submission, and disclosed history views |
+| Question authoring | `/library`, Question detail, `/authoring/drafts` | Library discovery and private Draft editing/publication |
+| Blueprint Courses | `/blueprint-courses` and detail route | Browse, owner Draft editing, and explicit publication |
+| Course teaching | Course, Assignment workspace, roster, Gradebook, appearance, grade settings, operations | Current Course configuration and Instructor workflows |
+| System support | Instructor-account and scoped-support roster routes | Bounded Sysadmin tools |
 
-A published `BlueprintCourseView` contains only answer-free Blueprint Revision Content, reviewed Question Authorship,
-public Question IDs, safe Question Library summaries, current publication state, and
-disclosed evidence context. It contains no answer key, private source,
-response, grading payload, internal UUID, email, Student, or CourseInstance
-record.
+The exact paths, route parameters, product-role admission, ribbon state, and
+layout remain in [src/route_contract.ts](../src/route_contract.ts). A browser
+route does not exist for a capability merely because its API transport exists.
 
-## Blueprint-operation transport boundary
+## Current Assignment workflow
 
-The Blueprint-operation transport is separate from the reusable source client:
+The Assignment workspace is one current mutable aggregate. Its browser client
+is [src/api/assignment_release.ts](../src/api/assignment_release.ts), with
+transport in [src/api/http_client/assignment_release.ts](../src/api/http_client/assignment_release.ts)
+and page composition in [src/pages/assignment_workspace/](../src/pages/assignment_workspace/).
 
-- src/api/blueprint_operations.ts: source, destination, operation, preview, and
-  receipt types.
-- src/api/http_client/blueprint_operations.ts: no-store preview and direct
-  apply requests without a Retry Token.
-- src/features/blueprint_operations/: the operation-workflow stylesheet.
+- Saves, inline changes, release, and Unrelease carry the quoted Assignment
+  Edit Number ETag. A `412` leaves the local draft available for reload or
+  correction.
+- Assignment Entries and picker rows carry exact `QuestionRevisionReference`
+  pins. The workspace describes future Attempt configuration; it does not
+  create an Assignment Revision.
+- Release validation precedes the explicit release action. A successful release
+  returns the current Assignment and its next ETag.
+- The policies page displays a Released Assignment's aggregate Unrelease
+  impact and requires the current title before submitting the destructive
+  transition. The returned receipt exposes aggregate deletion counts only.
+- A later accepted released save affects future Attempts. Existing Attempt
+  pages read the server's retained Attempt and Issued Question evidence,
+  including exact Question Revision and presentation binding.
 
-No Blueprint-operation Browser Surface or Server Route exists yet.
+`Assignment Revision`, Assignment snapshot, and successor-revision browser
+types, routes, decoders, and pages are absent.
 
-The future page loads one BlueprintCourse source and asks the Instructor to
-choose the destination operation:
+## Published content and Blueprint Courses
 
-| Operation                      | Result                                                            |
-| ------------------------------ | ----------------------------------------------------------------- |
-| Fork BlueprintCourse           | Independent AccountId-owned BlueprintCourse with source lineage   |
-| Copy Assignment from Blueprint | Selected nested assignment in an exact existing Course Instance   |
-| Create Course from Blueprint   | New Course Instance with one immutable Blueprint parent/revision  |
-| Copy Course for New Term       | New teaching instance without Student or issued state             |
-| Shift Course Dates             | Atomic date resolution when no issued work makes it ineligible    |
-| Fast-forward or selected copy  | Update untouched import or create a new assignment when divergent |
+Question and Blueprint availability belong to their stable lineages. The
+browser availability clients in [src/api/question_availability.ts](../src/api/question_availability.ts)
+and [src/api/blueprint_course.ts](../src/api/blueprint_course.ts) use an exact
+Availability Edit Number ETag. Archive includes title confirmation; restore
+uses the Edit Number. Ordinary discovery lists Available lineages, while an
+authorized exact immutable Revision read remains available after archive.
 
-Every preview binds source reference, observed revision, target CourseId where
-applicable, term, time zone, and server-held Request Checksum evidence. The server resolves
-relative calendar-day and local-wall-clock values, reports DST corrections,
-and returns an apply command derived from the accepted preview. New
-BlueprintCourse assignments appear in daughter CourseInstances as unreleased;
-the Instructor explicitly releases them. The browser never silently overwrites
-delivery edits or releases upstream additions.
+A Blueprint Course create response contains its stable lineage and private
+current Draft, with no Blueprint Revision. The owner-facing workflow in
+[src/features/blueprint_course/](../src/features/blueprint_course/) saves that
+Draft with its Draft ETag and publishes it explicitly. Publishing returns an
+immutable `BlueprintRevisionReference`; the Draft remains the owner working
+copy. The browser retains a local Draft across recoverable validation or
+concurrency errors. This is a single-owner Draft workflow; collaboration is
+not a browser capability.
 
-The former paired product-level route/client/UI names are terminology-migration
-inputs only. They are not accepted route aliases, decoder variants, or UI
-branches.
+Blueprint Revision content is answer-free reusable course structure. A Course
+Assignment exposes `BlueprintAssignmentSource`: the stable Blueprint Assignment
+Reference plus its exact Blueprint Revision Reference. It is provenance, not a
+third Revision model.
 
-## Client contract
+## Student Work boundary
 
-| Concern         | Frontend rule                                                                                           |
-| --------------- | ------------------------------------------------------------------------------------------------------- |
-| API access      | Every route uses the typed API runtime and same-origin client.                                          |
-| Decoding        | Decode from unknown with closed, bounded, field-by-field decoders.                                      |
-| Mutation        | Send strong revision evidence; repeated requests use the operation's existing identity and constraints. |
-| Pagination      | Use cursor contracts; never create an offset-based fallback.                                            |
-| Cache           | Use no-store for private reader results and previews; do not cache authority.                           |
-| Generated types | Consume generated/api/ output derived from Rust; do not hand-edit it.                                   |
-| Errors          | Preserve entered draft/response where the contract permits recovery.                                    |
-| Authority       | Treat server authorization, revision, schedule, release, and grading as final.                          |
+The Attempt route presents one issued question at a time and keeps only the
+current response state needed for recovery. It sends typed response and
+submission commands and renders only server-authorized status and feedback.
+[src/wasm/index.ts](../src/wasm/index.ts) is the sole browser import boundary
+for generated Wasm helpers; those helpers provide answer-free validation and
+formatting, never authorization or grading.
 
-Rust Serde owns serialized spelling. The generated TypeScript declaration is a
-derivative of Rust contract roots through
-crates/project-tools/src/tsgen.rs. Authored TypeScript owns only transport
-adapters, strict decoding, and presentation models.
+The client bundle and browser storage exclude answer keys, grading input,
+private source/object locations, undisclosed feedback, and authority. The
+server decides whether an Attempt can start or resume and reconstructs an
+existing Attempt from retained evidence rather than mutable Assignment state.
 
-## Student and delivery boundary
+## Browser behavior
 
-The Assignment Attempt page keeps one editable response for the current Question Attempt. It may use answer-free Wasm for Response Format Messages and timing
-display. It never stores Answer Keys, Question Grading Input, private Response Item Bindings,
-Question Presentation Bindings, unreleased Student Feedback, or
-provider state, and never derives correctness or completion.
+- Every private API read uses the typed same-origin client and no-store
+  response handling.
+- Mutations use their applicable ETag and idempotency identity. The client
+  preserves input on recoverable conflicts or dependency errors.
+- Cursor lists use their declared cursor contracts; pages do not synthesize an
+  offset fallback.
+- Local storage contains only consent-appropriate preferences. Session storage
+  is limited to explicitly requested in-progress response recovery and clears
+  at the documented boundary. Credentials and protected academic records are
+  not browser storage.
+- Pages keep semantic labels, visible validation, keyboard-equivalent actions,
+  focus recovery, and answer-free error messages. Accessibility authorities are
+  [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md) and
+  [COLOR_CONTRAST_ACCESSIBILITY.md](COLOR_CONTRAST_ACCESSIBILITY.md).
 
-After accepted submission, the browser clears the response and polls an
-answer-free Assignment Attempt status result. It does not resubmit known-accepted work.
-Student Feedback, score, item correctness, Question Answer, Question Answer Explanation,
-class statistics, Student Late Work Status,
-and Student Feedback Release are redacted or exposed only by the server's current policy.
+## Verification
 
-CourseInstance pages use exact CourseId and Student relationship context.
-Instructor Student view is informational and creates no Student work. Gradebook,
-inspection, roster, and assignment data never come from a public
-`BlueprintCourseView`.
-
-## WebAssembly facade
-
-src/wasm/index.ts is the only browser import boundary for generated Wasm glue.
-It exposes answer-free validation and formatting operations through typed
-lower-camel-case helpers. It may validate response format, timing inputs,
-assignment capability configuration, and presentation descriptors. It cannot
-import grading, receive answers or keys, or make an authorization or release
-decision. If Wasm is unavailable, the documented server validation fallback
-is used only for non-authoritative format/timing help.
-
-## Browser persistence
-
-| Storage        | Allowed data                                                                 | Clear boundary                                       |
-| -------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------- |
-| localStorage   | Nonessential preferences after applicable consent                            | Reset or consent withdrawal                          |
-| sessionStorage | Explicitly requested in-progress response recovery                           | Submit success, Assignment Attempt exit, or sign-out |
-| neither        | Session tokens, keys, grades, undisclosed feedback, CourseInstance authority | Never stored                                         |
-
-A BlueprintCourse draft remains in component/page state until the typed
-repository reports success or a recoverable conflict. It is not a hidden
-browser authority. Course appearance and authorization are loaded from
-server-owned Course Route View data, not browser storage.
-
-## Errors and accessibility
-
-- Keep the shell and navigation visible during loading.
-- Explain empty states with the next available action.
-- Preserve local draft or response data for recoverable failures.
-- Move focus to an error heading, then to the relevant retry or correction.
-- Use semantic labels, fieldsets, legends, live validation text, and
-  aria-invalid with visible explanations.
-- Keep keyboard and pointer paths equivalent; no mouse-only picker or dialog.
-- Keep primary targets at least 44 CSS pixels tall and focus contrast at the
-  repository target.
-- Keep Student layouts usable at maintained laptop, portrait, and narrow-phone
-  profiles without horizontal overflow.
-- Use the fixed 1280 by 800 desktop evidence profile for Instructor routes.
-
-## Security rules
-
-- The client bundle contains no answer-bearing generated type or private
-  grading contract.
-- Authentication and role preflight happen before protected data decoding.
-- References locate BlueprintCourse or CourseInstance records; they never
-  carry authority.
-- Mutations use same-origin requests, strong revisions, and their exact operation identity.
-- Browser logs contain no response text, answer, key, undisclosed feedback,
-  grades, email, UUID, or FERPA record.
-- Question Backends convert supported content into typed Question Content Blocks behind
-  their server-owned transports.
-- A public BlueprintCourse read never exposes CourseInstance delivery or
-  Student state.
-
-## Validation gates
-
-The browser evidence hierarchy is:
-
-1. Permanent TypeScript/Node checks for strict decoders, client behavior,
-   route/reference binding, local draft preservation, and answer-free DTOs.
-2. Production HTTPS Playwright for visible BlueprintCourse authoring, nested
-   picker reuse, Fork Blueprint Course, Copy Assignment from Blueprint, Create Course from Blueprint, DST
-   correction, unreleased propagation and explicit release, Apply Blueprint Update,
-   and divergence recovery.
-3. Screenshot publication and semantic visual review for hierarchy, focus,
-   contrast, privacy, recovery, and source/destination clarity.
-4. Human and independent architecture/security/HCI review where required.
-
-Graphify and source/route inventories are one-time implementation evidence,
-not permanent tests. A focused docs gate may validate Markdown links, ASCII,
-and whitespace. Per [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md), an unrun
-required runtime, database, browser, or human gate remains open.
+Keep focused TypeScript and Node coverage for strict decoding, route/reference
+binding, ETag behavior, Draft and response recovery, and answer-free DTOs.
+Use real-stack browser acceptance for visible authoring, teaching, delivery,
+and destructive-workflow journeys. [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)
+classifies permanent checks separately from one-time implementation evidence.

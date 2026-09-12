@@ -51,7 +51,7 @@ pub struct LiveStudentAssignmentLandingSummary {
     pub assignment_attempt_completion: Option<AssignmentAttemptCompletion>,
     /// Questions with an immutable Grading Result in the current Assignment Attempt.
     pub graded_question_count: u32,
-    /// Total Questions in the released Assignment Revision.
+    /// Total questions in the current Assignment; an existing Attempt retains its issued-question evidence.
     pub question_count: u32,
     /// Current aggregate score when the pinned Assignment disclosure permits it.
     #[serde(skip_serializing_if = "Option::is_none")]

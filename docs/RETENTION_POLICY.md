@@ -1,82 +1,63 @@
 # Student-record retention policy
 
-Peptidyle separates reusable Questions and Blueprint Courses from the records
-owned by one Course Instance. Course Retention applies to one exact Course
-Instance. It never deletes a shared Published Question, Question Revision,
-Question Source, Question Library record, Blueprint Course, Instructor draft,
-or private Authoring Workspace.
+Peptidyle distinguishes reusable teaching content from the records owned by a
+Course Instance. Published Questions, their immutable Question Revisions,
+Question Sources, Question Library records, Blueprint Courses, private
+authoring workspaces, and Instructor drafts are not Course-owned Student
+records. A future Course lifecycle action therefore cannot use a Course as
+authority to delete shared teaching content.
 
-Draft Question cleanup is separate from Course Retention. Draft Questions are
-temporary private sandbox content. A configured Authoring Workspace cleanup may
-expire a Draft Question based on its last accepted edit time, then remove its
-draft rows, editable metadata, and draft source object after the applicable
-warning or recovery period. Published Question Revisions remain unaffected
-because publication writes a complete immutable source object and copies the
-accepted discovery metadata into Published Question-owned storage.
+Course work, Assignment Attempts, submissions, grades, and their exact
+interpretive evidence belong to the Course lifecycle independently of the
+Student Account's lifetime. Assignment definitions remain current mutable
+configuration; an Attempt and its Issued Questions retain the facts required
+to interpret that Student Work directly. Retained Attempt and Issued Question
+evidence preserves that interpretation through later configuration changes.
 
-Student Work Records and Grades follow a Course Retention Plan independently
-of the Student Account. The Course-owned Assignment Content and every
-released Assignment Revision required to interpret retained Student work also
-remain. A future cleanup operation may reclaim only a superseded current
-Assignment Object after an exact reference check has placed it in an Object
-Cleanup Manifest. It has no broad Assignment-content deletion permission.
+## Current boundary
 
-## Current foundation
+The base schema contains no Course-retention configuration, plan, revision,
+event, job target, receipt, API, Store operation, worker, or browser route.
+It consequently does not claim to archive, strip, delete, or extend the
+lifecycle of a Course's Student records. The notice, archive, and deletion
+timing in [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) remains product policy to be
+implemented by a complete future capability, rather than a hidden database
+default.
 
-The current database baseline is preparation, not an implemented Course Retention
-service:
+Draft Question cleanup is a separate authoring concern. A configured
+Authoring Workspace cleanup may remove expired draft rows, editable metadata,
+and draft source objects after its recovery period. Publication has already
+copied the accepted content and metadata into immutable Published Question
+storage, so this cleanup does not make a Published Question incomplete.
 
-- `ple_private.course_retention_plan_revision` records an immutable Course
-  Retention Plan Revision with its exact Course, positive revision number,
-  Course Retention Action, scheduled time, manifest checksum, and creation
-  time.
-- `ple_private.job` binds a typed Course Retention Job to that exact Plan
-  Revision.
-- `ple_audit.course_retention_event` binds one immutable Course Retention
-  Event to the same Plan Revision, Job result, action, checksum, and time.
-- `ple_private.object_cleanup_manifest` and
-  `ple_audit.object_cleanup_receipt` supply the separate technical Object
-  Cleanup Manifest and Object Cleanup Receipt foundation. The receipt's
-  `permitted_disposition` is a technical cleanup result, not a Course
-  Retention action or a browser choice.
+## Technical object cleanup
 
-There is currently no Course Retention Store, PostgreSQL procedure, server
-route, worker, browser reader, Course Retention State record, Course Retention
-Notice record, Assignment Revision Retention Rule, Course Retention Receipt,
-or frozen Course Retention manifest-membership relation. The browser therefore
-offers no Course Retention panel, request, or route.
+Generic object-storage cleanup is implemented independently of Course
+retention. An exact storage check identifies one immutable storage anchor;
+`ple_private.object_cleanup_manifest` records the permitted disposition for
+that checked object; and `ple_audit.object_cleanup_receipt` records the
+result. The model supports the owners of course media and profile media. It
+does not make a bucket prefix, object listing, Course, or browser request
+authority to delete data.
 
-## Required complete boundary
+Object cleanup remains technical work: its manifest and receipt say what an
+authorized object owner may remove and what happened. They do not express a
+Student-record policy or stand in for a Course-wide retention outcome.
 
-A future Course Retention capability must introduce its durable relationships
-as one complete Store-backed package:
+## Future Course retention capability
 
-- Course Retention State is separate from Job State.
-- Each Course Retention Plan Revision records the exact action, scheduled time,
-  prior Plan Revision Reference, and Assignment Revision Retention Rule.
-- A Course Retention Notice records an archive, purge, or extension intent and
-  its creation time; it does not assert delivery.
-- The Assignment Revision Retention Rule binds exact Course-owned Assignment
-  Revisions. It preserves released revisions and issued facts.
-- The Store derives frozen Object Cleanup Manifest membership only after exact
-  reference checks. An Object Cleanup Receipt retains its technical outcome.
-- A Course Retention Job leases and commits the accepted Plan Revision. A
-  Course Retention Event and Course Retention Receipt exist only after commit.
+[TODO.md](TODO.md) tracks Active and Inactive Courses as a future vertical
+capability. When approved, that work must define the product lifecycle,
+authorized actors, exact Student-record scope, durable outcome evidence,
+Store and PostgreSQL transaction, worker behavior where needed, API and
+browser contract, and connected acceptance together. Its design must preserve
+shared content and the retained evidence needed to interpret surviving
+Student Work.
 
-The complete implementation must add exact authorization, Store, PostgreSQL,
-route, worker, generated-contract, browser-reader, and connected acceptance
-evidence together. A browser request cannot supply an object, cleanup outcome,
-Assignment Revision Retention Rule, or Course Retention Action authority.
+Backup, deployment, and operational-log retention are infrastructure policies.
+They are separate from product-record lifecycle and must not become an
+undeclared Student-record archive.
 
-## Related boundaries
-
-Object cleanup is exact-object work; a bucket prefix or listing never
-authorizes deletion. Object Delivery, object checks, cleanup manifests, and
-cleanup receipts remain separate from Course Retention policy. Backup,
-deployment, and operational-log retention are separate infrastructure policies
-and cannot become undeclared Student-record archives.
-
-See [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md#object-grading-and-retention-boundaries),
+See [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md#structure-and-installation-data),
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md), and
-[CONTRACTS.md](CONTRACTS.md#api-and-service-contracts) for the current
-implementation boundary.
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) for the current boundaries.

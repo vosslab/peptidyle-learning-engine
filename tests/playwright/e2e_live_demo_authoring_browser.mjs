@@ -17,7 +17,7 @@ try {
   await page.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Continue as Elena Rivera" }).click();
   await page.waitForURL(`${origin}/library`);
-  await page.getByRole("link", { name: "My Question Drafts" }).click();
+  await page.getByRole("link", { name: "My Draft Questions" }).click();
   await page.waitForURL(`${origin}/authoring/drafts`);
   await page.getByRole("button", { name: "New Draft Question" }).click();
   await page.waitForURL(/\/authoring\/drafts\/D-[1-9][0-9]*$/u);

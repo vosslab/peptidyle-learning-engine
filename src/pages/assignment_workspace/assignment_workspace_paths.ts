@@ -5,15 +5,13 @@ import type {
   CourseInstanceRouteReference,
 } from "../../navigation/public_route";
 
-export type AssignmentWorkspaceSection =
-  "overview" | "questions" | "policies" | "studentView" | "gradingOperations";
+export type AssignmentWorkspaceSection = "overview" | "questions" | "policies" | "studentView";
 
 const ASSIGNMENT_WORKSPACE_SECTION_SEGMENTS = {
   overview: "",
   questions: "questions",
   policies: "policies",
   studentView: "student-view",
-  gradingOperations: "grading-operations",
 } as const satisfies Readonly<Record<AssignmentWorkspaceSection, string>>;
 
 /** The one route owner for starting a persisted Assignment and its Assignment. */

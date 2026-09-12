@@ -13,7 +13,7 @@ pub const MAX_PUBLIC_ROUTE_NUMBER: u32 = i32::MAX as u32;
 
 /// Prefixes reserved by the route grammar.
 pub const RESERVED_REFERENCE_PREFIXES: &[&str] = &[
-    "C", "A", "R", "W", "D", "G", "U", "M", "CI", "QC", "QS", "BP", "GO",
+    "C", "A", "R", "W", "D", "G", "U", "M", "CI", "QC", "QS", "BP",
 ];
 
 macro_rules! impl_reference {
@@ -107,10 +107,6 @@ pub struct CourseInvitationReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct BlueprintCourseReference(NonZeroU32);
-/// An authorized Instructor Grading Operation Reference for one Instructor-facing automated-grading recovery thread.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct InstructorGradingOperationReference(NonZeroU32);
 
 impl_reference!(CourseInstanceReference, "C", "Course Instance reference");
 impl_reference!(AssignmentReference, "A", "assignment reference");
@@ -137,11 +133,6 @@ impl_reference!(
     "Course Invitation reference"
 );
 impl_reference!(BlueprintCourseReference, "BP", "Blueprint Course reference");
-impl_reference!(
-    InstructorGradingOperationReference,
-    "GO",
-    "grading-operation reference"
-);
 
 /// One authorized navigation target. IDs remain transport details after Store authorization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -254,20 +245,11 @@ mod tests {
         assert_reference_wire!(
             BlueprintCourseReference,
             "BP-133",
-            "GO-133",
+            "C-133",
             "BP-0",
             "BP-01",
             "BP-2147483648"
         );
-        assert_reference_wire!(
-            InstructorGradingOperationReference,
-            "GO-135",
-            "A-135",
-            "GO-0",
-            "GO-01",
-            "GO-2147483648"
-        );
         assert!(!RESERVED_REFERENCE_PREFIXES.contains(&"AC"));
-        assert!(RESERVED_REFERENCE_PREFIXES.contains(&"GO"));
     }
 }

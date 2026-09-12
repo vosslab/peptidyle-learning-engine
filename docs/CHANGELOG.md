@@ -1,5 +1,134 @@
 # Changelog
 
+## 2026-09-12
+
+### Additions and New Features
+
+- Replaced the accumulated development migration history with a modular,
+  PostgreSQL-native canonical base under `schemas/base_schema/`. Its short
+  `install.sql` manifest installs the current domain modules directly; the empty
+  `schemas/migrations/` directory is reserved for bounded forward-only SQLx
+  changes after the first human-approved production deployment.
+
+- The explicit installation-data command provisions the complete known-good
+  Live Demo by default as ordinary product data on the canonical schema. Its
+  `--without-live-demo` choice leaves the same schema with no Demo product-data
+  roots or persona surface.
+
+### Behavior or Interface Changes
+
+- The current product model retains only immutable Question Revisions and
+  Blueprint Revisions. Course and Assignment configuration are current state;
+  Assignment Attempts and Issued Questions retain the exact evidence needed to
+  interpret Student Work after released Assignment edits. Blueprint creation
+  creates a private Draft, and each deliberate publication creates an immutable
+  Revision.
+
+- Published Question and Blueprint availability now belongs to their stable
+  lineages. Archive removes ordinary selection while existing exact Revision
+  references remain resolvable; restore is an ordinary availability transition.
+
+- Assignment Unrelease is an authorized, ETag- and title-confirmed transaction
+  that deletes only the Assignment's Student Work closure, rebuilds surviving
+  statistics, and records a redacted aggregate audit event.
+
+- Question IDs are stored as compact valid seven-character Crockford Base32
+  values; `AAA-BBBB` is their presentation form. Pilot Questions use ordinary
+  generated IDs, and `PNE-*` is no longer a product identifier namespace.
+
+### Fixes and Maintenance
+
+- Repaired the PostgreSQL/Rust Blueprint revision-number agreement and the
+  forced-RLS Course read required by the security-definer Assignment lifecycle.
+  Assignment create, save, inline save, and release now share the intended
+  current Instructor authorization boundary without broadening application-role
+  write access.
+
+- Course Invitation acceptance now grants its no-login API owner update access
+  only to the immutable invitation identity needed for `FOR UPDATE` locking.
+  Concurrent claims both converge on one Student Membership and one acceptance
+  event; the application role retains no direct Invitation update privilege.
+
+- Simplified database lifecycle handling to one baseline-presence and release-
+  identity handshake under the existing advisory lock. SQLx owns dirty-row,
+  checksum, and unknown-version enforcement; the application and migrator verify
+  the same restricted schema-state projection. The former catalog classifier,
+  legacy-ledger scan, and exact-ledger-shape machinery were removed.
+
+- The existing `pre-production` release identity is now the complete baseline
+  editing switch: initialization installs or verifies the canonical base and
+  forward migration commands remain unavailable. The base transaction also
+  rejects unrelated persistent relations or custom schemas, so an accidental
+  install into a populated database rolls back without leaving PLE structure.
+
+- Course Banner and Profile media Store acceptance now uses the application
+  login for runtime operations and the migrator only for owned fixture setup and
+  catalog inspection. Their PostgreSQL functions and Rust return types agree on
+  exact work identities, and cleanup receipts report retained versus absent
+  objects without manufacturing generic cleanup jobs.
+
+- Consolidated the two libpq child-environment builders into one private,
+  redacted implementation shared by baseline and installation-data commands.
+
+- Removed retired Course Schedule, Assignment, Question Change Proposal, and
+  Course Retention Revision scaffolding from the baseline, application contracts,
+  fixtures, and tests. Retired migration-history and compatibility tests yielded
+  to focused lifecycle, authorization, evidence-integrity, and product behavior
+  coverage.
+
+### Removals and Deprecations
+
+- Applied the permanent-test checklist to the completed database reset and removed
+  checks that froze retired command names, generated SQL inventories, exact
+  tool paths or network constants, Pilot-content counts, SQLx internals, or mocked
+  lifecycle choreography. Durable schema compatibility, authorization, redaction,
+  evidence integrity, provisioning, and Unrelease contracts remain covered at
+  their lowest meaningful layer.
+
+- Removed unused Live Demo bootstrap request builders and the unowned iMathAS
+  PostgreSQL test target. Their only consumers were tests of dormant
+  scaffolding, not supported product or acceptance paths.
+
+### Decisions and Failures
+
+- Before the first approved production deployment, structural changes belong in
+  their owning base-schema module. The production-release decision freezes that
+  source and starts forward-only SQLx migrations; it is the only remaining human
+  release decision for this reset.
+
+- Live Demo SQL owns only state wholly owned by PostgreSQL. Ordinary publishing,
+  object storage, presentation, submission, and grading paths own their
+  cross-system effects. The resulting demo data follows ordinary product
+  lifecycle and retention rules.
+
+### Developer Tests and Notes
+
+- The final six-perspective audit found no comment blocker and identified
+  lifecycle, installation-data, race-determinism, duplicated libpq parsing,
+  documentation, and dead-scaffolding defects. Each accepted finding was fixed
+  in its owning code or canonical document; no parallel audit-report layer was
+  retained.
+
+- Final PostgreSQL 17 baseline acceptance passed contaminated-database refusal,
+  fresh installation, no-op
+  replay, restricted application-role verification, catalog authorization,
+  authoring source binding, populated Unrelease closure, and its deterministic
+  Assignment-lock race. The focused installation-data lane passed default
+  provisioning, replay convergence, and a separate fresh `--without-live-demo`
+  absence/non-enumeration proof.
+
+- Focused real-stack evidence passed released-Assignment retained-evidence and
+  later-Attempt behavior, Blueprint Draft publication/archive/restore, authoring
+  API/S3/browser publication, and WebWork worker grading. Backup restore followed
+  by ordinary migrate and application-role verify passed. Aggregate Rust,
+  TypeScript/Node, and Python gates passed.
+
+- A forced fresh Graphify extraction removed the old migration forest from the
+  architecture view. The semantic closeout checks found zero nodes from
+  `schemas/migrations/`, `public._sqlx_migrations`, retired
+  Assignment/Course Schedule/Proposal/Retention Revision families, Blueprint
+  collaboration scaffolding, or `PNE-*` identifiers.
+
 ## 2026-09-11
 
 ### Additions and New Features
@@ -59,6 +188,20 @@
 
 ### Fixes and Maintenance
 
+- Removed the superseded Live Demo foundation audit after its RLS and default-deny conclusions were
+  confirmed in the active database-reset plan and canonical authorities. The historical report
+  linked a retired migration acceptance test and no longer served as durable guidance.
+
+- Archived the superseded terminology reconciliation plan, its draft successor, and its concern
+  note after the accepted database-baseline plan consolidated their decisions.
+
+- The dedicated `database-migrator` image now contains the Debian 13 PostgreSQL 17 client needed
+  to execute the canonical base-schema manifest. API, Live Demo, and production targets still
+  inherit the client-free non-root runtime base. A built migrator reported `psql 17.11`; the
+  runtime-base target confirmed that `psql` is absent and UID 10001 remains active. A full
+  production-target rebuild was skipped after its cold Rust compilation exceeded this focused
+  container gate; its direct runtime-base inheritance was verified instead.
+
 - The final scoped top-bar audit removed the obsolete `RibbonIcon` compatibility re-export, updated
   its design specimen from retired Account context to Profile, documented the replacement-event
   race guard, and kept the separate Course-name contract classified under Interface Cleanup M2.
@@ -105,6 +248,28 @@
   owner direction.
 
 ### Decisions and Failures
+
+- The human owner directed that investigation, review, and disposition materials remain temporary
+  working evidence outside the repository. Accepted conclusions are folded into the active plan,
+  canonical documentation, code, behavior-focused tests, and final changelog evidence only after
+  checking whether an artifact duplicates or supersedes existing evidence.
+
+- The approved fresh-installation target builds DDL-only structure, then its production-installation
+  orchestrator defaults to the complete known-good Live Demo with an explicit opt-out. One
+  data-only manifest may create all wholly PostgreSQL-owned teaching state after the Pilot
+  compiler/object publisher establishes exact Question Revisions; existing owner paths create only
+  genuine cross-system effects. The private bootstrap/local persona selector is absent before a
+  public gateway. This records an accepted boundary, not completed provisioning implementation.
+
+- The completed Blueprint-surface review clarified that `blueprint_collaborator_event` is
+  revision-keyed schema scaffolding, not a live vertical capability. It leaves the new baseline;
+  the owner Draft lifecycle remains, and a future collaboration feature requires a bounded
+  Draft-keyed Store, Server, authorization, browser, and publication-transition design.
+
+- The human owner approved the Database Baseline and Revision Model Reset plan and delegated
+  implementation. Before the first production deployment, its canonical base schema and required
+  reference seed data remain directly editable; later structural changes will use forward SQLx
+  migrations.
 
 - The Course-name replacement is an owner-directed pre-production baseline correction: it changes
   the disposable root schema directly rather than retaining a compatibility path. Full fresh and

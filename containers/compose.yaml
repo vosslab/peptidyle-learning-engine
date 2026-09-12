@@ -81,8 +81,10 @@ services:
     restart: on-failure
 
   # The controller runs this profile-only job before application services. It
-  # keeps migrations on the Compose data network, avoiding a host port-forward
-  # dependency while retaining the same embedded migration authority.
+  # keeps database administration and the optional ordinary Live Demo content
+  # installation on the Compose data network. The two commands share one
+  # short-lived image; application runtime images carry neither psql nor the
+  # canonical schema manifests.
   database-migrator:
     labels: *ple-disposable-capability-label
     profiles: ["migration"]
@@ -95,7 +97,36 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      # Fixed structure manifests run with the dedicated migrator capability.
       PLE_MIGRATION_DATABASE_URL: ${PLE_MIGRATION_DATABASE_URL:-}
+      # Live Demo content uses ordinary Authoring/Publication stores with the
+      # already-provisioned API capability. The fail-closed sentinel keeps a
+      # direct Compose invocation from gaining an ambient database identity.
+      DATABASE_URL: ${PLE_API_DATABASE_URL:-postgres://ple_api_login:service-login-setup-required@postgres:5432/${POSTGRES_DB:-peptidyle}}
+      # The optional data action follows the same selected object-store
+      # topology and bucket names as ordinary Question publication.
+      # Keep profile selection valid for PostgreSQL-only baseline verification;
+      # installation-data validates this value before it uses object storage.
+      PLE_STORAGE_TOPOLOGY: ${PLE_STORAGE_TOPOLOGY:-}
+      # Provisioning uses the canonical browser origin for session-bound API
+      # requests while dialing the API directly only in disposable-local mode.
+      PLE_BROWSER_ORIGIN: ${PLE_BROWSER_ORIGIN:-}
+      PLE_S3_ENDPOINT: http://minio:9000
+      PLE_S3_REGION: us-east-1
+      PLE_PUBLIC_ASSETS_BUCKET: public-assets
+      PLE_PRIVATE_CONTENT_BUCKET: private-content
+      PLE_STUDENT_RECORDS_BUCKET: student-records
+      PLE_TEMP_PROCESSING_BUCKET: temp-processing
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      # The issuer reads the existing copied capability; the host source file
+      # never enters this one-shot process.
+      PLE_QUESTION_ID_SECRET_FILE: /run/ple-secrets/question_id_secret
+    volumes:
+      - type: volume
+        source: ple_identity_runtime
+        target: /run/ple-secrets
+        read_only: true
     user: "10001:10001"
     read_only: true
     cap_drop:
@@ -201,8 +232,6 @@ services:
       PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY: ${PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY:?set native PLE worker storage secret in the env file}
       PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID: ${PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID:?set WeBWorK worker storage access key in the env file}
       PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY: ${PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY:?set WeBWorK worker storage secret in the env file}
-      PLE_PUBLISHER_RESTRICTED_ASSET_PATH: ${PLE_PUBLISHER_RESTRICTED_ASSET_PATH:?set publisher restricted asset path in the env file}
-      PLE_PUBLISHER_PUBLIC_ASSET_PATH: ${PLE_PUBLISHER_PUBLIC_ASSET_PATH:?set publisher public asset path in the env file}
       HOME: /tmp
     entrypoint:
       - /bin/sh
@@ -220,9 +249,9 @@ services:
         chmod 600 "$$policy_file"
         cat >"$$policy_file" <<EOF
         {"Version":"2012-10-17","Statement":[
-          {"Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::private-content/$${PLE_PUBLISHER_RESTRICTED_ASSET_PATH}"]},
-          {"Effect":"Allow","Action":["s3:GetObject","s3:GetObjectTagging"],"Resource":["arn:aws:s3:::public-assets/$${PLE_PUBLISHER_PUBLIC_ASSET_PATH}"]},
-          {"Effect":"Allow","Action":["s3:PutObject","s3:PutObjectTagging"],"Resource":["arn:aws:s3:::public-assets/$${PLE_PUBLISHER_PUBLIC_ASSET_PATH}"],"Condition":{"StringEquals":{"s3:RequestObjectTag/ple-published-immutable":"true"}}}
+          {"Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::private-content/questions/*"]},
+          {"Effect":"Allow","Action":["s3:GetObject","s3:GetObjectTagging"],"Resource":["arn:aws:s3:::public-assets/questions/*"]},
+          {"Effect":"Allow","Action":["s3:PutObject","s3:PutObjectTagging"],"Resource":["arn:aws:s3:::public-assets/questions/*"],"Condition":{"StringEquals":{"s3:RequestObjectTag/ple-published-immutable":"true"}}}
         ]}
         EOF
         # A retained local MinIO volume may carry a former policy with this
@@ -631,7 +660,7 @@ services:
           "--show-error",
           "--max-time",
           "2",
-          "http://127.0.0.1:8080/health",
+          "http://127.0.0.1:8080/",
         ]
       interval: 10s
       timeout: 3s

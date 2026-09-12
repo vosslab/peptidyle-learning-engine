@@ -31,15 +31,11 @@ import {
   decodeQuestionSubmissionAcknowledgement,
   decodeQuestionAttemptTimingDecision,
 } from "../decoders";
-import {
-  decodeAssignmentEditorDetail,
-  decodeSuccessorAssignmentRevisionRequired,
-} from "../decoders/assignment_workspace";
+import { decodeAssignmentEditorDetail } from "../decoders/assignment_workspace";
 import {
   ApiProtocolError,
   ApiRequestError,
   AssignmentConflictError,
-  AssignmentSuccessorRevisionRequiredError,
   AssignmentPoliciesValidationError,
   CourseGradeSchemeConflictError,
 } from "./error";
@@ -181,7 +177,6 @@ export async function requestAssignmentEditor(
   path: string,
   expected: { readonly assignmentId?: AssignmentId; readonly courseId?: CourseId },
   options: RequestOptions = {},
-  conflict: "standard" | "contentSave" = "standard",
 ): Promise<AssignmentEditorDetail> {
   const headers: Record<string, string> = { accept: "application/json", ...options.headers };
   const body = options.body === undefined ? undefined : JSON.stringify(options.body);
@@ -194,17 +189,6 @@ export async function requestAssignmentEditor(
     cache: "no-store",
   });
   requireNoStore(response, path);
-  if (response.status === 409 && conflict === "contentSave") {
-    // Only the generated successor-revision body gets semantic recovery; other 409s stay generic.
-    const value = await boundedResponseJson(response, path);
-    try {
-      const requirement = decodeSuccessorAssignmentRevisionRequired(value, "response");
-      throw new AssignmentSuccessorRevisionRequiredError(path, requirement);
-    } catch (error: unknown) {
-      if (error instanceof AssignmentSuccessorRevisionRequiredError) throw error;
-      throw new ApiRequestError(response.status, path);
-    }
-  }
   if (response.status === 409 || response.status === 412 || response.status === 428)
     throw new AssignmentConflictError(response.status, path);
   responseContentType(response, path);
@@ -236,14 +220,14 @@ async function requestAssignmentPolicies(
   assignmentId: AssignmentId,
   _assignmentReference: AssignmentReference,
   input: AssignmentPoliciesInput,
-  assignmentRevisionEtag: string,
+  assignmentEtag: string,
 ): Promise<AssignmentEditorDetail> {
   const path = `${assignmentPath(courseId, assignmentId)}/policies`;
-  const baseEditNumber = assignmentEditPrecondition(assignmentRevisionEtag);
+  const baseEditNumber = assignmentEditPrecondition(assignmentEtag);
   const response = await requestSameOrigin(fetchImplementation, basePath, path, {
     method: "PUT",
     body: { ...input, baseEditNumber },
-    headers: { "if-match": assignmentRevisionEtag },
+    headers: { "if-match": assignmentEtag },
   });
   if (response.status === 409 || response.status === 412 || response.status === 428)
     throw new AssignmentConflictError(response.status, path);
@@ -387,9 +371,9 @@ export function createRequestClient(
       assignmentId,
       _assignmentReference,
       input: AssignmentContentInput,
-      assignmentRevisionEtag,
+      assignmentEtag,
     ): ReturnType<ApiClient["saveAssignmentContent"]> => {
-      const baseEditNumber = assignmentEditPrecondition(assignmentRevisionEtag);
+      const baseEditNumber = assignmentEditPrecondition(assignmentEtag);
       return requestAssignmentEditor(
         fetchImplementation,
         basePath,
@@ -398,9 +382,8 @@ export function createRequestClient(
         {
           method: "PUT",
           body: { ...decodeAssignmentContentInput(input, "request"), baseEditNumber },
-          headers: { "if-match": assignmentRevisionEtag },
+          headers: { "if-match": assignmentEtag },
         },
-        "contentSave",
       );
     },
     saveAssignmentPolicies: (
@@ -408,7 +391,7 @@ export function createRequestClient(
       assignmentId,
       assignmentReference,
       input: AssignmentPoliciesInput,
-      assignmentRevisionEtag,
+      assignmentEtag,
     ): ReturnType<ApiClient["saveAssignmentPolicies"]> => {
       return requestAssignmentPolicies(
         fetchImplementation,
@@ -417,7 +400,7 @@ export function createRequestClient(
         assignmentId,
         assignmentReference,
         input,
-        assignmentRevisionEtag,
+        assignmentEtag,
       );
     },
     getInstructorStudentView: async (courseId, assignmentId): Promise<InstructorStudentView> => {

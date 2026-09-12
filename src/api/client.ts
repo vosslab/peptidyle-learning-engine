@@ -1,6 +1,7 @@
 // client.ts - the only API shape consumed by browser routes and components.
 
 import type { QuestionAssetId } from "../../generated/api/QuestionAssetId";
+import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 import type { AssignmentId } from "../../generated/api/AssignmentId";
 import type { AssignmentAttempt } from "../../generated/api/AssignmentAttempt";
 import type { QuestionSummary } from "../../generated/api/QuestionSummary";
@@ -73,76 +74,9 @@ import type { StudentAssignmentAttemptHistoryClient } from "./assignment_attempt
 import type { StudentAssignmentAttemptNavigationClient } from "./assignment_attempt_navigation";
 import type { InstructorAccountClient } from "./instructor_account";
 import type { SupportCapabilityClient } from "./support_roster";
-import type { LiveDemoGradebookClient } from "./live_gradebook";
+import type { CourseGradebookClient } from "./live_gradebook";
 import type { LiveStudentCourseLandingClient } from "./live_student_course_landing";
-import type { BlueprintOperationsClient } from "./blueprint_operations";
-import type {
-  GradingOperationActionReceipt,
-  GradingOperationFocus,
-  GradingOperationStrongEtag,
-  InstructorGradingOperationsPage,
-} from "./decoders/grading_operations";
-import type { InstructorGradingOperationReference } from "../../generated/api/InstructorGradingOperationReference";
-import type { AssignmentAttemptReference } from "../../generated/api/AssignmentAttemptReference";
-import type {
-  CalculatedGradebookQuery,
-  CalculatedGradebookResult,
-  InspectedStudentWorkDetail,
-} from "./decoders/calculated_gradebook";
-import type {
-  GradebookSelectionQuery,
-  GradebookSelectionResult,
-  SubmittedAssignmentAttemptChoicesPage,
-  SubmittedAssignmentAttemptChoicesQuery,
-} from "./decoders/gradebook_selection";
-
-/** Instructor-only browser capability for answer-free automated-grading recovery metadata. */
-export interface GradingOperationsClient {
-  readonly listInstructorGradingOperations: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    focus?: GradingOperationFocus,
-    cursor?: string,
-    pageSize?: number,
-  ) => Promise<InstructorGradingOperationsPage>;
-  readonly retryInstructorGradingOperation: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    operation: InstructorGradingOperationReference,
-    expectedRevision: GradingOperationStrongEtag,
-  ) => Promise<GradingOperationActionReceipt>;
-  readonly recalculateInstructorAssignment: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    expectedRevision: GradingOperationStrongEtag,
-  ) => Promise<GradingOperationActionReceipt>;
-}
-
-/** Instructor-only calculated Gradebook and audited Student-work capability. */
-export interface CalculatedGradebookClient {
-  readonly getCalculatedGradebook: (
-    courseId: CourseId,
-    query?: CalculatedGradebookQuery,
-  ) => Promise<CalculatedGradebookResult>;
-  readonly getGradebookSelection: (
-    courseId: CourseId,
-    query: GradebookSelectionQuery,
-  ) => Promise<GradebookSelectionResult>;
-  readonly getSubmittedAssignmentAttemptChoices: (
-    courseId: CourseId,
-    membership: CourseMembershipReference,
-    assignment: AssignmentReference,
-    query?: SubmittedAssignmentAttemptChoicesQuery,
-  ) => Promise<SubmittedAssignmentAttemptChoicesPage>;
-  readonly getInspectedStudentWork: (
-    courseId: CourseId,
-    membership: CourseMembershipReference,
-    assignment: AssignmentReference,
-    assignmentAttempt: AssignmentAttemptReference,
-    operationRef?: InstructorGradingOperationReference,
-  ) => Promise<InspectedStudentWorkDetail>;
-}
-
+import type { QuestionAvailabilityClient } from "./question_availability";
 /** Browser-safe client contract implemented by the current same-origin HTTP transport. */
 export interface ApiClient
   extends
@@ -157,11 +91,9 @@ export interface ApiClient
     StudentAssignmentAttemptNavigationClient,
     InstructorAccountClient,
     SupportCapabilityClient,
-    LiveDemoGradebookClient,
+    CourseGradebookClient,
     LiveStudentCourseLandingClient,
-    BlueprintOperationsClient,
-    GradingOperationsClient,
-    CalculatedGradebookClient {
+    QuestionAvailabilityClient {
   /** Reads only the authenticated Instructor's account-owned display zone. */
   readonly getInstructorProfile: () => Promise<InstructorProfile>;
   /** Replaces only the authenticated Instructor's account-owned display zone. */
@@ -280,7 +212,7 @@ export interface ApiClient
     assignmentId: AssignmentId,
     assignmentReference: AssignmentReference,
     input: AssignmentContentInput,
-    assignmentRevisionEtag: string,
+    assignmentEtag: string,
   ) => Promise<AssignmentEditorDetail>;
   /** Replaces only Policies-owned disclosure, Assignment Activity, and teaching settings. */
   readonly saveAssignmentPolicies: (
@@ -288,7 +220,7 @@ export interface ApiClient
     assignmentId: AssignmentId,
     assignmentReference: AssignmentReference,
     input: AssignmentPoliciesInput,
-    assignmentRevisionEtag: string,
+    assignmentEtag: string,
   ) => Promise<AssignmentEditorDetail>;
   /** Reads the non-mutating, answer-free Instructor Student view. */
   readonly getInstructorStudentView: (
@@ -357,8 +289,11 @@ export interface ApiClient
   readonly fetchCourseBanner: (bannerReference: CourseBannerReference) => Promise<Blob>;
   /** Fetches the fixed 5:2 course-card WebP rendition. */
   readonly fetchCourseBannerCard: (bannerReference: CourseBannerReference) => Promise<Blob>;
-  /** Public immutable Question Library asset redirect path; it never issues a capability. */
-  readonly assetUrl: (assetId: QuestionAssetId) => string;
+  /** Exact immutable Question Revision asset redirect path; it never issues a capability. */
+  readonly assetUrl: (
+    questionRevision: QuestionRevisionReference,
+    assetId: QuestionAssetId,
+  ) => string;
   readonly validateResponseFormatOnServer: FormatValidator;
   readonly questionAttemptTimingDecisionOnServer: TimerEvaluator;
   readonly validateAssignmentConfigOnServer: CapabilityValidator;

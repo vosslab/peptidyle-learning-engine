@@ -179,6 +179,9 @@ fn store_error_response(error: StoreError) -> Response {
         StoreError::Conflict | StoreError::RetryableTransaction => {
             route_error(StatusCode::PRECONDITION_FAILED, "Course Roster changed")
         }
+        StoreError::LifecycleConflict => {
+            route_error(StatusCode::CONFLICT, "Course Roster lifecycle conflict")
+        }
         StoreError::InvalidRecord(_) => {
             route_error(StatusCode::UNPROCESSABLE_ENTITY, "Course Roster is invalid")
         }

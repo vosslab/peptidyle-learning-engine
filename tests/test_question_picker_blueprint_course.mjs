@@ -52,10 +52,10 @@ const query = {
   authorship: "any",
 };
 
-function course(revision = "2") {
+function revision(revisionNumber = "2") {
   return {
-    reference: "BP-7",
-    revision,
+    blueprintRevision: { reference: "BP-7", revision: revisionNumber },
+    title: "Reusable Blueprint",
     modules: [
       {
         blueprint_module_reference: "module-7",
@@ -66,15 +66,18 @@ function course(revision = "2") {
 }
 
 test("Blueprint Assignment picker preserves Fixed Question and Question Pool Assignment Entry order", async () => {
+  const resolved = [];
   const source = blueprintCourseQuestionPickerRepository({
-    getBlueprintCourse: async () => ({ blueprintCourse: course() }),
+    getBlueprintRevision: async (reference, revisionNumber) => {
+      resolved.push({ reference, revisionNumber });
+      return revision();
+    },
   });
   const result = await source.search({
     source: {
       kind: "blueprintCourseAssignment",
       source: {
-        reference: "BP-7",
-        revision: "2",
+        blueprint_revision: { reference: "BP-7", revision: "2" },
         blueprint_assignment_reference: "assignment-7",
       },
       label: "Blueprint Course assignment",
@@ -87,19 +90,19 @@ test("Blueprint Assignment picker preserves Fixed Question and Question Pool Ass
     result.items.map((row) => row.displayId),
     ["7K3-M9QP", "2R5-X7YA", "3S8-B4DZ", "4T9-C5EW"],
   );
+  assert.deepEqual(resolved, [{ reference: "BP-7", revisionNumber: "2" }]);
 });
 
 test("Blueprint Assignment picker refuses a Blueprint Course revision that changed before access", async () => {
   const source = blueprintCourseQuestionPickerRepository({
-    getBlueprintCourse: async () => ({ blueprintCourse: course("3") }),
+    getBlueprintRevision: async () => revision("3"),
   });
   await assert.rejects(
     source.search({
       source: {
         kind: "blueprintCourseAssignment",
         source: {
-          reference: "BP-7",
-          revision: "2",
+          blueprint_revision: { reference: "BP-7", revision: "2" },
           blueprint_assignment_reference: "assignment-7",
         },
         label: "Stale Blueprint Course assignment",
@@ -107,6 +110,6 @@ test("Blueprint Assignment picker refuses a Blueprint Course revision that chang
       query,
       cursor: null,
     }),
-    /changed/u,
+    /did not resolve/u,
   );
 });

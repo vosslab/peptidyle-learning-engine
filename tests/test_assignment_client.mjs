@@ -7,6 +7,7 @@ import {
 } from "../src/api/decoders/assignment_teaching_delivery.ts";
 import {
   decodeCourseAssignments as decodeCourseAssignmentRows,
+  decodeCourseAssignmentSourceChoices,
   decodeSaveLiveAssignmentInlineInput,
 } from "../src/api/decoders/assignment_release.ts";
 
@@ -64,6 +65,40 @@ test("inline Assignment row saves accept only title and a required nullable loca
   );
 });
 
+test("Course Assignment source choices retain the Course-pinned exact Blueprint Revision", () => {
+  const choices = decodeCourseAssignmentSourceChoices([
+    {
+      source: {
+        blueprint_revision: { reference: "BP-4", revision: "2" },
+        blueprint_assignment_reference: "00000000-0000-0000-0000-000000000005",
+      },
+      label: "Genetics - Mendelian inheritance - Punnett squares",
+    },
+  ]);
+  assert.equal(choices[0].source.blueprint_revision.reference, "BP-4");
+  assert.equal(choices[0].source.blueprint_revision.revision, "2");
+  assert.equal(
+    choices[0].source.blueprint_assignment_reference,
+    "00000000-0000-0000-0000-000000000005",
+  );
+  assert.throws(() =>
+    decodeCourseAssignmentSourceChoices([
+      {
+        ...choices[0],
+        source: { ...choices[0].source, unexpected: true },
+      },
+    ]),
+  );
+  assert.throws(() =>
+    decodeCourseAssignmentSourceChoices([
+      {
+        ...choices[0],
+        label: " ",
+      },
+    ]),
+  );
+});
+
 test("Instructor Student view accepts an empty draft and Question Pool redraw without identities", () => {
   const view = decodeInstructorStudentView({
     title: "Peptide bonds",
@@ -76,7 +111,6 @@ test("Instructor Student view accepts an empty draft and Question Pool redraw wi
       assignment_attempt_time_limit_seconds: null,
       attempt_limit: null,
       late_work_rule: "accept",
-      assignment_deadline_rule: "auto_submit",
     },
     questionsPerAssignmentAttempt: 0,
     questionPoolReuseRule: "selectAgain",
@@ -125,7 +159,6 @@ test("Student assignment detail accepts only its viewer-owned display zone", () 
       assignment_attempt_time_limit_seconds: null,
       attempt_limit: null,
       late_work_rule: "accept",
-      assignment_deadline_rule: "auto_submit",
       student_late_work_status: "on_time",
     },
     entries: [],

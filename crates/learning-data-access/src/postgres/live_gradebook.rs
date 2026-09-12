@@ -1,4 +1,4 @@
-//! PostgreSQL adapter for the focused Live Demo Gradebook read boundary.
+//! PostgreSQL adapter for the focused Course Gradebook read boundary.
 
 use async_trait::async_trait;
 use question_model::{AssignmentAttemptCompletion, AssignmentReference, CourseInstanceReference};
@@ -6,15 +6,15 @@ use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    LiveDemoGradebook, LiveDemoGradebookStore, LiveDemoStudentWork, SessionTokenHash, StoreError,
+    CourseGradebook, CourseGradebookStore, CourseGradebookStudentWork, SessionTokenHash, StoreError,
 };
 
 #[derive(Clone)]
-pub struct PostgresLiveDemoGradebookStore {
+pub struct PostgresCourseGradebookStore {
     pool: Pool,
 }
 
-impl PostgresLiveDemoGradebookStore {
+impl PostgresCourseGradebookStore {
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
@@ -48,18 +48,18 @@ impl PostgresLiveDemoGradebookStore {
 }
 
 #[async_trait]
-impl LiveDemoGradebookStore for PostgresLiveDemoGradebookStore {
-    async fn live_demo_gradebook(
+impl CourseGradebookStore for PostgresCourseGradebookStore {
+    async fn course_gradebook(
         &self,
         token: SessionTokenHash,
         course: CourseInstanceReference,
-    ) -> Result<LiveDemoGradebook, StoreError> {
+    ) -> Result<CourseGradebook, StoreError> {
         let mut transaction = self.begin(token).await?;
         let rows = sqlx::query(
             "SELECT course_reference_number, roster_id, assignment_reference_number, \
              assignment_attempt_completion, graded_question_count, question_count, \
              points_earned, points_possible \
-             FROM ple_api.read_live_demo_gradebook($1)",
+             FROM ple_api.read_course_gradebook($1)",
         )
         .bind(i64::from(course.number()))
         .fetch_all(&mut *transaction)
@@ -85,14 +85,16 @@ impl LiveDemoGradebookStore for PostgresLiveDemoGradebookStore {
             .filter_map(|row| decode_row(row).transpose())
             .collect::<Result<Vec<_>, _>>()?;
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(LiveDemoGradebook {
+        Ok(CourseGradebook {
             course_reference: returned_course,
             student_work,
         })
     }
 }
 
-fn decode_row(row: &sqlx::postgres::PgRow) -> Result<Option<LiveDemoStudentWork>, StoreError> {
+fn decode_row(
+    row: &sqlx::postgres::PgRow,
+) -> Result<Option<CourseGradebookStudentWork>, StoreError> {
     let Some(roster_id) = row.try_get("roster_id").map_err(map_sqlx_error)? else {
         return Ok(None);
     };
@@ -138,7 +140,7 @@ fn decode_row(row: &sqlx::postgres::PgRow) -> Result<Option<LiveDemoStudentWork>
     {
         return Err(invalid("Gradebook point ordering"));
     }
-    Ok(Some(LiveDemoStudentWork {
+    Ok(Some(CourseGradebookStudentWork {
         roster_id,
         assignment_reference,
         assignment_attempt_completion,

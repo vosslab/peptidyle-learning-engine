@@ -111,9 +111,11 @@ inside one closed `response` object. The common top-level members are
 `feedback`, optional `questionHint`, optional `tags`, optional `questionLicense`, optional
 `questionCitation`, and `language`. Unknown and duplicate members are refused at every level. Points,
 Question Attempt Limit, and Question Attempt Time Limit are not PLE Question JSON source members:
-the exact Assignment Entry owns points and those controls, and its immutable Assignment Revision Entry
-snapshot retains them. Student Feedback Release remains Assignment-owned through the independent
-six-field `StudentFeedbackReleaseRule`.
+the exact Assignment Entry owns points and those controls. An Assignment Attempt retains its
+effective policy facts, and each Issued Question retains the exact Assignment Entry, Question
+Revision, seed, and presentation evidence needed to interpret Student Work after an Assignment
+changes. Student Feedback Release remains Assignment-owned through the independent six-field
+`StudentFeedbackReleaseRule`.
 
 The eight exact response shapes are:
 
@@ -212,6 +214,31 @@ roles are format-specific results or views rather than required universal
 database sidecars. Publication creates the Question Revision only after source
 validation succeeds.
 
+## Published Question completeness
+
+Publication turns one validated Draft into the ordinary Published Question
+model; PLE Question JSON has no separate QTI-shaped persistence model. A new
+lineage receives a server-minted compact seven-character Crockford Base32
+Question ID. Its browser-facing form is grouped as `AAA-BBBB`; the hyphen is
+presentation only. A later publication keeps that same lineage ID and creates
+the next exact Question Revision.
+
+The publication transaction records the stable lineage and its current
+metadata (title, description, and language), the immutable revision and
+publication event, the private immutable Question Source Object Record and
+exact source binding, reviewed acceptance, contiguous authorship, license, and
+lineage ownership evidence. The source binding retains the backend and its
+format-specific routing facts together with the exact object identity,
+checksum, size, and media type. PostgreSQL validates those required facts when
+the publication event is committed. Optional citation evidence remains
+revision-specific when supplied.
+
+This complete record is what lets an authorized historical reader resolve an
+exact Question Revision even after ordinary discovery metadata changes or the
+lineage is Archived. A Question ID remains a reference, not authority: server
+validation checks its HMAC-derived final character before identifier-based
+resolution, and authorization controls the resulting read or delivery.
+
 ## Why JSON rather than YAML
 
 Canonical JSON is the machine contract because it has one relevant data model
@@ -280,14 +307,15 @@ supports one real Classification System end to end.
 The native parser/compiler facade is
 `crates/adapters/ple/src/question_json.rs`; schema-version-3 shapes and
 compilation live in `crates/adapters/ple/src/question_json/schema_v3.rs`.
-The persistence boundary is `crates/learning-data-access/src/question_json.rs`
-with focused in-memory and PostgreSQL implementations, and the server owner is
-`crates/server/src/question_json_publication.rs`. The private source saves
-atomically with its typed draft. Future authorized publication atomically
-creates the complete Question Revision-owned Question Source Binding and
-aggregate; no publication service or route implements this operation yet. The runtime obtains private
-Answer Keys and Question Grading Input only through an injected grading
-capability. A future explicitly authored PLE Question JSON Accessibility Alternative relationship may serve a Question
-whose primary source uses WeBWorK, iMathAS, H5P, or another registered technology. That future
-relationship remains separate implementation work. Current QTI work maps supported flat imports into
-PLE Question JSON while retaining exact Workspace Import evidence.
+The persistence boundary is `crates/learning-data-access/src/question_source.rs`
+with its PostgreSQL adapter, and the server publication owner is
+`crates/server/src/question_publication.rs`. Private source saves stay bound to
+their typed Draft. The authorized authoring routes publish a complete immutable
+Question Revision and exact source binding atomically with its relational
+publication facts. The runtime obtains private Answer Keys and Question
+Grading Input only through an injected grading capability. A future explicitly
+authored PLE Question JSON Accessibility Alternative relationship may serve a
+Question whose primary source uses WeBWorK, iMathAS, H5P, or another registered
+technology. That future relationship remains separate implementation work.
+Current QTI work maps supported flat imports into PLE Question JSON while
+retaining exact Workspace Import evidence.

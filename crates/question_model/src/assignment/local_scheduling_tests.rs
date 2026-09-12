@@ -27,7 +27,6 @@ fn local_settings(
         NonZeroU32::new(900),
         NonZeroU32::new(2),
         LateWorkRule::MarkLate,
-        AssignmentDeadlineRule::AutoSubmit,
     )
     .expect("valid local settings")
 }
@@ -54,7 +53,6 @@ fn local_assignment_authored_content_round_trips_exact_milliseconds() {
             assignment_attempt_time_limit_seconds: NonZeroU32::new(900),
             attempt_limit: NonZeroU32::new(2),
             late_work_rule: LateWorkRule::MarkLate,
-            assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
         },
         activity_rules: AssignmentActivityRules {
             assignment_attempt_resume_rule: crate::AssignmentAttemptResumeRule::SingleSession,

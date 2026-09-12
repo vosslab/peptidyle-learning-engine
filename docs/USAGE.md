@@ -1,204 +1,121 @@
 # Usage
 
-PLE's local Live Demo is a disposable HTTPS stack with real PostgreSQL, MinIO,
-API, gateway, worker dependencies, and the private WebWork renderer. It serves
-the current role- and relationship-gated PLE workflow; it is not a presentation
-substitute. M19 recorded its fresh sealed-stack production-browser proof on
-2026-09-07.
+PLE has a disposable local stack for development and a small set of canonical
+database administration commands. The default local stack provisions ordinary
+installation-data Live Demo records; it is not a mock or a separate schema.
 
-## Quick start
+## Start the Live Demo
 
-Start the Live Demo:
+From the repository root, start the normal local developer entry point:
 
 ```bash
 ./launchers/run_live_demo.sh
 ```
 
-After the Python prerequisites in [INSTALL.md](INSTALL.md) are present, this command sources the
-repository shell environment through its fixed `source_me.sh` path, invokes
-`python3 local_stack.py`, and runs `devel/setup_typescript.sh` before a start. It builds production
-`dist/`, starts
-`ple-live-demo-browser`, waits for HTTPS readiness, and prints the HTTPS origin. Open that URL in
-your browser.
-
-To open the ready URL of an already-running demo, use:
+The launcher installs missing TypeScript dependencies through its existing helper,
+builds the production `dist/` bundle, starts the fixed HTTPS stack, and prints the
+Live Demo entry URL. Open an already-running demo, or start and open a fresh one:
 
 ```bash
 ./launchers/run_live_demo.sh open
+./launchers/run_live_demo.sh start --open
 ```
 
-`--open` is a compatible shorthand for `open`. To create a fresh demo and open it automatically,
-use `./launchers/run_live_demo.sh start --open`. `--headless` remains an accepted explicit spelling of the
-default non-opening behavior.
-
-Stop the disposable stack through its owner:
+Use `--headless` when the command must not open a browser. Each start replaces the
+fixed disposable stack and its previous local data; unrelated Podman projects remain
+outside this lifecycle. Stop it through the same owner:
 
 ```bash
 ./launchers/run_live_demo.sh stop
 ```
 
-Starting again replaces this project's disposable resources and seeded state. It
-does not change unrelated Podman projects.
+The local identity selector replaces only identity verification. The server still
+derives each authenticated session, Product Role, and Course relationship from stored
+PLE records. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the ordinary teaching
+graph and its data boundaries.
 
-## M20 Live Demo capture
+## Choose installation data
 
-Run the dedicated capture command to rebuild M20's role-owned current corpus:
-
-```bash
-./devel/capture_screenshots.sh
-```
-
-The command starts a fresh disposable stack, navigates the visible connected
-workflows, validates a complete staging corpus, publishes the flat public and
-Product Role folders, receipt, and generated atlas, then stops that stack. Use
-`./devel/capture_screenshots.sh --verify` to validate the published corpus and
-replay every declaration through a new clean Live Demo. The temporary replay
-and atlas remain under `test-results/screenshot-corpus/verify/` for visual
-review. Neither command uses pixel equality as a pass/fail gate.
-
-## Current Live Demo entry
-
-Use the visible seeded-entry page. It replaces only the normal
-identity-verification ceremony and can create an ordinary server-owned
-Authenticated Session for Elena Rivera, Mary Okafor, Jack Nguyen, Avery
-Thompson, or Morgan Delgado. The entry supplies a closed persona key only. The
-server resolves the configured Account and derives Product Role, Course
-Membership, Student ownership, and every later authorization decision from
-stored PLE state. The resulting session uses the applicable protected product
-routes; the browser can download invitation-export input but cannot send mail.
-
-The current HTTP route inventory is in [API_CONTRACTS.md](API_CONTRACTS.md).
-
-Email-code authentication remains future work. The passkey capability is deferred:
-it has no configuration, setup credential, Server Route, Browser Surface, or
-completed ceremony in the current local demo.
-
-## Teaching workflow boundaries
-
-The implemented Instructor, Student, and Sysadmin routes retain these
-boundaries:
-
-- exact Course Membership and Student ownership determine access;
-- Answer Keys, Question Graders, private Question Source data, and grading input
-  remain server-held;
-- An Assignment Attempt saves working responses while the Student is working,
-  then one final submission creates immutable per-Question grading work; and
-- Course, Assignment, and workspace references locate a record but never grant
-  authority.
-
-The product behavior and its contracts are documented in
-[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md), and
-[API_CONTRACTS.md](API_CONTRACTS.md). The serial M19 production-browser proof
-is recorded separately from the service and permanent test lanes.
-
-## Temporary attended signup-email tool
-
-The local macOS invitation mailer sends signup URLs that were created elsewhere;
-it does not implement or claim PLE roster import, Account creation, Course
-Enrollment, or signup completion.
-
-Create `output-email/roster_export.json` with owner-only permissions (`0600`):
-
-```json
-{
-  "course_name": "Genetics 301",
-  "students": [
-    {
-      "email": "student@mail.roosevelt.edu",
-      "signup_url": "https://example.edu/signup/opaque-value",
-      "display_name": "Student Name",
-      "roster_id": "optional-local-reference"
-    }
-  ]
-}
-```
-
-Recipient domains must appear in
-[`invitation_mailer.yaml`](../invitation_mailer.yaml), and signup URLs must use
-HTTPS. Preview the batch first:
+The default local stack creates the Pilot Question publication and ordinary Live Demo
+graph after its canonical structure is installed. To start an ordinary product stack
+without that data, use the controller directly before provisioning:
 
 ```bash
-source source_me.sh && python3 launchers/send_invitations.py output-email/roster_export.json
+source source_me.sh && python3 local_stack.py start --headless --without-live-demo
 ```
 
-Then perform a small attended send:
+This opt-out changes only the installation-data choice. It does not select another
+schema, identity model, project, or data lifecycle.
 
-```bash
-source source_me.sh && python3 launchers/send_invitations.py \
-  output-email/roster_export.json --send --limit 5
-```
+## Inspect the local stack
 
-Mail.app visibly composes and sends each message through its configured account.
-Remain at the Mac, verify the first messages in the Sent mailbox, and stop if the
-sender or content is wrong. macOS may request Automation permission for the
-terminal or Python process. Tell students the sender address and subject through
-the normal course channel before the batch.
-
-The owner-private `output-email/invitation_status.json` suppresses duplicates.
-Both `sent` and interrupted `indeterminate` recipients are held on a normal rerun.
-After checking Mail.app, deliberately resend exactly one held recipient with:
-
-```bash
-source source_me.sh && python3 launchers/send_invitations.py \
-  output-email/roster_export.json --send \
-  --only student@mail.roosevelt.edu --force-resend
-```
-
-Failed and dry-run observations remain eligible for a later normal send.
-`output-email/sent_log.csv` is a readable projection of confirmed local
-observations; the Sent mailbox remains the operator's delivery evidence. Signup
-URLs are not written to status files or progress output.
-
-After reconciling the batch, retain or destroy `output-email/` according to the
-course-record policy. The tool is disposable: remove `invitation_mailer/`,
-`launchers/send_invitations.py`, `invitation_mailer.yaml`, its focused tests, and the
-`py-applescript` dependency when it is no longer needed.
-
-## Build and validation commands
-
-Use the named build and validation entry points:
-
-```bash
-./build.sh
-./check_rust.sh
-./check_codebase.sh
-source source_me.sh && python3 local_stack.py acceptance
-source source_me.sh && ./launchers/all_test.sh
-```
-
-`local_stack.py acceptance` currently runs the declared PostgreSQL and Course
-Appearance PostgreSQL/MinIO service lanes. `launchers/all_test.sh` proves its named current
-lanes; neither command proves a visible production-browser teaching journey.
-
-## Controller diagnostics
-
-Source the repository shell environment before directly invoking the local-stack
-controller:
+Run controller commands through the repository Python environment:
 
 ```bash
 source source_me.sh && python3 local_stack.py doctor
-source source_me.sh && python3 local_stack.py projects
 source source_me.sh && python3 local_stack.py status
+source source_me.sh && python3 local_stack.py projects
 source source_me.sh && python3 local_stack.py logs --tail 120
 source source_me.sh && python3 local_stack.py validate
 ```
 
-`doctor` reports reachable Podman metadata, including root mode, macOS machine
-provider, and the selected Compose adapter. Missing optional metadata is a
-warning rather than a runtime gate. `status` reports semantic
-readiness. `projects` lists labelled Compose projects. `logs` prints scoped
-application logs. `validate` checks configuration and runtime availability
-without starting the stack. Add `--json`
-to `doctor`, `projects`, `status`, or `validate` for machine output. `logs`
-accepts `--follow`, an explicit `--project`, and optional service names while
-diagnosing a stack.
+`doctor`, `status`, `projects`, `logs`, and `validate` are diagnostics; `--json` is
+available on `doctor`, `status`, `projects`, and `validate`. Read
+[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for ownership, recovery, and
+Podman details.
 
-For recovery guidance, see [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md)
-and [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+## Administer the database
 
-## Known gaps
+The database command has exactly three lifecycle actions. `initialize` and `migrate`
+read `PLE_MIGRATION_DATABASE_URL` and require the migration role. `verify` reads
+`DATABASE_URL` through the restricted application connection:
 
-- TODO: Restore the canonical production-browser owner and record visible,
-  accessible teaching-workflow acceptance before documenting a course workflow
-  as current.
+```bash
+cargo tools database initialize
+cargo tools database migrate
+cargo tools database verify
+```
+
+Use `initialize` for a genuinely empty PLE database. Use `migrate` only after the
+post-freeze migration lifecycle has pending forward changes. Use `verify` to check the
+application-safe schema projection without granting DDL or migration-ledger access.
+The complete default installation-data operation runs after services are ready:
+
+```bash
+cargo tools installation-data provision
+```
+
+`provision` first runs the convergent Pilot publication and database-owned
+teaching graph, then creates cross-system Student Work and grading effects
+through their owning paths. `apply` is available when only that database-owned
+graph is needed; it is not complete Live Demo provisioning. Use
+`cargo tools installation-data provision --without-live-demo` to explicitly
+skip the Live Demo before it is created. [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md)
+explains the base schema and post-freeze rule; [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md)
+explains the restricted-role boundary.
+
+## Validate a change
+
+Use the smallest applicable gate first:
+
+```bash
+./check_rust.sh
+./check_codebase.sh
+source source_me.sh && python3 -m pytest tests/
+source source_me.sh && python3 local_stack.py acceptance
+```
+
+The first three are local code and hygiene gates. `local_stack.py acceptance` exercises
+its declared connected service lanes, not a complete visible teaching journey. The
+aggregate front door and evidence classifications are in
+[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
+
+## Evidence boundaries
+
+The completed baseline reset has connected PostgreSQL, service, browser,
+installation-data, and backup/restore evidence recorded in
+[CHANGELOG.md](CHANGELOG.md). Use the narrowest owning gate while changing the
+system: PostgreSQL-only for database-owned invariants, focused service checks for
+cross-system boundaries, and a Live Demo journey when it adds end-to-end evidence.
+See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the permanent-test and
+connected-evidence boundary.

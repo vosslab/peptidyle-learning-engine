@@ -35,7 +35,6 @@ test("Student view presentation stays answer-free and preserves live delivery fa
       assignment_attempt_time_limit_seconds: 900,
       attempt_limit: 2,
       late_work_rule: "mark_late",
-      assignment_deadline_rule: "auto_submit",
     },
     questionsPerAssignmentAttempt: 3,
     questionPoolReuseRule: "reuseSelection",

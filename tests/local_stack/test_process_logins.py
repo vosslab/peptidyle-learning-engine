@@ -114,6 +114,7 @@ def test_service_login_profiles_have_exact_set_only_memberships() -> None:
 		assert "REVOKE %I FROM %I" in sql
 		assert f"GRANT CONNECT ON DATABASE %I TO {login}" in sql
 		assert "NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS" in sql
+		assert "ple_unrelease_executor" not in sql
 
 
 #============================================

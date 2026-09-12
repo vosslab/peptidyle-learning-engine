@@ -72,7 +72,11 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
   async function save(): Promise<void> {
     setBusy(true);
     try {
-      const result = await createBlueprintCourseWhenReady(props.client, draft());
+      const result = await createBlueprintCourseWhenReady(
+        props.client,
+        draft(),
+        crypto.randomUUID(),
+      );
       if (result.kind === "invalid") {
         setMessage(result.message);
         return;

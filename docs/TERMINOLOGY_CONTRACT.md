@@ -44,11 +44,10 @@ policy.
 Use these three patterns for every other domain concept:
 
 - **Mutable current state:** Keep one current editable state. Assignments,
-  Course Instances, Draft Questions, Question Change Proposals, profile
-  settings, course settings, due dates, release settings, invitation rules,
-  accommodations, retention plans, and other ordinary configuration replace
-  their prior working state when an edit is accepted. Use an Edit Number when
-  optimistic concurrency needs one.
+  Course Instances and their Course Terms, Draft Questions, profile settings,
+  course settings, due dates, release settings, invitation rules, and
+  accommodations replace their prior working state when an edit is accepted.
+  Use an Edit Number when concurrent writers need optimistic concurrency.
 - **Exact published-content reference:** Use a Question Revision Reference or
   Blueprint Revision Reference when another record depends on exact published
   content. Issued work, grading, statistics, forks, assets, and Question Backend
@@ -242,9 +241,9 @@ reusable wall-clock intent; schedule resolution supplies the Account Time Zone
 and absolute Timestamp.
 
 **Blueprint Course Owner** is the Active Instructor Account accountable for one
-Blueprint Course's publication, fork, availability, and Blueprint Draft
-collaboration decisions. Its inheritance path is Authenticated Session to Active
-Instructor Account to the exact Blueprint Course Owner relationship. The durable
+Blueprint Course's Draft, publication, fork, and availability decisions. Its
+inheritance path is Authenticated Session to Active Instructor Account to the
+exact Blueprint Course Owner relationship. The durable
 relationship can remain after that Account becomes inactive; it supplies no
 authority unless an Authenticated Session resolves the Account as active.
 
@@ -265,14 +264,18 @@ resulting current availability, due, and close instants. An Assignment Attempt
 retains any of those exact facts that its access, timing, or grading evidence
 requires.
 
-**Blueprint Collaborator** is an Active Instructor Account with an
-explicit, time-bounded contribution relationship to one exact Blueprint Draft;
-it grants neither Authoring Workspace nor Course Instance authority. A
-**Blueprint Publication Event** copies one reviewed Blueprint Draft into a new
-Blueprint Revision, makes that revision reusable by Active Instructor Accounts,
-and closes the draft's collaboration.
+Each Blueprint Course has one private mutable **Blueprint Draft** owned by its
+Blueprint Course Owner. The Draft has a **Blueprint Draft Edit Number**; an
+accepted changed save advances that number. A deliberate **Publish Blueprint
+Draft** request copies the complete Draft into one new immutable Blueprint
+Revision. Replaying an already accepted request converges on its existing
+publication receipt and Revision. A distinct deliberate publish request creates
+a new Blueprint Revision even when the Draft content is unchanged. Publication
+leaves the owner's Draft available as the working copy for later edits.
 **Blueprint Course Availability** is the mutable Available or Archived state of
-one stable Blueprint Course. The Blueprint Course Owner controls this state.
+one stable Blueprint Course. Its **Blueprint Course Availability Edit Number**
+is the qualified optimistic-concurrency value for availability operations. The
+Blueprint Course Owner controls this state.
 Available permits ordinary browsing and new selection. **Archive Blueprint
 Course** is the Danger Zone action that changes it to Archived after presenting
 the shared-availability consequence and receiving explicit confirmation.
@@ -286,20 +289,18 @@ Blueprint Revision.
 Blueprint Revision. **Create Course from Blueprint** creates a new Course
 Instance from one exact Blueprint Revision. **Copy Assignment from Blueprint**
 creates one Course Instance-owned Assignment from one exact Blueprint
-Assignment and Blueprint Revision. **Apply Blueprint Update** applies one
-reviewed Blueprint change through successor Course Instance records. **Copy
-Course for New Term** creates a new Course Instance from an existing Course
+Assignment and Blueprint Revision. **Copy Course for New Term** creates a new
+Course Instance from an existing Course
 Instance while retaining teaching content and excluding Student Work Records.
 **Shift Course Dates** updates the Course Instance's current Course Term and
 the current schedule instants of its affected Assignments. Existing Assignment
 Attempts and grading records retain the exact evidence they already depend on;
 the Course Instance and Assignments continue with their updated current state.
 
-Supporting terms use the complete operation name, such as Apply Blueprint
-Update Readiness or Copy Assignment from Blueprint Receipt. Readiness,
-Manifest, and Receipt describe only their exact qualified operation. The
-operation name remains consistent across interface, API, schema, and code
-boundaries.
+Supporting terms use the complete implemented operation name, such as Copy
+Assignment from Blueprint Receipt. Readiness, Manifest, and Receipt describe
+only their exact qualified operation. The operation name remains consistent
+across interface, API, schema, and code boundaries.
 
 Repeated-request handling belongs to the exact operation rather than a universal
 PLE Retry Token model. Prefer the operation's existing record identity, exact
@@ -310,9 +311,10 @@ safely. The standard HTTP `idempotency-key` header remains transport vocabulary
 and does not require a parallel PLE domain object.
 
 **Course Instance** is live teaching created from an exact Blueprint Revision.
-It owns enrollment, deadlines, releases, accommodations, grades, and other
-delivery-specific facts. Course Instance Creation atomically records its source
-and an initial Instructor Course Membership.
+It owns its current **Course Term** directly: its calendar dates, enrollment,
+deadlines, releases, accommodations, grades, and other delivery-specific facts.
+Course Instance Creation atomically records its source and an initial Instructor
+Course Membership. A Course Term is mutable current state, not a Revision.
 
 **Course Origin** is immutable source history for one Course Instance. It
 retains the exact Blueprint Revision and, for a rollover, the exact source
@@ -325,22 +327,20 @@ resolved schedules, while its one exclusion policy excludes all Student and
 delivery records.
 
 Each completed Blueprint operation has its exact qualified Receipt, such as
-Copy Course for New Term Receipt, Shift Course Dates Receipt, Apply Blueprint
-Update Receipt, or Copy Assignment from Blueprint Receipt. A shared wrapper may
+Copy Course for New Term Receipt, Shift Course Dates Receipt, or Copy Assignment
+from Blueprint Receipt. A shared wrapper may
 remain ordinary implementation vocabulary; the exact qualified Receipt remains
 the PLE-owned concept.
 
-**Assignment Source Record** is immutable server-held evidence that one
-Assignment copy or update operation used one exact Blueprint Assignment from
-one exact Blueprint Revision. It retains the checked Question
-Revision substitutions, Blueprint Content Checksum, resolved schedule, and
-resulting Assignment Edit Number after the operation commits. It is distinct
-from the browser-safe Assignment Source View. The record supplies provenance
-for that exact operation while the Assignment continues as current state.
+**BlueprintAssignmentSource** is the immutable provenance on one Course
+Instance-owned Assignment. It pairs one exact Blueprint Revision Reference with
+the stable Blueprint Assignment Reference selected from that Revision. It
+explains where the Assignment came from; it is not another Revision family and
+does not replace the Assignment's current editable state.
 
 **Copy Assignment from Blueprint Receipt** is the immutable server-held
 completion receipt for one copied Blueprint Assignment. It binds the exact
-Assignment Source Record, command binding, resulting Assignment, and resulting
+BlueprintAssignmentSource, command binding, resulting Assignment, and resulting
 Assignment Edit Number.
 
 **Course Instance Creation Reservation** is server-held pre-creation evidence for one Course Instance. It binds the exact Blueprint or rollover source, target Course Term, authorizing Account, Request Checksum, and reserved Course Instance Reference; it creates no authority of its own.
@@ -392,14 +392,14 @@ one Course Instance. A Student Course Membership binds to that Student Record.
 Re-enrollment starts another membership episode while retaining the same
 Student Record and course history. Course Enrollment creates or reuses these
 course-scoped relationships after Course Roster Import resolves the global
-Student Account. Student Work Records and Grades follow the Course Retention
-Plan independently of the Student Account's lifetime.
+Student Account. Student Work Records and Grades follow the Course's retention
+rules independently of the Student Account's lifetime.
 
-**Course Retention Plan** is the Course Instance's current retention
-configuration. Accepted changes replace its current state and advance a
-**Course Retention Plan Edit Number** when concurrency needs one. Cleanup and
-deletion evidence retains the exact effective values applied by each completed
-operation.
+Course-retention configuration and a Question Change Proposal workflow are
+future vertical capabilities. They have no current persistence, lifecycle,
+event, Revision, API, or authority contract. A future implementation must add
+its complete workflow and retention semantics before introducing its terms into
+runtime contracts.
 
 **Course Observer Relationship** is a separately governed, answer-free,
 identity-free, read-only relationship to one Course Instance. It is not a
@@ -709,7 +709,10 @@ Question Presentation Nonce with its complete Question Presentation Checksum.
 relates one Issued Question, its Question Presentation, Question Asset
 Renditions, private Response Item Bindings, and Question Presentation Binding
 with the complete Question Presentation Checksum.
-These terms preserve the presentation and integrity evidence boundaries.
+Its private normalized Response Item Bindings map presentation-scoped four-hex
+references to durable authored Response Item identities, so retained Student
+Work can be interpreted without a mutable Question Source lookup. These terms
+preserve the presentation and integrity evidence boundaries.
 Question Revision remains the Question content lifecycle.
 
 **Student Response Format Check** is the answer-free result of applying one Question Response Format to a proposed Student Response. It owns an ordered set of **Student Response Format Issues**, each naming one exact shape or constraint mismatch. The closed issue set belongs to the domain contract and is shared unchanged by browser and server format validation. A **Response Format Message** is visible interface text derived from that check; it is not the check or an issue record.
@@ -732,9 +735,10 @@ Reproduction Details.
 **Answer Key** and **Question Grading Input** name server-held correctness
 facts. A policy-released Question Answer is a separate display-ready derivative,
 not a browser View of either private record. **Assignment Submission** is
-an explicit finalization of one whole
-Assignment Attempt and references its accepted Question Submissions instead of
-repeating their Student Responses.
+the finalization of one whole Assignment Attempt. It atomically follows the
+creation of immutable Question Submissions and one typed grading Job with its
+pending grading row for each supported Question, then references those
+Submissions instead of repeating their Student Responses.
 
 **Question Library** is the single shared, authoritative set of Published
 Questions available to every Active Instructor Account. **My Questions** is the
@@ -779,7 +783,8 @@ accepted edits.
 **Question Curation** is the Instructor workflow for finding, reviewing,
 organizing, and improving Questions. It is a workflow or surface label. Its
 durable records keep their exact names, including Question Folder, Saved
-Question Search, Question Star, Question Watch, and Question Change Proposal.
+Question Search, Question Star, and Question Watch. A future Question Change
+Proposal workflow will name its records when it has a complete vertical design.
 
 **Question Metadata** is structured, answer-free discovery, credit, legal, and
 source-description information associated with a Draft Question, Published
@@ -945,8 +950,12 @@ from that same saved Draft Question before publication.
 
 **Published Question** is a validated stable Question lineage in the Question
 Library. Published Question Availability controls its ordinary public browsing
-and new selection by Active Instructor Accounts. Its Question ID is the complete
-identity of that stable lineage. The Published Question owns mutable lineage
+and new selection by Active Instructor Accounts. Its compact seven-character
+**Question ID** is the complete stored identity of that stable lineage. The
+browser displays that same ID as `AAA-BBBB`: the hyphen is presentation-only.
+The first six Crockford Base32 characters are generated from a cryptographically
+secure source and the seventh is the server-derived HMAC-SHA-256 validation
+character. The Published Question owns mutable lineage
 metadata, including Question Title and Question Description. **Question
 Revision** is an immutable source-bearing historical revision identified by its
 complete **Question Revision Reference**: the Question ID together with its
@@ -958,8 +967,8 @@ immutable Question Source and records its exact parent Question Revision,
 and **Question Revision Reason**. The Question Revision Editor is the Account
 credited for the submitted change. Question Revision Accepted By records the
 Account whose authorized action created the immutable revision; the two
-Accounts are the same for a direct owner edit and may differ for an accepted
-Question Change Proposal. Neither fact changes Question Authorship or Question
+Accounts are the same for a direct owner edit and may differ for an authorized
+Forced Question Correction. Neither fact changes Question Authorship or Question
 Ownership. The Question Revision Reason uses the visible label Reason for Edit
 and explains why the accepted change was made; it is the
 Instructor-language counterpart of a Git commit message. **Latest Question
@@ -971,12 +980,13 @@ Availability.
 
 Authorized publication validates the exact Draft Question Edit Number and
 atomically creates the complete Question Revision Source Binding and
-published aggregate. It copies validated lineage metadata into Published
-Question-owned storage and records revision-specific metadata and publication
-evidence with the Question Revision. No publication service or route implements
-the complete browser operation yet; the server-only new-lineage publication Service is implemented,
-but no publication Server Route exists. The publication transaction does
-not add the Draft Question to a published table or index. The Question Revision Reference owns the immutable source, its Source
+published aggregate. The private Authoring Workspace routes accept only the
+Draft Question Reference and edit precondition; the server resolves the Draft
+source and server-owned object records. It copies validated lineage metadata
+into Published Question-owned storage and records revision-specific metadata
+and publication evidence with the exact Question Revision. The publication
+transaction does not add the Draft Question to a published table or index. The
+Question Revision Reference owns the immutable source, its Source
 Object Reference and Source Object Checksum when object storage is used, and
 every derived or protected value needed to present and grade that source. The
 complete Question Revision remains resolvable after its Draft Question is
@@ -991,7 +1001,9 @@ references. A Question Publication Event records entry into the Question
 Library.
 
 **Published Question Availability** is the mutable Available or Archived state
-of one stable Published Question. The Question Owner controls this state.
+of one stable Published Question. Its **Published Question Availability Edit
+Number** is the qualified optimistic-concurrency value for availability
+operations. The Question Owner controls this state.
 Available permits ordinary browsing and new selection. **Archive Published
 Question** is the Danger Zone action that changes it to Archived after
 presenting the shared-availability consequence and receiving explicit
@@ -1001,17 +1013,9 @@ for existing Assignments, forks, Student Work, grading, and history. Restoring
 uses an ordinary availability control and changes the current state to Available
 while preserving every Question Revision.
 
-**Question Change Proposal** is one Instructor-owned improvement thread against
-a Published Question. It keeps one current mutable proposed change with its
-exact base Question Revision, Question Publication Validation evidence,
-semantic impact, and grading impact. Its positive **Question Change Proposal
-Edit Number** supports concurrent saves and review. Accepting the current
-proposal creates a new immutable same-lineage Question Revision when the exact
-base and Edit Number remain current. Use `question_publication_validation` as
-its exact SQL field. A **Question Change Event** is immutable evidence that
-opens, merges, or closes the proposal at one exact Edit Number; it derives the
-Proposal's Open, Merged, or Closed state. A Forced Question Correction has its
-own immutable manifest and one corresponding Question Change Event.
+Question Change Proposal is a future product capability. PLE currently supports
+owner publication, full forks, and Forced Question Correction without proposal
+records, events, Revision types, API fields, or compatibility readers.
 
 **Forced Question Correction Manifest** is the closed, immutable Sysadmin-approved
 record for one critical Question Revision correction. It binds the flawed and
@@ -1058,9 +1062,11 @@ affected Student Work Record counts. The Instructor enters the exact Assignment
 title and activates a dedicated confirmation. The server verifies current
 Teaching Team authority, the exact Assignment, Released status, Assignment Edit
 Number, and title confirmation before atomically changing Assignment Status and
-deleting its complete Student Work Records. Assignment Close and Assignment
-Archive use ordinary lifecycle controls because they preserve Student Work
-Records.
+deleting its complete Student Work Records, rebuilding the affected
+Question-Revision statistics from surviving observations, and writing one
+redacted Unrelease audit Event with aggregate deletion counts. Assignment Close
+and Assignment Archive use ordinary lifecycle controls because they preserve
+Student Work Records.
 
 **Base Assignment Policy** is the complete authored timing, attempt, variation,
 navigation, scoring, and Student Feedback Release configuration in that
@@ -1170,12 +1176,14 @@ Assignment. Starting another pass creates another Assignment Attempt while
 retaining every earlier Attempt. Its **Assignment Attempt Number** sequences
 those separate records for that Student Record and Assignment. Each Assignment
 Attempt retains the exact Assignment-derived facts required to interpret and
-grade that Student's work, including its effective schedule and policy values,
+grade that Student's work: title, instructions, availability/due/close instants,
+whole-Attempt time limit, effective policy values and their qualified sources,
 Question selection, and ordering.
 It contains **Issued Questions**; each Issued Question retains its exact
-Question Revision Reference, Question Seed, point and scoring values, limits,
-and presentation evidence. A **Question Attempt** is one Student's work on an
-Issued Question.
+Assignment Entry identity and issue position, Question Revision Reference,
+Question Seed, point and scoring values, statistics eligibility, pool-selection
+source, limits, and presentation evidence. A **Question Attempt** is one
+Student's work on an Issued Question.
 **Question Attempt State** is Open, Submission Accepted, or Closed at Deadline.
 Open permits a Student Response. Submission Accepted means the attempt owns one
 accepted Question Submission. Closed at Deadline means the server ended the
@@ -1266,6 +1274,29 @@ operation retrieves authored Question records through their owning PostgreSQL
 and object-storage boundaries. Executable source owns behavior: it loads,
 transforms, and validates the stored records.
 
+**Production Starter Content** is the publication of the eight validated Pilot
+Questions from `content/pilot/chapter_1_assignments.yaml`. The content compiler
+and owning object-publication path create exact Question Revision References for
+those Published Questions; the data-only manifest creates their Genetics and
+Biochemistry subject organization. Starter Content is not a separate product
+Revision.
+
+**Known-Good Teaching Graph** is the fictional Account, Blueprint, Course,
+roster-and-claim, released-Assignment, Attempt, response, grade, and observation
+state described by [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md). The production
+installation orchestrator defaults to creating it after Production Starter
+Content is published and accepts an explicit opt-out. One data-only manifest may
+create every wholly PostgreSQL-owned graph fact; established owner paths create
+only the facts with real cross-system effects. Its records retain their normal
+Account, Course, Assignment, archive, and Unrelease lifecycle; the graph is not
+a new model or a permanent protected state.
+
+**Disposable Acceptance Environment** is a local Live Demo deployment and its
+throwaway storage. Its direct `/api/auth/live-demo/accounts` persona selector
+only replaces identity verification during private bootstrap/local use and is
+absent before a public gateway. General production accesses the Known-Good
+Teaching Graph through normal authentication.
+
 ## Interface surfaces and ribbon navigation
 
 Canonical Ribbon, layout, and navigation-surface terms live in
@@ -1283,7 +1314,7 @@ ordinary sources of PLE authority:
 | Authenticate                          | Active Account -> Authenticated Session                                                                                                                                                                  |
 | Question Library                      | Authenticated Session -> Active Instructor Account -> Published Question                                                                                                                                 |
 | Private authoring                     | Authenticated Session -> Active Instructor Account -> exact Authoring Workspace Owner or Workspace Collaborator relationship                                                                             |
-| Blueprint Draft contribution          | Authenticated Session -> Active Instructor Account -> current Blueprint Collaborator relationship -> exact Blueprint Draft                                                                               |
+| Blueprint Draft                       | Authenticated Session -> Active Instructor Account -> exact Blueprint Course Owner relationship -> exact Blueprint Draft                                                                               |
 | Teach a Course Instance               | Authenticated Session -> Active Instructor Account -> active Instructor Course Membership -> Course Instance                                                                                             |
 | Student course work                   | Authenticated Session -> Active Student Account -> active Student Course Membership -> Student Record -> Assignment -> Assignment Attempt -> Issued Question -> Question Attempt |
 | Student FERPA information             | exact Student Record and Course Instance relationship, limited to the approved viewer and requested record scope                                                                                         |

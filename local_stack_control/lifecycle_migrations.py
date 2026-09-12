@@ -1,4 +1,4 @@
-"""Network-scoped database migration jobs for the local stack."""
+"""Network-scoped database lifecycle jobs for the local stack."""
 
 import pathlib
 import secrets
@@ -8,7 +8,6 @@ import local_stack_control.disposable_stack_adapter
 import local_stack_control.env_file
 import local_stack_control.lifecycle_commands
 import local_stack_control.lifecycle_database
-import local_stack_control.live_demo_gateway
 import local_stack_control.models
 import local_stack_control.private_files
 import local_stack_control.process
@@ -26,14 +25,14 @@ def run_migrations(
 	values: dict[str, str],
 	environment: dict[str, str],
 ) -> None:
-	"""Run the selected schema migration inside the Compose data network."""
+	"""Run one canonical database action inside the Compose data network."""
 	del repo_root, environment
 	selected = target_of(target)
+	operation = database_operation_for(target)
 	url = migration_database_url_for(target, runner, values)
-	write_migration_database_url(selected.env_file, url)
 	build_database_migrator(selected, runner)
-	operation = "migrate-schema" if local_stack_control.live_demo_gateway.is_tls_target(selected) else "migrate"
-	run_database_command(selected, runner, operation, "database migration")
+	run_database_command(selected, runner, operation, f"database {operation}", url)
+	write_migration_database_url(selected.env_file, url)
 
 
 #============================================
@@ -41,7 +40,7 @@ def verify_migrated_application_schema(
 	target: local_stack_control.models.ComposeTarget,
 	runner: local_stack_control.process.CommandRunner,
 ) -> None:
-	"""Verify the browser profile through its API login on the Compose network."""
+	"""Verify the application role through the one restricted schema projection."""
 	settings = local_stack_control.env_file.env_settings(target.env_file)
 	try:
 		url = settings["PLE_API_DATABASE_URL"]
@@ -49,8 +48,7 @@ def verify_migrated_application_schema(
 		raise local_stack_control.models.ControllerError(
 			"live-demo application-schema verification credentials are unavailable"
 		) from error
-	write_migration_database_url(target.env_file, url)
-	run_database_command(target, runner, "verify", "application-schema verification")
+	run_database_command(target, runner, "verify", "application-schema verification", url)
 
 
 #============================================
@@ -59,8 +57,16 @@ def run_database_command(
 	runner: local_stack_control.process.CommandRunner,
 	operation: str,
 	description: str,
+	migration_url: str | None = None,
 ) -> None:
-	"""Run one database administration action without using a host-published port."""
+	"""Run one database administration action without a host-published port."""
+	environment = local_stack_control.lifecycle_commands.child_environment(target)
+	if migration_url is not None:
+		if not migration_url.startswith("postgres://") or any(
+			character in migration_url for character in "\r\n\x00"
+		):
+			raise local_stack_control.models.ControllerError("migration database URL is invalid")
+		environment[MIGRATION_URL_SETTING] = migration_url
 	result = runner.run(
 		local_stack_control.compose.compose_argv(
 			target,
@@ -69,13 +75,32 @@ def run_database_command(
 				MIGRATION_SERVICE, "database", operation,
 			],
 		),
-		local_stack_control.lifecycle_commands.child_environment(target),
+		environment,
 		target.repo_root,
 	)
 	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
 		target.env_file
 	)
+	if migration_url is not None:
+		private_values = (*private_values, migration_url)
 	local_stack_control.lifecycle_commands.require_command(result, description, private_values)
+
+
+#============================================
+def database_operation_for(
+	target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget,
+) -> str:
+	"""Use the existing private migration-URL setting as the first-start fact.
+
+	The first lifecycle call has no migration URL, so it performs ``initialize``.
+	A successful database action records a private URL and next uses ``migrate``.
+	This controller does not inspect PostgreSQL roles, ACLs, schemas, or objects:
+	the database coordinator accepts only its supported states and fails closed.
+	"""
+	settings = local_stack_control.env_file.env_settings(target_of(target).env_file)
+	if MIGRATION_URL_SETTING in settings:
+		return "migrate"
+	return "initialize"
 
 
 #============================================
@@ -83,7 +108,7 @@ def build_database_migrator(
 	target: local_stack_control.models.ComposeTarget,
 	runner: local_stack_control.process.CommandRunner,
 ) -> None:
-	"""Build the one-shot migration image before its first network-scoped use."""
+	"""Build the one existing short-lived migration image."""
 	result = runner.run(
 		local_stack_control.compose.compose_argv(
 			target, ["--profile", "migration", "build", MIGRATION_SERVICE]
@@ -104,14 +129,16 @@ def migration_database_url_for(
 	target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget,
 	runner: local_stack_control.process.CommandRunner,
 	values: dict[str, str],
+	operation: str | None = None,
 ) -> str:
-	"""Create the fresh-demo migration principal and return its private network URL."""
+	"""Run the known platform action and return the short-lived migrator URL."""
 	selected = target_of(target)
-	if not local_stack_control.live_demo_gateway.is_tls_target(selected):
-		return database_url(values)
-
+	selected_operation = database_operation_for(target) if operation is None else operation
+	if selected_operation not in ("initialize", "migrate"):
+		raise local_stack_control.models.ControllerError("database lifecycle operation is invalid")
 	migrator_password = secrets.token_hex(32)
 	bootstrap_environment = local_stack_control.lifecycle_commands.child_environment(selected)
+	# Both credentials stay in the restricted child environment or psql stdin.
 	bootstrap_environment["PGPASSWORD"] = values["POSTGRES_PASSWORD"]
 	bootstrap_argv = local_stack_control.compose.compose_argv(
 		selected,
@@ -125,9 +152,11 @@ def migration_database_url_for(
 			bootstrap_argv,
 			bootstrap_environment,
 			selected.repo_root,
-			migration_principal_bootstrap_sql(values["POSTGRES_DB"], migrator_password),
+			migration_principal_sql(
+				values["POSTGRES_DB"], migrator_password, selected_operation == "initialize"
+			),
 		),
-		"live-demo migration-principal bootstrap",
+		"migration-principal bootstrap",
 		(values["POSTGRES_PASSWORD"], migrator_password),
 	)
 	migrator_values = dict(values)
@@ -138,7 +167,7 @@ def migration_database_url_for(
 
 #============================================
 def write_migration_database_url(env_file: pathlib.Path, url: str) -> None:
-	"""Replace the private URL consumed by the migration job."""
+	"""Replace the private URL consumed by the migration container."""
 	if not url.startswith("postgres://") or any(character in url for character in "\r\n\x00"):
 		raise local_stack_control.models.ControllerError("migration database URL is invalid")
 	local_stack_control.env_file.require_mutation_env_file(env_file)
@@ -159,8 +188,20 @@ def target_of(
 
 
 #============================================
+def migration_principal_sql(
+	database_name: str,
+	migrator_password: str,
+	initial_bootstrap: bool,
+) -> str:
+	"""Build one platform-owned principal action for a known lifecycle phase."""
+	if initial_bootstrap:
+		return migration_principal_bootstrap_sql(database_name, migrator_password)
+	return postgres_role_sql(MIGRATION_ROLE, migrator_password)
+
+
+#============================================
 def migration_principal_bootstrap_sql(database_name: str, migrator_password: str) -> str:
-	"""Build the closed fresh-database principal baseline."""
+	"""Build the fixed fresh-database platform principal baseline."""
 	return local_stack_control.lifecycle_database.migration_principal_bootstrap_sql(
 		database_name, migrator_password
 	)

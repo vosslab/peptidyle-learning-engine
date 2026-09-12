@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
-import { decodeIssuedQuestionPresentation } from "../src/api/decoders/presentation_delivery.ts";
+import {
+  decodeIssuedQuestionPresentation,
+  decodeStudentQuestionPresentation,
+} from "../src/api/decoders/presentation_delivery.ts";
 
 function presentation(response) {
   return {
@@ -50,6 +53,23 @@ test("Question Presentation rejects an extra multiple-answer response field", ()
           answerKey: "private",
         }),
       ),
+    DecodeError,
+  );
+});
+
+test("selected Student Question Presentation retains its exact Question Revision", () => {
+  const selected = {
+    questionRevision: { questionId: "7K3-M9QP", revisionNumber: 2 },
+    prompt: [],
+    response: { kind: "fillIn", maxCharacters: 10 },
+  };
+  assert.deepEqual(decodeStudentQuestionPresentation(selected), selected);
+  assert.throws(
+    () =>
+      decodeStudentQuestionPresentation({
+        prompt: [],
+        response: { kind: "fillIn", maxCharacters: 10 },
+      }),
     DecodeError,
   );
 });

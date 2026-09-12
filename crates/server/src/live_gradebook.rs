@@ -10,8 +10,8 @@ use axum::{
     routing::get,
 };
 use learning_data_access::{
-    LiveDemoGradebookStore, SessionTokenHash, StoreError,
-    postgres::{PostgresLiveDemoGradebookStore, PostgresSessionStore},
+    CourseGradebookStore, SessionTokenHash, StoreError,
+    postgres::{PostgresCourseGradebookStore, PostgresSessionStore},
 };
 use question_model::{CourseInstanceReference, ProductRole};
 
@@ -20,12 +20,12 @@ use crate::auth::{AuthError, resolve_session};
 #[derive(Clone)]
 struct RouteState {
     sessions: Arc<PostgresSessionStore>,
-    gradebook: PostgresLiveDemoGradebookStore,
+    gradebook: PostgresCourseGradebookStore,
 }
 
 pub fn live_gradebook_router(
     sessions: Arc<PostgresSessionStore>,
-    gradebook: PostgresLiveDemoGradebookStore,
+    gradebook: PostgresCourseGradebookStore,
 ) -> Router {
     Router::new()
         .route(
@@ -51,7 +51,7 @@ async fn read_gradebook(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    match state.gradebook.live_demo_gradebook(token, course).await {
+    match state.gradebook.course_gradebook(token, course).await {
         // ASVS 4.1.3/8.2.1: the Store procedure repeats exact current Course
         // Instructor authorization; this response exposes only answer-free
         // immutable Grading Result aggregates.
@@ -95,6 +95,9 @@ fn store_error_response(error: StoreError) -> Response {
         StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => concealed(),
         StoreError::Conflict | StoreError::RetryableTransaction => {
             route_error(StatusCode::PRECONDITION_FAILED, "Gradebook changed")
+        }
+        StoreError::LifecycleConflict => {
+            route_error(StatusCode::CONFLICT, "Gradebook lifecycle conflict")
         }
         StoreError::InvalidRecord(_) => {
             route_error(StatusCode::UNPROCESSABLE_ENTITY, "Gradebook is invalid")

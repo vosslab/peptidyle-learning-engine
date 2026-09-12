@@ -1,28 +1,35 @@
-// Strict same-origin transport for instructor reusable curricula.
+// Strict same-origin transport for the Blueprint lineage, Draft, and publication lifecycle.
 
 import type { BlueprintCourseReference } from "../../../generated/api/BlueprintCourseReference";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
-import type { CreateBlueprintCourseContentInput } from "../../../generated/api/CreateBlueprintCourseContentInput";
-import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/ReplaceBlueprintCourseContentInput";
+import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
+import type { BlueprintRevisionReference } from "../../../generated/api/BlueprintRevisionReference";
+import type { BlueprintRevisionView } from "../../../generated/api/BlueprintRevisionView";
 import type { ApiClient } from "../client";
 import type { CursorPage } from "../contracts";
 import {
+  decodeBlueprintAvailabilityTransition,
   decodeBlueprintCoursePage,
-  decodeBlueprintCourseView,
-  decodeCreateBlueprintCourseContentInput,
   decodeBlueprintCourseReference,
+  decodeBlueprintCourseView,
+  decodeBlueprintPublication,
+  decodeBlueprintRevision,
+  decodeBlueprintRevisionView,
+  decodeCreateBlueprintCourseContentInput,
   decodeReplaceBlueprintCourseContentInput,
 } from "../decoders/blueprint_course";
 import type {
+  BlueprintAvailabilityTransition,
   BlueprintCourseClient,
-  BlueprintCourseEtag,
-  RevisionedBlueprintCourse,
+  BlueprintIdempotencyKey,
+  LoadedBlueprintCourse,
 } from "../blueprint_course";
 import { ApiProtocolError, ApiRequestError, BlueprintCourseConflictError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
 const MAX_PAGE_SIZE = 100;
+const MAX_IDEMPOTENCY_KEY_BYTES = 128;
 
 function pagePath(path: string, cursor: string | undefined, pageSize: number | undefined): string {
   if (
@@ -45,24 +52,35 @@ function parseStrongEtag(value: string, path: string): string {
   return value;
 }
 
-function requireMatchingEtag(response: Response, revision: string, path: string): string {
+function idempotencyKey(value: BlueprintIdempotencyKey, path: string): string {
+  if (
+    value.length === 0 ||
+    value.length > MAX_IDEMPOTENCY_KEY_BYTES ||
+    !Array.from(value).every((character) => {
+      const code = character.codePointAt(0);
+      return code !== undefined && code >= 0x21 && code <= 0x7e;
+    })
+  ) {
+    throw new ApiProtocolError(
+      `API ${path} Idempotency-Key must be 1 through 128 visible ASCII bytes`,
+    );
+  }
+  return value;
+}
+
+function blueprintPath(value: BlueprintCourseReference): string {
+  return `/api/course-blueprints/${encodeURIComponent(decodeBlueprintCourseReference(value, "blueprint"))}`;
+}
+
+function requireMatchingEtag(response: Response, editNumber: string, path: string): string {
   const etag = response.headers.get("etag");
-  if (etag === null || parseStrongEtag(etag, path) !== `"${revision}"`) {
-    throw new ApiProtocolError(`API response ${path} ETag must match its revision`);
+  if (etag === null || parseStrongEtag(etag, path) !== `"${editNumber}"`) {
+    throw new ApiProtocolError(`API response ${path} ETag must match its qualified Edit Number`);
   }
   return etag;
 }
 
-function requestRevision(value: BlueprintCourseEtag, path: string): string {
-  return parseStrongEtag(value, `${path} If-Match`);
-}
-
-function blueprintPath(value: BlueprintCourseReference): string {
-  const reference = decodeBlueprintCourseReference(value, "blueprint");
-  return `/api/course-blueprints/${encodeURIComponent(reference)}`;
-}
-
-async function blueprintCourseJson<T>(
+async function blueprintJson<T>(
   fetchImplementation: ApiFetch,
   basePath: string,
   path: string,
@@ -70,12 +88,16 @@ async function blueprintCourseJson<T>(
   options: {
     readonly method?: "GET" | "POST" | "PUT";
     readonly body?: unknown;
-    readonly etag?: BlueprintCourseEtag;
+    readonly etag?: string;
+    readonly idempotencyKey?: BlueprintIdempotencyKey;
     readonly expectedStatus?: 200 | 201;
   } = {},
 ): Promise<{ readonly body: T; readonly response: Response }> {
   const headers: Record<string, string> = {};
-  if (options.etag !== undefined) headers["if-match"] = requestRevision(options.etag, path);
+  if (options.etag !== undefined)
+    headers["if-match"] = parseStrongEtag(options.etag, `${path} If-Match`);
+  if (options.idempotencyKey !== undefined)
+    headers["idempotency-key"] = idempotencyKey(options.idempotencyKey, path);
   const response = await requestSameOrigin(fetchImplementation, basePath, path, {
     method: options.method ?? "GET",
     headers,
@@ -87,8 +109,30 @@ async function blueprintCourseJson<T>(
   if (options.expectedStatus !== undefined && response.status !== options.expectedStatus) {
     throw new ApiProtocolError(`API response ${path} must use status ${options.expectedStatus}`);
   }
-  const body = decoder(await boundedResponseJson(response, path), "response");
-  return { body, response };
+  return { body: decoder(await boundedResponseJson(response, path), "response"), response };
+}
+
+function loadedBlueprintCourse(
+  body: BlueprintCourseView,
+  response: Response,
+  path: string,
+): LoadedBlueprintCourse {
+  return {
+    blueprintCourse: body,
+    draftEtag:
+      body.draft === null ? undefined : requireMatchingEtag(response, body.draft.edit_number, path),
+  };
+}
+
+function availabilityTransition(
+  body: {
+    readonly availability: BlueprintAvailabilityTransition["availability"];
+    readonly editNumber: string;
+  },
+  response: Response,
+  path: string,
+): BlueprintAvailabilityTransition {
+  return { ...body, etag: requireMatchingEtag(response, body.editNumber, path) };
 }
 
 /** Creates the complete Blueprint Course capability without coupling it to a screen model. */
@@ -102,32 +146,22 @@ export function createBlueprintCourseClient(
       pageSize,
     ): Promise<CursorPage<BlueprintCourseSummaryView>> => {
       const path = pagePath("/api/course-blueprints", cursor, pageSize);
-      const result = await blueprintCourseJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeBlueprintCoursePage,
-      );
-      return result.body;
+      return (await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintCoursePage))
+        .body;
     },
-    getBlueprintCourse: async (reference): Promise<RevisionedBlueprintCourse> => {
+    getBlueprintCourse: async (reference): Promise<LoadedBlueprintCourse> => {
       const path = blueprintPath(reference);
-      const result = await blueprintCourseJson(
+      const result = await blueprintJson(
         fetchImplementation,
         basePath,
         path,
         decodeBlueprintCourseView,
       );
-      return {
-        blueprintCourse: result.body,
-        etag: requireMatchingEtag(result.response, result.body.revision, path),
-      };
+      return loadedBlueprintCourse(result.body, result.response, path);
     },
-    createBlueprintCourse: async (
-      content: CreateBlueprintCourseContentInput,
-    ): Promise<RevisionedBlueprintCourse> => {
+    createBlueprintCourse: async (content, requestKey): Promise<LoadedBlueprintCourse> => {
       const path = "/api/course-blueprints";
-      const result = await blueprintCourseJson(
+      const result = await blueprintJson(
         fetchImplementation,
         basePath,
         path,
@@ -135,21 +169,20 @@ export function createBlueprintCourseClient(
         {
           method: "POST",
           body: decodeCreateBlueprintCourseContentInput(content),
+          idempotencyKey: requestKey,
           expectedStatus: 201,
         },
       );
-      return {
-        blueprintCourse: result.body,
-        etag: requireMatchingEtag(result.response, result.body.revision, path),
-      };
+      return loadedBlueprintCourse(result.body, result.response, path);
     },
-    replaceBlueprintCourse: async (
+    saveBlueprintDraft: async (
       reference,
-      content: ReplaceBlueprintCourseContentInput,
+      content,
       etag,
-    ): Promise<RevisionedBlueprintCourse> => {
-      const path = blueprintPath(reference);
-      const result = await blueprintCourseJson(
+      requestKey,
+    ): Promise<LoadedBlueprintCourse> => {
+      const path = `${blueprintPath(reference)}/draft`;
+      const result = await blueprintJson(
         fetchImplementation,
         basePath,
         path,
@@ -158,13 +191,66 @@ export function createBlueprintCourseClient(
           method: "PUT",
           body: decodeReplaceBlueprintCourseContentInput(content),
           etag,
+          idempotencyKey: requestKey,
           expectedStatus: 200,
         },
       );
-      return {
-        blueprintCourse: result.body,
-        etag: requireMatchingEtag(result.response, result.body.revision, path),
-      };
+      return loadedBlueprintCourse(result.body, result.response, path);
+    },
+    publishBlueprintDraft: async (
+      reference,
+      etag,
+      requestKey,
+    ): Promise<BlueprintRevisionReference> => {
+      const path = `${blueprintPath(reference)}/publish`;
+      return (
+        await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintPublication, {
+          method: "POST",
+          etag,
+          idempotencyKey: requestKey,
+          expectedStatus: 200,
+        })
+      ).body;
+    },
+    getBlueprintRevision: async (reference, revision): Promise<BlueprintRevisionView> => {
+      const path = `${blueprintPath(reference)}/revisions/${encodeURIComponent(decodeBlueprintRevision(revision, "revision"))}`;
+      return (await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintRevisionView))
+        .body;
+    },
+    archiveBlueprintCourse: async (
+      reference,
+      confirmationTitle,
+      etag,
+    ): Promise<BlueprintAvailabilityTransition> => {
+      const path = `${blueprintPath(reference)}/archive`;
+      const result = await blueprintJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeBlueprintAvailabilityTransition,
+        {
+          method: "POST",
+          body: { confirmationTitle },
+          etag,
+          expectedStatus: 200,
+        },
+      );
+      return availabilityTransition(result.body, result.response, path);
+    },
+    restoreBlueprintCourse: async (reference, etag): Promise<BlueprintAvailabilityTransition> => {
+      const path = `${blueprintPath(reference)}/restore`;
+      const result = await blueprintJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeBlueprintAvailabilityTransition,
+        {
+          method: "POST",
+          etag,
+          expectedStatus: 200,
+        },
+      );
+      return availabilityTransition(result.body, result.response, path);
     },
   };
 }

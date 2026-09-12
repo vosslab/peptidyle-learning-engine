@@ -22,15 +22,20 @@ if (port === undefined || !/^[0-9]+$/u.test(port)) {
   throw new Error("fixed Live Demo gateway port is unavailable");
 }
 
-const report = JSON.parse(readFileSync(workspace + "/live_demo_course_report.json", "ascii"));
-const course = report.course_reference;
-const assignment = report.assignment_reference;
-if (!/^C-[1-9][0-9]{0,9}$/u.test(course) || !/^A-[1-9][0-9]{0,9}$/u.test(assignment)) {
-  throw new Error("fixed Live Demo public references are unavailable");
-}
 const origin = "https://localhost:" + port;
 const courseLongName = "Biochemistry 301: Proteins and Peptides";
 const assignmentTitle = "Peptide Structure Practice";
+let assignmentReference;
+
+async function discoverAssignmentReference(page) {
+  const href = await assignmentCard(page)
+    .getByRole("link", { name: "Edit Assignment", exact: true })
+    .getAttribute("href");
+  const match = href?.match(/\/assignments\/(A-[1-9][0-9]{0,9})$/u);
+  if (match?.[1] === undefined)
+    throw new Error("Live Demo Assignment lacks a canonical public reference");
+  return match[1];
+}
 
 function assignmentCard(page) {
   return page
@@ -54,7 +59,8 @@ async function expectRosterRow(page, rosterId, email) {
 async function expectGradebookRow(page, rosterId, progress, graded, score) {
   const row = page.getByRole("row").filter({ has: page.getByText(rosterId, { exact: true }) });
   await expect(row).toHaveCount(1);
-  await expect(row.getByText(assignment, { exact: true })).toBeVisible();
+  if (assignmentReference === undefined) throw new Error("Live Demo Assignment was not discovered");
+  await expect(row.getByText(assignmentReference, { exact: true })).toBeVisible();
   await expect(row.getByText(progress, { exact: true })).toBeVisible();
   await expect(row.getByText(graded, { exact: true })).toBeVisible();
   await expect(row.getByText(score, { exact: true })).toBeVisible();
@@ -91,6 +97,7 @@ async function verifyElena(page) {
   const card = assignmentCard(page);
   await expect(card).toHaveCount(1);
   await expect(card.getByText("Released Assignment", { exact: true })).toBeVisible();
+  assignmentReference = await discoverAssignmentReference(page);
   await card.getByRole("link", { name: "Edit Assignment", exact: true }).click();
   await expect(page.locator('[data-route-surface="assignmentWorkspace"]')).toBeVisible();
   await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();

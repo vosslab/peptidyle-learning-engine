@@ -112,6 +112,9 @@ fn store_error(error_value: StoreError) -> Response {
         StoreError::Conflict | StoreError::RetryableTransaction => {
             error(StatusCode::PRECONDITION_FAILED, "Invitation export changed")
         }
+        StoreError::LifecycleConflict => {
+            error(StatusCode::CONFLICT, "Invitation export lifecycle conflict")
+        }
         StoreError::InvalidRecord(_) | StoreError::AlreadyExists => error(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Invitation export is invalid",

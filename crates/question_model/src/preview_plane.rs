@@ -8,10 +8,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AccommodationAdjustmentView, AccommodationApplicationRuleView, AssignmentDeadlineRule,
-    AssignmentEditNumber, AssignmentReference, CourseMembershipReference, LateWorkRule,
-    LocalDateAndTime, MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
-    TeachingDisplayLabel,
+    AccommodationAdjustmentView, AccommodationApplicationRuleView, AssignmentEditNumber,
+    AssignmentReference, CourseMembershipReference, LateWorkRule, LocalDateAndTime,
+    MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, TeachingDisplayLabel,
 };
 
 /// Zone-free Instructor wall-clock input. The authorized Account zone resolves it at the boundary.
@@ -82,13 +81,6 @@ pub struct PreviewLateWorkRuleField {
     pub value: LateWorkRule,
     pub source: AssignmentPolicySourceKind,
 }
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct PreviewAssignmentDeadlineRuleField {
-    pub value: AssignmentDeadlineRule,
-    pub source: AssignmentPolicySourceKind,
-}
-
 /// Server-resolved values copied into a Student View Scenario, never raw policy inputs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
@@ -103,7 +95,6 @@ pub struct PreviewResolvedPolicy {
     assignment_attempt_time_limit_seconds: PreviewLimitField,
     attempt_limit: PreviewLimitField,
     late_work_rule: PreviewLateWorkRuleField,
-    assignment_deadline_rule: PreviewAssignmentDeadlineRuleField,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
@@ -114,7 +105,6 @@ struct PreviewResolvedPolicyWire {
     assignment_attempt_time_limit_seconds: PreviewLimitField,
     attempt_limit: PreviewLimitField,
     late_work_rule: PreviewLateWorkRuleField,
-    assignment_deadline_rule: PreviewAssignmentDeadlineRuleField,
 }
 impl TryFrom<PreviewResolvedPolicyWire> for PreviewResolvedPolicy {
     type Error = &'static str;
@@ -126,7 +116,6 @@ impl TryFrom<PreviewResolvedPolicyWire> for PreviewResolvedPolicy {
             v.assignment_attempt_time_limit_seconds,
             v.attempt_limit,
             v.late_work_rule,
-            v.assignment_deadline_rule,
         )
     }
 }
@@ -138,7 +127,6 @@ impl PreviewResolvedPolicy {
         assignment_attempt_time_limit_seconds: PreviewLimitField,
         attempt_limit: PreviewLimitField,
         late_work_rule: PreviewLateWorkRuleField,
-        assignment_deadline_rule: PreviewAssignmentDeadlineRuleField,
     ) -> Result<Self, &'static str> {
         if assignment_attempt_time_limit_seconds
             .value
@@ -174,7 +162,6 @@ impl PreviewResolvedPolicy {
             assignment_attempt_time_limit_seconds,
             attempt_limit,
             late_work_rule,
-            assignment_deadline_rule,
         })
     }
     pub fn available_at(&self) -> &PreviewTimeField {
@@ -197,10 +184,6 @@ impl PreviewResolvedPolicy {
     /// Returns the validated effective late-submission policy without exposing policy internals.
     pub fn late_work_rule(&self) -> &PreviewLateWorkRuleField {
         &self.late_work_rule
-    }
-    /// Returns the validated effective deadline behavior without exposing policy internals.
-    pub fn assignment_deadline_rule(&self) -> &PreviewAssignmentDeadlineRuleField {
-        &self.assignment_deadline_rule
     }
 }
 
@@ -375,7 +358,6 @@ pub struct EffectiveAssignmentPolicyView {
     pub assignment_attempt_time_limit_seconds: PreviewLimitField,
     pub attempt_limit: PreviewLimitField,
     pub late_work_rule: PreviewLateWorkRuleField,
-    pub assignment_deadline_rule: PreviewAssignmentDeadlineRuleField,
 }
 
 /// Accommodation effect compares two independently resolved Effective Assignment Policy Views.
@@ -560,10 +542,6 @@ mod direct_preview_tests {
                 },
                 PreviewLateWorkRuleField {
                     value: LateWorkRule::Accept,
-                    source: AssignmentPolicySourceKind::Base,
-                },
-                PreviewAssignmentDeadlineRuleField {
-                    value: AssignmentDeadlineRule::AutoSubmit,
                     source: AssignmentPolicySourceKind::Base,
                 },
             )

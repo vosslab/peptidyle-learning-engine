@@ -11,7 +11,6 @@ import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRe
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
 import type { ApiClient, OrdinaryBrowserApiClient } from "./client";
-import type { CalculatedGradebookResult } from "./decoders/calculated_gradebook";
 import type {
   StudentAssignmentLandingSummary,
   StudentAssignmentDetail,
@@ -44,7 +43,6 @@ export interface ApplicationApi<Client extends ApiClient = ApiClient> {
     readonly courses: QueryFunction<[], CursorPage<CourseSummary>>;
     readonly questionSearch: QueryFunction<[QuestionSearchRequest], QuestionSearchPage>;
     readonly questionDetails: QueryFunction<[QuestionId], QuestionDetails>;
-    readonly gradebook: QueryFunction<[CourseId], CalculatedGradebookResult>;
     readonly assignments: QueryFunction<[CourseId], CursorPage<StudentAssignmentLandingSummary>>;
     readonly assignment: QueryFunction<[AssignmentId], StudentAssignmentDetail>;
     readonly assignmentSummary: QueryFunction<[AssignmentId], StudentAssignmentProgress>;
@@ -83,10 +81,6 @@ export function createApplicationApi<Client extends ApiClient>(
       questionDetails: query(
         (questionId: QuestionId) => client.getQuestionDetails(questionId),
         "question-details",
-      ),
-      gradebook: query(
-        (courseId: CourseId) => client.getCalculatedGradebook(courseId),
-        "course-gradebook",
       ),
       assignments: query(
         (courseId: CourseId) => client.listAssignments(courseId),

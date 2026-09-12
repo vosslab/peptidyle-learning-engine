@@ -462,6 +462,10 @@ fn store_error_response(error: StoreError) -> Response {
             StatusCode::PRECONDITION_FAILED,
             "Instructor Profile changed",
         ),
+        StoreError::LifecycleConflict => route_error(
+            StatusCode::CONFLICT,
+            "Instructor Profile lifecycle conflict",
+        ),
         StoreError::AlreadyExists => {
             route_error(StatusCode::CONFLICT, "Instructor Profile conflict")
         }

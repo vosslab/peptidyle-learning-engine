@@ -19,21 +19,16 @@ use std::path::Path;
 use serde::Deserialize;
 use url::Url;
 
-mod postgres_migration_acceptance;
-
-pub use postgres_migration_acceptance::PostgresMigrationAcceptanceRuntime;
-
 const MANIFEST_NAME: &str = "runtime.yaml";
 const MAX_MANIFEST_BYTES: usize = 4_096;
 const MAX_URL_BYTES: usize = 4_096;
-const MAX_PASSWORD_BYTES: usize = 33;
 const MAX_COMPOSE_ENVIRONMENT_BYTES: usize = 16_384;
 const CAPABILITY_BYTES: usize = 32;
 const OWNER: &str = "live-demo-browser";
 const PROJECT: &str = "ple-live-demo-browser";
 const DATABASE_BASELINE_PROFILE: &str = "database_baseline";
 const COURSE_APPEARANCE_CROSS_STORE_PROFILE: &str = "course_appearance_cross_store";
-const ADMIN_ROLE: &str = "ple_e2e_migrator";
+const MIGRATION_ROLE: &str = "ple_migrator";
 const DATABASE_NAME: &str = "ple_e2e_baseline";
 const PASSWORD_LENGTH: usize = 32;
 const MINIO_REGION: &str = "us-east-1";
@@ -94,7 +89,7 @@ impl fmt::Debug for PostgresUrl {
 /// Validated generated input for one disposable PostgreSQL acceptance lane.
 #[derive(Debug)]
 pub struct AcceptanceRuntime {
-    admin_url: PostgresUrl,
+    migration_url: PostgresUrl,
 }
 
 /// Validated object-store inputs for the disposable course-appearance lane.
@@ -153,8 +148,8 @@ impl CourseAppearanceRuntime {
         }
     }
 
-    pub fn admin_url(&self) -> &PostgresUrl {
-        self.runtime.admin_url()
+    pub fn migration_url(&self) -> &PostgresUrl {
+        self.runtime.migration_url()
     }
 
     pub fn minio(&self) -> &MinioRuntime {
@@ -177,8 +172,8 @@ impl AcceptanceRuntime {
         }
     }
 
-    pub fn admin_url(&self) -> &PostgresUrl {
-        &self.admin_url
+    pub fn migration_url(&self) -> &PostgresUrl {
+        &self.migration_url
     }
 }
 
@@ -265,29 +260,20 @@ fn load_from_workspace_descriptor(
     if capability.len() != CAPABILITY_BYTES {
         return Err(RuntimeError::SecretContent);
     }
-    let (admin_url, admin_url_password) = parse_database_url(
+    let (migration_url, _) = parse_database_url(
         read_private_file_at(
             &secrets,
-            "postgres-admin.url",
+            "postgres-migrator.url",
             MAX_URL_BYTES,
             RuntimeError::SecretFile,
         )?,
-        ADMIN_ROLE,
+        MIGRATION_ROLE,
     )?;
-    let admin_password = parse_password(read_private_file_at(
-        &secrets,
-        "postgres-admin.password",
-        MAX_PASSWORD_BYTES,
-        RuntimeError::SecretFile,
-    )?)?;
-    if admin_password != admin_url_password {
-        return Err(RuntimeError::SecretContent);
-    }
     let minio = matches!(profile, RuntimeProfile::CourseAppearanceCrossStore)
         .then(|| load_minio_runtime(&secrets))
         .transpose()?;
     Ok(LoadedRuntime {
-        acceptance: AcceptanceRuntime { admin_url },
+        acceptance: AcceptanceRuntime { migration_url },
         minio,
     })
 }
@@ -315,6 +301,7 @@ struct Secrets {
     compose_environment: String,
     cleanup_capability: String,
     postgres_admin_url: String,
+    postgres_migrator_url: String,
     postgres_admin_password: String,
     minio_endpoint: Option<String>,
     minio_region: Option<String>,
@@ -347,6 +334,7 @@ fn validate_manifest(
     let shared_paths_are_exact = manifest.secrets.compose_environment == "secrets/compose.env"
         && manifest.secrets.cleanup_capability == "secrets/cleanup.capability"
         && manifest.secrets.postgres_admin_url == "secrets/postgres-admin.url"
+        && manifest.secrets.postgres_migrator_url == "secrets/postgres-migrator.url"
         && manifest.secrets.postgres_admin_password == "secrets/postgres-admin.password";
     let cross_store_paths_are_exact = manifest.secrets.minio_endpoint.as_deref()
         == Some("secrets/minio-endpoint.url")
@@ -545,18 +533,6 @@ fn parse_database_url(bytes: Vec<u8>, role: &str) -> Result<(PostgresUrl, String
     Ok((PostgresUrl(text.to_owned()), password.unwrap().to_owned()))
 }
 
-fn parse_password(bytes: Vec<u8>) -> Result<String, RuntimeError> {
-    if !bytes.is_ascii() || !bytes.ends_with(b"\n") || bytes[..bytes.len() - 1].contains(&b'\n') {
-        return Err(RuntimeError::SecretContent);
-    }
-    let password =
-        std::str::from_utf8(&bytes[..bytes.len() - 1]).map_err(|_| RuntimeError::SecretContent)?;
-    if !valid_password(password) {
-        return Err(RuntimeError::SecretContent);
-    }
-    Ok(password.to_owned())
-}
-
 fn parse_exact_line(bytes: Vec<u8>, expected: &str) -> Result<String, RuntimeError> {
     let value = parse_secret_line(bytes)?;
     if value != expected {
@@ -654,7 +630,7 @@ mod tests {
         fs::set_permissions(path.join("secrets"), fs::Permissions::from_mode(0o700)).unwrap();
         fs::write(
             path.join("runtime.yaml"),
-            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
+            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_migrator_url: secrets/postgres-migrator.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
         )
         .unwrap();
         fs::set_permissions(path.join("runtime.yaml"), fs::Permissions::from_mode(0o600)).unwrap();
@@ -662,6 +638,7 @@ mod tests {
             ("compose.env", b"POSTGRES_PASSWORD_FILE=/run/ple-runtime/postgres-password\n".as_slice()),
             ("cleanup.capability", b"12345678901234567890123456789012".as_slice()),
             ("postgres-admin.url", b"postgres://ple_e2e_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline\n".as_slice()),
+            ("postgres-migrator.url", b"postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline\n".as_slice()),
             ("postgres-admin.password", b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n".as_slice()),
         ] {
             fs::write(path.join("secrets").join(name), contents).unwrap();
@@ -683,11 +660,11 @@ mod tests {
         let workspace = temp_workspace();
         let runtime = load_from_workspace_unix(&workspace).unwrap();
         assert_eq!(
-            runtime.admin_url().expose(),
-            "postgres://ple_e2e_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline"
+            runtime.migration_url().expose(),
+            "postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline"
         );
-        assert!(format!("{:?}", runtime.admin_url()).contains("REDACTED"));
-        assert!(!format!("{:?}", runtime.admin_url()).contains("aaaaaaaa"));
+        assert!(format!("{:?}", runtime.migration_url()).contains("REDACTED"));
+        assert!(!format!("{:?}", runtime.migration_url()).contains("aaaaaaaa"));
         fs::remove_dir_all(workspace).unwrap();
     }
 
@@ -720,20 +697,20 @@ mod tests {
             fs::create_dir(&replacement_for_hook).unwrap();
             fs::set_permissions(&replacement_for_hook, fs::Permissions::from_mode(0o700)).unwrap();
             fs::write(
-                replacement_for_hook.join("postgres-admin.url"),
-                b"postgres://ple_e2e_migrator:replacement@127.0.0.1:15432/replacement\n",
+                replacement_for_hook.join("postgres-migrator.url"),
+                b"postgres://ple_migrator:replacement@127.0.0.1:15432/replacement\n",
             )
             .unwrap();
             fs::set_permissions(
-                replacement_for_hook.join("postgres-admin.url"),
+                replacement_for_hook.join("postgres-migrator.url"),
                 fs::Permissions::from_mode(0o600),
             )
             .unwrap();
         });
         let runtime = load_from_workspace_unix(&workspace).unwrap();
         assert_eq!(
-            runtime.admin_url().expose(),
-            "postgres://ple_e2e_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline"
+            runtime.migration_url().expose(),
+            "postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline"
         );
         fs::remove_dir_all(workspace).unwrap();
     }
@@ -741,7 +718,7 @@ mod tests {
     #[test]
     fn rejects_secret_symlink_wrong_mode_oversize_and_path_escape() {
         let workspace = temp_workspace();
-        let secret = workspace.join("secrets/postgres-admin.url");
+        let secret = workspace.join("secrets/postgres-migrator.url");
         fs::remove_file(&secret).unwrap();
         symlink(workspace.join("secrets/postgres-admin.password"), &secret).unwrap();
         assert_eq!(
@@ -751,7 +728,7 @@ mod tests {
         fs::remove_file(&secret).unwrap();
         fs::write(
             &secret,
-            b"postgres://ple_e2e_migrator:synthetic@127.0.0.1:15432/db\n",
+            b"postgres://ple_migrator:synthetic@127.0.0.1:15432/db\n",
         )
         .unwrap();
         fs::set_permissions(&secret, fs::Permissions::from_mode(0o644)).unwrap();
@@ -767,7 +744,7 @@ mod tests {
         );
         fs::write(
             workspace.join("runtime.yaml"),
-            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: ../compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
+            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: ../compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_migrator_url: secrets/postgres-migrator.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
         )
         .unwrap();
         assert_eq!(
@@ -782,7 +759,7 @@ mod tests {
         let workspace = temp_workspace();
         fs::write(
             workspace.join("runtime.yaml"),
-            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity: &identity\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
+            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity: &identity\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_migrator_url: secrets/postgres-migrator.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
         )
         .unwrap();
         let error = load_from_workspace_unix(&workspace).unwrap_err();
@@ -790,7 +767,7 @@ mod tests {
         assert!(!error.to_string().contains("aaaaaaaa"));
         fs::write(
             workspace.join("runtime.yaml"),
-            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
+            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_migrator_url: secrets/postgres-migrator.url\n  postgres_admin_password: secrets/postgres-admin.password\n",
         )
         .unwrap();
         fs::set_permissions(
@@ -799,7 +776,7 @@ mod tests {
         )
         .unwrap();
         fs::write(
-            workspace.join("secrets/postgres-admin.url"),
+            workspace.join("secrets/postgres-migrator.url"),
             b"postgres://unexpected_login:synthetic-grader@127.0.0.1:15432/ple_e2e_baseline\n",
         )
         .unwrap();
@@ -813,13 +790,13 @@ mod tests {
     #[test]
     fn rejects_empty_password_fragment_query_and_extra_database_path() {
         let workspace = temp_workspace();
-        let admin = workspace.join("secrets/postgres-admin.url");
+        let admin = workspace.join("secrets/postgres-migrator.url");
         for value in [
-            "postgres://ple_e2e_migrator:@127.0.0.1:15432/ple_e2e_baseline\n",
-            "postgres://ple_e2e_migrator:synthetic@127.0.0.1:15432/ple_e2e_baseline#fragment\n",
-            "postgres://ple_e2e_migrator:synthetic@127.0.0.1:15432/ple_e2e_baseline?sslmode=disable\n",
-            "postgres://ple_e2e_migrator:synthetic@127.0.0.1:15432/one/two\n",
-            "postgres://ple_e2e_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%61@127.0.0.1:15432/ple_e2e_baseline\n",
+            "postgres://ple_migrator:@127.0.0.1:15432/ple_e2e_baseline\n",
+            "postgres://ple_migrator:synthetic@127.0.0.1:15432/ple_e2e_baseline#fragment\n",
+            "postgres://ple_migrator:synthetic@127.0.0.1:15432/ple_e2e_baseline?sslmode=disable\n",
+            "postgres://ple_migrator:synthetic@127.0.0.1:15432/one/two\n",
+            "postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%61@127.0.0.1:15432/ple_e2e_baseline\n",
         ] {
             fs::write(&admin, value).unwrap();
             assert_eq!(
@@ -835,12 +812,12 @@ mod tests {
     }
 
     #[test]
-    fn rejects_shared_invalid_url_and_admin_password_cases() {
+    fn rejects_invalid_migration_url_cases() {
         let workspace = temp_workspace();
-        let admin = workspace.join("secrets/postgres-admin.url");
+        let admin = workspace.join("secrets/postgres-migrator.url");
         for value in [
-            b"postgres://ple_e2e_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:0/ple_e2e_baseline\n".as_slice(),
-            b"postgres://ple_e2e_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/not_ple_e2e_baseline\n".as_slice(),
+            b"postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:0/ple_e2e_baseline\n".as_slice(),
+            b"postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/not_ple_e2e_baseline\n".as_slice(),
         ] {
             fs::write(&admin, value).unwrap();
             assert_eq!(
@@ -850,18 +827,9 @@ mod tests {
         }
         fs::write(
             &admin,
-            b"postgres://ple_e2e_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline\n",
+            b"postgres://ple_migrator:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@127.0.0.1:15432/ple_e2e_baseline\n",
         )
         .unwrap();
-        fs::write(
-            workspace.join("secrets/postgres-admin.password"),
-            b"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n",
-        )
-        .unwrap();
-        assert_eq!(
-            load_from_workspace_unix(&workspace).unwrap_err(),
-            RuntimeError::SecretContent
-        );
         fs::write(&admin, vec![b'x'; MAX_URL_BYTES + 1]).unwrap();
         assert_eq!(
             load_from_workspace_unix(&workspace).unwrap_err(),
@@ -874,9 +842,9 @@ mod tests {
     fn rejects_unknown_and_duplicate_schema_keys() {
         let workspace = temp_workspace();
         for manifest in [
-            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\nextra: rejected\n".as_slice(),
-            b"schema_version: 1\nschema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n".as_slice(),
-            b"schema_version: true\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_admin_password: secrets/postgres-admin.password\n".as_slice(),
+            b"schema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_migrator_url: secrets/postgres-migrator.url\n  postgres_admin_password: secrets/postgres-admin.password\nextra: rejected\n".as_slice(),
+            b"schema_version: 1\nschema_version: 1\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_migrator_url: secrets/postgres-migrator.url\n  postgres_admin_password: secrets/postgres-admin.password\n".as_slice(),
+            b"schema_version: true\nkind: ple.disposable_postgres_acceptance\nidentity:\n  owner: live-demo-browser\n  project: ple-live-demo-browser\n  profile: database_baseline\nsecrets:\n  compose_environment: secrets/compose.env\n  cleanup_capability: secrets/cleanup.capability\n  postgres_admin_url: secrets/postgres-admin.url\n  postgres_migrator_url: secrets/postgres-migrator.url\n  postgres_admin_password: secrets/postgres-admin.password\n".as_slice(),
         ] {
             fs::write(workspace.join("runtime.yaml"), manifest).unwrap();
             assert_eq!(

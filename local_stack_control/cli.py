@@ -6,7 +6,6 @@ import argparse
 import collections.abc
 
 import local_stack_control.commands
-import local_stack_control.live_demo_course_provision
 import local_stack_control.models
 import local_stack_control.process
 
@@ -75,12 +74,9 @@ def build_parser() -> argparse.ArgumentParser:
 	)
 	start.add_argument("--headless", action="store_true")
 	start.add_argument(
-		"--stop-after",
-		choices=tuple(
-			stage.value
-			for stage in local_stack_control.live_demo_course_provision.SUPPORTED_STAGES
-		),
-		help="debug: stop Course provisioning after one completed stage",
+		"--without-live-demo",
+		action="store_true",
+		help="initialize the ordinary product stack without provisioning Live Demo data",
 	)
 	start.set_defaults(handler=local_stack_control.commands.start)
 

@@ -181,7 +181,7 @@ pub trait CourseBannerStore: Send + Sync {
     ) -> Result<(), StoreError>;
 
     /// Records an uncertain external deletion against its exact pre-delete
-    /// work; an eventual worker performs the storage check and cleanup bridge.
+    /// work before the owning service records a factual storage check.
     async fn require_course_banner_deletion_repair(
         &self,
         session_token_hash: SessionTokenHash,

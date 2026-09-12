@@ -18,10 +18,13 @@ WORKDIR /build
 # edits. Without this split, every source change rebuilds every dependency.
 COPY Cargo.toml Cargo.lock ./
 COPY crates crates
-# SQLx embeds the verified migration baseline in the server binary. Keep this
-# authoritative directory as an explicit build input instead of relying on a
-# developer's wider working tree.
+# SQLx embeds the forward-migration directory in the server binary. The
+# database-migrator target also packages the canonical base manifest from this
+# explicit source instead of relying on a developer's wider working tree.
+COPY schemas/base_schema schemas/base_schema
+COPY schemas/installation_data schemas/installation_data
 COPY schemas/migrations schemas/migrations
+COPY content/pilot content/pilot
 
 # --locked fails the build if Cargo.lock would need to change, which is what
 # makes a container build reproducible rather than "whatever resolved today".
@@ -84,7 +87,19 @@ COPY --from=live-demo-builder /build/target/release/server_core /usr/local/bin/p
 ENTRYPOINT ["/usr/local/bin/peptidyle-api"]
 
 FROM runtime-base AS database-migrator
+# The migrator alone runs the canonical PostgreSQL installation manifest and
+# carries its client capability. API, live-demo, and production runtime targets
+# carry only their application capability (ASVS 15.2.3).
+USER root
+RUN apt-get update \
+	&& apt-get install --no-install-recommends --yes postgresql-client-17 \
+	&& rm -rf /var/lib/apt/lists/*
+USER peptidyle
 COPY --from=database-migrator-builder /build/target/release/project-tools /usr/local/bin/ple-database-tools
+COPY --chown=peptidyle:peptidyle --from=database-migrator-builder /build/schemas/base_schema /opt/ple/schemas/base_schema
+COPY --chown=peptidyle:peptidyle --from=database-migrator-builder /build/schemas/installation_data /opt/ple/schemas/installation_data
+COPY --chown=peptidyle:peptidyle --from=database-migrator-builder /build/schemas/migrations /opt/ple/schemas/migrations
+COPY --chown=peptidyle:peptidyle --from=database-migrator-builder /build/content/pilot /opt/ple/content/pilot
 HEALTHCHECK NONE
 ENTRYPOINT ["/usr/local/bin/ple-database-tools"]
 

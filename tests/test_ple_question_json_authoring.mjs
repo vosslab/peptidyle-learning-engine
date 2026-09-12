@@ -712,9 +712,7 @@ test("client rejects publication summaries that do not exactly confirm publicati
     /scope must be a field allowed/u,
   );
 
-  for (const summary of [
-    { ...publicationSummary(), availability: { availability: "archived", reason: "withdrawn" } },
-  ]) {
+  for (const summary of [{ ...publicationSummary(), availability: { availability: "archived" } }]) {
     const wrongLifecycleOrScope = createPleQuestionJsonClient({
       fetch: async (_input, init) =>
         init.method === "POST" ? jsonResponse({ questionId: "7K3-M9QP" }) : jsonResponse(summary),

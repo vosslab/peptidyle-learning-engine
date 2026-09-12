@@ -128,6 +128,11 @@ reads; neither another course nor a visible record ID extends that authority.
 | `QuestionAssetId`           | Logical published content asset              | Names a published logical asset; it does not grant object delivery.                                                                                                                                   |
 | `ObjectId`                  | Immutable stored bytes                       | Names stored source, asset, export, or student-record bytes under an exact typed scope.                                                                                                               |
 
+Authoring Workspace relationships govern only private Question authoring. A
+Blueprint Course has its own Blueprint Course Owner and owner-private Blueprint
+Draft; it does not use Workspace Collaborator relationships for Draft or
+publication authority.
+
 Validated publication either starts a new stable Published Question identity for a new
 question or records a new immutable `QuestionRevision` under an existing stable
 `QuestionId` lineage. A correction or compatible material improvement does not
@@ -137,31 +142,25 @@ task, Question Type, or educational purpose creates a private draft and,
 after validation, a new `QuestionId` with source attribution and visible
 ancestry.
 
-Published-question stewardship has four distinct paths:
+Published-question stewardship currently has three distinct paths:
 
 - An owner moderate edit passes Question Publication Validation and creates a new
   immutable version in the same `QuestionId` lineage.
-- Any Instructor may submit a `QuestionChangeProposal` against one exact
-  immutable base version. Validation runs before submission, semantic and
-  grading impact is shown, and the owner accepts or rejects it. Acceptance
-  creates a same-lineage version with contributor credit. An advanced base
-  requires rebase or resubmission.
 - Any Instructor may create a full fork as a private Draft Question. Validated
   publication creates a separate lineage with a new `QuestionId`, source
   attribution, and preserved ancestry.
 - A `ForcedQuestionCorrection` is a separately audited Sysadmin operation for
   a critical security or correctness flaw. It maps one flawed immutable
   version to a validated replacement `QuestionRevision` in the stable lineage
-  and records deterministic remediation; it is not ordinary editing or a
-  change proposal.
+  and records deterministic remediation; it is not ordinary editing.
 
-The user-facing action for a `QuestionChangeProposal` is **Suggest an
-improvement**. GitHub is a documentation analogy only; it adds no branch,
-merge, reviewer, or repository semantics. Original authorship, contributor
-credit, history, and compatible Creative Commons licensing remain preserved
-across all four paths. Assignments and graded work retain exact immutable
-version pins and are never changed automatically by a later revision. A
-correction mapping may affect only future unissued resolution and its audited
+Question Change Proposal, including a possible **Suggest an improvement**
+action, is a future product capability. It has no current persistence,
+lifecycle, event, Revision, API, or authority contract. Original authorship,
+contributor credit, history, and compatible Creative Commons licensing remain
+preserved across the current paths. Assignments and graded work retain exact
+immutable version pins and are never changed automatically by a later revision.
+A correction mapping may affect only future unissued resolution and its audited
 remediation; issued and graded evidence remains pinned to the original.
 
 Question Library discovery and reuse use current approved-Instructor state.
@@ -251,7 +250,7 @@ When adding an identifier or protocol value, document:
 6. Whether possession conveys authority. If so, use a bounded opaque
    capability with expiry, redaction, and an explicit storage boundary.
 
-+## Settled identity and Blueprint decisions
+## Settled identity and Blueprint decisions
 
 ## Identity, authentication, and compliance
 
@@ -296,26 +295,38 @@ generic unavailable outcomes with accessible guidance that does not disclose pro
 the EU ePrivacy Directive Article 5(3), Article 29 Working Party Opinion 04/2012, and current ICO
 strictly-necessary storage guidance.
 
-### Blueprint collaboration is revision-scoped and ends at publication
+### Blueprint Draft and Revision identities
 
-**Decision.** A Blueprint Collaborator contributes only to one exact Draft
-Blueprint Revision through immutable grant and end events. An immutable Blueprint
-Publication Event makes that revision reusable and closes its collaboration path.
+**Decision.** A Blueprint Course lineage has one owner-private mutable Blueprint
+Draft with a qualified Draft Edit Number. Explicit publication copies that
+complete Draft into one immutable Blueprint Revision. Creating the Draft does
+not create a Revision; each deliberate publication creates one, including when
+the Draft content is unchanged.
 
-**Why.** An Authoring Workspace and a Blueprint Course have different parents,
-privacy boundaries, and consequences. Revision-scoped collaboration prevents an
-unrelated private-workspace grant from becoming reusable-course or live-course
-authority, while publication preserves the exact review boundary.
+**Why.** The Draft is current authoring state, while a Blueprint Revision is
+exact reusable published evidence. Keeping their identities and lifecycles
+separate keeps Blueprint authority with the lineage owner.
 
-### Blueprint availability belongs to one published revision
+**Consequence.** Blueprint Course Owner authority is required for its exact
+Draft and publication. Authoring Workspace Owner and Workspace Collaborator
+relationships authorize private Question authoring only; they neither grant
+Blueprint authority nor become published-course authority.
 
-**Decision.** Available or Archived selection state is derived from immutable
-Blueprint Revision Availability Events. The Blueprint Course lineage has no
-aggregate archive timestamp.
+### Blueprint lineage availability
 
-**Why.** Availability changes whether a particular published source revision is
-eligible for ordinary new selection. Historical Course Instance references must
-continue to resolve that exact source after it leaves ordinary selection.
+**Decision.** The Blueprint Course lineage carries the current Available or
+Archived state under its qualified Edit Number. Immutable Blueprint Availability
+Events record each transition; Blueprint Revisions do not carry independent
+availability state.
+
+**Why.** Availability governs ordinary browsing and new course selection for a
+published lineage, while exact historical Blueprint Revision References must
+remain resolvable.
+
+**Consequence.** Archiving removes the lineage from ordinary browsing and new
+selection without invalidating exact Revision references. Restoring is an
+ordinary lineage transition, and publishing another Revision does not reset
+availability.
 
 ## Related documents
 

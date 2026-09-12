@@ -28,7 +28,6 @@ fn base() -> BaseAssignmentPolicy {
         assignment_attempt_time_limit_seconds: NonZeroU32::new(60),
         attempt_limit: NonZeroU32::new(2),
         late_work_rule: LateWorkRule::Reject,
-        assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
     }
 }
 
@@ -126,6 +125,14 @@ fn assignment_status_denial_precedes_policy_evaluation() {
             reason: GateDenial::AssignmentStatus(AssignmentStatusDenial::Unreleased),
         })
     );
+}
+
+#[test]
+fn unrelease_is_a_released_to_unreleased_state_transition() {
+    assert!(is_legal_assignment_status_transition(
+        AssignmentStatus::Released,
+        AssignmentStatus::Unreleased,
+    ));
 }
 
 #[test]

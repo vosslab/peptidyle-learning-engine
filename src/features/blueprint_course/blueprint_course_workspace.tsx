@@ -7,13 +7,13 @@ import type { BlueprintCourseSummaryView } from "../../../generated/api/Blueprin
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/ReplaceBlueprintCourseContentInput";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
-import type { BlueprintCourseClient, BlueprintCourseEtag } from "../../api/blueprint_course";
+import type { BlueprintCourseClient, BlueprintDraftEtag } from "../../api/blueprint_course";
 import type { QuestionPickerSource, QuestionPickerSourceRepository } from "../question_picker";
 import { BlueprintCourseCreateDialog } from "./blueprint_course_create_dialog";
 import {
   appendBlueprintCoursePage,
   blueprintCourseContinuationPresentation,
-  replacementContentFromBlueprintCourse,
+  replacementContentFromBlueprintModules,
   validateReusableContent,
 } from "./blueprint_course_model";
 import { BlueprintAssignmentContentEditor } from "./blueprint_assignment_content_editor";
@@ -29,7 +29,7 @@ interface Notice {
 
 interface LoadedBlueprintCourse {
   readonly view: BlueprintCourseView;
-  readonly etag: BlueprintCourseEtag;
+  readonly draftEtag: BlueprintDraftEtag | undefined;
   readonly draft: ReplaceBlueprintCourseContentInput;
 }
 
@@ -173,7 +173,9 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
                           {course.read_access === "blueprint_course_owner"
                             ? "You are the Blueprint Course Owner."
                             : "Inspect its reusable modules."}{" "}
-                          Revision {course.revision}.
+                          {course.latest_published_revision === null
+                            ? "No Blueprint Revision has been published yet."
+                            : `Latest Blueprint Revision ${course.latest_published_revision.revision}.`}
                         </span>
                       </A>
                     </li>
@@ -236,13 +238,20 @@ export function BlueprintCourseDetailWorkspace(
     try {
       const result = await props.client.getBlueprintCourse(props.blueprintCourseRef);
       const prior = current();
+      const privateDraft = result.blueprintCourse.draft;
+      const draft =
+        keepDraft && prior !== undefined
+          ? prior.draft
+          : privateDraft === null
+            ? await publishedContent(result.blueprintCourse)
+            : replacementContentFromBlueprintModules(
+                result.blueprintCourse.title,
+                privateDraft.modules,
+              );
       setCurrent({
         view: result.blueprintCourse,
-        etag: result.etag,
-        draft:
-          keepDraft && prior !== undefined
-            ? prior.draft
-            : replacementContentFromBlueprintCourse(result.blueprintCourse),
+        draftEtag: result.draftEtag,
+        draft,
       });
       if (!keepDraft) setDirty(false);
       setConflict(false);
@@ -263,9 +272,22 @@ export function BlueprintCourseDetailWorkspace(
     }
   }
 
+  async function publishedContent(
+    view: BlueprintCourseView,
+  ): Promise<ReplaceBlueprintCourseContentInput> {
+    const reference = view.latest_published_revision;
+    if (reference === null) {
+      throw new Error(
+        "This Blueprint Course has no private Draft or published Blueprint Revision.",
+      );
+    }
+    const revision = await props.client.getBlueprintRevision(view.reference, reference.revision);
+    return replacementContentFromBlueprintModules(revision.title, revision.modules);
+  }
+
   function changeDraft(next: ReplaceBlueprintCourseContentInput, text: string): void {
     const loaded = current();
-    if (loaded === undefined) return;
+    if (loaded === undefined || loaded.draftEtag === undefined) return;
     setCurrent({ ...loaded, draft: next });
     setDirty(true);
     setNotice({ kind: "status", text });
@@ -290,7 +312,8 @@ export function BlueprintCourseDetailWorkspace(
 
   async function save(): Promise<void> {
     const loaded = current();
-    if (loaded === undefined) return;
+    if (loaded === undefined || loaded.draftEtag === undefined) return;
+    const draftEtag = loaded.draftEtag;
     for (const module of loaded.draft.modules) {
       for (const assignment of module.assignments) {
         const validation = validateReusableContent(assignment.content);
@@ -305,19 +328,30 @@ export function BlueprintCourseDetailWorkspace(
     }
     setSaving(true);
     try {
-      const saved = await props.client.replaceBlueprintCourse(
+      const saved = await props.client.saveBlueprintDraft(
         loaded.view.reference,
         loaded.draft,
-        loaded.etag,
+        draftEtag,
+        crypto.randomUUID(),
       );
+      const privateDraft = saved.blueprintCourse.draft;
+      if (privateDraft === null || saved.draftEtag === undefined) {
+        throw new Error("The saved Blueprint Draft is no longer available to this Account.");
+      }
       setCurrent({
         view: saved.blueprintCourse,
-        etag: saved.etag,
-        draft: replacementContentFromBlueprintCourse(saved.blueprintCourse),
+        draftEtag: saved.draftEtag,
+        draft: replacementContentFromBlueprintModules(
+          saved.blueprintCourse.title,
+          privateDraft.modules,
+        ),
       });
       setDirty(false);
       setConflict(false);
-      setNotice({ kind: "status", text: "Blueprint Course saved with a new immutable revision." });
+      setNotice({
+        kind: "status",
+        text: "Blueprint Draft saved. Publish when you want a new immutable Blueprint Revision.",
+      });
     } catch (error: unknown) {
       setConflict(error instanceof BlueprintCourseConflictError);
       setNotice({
@@ -327,6 +361,26 @@ export function BlueprintCourseDetailWorkspace(
           "Blueprint Course could not save. Your local draft remains available.",
         ),
       });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function publish(): Promise<void> {
+    const loaded = current();
+    if (loaded === undefined || loaded.draftEtag === undefined) return;
+    setSaving(true);
+    try {
+      const published = await props.client.publishBlueprintDraft(
+        loaded.view.reference,
+        loaded.draftEtag,
+        crypto.randomUUID(),
+      );
+      setNotice({ kind: "status", text: `Published Blueprint Revision ${published.revision}.` });
+      await load(false);
+    } catch (error: unknown) {
+      setConflict(error instanceof BlueprintCourseConflictError);
+      setNotice({ kind: "alert", text: errorMessage(error, "Blueprint Draft could not publish.") });
     } finally {
       setSaving(false);
     }
@@ -361,10 +415,22 @@ export function BlueprintCourseDetailWorkspace(
                   settings.
                 </p>
               </header>
-              <Show when={loaded.view.read_access === "blueprint_course_owner"}>
+              <Show
+                when={
+                  loaded.view.read_access === "blueprint_course_owner" &&
+                  loaded.draftEtag !== undefined
+                }
+              >
                 <footer class="blueprint-course-save-actions blueprint-course-detail-actions">
                   <button type="button" disabled={saving()} onClick={() => void save()}>
                     {saving() ? "Saving..." : "Save Blueprint Course"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={saving() || dirty()}
+                    onClick={() => void publish()}
+                  >
+                    Publish Blueprint Revision
                   </button>
                   <Show when={dirty() || conflict()}>
                     <button type="button" class="quiet-action" onClick={() => void load(false)}>

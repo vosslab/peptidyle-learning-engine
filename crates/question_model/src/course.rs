@@ -3,14 +3,14 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AccountTimeZone, AssignmentActivityRules, AssignmentDeadlineRule, AssignmentEntryAvailability,
-    AssignmentEntryId, AssignmentEntryScoringRule, AssignmentGrade, AssignmentId,
-    AssignmentInstructions, AssignmentPointValue, AssignmentProgressRecord,
-    AssignmentQuestionVariationRule, AssignmentReference, AssignmentScoringState, AssignmentTitle,
-    CourseId, CourseInstanceReference, LateWorkRule, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionBackend, QuestionBackendCapabilities, QuestionId,
-    QuestionPoolItemAvailability, QuestionPoolItemId, QuestionPoolSelectionRule,
-    StudentFeedbackReleaseRule, StudentRecordId, Timestamp,
+    AccountTimeZone, AssignmentActivityRules, AssignmentEntryAvailability, AssignmentEntryId,
+    AssignmentEntryScoringRule, AssignmentGrade, AssignmentId, AssignmentInstructions,
+    AssignmentPointValue, AssignmentProgressRecord, AssignmentQuestionVariationRule,
+    AssignmentReference, AssignmentScoringState, AssignmentTitle, CourseId,
+    CourseInstanceReference, LateWorkRule, QuestionAttemptLimit, QuestionAttemptTimeLimit,
+    QuestionBackend, QuestionBackendCapabilities, QuestionId, QuestionPoolItemAvailability,
+    QuestionPoolItemId, QuestionPoolSelectionRule, StudentFeedbackReleaseRule, StudentRecordId,
+    Timestamp,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -217,8 +217,6 @@ pub struct StudentAssignmentDelivery {
     pub attempt_limit: Option<std::num::NonZeroU32>,
     /// Resolved treatment of work after the ordinary due instant.
     pub late_work_rule: LateWorkRule,
-    /// Server behavior at the resolved effective deadline.
-    pub assignment_deadline_rule: AssignmentDeadlineRule,
     /// Server-owned late condition for the Student's present work.
     pub student_late_work_status: StudentLateWorkStatus,
 }
@@ -415,7 +413,6 @@ mod tests {
                 assignment_attempt_time_limit_seconds: None,
                 attempt_limit: None,
                 late_work_rule: LateWorkRule::MarkLate,
-                assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
                 student_late_work_status: StudentLateWorkStatus::MarkedLate,
             },
             AccountTimeZone::parse("America/New_York").expect("known zone"),

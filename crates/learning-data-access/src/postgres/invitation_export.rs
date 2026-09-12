@@ -62,7 +62,7 @@ impl InvitationExportStore for PostgresInvitationExportStore {
         // ASVS 4.1.3 and 8.2.1: the trusted procedure verifies the current
         // direct Instructor Course Membership before it returns private data.
         let course_name = sqlx::query_scalar::<_, String>(
-            "SELECT course_name FROM ple_api.load_live_demo_invitation_export_course($1)",
+            "SELECT course_name FROM ple_api.load_invitation_export_course($1)",
         )
         .bind(i64::from(course.number()))
         .fetch_one(&mut *transaction)
@@ -70,7 +70,7 @@ impl InvitationExportStore for PostgresInvitationExportStore {
         .map_err(map_sqlx_error)?;
         let rows = sqlx::query(
             "SELECT roster_email, roster_id \
-             FROM ple_api.export_live_demo_pending_course_invitations($1)",
+             FROM ple_api.export_pending_course_invitations($1)",
         )
         .bind(i64::from(course.number()))
         .fetch_all(&mut *transaction)

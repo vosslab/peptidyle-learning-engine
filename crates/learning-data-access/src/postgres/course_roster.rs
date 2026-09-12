@@ -62,7 +62,7 @@ impl CourseRosterStore for PostgresCourseRosterStore {
             .await?;
         let rows = sqlx::query(
             "SELECT roster_id, roster_email, state \
-             FROM ple_api.list_live_demo_course_roster($1, NULL::uuid)",
+             FROM ple_api.list_course_roster($1, NULL::uuid)",
         )
         .bind(i64::from(course.number()))
         .fetch_all(&mut *transaction)
@@ -100,7 +100,7 @@ impl CourseRosterStore for PostgresCourseRosterStore {
             .await?;
         let rows = sqlx::query(
             "SELECT roster_id, roster_email, state \
-             FROM ple_api.import_live_demo_course_roster($1, $2, $3, $4)",
+             FROM ple_api.import_course_roster($1, $2, $3, $4)",
         )
         .bind(i64::from(course.number()))
         .bind(normalized_emails)
@@ -127,7 +127,7 @@ impl CourseRosterStore for PostgresCourseRosterStore {
             .await?;
         let active_student_membership = sqlx::query_scalar::<_, bool>(
             "SELECT active_student_membership \
-             FROM ple_api.claim_live_demo_course_invitation($1, $2, $3, $4)",
+             FROM ple_api.claim_course_invitation($1, $2, $3, $4)",
         )
         .bind(random_uuid()?)
         .bind(random_uuid()?)
@@ -156,7 +156,7 @@ impl CourseRosterStore for PostgresCourseRosterStore {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
-        sqlx::query("SELECT ple_api.revoke_live_demo_course_roster_entry($1, $2, $3)")
+        sqlx::query("SELECT ple_api.revoke_course_roster_entry($1, $2, $3)")
             .bind(random_uuid()?)
             .bind(i64::from(course.number()))
             .bind(&roster_id)

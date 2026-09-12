@@ -7,7 +7,13 @@ import type { Locator, Page } from "playwright";
 
 import type { CaptureSession, ScenarioRuntime } from "./runtime";
 import type { ScenarioDefinition } from "./scenario_types";
-import { enterInstructor, enterSysadmin, scrollTop } from "./visible_workflows";
+import {
+  COURSE_TITLE,
+  enterInstructor,
+  enterSysadmin,
+  openInstructorCourse,
+  scrollTop,
+} from "./visible_workflows";
 
 const CREATED_EMAIL = "screenshot.instructor@live-demo.invalid";
 const SEEDED_SYSADMIN_REFERENCE = "U-5";
@@ -154,10 +160,12 @@ async function issueSupportCapability(runtime: ScenarioRuntime): Promise<string>
   const page = setup.page;
   try {
     await enterInstructor(page);
-    await page.goto(
-      new URL(`/instructor/courses/${runtime.references.course}/students`, runtime.entryUrl).href,
-      { waitUntil: "commit" },
-    );
+    await openInstructorCourse(page, COURSE_TITLE);
+    const match = new URL(page.url()).pathname.match(/\/courses\/(C-[1-9][0-9]{0,9})$/u);
+    if (match?.[1] === undefined)
+      throw new Error("Live Demo Course lacks a canonical public reference");
+    const courseReference = match[1];
+    await page.getByRole("link", { name: "Open Students", exact: true }).click();
     await page.getByRole("heading", { name: "Students", exact: true }).waitFor();
     await page
       .getByLabel("Email, roster ID")
@@ -181,12 +189,12 @@ async function issueSupportCapability(runtime: ScenarioRuntime): Promise<string>
         );
         return { ok: result.ok, status: result.status, body: (await result.json()) as unknown };
       },
-      { courseReference: runtime.references.course, sysadminReference: SEEDED_SYSADMIN_REFERENCE },
+      { courseReference, sysadminReference: SEEDED_SYSADMIN_REFERENCE },
     );
     if (!response.ok || response.status !== 201) {
       throw new Error(`support capability issuance failed with HTTP ${String(response.status)}`);
     }
-    return supportCapabilityId(response.body, runtime.references.course, SEEDED_SYSADMIN_REFERENCE);
+    return supportCapabilityId(response.body, courseReference, SEEDED_SYSADMIN_REFERENCE);
   } finally {
     await runtime.close(setup);
   }

@@ -416,7 +416,10 @@ fn radio_from_tag(
 pub(super) fn attribute(tag: &Tag, name: &str) -> Option<String> {
     tag.attrs
         .iter()
-        .find(|attribute| attribute.name.local.as_ref() == name)
+        .find(|attribute| {
+            let local_name: &str = attribute.name.local.as_ref();
+            local_name == name
+        })
         .map(|attribute| attribute.value.to_string())
 }
 

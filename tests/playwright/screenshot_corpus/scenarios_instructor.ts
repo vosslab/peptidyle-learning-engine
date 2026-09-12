@@ -248,7 +248,7 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
     await page.getByLabel("Late-work rule").selectOption("mark_late");
     await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
     await page
-      .getByText("Assignment policies saved. The current assignment now uses the new revision.")
+      .getByText("Assignment policies saved. Future Attempts use the current policy values.")
       .waitFor();
     const deliveryCheckPage = session.context.waitForEvent("page");
     await page.getByRole("link", { name: "Check assignment delivery", exact: true }).click();

@@ -4,7 +4,7 @@ import { MAX_QUESTION_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_Q
 import { MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS } from "../../../generated/api/MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS";
 import type { QuestionBackendCapabilities } from "../../../generated/api/QuestionBackendCapabilities";
 import type { Capability } from "../../../generated/api/Capability";
-import type { QuestionRevisionAvailability } from "../../../generated/api/QuestionRevisionAvailability";
+import type { QuestionAvailability } from "../../../generated/api/QuestionAvailability";
 import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionCitation } from "../../../generated/api/QuestionCitation";
 import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
@@ -350,11 +350,11 @@ export function decodeQuestionMetadata(
   return decoded;
 }
 
-export function decodeQuestionRevisionAvailability(
+export function decodeQuestionAvailability(
   value: unknown,
   path: string,
   strict = false,
-): QuestionRevisionAvailability {
+): QuestionAvailability {
   const record = decodeRecord(value, path);
   const availability = decodeStringEnum(
     field(record, "availability", path),
@@ -363,21 +363,10 @@ export function decodeQuestionRevisionAvailability(
   );
   switch (availability) {
     case "available":
-      if (strict) {
-        requireOnlyFields(record, path, ["availability"]);
-      }
+    case "archived":
+      if (strict) requireOnlyFields(record, path, ["availability"]);
       return { availability };
-    case "archived": {
-      if (strict) {
-        requireOnlyFields(record, path, ["availability", "reason"]);
-      }
-      const decoded = {
-        availability,
-        reason: decodeNonemptyString(field(record, "reason", path), `${path}.reason`),
-      } satisfies QuestionRevisionAvailability;
-      return decoded;
-    }
     default:
-      throw new DecodeError(`${path}.availability`, "a known Question Revision Availability");
+      throw new DecodeError(`${path}.availability`, "a known Question Availability");
   }
 }

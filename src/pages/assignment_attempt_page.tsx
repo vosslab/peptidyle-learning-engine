@@ -387,7 +387,13 @@ function AttemptExperience(props: {
                   <QuestionPresentationRenderer
                     presentation={currentPresentation.presentation}
                     assetUrl={(asset) =>
-                      new URL(runtime.client.assetUrl(asset.questionAsset), window.location.origin)
+                      new URL(
+                        runtime.client.assetUrl(
+                          currentPresentation.presentation.questionRevision,
+                          asset.questionAsset,
+                        ),
+                        window.location.origin,
+                      )
                     }
                   />
                 </ErrorBoundary>

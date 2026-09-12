@@ -17,7 +17,6 @@ const instructorDelivery = {
   assignment_attempt_time_limit_seconds: 900,
   attempt_limit: 2,
   late_work_rule: "accept",
-  assignment_deadline_rule: "auto_submit",
 };
 
 test("Student detail adapts available entries and Question Pool selections without exposing source identities", () => {
@@ -34,7 +33,6 @@ test("Student detail adapts available entries and Question Pool selections witho
       assignment_attempt_time_limit_seconds: 900,
       attempt_limit: 2,
       late_work_rule: "accept",
-      assignment_deadline_rule: "auto_submit",
       student_late_work_status: "on_time",
     },
     entries: [

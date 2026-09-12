@@ -83,6 +83,57 @@
   background: color-mix(in srgb, var(--ple-danger, #a33a26) 10%, var(--ple-card-surface));
 }
 
+.assignment-workspace-unrelease-danger-zone {
+  display: grid;
+  gap: 0.75rem;
+  padding: var(--ple-panel-padding, 0.85rem);
+  border-inline-start: 0.35rem solid var(--ple-danger, #a33a26);
+  border-radius: var(--ple-radius-inset, 0.7rem);
+  background: color-mix(in srgb, var(--ple-danger, #a33a26) 9%, var(--ple-card-surface));
+}
+
+.assignment-workspace-unrelease-danger-zone h2,
+.assignment-workspace-unrelease-danger-zone p {
+  margin: 0;
+}
+
+.assignment-workspace-unrelease-danger-zone dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.assignment-workspace-unrelease-danger-zone dt {
+  color: var(--ple-muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.assignment-workspace-unrelease-danger-zone dd {
+  margin: 0.12rem 0 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+}
+
+.assignment-workspace-unrelease-danger-zone .assignment-editor-field {
+  max-width: 48rem;
+}
+
+.assignment-workspace-danger-action {
+  justify-self: start;
+  border-color: var(--ple-danger, #a33a26);
+  background: var(--ple-danger, #a33a26);
+  color: white;
+}
+
+.assignment-workspace-danger-action:focus-visible {
+  outline: 0.2rem solid var(--ple-focus);
+  outline-offset: 0.2rem;
+}
+
 .assignment-workspace-policy-summary {
   min-width: 0;
   padding: calc(var(--ple-panel-padding, 0.85rem) - 0.2rem);
@@ -283,6 +334,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .assignment-workspace-unrelease-danger-zone dl {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .assignment-workspace-schedule {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -297,6 +352,10 @@
   .assignment-workspace-policies .assignment-editor-policy-set--lifecycle,
   .assignment-workspace-policies .assignment-editor-policy-set--schedule,
   .assignment-workspace-policy-summary dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .assignment-workspace-unrelease-danger-zone dl {
     grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -33,6 +33,8 @@ import { decodeQuestionContentBlock } from "./question_response_format";
 
 /** Renderable Student fields from a server-selected, pinned presentation. */
 export interface StudentQuestionPresentation {
+  /** Exact immutable Question Revision identity required for every prompt asset. */
+  readonly questionRevision: QuestionPresentation["questionRevision"];
   readonly prompt: QuestionPresentation["prompt"];
   readonly response: QuestionPresentation["response"];
 }
@@ -366,8 +368,13 @@ export function decodeStudentQuestionPresentation(
   path = "response",
 ): StudentQuestionPresentation {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["prompt", "response"]);
+  requireOnlyFields(record, path, ["questionRevision", "prompt", "response"]);
   return {
+    questionRevision: decodeQuestionRevisionReference(
+      field(record, "questionRevision", path),
+      `${path}.questionRevision`,
+      true,
+    ),
     prompt: decodeBoundedArray(
       field(record, "prompt", path),
       `${path}.prompt`,

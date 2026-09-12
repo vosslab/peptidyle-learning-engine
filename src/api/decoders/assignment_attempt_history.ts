@@ -14,6 +14,7 @@ import {
   decodeAssignmentTitle,
   decodeCourseInstanceReference,
   decodeCourseName,
+  decodeQuestionRevisionReference,
   field,
   requireOnlyFields,
 } from "./shared";
@@ -100,6 +101,7 @@ export function decodeStudentAssignmentAttemptHistory(
         const item = decodeRecord(question, questionPath);
         requireOnlyFields(item, questionPath, [
           "position",
+          "questionRevision",
           "responseState",
           "response",
           "correctness",
@@ -136,6 +138,11 @@ export function decodeStudentAssignmentAttemptHistory(
           position: decodePositiveInteger(
             field(item, "position", questionPath),
             `${questionPath}.position`,
+          ),
+          questionRevision: decodeQuestionRevisionReference(
+            field(item, "questionRevision", questionPath),
+            `${questionPath}.questionRevision`,
+            true,
           ),
           responseState: state(
             field(item, "responseState", questionPath),

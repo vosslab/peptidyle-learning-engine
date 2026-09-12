@@ -12,12 +12,12 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssignmentActivityRules, AssignmentDeadlineRule, AssignmentEntryScoringRule,
-    AssignmentInstructions, AssignmentPointValue, BlueprintCourseReference, LateWorkRule,
-    MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
-    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
-    MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-    QuestionId, QuestionPoolSelectionRule, QuestionSearchResult, StudentFeedbackReleaseRule,
+    AssignmentActivityRules, AssignmentEntryScoringRule, AssignmentInstructions,
+    AssignmentPointValue, BlueprintCourseReference, LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
+    MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, MAX_ASSIGNMENT_ORDERED_ENTRIES,
+    MAX_ASSIGNMENT_QUESTION_POOL_ITEMS, MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId, QuestionPoolSelectionRule,
+    QuestionSearchResult, StudentFeedbackReleaseRule,
 };
 
 /// Shared instructor-content bound for reusable titles and module labels.
@@ -72,8 +72,6 @@ pub struct BlueprintAssignmentDefaults {
     pub attempt_limit: Option<std::num::NonZeroU32>,
     /// Late-work treatment copied into the future assignment policy.
     pub late_work_rule: LateWorkRule,
-    /// Server deadline action copied into the future assignment policy.
-    pub assignment_deadline_rule: AssignmentDeadlineRule,
     /// Independent Assignment Attempt behavior copied into the future assignment policy.
     pub activity_rules: AssignmentActivityRules,
     /// Student-release policy copied into the future assignment policy.
@@ -382,8 +380,13 @@ pub struct BlueprintCourseSummaryView {
     pub reference: BlueprintCourseReference,
     /// Display title from the aggregate.
     pub title: String,
-    /// Strong complete-aggregate revision.
-    pub revision: BlueprintRevision,
+    /// Current stable-lineage availability for discovery and new selection.
+    pub availability: crate::BlueprintAvailability,
+    /// Qualified current-lineage value for archive or restore. It remains
+    /// independent of the private Draft Edit Number.
+    pub availability_edit_number: crate::BlueprintAvailabilityEditNumber,
+    /// Most recent immutable publication, if the owner has published one.
+    pub latest_published_revision: Option<crate::BlueprintRevisionReference>,
     /// Browser-safe classification for this returned Blueprint Course view.
     pub read_access: BlueprintCourseReadAccess,
 }
@@ -396,11 +399,25 @@ pub struct BlueprintCourseView {
     pub reference: BlueprintCourseReference,
     /// Instructor-visible course title.
     pub title: String,
-    /// Strong complete-aggregate revision.
-    pub revision: BlueprintRevision,
+    /// Current stable-lineage availability for discovery and new selection.
+    pub availability: crate::BlueprintAvailability,
+    /// Qualified current-lineage value for archive or restore. It remains
+    /// independent of the private Draft Edit Number.
+    pub availability_edit_number: crate::BlueprintAvailabilityEditNumber,
+    /// Most recent immutable publication, if one exists.
+    pub latest_published_revision: Option<crate::BlueprintRevisionReference>,
     /// Browser-safe classification for this returned Blueprint Course view.
     pub read_access: BlueprintCourseReadAccess,
-    /// Labelled modules in retained aggregate-owned order.
+    /// Private mutable Draft visible to its owner. Public readers receive no
+    /// mutable draft through this view.
+    pub draft: Option<BlueprintDraftView>,
+}
+
+/// Browser-safe mutable Blueprint Draft returned only to its owner.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub struct BlueprintDraftView {
+    pub edit_number: crate::BlueprintDraftEditNumber,
     pub modules: Vec<BlueprintModuleView>,
 }
 
@@ -484,10 +501,9 @@ mod tests {
     use super::*;
     use crate::QuestionLicense;
     use crate::{
-        QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionBackend,
-        QuestionBackendCapabilities, QuestionMetadata, QuestionRevisionAvailability,
-        QuestionRevisionNumber, QuestionRevisionReference, QuestionStatistics, QuestionSummary,
-        QuestionType, Timestamp,
+        QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
+        QuestionBackend, QuestionBackendCapabilities, QuestionMetadata, QuestionRevisionNumber,
+        QuestionRevisionReference, QuestionStatistics, QuestionSummary, QuestionType, Timestamp,
     };
     use uuid::Uuid;
 
@@ -508,7 +524,6 @@ mod tests {
             assignment_attempt_time_limit_seconds: None,
             attempt_limit: None,
             late_work_rule: LateWorkRule::Accept,
-            assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
             activity_rules: AssignmentActivityRules {
                 assignment_completion_rule: crate::AssignmentCompletionRule::AnswerAll,
                 assignment_attempt_grade_rule: crate::AssignmentAttemptGradeRule::Highest,
@@ -581,7 +596,7 @@ mod tests {
                         .expect("valid Question Author"),
                 }])
                 .expect("valid Question Authorship"),
-                availability: QuestionRevisionAvailability::Available,
+                availability: QuestionAvailability::Available,
                 published_at: Timestamp::from_unix_millis(0),
             },
             evidence: QuestionStatistics::Unavailable,
@@ -698,17 +713,21 @@ mod tests {
         let view = BlueprintCourseView {
             reference: "BP-12".parse().expect("valid reference"),
             title: "Biochemistry Blueprint".to_string(),
-            revision: BlueprintRevision::new(4).expect("valid revision"),
+            availability: crate::BlueprintAvailability::Available,
+            availability_edit_number: crate::BlueprintAvailabilityEditNumber::INITIAL,
+            latest_published_revision: None,
             read_access: BlueprintCourseReadAccess::ActiveInstructor,
-            modules: vec![BlueprintModuleView {
-                blueprint_module_reference: blueprint_module_reference(),
-                label: "Week 1".to_string(),
-                assignments: vec![BlueprintCourseAssignmentContentView {
-                    blueprint_assignment_reference: blueprint_assignment_reference(),
-                    content: BlueprintAssignmentContentView {
-                        title: "Protein structure practice".to_string(),
-                        instructions: AssignmentInstructions::default(),
-                        entries: vec![
+            draft: Some(BlueprintDraftView {
+                edit_number: crate::BlueprintDraftEditNumber::INITIAL,
+                modules: vec![BlueprintModuleView {
+                    blueprint_module_reference: blueprint_module_reference(),
+                    label: "Week 1".to_string(),
+                    assignments: vec![BlueprintCourseAssignmentContentView {
+                        blueprint_assignment_reference: blueprint_assignment_reference(),
+                        content: BlueprintAssignmentContentView {
+                            title: "Protein structure practice".to_string(),
+                            instructions: AssignmentInstructions::default(),
+                            entries: vec![
                             BlueprintAssignmentEntryView::Fixed {
                                 question: ReusableQuestionView {
                                     question_library: discovery(),
@@ -737,42 +756,48 @@ mod tests {
                                 question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                             }),
                         ],
-                        defaults: defaults(),
-                        schedule: RelativeAssignmentSchedule::default(),
-                    },
+                            defaults: defaults(),
+                            schedule: RelativeAssignmentSchedule::default(),
+                        },
+                    }],
                 }],
-            }],
+            }),
         };
         let wire = serde_json::to_value(view).expect("safe view serializes");
         assert_eq!(wire["reference"], "BP-12");
+        assert_eq!(wire["availability_edit_number"], "1");
         assert_eq!(
-            wire["modules"][0]["assignments"][0]["content"]["entries"][0]["kind"],
+            wire["draft"]["modules"][0]["assignments"][0]["content"]["entries"][0]["kind"],
             "fixed"
         );
         assert!(
-            wire.pointer("/modules/0/assignments/0/content/entries/0/question/question_library")
-                .is_some()
+            wire.pointer(
+                "/draft/modules/0/assignments/0/content/entries/0/question/question_library"
+            )
+            .is_some()
         );
         assert_eq!(
-            wire.pointer("/modules/0/assignments/0/blueprint_assignment_reference"),
+            wire.pointer("/draft/modules/0/assignments/0/blueprint_assignment_reference"),
             Some(&serde_json::Value::String(
                 blueprint_assignment_reference().to_string(),
             ))
         );
         assert!(
-            wire.pointer("/modules/0/assignments/0/content/entries/0/revision")
+            wire.pointer("/draft/modules/0/assignments/0/content/entries/0/revision")
                 .is_none()
         );
         assert_eq!(
-            wire["modules"][0]["assignments"][0]["content"]["entries"][1]["kind"],
+            wire["draft"]["modules"][0]["assignments"][0]["content"]["entries"][1]["kind"],
             "pool"
         );
         assert!(
-            wire.pointer("/modules/0/assignments/0/content/entries/1/items/0/question_library")
-                .is_some()
+            wire.pointer(
+                "/draft/modules/0/assignments/0/content/entries/1/items/0/question_library"
+            )
+            .is_some()
         );
         assert!(
-            wire.pointer("/modules/0/assignments/0/content/entries/1/items/0/revision")
+            wire.pointer("/draft/modules/0/assignments/0/content/entries/1/items/0/revision")
                 .is_none()
         );
     }
@@ -805,7 +830,6 @@ mod blueprint_course_tests {
                         assignment_attempt_time_limit_seconds: None,
                         attempt_limit: None,
                         late_work_rule: LateWorkRule::Accept,
-                        assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
                         activity_rules: AssignmentActivityRules {
                             assignment_completion_rule: crate::AssignmentCompletionRule::AnswerAll,
                             assignment_attempt_grade_rule:
@@ -864,7 +888,6 @@ mod blueprint_course_tests {
                 assignment_attempt_time_limit_seconds: None,
                 attempt_limit: None,
                 late_work_rule: LateWorkRule::Accept,
-                assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
                 activity_rules: AssignmentActivityRules {
                     assignment_completion_rule: crate::AssignmentCompletionRule::AnswerAll,
                     assignment_attempt_grade_rule: crate::AssignmentAttemptGradeRule::Highest,

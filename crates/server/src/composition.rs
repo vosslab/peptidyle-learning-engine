@@ -10,11 +10,11 @@ use learning_data_access::{
     SessionLifetime,
     postgres::{
         PostgresAuthoringDraftStore, PostgresBlueprintCourseStore, PostgresCourseBannerStore,
-        PostgresCourseInstanceStore, PostgresCourseRosterStore, PostgresCourseThemeStore,
-        PostgresDraftQuestionSourceBindingStore, PostgresInstructorAccountStore,
-        PostgresInstructorProfileStore, PostgresInvitationExportStore,
-        PostgresLiveAssignmentDeliveryStore, PostgresLiveAssignmentStore,
-        PostgresLiveDemoGradebookStore, PostgresLiveStudentCourseLandingStore,
+        PostgresCourseGradebookStore, PostgresCourseInstanceStore, PostgresCourseRosterStore,
+        PostgresCourseThemeStore, PostgresDraftQuestionSourceBindingStore,
+        PostgresInstructorAccountStore, PostgresInstructorProfileStore,
+        PostgresInvitationExportStore, PostgresLiveAssignmentDeliveryStore,
+        PostgresLiveAssignmentStore, PostgresLiveStudentCourseLandingStore,
         PostgresNativePleGradingStore, PostgresNativePleSubmissionStore,
         PostgresProfileThumbnailStore, PostgresPublicAssetPublicationStore,
         PostgresQuestionAssetDeliveryStore, PostgresQuestionLibraryStore, PostgresSessionStore,
@@ -91,7 +91,7 @@ pub async fn production_router_from_env() -> Result<Router> {
     let profile_thumbnails = PostgresProfileThumbnailStore::new(pool.clone());
     let support_capabilities = PostgresSupportCapabilityStore::new(pool.clone());
     let invitation_exports = PostgresInvitationExportStore::new(pool.clone());
-    let gradebook = PostgresLiveDemoGradebookStore::new(pool.clone());
+    let gradebook = PostgresCourseGradebookStore::new(pool.clone());
     let student_course_landing = PostgresLiveStudentCourseLandingStore::new(pool.clone());
     let assignments = PostgresLiveAssignmentStore::new(pool.clone());
     let assignment_delivery = PostgresLiveAssignmentDeliveryStore::new(pool.clone());
@@ -118,19 +118,21 @@ pub async fn production_router_from_env() -> Result<Router> {
             Arc::clone(&sessions),
             question_library_store.clone(),
             question_library_objects.clone(),
+            question_id_issuer.clone(),
         ))
         .merge(crate::authoring::authoring_router(
             Arc::clone(&sessions),
             authoring_drafts,
             authoring_publication,
             question_library_objects.clone(),
-            question_id_issuer,
+            question_id_issuer.clone(),
         ))
         .merge(crate::blueprint_course::blueprint_course_router(
             Arc::clone(&sessions),
             blueprint_courses,
             question_library_store,
             question_library_objects.clone(),
+            question_id_issuer.clone(),
         ))
         .merge(crate::navigation::navigation_router(
             Arc::clone(&sessions),
@@ -182,6 +184,7 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::assignment_release::assignment_release_router(
             Arc::clone(&sessions),
             assignments,
+            question_id_issuer.clone(),
         ))
         .merge(crate::assignment_delivery::assignment_delivery_router(
             Arc::clone(&sessions),
@@ -198,6 +201,7 @@ pub async fn production_router_from_env() -> Result<Router> {
                     "PLE_PUBLIC_ASSET_BASE_URL",
                 )?)
                 .map_err(anyhow::Error::msg)?,
+                question_id_issuer,
             ),
         );
     let browser_boundary = production_browser_boundary_from_env()?;
@@ -245,7 +249,10 @@ fn webwork_adapter_from_env(
 /// Reads the deployment-owned HMAC key that validates newly minted Question IDs.
 /// The base64url capability remains in the mounted private file and is never
 /// emitted in diagnostics or browser data.
-fn question_id_issuer_from_env() -> Result<crate::question_publication::HmacQuestionIdIssuer> {
+/// Loads the deployment-owned Question ID issuer for trusted installation and
+/// service publication paths. The capability remains private to the process
+/// environment and its errors never include the secret value.
+pub fn question_id_issuer_from_env() -> Result<crate::question_publication::HmacQuestionIdIssuer> {
     let path = required_env("PLE_QUESTION_ID_SECRET_FILE")?;
     let encoded = std::fs::read_to_string(path)
         .context("could not read the Question ID secret capability")?;
@@ -264,7 +271,10 @@ fn question_id_issuer_from_env() -> Result<crate::question_publication::HmacQues
 /// Constructs the API-owned object reader used to compile answer-free Question
 /// Library views. The disposable topology may use its explicitly configured
 /// MinIO endpoint; production uses workload identity only.
-async fn question_library_object_store_from_env() -> Result<S3ObjectStore> {
+/// Builds the same policy-separated Question-source object store used by the
+/// application. Trusted installation publication reuses this boundary rather
+/// than accepting object-store paths or credentials as CLI arguments.
+pub async fn question_library_object_store_from_env() -> Result<S3ObjectStore> {
     let buckets = BucketNames {
         public_assets: required_env("PLE_PUBLIC_ASSETS_BUCKET")?,
         private_content: required_env("PLE_PRIVATE_CONTENT_BUCKET")?,

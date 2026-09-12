@@ -56,30 +56,26 @@ def entry_url() -> str:
 
 
 #============================================
-def test_start_parser_exposes_only_presentation_and_provisioning_checkpoint() -> None:
+def test_start_parser_exposes_only_explicit_demo_opt_out() -> None:
 	"""Start cannot select another environment, project, or artifact."""
 	args = local_stack_control.cli.build_parser().parse_args(["start", "--headless"])
 	assert args.headless
-	assert args.stop_after is None
-	checkpoint = local_stack_control.cli.build_parser().parse_args([
-		"start", "--headless", "--stop-after", "release",
+	assert args.without_live_demo is False
+	without_demo = local_stack_control.cli.build_parser().parse_args([
+		"start", "--headless", "--without-live-demo",
 	])
-	assert checkpoint.stop_after == "release"
+	assert without_demo.without_live_demo is True
 	with pytest.raises(SystemExit):
 		local_stack_control.cli.build_parser().parse_args(["start", "--project", "other"])
-	with pytest.raises(SystemExit):
-		local_stack_control.cli.build_parser().parse_args([
-			"start", "--stop-after", "unknown",
-		])
 
 
 #============================================
-def test_start_forwards_one_provisioning_checkpoint_to_the_fixed_owner(
+def test_start_forwards_explicit_demo_opt_out_to_the_fixed_owner(
 	tmp_path: pathlib.Path,
 	monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-	"""The recovery flag changes only where the existing provisioner stops."""
-	captured: list[tuple[pathlib.Path, str | None]] = []
+	"""The only opt-out suppresses demo data, never structure initialization."""
+	captured: list[bool] = []
 	monkeypatch.setattr(
 		local_stack_control.browser_suite_developer,
 		"clear_developer_browser_suite",
@@ -88,19 +84,17 @@ def test_start_forwards_one_provisioning_checkpoint_to_the_fixed_owner(
 	monkeypatch.setattr(
 		local_stack_control.browser_suite_developer,
 		"start_developer_browser_suite",
-		lambda root, provision_stop_after=None: (
-			captured.append((root, provision_stop_after)), receipt()
+		lambda _root, without_live_demo=False: (
+			captured.append(without_live_demo), receipt()
 		)[1],
 	)
 
-	result = local_stack_control.cli.run(
-		["start", "--headless", "--stop-after", "claims"],
+	assert local_stack_control.cli.run(
+		["start", "--headless", "--without-live-demo"],
 		RecordingRunner(),
 		tmp_path,
-	)
-
-	assert result == 0
-	assert captured == [(tmp_path, "claims")]
+	) == 0
+	assert captured == [True]
 
 
 #============================================

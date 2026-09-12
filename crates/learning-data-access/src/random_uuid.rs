@@ -15,6 +15,17 @@ pub(crate) fn random_uuid_v4<E>(map_error: impl FnOnce(getrandom::Error) -> E) -
     random_128_bits(map_error).map(uuid_v4_from_bytes)
 }
 
+/// Draws a uniformly random Question seed from the operating-system CSPRNG.
+///
+/// Question variation is evidence retained with an Issued Question, so its
+/// value is minted by the trusted application boundary rather than inferred
+/// by PostgreSQL from mutable Assignment state.
+pub(crate) fn random_u64<E>(map_error: impl FnOnce(getrandom::Error) -> E) -> Result<u64, E> {
+    let mut bytes = [0_u8; 8];
+    getrandom::fill(&mut bytes).map_err(map_error)?;
+    Ok(u64::from_be_bytes(bytes))
+}
+
 fn uuid_v4_from_bytes(mut bytes: [u8; 16]) -> Uuid {
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;

@@ -455,16 +455,18 @@ mod tests {
             reference: crate::AssignmentAttemptReference::new(1).expect("valid attempt reference"),
             student_record: crate::StudentRecordId::from_uuid(Uuid::from_u128(3)),
             assignment,
-            assignment_revision: crate::AssignmentRevisionReference {
-                assignment: crate::AssignmentReference::new(1).expect("valid assignment reference"),
-                revision_number: crate::AssignmentRevisionNumber::INITIAL,
+            evidence: crate::AssignmentAttemptEvidence {
+                title: crate::AssignmentTitle::try_new("Assignment".to_string()).expect("title"),
+                instructions: crate::AssignmentInstructions::default(),
+                base_policy: crate::BaseAssignmentPolicy::default(),
+                activity_rules: AssignmentActivityRules::default(),
+                student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
+                effective_policy_sources: crate::AssignmentAttemptPolicySources::default(),
             },
             attempt_number: 2,
             started_at: crate::Timestamp::from_unix_millis(1),
             completed_at: None,
             score: None,
-            question_pool_reuse_rule: QuestionPoolReuseRule::ReuseSelection,
-            question_variation_rule: AssignmentQuestionVariationRule::NewVariation,
         };
         let entry = AssignmentEntryId::from_uuid(Uuid::from_u128(4));
 

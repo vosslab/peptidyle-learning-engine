@@ -47,7 +47,7 @@
   package ownership, security constraints, and production-browser evidence required to replace
   the former developer structural preview with the actual Live Demo.
 - Completed Live Demo restoration M0 with
-  [docs/active_plans/audits/live_demo_foundation_findings.md](active_plans/audits/live_demo_foundation_findings.md).
+  the then-current Live Demo foundation findings report.
   The report records the fresh forced-RLS/default-deny baseline, classifies every retained
   Playwright specification, assigns client and decoder handoffs, and identifies the structural preview as
   a destination M19 must retire rather than a restored product path.

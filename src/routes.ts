@@ -13,7 +13,6 @@ import { QuestionDraftsPage } from "./pages/question_drafts_page";
 import { CourseInstancePage } from "./pages/course_instance_page";
 import { CourseListPage } from "./pages/course_list_page";
 import { GradebookPage } from "./pages/gradebook_page";
-import { StudentWorkInspectionPage } from "./pages/student_work_inspection_page";
 import { CourseGradeSettingsPage } from "./pages/course_grade_settings_page";
 import { CourseAppearancePage } from "./pages/course_appearance_page";
 import { withRouteAccessBoundary } from "./route_access_boundary";
@@ -73,11 +72,8 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
     createComponent(AssignmentWorkspaceLivePage, { section: "policies" }),
   assignmentWorkspaceStudentView: () =>
     createComponent(AssignmentWorkspaceLivePage, { section: "studentView" }),
-  assignmentWorkspaceGradingOperations: () =>
-    createComponent(AssignmentWorkspaceLivePage, { section: "gradingOperations" }),
   assignmentPreview: AssignmentPreviewPage,
   gradebook: GradebookPage,
-  studentWorkInspection: StudentWorkInspectionPage,
   courseGradeSettings: CourseGradeSettingsPage,
   courseAppearance: CourseAppearancePage,
   courseRoster: CourseRosterPage,

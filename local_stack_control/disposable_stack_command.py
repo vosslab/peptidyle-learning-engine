@@ -1,7 +1,6 @@
 """Private adapter for closed disposable local-stack E2E owners."""
 
 import argparse
-import json
 import pathlib
 import re
 import shlex
@@ -13,8 +12,6 @@ import local_stack_control.discovery
 import local_stack_control.models
 import local_stack_control.process
 import local_stack_control.lifecycle
-import local_stack_control.live_demo_course_provision
-import local_stack_control.live_demo_course_seed
 
 
 #============================================
@@ -33,10 +30,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	launch = actions.add_parser("launch")
 	launch.add_argument("--manifest", required=True, type=pathlib.Path)
 	launch.add_argument("--timeout-seconds", required=True, type=int)
-	launch.add_argument(
-		"--stop-after",
-		choices=tuple(stage.value for stage in local_stack_control.live_demo_course_provision.SUPPORTED_STAGES),
-	)
+	launch.add_argument("--without-live-demo", action="store_true")
+	replay_installation_data = actions.add_parser("replay-installation-data")
+	replay_installation_data.add_argument("--manifest", required=True, type=pathlib.Path)
+	assert_live_demo_absent = actions.add_parser("assert-live-demo-absent")
+	assert_live_demo_absent.add_argument("--manifest", required=True, type=pathlib.Path)
 	restart = actions.add_parser("restart")
 	restart.add_argument("--manifest", required=True, type=pathlib.Path)
 	restart.add_argument("--service", required=True)
@@ -80,15 +78,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	postgresql_count = actions.add_parser("postgresql-count")
 	postgresql_count.add_argument("--manifest", required=True, type=pathlib.Path)
 	postgresql_count.add_argument("--attempt-id", required=True)
-	seed_inventory = actions.add_parser("seed-inventory")
-	seed_inventory.add_argument("--manifest", required=True, type=pathlib.Path)
-	provision_course = actions.add_parser("provision-course")
-	provision_course.add_argument("--manifest", required=True, type=pathlib.Path)
-	provision_course.add_argument(
-		"--stop-after",
-		choices=tuple(stage.value for stage in local_stack_control.live_demo_course_provision.SUPPORTED_STAGES),
-	)
-	provision_course.add_argument("--report", action="store_true")
 	args = parser.parse_args(argv)
 	if args.action == "compose":
 		if len(args.arguments) > 0 and args.arguments[0] == "--":
@@ -289,28 +278,6 @@ def run_postgresql_count(
 
 
 #============================================
-def run_seed_inventory(
-	runner: local_stack_control.process.CommandRunner,
-	disposable: local_stack_control.models.DisposableComposeTarget,
-) -> int:
-	"""Run and emit only the named seeded-baseline aggregate counts."""
-	local_stack_control.disposable_stack_adapter.require_current_resource_capability(runner, disposable)
-	argv, environment, sql = local_stack_control.disposable_stack_adapter.seed_inventory_command(disposable)
-	result = runner.run(argv, environment, disposable.target.repo_root, sql)
-	if not result.ok():
-		raise local_stack_control.models.ControllerError("seed inventory did not complete")
-	counts = result.stdout.strip()
-	values = counts.split("|")
-	if (
-		len(values) != len(local_stack_control.live_demo_seed.SEED_INVENTORY_FIELDS)
-		or any(re.fullmatch(r"[0-9]{1,10}", value) is None for value in values)
-	):
-		raise local_stack_control.models.ControllerError("seed inventory returned an invalid result")
-	print(counts)
-	return 0
-
-
-#============================================
 def webwork_renderer_service(
 	disposable: local_stack_control.models.DisposableComposeTarget,
 ) -> str:
@@ -406,20 +373,28 @@ def main() -> None:
 			raise SystemExit(result.returncode)
 		if args.action == "launch":
 			local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, disposable)
-			provision_stop_after = (
-				local_stack_control.live_demo_course_seed.Stage(args.stop_after)
-				if args.stop_after is not None
-				else None
-			)
 			result = local_stack_control.lifecycle.start_lifecycle(
 				disposable,
 				runner,
 				root,
 				local_stack_control.disposable_stack_adapter.lifecycle_options(
-					disposable, args.timeout_seconds, provision_stop_after
+					disposable, args.timeout_seconds,
+					without_live_demo=args.without_live_demo,
 				),
 			)
 			print(f"Disposable stack ready: {result.gateway_url}")
+			raise SystemExit(0)
+		if args.action == "replay-installation-data":
+			local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, disposable)
+			local_stack_control.disposable_stack_adapter.require_browser_profile(disposable)
+			local_stack_control.lifecycle.provision_ready_live_demo(disposable, runner)
+			print("Disposable installation data: provisioned")
+			raise SystemExit(0)
+		if args.action == "assert-live-demo-absent":
+			local_stack_control.disposable_stack_adapter.require_current_resource_capability(runner, disposable)
+			local_stack_control.disposable_stack_adapter.require_browser_profile(disposable)
+			local_stack_control.lifecycle.require_installation_data_absent(disposable, runner)
+			print("Disposable installation data: Pilot Questions and Live Demo Course are absent")
 			raise SystemExit(0)
 		if args.action == "restart":
 			local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, disposable)
@@ -498,31 +473,6 @@ def main() -> None:
 				args.attempt_id,
 			)
 			raise SystemExit(result)
-		if args.action == "seed-inventory":
-			result = run_seed_inventory(runner, disposable)
-			raise SystemExit(result)
-		if args.action == "provision-course":
-			local_stack_control.disposable_stack_adapter.require_mutating_capability(
-				runner, disposable
-			)
-			stop_after = (
-				local_stack_control.live_demo_course_seed.Stage(args.stop_after)
-				if args.stop_after is not None
-				else None
-			)
-			provisioned = local_stack_control.live_demo_course_provision.provision_live_demo_course(
-				runner,
-				disposable,
-				args.manifest.absolute().parent,
-				stop_after=stop_after,
-				report_only=args.report,
-			)
-			if args.report:
-				print(json.dumps([stage.value for stage in provisioned.planned_stages]))
-			else:
-				print(f"Live Demo Course provisioned: {provisioned.report_path}")
-			raise SystemExit(0)
-
 		before = local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, disposable)
 		if len(before.containers) + len(before.volumes) + len(before.networks) == 0:
 			print(f"Disposable cleanup: project {disposable.target.project} is already empty")

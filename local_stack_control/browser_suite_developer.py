@@ -32,7 +32,6 @@ from local_stack_control.browser_suite_private_state import (
 	_remove_private_entry,
 	_write_private_file,
 )
-import local_stack_control.live_demo_course_seed
 import local_stack_control.models
 import local_stack_control.process
 
@@ -541,10 +540,12 @@ def _adapter_argv(action: str, manifest_path: pathlib.Path, arguments: tuple[str
 
 
 #============================================
-def default_operations(provision_stop_after: str | None = None) -> DeveloperOperations:
+def default_operations(
+	without_live_demo: bool = False,
+) -> DeveloperOperations:
 	"""Retain the supervisor facade for the external-operations owner."""
 	return local_stack_control.browser_suite_developer_operations.default_operations(
-		provision_stop_after, _launch_diagnostic
+		without_live_demo, _launch_diagnostic
 	)
 
 
@@ -555,11 +556,11 @@ def run_supervisor(
 	acquire_browser_suite_lease: Callable[[pathlib.Path], local_stack_control.browser_suite_lease.BrowserSuiteLease] = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire,
 	install_signal_handlers: bool = True,
 	inherited_descriptors: tuple[int, int, int] | None = None,
-	provision_stop_after: str | None = None,
+	without_live_demo: bool = False,
 ) -> None:
 	"""Hold the actual lease until an authenticated stop or termination cleans the fixed stack."""
 	active_operations = (
-		default_operations(provision_stop_after) if operations is None else operations
+		default_operations(without_live_demo) if operations is None else operations
 	)
 	lease = (
 		acquire_browser_suite_lease(repository_root)
@@ -789,18 +790,11 @@ def start_developer_browser_suite(
 	timeout_seconds: float = DEVELOPER_START_WAIT_SECONDS,
 	spawn: Callable[[pathlib.Path, local_stack_control.browser_suite_lease.BrowserSuiteLease], object] | None = None,
 	child_terminator: Callable[[object, float], None] = _terminate_child,
-	provision_stop_after: str | None = None,
+	without_live_demo: bool = False,
 ) -> DeveloperStartReceipt:
 	"""Launch the background lease owner and return only its fixed HTTPS origin."""
 	if timeout_seconds <= 0:
 		raise DeveloperBrowserSuiteError("developer browser start timeout is invalid")
-	if provision_stop_after is not None:
-		try:
-			local_stack_control.live_demo_course_seed.Stage(provision_stop_after)
-		except ValueError as error:
-			raise DeveloperBrowserSuiteError(
-				"developer browser provisioning stop stage is invalid"
-			) from error
 	# The probe shares the browser-suite lease. It makes stale receipts powerless
 	# before any child can publish readiness (ASVS 15.4.2 and 15.4.3).
 	lease = local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(repository_root)
@@ -834,8 +828,8 @@ def start_developer_browser_suite(
 				str(descriptors[1]),
 				str(descriptors[2]),
 			]
-		if provision_stop_after is not None:
-			arguments.extend(("--stop-after", provision_stop_after))
+		if without_live_demo:
+			arguments.append("--without-live-demo")
 		return subprocess.Popen(
 			arguments,
 			cwd=root,
@@ -907,30 +901,26 @@ def start_developer_browser_suite(
 def main() -> None:
 	"""Run the private supervisor child selected by the future local-stack CLI."""
 	arguments = sys.argv[1:]
-	if len(arguments) not in (4, 6) or arguments[0] != "supervisor":
+	if len(arguments) < 4 or arguments[0] != "supervisor":
 		raise DeveloperBrowserSuiteError("developer browser supervisor has an invalid invocation")
 	try:
 		descriptors = int(arguments[1]), int(arguments[2]), int(arguments[3])
 	except ValueError as error:
 		raise DeveloperBrowserSuiteError("developer browser supervisor has an invalid invocation") from error
-	provision_stop_after = None
-	if len(arguments) == 6:
-		if arguments[4] != "--stop-after":
-			raise DeveloperBrowserSuiteError(
-				"developer browser supervisor has an invalid invocation"
-			)
-		try:
-			provision_stop_after = local_stack_control.live_demo_course_seed.Stage(
-				arguments[5]
-			).value
-		except ValueError as error:
-			raise DeveloperBrowserSuiteError(
-				"developer browser provisioning stop stage is invalid"
-			) from error
+	without_live_demo = False
+	remaining = arguments[4:]
+	while remaining:
+		option = remaining.pop(0)
+		if option == "--without-live-demo" and not without_live_demo:
+			without_live_demo = True
+			continue
+		raise DeveloperBrowserSuiteError(
+			"developer browser supervisor has an invalid invocation"
+		)
 	run_supervisor(
 		pathlib.Path.cwd(),
 		inherited_descriptors=descriptors,
-		provision_stop_after=provision_stop_after,
+		without_live_demo=without_live_demo,
 	)
 
 

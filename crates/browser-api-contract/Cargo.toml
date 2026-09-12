@@ -6,6 +6,7 @@ rust-version.workspace = true
 
 [dependencies]
 serde.workspace = true
+question_model.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

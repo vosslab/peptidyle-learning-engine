@@ -2,15 +2,18 @@
 
 use async_trait::async_trait;
 use question_model::{
-    ObjectId, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionBackend,
-    QuestionId, QuestionRevisionAvailability, QuestionRevisionNumber, QuestionRevisionReference,
-    SourceObjectChecksum, SourceObjectReference, Timestamp,
+    ObjectId, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
+    QuestionAvailabilityEditNumber, QuestionBackend, QuestionId, QuestionRevisionNumber,
+    QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference, Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
 
 use super::Pool;
 use super::connection::map_sqlx_error;
-use crate::{PublishedQuestionLibraryEntry, QuestionLibraryStore, SessionTokenHash, StoreError};
+use crate::{
+    PublishedQuestionAvailability, PublishedQuestionLibraryEntry, QuestionLibraryStore,
+    SessionTokenHash, StoreError,
+};
 
 /// PostgreSQL Store for the session-authorized Instructor Question Library.
 #[derive(Clone)]
@@ -60,7 +63,9 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
-        let rows = sqlx::query("SELECT * FROM ple_api.list_question_library_entries()")
+        let rows = sqlx::query(
+            "SELECT * FROM ple_api.list_question_library_entries() WHERE availability = 'available'",
+        )
             .fetch_all(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -81,9 +86,10 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let row = sqlx::query(
-            "SELECT * FROM ple_api.list_question_library_entries() WHERE question_id = $1",
+            "SELECT * FROM ple_api.list_question_library_entries() \
+             WHERE question_id = $1 AND availability = 'available'",
         )
-        .bind(question_id.to_string())
+        .bind(question_id.as_compact_str())
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -94,6 +100,107 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
             .ok_or(StoreError::NotFound)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(entry)
+    }
+
+    async fn load_published_question_revision_library_entry(
+        &self,
+        session_token_hash: SessionTokenHash,
+        question_revision: &QuestionRevisionReference,
+    ) -> Result<PublishedQuestionLibraryEntry, StoreError> {
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        // This projection resolves an existing immutable pin. Unlike ordinary
+        // library discovery, its result intentionally remains available after
+        // the Question lineage is archived.
+        let row = sqlx::query("SELECT * FROM ple_api.load_question_library_revision($1, $2)")
+            .bind(question_revision.question_id.as_compact_str())
+            .bind(
+                i32::try_from(question_revision.revision_number.get())
+                    .map_err(|_| invalid("Question Revision Number"))?,
+            )
+            .fetch_optional(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        let entry = row
+            .as_ref()
+            .map(decode_entry)
+            .transpose()?
+            .ok_or(StoreError::NotFound)?;
+        if entry.question_revision != *question_revision {
+            return Err(invalid("Question Library exact revision"));
+        }
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(entry)
+    }
+
+    async fn archive_published_question(
+        &self,
+        session_token_hash: SessionTokenHash,
+        question_id: &QuestionId,
+        expected_edit_number: QuestionAvailabilityEditNumber,
+        confirmation_title: &str,
+    ) -> Result<PublishedQuestionAvailability, StoreError> {
+        self.set_published_question_availability(
+            session_token_hash,
+            question_id,
+            expected_edit_number,
+            "archived",
+            Some(confirmation_title),
+        )
+        .await
+    }
+
+    async fn restore_published_question(
+        &self,
+        session_token_hash: SessionTokenHash,
+        question_id: &QuestionId,
+        expected_edit_number: QuestionAvailabilityEditNumber,
+    ) -> Result<PublishedQuestionAvailability, StoreError> {
+        self.set_published_question_availability(
+            session_token_hash,
+            question_id,
+            expected_edit_number,
+            "available",
+            None,
+        )
+        .await
+    }
+}
+
+impl PostgresQuestionLibraryStore {
+    async fn set_published_question_availability(
+        &self,
+        session_token_hash: SessionTokenHash,
+        question_id: &QuestionId,
+        expected_edit_number: QuestionAvailabilityEditNumber,
+        target_availability: &str,
+        archive_confirmation_title: Option<&str>,
+    ) -> Result<PublishedQuestionAvailability, StoreError> {
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        let row =
+            sqlx::query("SELECT * FROM ple_api.set_question_availability($1, $2, $3, $4, $5)")
+                .bind(question_id.as_compact_str())
+                .bind(expected_edit_number.value() as i64)
+                .bind(target_availability)
+                .bind(archive_confirmation_title)
+                .bind(crate::random_uuid::random_uuid_v4(|_| {
+                    StoreError::Unavailable(
+                        "Question availability event ID randomness unavailable".into(),
+                    )
+                })?)
+                .fetch_optional(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?
+                .ok_or(StoreError::NotFound)?;
+        let result = decode_availability(&row)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(PublishedQuestionAvailability {
+            availability: result.0,
+            edit_number: result.1,
+        })
     }
 }
 
@@ -129,17 +236,7 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
     let question_license: String = row.try_get("question_license").map_err(map_sqlx_error)?;
     let question_license = serde_json::from_value(serde_json::Value::String(question_license))
         .map_err(|_| invalid("Question License"))?;
-    let availability: String = row.try_get("availability").map_err(map_sqlx_error)?;
-    let availability = match availability.as_str() {
-        "available" => QuestionRevisionAvailability::Available,
-        "archived" => QuestionRevisionAvailability::Archived {
-            reason: row
-                .try_get::<Option<String>, _>("availability_reason")
-                .map_err(map_sqlx_error)?
-                .ok_or_else(|| invalid("Question Revision Availability reason"))?,
-        },
-        _ => return Err(invalid("Question Revision Availability")),
-    };
+    let (availability, availability_edit_number) = decode_availability(row)?;
     let source_object_id =
         ObjectId::from_uuid(row.try_get("source_object_id").map_err(map_sqlx_error)?);
     let source_object_checksum: String = row
@@ -165,6 +262,7 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
             .map_err(map_sqlx_error)?,
         question_license,
         availability,
+        availability_edit_number,
         source_object_reference: SourceObjectReference {
             object: source_object_id,
         },
@@ -173,6 +271,53 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
     })
 }
 
+fn decode_availability(
+    row: &sqlx::postgres::PgRow,
+) -> Result<(QuestionAvailability, QuestionAvailabilityEditNumber), StoreError> {
+    let availability = availability_from_wire(
+        &row.try_get::<String, _>("availability")
+            .map_err(map_sqlx_error)?,
+    )?;
+    let edit_number = row
+        .try_get::<i64, _>("availability_edit_number")
+        .map_err(map_sqlx_error)
+        .and_then(|value| {
+            u64::try_from(value)
+                .ok()
+                .and_then(QuestionAvailabilityEditNumber::new)
+                .ok_or_else(|| invalid("Question Availability Edit Number"))
+        })?;
+    Ok((availability, edit_number))
+}
+
+fn availability_from_wire(value: &str) -> Result<QuestionAvailability, StoreError> {
+    match value {
+        "available" => Ok(QuestionAvailability::Available),
+        "archived" => Ok(QuestionAvailability::Archived),
+        _ => Err(invalid("Question Availability")),
+    }
+}
+
 fn invalid(field: &str) -> StoreError {
     StoreError::InvalidRecord(format!("stored {field} is invalid"))
+}
+
+#[cfg(test)]
+mod tests {
+    use question_model::QuestionAvailability;
+
+    use super::availability_from_wire;
+
+    #[test]
+    fn stable_lineage_availability_uses_the_closed_wire_vocabulary() {
+        assert_eq!(
+            availability_from_wire("available"),
+            Ok(QuestionAvailability::Available)
+        );
+        assert_eq!(
+            availability_from_wire("archived"),
+            Ok(QuestionAvailability::Archived)
+        );
+        assert!(availability_from_wire("retired").is_err());
+    }
 }

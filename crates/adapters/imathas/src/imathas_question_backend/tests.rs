@@ -47,8 +47,10 @@ mod launch_session_bridge {
         AccountId, AssignmentAttemptId, AssignmentEntryId, AssignmentEntryScoringRule,
         AssignmentId, AssignmentPointValue, CourseId, ImathasDeploymentReference,
         ImathasItemReference, ImathasProfile, ImathasQuestionBackendBinding, IssuedQuestion,
-        IssuedQuestionId, ObjectId, QuestionAttemptId, QuestionId, QuestionRevisionNumber,
-        QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference, Timestamp,
+        IssuedQuestionId, ObjectId, QuestionAttemptId, QuestionAttemptReproductionDetails,
+        QuestionBackendVersion, QuestionGraderVersion, QuestionId, QuestionRendererVersion,
+        QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum,
+        SourceObjectReference, Timestamp,
     };
     use sha2::{Digest, Sha256};
     use uuid::Uuid;
@@ -80,6 +82,33 @@ mod launch_session_bridge {
             assignment_content_entry_index: 0,
             issued_position: 0,
             reference: question.clone(),
+            question_seed: QuestionSeed::new(11),
+            reproduction_details: QuestionAttemptReproductionDetails {
+                backend: QuestionBackendVersion {
+                    name: crate::ADAPTER_ID.to_owned(),
+                    version: crate::ADAPTER_VERSION.to_owned(),
+                },
+                renderer_version: Some(QuestionRendererVersion {
+                    name: "imathas-profile".to_owned(),
+                    version: crate::result_verification::IMATHAS_GRADING_PROFILE_ID.to_owned(),
+                }),
+                source_object_reference: Some(SourceObjectReference {
+                    object: ObjectId::from_uuid(Uuid::from_u128(4)),
+                }),
+                source_object_checksum: Some(
+                    SourceObjectChecksum::parse(
+                        "e066deba4e5894d18a5ab7bc36113e9a33ae1e95fded873429c91473c38dbfda"
+                            .to_owned(),
+                    )
+                    .expect("recorded source checksum"),
+                ),
+                asset_objects: Vec::new(),
+                grader: QuestionGraderVersion {
+                    name: crate::GRADING_ID.to_owned(),
+                    version: crate::GRADING_VERSION.to_owned(),
+                },
+                rendered_question_sha256: "0".repeat(64),
+            },
             point_value: AssignmentPointValue::from_whole(1),
             scoring_rule: AssignmentEntryScoringRule::Normal,
             question_statistics_eligibility: true,

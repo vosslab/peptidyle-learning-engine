@@ -1,325 +1,84 @@
 # Test evidence model
 
-PLE uses evidence that matches the claim being made. Fast checks protect narrow
-logic; the canonical browser suite proves visible product behavior; service
-oracles prove the service boundaries that a browser cannot distinguish.
-This document classifies that evidence. Each bounded work item owns its exact command list;
-[ROADMAP.md](ROADMAP.md) owns durable release acceptance.
+PLE uses evidence that matches the claim. Fast tests protect narrow stable
+behavior; connected service checks protect database and external-service
+boundaries; real-stack browser journeys protect visible product behavior. A
+passing check in one class does not establish a claim owned by another.
 
-Read [PYTEST_STYLE.md](PYTEST_STYLE.md) before adding a Python test and
-[PLAYWRIGHT_TEST_STYLE.md](PLAYWRIGHT_TEST_STYLE.md) before changing a browser
-test. [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) defines the disposable live-demo
-baseline used by the browser suite.
-
-## Validation test suite
-
-Every work package names its complete Validation suite before completion. A
-goal is complete only when every required gate is green on the final material
-tree, including required live gates and independent review. `SKIP`, unrun, or
-unavailable required gates are not green.
-
-The repository aggregate front door is `./launchers/all_test.sh`. It fails fast through
-these four gates, in this order:
-
-```bash
-./check_rust.sh
-./check_codebase.sh
-source source_me.sh && python3 -m pytest tests/
-source source_me.sh && python3 local_stack.py acceptance
-```
-
-The Rust gate precedes the codebase gate because it owns generated TypeScript
-inputs consumed by the latter. `local_stack.py acceptance` currently runs its
-two declared real-service lanes: the disposable PostgreSQL schema, authority,
-and persistence oracle, and the Course Appearance PostgreSQL and MinIO
-coherence oracle. It does not invoke a browser suite.
-
-M19 accepted the complete canonical production-browser path on 2026-09-07. M5
-supplies one owned live-browser scenario for its Question Library task, but its
-passing aggregate or focused scenario remains narrower than the separate
-Instructor, Student, Sysadmin, visual, and serial-workflow acceptance.
-
-Run the full named suite again after any material change that affects a gate.
-When a plan requires repeat-run or cleanup evidence, rerun all four gates on
-the final material tree in the listed order; the second run is evidence only
-when it reports its own result and the required cleanup state.
-
-Record commands, results, environment assumptions, one-time evidence, and
-intentional optional skips in the package handoff and
-[CHANGELOG.md](CHANGELOG.md). Do not report a goal complete while a required
-gate is red.
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) requires tests to earn their maintenance
+cost. Keep a test only when it protects a durable behavior, authorization
+boundary, evidence-integrity rule, or supported lifecycle operation. When in
+doubt, remove it.
 
 ## Evidence classes
 
-- Permanent behavior, contract, or security tests are fast, deterministic
-  gates for maintained local behavior. They do not prove a dependent real
-  service.
-- Permanent architecture or hygiene gates protect durable engineering rules.
-  They do not prove a user workflow.
-- One-time implementation probes answer a narrow investigation or
-  reconstruction question. They do not protect behavior from regression.
-- Disposable acceptance proves its named boundary in a declared real-stack
-  environment. It does not prove every deployment or provider.
-- Independent review evaluates a stated artifact and criterion. It does not
-  make every later change correct.
+- **Permanent focused tests** are deterministic, offline tests for validation,
+  decoding, serialization, error mapping, authorization decisions, and other
+  stable local contracts. They avoid incidental source inventories, timing,
+  random values, real services, and sleeps.
+- **Permanent connected acceptance** covers durable PostgreSQL/RLS/grant and
+  storage boundaries that cannot be established by a fake. It is explicit rather
+  than hidden in a fast unit lane.
+- **Real-stack browser acceptance** proves named visible workflows against the
+  production browser artifact and disposable Live Demo. It does not substitute
+  for an unrelated database or worker guarantee.
+- **One-time reconstruction evidence** answers a reset-specific question, such
+  as catalog disposition, base rebuild, forward-migration rehearsal, restore,
+  or Graphify regeneration. Record its conclusion concisely in the changelog;
+  remove the temporary probe unless it independently qualifies as a permanent
+  test.
+- **Independent review** evaluates the named artifact and scope at the time it
+  runs. It does not silently certify later changes.
 
-A report identifies its class, exact claim, and environment. One evidence class
-does not gain the scope of another because it uses similar data or code.
+## Supported validation lanes
 
-### Course Appearance check lifetime
+`./launchers/all_test.sh` is the aggregate repository front door. It runs the
+owned Rust, codebase, Python, and declared service checks. Browser and
+connected operations remain explicit when their owner requires them.
 
-Apply the checklist in [PYTEST_STYLE.md](PYTEST_STYLE.md) to the lifetime decision separately
-from the execution lane. A useful one-time rebuild check does not become a permanent regression
-test merely because it passed or has a saved script. An explicit E2E command can own a retained
-behavior check without adding it to `pytest tests/` or `./launchers/all_test.sh`.
+Every bounded work item names the commands necessary for its claim. A result is
+green only when its required commands ran successfully on the material tree.
+Unavailable or skipped required acceptance is recorded as incomplete, not
+treated as a passing test. The changelog records final commands, environment
+assumptions, and one-time results.
 
-| Checks                                                                                                                                                                                    | Classification and reason                                                                                                                                                                                                                             |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Theme/appearance decoding, invalid input refusal, no-store and same-origin transport, rendered Ribbon role visibility                                                                     | Permanent fast Rust/Node tests: maintain observable protocol and access boundaries with inline fixed inputs. No new Course Appearance pytest was added.                                                                                               |
-| Fault-injected banner preparation, completion, and repair ordering                                                                                                                        | Permanent fast Rust tests: prevent publishing partial writes or recording deletion before confirmation. Call ordering here is the behavior being protected, not a function-name inventory.                                                            |
-| PostgreSQL membership/privilege/RLS checks and MinIO promotion/cleanup saga                                                                                                               | Retained disposable service acceptance under `tests/e2e/`: proves real authorization and object/database effects; explicitly outside fast pytest.                                                                                                     |
-| Instructor save/reload, enrolled Student propagation, second-Course isolation                                                                                                             | Retained production-browser acceptance under `tests/playwright/e2e/`, invoked by its existing browser-suite owner. It is separate from the aggregate fast/service command.                                                                            |
-| Theme preview abandonment/failure, independent pending drafts, loading/error/retry, keyboard/axe/reflow                                                                                   | Retained focused browser behavior checks, explicitly invoked through their documented `node --import tsx` commands. Their component harness does not prove production-route accessibility or server persistence. No new aggregate runner is required. |
-| Palette/radio/span inventories, full Ribbon descriptor/task snapshots, exact banner heights and row/control geometry, SQL body substrings and migration default/constraint-name snapshots | One-time rebuild/sizing evidence: the earlier receipts retain the result; the assertions and unused harness inventory accessors are removed. They must not be promoted into the recurring suite.                                                      |
-| Tests that only call a response constructor and restate its supplied status                                                                                                               | Removed trivial tests: they did not exercise malformed input or authorization despite their names. The HTTP acceptance owns those behaviors.                                                                                                          |
+## Database baseline and revision model
 
-Run retained focused browser checks explicitly:
+The permanent database evidence is intentionally small:
 
-```bash
-node --import tsx tests/playwright/course_appearance_m7_evidence.mjs
-node --import tsx tests/playwright/course_appearance_m8_evidence.mjs
-node --import tsx tests/playwright/course_appearance_m9_accessibility_evidence.mjs
-node --import tsx tests/playwright/course_appearance_m10_scope_recovery_evidence.mjs
-```
+| Protected claim | Suitable evidence |
+| --- | --- |
+| Runtime roles cannot change structure; schema ownership, forced RLS, grants, and capability roles are closed. | Connected database security acceptance. |
+| Question and Blueprint provenance is exact; Question IDs have canonical compact storage and validation; old Student Work remains interpretable. | Focused domain tests plus connected evidence where persistence or RLS matters. |
+| Current Assignment save/release, released edits, future Attempts, archive/restore, Blueprint Draft publication, and Unrelease follow their lifecycle and concurrency contracts. | Narrow owner tests at the lowest layer that proves the behavior. |
+| Fresh base initialization, no-op compatible replay, and application-role verification work through supported commands. | Connected lifecycle acceptance. |
+| Default installation-data provisioning converges and the explicit opt-out leaves ordinary product data unprovisioned. | Connected installation-data acceptance. |
 
-The all-theme Ribbon survey retains visibility/contrast evidence, not exact inter-theme geometry
-equality. The fixed crop decision remains documented even though its one-time measurement probes
-are no longer permanent assertions. Absence of a canonical runner for a one-time probe is not a
-test defect; first justify retaining the behavior, then select its existing execution owner.
+Migration-file counts, historical checksums, module layouts, SQL body snippets,
+custom splitter behavior, retired Revision projections, and broad source
+inventories do not protect the resulting product. They are removed or treated
+as temporary investigation evidence.
 
-## Account hardening and optional passkey evidence
+Refusal of a nonempty target without leaving partial PLE structure is a stable
+initialization contract and remains connected lifecycle evidence. An intentionally
+corrupted mid-manifest install and a temporary forward-migration rehearsal are
+one-time cutover evidence; they do not justify permanent synthetic test machinery.
 
-Create Instructor Account has permanent behavior coverage for Active Sysadmin
-actor binding, denial and rollback without partial Account, Authentication Email,
-or audit state, immutable Product Role, session-role derivation, and Account
-State revocation. The connected PostgreSQL migration acceptance is separate
-one-time mechanism evidence for the fresh schema, forced RLS, grants, narrow
-audit writer, and immutable qualified event relation. Neither category proves a
-browser teaching workflow.
+## Browser and service scope
 
-The passkey lane is explicitly deferred. Its schema and typed-contract
-foundations are not accepted passkey behavior, and passkey setup, ceremony,
-management, real-stack, browser, and manual-passkey evidence do not join a
-baseline-green claim. The deferred lane cannot invalidate ordinary health,
-session/logout, or seeded-demo evidence.
+The canonical browser suite exercises visible, accessible PLE workflows through
+the same-origin application stack. Focused browser scenarios may establish their
+declared interaction but do not claim all user journeys. Service oracles cover
+only the particular PostgreSQL, object-store, renderer, worker, or lifecycle
+boundary they name. Use an authorized second session, reload, or observer when a
+visible persistence claim needs proof; do not turn private setup shortcuts into
+product contracts.
 
-Seeded-demo transport and UI conformance tests permanently protect the closed
-persona response shape and bounded degraded status. They do not replace a
-real-stack or visible-browser acceptance claim.
+## Test admission
 
-### Permanent-test admission
-
-Before a check becomes part of a permanent test lane, it must protect a behavior
-that can plausibly regress, have a stable contract independent of incidental
-names or file layout, produce a meaningful result, and run offline,
-deterministically, without sleeps, random values, current-time dependence, or
-real service/CLI calls. It writes only to test-owned temporary storage and is
-small enough for its owning lane. A check that merely inventories current
-source, counts artifacts, confirms an implementation choice, or records a
-migration snapshot is one-time closure evidence instead. Keep that evidence in
-the implementation handoff or acceptance receipt, then remove the probe when
-the investigation is complete. When in doubt, remove the test.
-
-The current permanent suite contains callable unit, contract, security, and
-hygiene behavior checks, plus its declared real-service gates. The separate
-production-browser owner accepted M19 on 2026-09-07 and remains outside the
-permanent suite. The suite does not preserve a superseded browser application's source inventory or a
-dated screenshot-path inventory as a regression contract.
-
-## Focused unit evidence
-
-Keep permanent tests small, deterministic, and close to the behavior they
-protect. Python, Node, and Rust unit or conformance tests own decoder,
-serialization, strict transport, failure mapping, validation, and other narrow
-logic. They may use inline fake values or isolated dependencies when those are
-part of the contract under test.
-
-Focused tests do not prove the browser-to-server path, real authorization,
-PostgreSQL/RLS, object delivery, renderer behavior, or visible user outcome.
-They complement the required restored canonical browser suite; they never
-provide a substitute browser runtime.
-
-Fast Python tests stay in `tests/test_*.py`; pure Node tests stay in the
-repository Node test lane; Rust tests stay with their owning crate. Slow
-browser and service work stays outside the pytest fast collection. A temporary
-probe belongs in ignored scratch space and is removed when its investigation
-ends unless it independently meets the permanent-test standard.
-
-## Production browser evidence
-
-PLE retains one intended production `dist/` browser artifact and fixed
-disposable real-stack browser path. M5 owns
-`bash tests/e2e/e2e_live_demo_question_library.sh --browser`, which enters the
-fixed HTTPS stack through the seeded Instructor session and proves visible
-Ribbon navigation, search, and Question Details. It is deliberately a focused
-milestone scenario. M6 owns `bash tests/e2e/e2e_live_demo_authoring.sh
---publish`, which creates and saves a private Draft Question, reviews and
-publishes it, then returns through the real Question Library to open the new
-Published Question. Those focused scenarios are not the serial
-`./devel/run_playwright_tests.sh --build` owner required for M19 release
-acceptance.
-
-M7 owns `bash tests/e2e/e2e_live_demo_blueprint_course.sh --service` and
-`--browser`. They are focused disposable acceptance, not permanent pytest
-tests: the service path proves Blueprint Course Owner and Active Instructor
-read access plus immutable successor-revision behavior, and the browser path
-proves the visible Ribbon, Question picker, creation, publication, and list
-return. Neither establishes Course Instance, roster, Assignment delivery,
-Student, grading, or M19 serial-browser acceptance.
-
-M8 owns `bash tests/e2e/e2e_live_demo_course_instance.sh --authority` and
-`--browser`. They are focused disposable acceptance, not permanent pytest
-tests: the authority path proves the exact published Blueprint Revision source,
-immutable Course Origin, initial Assigned Instructor Course Membership, and no
-ambient Sysadmin Course access or Student Record/Assignment creation. The real
-Chromium path proves visible Instructor Course Instance creation and its
-Teaching Team. Neither establishes roster, invitations, Assignment delivery,
-Student work, grading, or M19 serial-browser acceptance.
-
-M9 owns `bash tests/e2e/e2e_live_demo_roster.sh --import` and `--browser`.
-They are focused disposable acceptance, not permanent pytest tests: the
-authority path proves idempotent Student Authentication Email resolve-or-create,
-pending Course Invitation, exact Student Record and Student Course Membership
-claim, and immediate access revocation without deletion. The real Chromium
-path proves Instructor Course Roster Import and its protected pending roster
-projection. Neither establishes email delivery, Assignment delivery, Student
-work, grading, export, or M19 serial-browser acceptance.
-
-M10 owns `bash tests/e2e/e2e_live_demo_assignment_release.sh`. It is focused
-disposable acceptance, not a permanent pytest test: the service path proves
-direct Instructor Course Membership authority, exact Assignment Edit Number
-conflict handling, release validation, and immutable Assignment Revision
-snapshotting without Student work. The real Chromium path proves visible
-Assignment creation, Available Published Question selection, save, validation,
-answer-free Assignment Preview, and release. It does not prove Student View
-Scenario evaluation, Assignment delivery, Student identity or work, grading,
-or M19 serial-browser acceptance.
-
-M11 owns `bash tests/e2e/e2e_live_demo_assignment_attempt.sh`. It is focused
-disposable acceptance, not a permanent pytest test: the service path proves
-Student-only public `C-`/`A-` access, the exact active Student Record boundary,
-deadline refusal before issue, initial issuance/resume of a full answer-free
-QuestionPresentation pinned to the exact Question Revision, and the narrow
-forced-RLS released-snapshot policy. It covers the private immutable one-to-one
-QuestionPresentation binding, which retains only nonce and full descriptor
-checksum; server-only source/S3 resolution and reproduction details remain
-private Question Attempt/source-binding facts. Resume reproduces the same public
-presentation. The real Chromium
-path proves visible Student access and initial start/resume. It does not prove
-response controls, response persistence, submission, grading, feedback, Student
-View Scenario evaluation, or M19 serial-browser acceptance.
-
-M18 owns `bash tests/e2e/e2e_live_demo_invitation_export.sh --route` and
-`--dry-run`. They are focused disposable acceptance, not delivery evidence:
-the route path proves the Instructor-only no-store attachment export of pending,
-unexpired Student Course Invitations in existing mailer JSON, and the browser
-downloads only that attachment. The mailer dry run proves no delivery claim.
-The fixed demo has one Instructor persona, so foreign-Instructor enforcement is
-procedure/catalog evidence rather than browser evidence. Neither path proves
-email delivery or M19 serial-browser acceptance.
-
-M12 is complete: `bash tests/e2e/e2e_live_demo_native_controls.sh` passed on
-2026-09-07 against a fresh controller-managed fixed HTTPS stack. It proves strict
-decoding and keyboard-valid local states for all eight native controls, including
-HOTSPOT, and authorized Question Asset delivery with indistinguishable concealment
-for unauthorized or malformed references. It does not claim M13 submission,
-grading, feedback, recovery, or M19's broader serial browser journey.
-
-The M19 owner regenerated the fixed disposable stack, served the production
-bundle through its HTTPS gateway, and ran its selected real-stack scenarios
-serially on 2026-09-07. The browser path travels through the same-origin
-gateway to the real API, PostgreSQL, MinIO, worker, renderer, authentication,
-authorization, and seeded live-demo data. It will accept focused scenario,
-file, or grep selection only through that owner and its declared scenario
-contract. Each focused run will receive a fresh baseline; a complete run will
-share one fixed stack while scenario namespaces keep product state independent.
-
-The browser suite creates and changes product state through visible PLE workflows
-and asserts visible, accessible behavior. The frozen baseline,
-private bootstrap inputs, and induced infrastructure faults are harness setup,
-not product-state shortcuts. Favor reload, a second authorized session, or an
-authorized observer as the persistence proof for a user-visible result.
-
-An inventory of legacy behavior identifies the user or contract behavior worth
-keeping and assigns it to a canonical scenario, a focused unit test, or a
-browser-free service oracle. It does not require retention of a former runtime
-path merely because that path once exercised the behavior.
-
-Legacy source/consumer inventories, migration matrices, and the one-time
-mapping of superseded screenshot paths are closure evidence for this redesign.
-They are not recurring pytest or Node tests. The retained test protects the
-successor behavior; the inventory proves that the retired path no longer owns a
-claim.
-
-## Visual evidence
-
-M19 accepted fresh serial production-browser evidence before M20 rebuilt its
-safe capture corpus from the fixed disposable Browser Suite and visible
-application navigation. `./devel/capture_screenshots.sh` owns that rebuild;
-`./devel/capture_screenshots.sh --verify` checks the declared current artifacts
-and replays them through a clean Live Demo. The manifest is
-`docs/screenshots/current_capture_manifest.json`, whose paths place the current
-captures in public and Product Role screen folders. The
-[SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md) defines their application
-ownership and the seeded Live Demo environment boundary.
-
-The offline corpus tests protect semantic invariants: manifest-to-registry
-closure, role/path consistency, route and Ribbon coverage accounting, PNG
-dimensions, receipts, and deterministic atlas generation. The live replay
-adds route, state, privacy, page-error, origin, and exact-output closure. It
-does not use pixel equality as a release oracle and does not replace the serial
-behavioral browser suite or human visual assessment.
-
-## Service-only acceptance
-
-Some claims need a browser-free oracle because visible UI behavior cannot
-identify the underlying boundary. `local_stack.py acceptance` currently runs
-exactly two complementary service lanes: the disposable PostgreSQL schema,
-authority, and persistence oracle, and the Course Appearance PostgreSQL and
-MinIO coherence oracle. They are service evidence, not a suffix after a
-browser invocation and not proof of a visible user journey.
-
-Other named service oracles belong to their specific package or future
-capability; they are not current aggregate browser evidence:
-
-- Question Library publication and replay use a named publication oracle for private
-  source and Question Library installation, not a user journey.
-- PostgreSQL migrations, forced RLS, and disclosure semantics use a named
-  database oracle or a declared ignored database test. This is a disposable
-  database boundary, not deployment availability.
-- Course Appearance object storage uses the leased `course_appearance_cross_store` profile. It
-  proves the current implementation's typed temporary, source, hero, and card Course Banner
-  addresses against real MinIO, plus the database-backed current Banner relation, promotion, and
-  cleanup/repair saga. It remains service evidence, not proof of the separate visible user journey.
-- Renderer render, grade, cache, outage, and redaction use a named renderer or
-  worker oracle. This is a provider/service contract, not general
-  compatibility.
-- Replica restart uses two API replicas against one disposable PostgreSQL and
-  verifies exact durable replay after the serving replica is replaced. This is
-  a persistence and stateless-API oracle, not a second browser journey or a
-  concurrent stack.
-- Lifecycle, origin, and cleanup use suite receipts and narrow owner tests.
-  They prove harness ownership, not a second browser workflow.
-
-Read-only database, object-store, worker, renderer, or network receipts appear
-only for a requirement about that service boundary. A service receipt does not
-replace the user-visible workflow; a successful browser journey does not prove
-an unrelated service guarantee.
-
-## Reviews and records
-
-Independent review names its artifact or environment, criteria, conclusion,
-limitations, and follow-up work. A dated review, screenshot, or probe applies
-to its reviewed snapshot rather than all future changes. Preserve concise
-accepted decisions in the appropriate plan, handoff, or durable policy record;
-use repository process documentation for review and release workflow details.
+Before adding recurring coverage, identify the regression it prevents, the
+stable contract it names, its execution owner, and why an existing test does not
+already establish the claim. Tests write only to owned temporary storage. A
+probe that counts files, preserves a former implementation path, or measures a
+one-time reconstruction belongs in ignored scratch space and is removed after
+the decision it informed.

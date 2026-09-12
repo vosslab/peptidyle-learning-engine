@@ -1,295 +1,191 @@
 # File structure
 
-This map points contributors to the owner of a behavior. [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md)
-describes the boundaries; [CONTRACTS.md](CONTRACTS.md) indexes durable contracts;
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns PLE concept meaning and
-authority relationships; [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) owns cross-language
-spelling.
+This map identifies the owning location for current PLE behavior. The design boundaries are in
+[CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md); product meaning is in
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
 
 ## Top-level layout
 
 ```text
 .
-+- crates/                 Rust product crates and repository tools
-+- src/                    SolidJS browser application
-+- schemas/migrations/     Forward PostgreSQL schema
-+- generated/              Ignored generated TypeScript declarations and fixtures
-+- content/                Checked-in teaching content and pilot material
-+- containers/             Podman Compose and service images
-+- deploy/opentofu/        AWS infrastructure and policy tests
-+- tests/                  Offline, Node, Playwright, and disposable E2E checks
-+- docs/                   Durable references, history, and bounded active work
-+- local_stack_control/    Typed local-stack and acceptance lifecycle
-+- invitation_mailer/      Temporary attended Mail.app sender implementation
-+- launchers/              User-facing and aggregate entry points
-|  +- run_live_demo.sh     Live-demo lifecycle front door
-|  +- send_invitations.py  Temporary attended invitation-mailer front door
-|  `- all_test.sh          Ordered aggregate Validation wrapper
-+- devel/                  Developer-maintenance commands
-|  `- run_playwright_tests.sh Retained real-stack-input browser-test wrapper
-+- tools/                  Focused repository utilities
-+- Cargo.toml              Rust workspace manifest
-+- package.json            Browser tooling manifest
-+- invitation_mailer.yaml  Recipient-domain allowlist and throttle for the mailer
-+- build.sh                Full local build entry point
-+- check_rust.sh           Rust gate
-`- check_codebase.sh       Fast TypeScript/Node typecheck, lint, format, and test gate
++- crates/                  Rust workspace: model, services, stores, tools, and adapters
++- src/                     SolidJS browser application
++- schemas/                 Canonical PostgreSQL structure and installation data
++- content/                 Reviewed teaching content, including Pilot Question sources
++- containers/              Podman Compose definitions and service images
++- deploy/opentofu/         Deployment infrastructure and policy checks
++- local_stack_control/     Disposable-stack lifecycle and acceptance helpers
++- tests/                   Deterministic, connected, and browser evidence lanes
++- docs/                    Durable references, changelog, and active work records
++- generated/               Ignored Rust-derived declarations and fixtures
++- devel/                   Maintainer commands
++- launchers/               Contributor and Live Demo entry points
++- tools/                   Standalone repository utilities
++- Cargo.toml               Rust workspace manifest
++- package.json             TypeScript and browser tooling manifest
++- build.sh                 Product build entry point
++- check_rust.sh            Rust verification entry point
++- check_codebase.sh        Browser type, lint, format, and test entry point
+`- source_me.sh             Python environment activation helper
 ```
 
-OTHER_REPOS/ contains reference snapshots only. It is not a runtime,
-container, or source-import path.
+`OTHER_REPOS/` contains reference snapshots. It is not a product source, runtime, or import path.
+
+## Schema and data
+
+```text
+schemas/
++- base_schema/
+|  +- install.sql                    Ordered, DDL-only PostgreSQL 17 manifest
+|  +- foundation_roles.sql            Validates bootstrap roles; creates schemas, grants, and common foundations
+|  +- accounts.sql                    Account records and account-state facts
+|  +- authentication.sql              Sessions and authentication support
+|  +- authorization.sql               Course and authoring authority relationships
+|  +- question_*.sql                  Question lineages, stewardship, authoring, assets, and their operations
+|  +- object_records.sql              Typed object-record ownership
+|  +- blueprints.sql                  Blueprint lineage, Draft, publication, and availability
+|  +- course_*.sql                    Course terms, membership, roster, operations, and media
+|  +- profile_media.sql               Instructor profile-media ownership
+|  +- assignments.sql                 Current Assignment state and exact Question pins
+|  +- assignment_operations.sql       Assignment release and current-state operations
+|  +- attempt_*.sql                   Attempt, retained evidence, interaction, presentation, access, operations, and history
+|  +- delivery_*.sql                  Question delivery and backend bindings
+|  +- jobs.sql                        Short-lived leased execution records
+|  +- grading.sql                     Submission and grading records
+|  +- student_assignment_landing.sql  Student-facing current Assignment landing readers
+|  +- statistics.sql                  Question Revision observation and statistic records
+|  +- corrections.sql                 Forced Question Correction evidence
+|  +- unrelease.sql                   Atomic Assignment Unrelease operation and audit evidence
+|  +- cross_domain_constraints.sql    Relationships spanning domain modules
+|  `- api_compatibility.sql           Restricted application-facing schema projection
++- installation_data/
+|  +- prepublication_context.sql      Temporary publication context
+|  +- install.sql                     Data-only Live Demo manifest
+|  +- live_demo.sql                   Ordinary teaching graph
+|  `- live_demo_oracle.sql            Convergence and completeness checks
+`- migrations/
+   `- .gitkeep                        Reserved SQLx forward-migration directory
+```
+
+[schemas/base_schema/README.md](../schemas/base_schema/README.md) defines the editable
+pre-production and frozen-production boundary. Base modules own final structural state directly.
+`schemas/installation_data/README.md` defines the separate data phase. Its
+`provision` command creates complete ordinary Live Demo product data; `apply`
+is the narrower database-owned graph. Before the production freeze, structural
+corrections belong in the owning base module; afterward, forward-only SQLx
+migrations belong in `schemas/migrations/`. SQLx configuration belongs to
+[crates/learning-data-access/sqlx.toml](../crates/learning-data-access/sqlx.toml).
 
 ## Rust workspace
 
-| Path                                                            | Owns                                                                                                                                                                                              |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [crates/question_model/](../crates/question_model/)             | Question, identity, assignment, course-term, BlueprintCourse, Blueprint-operation, and browser-safe contract types.                                                                               |
-| [crates/domain/](../crates/domain/)                             | Pure timing, policy, disclosure, Assignment Attempt, scoring, generation, and validation.                                                                                                         |
-| [crates/grading/](../crates/grading/)                           | Answer-bearing checkers and correctness decisions; server-only.                                                                                                                                   |
-| [crates/learning-data-access/](../crates/learning-data-access/) | Focused Account Session, authentication, Assignment Attempt, Question Source, object-record, grading-operation, pagination, iMathAS Question Backend Session, independent Course Theme and Course Banner Store contracts, and PostgreSQL persistence modules. |
-| [crates/server/](../crates/server/)                             | Axum routes, authentication, authorization, worker composition, and API assembly.                                                                                                                 |
-| [crates/objects/](../crates/objects/)                           | Typed Object Addresses, checksums, image validation, and object-store backends.                                                                                                                   |
-| [crates/adapters/](../crates/adapters/)                         | PLE, iMathAS, and WeBWorK Question Backend adapters, QTI Import, and H5P Package support behind the shared Question operations.                                                                   |
-| [crates/wasm/](../crates/wasm/)                                 | The answer-free Rust-to-browser WebAssembly facade.                                                                                                                                               |
-| [crates/export/](../crates/export/)                             | PDF/DOCX export models and writers.                                                                                                                                                               |
-| [crates/project-tools/](../crates/project-tools/)               | TypeScript generation, fixtures, migrations, pilot content, and E2E seed tooling.                                                                                                                 |
-| crates/acceptance-runtime/                                      | Disposable acceptance manifests and capability-specific database URL handoff.                                                                                                                     |
+| Path | Purpose |
+| --- | --- |
+| [crates/question_model/](../crates/question_model/) | Shared product concepts: Question IDs and Revisions, Blueprint Drafts and Revisions, current Assignments, and retained Student Work evidence. |
+| [crates/domain/](../crates/domain/) | Pure validation, timing, policy, scoring, disclosure, and generation behavior. |
+| [crates/grading/](../crates/grading/) | Server-only answer-bearing checkers. |
+| [crates/learning-data-access/](../crates/learning-data-access/) | Store traits, PostgreSQL implementations, SQLx forward-migration ledger support, and schema verification. |
+| [crates/server/](../crates/server/) | Axum HTTP routes, authentication, authorization, and service composition. |
+| [crates/browser-api-contract/](../crates/browser-api-contract/) | Browser-safe Rust contract roots for TypeScript generation. |
+| [crates/adapters/](../crates/adapters/) | PLE, WeBWorK, iMathAS, QTI, and H5P backend or import adapters. |
+| [crates/objects/](../crates/objects/) | Object-address, checksum, image, and object-store ownership. |
+| [crates/wasm/](../crates/wasm/) | Answer-free Rust-to-browser WebAssembly facade. |
+| [crates/export/](../crates/export/) | PDF and DOCX export models and writers. |
+| [crates/project-tools/](../crates/project-tools/) | TypeScript generation, database lifecycle commands, Pilot publication, and installation-data tooling. |
+| [crates/acceptance-runtime/](../crates/acceptance-runtime/) | Disposable acceptance database connection handoff. |
 
-Package directories use hyphens; Rust module imports use underscores.
-
-## Canonical course paths
-
-The reusable and delivery aggregates have separate paths:
-
-```text
-crates/question_model/src/
-+- blueprint_course.rs       BlueprintCourse tree and `BlueprintCourseView` readers
-+- blueprint_operations.rs    Source, target, preview, apply, and receipt contracts
-`- blueprint_operations/      Focused exact-operation contract modules
-```
-
-BlueprintCourse is one ordered module/assignment tree with one aggregate
-revision. Its exact public question members resolve to immutable
-QuestionRevisionReference pins. CourseInstance is not another source tree: the
-Blueprint-operation boundary creates it under an exact CourseId, records the
-immutable Blueprint parent and applied revision, and owns private delivery
-state. New upstream assignments appear in daughter instances as unreleased.
-
-The current paired legacy files and SQL table families are terminology-migration
-inputs only. The immutable
-schemas/migrations/2026081837_blueprint_alpha_curriculum.sql and accepted
-successors remain historical evidence and are not renamed or edited to hide
-their origin. The checked-in pre-production migration sequence and forward allocation rule are
-documented in [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
-
-## Learning data access
-
-The current module inventory is:
-
-```text
-crates/learning-data-access/src/
-+- assignment_attempt.rs                 Assignment Attempt Store contract
-+- assignment_delivery.rs                Student Assignment access, issued presentation, submission, and history Store contracts
-+- assignment_release.rs                 Instructor Assignment workspace, release, inline retime, and Due Soon Store contracts
-+- course_banner.rs                      Course Banner Store contract and promotion work types
-+- course_theme.rs                       Course Theme Store contract
-+- authentication_ceremony.rs            email and passkey ceremony contracts
-+- authentication_email.rs               normalized authentication email values
-+- grading_operations.rs                 Instructor Grading Operation Store contract
-+- imathas_question_backend_session/     iMathAS Question Backend Session contracts and Memory support
-+- instructor_profile.rs                 Self-only Instructor Profile Store contract
-+- object_record.rs                      workspace Question Source object records
-+- pagination.rs                         cursor and page contracts
-+- profile_thumbnail.rs                  Self-only Profile thumbnail Store contract and rendition work types
-+- question_source.rs                    Draft source resolution and Question Publication Store contracts
-+- session.rs                            Account Session Store contract
-`- postgres/                             current PostgreSQL connection, migration, Account Session, Assignment Attempt, Assignment delivery/release, Course Instance, Course Theme, Course Banner, Instructor Profile, Profile thumbnail, Question Source, object-record, and iMathAS Session modules
-```
-
-No Blueprint Course or Blueprint-operation Store implementation currently
-exists under `crates/learning-data-access/`. The future Store boundary will own
-Create Course from Blueprint, Fork Blueprint Course, Copy Assignment from
-Blueprint, Apply Blueprint Update, Copy Course for New Term, and Shift Course
-Dates; it will use exact operation identities and request checksums, retain receipts,
-and keep Assignment Import Repair bounded to derived state. It will preserve
-the boundary between public Blueprint readers and private CourseInstances.
-
-## Server application
-
-```text
-crates/server/src/
-+- assignment_delivery.rs  Student Assignment access, issued presentation, submission, and history routes
-+- assignment_release.rs   Instructor Assignment workspace, release, inline retime, and Due Soon routes
-+- auth/                     Account session and seeded Live Demo browser boundary
-+- composition.rs            Production database and session composition
-+- course_appearance.rs      Authorized Course Appearance reads, theme changes, and banner lifecycle routes
-+- course_instance.rs        Course Instance routes and active-member Course summary
-+- health.rs                 Readiness probe support
-+- http_security.rs          Uniform dynamic-response security headers
-+- instructor_profile.rs     Self-only Instructor Profile and thumbnail routes
-+- question_publication.rs  Server-only new-lineage Question Publication coordinator and Question ID issuer
-+- navigation.rs             Authorized public Course-reference navigation resolver
-+- request_lifecycle.rs      Process-wide safe request lifecycle handling
-+- application.rs            Executable application assembly
-+- lib.rs                    Current server-core module boundary
-`- main.rs                   Production binary entry point
-```
-
-The deployment-gated seeded Live Demo entry performs only local identity
-verification. The executable application then exposes the current
-role- and relationship-gated Question Library, authoring, Blueprint Course,
-Course Instance, roster, Assignment, Student delivery, grading, Gradebook,
-Instructor Account, scoped-support, and invitation-export routes. See
-[API_CONTRACTS.md](API_CONTRACTS.md) for the durable route map. The server-only
-`question_publication` Service composes authorized draft-source reads, verified
-immutable object copies, Question ID issuance, and an atomic Store boundary.
-Course Instance routes require the exact destination Course and current equal
-Teaching Team Member authority.
+The database command front door is [crates/project-tools/src/database.rs](../crates/project-tools/src/database.rs):
+`cargo tools database initialize`, `migrate`, and `verify`. The implementation coordinator is
+[crates/project-tools/src/database_coordinator.rs](../crates/project-tools/src/database_coordinator.rs).
+Installation data is owned by [crates/project-tools/src/installation_data.rs](../crates/project-tools/src/installation_data.rs).
 
 ## Browser application
 
 ```text
 src/
-+- assets/fonts/atkinson_hyperlegible_next/ Locally bundled browser font files with OFL and provenance
-+- application_shell.tsx                    Persistent shell frame, viewport floor, content origin, skip-link/focus boundary, and Ribbon mount
-+- ribbon/                                  Catalog/schema, capability admission, scope, selection/pending state, topology-aware row presentation, and shared icon helper
-+- api/
-|  +- blueprint_course.ts                 BlueprintCourse client contract
-|  +- blueprint_operations.ts              Blueprint-operation client contract
-|  +- http_client/blueprint_course.ts     Same-origin BlueprintCourse requests
-|  +- http_client/blueprint_operations.ts Preview/apply/receipt requests
-|  +- decoders/blueprint_course.ts        Strict BlueprintCourse DTO decoder
-|  +- decoders/course_appearance.ts      Strict Course Appearance DTO decoders
-|  +- http_client/response.ts            Same-origin Course Appearance and banner-delivery requests
-|  `- decoders/                           Other strict DTO decoders
++- api/                         Typed client contracts, HTTP client, and strict decoders
++- auth/                        Browser session and sign-in support
++- components/                  Shared answer-free UI and Question presentation
 +- features/
-|  +- blueprint_course/                    One BlueprintCourse workspace/editor
-|  +- course_appearance/                  Course theme presentation and authorized banner delivery
-|  +- instructor_profile/                 Self-only Profile thumbnail page/Ribbon presentation and cleanup-safe local URL projection
-|  `- blueprint_operations/                Blueprint-operation workflow stylesheet
+|  +- blueprint_course/         Blueprint Draft editing and publication UI
+|  +- question_picker/          Available published-Question selection UI
+|  +- question_curation/        Question Library discovery and availability UI
+|  +- question_attempt/         Student Attempt interactions
+|  +- course_appearance/        Authorized course appearance UI
+|  `- instructor_profile/       Instructor profile UI
 +- pages/
-|  +- blueprint_course_route_page.tsx          Blueprint Course list route composition
-|  +- blueprint_course_detail_route_page.tsx   Blueprint Course detail route composition
-|  +- course_appearance_page.tsx               Instructor Course Appearance page
-|  `- (no Blueprint-operation Browser Surface exists)
-+- components/                                Shared answer-free and accessibility UI
-+`- routes.ts                                Executable route map
+|  +- assignment_workspace/     Current Assignment edit, release, and Unrelease UI
+|  +- assignment_access/        Student Assignment entry UI
+|  `- teaching_operations/      Instructor teaching workflow pages
++- ribbon/                      Capability-aware navigation catalog and rendering
++- styles/                      Browser-wide styles and local font declarations
++- wasm/                        Browser bridge modules
++- routes.ts                    Executable route map
+`- application_shell.tsx        Shared application shell and accessibility boundary
 ```
 
-The intended browser workspace has one BlueprintCourse list, detail, editor,
-and nested module/assignment picker. It presents draft owner/collaborator
-states and the vetted-Instructor published `BlueprintCourseView` without a second product
-branch. Blueprint operations have exact outcomes: Copy Assignment from
-Blueprint places one Assignment in an existing Course Instance, Create Course
-from Blueprint creates a new Course Instance, and Fork Blueprint Course creates
-a new Blueprint Course.
+[src/api/decoders/](../src/api/decoders/) is the runtime DTO boundary. Generated declarations in
+`generated/api/` are derivative; modify their Rust source and regenerate rather
+than editing them.
 
-`devel/generate_ribbon_destination_ledger.mjs` maintains only the machine-owned
-section of `docs/ux/RIBBON_DESTINATION_LEDGER.md` from the Ribbon catalog and
-capability registry. Its `--check` mode is the deterministic maintenance check;
-the editorial section remains human-owned.
-
-`pipeline/build.mjs` copies `src/assets/fonts/atkinson_hyperlegible_next/` into the same-origin
-browser asset path in `dist/` and checks that `src/styles/browser_fonts.css` declares local normal
-and italic Atkinson Hyperlegible Next font faces. `src/style.css` owns only the global browser font
-stack. The font directory keeps the retained files' OFL text and source provenance beside the
-delivered browser assets.
-
-## Generated contracts
-
-crates/project-tools/src/tsgen.rs generates TypeScript from Rust contract
-roots into ignored generated/api/. cargo tools tsgen and build.sh are the
-generation entry points. Generated modules are derivative and must not be
-hand-edited. Rust Serde owns field spelling and closed DTO shape; authored
-decoders under src/api/decoders/ enforce runtime strictness.
-
-Legacy paired generated names are retained only in the terminology-migration
-inventory until regeneration after the Rust contract cutover. No client may
-accept an old reference or route as a compatibility alias.
-
-## Content, storage, and deployment
-
-content/ holds reviewed teaching content. crates/project-tools/src/pilot_content.rs
-validates it and crates/project-tools/src/e2e_seed/ publishes bounded fixtures
-through production contracts. Adapters under crates/adapters/ keep source
-format and provider behavior behind typed capabilities.
+## Local stack and deployment
 
 ```text
-schemas/migrations/          Ordered forward SQL; accepted files are immutable
-containers/                  Compose, API/gateway images, private renderer
-deploy/opentofu/             AWS network, compute, database, storage, IAM, and policy
-crates/objects/              Typed public-assets/private-content/student-records/temp-processing
+containers/
++- Containerfile.api             API image
+`- compose.yaml                  Local Compose services
+
+local_stack_control/
++- cli.py                        Typed local-stack command interface
++- lifecycle.py                  Stack lifecycle coordination
++- lifecycle_database.py         Database initialization and verification path
++- live_demo_seed.py             Local Live Demo environment and selector support
+`- browser_suite_developer.py    Browser-suite developer operations
+
+deploy/opentofu/
+`- DATABASE_PROVISIONING.md      Production database-provisioning runbook
 ```
 
-PostgreSQL stores policy-bearing relationships, BlueprintCourse and
-CourseInstance records, attempts, submissions, summaries, jobs, and audit
-events. Object storage holds bounded source and binary bytes. The production
-API, workers, and publisher use separate capability profiles.
+The migrator image contains the base manifest, installation-data manifest, and forward migrations.
+Runtime API and worker images do not carry the PostgreSQL client or DDL authority.
 
 ## Tests and generated output
 
 ```text
 tests/
-+- test_*.py                  Fast deterministic repository-policy checks
-+- test_*.mjs                 Fast Node behavior, contract, and model checks without a browser
-+- e2e/                       Non-browser production-build and disposable service acceptance; e2e_run_all.sh owns its declared checks
-+- playwright/ribbon_*.mjs    Focused compiled-Chromium structural, responsive, and visual evidence; not production acceptance
-`- fixtures/                  Small durable fixture evidence
++- test_*.py                     Fast Python repository and lifecycle checks
++- test_*.mjs                    Fast Node contract and browser-model checks
++- e2e/                          Disposable PostgreSQL and service acceptance
++- playwright/                   Browser and screenshot evidence
+`- fixtures/                     Small durable fixtures
 
 generated/
-+- api/                       Ignored Rust-derived TypeScript
-`- fixtures/                 Ignored generated fixture outputs
++- api/                          Ignored generated TypeScript declarations
+`- fixtures/                     Ignored generated test data
 ```
 
-Permanent tests protect behavior that can regress: tree ordering, exact pins,
-authorization, strict decoding, Blueprint-operation authorization boundaries,
-unreleased propagation, answer-free browser reader data, and deterministic Ribbon
-model behavior. Graphify and source/migration inventories are one-time evidence.
-`tests/e2e/e2e_run_all.sh` runs its explicitly selected non-browser production-build and
-service checks; it does not execute every E2E in the tree. The focused compiled-Chromium Ribbon
-scripts exercise supplied fixture content and are visual/structural evidence only. They do not
-substitute for the separate serial real-stack browser owner, which accepted the 2026-09-07 serial
-release-browser milestone after serving the
-production bundle through the local HTTPS stack and creating product state through visible PLE
-controls. PostgreSQL, process, migration, and rendered visual checks stay in their named E2E or
-human-review lanes. See
-[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
-
-Build output such as dist/, dist_wasm/, target/, and test-results/ is reproducible
-ignored state. `devel/capture_screenshots.sh` owns the manifest-listed current
-role captures through the fixed production HTTPS Browser Suite. The captures
-live flat within their public, Instructor, Student, and Sysadmin screen folders;
-the manifest and receipt live beside those folders, while the generated review
-gallery is `docs/SCREENSHOT_ATLAS.md`. See
-[SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md) and
-`docs/screenshots/current_capture_manifest.json`. Undeclared active screenshots
-and the former teaching-workflow publisher remain retired.
+Build output in `dist/`, `dist_wasm/`, `target/`, and `test-results/` is generated and ignored.
+Use [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) to select an appropriate verification lane;
+connected and browser evidence are not substitutes for deterministic contract tests.
 
 ## Documentation map
 
-- [README.md](../README.md): newcomer entry point and first workflow.
-- [INSTALL.md](INSTALL.md), [USAGE.md](USAGE.md), [DEVELOPMENT.md](DEVELOPMENT.md),
-  [TROUBLESHOOTING.md](TROUBLESHOOTING.md): operation and contribution.
-- [CONTRACTS.md](CONTRACTS.md), [API_CONTRACTS.md](API_CONTRACTS.md),
-  [SECURITY_MODEL.md](SECURITY_MODEL.md), [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md):
-  durable API, security, and database rules.
-- [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md) and
-  [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md): local production-shaped stack.
-- Execution-only working plans, audits, and reports: not durable authority.
-- [archive/](archive/): retired plans, dated reviews, and historical status evidence.
-- [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md): evidence classes and required gates.
+- [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md): human product priorities and operating guidance.
+- [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md): product vocabulary and semantic contract.
+- [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md): database catalog and lifecycle details.
+- [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md): PostgreSQL role and authorization model.
+- [CONTRACTS.md](CONTRACTS.md): durable module and API contract index.
+- [DEVELOPMENT.md](DEVELOPMENT.md): contributor workflow and local development constraints.
+- [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md): permanent-test and acceptance-evidence policy.
 
 ## Where to add work
 
-- Add a reusable content rule to `crates/question_model/src/blueprint_course.rs`.
-- Add Blueprint-operation persistence with a typed preview, command,
-  authorization, request-retry binding, and immutable receipt.
-- Add schema only through the forward allocation rule in
-  [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md); preserve applied migrations.
-- Add routes in the owning server module and register method policy in
-  route_policy.rs.
-- Regenerate generated/api/, then update strict decoders and typed clients.
-- Add visible behavior to the owning feature/page/component; keep delivery and
-  FERPA decisions server-authoritative.
-- Add operational lifecycle behavior to local_stack_control/ and disposable
-  evidence to its closed owner policy.
+- Put a schema correction in its owning [schemas/base_schema/](../schemas/base_schema/) module
+  while the base remains editable; later structural evolution belongs in
+  [schemas/migrations/](../schemas/migrations/).
+- Put database-owned installation records in `schemas/installation_data/`.
+- Put new durable concepts in [crates/question_model/](../crates/question_model/) or
+  [crates/domain/](../crates/domain/), then storage in [crates/learning-data-access/](../crates/learning-data-access/).
+- Put HTTP composition in [crates/server/](../crates/server/) and pair browser clients with strict
+  decoders in [src/api/](../src/api/).
+- Put deterministic regression tests beside the contract they protect; use [tests/e2e/](../tests/e2e/)
+  only for connected database or service behavior.

@@ -11,11 +11,11 @@ explicitly. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the executable bounda
 
 ## What is a Blueprint Course?
 
-A **Blueprint Course** is the one reusable course-level aggregate. It holds ordered modules,
-assignments, reusable question selections, policies, and relative schedule defaults. Published
-Blueprint Courses are visible and reusable by every vetted (approved) Instructor. Draft Blueprint
-Revisions are private to their Blueprint Course Owner and exact Blueprint Collaborators. A Blueprint Course has no Students, live
-deadlines, releases, accommodations, grades, or delivery settings.
+A **Blueprint Course** is the reusable course-level lineage. Its Owner edits one
+private mutable Blueprint Draft. Explicit publication copies that Draft to an
+immutable Blueprint Revision; published revisions are reusable by every vetted
+(approved) Instructor. A Blueprint Course has no Students, live deadlines,
+releases, accommodations, grades, or delivery settings.
 
 ## What is a Course Instance?
 
@@ -34,23 +34,21 @@ state from another instance.
 
 ## How do Blueprint updates reach a Course Instance?
 
-An Instructor publishes a new Blueprint revision explicitly. A new assignment in that revision
-appears in each daughter Course Instance as **Unreleased**. The current equal Teaching Team Members review
-the source revision, assignment manifest, question replacements, and resolved schedule, then use
-**Prepare update proposal** and **Apply proposal**. Propagation never silently releases an assignment
-or overwrites instance-owned delivery changes. Divergent work uses an explicit selected copy or new
-assignment action; PLE does not perform an implicit merge.
+They do not yet propagate. A published Blueprint Revision is exact reusable
+content: an Instructor creates a Course Instance from it, and the resulting
+Course Instance owns its current delivery configuration. Blueprint-to-Course
+update proposals and propagation are future product work, listed in
+[TODO.md](TODO.md).
 
-## What are fork, publish, Copy Course for New Term, and Shift Course Dates?
+## What Blueprint and Course reuse is available now?
 
-- **Fork Blueprint** creates an independently editable Blueprint with immutable source-lineage
-  evidence and no live tether.
-- **Publish Blueprint** makes a reviewed draft revision reusable by all vetted Instructors.
-- **Copy Course for New Term** creates a new teaching instance for a target term without Students,
-  invitations, attempts, responses, grades, retention state, or issued evidence.
-- **Shift Course Dates** changes an existing instance's unissued schedules after a full
-  preview. Every relative date resolves in the target IANA time zone; DST gaps and ambiguities need
-  correction. An instance with issued Student work uses Copy Course for New Term instead.
+An Owner creates a private Blueprint Draft and explicitly publishes immutable
+Blueprint Revisions. An Instructor can create a Course Instance from a
+published Blueprint Revision; the new Course retains that exact source as
+provenance. Forking Blueprints, copying a Course for a new term, shifting
+Course dates, and Blueprint-to-Course propagation are not current workflows.
+They need bounded product designs before they gain routes, storage, or UI; see
+[TODO.md](TODO.md).
 
 ## Is PLE tied to one format?
 
@@ -118,7 +116,7 @@ remain future work. See [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_A
 ## Why PostgreSQL and a renderer?
 
 They have separate jobs. PostgreSQL stores PLE-owned accounts, Blueprint Courses, Course Instances,
-assignments, attempts, scores, and retention state under exact relationship authorization and row-
+assignments, attempts, and scores under exact relationship authorization and row-
 level security. The private external PG renderer evaluates a bounded WeBWorK question and has no PLE
 database, student credentials, persistent volume, or host-published port. PLE remains the only
 assignment, roster, and Gradebook system. See [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and
@@ -181,8 +179,8 @@ compatibility alias. See [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
 
 Yes, but reuse is explicit and versioned. Select a published question by its human-readable Question
 ID, reuse an assignment's ordered questions, or draw from a reusable pool. A published Blueprint
-Course can supply ordered modules and assignments to a new Course Instance through the adoption
-workflow. Existing issued Assignment Attempts keep their immutable question snapshot. See
+Revision can supply ordered modules and assignments when an Instructor creates a new Course Instance.
+Existing issued Assignment Attempts keep their immutable question snapshot. See
 [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md).
 
 ## What happens if automated grading stalls?

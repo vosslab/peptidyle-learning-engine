@@ -97,6 +97,9 @@ fn store_error_response(error: StoreError) -> Response {
         StoreError::Conflict | StoreError::RetryableTransaction => {
             route_error(StatusCode::PRECONDITION_FAILED, "Course navigation changed")
         }
+        StoreError::LifecycleConflict => {
+            route_error(StatusCode::CONFLICT, "Course navigation lifecycle conflict")
+        }
         StoreError::InvalidRecord(_) => route_error(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Course navigation is invalid",

@@ -3,6 +3,8 @@
 import type { AssignmentProgressRecord } from "../../../generated/api/AssignmentProgressRecord";
 import type { AssignmentGrade } from "../../../generated/api/AssignmentGrade";
 import type { AssignmentAttempt } from "../../../generated/api/AssignmentAttempt";
+import type { AssignmentAttemptPolicySource } from "../../../generated/api/AssignmentAttemptPolicySource";
+import type { BaseAssignmentPolicy } from "../../../generated/api/BaseAssignmentPolicy";
 import type { AssignmentAttemptRouteReference } from "../../navigation/public_route";
 import { parseAssignmentAttemptReference } from "../../navigation/public_route";
 
@@ -57,6 +59,7 @@ import {
   decodeCapability,
   decodeCursorPage,
   decodeIdentifier,
+  decodeAssignmentTitle,
   decodeQuestionRevisionReference,
   decodeSha256,
   decodeTimestamp,
@@ -64,10 +67,11 @@ import {
   requireOnlyFields,
 } from "./shared";
 import { decodeStudentAssignmentLandingSummary } from "./question_library";
+import { decodeStudentFeedbackReleaseRule } from "./assignment_policy";
+import { decodeAssignmentActivityRules, decodeAssignmentInstructions } from "./assignment_release";
 import { decodeGradingResult, decodeStudentResponse } from "./question_delivery";
 import { decodeIssuedQuestionPresentation } from "./presentation_delivery";
 import { decodeQuestionSummary, decodeCourseSummary } from "./question_library";
-import { decodeAssignmentReference } from "./shared";
 
 const ISSUED_ATTEMPT_CAPABILITIES = [
   "questionPresentation",
@@ -137,7 +141,7 @@ export function decodeStudentIssuedQuestion(value: unknown, path: string): Stude
       field(record, "assignmentContentEntryIndex", path),
       `${path}.assignmentContentEntryIndex`,
     ),
-    issuedPosition: decodeNonnegativeInteger(
+    issuedPosition: decodePositiveInteger(
       field(record, "issuedPosition", path),
       `${path}.issuedPosition`,
     ),
@@ -280,6 +284,17 @@ function decodeQuestionPoolSelectionPosition(
 
 export function decodeAssignmentAttempt(value: unknown, path = "response"): AssignmentAttempt {
   const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "id",
+    "reference",
+    "studentRecord",
+    "assignment",
+    "evidence",
+    "attemptNumber",
+    "startedAt",
+    "completedAt",
+    "score",
+  ]);
   const decoded = {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     reference: decodeAssignmentAttemptReference(
@@ -288,10 +303,7 @@ export function decodeAssignmentAttempt(value: unknown, path = "response"): Assi
     ),
     studentRecord: decodeIdentifier(field(record, "studentRecord", path), `${path}.studentRecord`),
     assignment: decodeIdentifier(field(record, "assignment", path), `${path}.assignment`),
-    assignmentRevision: decodeAssignmentRevisionReference(
-      field(record, "assignmentRevision", path),
-      `${path}.assignmentRevision`,
-    ),
+    evidence: decodeAssignmentAttemptEvidence(field(record, "evidence", path), `${path}.evidence`),
     attemptNumber: decodePositiveInteger(
       field(record, "attemptNumber", path),
       `${path}.attemptNumber`,
@@ -303,53 +315,127 @@ export function decodeAssignmentAttempt(value: unknown, path = "response"): Assi
       decodeTimestamp,
     ),
     score: decodeNullable(field(record, "score", path), `${path}.score`, decodeFiniteNumber),
-    questionPoolReuseRule: decodeStringEnum(
-      field(record, "questionPoolReuseRule", path),
-      `${path}.questionPoolReuseRule`,
-      ["reuseSelection", "selectAgain"],
-    ),
-    questionVariationRule: decodeStringEnum(
-      field(record, "questionVariationRule", path),
-      `${path}.questionVariationRule`,
-      ["reuseVariation", "newVariation"],
-    ),
   } satisfies AssignmentAttempt;
   return decoded;
 }
 
-function decodeStrictAssignmentAttempt(value: unknown, path: string): AssignmentAttempt {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "id",
-    "reference",
-    "studentRecord",
-    "assignment",
-    "assignmentRevision",
-    "attemptNumber",
-    "startedAt",
-    "completedAt",
-    "score",
-    "questionPoolReuseRule",
-    "questionVariationRule",
-  ]);
-  return decodeAssignmentAttempt(value, path);
-}
-
-function decodeAssignmentRevisionReference(
+function decodeAssignmentAttemptEvidence(
   value: unknown,
   path: string,
-): AssignmentAttempt["assignmentRevision"] {
+): AssignmentAttempt["evidence"] {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["assignment", "revision_number"]);
-  const revisionNumber = decodeString(
-    field(record, "revision_number", path),
-    `${path}.revision_number`,
-  );
-  if (!/^[1-9][0-9]*$/u.test(revisionNumber))
-    throw new DecodeError(`${path}.revision_number`, "a positive revision number");
+  requireOnlyFields(record, path, [
+    "title",
+    "instructions",
+    "basePolicy",
+    "activityRules",
+    "studentFeedbackReleaseRule",
+    "effectivePolicySources",
+  ]);
   return {
-    assignment: decodeAssignmentReference(field(record, "assignment", path), `${path}.assignment`),
-    revision_number: revisionNumber,
+    title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
+    instructions: decodeAssignmentInstructions(
+      field(record, "instructions", path),
+      `${path}.instructions`,
+    ),
+    basePolicy: decodeBaseAssignmentPolicy(field(record, "basePolicy", path), `${path}.basePolicy`),
+    activityRules: decodeAssignmentActivityRules(
+      field(record, "activityRules", path),
+      `${path}.activityRules`,
+    ),
+    studentFeedbackReleaseRule: decodeStudentFeedbackReleaseRule(
+      field(record, "studentFeedbackReleaseRule", path),
+      `${path}.studentFeedbackReleaseRule`,
+    ),
+    effectivePolicySources: decodeAssignmentAttemptPolicySources(
+      field(record, "effectivePolicySources", path),
+      `${path}.effectivePolicySources`,
+    ),
+  };
+}
+
+function decodeBaseAssignmentPolicy(value: unknown, path: string): BaseAssignmentPolicy {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "available_at",
+    "due_at",
+    "closes_at",
+    "assignment_attempt_time_limit_seconds",
+    "attempt_limit",
+    "late_work_rule",
+  ]);
+  return {
+    available_at: decodeNullable(
+      field(record, "available_at", path),
+      `${path}.available_at`,
+      decodeTimestamp,
+    ),
+    due_at: decodeNullable(field(record, "due_at", path), `${path}.due_at`, decodeTimestamp),
+    closes_at: decodeNullable(
+      field(record, "closes_at", path),
+      `${path}.closes_at`,
+      decodeTimestamp,
+    ),
+    assignment_attempt_time_limit_seconds: decodeNullable(
+      field(record, "assignment_attempt_time_limit_seconds", path),
+      `${path}.assignment_attempt_time_limit_seconds`,
+      decodePositiveInteger,
+    ),
+    attempt_limit: decodeNullable(
+      field(record, "attempt_limit", path),
+      `${path}.attempt_limit`,
+      decodePositiveInteger,
+    ),
+    late_work_rule: decodeStringEnum(
+      field(record, "late_work_rule", path),
+      `${path}.late_work_rule`,
+      ["accept", "mark_late", "reject"],
+    ),
+  };
+}
+
+function decodeAssignmentAttemptPolicySource(
+  value: unknown,
+  path: string,
+): AssignmentAttemptPolicySource {
+  const record = decodeRecord(value, path);
+  const kind = decodeString(field(record, "kind", path), `${path}.kind`);
+  if (kind === "assignment") {
+    requireOnlyFields(record, path, ["kind"]);
+    return { kind };
+  }
+  if (kind === "accommodation") {
+    requireOnlyFields(record, path, ["kind", "accommodation"]);
+    return {
+      kind,
+      accommodation: decodeIdentifier(
+        field(record, "accommodation", path),
+        `${path}.accommodation`,
+      ),
+    };
+  }
+  throw new DecodeError(`${path}.kind`, "a known Assignment Attempt policy source");
+}
+
+function decodeAssignmentAttemptPolicySources(
+  value: unknown,
+  path: string,
+): AssignmentAttempt["evidence"]["effectivePolicySources"] {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["schedule", "assignmentAttemptTimeLimit", "attemptLimit"]);
+  return {
+    schedule: decodeAssignmentAttemptPolicySource(
+      field(record, "schedule", path),
+      `${path}.schedule`,
+    ),
+    assignmentAttemptTimeLimit: decodeAssignmentAttemptPolicySource(
+      field(record, "assignmentAttemptTimeLimit", path),
+      `${path}.assignmentAttemptTimeLimit`,
+    ),
+    attemptLimit: decodeAssignmentAttemptPolicySource(
+      field(record, "attemptLimit", path),
+      `${path}.attemptLimit`,
+    ),
   };
 }
 
@@ -687,7 +773,7 @@ export function decodeAssignmentAttemptPage(
   value: unknown,
   path = "response",
 ): CursorPage<AssignmentAttempt> {
-  return decodeCursorPage(value, path, decodeStrictAssignmentAttempt);
+  return decodeCursorPage(value, path, decodeAssignmentAttempt);
 }
 
 export function decodeAttemptPage(

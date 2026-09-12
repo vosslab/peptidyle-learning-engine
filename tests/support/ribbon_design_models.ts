@@ -227,7 +227,6 @@ export const RIBBON_DESIGN_SCHEMAS = {
         control("assignmentOverview", { selected: true }),
         control("assignmentQuestions"),
         control("assignmentPolicies"),
-        control("assignmentGradingOperations"),
         control("assignmentStudentView"),
       ]),
     ],

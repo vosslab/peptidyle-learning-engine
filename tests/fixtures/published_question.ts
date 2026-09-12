@@ -15,7 +15,12 @@ type BrowserQuestionAttempt = Omit<
 
 type BrowserIssuedQuestion = Omit<
   (typeof fixtureSet.issuedQuestions)[number],
-  "pointValue" | "scoringRule" | "questionPoolSelection" | "questionPoolItem"
+  | "questionSeed"
+  | "reproductionDetails"
+  | "pointValue"
+  | "scoringRule"
+  | "questionPoolSelection"
+  | "questionPoolItem"
 >;
 
 function browserQuestionAttempt(
@@ -33,6 +38,8 @@ function browserIssuedQuestion(
   issuedQuestion: (typeof fixtureSet.issuedQuestions)[number],
 ): BrowserIssuedQuestion {
   const {
+    questionSeed: _questionSeed,
+    reproductionDetails: _reproductionDetails,
     pointValue: _pointValue,
     scoringRule: _scoringRule,
     questionPoolSelection: _questionPoolSelection,

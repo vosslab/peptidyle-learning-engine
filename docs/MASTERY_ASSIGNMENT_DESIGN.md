@@ -5,8 +5,7 @@ assignment, receive a recorded score, and begin another varied Assignment Attemp
 The model supports a Student who returns repeatedly because another Assignment Attempt is a new learning
 opportunity, not a replacement for the earlier educational record.
 
-This document explains the teaching intent, the implemented policy model, and the planned
-simplification of the instructor experience. It complements the record-level contract in
+This document explains the teaching intent and current policy model. It complements the record-level contract in
 [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md), the model vocabulary in
 [QUESTION_MODEL.md](QUESTION_MODEL.md), and the frozen ownership register in
 [CONTRACTS.md](CONTRACTS.md).
@@ -134,10 +133,10 @@ explicit composition of those existing values, not a hidden special case:
 | Student disclosure       | All six fields `AfterSubmit` | See the selected score, correctness, Question Feedback, Question Answer, Question Answer Explanation, and permitted statistics after submitting |
 | Timing                   | `Untimed`                    | Work at a learning pace rather than against a clock                                                                                             |
 
-The first four fields are assignment `AssignmentActivityRules`. The Assignment also owns the six independent
-Student Feedback Release timings. Attempt count and Question timer are immutable properties of the selected
-published question revision. The Questions and Policies workspace pages expose these assignment controls
-separately; they do not override question policies. See
+The first four fields are Assignment Activity Rules. The Assignment also owns the six independent
+Student Feedback Release timings. Every selected fixed Question and Question Pool Item pins an exact
+Question Revision. The Questions and Policies workspace pages expose these assignment controls
+separately; they do not replace the selected Question's own content. See
 [src/pages/assignment_workspace/assignment_workspace_questions_page.tsx](../src/pages/assignment_workspace/assignment_workspace_questions_page.tsx),
 [src/pages/assignment_workspace/assignment_workspace_policies_page.tsx](../src/pages/assignment_workspace/assignment_workspace_policies_page.tsx), and
 `crates/question_model/src/question_content.rs`.
@@ -156,9 +155,8 @@ Each assignment independently schedules six student-visible fields: score,
 per-item correctness, Question Feedback, Question Answer, Question Answer Explanation,
 and class statistics. Each uses
 one timing: `DuringAttempt`, `AfterSubmit`, `AfterDue`, `AfterClose`, or
-`Never`. The server first requires Active Student Course Membership, then uses the current
-S3-resolved effective-policy verdict and authoritative time to evaluate the
-current assignment policy. A field scheduled `AfterDue` or `AfterClose` remains withheld when its
+`Never`. The server first requires Active Student Course Membership, then uses the
+retained Attempt policy and authoritative time to evaluate disclosure. A field scheduled `AfterDue` or `AfterClose` remains withheld when its
 corresponding boundary is absent; a withheld field is omitted rather than sent
 as a hidden null.
 
@@ -181,13 +179,11 @@ integration returns with the fresh course-delivery reconstruction.
 
 ### Time is server-owned
 
-Fixed and Question Pool Assignment Entries own `QuestionAttemptTimeLimit` for one Question Attempt,
-with nullable positive seconds and nullable nonnegative paired grace in the immutable Assignment
-Revision Entry snapshot. Assignment-wide BaseAssignmentPolicy time controls remain distinct. The
-current source models still duplicate QuestionAttemptTimeLimit pending their next source-model cut.
-The browser displays remaining time, but only server-issued timestamps and the server timing verdict
-can accept, auto-submit, or reject work. Effective Assignment Policy separately controls visibility,
-availability, due date, closing date, late treatment, whole Assignment Attempt limits, and Assignment Attempt caps through Assignment Access. This is why a
+The current Assignment sets the timing policy for a future Attempt. At Attempt start, the effective
+availability, due and close instants, whole-Attempt limit, late-work rule, and relevant Student-specific
+values become retained Attempt evidence. Each Issued Question retains its own selected Question Revision,
+seed, points, scoring rule, and per-question evidence. The browser displays remaining time, but only
+server-issued timestamps and the server timing verdict can accept, auto-submit, or reject work. This is why a
 mastery bundle can be untimed while an institution still gives an assignment an availability window.
 
 The policy types are in
@@ -259,17 +255,21 @@ server rejection gracefully.
 
 ## Assignment workspace boundary
 
-The Instructor Assignment Workspace keeps mastery configuration on the same Assignment and current Assignment Revision
+The Instructor Assignment Workspace keeps mastery configuration on the same current Assignment
 while separating the teaching tasks. Questions owns the title and ordered fixed-or-pool content;
 Policies owns Student Feedback Release Rules, Assignment Activity Rules, instructions, schedule, limits, late behavior,
-and lifecycle; Active Student Course Membership determines ordinary access. Each focused save uses the assignment's shared revision and returns the complete
+and lifecycle; Active Student Course Membership determines ordinary access. Each focused save uses the Assignment Edit Number and returns the complete
 authoritative assignment state, so a Policies save cannot silently replace Questions content.
 
 An empty persisted Assignment is valid while the Instructor builds the assignment across pages.
 Assignment Release Validation returns Assignment Release Issues when the exact Assignment
-lacks an active deliverable position or valid policy state. Once student work is issued, a structural Questions change can return the typed
-issued-student-work conflict; the page preserves its draft for recovery. Student view is an
+lacks an active deliverable position or valid policy state. A release-valid edit to a Released
+Assignment governs future Attempts; existing Attempts keep their retained evidence. Student view is an
 answer-free, non-mutating presentation of the current assignment and does not create a practice Assignment Attempt.
+
+Unrelease is separate from an ordinary save. It requires the current Assignment Edit Number and
+exact title confirmation, presents aggregate impact counts, and atomically deletes the Assignment's
+Student Work while returning the Assignment to Unreleased.
 
 Only an ordinary enrolled Student starts or resumes a mastery Assignment Attempt and produces submissions, scores,
 receipts, and gradebook evidence. The Instructor Student view retains the Instructor identity and

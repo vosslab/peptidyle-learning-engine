@@ -9,34 +9,39 @@ owner overlay selects seeded production authentication and the TLS gateway. The
 normal path is `./launchers/run_live_demo.sh`. Direct controller operations use
 `source source_me.sh && python3 local_stack.py`.
 Focused private `local_stack_control` modules and the canonical browser owner
-hold the lease through bootstrap, startup, migration, seed, Question Renderer Version,
-polling, readiness, and exact cleanup.
+hold the lease through bootstrap, startup, database initialization,
+installation data, Question Renderer Version, polling, readiness, and exact
+cleanup.
 
-The profile-only `database-migrator` job runs schema migration and API-login
-compatibility verification inside the Compose data network. It is a short-lived
-controller dependency, not an application service or host-facing database client.
+The profile-only `database-migrator` job runs the canonical base installation
+or recognized SQLx forward migrations, then verifies compatibility inside the
+Compose data network. It is a short-lived controller dependency, not an
+application service or host-facing database client.
 
 The stack includes PLE's standalone WeBWorK PG renderer. The owner serves the
 browser over HTTPS and uses production authentication; it does not select a
 alternate authentication or SMTP overlay.
 
-Before the API starts, the host typed lifecycle uses the production PostgreSQL and MinIO contracts to
-publish the reviewed Genetics and Biochemistry Chapter 1 assignments. This host-only bootstrap
-does not add a content-management service or expose source bytes to the browser.
+The lifecycle initializes the canonical schema before the API starts. After the
+services are ready, its default `installation-data provision` phase creates the
+complete ordinary Live Demo; an explicit controller opt-out skips that data
+only. `apply` creates only the database-owned Pilot and teaching graph.
+Cross-system work in the complete demo stays with its owning application paths.
 
 ## Long-running services
 
-The current local stack has the Services listed below. A Worker is a
-planned architecture component for durable background jobs; it is not a
-current Compose service, container, health dependency, or network member.
-When it is implemented, its scope includes retention, exports, imports, score
-maintenance, Assignment Analysis, and Assignment Question Analysis, with its
-leases and job state in PostgreSQL.
+The current local stack has the Services listed below. Its workers claim,
+lease, and commit durable background jobs with PostgreSQL-owned job state.
+Workers process their own authorized grading responsibilities and remain
+separate from the browser-facing API.
 
 | Service            | Necessary role                                                                                                                                                         | Durable state                                                              | Network boundary                                                                 |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | `gateway`          | Serves the built browser client and forwards same-origin `/api` and `/health` requests to the API. It is the only PLE browser entry point.                             | None. The built `dist/` directory is mounted read-only.                    | Publishes one loopback port; joins only `gateway_api`.                           |
 | `api`              | Authenticates sessions, authorizes course actions, coordinates attempts, and translates private backend results into browser-safe PLE responses.                       | None in the container. Authoritative records live in PostgreSQL and MinIO. | Joins the data network, `gateway_api`, and `renderer_private`.                   |
+| `worker`           | Runs general authorized background work.                                                                                                                               | None in the container. Job state is in PostgreSQL.                          | Joins the data network.                                                          |
+| `native-ple-worker` | Claims and grades native PLE work with its dedicated capability.                                                                                                      | None in the container. Job state is in PostgreSQL.                          | Joins the data network.                                                          |
+| `webwork-worker`   | Claims and grades WeBWorK-backed work with its dedicated capability.                                                                                                  | None in the container. Job state is in PostgreSQL.                          | Joins the data network and `renderer_private`.                                   |
 | `postgres`         | Stores relational platform authority: identities, courses, memberships, assignments, attempts, submissions, scores, jobs, and audit records.                           | `ple_pgdata`, a named volume mounted at PostgreSQL's data directory.       | Publishes a loopback development port and joins the data network.                |
 | `minio`            | Stores typed objects too large or inappropriate for relational rows: content packages, Student-specific exports and annotated exams, and temporary processing objects. | `ple_miniodata`, a named volume mounted at `/data`.                        | Publishes loopback development API and console ports and joins the data network. |
 | `webwork-renderer` | Runs the external `webwork-pg-renderer` image to execute PG/PGML render and grade requests. It is an engine, not a second assignment platform.                         | None. It has no volume and no SQL database.                                | Joins only `renderer_private`; it has no host-published port.                    |
@@ -72,7 +77,7 @@ permissions.
 | `postgres-major-guard`          | Reads an existing `PG_VERSION` before PostgreSQL starts.                                                                                   | Read-only volume, no network, and refusal when the retained volume is not PostgreSQL 17. It never migrates or deletes data.            |
 | `createbuckets`                 | Creates the four required MinIO buckets idempotently.                                                                                      | It exits after setup; the API does not need bucket-administration behavior.                                                            |
 | `identity-secret-init`          | Copies the host-owned invitation issuer and Question ID capabilities into an API-only runtime volume with the fixed API UID and mode 0600. | Networkless with a minimal capability set; raw host paths are not mounted into the API.                                                |
-| `database-migrator`             | Applies migrations and verifies the API login before application startup.                                                                   | Profile-only, no host port, and receives one controller-written private database URL.                                                  |
+| `database-migrator`             | Initializes the modular base or applies recognized forward migrations, then verifies schema compatibility before application startup.    | Profile-only, no host port, and receives one controller-written private migration URL.                                                |
 
 Stopped successful one-shot containers may appear in `podman ps -a`. They are
 not failed daemons and consume no running CPU after completion.
@@ -149,8 +154,7 @@ whether the PLE lifecycle may manage a container.
 - A supported full start reattaches PostgreSQL and MinIO to their named volumes.
 - The owner cleans and recreates its complete disposable stack rather than
   exposing individual developer-project restart controls.
-- When the planned Worker is implemented, a Worker failure leaves durable jobs
-  available for a later Worker lease.
+- A Worker failure leaves durable jobs available for a later authorized lease.
 - Gateway failure removes browser reachability but does not mutate records.
 
 ## Verification tiers
@@ -173,26 +177,11 @@ serve `dist/`, or execute a browser scenario. Its conflict preflight excludes
 an existing default or fixed live-demo stack so these bounded service owners
 cannot be confused with a browser lifecycle.
 
-The `./devel/run_playwright_tests.sh --build` wrapper and prior root Playwright
-configuration still describe a private input from a production-browser owner,
-but that owner/configuration is not currently restored as an executable,
-accepted browser path. Treat that wrapper as historical/future restoration
-context, not a current quickstart, aggregate lane, or substitute for the
-missing owner. The existing browser scenarios consequently establish no current
-release evidence.
-
-Restoring the dedicated production-browser owner remains release-blocking. That
-future owner must build and serve the production bundle through the fixed
-same-origin gateway, provide its private live-demo inputs, and drive visible
-behavior against the real stack. Browser render, non-disclosure, and visible
-workflow claims belong to that restored owner; Chapter One publication
-semantics remain with their fixed seed/manifest and Rust behavior tests until
-then. A successor service oracle returns only after the fresh Store and
-implemented course-delivery contracts exist.
-
-The active plan names the complete Validation suite; [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md#validation-test-suite)
-defines the separate boundaries for permanent offline checks, the two current
-service lanes, and the unrun production-browser requirement.
+Browser and screenshot journeys are separate named evidence lanes. They build
+and serve the production bundle through the fixed same-origin gateway and use
+the same seeded product data as the local stack. Their results establish only
+the visible workflows they exercise; [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)
+defines the distinction from permanent and browser-free connected checks.
 
 See [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for operating commands and
 [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md) for replica and production

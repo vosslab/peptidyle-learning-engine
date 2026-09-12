@@ -155,5 +155,5 @@ Focused TypeScript, lint, 22 Ribbon tests, and build passed. One connected Instr
 the 49-path screenshot publication/semantic-privacy replay passed; five byte differences remain
 human-review evidence, and independent visual acceptance passed.
 
-The simultaneous Course Instance short/long-name contract belongs to the broader Interface Cleanup
-M2 Ribbon work in [zippy-hatching-stallman.md](zippy-hatching-stallman.md), not this focused cleanup.
+The simultaneous Course Instance short/long-name contract belongs to the completed Interface Cleanup
+M2 Ribbon work in [interface_cleanup_2026_09.md](../archive/interface_cleanup_2026_09.md), not this focused cleanup.

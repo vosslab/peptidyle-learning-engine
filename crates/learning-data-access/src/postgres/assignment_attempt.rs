@@ -80,8 +80,17 @@ impl AssignmentAttemptStore for PostgresAssignmentAttemptStore {
             })
             .collect::<Result<Vec<_>, _>>()?;
         let selections = storage_selections(&start, &selection_ids);
+        let question_seeds = (0..start.issued_questions.len())
+            .map(|_| {
+                crate::random_uuid::random_u64(|error| {
+                    StoreError::Unavailable(format!(
+                        "Question seed randomness unavailable: {error}"
+                    ))
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         let issued_questions =
-            storage_issued_questions(&start, assignment_attempt, &selection_ids)?;
+            storage_issued_questions(&start, assignment_attempt, &selection_ids, &question_seeds)?;
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
@@ -133,7 +142,7 @@ fn storage_selections(
                         |(position, item)| json!({
                             "question_pool_item_id": item.question_pool_item.as_uuid(),
                             "selection_position": position,
-                            "question_id": item.reference.question_id.to_string(),
+                            "question_id": item.reference.question_id.as_compact_str(),
                             "revision_number": item.reference.revision_number.get(),
                         })
                     ).collect::<Vec<_>>(),
@@ -147,7 +156,13 @@ fn storage_issued_questions(
     start: &AssignmentAttemptStart,
     assignment_attempt: AssignmentAttemptId,
     selection_ids: &[QuestionPoolSelectionId],
+    question_seeds: &[u64],
 ) -> Result<Value, StoreError> {
+    if question_seeds.len() != start.issued_questions.len() {
+        return Err(StoreError::InvalidRecord(
+            "each Issued Question requires one Question seed".to_string(),
+        ));
+    }
     start
         .issued_questions
         .iter()
@@ -189,12 +204,63 @@ fn storage_issued_questions(
                 "issued_question_id": issued_question.as_uuid(),
                 "assignment_entry_id": assignment_entry.as_uuid(),
                 "issued_position": position,
-                "question_id": reference.question_id.to_string(),
+                "question_id": reference.question_id.as_compact_str(),
                 "revision_number": reference.revision_number.get(),
                 "question_pool_selection_id": question_pool_selection.map(|selection| selection.as_uuid()),
                 "question_pool_item_id": question_pool_item.map(|item| item.as_uuid()),
+                "question_seed": question_seeds[position],
             }))
         })
         .collect::<Result<Vec<_>, StoreError>>()
         .map(Value::Array)
+}
+
+#[cfg(test)]
+mod tests {
+    use question_model::{
+        AssignmentEntryId, AssignmentId, QuestionId, QuestionRevisionNumber, StudentRecordId,
+    };
+    use uuid::Uuid;
+
+    use super::*;
+
+    #[test]
+    fn issued_question_payload_keeps_the_maximum_seed_losslessly() {
+        let assignment_entry = AssignmentEntryId::from_uuid(Uuid::from_u128(3));
+        let start = AssignmentAttemptStart {
+            student_record: StudentRecordId::from_uuid(Uuid::from_u128(1)),
+            assignment: AssignmentId::from_uuid(Uuid::from_u128(2)),
+            question_pool_selections: Vec::new(),
+            issued_questions: vec![PreparedIssuedQuestion::FixedQuestion {
+                assignment_entry,
+                reference: QuestionRevisionReference {
+                    question_id: "123-4567".parse::<QuestionId>().expect("Question ID"),
+                    revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
+                },
+            }],
+        };
+
+        let payload = storage_issued_questions(
+            &start,
+            AssignmentAttemptId::from_uuid(Uuid::from_u128(4)),
+            &[],
+            &[u64::MAX],
+        )
+        .expect("serialized Issued Question");
+        let issued = payload
+            .as_array()
+            .and_then(|items| items.first())
+            .and_then(Value::as_object)
+            .expect("one JSON object");
+
+        assert_eq!(
+            issued.get("question_seed").and_then(Value::as_u64),
+            Some(u64::MAX)
+        );
+        assert_eq!(
+            issued.get("question_id").and_then(Value::as_str),
+            Some("1234567")
+        );
+        assert!(!issued.contains_key("questionSeed"));
+    }
 }

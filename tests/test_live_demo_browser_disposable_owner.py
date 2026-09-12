@@ -253,11 +253,29 @@ def test_database_baseline_profile_allows_only_its_postgres_oracle_commands(
 		selected, ["exec", "-T", "postgres", "psql", "-d", "postgres", "-c", "SELECT 1"]
 	)
 	assert argv[-8:] == ["exec", "-T", "postgres", "psql", "-d", "postgres", "-c", "SELECT 1"]
+	argv, _ = local_stack_control.disposable_stack_adapter.compose_command(
+		selected,
+		["exec", "-T", "postgres", "pg_isready", "-U", "ple_e2e_migrator", "-d", "postgres"],
+	)
+	assert argv[-8:] == [
+		"exec", "-T", "postgres", "pg_isready", "-U", "ple_e2e_migrator", "-d", "postgres",
+	]
+	for arguments in (
+		["--profile", "migration", "build", "database-migrator"],
+		[
+			"--profile", "migration", "run", "--rm", "--no-deps",
+			"database-migrator", "database", "initialize",
+		],
+	):
+		argv, _ = local_stack_control.disposable_stack_adapter.compose_command(selected, list(arguments))
+		assert argv[-len(arguments):] == list(arguments)
 	for arguments in (
 		["up", "-d", "api"],
 		["restart", "postgres"],
 		["exec", "-T", "api", "psql", "-d", "postgres"],
 		["exec", "-T", "postgres", "sh"],
+		["exec", "-T", "postgres", "pg_isready", "-U", "postgres"],
+		["--profile", "migration", "run", "--rm", "--no-deps", "database-migrator", "database", "migrate"],
 	):
 		with pytest.raises(local_stack_control.models.ControllerError, match="database baseline Compose"):
 			local_stack_control.disposable_stack_adapter.compose_command(selected, arguments)
@@ -277,6 +295,11 @@ def test_cross_store_profile_allows_only_its_two_store_oracle_commands(
 			"--profile", "course-appearance-initialization",
 			"run", "--rm", "-T", "createbuckets",
 		],
+		["--profile", "migration", "build", "database-migrator"],
+		[
+			"--profile", "migration", "run", "--rm", "--no-deps",
+			"database-migrator", "database", "initialize",
+		],
 		["exec", "-T", "postgres", "psql", "-d", "postgres", "-c", "SELECT 1"],
 	):
 		argv, environment = local_stack_control.disposable_stack_adapter.compose_command(selected, list(arguments))
@@ -287,6 +310,7 @@ def test_cross_store_profile_allows_only_its_two_store_oracle_commands(
 		["exec", "-T", "minio", "sh"],
 		["run", "--rm", "other"],
 		["exec", "-T", "api", "env"],
+		["--profile", "migration", "run", "--rm", "--no-deps", "database-migrator", "database", "migrate"],
 	):
 		with pytest.raises(local_stack_control.models.ControllerError, match="cross-store Compose"):
 			local_stack_control.disposable_stack_adapter.compose_command(selected, list(arguments))

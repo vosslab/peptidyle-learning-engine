@@ -13,6 +13,7 @@ const questionAsset = {
   questionAsset: "00000000-0000-0000-0000-000000000001",
   checksum: "a".repeat(64),
 };
+const questionRevision = { questionId: "7K3-M9QP", revisionNumber: 2 };
 
 test("asset URLs must be the resolver-derived logical asset route", () => {
   const priorLocation = globalThis.location;
@@ -24,20 +25,32 @@ test("asset URLs must be the resolver-derived logical asset route", () => {
     assert.equal(
       resolveSameOriginAssetUrl(
         questionAsset,
-        () => new URL(`/api/assets/${questionAsset.questionAsset}`, globalThis.location.origin),
+        questionRevision,
+        () =>
+          new URL(
+            `/api/questions/${questionRevision.questionId}/revisions/${questionRevision.revisionNumber}/assets/${questionAsset.questionAsset}`,
+            globalThis.location.origin,
+          ),
       ),
-      `https://ple.example.test/api/assets/${questionAsset.questionAsset}`,
+      `https://ple.example.test/api/questions/${questionRevision.questionId}/revisions/${questionRevision.revisionNumber}/assets/${questionAsset.questionAsset}`,
     );
     for (const resolver of [
       () => new URL("https://bucket.example.test/object"),
-      () => new URL("/api/assets/another-asset", globalThis.location.origin),
       () =>
         new URL(
-          `/api/assets/${questionAsset.questionAsset}?raw-key=object`,
+          `/api/questions/${questionRevision.questionId}/revisions/${questionRevision.revisionNumber}/assets/another-asset`,
+          globalThis.location.origin,
+        ),
+      () =>
+        new URL(
+          `/api/questions/${questionRevision.questionId}/revisions/${questionRevision.revisionNumber}/assets/${questionAsset.questionAsset}?raw-key=object`,
           globalThis.location.origin,
         ),
     ]) {
-      assert.throws(() => resolveSameOriginAssetUrl(questionAsset, resolver), QuestionContentError);
+      assert.throws(
+        () => resolveSameOriginAssetUrl(questionAsset, questionRevision, resolver),
+        QuestionContentError,
+      );
     }
   } finally {
     Object.defineProperty(globalThis, "location", { configurable: true, value: priorLocation });

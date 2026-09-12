@@ -356,7 +356,7 @@ fn map_database_error(code: Option<&str>, constraint: Option<&str>) -> Option<St
         Some("22023") => Some(StoreError::InvalidRecord(
             "database capability arguments are invalid".to_string(),
         )),
-        Some("55000") => Some(StoreError::Conflict),
+        Some("55000") => Some(StoreError::LifecycleConflict),
         Some("42501") => Some(StoreError::Forbidden),
         _ => None,
     }
@@ -392,6 +392,14 @@ mod tests {
             Some(StoreError::InvalidRecord(
                 "database capability arguments are invalid".to_string(),
             ))
+        );
+    }
+
+    #[test]
+    fn object_not_in_prerequisite_state_is_a_lifecycle_conflict() {
+        assert_eq!(
+            map_database_error(Some("55000"), None),
+            Some(StoreError::LifecycleConflict)
         );
     }
 

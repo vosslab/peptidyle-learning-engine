@@ -261,7 +261,7 @@ def graph_build_command(
 			operation = "NO EXISTING GRAPH; EXTRACTING FRESH GRAPHIFY CODE MAP"
 		else:
 			operation = "EXTRACTING GRAPHIFY CODE MAP"
-		command = [graphify_executable, "extract", ".", "--code-only"]
+		command = [graphify_executable, "extract", ".", "--code-only", "--force"]
 		if repo_has_cargo(repo_root):
 			command.append("--cargo")
 		# Clustering is deferred so it never sees the Rust test symbols that

@@ -4,14 +4,14 @@ use std::num::NonZeroU32;
 
 use serde::{Deserialize, Serialize};
 
+mod edit_number;
 #[cfg(test)]
 #[path = "assignment/local_scheduling_tests.rs"]
 mod local_scheduling_tests;
 mod point_value;
-mod revision;
 mod teaching_settings_local;
+pub use edit_number::{AssignmentEditNumber, AssignmentEditNumberError};
 pub use point_value::AssignmentPointValue;
-pub use revision::{AssignmentEditNumber, AssignmentRevisionNumber, AssignmentRevisionNumberError};
 pub use teaching_settings_local::{
     AssignmentAuthoredContentFailureCode, AssignmentAuthoredContentFailureReason,
     AssignmentAuthoredContentField, AssignmentAuthoredContentLocalError,
@@ -44,7 +44,7 @@ pub enum AssignmentStatus {
     /// The Assignment remains private to Instructors.
     #[default]
     Unreleased,
-    /// The Assignment selects one released revision for future Student access.
+    /// The current Assignment is available for future Student access.
     Released,
     /// The Assignment no longer accepts new Student work.
     Closed,
@@ -236,18 +236,6 @@ pub enum LateWorkRule {
     Reject,
 }
 
-/// Closed behavior at an effective assignment deadline.
-///
-/// The database design deliberately chooses server auto-submit instead
-/// of an unbounded overtime mode. Keeping that choice as an enum leaves a
-/// deliberate extension point without accepting an unsupported boolean state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AssignmentDeadlineRule {
-    /// The server closes active work independently of browser connectivity.
-    AutoSubmit,
-}
-
 /// Serializable assignment-owned inputs to effective-policy resolution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -270,9 +258,6 @@ pub struct BaseAssignmentPolicy {
     /// Treatment of work after the ordinary due instant.
     #[serde(rename = "late_work_rule")]
     pub late_work_rule: LateWorkRule,
-    /// Server behavior at an effective assignment deadline.
-    #[serde(rename = "assignment_deadline_rule")]
-    pub assignment_deadline_rule: AssignmentDeadlineRule,
 }
 
 impl Default for BaseAssignmentPolicy {
@@ -283,10 +268,7 @@ impl Default for BaseAssignmentPolicy {
             closes_at: None,
             assignment_attempt_time_limit_seconds: None,
             attempt_limit: None,
-            // A new graded Assignment rejects work after its due instant.  The
-            // fixed deadline rule still submits work already in progress.
             late_work_rule: LateWorkRule::Reject,
-            assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
         }
     }
 }
@@ -469,28 +451,6 @@ mod tests {
     }
 
     #[test]
-    fn assignment_revisions_use_canonical_postgres_bigint_strings() {
-        let revision: AssignmentRevisionNumber = "43".parse().expect("canonical revision number");
-        assert_eq!(serde_json::json!(revision), serde_json::json!("43"));
-        assert_eq!(
-            revision.checked_next().map(|value| value.to_string()),
-            Some("44".into())
-        );
-        assert!(
-            AssignmentRevisionNumber::new(i64::MAX as u64)
-                .expect("maximum revision")
-                .checked_next()
-                .is_none()
-        );
-        for invalid in ["", "0", "01", "+2", "-2", "9223372036854775808"] {
-            assert!(
-                invalid.parse::<AssignmentRevisionNumber>().is_err(),
-                "{invalid}"
-            );
-        }
-    }
-
-    #[test]
     fn assignment_edit_numbers_are_distinct_canonical_assignment_preconditions() {
         let edit: AssignmentEditNumber = "43".parse().expect("canonical edit number");
         assert_eq!(serde_json::json!(edit), serde_json::json!("43"));
@@ -562,7 +522,6 @@ mod tests {
                 instructions: AssignmentInstructions::default(),
                 base_policy: BaseAssignmentPolicy {
                     late_work_rule: LateWorkRule::Reject,
-                    assignment_deadline_rule: AssignmentDeadlineRule::AutoSubmit,
                     ..BaseAssignmentPolicy::default()
                 },
                 activity_rules: AssignmentActivityRules::default(),
@@ -573,15 +532,6 @@ mod tests {
             serde_json::json!("mark_late")
         );
         assert!(serde_json::from_value::<LateWorkRule>(serde_json::json!("markLate")).is_err());
-        assert_eq!(
-            serde_json::to_value(AssignmentDeadlineRule::AutoSubmit)
-                .expect("assignment deadline rule serializes"),
-            serde_json::json!("auto_submit")
-        );
-        assert!(
-            serde_json::from_value::<AssignmentDeadlineRule>(serde_json::json!("autoSubmit"))
-                .is_err()
-        );
         assert!(
             serde_json::from_value::<AssignmentAuthoredContent>(serde_json::json!({
                 "instructions": "",
@@ -592,7 +542,6 @@ mod tests {
                     "assignment_attempt_time_limit_seconds": null,
                     "attempt_limit": null,
                     "late_work_rule": "accept",
-                    "assignment_deadline_rule": "auto_submit",
                     "unexpected": true
                 },
                 "activityRules": {
@@ -623,7 +572,6 @@ mod tests {
                 None,
                 None,
                 LateWorkRule::Accept,
-                AssignmentDeadlineRule::AutoSubmit,
             ),
             Err(AssignmentAuthoredContentLocalError::ScheduleOutOfOrder)
         );
@@ -636,7 +584,6 @@ mod tests {
                 None,
                 NonZeroU32::new(MAX_ASSIGNMENT_ATTEMPT_LIMIT + 1),
                 LateWorkRule::Accept,
-                AssignmentDeadlineRule::AutoSubmit,
             ),
             Err(AssignmentAuthoredContentLocalError::AttemptLimitOutOfRange)
         );
@@ -648,8 +595,7 @@ mod tests {
                 "closes_at": null,
                 "assignment_attempt_time_limit_seconds": 0,
                 "attempt_limit": null,
-                "late_work_rule": "accept",
-                "assignment_deadline_rule": "auto_submit"
+                "late_work_rule": "accept"
             }))
             .is_err()
         );
@@ -663,7 +609,6 @@ mod tests {
                 "assignment_attempt_time_limit_seconds": null,
                 "attempt_limit": null,
                 "late_work_rule": "accept",
-                "assignment_deadline_rule": "auto_submit",
                 "unexpected": true
             }))
             .is_err()

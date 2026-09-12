@@ -299,7 +299,9 @@ impl std::fmt::Debug for ImathasQuestionBackendStateCipher {
     }
 }
 
-fn imathas_question_backend_state_aad(session: &ImathasQuestionBackendSession) -> Vec<u8> {
+pub(super) fn imathas_question_backend_state_aad(
+    session: &ImathasQuestionBackendSession,
+) -> Vec<u8> {
     let mut aad = vec![IMATHAS_QUESTION_BACKEND_STATE_AAD_VERSION];
     for value in [
         session.reference.as_uuid().as_bytes().as_slice(),
@@ -316,7 +318,7 @@ fn imathas_question_backend_state_aad(session: &ImathasQuestionBackendSession) -
             .grading_context
             .question_revision()
             .question_id
-            .to_string()
+            .as_compact_str()
             .as_bytes(),
         &session
             .grading_context

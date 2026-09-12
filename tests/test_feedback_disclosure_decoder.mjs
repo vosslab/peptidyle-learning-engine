@@ -121,6 +121,10 @@ test("Student Issued Question excludes durable Question Pool Selection evidence"
       }),
     DecodeError,
   );
+  assert.throws(
+    () => decodeStudentIssuedQuestion({ ...issuedQuestion, issuedPosition: 0 }),
+    DecodeError,
+  );
 });
 
 test("submission receipts reject hostile private grading data", () => {

@@ -1,148 +1,153 @@
-// Stable Questions-workspace model contracts; connected browser journeys cover visible controls.
-
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { createMasteryAssignmentEditorState } from "./support/assignment_editor_test_support.ts";
-import { assignmentContentInput } from "../src/pages/assignment_editor_model.ts";
 import {
-  assignmentWorkspaceCreateErrorMessage,
-  createdAssignmentQuestionsPath,
-} from "../src/pages/assignment_workspace/assignment_workspace_create_model.ts";
-import {
-  assignmentWorkspaceCreatePath,
-  assignmentWorkspacePath,
-} from "../src/pages/assignment_workspace/assignment_workspace_paths.ts";
-import {
-  parseAssignmentReference,
-  parseCourseInstanceReference,
-} from "../src/navigation/public_route.ts";
+  appendAvailableFixedQuestion,
+  moveAssignmentEntry,
+  removeAssignmentEntry,
+} from "../src/pages/assignment_workspace/assignment_workspace_questions_model.ts";
+import { selectedAssignmentSource } from "../src/pages/assignment_workspace/assignment_workspace_create_model.ts";
+import { assignmentPolicySaveInput } from "../src/pages/assignment_workspace/assignment_workspace_policy_model.ts";
 
-test("legacy assignment content model keeps title with ordered public Assignment Content", () => {
-  const draft = {
-    ...createMasteryAssignmentEditorState("course-1"),
-    title: "Protein bonds",
-    entries: [
-      {
-        kind: "fixedQuestion",
-        id: "item-1",
-        questionId: "7K3-M9QP",
-        title: "Peptide bond resonance",
-        backend: "ple",
-        capabilities: [],
-        pointsPossible: "1",
-        availability: "available",
-        scoringRule: "normal",
-        questionAttemptLimit: { maxAttempts: null },
-        questionAttemptTimeLimit: { kind: "unlimited" },
-      },
-    ],
-  };
+const fixed = {
+  kind: "fixedQuestion",
+  id: "00000000-0000-0000-0000-000000000001",
+  reference: { questionId: "7K3-M9QP", revisionNumber: 1 },
+  pointsPossible: "1",
+  availability: "available",
+  scoringRule: "normal",
+  questionAttemptLimit: { maxAttempts: null },
+  questionAttemptTimeLimit: { kind: "unlimited" },
+};
 
-  assert.deepEqual(assignmentContentInput(draft), {
-    title: "Protein bonds",
-    entries: [
-      {
-        kind: "fixedQuestion",
-        questionId: "7K3-M9QP",
-        pointsPossible: "1",
-        availability: "available",
-        scoringRule: "normal",
-        questionAttemptLimit: { maxAttempts: null },
-        questionAttemptTimeLimit: { kind: "unlimited" },
-      },
-    ],
+const pool = {
+  kind: "questionPool",
+  id: "00000000-0000-0000-0000-000000000002",
+  availability: "available",
+  scoringRule: "normal",
+  selectionCount: 1,
+  pointsPerItem: "2",
+  selectionRule: { selectedQuestionOrder: "questionPoolOrder" },
+  questionAttemptLimit: { maxAttempts: 2 },
+  questionAttemptTimeLimit: { kind: "limited", seconds: 60, graceSeconds: 5 },
+  items: [
+    {
+      id: "00000000-0000-0000-0000-000000000003",
+      reference: { questionId: "2R5-X7YA", revisionNumber: 3 },
+      availability: "available",
+    },
+  ],
+};
+
+test("Questions editing retains pool identity, item pin, availability, and policy when ordering Entries", () => {
+  const entries = [fixed, pool];
+  const moved = moveAssignmentEntry(entries, 1, -1);
+
+  assert.deepEqual(
+    moved.map((entry) => entry.id),
+    [pool.id, fixed.id],
+  );
+  assert.equal(moved[0], pool);
+  assert.equal(moved[0].items[0], pool.items[0]);
+  assert.deepEqual(moved[0].items[0].reference, { questionId: "2R5-X7YA", revisionNumber: 3 });
+  assert.equal(moved[0].selectionRule.selectedQuestionOrder, "questionPoolOrder");
+  assert.equal(moved[0].questionAttemptTimeLimit.seconds, 60);
+});
+
+test("Questions picker adds an Available exact revision without flattening retained pools", () => {
+  const entries = [pool];
+  const added = appendAvailableFixedQuestion(
+    entries,
+    { reference: { questionId: "7K4-M9QP", revisionNumber: 4 }, description: "Exact revision" },
+    "00000000-0000-0000-0000-000000000004",
+  );
+
+  assert.equal(added[0], pool);
+  assert.deepEqual(added[1], {
+    kind: "fixedQuestion",
+    id: "00000000-0000-0000-0000-000000000004",
+    reference: { questionId: "7K4-M9QP", revisionNumber: 4 },
+    pointsPossible: "1",
+    availability: "available",
+    scoringRule: "normal",
+    questionAttemptLimit: { maxAttempts: null },
+    questionAttemptTimeLimit: { kind: "unlimited" },
   });
+  assert.equal(JSON.stringify(added).includes("questionIds"), false);
 });
 
-test("the rendered Questions surface owns Assignment title and Policies keeps delivery fields", () => {
-  const questionsPage = readFileSync(
-    "src/pages/assignment_workspace/assignment_workspace_questions_page.tsx",
-    "utf8",
+test("Questions removal changes only the chosen stable Entry", () => {
+  const entries = [fixed, pool];
+  const remaining = removeAssignmentEntry(entries, 0);
+  assert.deepEqual(
+    remaining.map((entry) => entry.id),
+    [pool.id],
   );
-  const policiesPage = readFileSync(
-    "src/pages/assignment_workspace/assignment_workspace_policies_page.tsx",
-    "utf8",
-  );
-
-  assert.match(
-    questionsPage,
-    /const \[title, setTitle\] = createSignal\(workspace\.assignment\(\)\.workspace\.title\);/u,
-  );
-  assert.match(
-    questionsPage,
-    /Assignment title\s*<input value=\{title\(\)\} onInput=\{\(event\) => setTitle\(event\.currentTarget\.value\)\}/u,
-  );
-  assert.match(
-    questionsPage,
-    /withQuestionIds\(workspace\.assignment\(\)\.workspace, title\(\), selected\(\)\)/u,
-  );
-  assert.doesNotMatch(policiesPage, /Assignment title/u);
-  assert.match(policiesPage, /Student instructions/u);
+  assert.equal(remaining[0], pool);
 });
 
-test("persisted draft creation enters the canonical Questions route", () => {
-  const course = parseCourseInstanceReference("C-8");
-  const assignment = parseAssignmentReference("A-15");
-  assert.ok(course);
-  assert.ok(assignment);
+test("Assignment creation uses only the deliberately selected stable Blueprint Assignment source", () => {
+  const choices = [
+    {
+      source: {
+        blueprint_revision: { reference: "BP-7", revision: "3" },
+        blueprint_assignment_reference: "00000000-0000-0000-0000-000000000007",
+      },
+      label: "Protein structure practice",
+    },
+  ];
+
+  assert.equal(selectedAssignmentSource(choices, ""), undefined);
   assert.equal(
-    createdAssignmentQuestionsPath(course, assignment),
-    "/instructor/courses/C-8/assignments/A-15/questions",
-  );
-  assert.equal(assignmentWorkspaceCreatePath(course), "/instructor/courses/C-8/assignments/new");
-});
-
-test("draft creation recovery gives one safe actionable message", () => {
-  const message = assignmentWorkspaceCreateErrorMessage();
-  assert.equal(
-    message,
-    "The Assignment could not be created. Your title is still here. Try again.",
-  );
-  assert.equal(message.includes("/api/"), false);
-});
-
-test("Questions composition provides a named removal control", () => {
-  const page = readFileSync(
-    "src/pages/assignment_workspace/assignment_workspace_questions_page.tsx",
-    "utf8",
-  );
-
-  assert.match(
-    page,
-    /function remove\(index: number\): void \{\s+setSelected\(\(current\) => removeSelectedQuestionAt\(current, index\)\);/u,
-  );
-  assert.match(
-    page,
-    /aria-label=\{`Remove Question \$\{entry\.questionId\}`\}[\s\S]*?onClick=\{\(\) => remove\(index\(\)\)\}/u,
+    selectedAssignmentSource(choices, "00000000-0000-0000-0000-000000000007"),
+    choices[0],
   );
 });
 
-test("initial and reloaded Questions always link to the contract Policies route", () => {
-  const page = readFileSync(
-    "src/pages/assignment_workspace/assignment_workspace_questions_page.tsx",
-    "utf8",
-  );
-  const course = parseCourseInstanceReference("C-8");
-  const assignment = parseAssignmentReference("A-15");
+test("Policy save retains normalized Entries and the current availability and close bounds", () => {
+  const current = {
+    title: "Protein structure",
+    instructions: "Old instructions",
+    entries: [fixed, pool],
+    dueAt: "2026-09-15T23:59:00.000",
+    availableAt: "2026-09-01T08:00:00.000",
+    closesAt: "2026-09-17T23:59:00.000",
+    lateWorkRule: "reject",
+    assignmentAttemptTimeLimitSeconds: null,
+    attemptLimit: null,
+    activityRules: {
+      assignmentCompletionRule: { kind: "answerAll" },
+      assignmentAttemptGradeRule: "latest",
+      assignmentAttemptContinuationRule: { kind: "closed" },
+      questionPoolReuseRule: "selectAgain",
+      questionVariationRule: "newVariation",
+      assignmentAttemptResumeRule: "resumable",
+      assignmentQuestionDisplayRule: "allQuestions",
+      assignmentNavigationRule: "freeNavigation",
+      assignmentQuestionOrderRule: "authoredOrder",
+    },
+    studentFeedbackReleaseRule: {
+      score: "never",
+      per_item_correctness: "never",
+      submitted_response: "never",
+      question_feedback: "never",
+      question_answer: "never",
+      question_answer_explanation: "never",
+      class_statistics: "never",
+    },
+  };
+  const saved = assignmentPolicySaveInput(current, {
+    instructions: "New instructions",
+    dueAt: "2026-09-16T23:59:00.000",
+    lateWorkRule: "accept",
+    assignmentAttemptTimeLimitSeconds: 3600,
+    attemptLimit: 2,
+    activityRules: current.activityRules,
+    studentFeedbackReleaseRule: current.studentFeedbackReleaseRule,
+  });
 
-  assert.ok(course);
-  assert.ok(assignment);
-  assert.equal(
-    assignmentWorkspacePath(course, assignment, "policies"),
-    "/instructor/courses/C-8/assignments/A-15/policies",
-  );
-  assert.match(
-    page,
-    /<p class="assignment-workspace-next-actions">\s*<A\s+class="quiet-link"\s+href=\{assignmentWorkspacePath\(\s*workspace\.courseReference,\s*workspace\.assignmentReference,\s*"policies",/u,
-  );
-  assert.doesNotMatch(
-    page,
-    /<Show when=\{saved\(\)\}>\s*<p class="assignment-workspace-next-actions">/u,
-  );
-  assert.match(
-    page,
-    /setMessage\("Questions and order saved\. Review assignment policies when you are ready\."\);/u,
-  );
+  assert.equal(saved.entries, current.entries);
+  assert.equal(saved.availableAt, current.availableAt);
+  assert.equal(saved.closesAt, current.closesAt);
+  assert.equal(saved.dueAt, "2026-09-16T23:59:00.000");
 });

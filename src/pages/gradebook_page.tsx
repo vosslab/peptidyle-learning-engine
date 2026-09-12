@@ -4,7 +4,7 @@ import { useParams } from "@solidjs/router";
 import { For, Show, createResource, type JSX } from "solid-js";
 
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
-import type { LiveDemoGradebook } from "../api/live_gradebook";
+import type { CourseGradebook } from "../api/live_gradebook";
 import { useApplicationApi } from "../api/application_api";
 import { parseCourseInstanceReference } from "../navigation/public_route";
 import { formatPointScore } from "../score_format";
@@ -16,7 +16,7 @@ function progressLabel(completion: "inProgress" | "completed" | null): string {
   return "Not started";
 }
 
-function GradebookEvidence(props: { readonly gradebook: LiveDemoGradebook }): JSX.Element {
+function GradebookEvidence(props: { readonly gradebook: CourseGradebook }): JSX.Element {
   return (
     <Show
       when={props.gradebook.studentWork.length > 0}
@@ -65,7 +65,7 @@ function GradebookEvidence(props: { readonly gradebook: LiveDemoGradebook }): JS
 
 function GradebookCoursePage(props: { readonly course: CourseInstanceReference }): JSX.Element {
   const runtime = useApplicationApi();
-  const [gradebook] = createResource(() => props.course, runtime.client.getLiveDemoGradebook);
+  const [gradebook] = createResource(() => props.course, runtime.client.getCourseGradebook);
   return (
     <section class="page gradebook-page" data-route-surface="gradebook">
       <p class="eyebrow">Course progress</p>

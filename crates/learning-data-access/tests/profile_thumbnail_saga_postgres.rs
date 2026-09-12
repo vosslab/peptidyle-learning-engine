@@ -8,6 +8,8 @@ use objects::minio::{EndpointConfig, client};
 use objects::s3::{BucketNames, S3ObjectStore};
 use objects::{ObjectAddress, ObjectStore, PutObject, Sha256Checksum, profile_thumbnail_object_id};
 use question_model::{ProfileThumbnailReference, Timestamp};
+use sqlx::Connection;
+use sqlx::postgres::PgConnection;
 use uuid::Uuid;
 
 const INSTRUCTOR: u128 = 0xfa01;
@@ -46,6 +48,18 @@ async fn put(store: &S3ObjectStore, reference: ProfileThumbnailReference, bytes:
         })
         .await
         .expect("real MinIO immutable put");
+}
+
+async fn set_inspection_role(connection: &mut PgConnection, role: &'static str) {
+    let statement = match role {
+        "ple_private_owner" => "SET ROLE ple_private_owner",
+        "ple_audit_owner" => "SET ROLE ple_audit_owner",
+        _ => panic!("unsupported acceptance inspection role"),
+    };
+    sqlx::query(statement)
+        .execute(connection)
+        .await
+        .expect("inspection role");
 }
 
 async fn seed(admin: &sqlx::postgres::PgPool) {
@@ -118,9 +132,16 @@ async fn prepare_put_finalize(
 #[ignore = "requires the disposable PostgreSQL 17 and MinIO profile-thumbnail oracle"]
 async fn profile_thumbnail_saga_is_self_only_durable_and_cross_store() {
     let runtime = acceptance_runtime::CourseAppearanceRuntime::load().expect("acceptance runtime");
-    let admin = lazy_pool(runtime.admin_url().expose()).expect("admin pool");
+    let migration_url = runtime.migration_url().expose();
+    let admin = lazy_pool(migration_url).expect("migration pool");
     seed(&admin).await;
-    let store = PostgresProfileThumbnailStore::new(admin.clone());
+    let mut inspection = PgConnection::connect(migration_url)
+        .await
+        .expect("inspection connection");
+    set_inspection_role(&mut inspection, "ple_private_owner").await;
+    let application_url = std::env::var("DATABASE_URL").expect("application database URL");
+    let application = lazy_pool(&application_url).expect("application pool");
+    let store = PostgresProfileThumbnailStore::new(application);
     let minio = runtime.minio();
     let object_store = S3ObjectStore::new(
         client(&EndpointConfig {
@@ -215,7 +236,7 @@ async fn profile_thumbnail_saga_is_self_only_durable_and_cross_store() {
          WHERE profile_thumbnail_id=$1 AND operation_kind='put'",
     )
     .bind(first.as_uuid())
-    .fetch_one(&admin)
+    .fetch_one(&mut inspection)
     .await
     .expect("first put work");
     assert!(
@@ -322,21 +343,30 @@ async fn profile_thumbnail_saga_is_self_only_durable_and_cross_store() {
         "SELECT state FROM ple_private.profile_thumbnail_work WHERE profile_thumbnail_work_id=$1",
     )
     .bind(retired.work_id)
-    .fetch_one(&admin)
+    .fetch_one(&mut inspection)
     .await
     .expect("retired delete work state");
     assert_eq!(state, "completed", "confirmed absence completes repair");
+    let manifest_id: Uuid = sqlx::query_scalar(
+        "SELECT manifest.object_cleanup_manifest_id \
+         FROM ple_private.object_cleanup_manifest AS manifest \
+         JOIN ple_private.object_storage_check AS storage_check \
+           ON storage_check.object_storage_check_id = manifest.object_storage_check_id \
+         JOIN ple_private.profile_thumbnail_work AS work \
+           ON work.delivery_id = storage_check.delivery_id \
+         WHERE work.profile_thumbnail_work_id = $1",
+    )
+    .bind(retired.work_id)
+    .fetch_one(&mut inspection)
+    .await
+    .expect("cleanup manifest");
+    set_inspection_role(&mut inspection, "ple_audit_owner").await;
     let receipt: String = sqlx::query_scalar(
         "SELECT disposition FROM ple_audit.object_cleanup_receipt \
-         WHERE object_cleanup_manifest_id IN ( \
-             SELECT object_cleanup_manifest_id FROM ple_private.object_cleanup_manifest \
-             WHERE job_id IN ( \
-                 SELECT job_id FROM ple_private.job WHERE payload->>'deleteWorkId'=$1 \
-             ) \
-         )",
+         WHERE object_cleanup_manifest_id = $1",
     )
-    .bind(retired.work_id.to_string())
-    .fetch_one(&admin)
+    .bind(manifest_id)
+    .fetch_one(&mut inspection)
     .await
     .expect("cleanup receipt");
     assert_eq!(receipt, "already_absent");

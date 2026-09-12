@@ -39,17 +39,24 @@ Student ownership. A public route reference locates an intended resource; it
 never grants authority. The browser downloads invitation-export data but does
 not send mail.
 
-## Successor Assignment Revision
+## Assignment changes and Unrelease
 
-When a structural Assignment edit conflicts with issued Student activity, the
-retained model/generated/browser recovery contract is
-`SuccessorAssignmentRevisionRequired`. It carries the immutable base revision
-that existing Student work pins. Visible guidance calls this outcome a
-**Successor Assignment Revision**.
+An Assignment is one current teaching aggregate. Each save supplies its current
+Assignment Edit Number and receives the authoritative Assignment and its next
+Edit Number. Its fixed Questions and pool items pin exact Question Revisions,
+so later Question publication never changes an Assignment silently.
 
-The server-owned command that creates the successor and its Server Route are
-future work. Until both exist, this guide does not instruct an Instructor to
-perform a structural successor operation.
+Release validates the current Assignment. A Released Assignment may be edited
+when the resulting current configuration remains release-valid; an accepted
+edit governs later Attempts. Existing Attempts continue to use their retained
+Assignment and Issued Question evidence, including their exact Question
+Revision and issued seed.
+
+**Unrelease** is the deliberate destructive recovery operation for a Released
+Assignment. The Instructor confirms the exact current title and Edit Number.
+The system presents only aggregate impact counts, returns the Assignment to
+Unreleased, and atomically removes the Assignment's Student Work. It retains
+the current Assignment, Course relationships, and shared published Questions.
 
 ## Accessibility contract
 

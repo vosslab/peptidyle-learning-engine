@@ -55,7 +55,7 @@ import {
   decodeQuestionBackendCapabilities,
   decodeBoundedArray,
   decodeQuestionRevisionReference,
-  decodeQuestionRevisionAvailability,
+  decodeQuestionAvailability,
   decodeCursor,
   decodeQuestionTitle,
   decodeCourseInstanceReference,
@@ -134,7 +134,7 @@ export function decodeQuestionSummary(
     ),
     metadata: decodeQuestionMetadata(field(record, "metadata", path), `${path}.metadata`, strict),
     authorship: decodeQuestionAuthorship(field(record, "authorship", path), `${path}.authorship`),
-    availability: decodeQuestionRevisionAvailability(
+    availability: decodeQuestionAvailability(
       field(record, "availability", path),
       `${path}.availability`,
       strict,

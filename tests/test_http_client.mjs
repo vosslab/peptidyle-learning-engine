@@ -21,6 +21,18 @@ import {
   jsonResponse,
 } from "./http_client_test_support.mjs";
 
+test("asset URLs require and retain the exact Question Revision identity", () => {
+  const client = createHttpApiClient({ basePath: "/live" });
+  const assetUrl = client.assetUrl(
+    { questionId: "7K3-M9QP", revisionNumber: 2 },
+    "00000000-0000-0000-0000-000000000001",
+  );
+  assert.equal(
+    assetUrl,
+    "/live/api/questions/7K3-M9QP/revisions/2/assets/00000000-0000-0000-0000-000000000001",
+  );
+});
+
 test("an issued iMathAS Question Backend Question Presentation accepts only its public marker", () => {
   const presentation = {
     questionRevision: { questionId: "7K3-M9QP", revisionNumber: 1 },
@@ -178,17 +190,14 @@ test("Assignment Attempt start uses the explicit nested course and assignment ro
   assert.equal(await request.text(), "");
 });
 
-test("Assignment Attempt transport preserves its exact Released Assignment Revision", () => {
+test("Assignment Attempt transport preserves its retained effective evidence", () => {
   const assignmentAttempt = publishedQuestionFixture.assignment_attempts[0];
   assert.ok(assignmentAttempt);
-  assert.deepEqual(decodeAssignmentAttempt(assignmentAttempt).assignmentRevision, {
-    assignment: "A-1",
-    revision_number: "1",
+  assert.deepEqual(decodeAssignmentAttempt(assignmentAttempt).evidence.effectivePolicySources, {
+    schedule: { kind: "assignment" },
+    assignmentAttemptTimeLimit: { kind: "assignment" },
+    attemptLimit: { kind: "assignment" },
   });
-  assert.throws(() => {
-    const { assignmentRevision: _revision, ...withoutRevision } = assignmentAttempt;
-    return decodeAssignmentAttempt(withoutRevision);
-  }, DecodeError);
 });
 
 test("Student Question Attempt decoding accepts every generated issued capability and rejects retired values", () => {

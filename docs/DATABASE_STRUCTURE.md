@@ -1,203 +1,204 @@
 # Database structure
 
-This document maps the checked-in pre-production PostgreSQL baseline. The SQL
-files under [schemas/migrations/](../schemas/migrations/) are the physical
-schema authority. [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) owns product
-decisions; [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns product
-meaning; [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) owns database
-authorization; and this document owns the checked-in migration sequence and forward allocation rule.
+This document describes the canonical PostgreSQL structure for a fresh PLE
+installation. [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) remains the product
+authority, [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) defines the
+terms used here, and [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md)
+describes the authorization model in more detail. This document explains how
+the checked-in database expresses that model; it is not a migration catalogue.
 
-## Baseline and migration rules
+## One canonical structural build
 
-The current disposable baseline contains the 101 checked migration files from
-`2026082901_principal_baseline.sql` through
-`2026091029_student_landing_score_disclosure.sql`. The numbered range has no
-`2026082905` or `2026082927` file; those numbers are not migrations. Apply the
-complete checked-in sequence only to a clean disposable database. The prior
-migration epoch was removed during the fresh pre-production migration reset; it is neither an
-upgrade path nor a source of current table, role, or policy names.
+[schemas/base_schema/install.sql](../schemas/base_schema/install.sql) is a
+small, ordered `psql` manifest. It includes named domain-family modules in
+dependency order. The database administration command runs it with PostgreSQL
+17 `psql -X --set=ON_ERROR_STOP=1 --single-transaction`, so a failed fresh
+install leaves no partial PLE structure.
 
-Accepted migration history normally advances only with a forward migration.
-Before acceptance, correct a wrong baseline migration directly, update its
-owning package evidence, and rebuild a clean database. One owner-directed
-pre-production baseline correction directly rewrote the accepted Course-name
-migrations: it replaces the former single title with required root
-`course_short_name` and `course_long_name` fields, with no users or durable
-data to preserve. Its full fresh apply, no-op replay, catalog, ACL, restricted,
-and persistence gates passed. This narrowly documented baseline correction
-does not create a compatibility migration, backfill, legacy reader, or parallel
-authorization model; normal accepted history remains forward-only.
+Each module owns the current DDL for its domain: tables, constraints, indexes,
+functions, row-level-security policies, and grants. The manifest itself has no
+domain DDL. A cross-domain relationship belongs in
+[cross_domain_constraints.sql](../schemas/base_schema/cross_domain_constraints.sql),
+and the restricted runtime projection belongs last in
+[api_compatibility.sql](../schemas/base_schema/api_compatibility.sql). This
+keeps the base readable without creating a sequence of corrective layers.
 
-## Physical ownership map
+Before the first human-approved production deployment, the base schema is
+editable source. A structural correction changes its owning module and is
+verified with a clean database build. At that cutover, the checked-in SQL
+projection and Rust `BASE_RELEASE_IDENTITY` change together from
+`pre-production` to one immutable production-baseline identifier, recorded in
+[CHANGELOG.md](CHANGELOG.md). The base then stays frozen. Timestamped SQLx files
+in [schemas/migrations/](../schemas/migrations/) carry each later structural
+change forward. SQLx records those changes in `ple_migration._sqlx_migrations`;
+it does not define the pre-production design. The directory is empty today
+because no post-cutover change exists.
 
-| Migration range                        | Physical owner                                                                               | Principal records                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| -------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2901-2904, 2906, 2933-2934, 2026090401 | Global Account, Authenticated Session, and creation audit                                    | PostgreSQL roles, `account`, immutable Product Role, Account State Events, `authenticated_session` with Account-derived role-pinned Product Role, Authentication Email, credential foundations, Sysadmin Create Instructor Account, and immutable qualified instructor-account creation evidence.                                                                                                                                                                                                                                                    |
-| 2907-2910                              | Question Library and private authoring                                                       | Published Questions and immutable Question Revisions, publication and availability events, Question Change Proposals, Authoring Workspaces, mutable Draft Questions, qualified Question Source Bindings, Question Authorship, Question License, Question Citation, Question Ownership, Workspace Imports, and private QTI import evidence.                                                                                                                                                                                                           |
-| 2911-2915                              | Reusable and live course roots                                                               | Blueprint Courses and Revisions, Account-owned Question Folders and Saved Question Searches, Course Instances with required compact and descriptive names, Course Origin, Course Membership Events, Course Invitations, and Student Records.                                                                                                                                                                                                                                                                                                        |
-| 2916-2918                              | Assignment delivery and Student work                                                         | Assignments and immutable Assignment Revisions, Assignment Attempts, Issued Questions, Question Attempts, Question Submissions, Assignment Submissions, and Student Feedback Release.                                                                                                                                                                                                                                                                                                                                                                |
-| 2919-2924                              | Course objects, grading, analysis, and correction                                            | Course Object References, Question Submission Grading, Grading Results, and Automated Grading Receipts; Assignment Grades and Events; Assignment and Assignment Question Analysis; Forced Question Corrections; Question Change Events; and correction evidence.                                                                                                                                                                                                                                                                                     |
-| 2925-2926, 2928-2931                   | Jobs, retention schema foundation, objects, and authorization closure                        | Typed Jobs and leases, Course Retention Plan Revisions and Events, Object Deliveries, Object Storage Checks, Object Cleanup Manifests and Receipts, Authorization Checks, forced RLS policies, and final ACL closure. No retention-execution Service is implemented.                                                                                                                                                                                                                                                                                 |
-| 2932-2936                              | Baseline witness and current root extensions                                                 | Baseline Acceptance Witness, Credential Authentication Completion (present in the baseline; its application Server Route does not exist), Sysadmin Create Instructor Account, Blueprint publication/collaboration/availability events, and identity-free Question Revision Statistics.                                                                                                                                                                                                                                                               |
-| 2937-2940                              | Released Assignment snapshots and Object Record/source-object authority                      | Independent Question Pool Reuse and Variation Rules, immutable released Assignment Entries and Question Pool Items, authenticated Assignment Attempt start, and immutable Object Records that directly bind Question Source Object References and Source Object Checksums in the fresh baseline.                                                                                                                                                                                                                                                     |
-| 2942                                   | Bind Question Source                                                                         | The session-authorized operation binds an existing immutable source object to one Draft Question at its exact Edit Number; matching facts preserve that Binding.                                                                                                                                                                                                                                                                                                                                                                                     |
-| 2943                                   | Question credit and stewardship                                                              | Immutable Question Revision acceptance, authorship, license, citation, and stewardship facts.                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| 2944                                   | Question Source Binding publication boundary                                                 | The publication-event completeness predicate requires a Question Revision-owned Source Binding.                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| 2945                                   | Question fork source                                                                         | Immutable source-lineage relationships for Draft Questions and separately published Question lineages.                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| 2026090101                             | Latest Question Revision summary                                                             | The answer-free Question Summary projection derives one Latest Question Revision from immutable acceptance evidence; availability remains separate.                                                                                                                                                                                                                                                                                                                                                                                                  |
-| 2026090102                             | iMathAS Question Backend Session                                                             | Durable iMathAS Question Backend Session, render-cache, launch, challenge, result, grading, lease, and authorization records.                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| 2026090301                             | Draft and Published Question Metadata ownership                                              | Separate Draft Question Metadata and Published Question Metadata tables and their exact reader ownership.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| 2026090302                             | New-lineage Question Publication persistence                                                 | Trusted server-only transaction creates one complete immutable first Question Revision aggregate from an exact current Draft Question and verified bytes-first target Object Record.                                                                                                                                                                                                                                                                                                                                                                 |
-| 2026090303                             | Draft Question publication source resolution                                                 | Session-authorized server-only read resolves the exact current Draft Question Source Object Record for verified immutable publication copying.                                                                                                                                                                                                                                                                                                                                                                                                       |
-| 2026090304                             | Question Publication Validation evidence                                                     | Question Change Proposal Revision stores its exact calculated `question_publication_validation`; the bare predecessor column and constraint names are absent from the current schema.                                                                                                                                                                                                                                                                                                                                                                |
-| 2026090401                             | Instructor Account creation audit evidence                                                   | `ple_audit.instructor_account_creation_event` records the created Instructor Account, acting Sysadmin Account, role qualification, and database-authoritative occurrence time; forced RLS, a narrow writer, and immutable-event protection prevent runtime rewriting.                                                                                                                                                                                                                                                                                |
-| 2026090601                             | Live Demo Instructor Question Library                                                        | Session-authorized procedures resolve bounded answer-free Published Question browse, current lookup, and detail reader data.                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| 2026090602                             | Live Demo Authoring Workspace operations                                                     | Session-authorized procedures resolve or create one active Instructor-owned Authoring Workspace, list/load/create/save private Draft Questions at exact Edit Numbers, and bind only typed private Workspace Question Source Object Records.                                                                                                                                                                                                                                                                                                          |
-| 2026090603                             | Live Demo Blueprint Course lifecycle                                                         | Session-authorized procedures create, list, load, and publish successor immutable Blueprint Revisions. They preserve exact Question Revision References and checksum-verified content, restrict updates to the Blueprint Course Owner, and provide only closed Active Instructor read access; no Course Instance is created.                                                                                                                                                                                                                         |
-| 2026090604                             | Live Demo Course Instance creation                                                           | Session-authorized procedures create a Course Instance from one exact Available published Blueprint Revision, required bounded `course_short_name` and `course_long_name`, and Course Term, retaining an immutable Course Origin, Course Schedule Revision 1, initial Instructor Course Membership/event, and immutable creation audit evidence. They expose the initial Teaching Team only to an active Instructor member and create no Student Record or Assignment.                                                                                 |
-| 2026090605                             | Live Demo Course Roster lifecycle                                                            | Session-authorized procedures atomically resolve or create Student Accounts from immutable Student Authentication Emails and create pending Course Invitations plus course-scoped roster profiles. Target claim creates or reuses the exact Student Record and active Student Course Membership; revocation records ended or revoked access without deleting educational records.                                                                                                                                                                    |
-| 2026090606                             | Live Demo Assignment Workspace and release                                                   | Direct-Instructor procedures create and save Course-owned Unreleased Assignments at exact Assignment Edit Numbers, select ordered Available Published Questions, calculate release validation, and atomically create immutable Assignment Revision snapshots. The private selection is not Student work; the answer-free Assignment Preview carries no Student identity, response, answer, feedback, or delivery state.                                                                                                                              |
-| 2026090607                             | Live Demo Student Assignment Access and start skeleton                                       | Student-only procedures require the active Student Record for the Course, calculate start/refusal from the released Assignment Revision at authoritative time, and atomically create or resume an Assignment Attempt. The narrow forced-RLS addition grants only the needed released-snapshot access and no private source, answer, response, grading, submission, or mutable-selection access.                                                                                                                                                      |
-| 2026090608                             | Live Demo native PLE QuestionPresentation issuance                                           | Private persistence adds one immutable QuestionPresentation binding per Question Attempt. The binding retains only nonce and full descriptor checksum; exact source pin/S3 object resolution and reproduction details remain private Question Attempt/source-binding facts.                                                                                                                                                                                                                                                                          |
-| 2026090609-2026090613                  | Invitation export, Instructor Accounts, WeBWorK presentation, and Question Asset publication | Session-authorized invitation export and Instructor Account lifecycle procedures; native WeBWorK QuestionPresentation bindings; and the private-to-public Question Asset publication and authorized delivery boundaries used by real Student presentations.                                                                                                                                                                                                                                                                                          |
-| 2026090614-2026090617                  | Student submission, support, and grading recovery                                            | Native PLE submission persistence, exact-Course scoped support capability, recoverable native grading, and WeBWorK grading keep accepted Student responses and terminal Grading Results in their ordinary protected records.                                                                                                                                                                                                                                                                                                                         |
-| 2026090618-2026090620                  | Initial Gradebook and Student progress projections                                           | Answer-free Instructor Gradebook, Student Course and Assignment landing, and nonce-bound submission status derive initial display state from real Student work.                                                                                                                                                                                                                                                                                                                                                                                      |
-| 2026090701                             | Instructor Course Assignment list                                                            | `ple_api.list_course_assignments` requires the current direct Instructor Course Membership and projects only public Assignment Reference, title, lifecycle status, and Edit Number for the exact Course Instance.                                                                                                                                                                                                                                                                                                                                    |
-| 2026090702, 2026090801-2026090802      | Accumulated Instructor and Student progress                                                  | Gradebook progress, Student-visible Assignment progress, and persisted Assignment Attempt completion distinguish completed, in-progress, and not-started work from ordinary stored facts.                                                                                                                                                                                                                                                                                                                                                            |
-| 2026090901                             | Assignment Attempt completion authority                                                      | The private-owner completion trigger applies the released completion rule after any authorized Grading Result insert without granting API or worker roles direct update access to Assignment Attempt completion.                                                                                                                                                                                                                                                                                                                                     |
-| 2026090902                             | Course Theme current setting                                                                 | `ple_data.course_instance.course_theme` is a scalar with a database-owned `grass` default. The Rust `CourseTheme` contract is the one closed vocabulary; session-authorized functions read the scalar only for an active Course Member and replace it only for an active Instructor Course Member. No appearance revision or history is stored.                                                                                                                                                                                                      |
-| 2026090903                             | Course Banner source, renditions, and repair work                                            | A Course Instance points only to a complete current Course Banner. Each hidden or current Banner retains one private source plus exact `hero` and `card` private WebP delivery renditions. Account-and-Course-bound uploads, source subjects, pending object deliveries, and durable put/delete work are persisted before their external object operation; only all completed prepared puts can make both deliveries available and advance the pointer. Retired objects remain cleanup work until a confirmed deletion or a repair-required outcome. |
-| 2026090904                             | Course Summary and C-reference navigation read                                               | Session-authorized functions resolve one active Course Member's browser-safe Course Summary with required `short_name` and `long_name`, plus its opaque C-reference navigation target. They are direct-route prerequisites for Course surfaces and do not duplicate Course Appearance storage or authorization.                                                                                                                                                                                                                                  |
-| 2026091001                             | Account-owned exact IANA time-zone preferences                                               | Private mutable Account preferences have SQL-enforced exact IANA names, forced RLS, authenticated-self read access, an Instructor creation default, and Student default-once behavior from the already-authorized roster-importing Instructor. Persisted deadlines remain instants. |
-| 2026091002                             | Instructor Course-summary Theme projection                                                  | Instructor-authorized Course summaries add the existing closed Course Theme value without granting route scope. |
-| 2026091003                             | Assignment Workspace schedule context                                                       | The authenticated Instructor's Account time zone and current Course term are read together for wall-clock Assignment input. |
-| 2026091008                             | Assignment policy defaults                                                                  | Direct Assignment Workspace policy values and their released snapshot defaults are persisted at the Assignment boundary. |
-| 2026091010                             | Student Assignment Attempt navigation                                                       | Public `R-n` Attempt references and caller-bound, answer-free progress and selected-position reads project fixed issued work without mutable current-position state. |
-| 2026091011                             | Student working responses and final Attempt submission                                      | Forced-RLS private saved responses retain canonical server-side Student input while an owned Attempt is active. One final owned Attempt submission atomically copies every saved response into immutable per-Question submission and grading work. |
-| 2026091012                             | Student Assignment Attempt route context                                                    | A caller-bound public-reference projection supplies active or submitted Attempt chrome: Course and Assignment display values, Attempt number, and a server-evaluated remaining-duration snapshot. |
-| 2026091013                             | Course time-zone retirement                                                                 | Course Schedule Revisions retain inclusive ordered term dates while Account preferences are the sole IANA wall-clock authority. The forward migration removes the Course column and recreates affected authorized Course readers without a zone field. |
-| 2026091014                             | Instructor self-profile preference API                                                     | Authenticated active Instructors read and replace only their own exact IANA Account preference through narrowly granted session-derived functions. |
-| 2026091015                             | Instructor profile thumbnail                                                               | A self-only current-thumbnail pointer, exact available-object delivery owner, and durable external put work retain one normalized private WebP thumbnail per active Instructor. |
-| 2026091016                             | Reject-rule response-save deadline                                                        | An owned Student response mutation stops after its pinned reject-rule Assignment due instant while finalization may preserve work already saved on time. |
-| 2026091017                             | Assignment disclosure controls                                                            | Seven independent Assignment disclosure timings persist on current authored state and immutable released snapshots; future answer-bearing feedback defaults to Never while existing explicit settings remain intact. |
-| 2026091018                             | Blueprint content encoding v3                                                            | Immutable v2 Blueprint revisions retain their original JSON and checksum; new Blueprint revisions use v3, which explicitly binds submitted-response disclosure timing. |
-| 2026091019                             | Required Assignment release time limit                                                    | Assignment drafts may omit a duration, but the trusted release validator requires an Instructor-saved positive whole-Attempt duration before it creates an immutable Assignment Revision. |
-| 2026091020                             | New Assignment Question-order default                                                     | New direct Assignments persist one-Question delivery and shuffled Question order; existing authored Assignments, released revisions, and issued Questions remain unchanged. |
-| 2026091021                             | Durable issued Question order                                                             | Initial issuance applies the released Assignment Question-order rule to its complete prepared set and retains the sequence in existing Issued Question positions; source reconstruction uses the released Entry, Question, and revision identity. |
-| 2026091022                             | Idempotent unchanged Assignment save                                                      | An exact current Assignment Workspace retry returns its existing response and Edit Number without mutating Assignment data or selections; an authored change retains the established one-step Edit Number advance. |
-| 2026091023                             | Inline Assignment retime                                                                  | Direct Instructor inline title/due saves update current Unreleased or Released Assignment state under its Edit Number. New Assignment Attempts capture immutable started title and due facts; a captured null due value remains a real no-deadline value, while legacy Attempts use their exact released revision. |
-| 2026091024                             | Native retimed Assignment delivery                                                        | Native PLE and delegated WeBWorK start/resume paths use the active Attempt's captured title and due facts while retaining exact released policy, content, issued Question, and presentation evidence. |
-| 2026091025                             | Student Assignment access history                                                          | The access reader adds Assignment access facts for question count, points possible, and time limit, plus a completed-Attempts history with an independently disclosed current-score receipt. Its private-owner definer uses a Boolean-only receipt capability; `ple_app` stays procedure-only. |
-| 2026091026                             | Student completed Attempt history                                                          | A private-owner definer returns strict current Course `{reference,shortName,longName,theme}`, Assignment identity, completed Attempt number/state, and selected Question position/state for the exact owned submitted or closed Attempt with active membership. |
-| 2026091027                             | Completed-response source reproduction                                                     | A private-owner definer resolves only authorized pinned native PLE recorded-response source and existing completed asset delivery facts. It returns `question_attempt_id`, `source_object_id`, and `question_seed` as text for the shared source mapper, supports disclosure-safe reproduction without regrading, and omits affected content when source or asset facts are unavailable. |
-| 2026091028                             | Assignments Due Soon read                                                                  | A no-argument, security-definer `ple_api.list_assignments_due_soon()` uses the existing current active-Instructor predicate per Course and returns only Course reference and long name, Assignment reference and title, Assignment status, and integer due-at milliseconds. It filters non-null due instants to the implementation-selected seven-day statement-time window, permits only `unreleased` and `released` status, and orders by due instant, Course reference, and Assignment reference. |
-| 2026091029                             | Student landing score disclosure                                                          | The active Student Course landing binds its optional score pair to the latest Attempt's pinned Assignment Revision. Its private-owner procedure evaluates `feedback_score` at server time, including captured Attempt due facts, and omits both score values unless the release rule permits them. |
+The administration coordinator holds one advisory lock. `initialize` checks
+only whether `ple_api.ple_schema_state` exists, installs the base when it does
+not, validates the expected release identity, and verifies the projection. The
+`pre-production` identity makes that path base-only: `migrate` rejects and
+forward SQLx execution is guarded below the command boundary. A frozen identity
+uses the existing apply-and-verify path for recognized forward migrations. SQLx
+owns dirty-ledger, changed-checksum, and unknown-version rejection. The base
+manifest also rejects an unrelated user schema or persistent `public` relation
+before creating PLE schemas, so initialization remains a clean dedicated
+database operation rather than a repair mechanism.
 
-## Ownership boundaries
+## Schemas, roles, and database seams
 
-- `ple_private` contains Account credentials, sessions, invitations, draft-authoring facts,
-  Student work, operational state, and private grading or provider records.
-- `ple_data` contains shared Question, Blueprint Course, Course Instance, Membership,
-  Student Record, Assignment, delivery, correction, and aggregate analysis facts.
-- `ple_audit` contains immutable visible security, Account-creation, grading, retention,
-  correction, and object-storage evidence.
-- The browser never connects to PostgreSQL. Server code resolves an Authenticated Session,
-  authorizes exact Account and durable-resource relationships, and invokes narrow Store or
-  protected authorization functions.
+The base creates four application schemas with separate no-login owners:
 
-The required target uses parallel `ple_private.draft_question_metadata` and
-`ple_data.published_question_metadata` tables for corresponding bounded discovery fields, with
-shared field validation and separate owner keys, mutability, RLS, indexes, and retention. It
-separates Draft Question rows, editable metadata, and Draft Question Source Bindings from
-Question Revision Source Bindings and Published Question metadata. Publication copies the
-validated draft metadata values into the stable Published Question-owned table and writes
-a new immutable Question Revision-owned source object and its own Source Object Reference and Source
-Object Checksum. Published tables contain no Draft Question foreign key or draft object path, so
-expiration of sandbox drafts adds no joins, tombstones, or retained draft metadata to Question
-Library reads. Question Title, Question Description, and other metadata explicitly owned by the
-stable Published Question remain mutable without changing immutable Question Revision source.
-M1 removes the former inline Draft Question Title and Question Revision discovery-metadata shapes.
-The fresh private-authoring baseline directly creates two qualified Source Binding relationships;
-M1 adds the parallel metadata tables and their exact reader ownership. P1 adds the new-lineage
-publication Store and database transaction after trusted bytes-first storage. P2 adds the
-session-authorized exact draft-source resolver used by the server-only immutable object-copy
-coordinator. Same-lineage publication, cleanup, Question Search, Server Routes, and Browser
-Surfaces remain parent QSOM1 work.
+| Schema | Responsibility |
+| --- | --- |
+| `ple_data` | Shared product records, stable lineages, current teaching configuration, and durable public facts. |
+| `ple_private` | Account-private state and Student Work, including attempts, saved responses, and presentation bindings. |
+| `ple_audit` | Append-only, deliberately limited audit evidence. |
+| `ple_api` | Narrow, authenticated database operations and application-safe readers. |
 
-## Current relational chains
+`ple_migration` is separate and contains only the SQLx ledger. The platform
+bootstrap creates the complete PLE role graph. The base validates that graph,
+then creates schemas, objects, and explicit grants. Runtime login roles receive
+only their intended capabilities; they are not schema owners and do not receive
+general DDL authority.
 
-```text
-Account
-  -> Authenticated Session
-  -> Course Membership -> Student Record
-  -> Course Instance -> Assignment -> Assignment Revision
-  -> Assignment Attempt -> Issued Question -> Question Attempt -> Question Submission
+Tables are closed to `PUBLIC`, use explicit grants, and use forced row-level
+security where access must be scoped. Database functions establish the
+operation seams for authenticated work. Privileged functions use fixed search
+paths and narrow grants rather than relying on callers to assemble a safe
+transaction. `ple_api.ple_schema_state` is the application-readable,
+read-only projection of the current base release identity and SQLx forward
+ledger. Its identity is `pre-production` today; the first human-approved
+production cutover installs the matching immutable production-baseline
+identifier described above.
 
-Blueprint Course -> (Blueprint Course Reference, Blueprint Revision Number)
-  -> Blueprint Revision -> Course Instance -> Course Origin
-Published Question -> Question Revision -> Question Revision Availability Event
-Authoring Workspace -> Draft Question
-```
+## Questions and Blueprints
 
-An immutable Assignment Revision carries the exact resolved delivery schedule,
-Assignment Attempt Time Limit, Attempt Limit, Late Work Rule, Assignment
-Deadline Rule, and all eight independent Assignment Activity Rules. Its
-completion threshold and continuation cap exist only for the rule variants
-that require them. Release creates that immutable delivery evidence. Current
-Assignment authoring uses its Edit Number; the implemented M11 title and due
-edit updates current state without a new Assignment Revision. A new Attempt
-captures its started title and due instant while retaining pinned release,
-issued-Question, presentation, and grading evidence. A captured null due value
-is a real no-deadline value; a legacy Attempt uses its exact released Revision
-fallback.
+A Published Question has a stable lineage in `ple_data.published_question`.
+Its canonical identifier is the compact seven-character Crockford Base32 value;
+the hyphenated `AAA-BBBB` form is presentation only. A Question Revision is an
+immutable `(question_id, revision_number)` identity. Publication, stewardship,
+source bindings, authorship, licensing, citations, assets, and the lineage's
+availability events retain the facts that make an exact Revision interpretable.
 
-Question Folders organize Question Library lineages for an Account; they do
-not grant visibility or Course authority. Course Invitations are target-bound
-Course Membership operations. An Instructor Course Invitation is the
-Instructor-only Teaching Team operation; pending account acceptance remains a
-generic Course Invitation boundary.
+Availability is current state on the stable Question lineage, qualified by an
+Availability Edit Number and append-only transition events. Archiving excludes
+the lineage from ordinary discovery and new selection while preserving
+authorized resolution of exact existing Revision references. A new Revision
+does not reset lineage availability.
 
-## Object, grading, and retention boundaries
+A Blueprint Course follows the same stable-lineage pattern. Creation produces
+one owner-private mutable Blueprint Draft with an Edit Number, rather than an
+implicit published Revision. Draft pins and authored modules are current
+working state. Explicit publication copies the complete Draft into an immutable
+Blueprint Revision and records the publication event. A deliberate publication
+is a new Revision; a replay of the accepted request resolves its existing
+receipt. Blueprint availability is lineage state, so archive and restore do not
+break an exact Blueprint Revision reference.
 
-An Object Delivery authorizes retrieval of one exact Object Reference. An Object
-Storage Check records a completed verified, missing, or mismatched observation.
-Object Cleanup requires a separate manifest, Job, and immutable receipt.
-An immutable Object Record is the database-authoritative existence record for
-one typed Object Address, Object Storage Area, Object Data Class, checksum,
-size, media type, and creation time. The session-authorized Workspace Question
-Bind Question Source capability accepts only the exact workspace-owned address
-after object bytes are written. Every Question Source has one required Source
-Object Reference and Source Object Checksum, with no inline source-data
-alternative; the reference names that exact record and verifies its owner
-address and checksum before use.
-The Draft Question Source Binding Store has no binding identity to mint. It resolves the
-current session, verifies that the Draft Question belongs to the requested Authoring Workspace,
-locks its exact positive Edit Number, validates the Question Backend/Question Format pairing, and
-binds that exact pre-registered object. An identical retry is a no-op; changed facts, a stale Edit
-Number, or an unauthorized workspace are refused.
-Object Data Class derives from the exact Object Address and owning relationship.
-Reuse rights resolve through the owning Question Revision's Question License, or
-through an exact Question Source or Question Asset License when it differs.
+`BlueprintAssignmentSource` records provenance with one stable Blueprint
+Assignment reference and one exact Blueprint Revision reference. It is
+provenance, not a third Revision family.
 
-Accepted Student responses, automated grading, and Gradebook calculations
-each retain their own immutable receipts or events. The current Course
-Retention schema foundation records Plan Revisions, typed Jobs, retention
-Events, Object Cleanup Manifests, and Object Cleanup Receipts; it does not
-execute a retention lifecycle. No aggregate read result replaces the exact
-record that proves it.
+## Courses and Assignments
 
-Each private Question Attempt stores its issued Question, unsigned Question
-Seed, generated-parameter SHA-256, issued/deadline times, closed Question
-Attempt State, and Question Attempt Reproduction Details. While an Assignment
-Attempt is active, a private saved response holds its current canonical
-server-side input. Final Assignment Attempt submission copies every saved
-response into immutable per-Question Submission and grading work; a closed
-Attempt never invents a response.
+A Course Instance holds its current Course Term dates and course identity
+directly, with origin, membership, roster, and course-operation records around
+it.
 
-## Verification
+An Assignment is one current aggregate with a qualified Assignment Edit Number
+and lifecycle status. Its normalized Assignment Entries and Question Pool Items
+are current teaching configuration. Every fixed entry and pool item pins an
+exact Question Revision, so publishing a newer Question Revision never moves an
+Assignment silently. A guarded save changes the aggregate and its normalized
+children as one accepted current state. Release is a lifecycle transition;
+accepted released edits affect later Attempts after release validation
+succeeds.
 
-The disposable schema acceptance lane is the authoritative connected check for
-migration order, ACL closure, RLS, and protected authorization-function behavior. Permanent tests prove
-stable value and transport contracts; they do not substitute for a database
-acceptance run. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the
-required evidence classes.
+Generic jobs and object cleanup remain technical facilities. Forced Question
+Correction retains the evidence required by its implemented workflow.
+
+## Student Work as retained evidence
+
+`ple_private.assignment_attempt` is the Student Work root. At start it retains
+the effective title, instructions, availability, due and close instants,
+whole-Attempt time limit, attempt limit, completion, late-work, feedback,
+reuse, variation, ordering, and navigation rules. When an accommodation affects
+an effective value, the Attempt also retains its qualified accommodation source
+and Edit Number. Later current Assignment saves therefore cannot reinterpret
+existing work; a later Attempt receives the current accepted configuration.
+
+`issued_question` retains the Assignment Entry identity and issue position, the
+exact Question Revision, a Question Seed, point value, scoring rule, statistics
+eligibility, per-question limits, and pool-selection provenance. Pool selection
+records are owned by the Attempt and retain their selected exact Revision
+identities. Question Attempts, saved responses, submissions, grading,
+presentation, history, correction targets, and statistics observations extend
+that root through relational ownership.
+
+Presentation bindings retain the exact reproducibility and delivery facts,
+including generated-parameter/replay details and selected ready asset rendition
+metadata. Their private normalized response-item bindings map each
+presentation-scoped four-hex reference to its durable authored response-item
+identity, so retained work remains interpretable without a mutable source
+lookup. Object Records name verified object facts such as address, checksum,
+size, media type, data class, and owner relationship. Question source and asset
+relationships refer to those exact records; Student Work retains the
+presentation binding it used rather than re-resolving mutable current assets.
+
+Whole-Attempt finalization atomically creates immutable Question Submissions
+and one typed grading Job with its pending grading row for each supported
+Question before it creates the Assignment Submission. That order gives workers
+one durable target per accepted Question while keeping the containing
+Assignment finalization coherent.
+
+## Unrelease
+
+Unrelease is a single database-owned Assignment operation. It locks the
+Assignment before checking current Teaching Team authority, released state,
+the expected Assignment Edit Number, and exact title confirmation. It reports
+aggregate impact counts, returns the Assignment to `unreleased`, advances the
+Edit Number, and deletes the Student Work closure rooted at that Assignment's
+Attempts in the same transaction.
+
+Root-oriented foreign-key cascades remove dependent issued questions, pool
+selections, question attempts, saved responses, presentation and replay
+bindings, submissions, grading records, backend exchanges, statistics
+observations, and correction-target links. Shared Question Revisions, assets,
+current Assignment configuration, Course records, and membership survive. The
+operation rebuilds affected Question Revision statistics from surviving
+observations and writes an immutable redacted audit event containing only the
+actor, Assignment, aggregate counts, outcome, and time. A dedicated no-login
+executor owns the deletion capability; ordinary Student Work roles cannot
+mutate or delete that evidence.
+
+## Structure and installation data
+
+The base manifest is DDL only. After structure and services are ready,
+`cargo tools installation-data provision` creates the complete ordinary Live
+Demo. It first runs the convergent Pilot publication and database-owned teaching
+graph through [schemas/installation_data/install.sql](../schemas/installation_data/install.sql),
+then uses the owning application paths for cross-system Student Work and grading
+effects. `cargo tools installation-data apply` is the narrower database-owned
+operation; it is not complete Live Demo provisioning.
+
+The Live Demo uses ordinary schema and product records. In production, the
+short-lived audited administration environment runs `provision` after the API,
+worker, publisher, object storage, and browser origin are ready. An installation
+owner can instead choose `cargo tools installation-data provision
+--without-live-demo` before data is created. OpenTofu creates the private RDS
+service but leaves this product-data step to the audited workflow; it receives
+neither database nor application secrets and creates no one-shot provisioning
+subsystem. Database-owned final state belongs in the data manifest. Effects
+that genuinely belong to object storage, publication, grading backends, or
+workers continue through their owning path.
+
+## Verification boundary
+
+The database administration path proves a fresh atomic install, compatible
+replay, SQLx forward state, and the restricted application projection. Connected
+PostgreSQL acceptance additionally exercises RLS, capability boundaries,
+current Assignment and retained Student Work behavior, archive/restore,
+Blueprint publication, and Unrelease. Fast tests protect stable value and
+transport contracts; they do not replace a connected database build. See
+[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the evidence categories.

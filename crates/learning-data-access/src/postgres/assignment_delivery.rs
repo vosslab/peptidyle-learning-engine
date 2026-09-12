@@ -3,10 +3,10 @@ use super::{Pool, connection::map_sqlx_error};
 use crate::assignment_delivery::ReadyQuestionAssetRendition;
 use crate::{
     IssuedQuestionPresentation, LiveAssignmentAccess, LiveAssignmentAttempt,
-    LiveAssignmentDeliveryStore, NativePleIssuanceSource, NativePlePresentationInput,
-    NativeWebworkIssuanceSource, NativeWebworkPresentationInput, SessionTokenHash, StoreError,
+    LiveAssignmentDeliveryStore, NativeAssignmentIssuanceBatch, NativePleIssuanceSource,
+    NativePresentationInput, NativeWebworkIssuanceSource, SessionTokenHash, StoreError,
     StudentAssignmentAttemptFinalization, StudentAssignmentAttemptHistoryEvidence,
-    StudentAssignmentAttemptHistoryResponseSource, StudentAssignmentAttemptPresentationSource,
+    StudentAssignmentAttemptHistoryResponseSource, StudentAssignmentAttemptPresentationEvidence,
     StudentAssignmentAttemptSavedResponse,
 };
 use async_trait::async_trait;
@@ -16,6 +16,11 @@ use question_model::{
     StudentAssignmentAttemptResponseState, StudentResponse,
 };
 use sqlx::{Postgres, Row, Transaction};
+use uuid::Uuid;
+
+pub(super) use super::assignment_delivery_source::{
+    ready_question_asset_renditions, source_from_row,
+};
 /// PostgreSQL Store for the Student delivery boundary.
 #[derive(Clone)]
 pub struct PostgresLiveAssignmentDeliveryStore {
@@ -53,16 +58,6 @@ impl PostgresLiveAssignmentDeliveryStore {
         Ok(tx)
     }
 
-    async fn active_attempt_reference(
-        tx: &mut Transaction<'_, Postgres>,
-        course: CourseInstanceReference,
-        assignment: AssignmentReference,
-    ) -> Result<AssignmentAttemptReference, StoreError> {
-        Self::optional_active_attempt_reference(tx, course, assignment)
-            .await?
-            .ok_or(StoreError::NotFound)
-    }
-
     pub(super) async fn optional_active_attempt_reference(
         tx: &mut Transaction<'_, Postgres>,
         course: CourseInstanceReference,
@@ -92,6 +87,204 @@ impl PostgresLiveAssignmentDeliveryStore {
                 StoreError::InvalidRecord("Assignment Attempt reference is invalid".to_string())
             })
     }
+
+    async fn start_current_assignment_attempt(
+        &self,
+        token: SessionTokenHash,
+        course: CourseInstanceReference,
+        assignment: AssignmentReference,
+    ) -> Result<crate::AssignmentAttemptStartResult, StoreError> {
+        super::assignment_delivery_start::start_current_assignment_attempt(
+            self, token, course, assignment,
+        )
+        .await
+    }
+}
+
+async fn read_committed_assignment_attempt(
+    tx: &mut Transaction<'_, Postgres>,
+    assignment_attempt_id: Uuid,
+) -> Result<LiveAssignmentAttempt, StoreError> {
+    let header = sqlx::query(
+        "SELECT assignment_attempt_reference_number, course_reference_number, assignment_reference_number, \
+         attempt_number, assignment_title, assignment_instructions \
+         FROM ple_api.read_started_student_assignment_attempt($1)",
+    )
+    .bind(assignment_attempt_id)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(map_sqlx_error)?;
+    let rows = sqlx::query(
+        "SELECT assignment_entry_id::text, issued_position, question_id, revision_number, question_seed::text, \
+         presentation_nonce, presentation_checksum \
+         FROM ple_api.read_student_assignment_attempt_presentation_evidence_set($1)",
+    )
+    .bind(assignment_attempt_id)
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(map_sqlx_error)?;
+    let assignment_attempt = AssignmentAttemptReference::new(
+        u64::try_from(
+            header
+                .try_get::<i64, _>("assignment_attempt_reference_number")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| {
+            StoreError::InvalidRecord("Assignment Attempt reference is invalid".to_string())
+        })?,
+    )
+    .ok_or_else(|| {
+        StoreError::InvalidRecord("Assignment Attempt reference is invalid".to_string())
+    })?;
+    let assignment = AssignmentReference::new(
+        u64::try_from(
+            header
+                .try_get::<i64, _>("assignment_reference_number")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| StoreError::InvalidRecord("Assignment reference is invalid".to_string()))?,
+    )
+    .ok_or_else(|| StoreError::InvalidRecord("Assignment reference is invalid".to_string()))?;
+    let questions = rows
+        .iter()
+        .map(|row| {
+            Ok(IssuedQuestionPresentation {
+                assignment_entry_id: row.try_get("assignment_entry_id").map_err(map_sqlx_error)?,
+                question_id: row
+                    .try_get::<String, _>("question_id")
+                    .map_err(map_sqlx_error)?
+                    .parse()
+                    .map_err(|_| {
+                        StoreError::InvalidRecord("Issued Question ID is invalid".to_string())
+                    })?,
+                description: String::new(),
+                position: positive_i32(row, "issued_position", "Issued Question position")?,
+                revision_number: positive_i32(row, "revision_number", "Question Revision")?,
+                question_seed: row
+                    .try_get::<String, _>("question_seed")
+                    .map_err(map_sqlx_error)?
+                    .parse()
+                    .map_err(|_| {
+                        StoreError::InvalidRecord("Question seed is invalid".to_string())
+                    })?,
+                presentation_nonce: row.try_get("presentation_nonce").map_err(map_sqlx_error)?,
+                presentation_checksum: row
+                    .try_get("presentation_checksum")
+                    .map_err(map_sqlx_error)?,
+            })
+        })
+        .collect::<Result<Vec<_>, StoreError>>()?;
+    Ok(LiveAssignmentAttempt {
+        assignment_attempt,
+        assignment,
+        attempt_number: positive_i32(&header, "attempt_number", "Assignment Attempt number")?,
+        title: header.try_get("assignment_title").map_err(map_sqlx_error)?,
+        instructions: header
+            .try_get("assignment_instructions")
+            .map_err(map_sqlx_error)?,
+        questions,
+    })
+}
+
+fn presentation_payloads<'a>(
+    values: impl Iterator<
+        Item = (
+            &'a String,
+            &'a String,
+            &'a serde_json::Value,
+            &'a serde_json::Value,
+            &'a String,
+            &'a String,
+            &'a [ReadyQuestionAssetRendition],
+            Option<&'a serde_json::Value>,
+            &'a [question_model::presentation::DurableResponseItemBinding],
+        ),
+    >,
+) -> Result<serde_json::Value, StoreError> {
+    values.map(|(issued_question_id, parameter_hash, details, presentation, nonce, checksum, assets, replay, response_item_bindings)| {
+        let details: question_model::QuestionAttemptReproductionDetails = serde_json::from_value(details.clone())
+            .map_err(|_| StoreError::InvalidRecord("Question reproduction details are invalid".to_string()))?;
+        let mut payload = serde_json::json!({
+            "question_attempt_id": crate::random_uuid::random_uuid_v4(|error| StoreError::Unavailable(format!("Question Attempt ID randomness unavailable: {error}")))?,
+            "issued_question_id": issued_question_id,
+            "generated_parameter_sha256": parameter_hash,
+            "backend_version": details.backend.version,
+            "renderer_name": details.renderer_version.as_ref().map(|renderer| renderer.name.as_str()),
+            "renderer_version": details.renderer_version.as_ref().map(|renderer| renderer.version.as_str()),
+            "grader_name": details.grader.name,
+            "grader_version": details.grader.version,
+            "rendered_question_sha256": details.rendered_question_sha256,
+            "issued_capability": if replay.is_some() { "webwork_presentation" } else { "ple_question_json_presentation" },
+            "presentation_nonce": nonce,
+            "presentation_checksum": checksum,
+            "presentation": presentation,
+            "response_item_bindings": response_item_bindings.iter().map(|binding| serde_json::json!({
+                "presentation_response_item_reference": binding.presentation_response_item_reference.as_str(),
+                "response_item_reference": binding.response_item_reference.as_str(),
+            })).collect::<Vec<_>>(),
+            "question_assets": assets.iter().map(|asset| serde_json::json!({
+                "asset_id": asset.question_asset.as_uuid(),
+                "question_asset_checksum": asset.question_asset_checksum,
+                "rendition_checksum": asset.rendition_checksum,
+                "intrinsic_width": asset.intrinsic_width,
+                "intrinsic_height": asset.intrinsic_height,
+            })).collect::<Vec<_>>(),
+        });
+        if let Some(replay) = replay {
+            payload["webwork_replay"] = replay.clone();
+        }
+        Ok(payload)
+    }).collect::<Result<Vec<_>, StoreError>>().map(serde_json::Value::Array)
+}
+
+async fn current_ready_question_asset_renditions(
+    tx: &mut Transaction<'_, Postgres>,
+    question_id: &str,
+    revision_number: u32,
+) -> Result<Vec<ReadyQuestionAssetRendition>, StoreError> {
+    let rows = sqlx::query(
+        "SELECT asset_id::text, question_asset_checksum, rendition_checksum, intrinsic_width, intrinsic_height \
+         FROM ple_api.select_ready_question_asset_renditions($1, $2)",
+    )
+    .bind(question_id)
+    .bind(i32::try_from(revision_number).map_err(|_| {
+        StoreError::InvalidRecord("Question Revision number is invalid".to_string())
+    })?)
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(map_sqlx_error)?;
+    rows.into_iter()
+        .map(|row| {
+            let asset_id = row
+                .try_get::<String, _>("asset_id")
+                .map_err(map_sqlx_error)?;
+            Ok(ReadyQuestionAssetRendition {
+                question_asset: uuid::Uuid::parse_str(&asset_id)
+                    .map(question_model::QuestionAssetId::from_uuid)
+                    .map_err(|_| {
+                        StoreError::InvalidRecord("Question Asset ID is invalid".to_string())
+                    })?,
+                question_asset_checksum: row
+                    .try_get("question_asset_checksum")
+                    .map_err(map_sqlx_error)?,
+                rendition_checksum: row.try_get("rendition_checksum").map_err(map_sqlx_error)?,
+                intrinsic_width: u32::try_from(
+                    row.try_get::<i32, _>("intrinsic_width")
+                        .map_err(map_sqlx_error)?,
+                )
+                .map_err(|_| {
+                    StoreError::InvalidRecord("Question Asset width is invalid".to_string())
+                })?,
+                intrinsic_height: u32::try_from(
+                    row.try_get::<i32, _>("intrinsic_height")
+                        .map_err(map_sqlx_error)?,
+                )
+                .map_err(|_| {
+                    StoreError::InvalidRecord("Question Asset height is invalid".to_string())
+                })?,
+            })
+        })
+        .collect()
 }
 
 #[async_trait]
@@ -287,22 +480,21 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
         })
     }
 
-    async fn student_assignment_attempt_presentation_source(
+    async fn student_assignment_attempt_presentation_evidence(
         &self,
         token: SessionTokenHash,
         assignment_attempt: AssignmentAttemptReference,
         position: u32,
-    ) -> Result<StudentAssignmentAttemptPresentationSource, StoreError> {
+    ) -> Result<StudentAssignmentAttemptPresentationEvidence, StoreError> {
         let position = i32::try_from(position).map_err(|_| StoreError::NotFound)?;
         if position < 1 {
             return Err(StoreError::NotFound);
         }
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
-            "SELECT backend, question_attempt_id::text, question_id, revision_number, source_object_id::text, source_object_address, \
-             source_object_checksum, webwork_pg_path, question_seed::text, presentation_nonce, presentation_checksum, \
-             question_asset_renditions \
-             FROM ple_api.read_student_assignment_attempt_position($1, $2)",
+            "SELECT question_id, revision_number, question_seed::text, presentation_nonce, presentation_checksum, presentation, \
+             question_asset_renditions, response_item_bindings \
+             FROM ple_api.read_student_assignment_attempt_presentation_evidence($1, $2)",
         )
         .bind(i64::from(assignment_attempt.number()))
         .bind(position)
@@ -310,220 +502,112 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
         .await
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::NotFound)?;
-        let source = source_from_row(&row)?;
+        let evidence = super::assignment_delivery_source::presentation_evidence_from_row(&row)?;
         tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(source)
+        Ok(evidence)
     }
-    async fn prepare_native_webwork_issuance(
+    async fn prepare_native_assignment_issuance(
         &self,
         token: SessionTokenHash,
         course: CourseInstanceReference,
         assignment: AssignmentReference,
-    ) -> Result<Vec<NativeWebworkIssuanceSource>, StoreError> {
+    ) -> Result<NativeAssignmentIssuanceBatch, StoreError> {
+        let started = self
+            .start_current_assignment_attempt(token, course, assignment)
+            .await?;
         let mut tx = self.begin(token).await?;
-        let rows = sqlx::query("SELECT assignment_entry_id::text, issued_position, question_id, revision_number, source_object_id::text, source_object_checksum, webwork_pg_path, resumed FROM ple_api.prepare_live_demo_native_webwork_issuance($1, $2)")
-            .bind(i64::from(course.number())).bind(i64::from(assignment.number()))
-            .fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
-        let values = rows
-            .into_iter()
-            .map(|row| {
-                Ok(NativeWebworkIssuanceSource {
-                    assignment_entry_id: row
-                        .try_get("assignment_entry_id")
-                        .map_err(map_sqlx_error)?,
-                    position: u32::try_from(
-                        row.try_get::<i32, _>("issued_position")
-                            .map_err(map_sqlx_error)?,
-                    )
-                    .map_err(|_| {
-                        StoreError::InvalidRecord("Issued Question position is invalid".to_string())
-                    })?,
-                    question_id: row
-                        .try_get::<String, _>("question_id")
-                        .map_err(map_sqlx_error)?
-                        .parse()
-                        .map_err(|_| {
-                            StoreError::InvalidRecord("Issued Question ID is invalid".to_string())
-                        })?,
-                    revision_number: u32::try_from(
-                        row.try_get::<i32, _>("revision_number")
-                            .map_err(map_sqlx_error)?,
-                    )
-                    .map_err(|_| {
-                        StoreError::InvalidRecord("Question Revision number is invalid".to_string())
-                    })?,
-                    source_object_id: row.try_get("source_object_id").map_err(map_sqlx_error)?,
-                    source_object_checksum: row
-                        .try_get("source_object_checksum")
-                        .map_err(map_sqlx_error)?,
-                    webwork_pg_path: row.try_get("webwork_pg_path").map_err(map_sqlx_error)?,
-                    resumed: row.try_get("resumed").map_err(map_sqlx_error)?,
-                })
-            })
-            .collect::<Result<Vec<_>, StoreError>>()?;
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(values)
-    }
-
-    async fn commit_native_webwork_issuance(
-        &self,
-        token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assignment: AssignmentReference,
-        presentations: Vec<NativeWebworkPresentationInput>,
-    ) -> Result<LiveAssignmentAttempt, StoreError> {
-        let payload = serde_json::to_value(presentations.iter().map(|value| serde_json::json!({
-            "issued_question_id": value.issued_question_id, "assignment_entry_id": value.assignment_entry_id,
-            "issued_position": value.position, "question_id": value.question_id.to_string(),
-            "revision_number": value.revision_number, "question_seed": value.question_seed.to_string(),
-            "parameter_hash": value.parameter_hash, "reproduction_details": value.reproduction_details,
-            "presentation_nonce": value.presentation_nonce, "presentation_checksum": value.presentation_checksum,
-            "question_assets": value.question_asset_renditions.iter().map(|asset| serde_json::json!({
-                "asset_id": asset.question_asset.as_uuid(),
-                "rendition_checksum": asset.rendition_checksum,
-            })).collect::<Vec<_>>(),
-            "replay_details": value.replay_details,
-        })).collect::<Vec<_>>()).map_err(|_| StoreError::InvalidRecord("Native WeBWorK issue is invalid".to_string()))?;
-        let mut tx = self.begin(token).await?;
-        let rows = sqlx::query("SELECT attempt_number, resumed, assignment_title, assignment_instructions, assignment_entry_id::text, question_id, revision_number, issued_position, question_seed::text, presentation_nonce, presentation_checksum FROM ple_api.start_live_demo_native_webwork_assignment($1, $2, $3)")
-            .bind(i64::from(course.number())).bind(i64::from(assignment.number())).bind(&payload)
-            .fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
-        // A successful, authorized native-issuance call must return every
-        // persisted Question Presentation. An empty result is therefore an
-        // internal availability failure, not an absent browser resource.
-        let first = rows.first().ok_or_else(|| {
-            StoreError::Unavailable(
-                "native assignment issuance returned no presentation rows".to_string(),
-            )
-        })?;
-        let resumed: bool = first.try_get("resumed").map_err(map_sqlx_error)?;
-        if !presentations.is_empty() && !resumed {
-            sqlx::query("SELECT ple_api.bind_live_demo_native_ple_presentation_assets($1, $2, $3)")
-                .bind(i64::from(course.number()))
-                .bind(i64::from(assignment.number()))
-                .bind(&payload)
-                .execute(&mut *tx)
-                .await
-                .map_err(map_sqlx_error)?;
+        let retained_rows = sqlx::query(
+            "SELECT assignment_entry_id::text, issued_position, question_id, revision_number, question_seed::text, presentation_nonce, presentation_checksum, presentation, question_asset_renditions, response_item_bindings \
+             FROM ple_api.read_student_assignment_attempt_presentation_evidence_set($1)",
+        )
+        .bind(started.assignment_attempt.as_uuid())
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?;
+        if !retained_rows.is_empty() {
+            let retained_presentations = retained_rows
+                .iter()
+                .map(super::assignment_delivery_source::presentation_evidence_from_row)
+                .collect::<Result<Vec<_>, _>>()?;
+            let committed_attempt =
+                read_committed_assignment_attempt(&mut tx, started.assignment_attempt.as_uuid())
+                    .await?;
+            tx.commit().await.map_err(map_sqlx_error)?;
+            return Ok(NativeAssignmentIssuanceBatch {
+                assignment_attempt_id: started.assignment_attempt.as_uuid(),
+                attempt_was_resumed: started.resumed,
+                presentation_is_committed: true,
+                committed_attempt: Some(committed_attempt),
+                retained_presentations,
+                ple_sources: Vec::new(),
+                webwork_sources: Vec::new(),
+            });
         }
-        let questions = rows
-            .iter()
-            .map(|row| {
-                Ok(IssuedQuestionPresentation {
-                    assignment_entry_id: row
-                        .try_get("assignment_entry_id")
-                        .map_err(map_sqlx_error)?,
-                    question_id: row
-                        .try_get::<String, _>("question_id")
-                        .map_err(map_sqlx_error)?
-                        .parse()
-                        .map_err(|_| {
-                            StoreError::InvalidRecord("Issued Question ID is invalid".to_string())
-                        })?,
-                    description: String::new(),
-                    position: u32::try_from(
-                        row.try_get::<i32, _>("issued_position")
-                            .map_err(map_sqlx_error)?,
-                    )
-                    .map_err(|_| {
-                        StoreError::InvalidRecord("Issued Question position is invalid".to_string())
-                    })?,
-                    revision_number: u32::try_from(
-                        row.try_get::<i32, _>("revision_number")
-                            .map_err(map_sqlx_error)?,
-                    )
-                    .map_err(|_| {
-                        StoreError::InvalidRecord("Question Revision is invalid".to_string())
-                    })?,
-                    question_seed: row
-                        .try_get::<String, _>("question_seed")
-                        .map_err(map_sqlx_error)?
-                        .parse()
-                        .map_err(|_| {
-                            StoreError::InvalidRecord("Question Seed is invalid".to_string())
-                        })?,
-                    presentation_nonce: row
-                        .try_get("presentation_nonce")
-                        .map_err(map_sqlx_error)?,
-                    presentation_checksum: row
-                        .try_get("presentation_checksum")
-                        .map_err(map_sqlx_error)?,
-                })
-            })
-            .collect::<Result<Vec<_>, StoreError>>()?;
-        let assignment_attempt =
-            Self::active_attempt_reference(&mut tx, course, assignment).await?;
-        let result = LiveAssignmentAttempt {
-            assignment_attempt,
-            assignment,
-            attempt_number: u32::try_from(
-                first
-                    .try_get::<i32, _>("attempt_number")
+        let rows = sqlx::query("SELECT issued_question_id, assignment_entry_id::text, issued_position, question_id, revision_number, backend, source_object_id::text, source_object_address, source_object_checksum, webwork_pg_path, question_seed::text, question_attempt_id, presentation_nonce, presentation_checksum, presentation, question_asset_renditions FROM ple_api.prepare_student_assignment_attempt_presentation($1)")
+            .bind(started.assignment_attempt.as_uuid())
+            .fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
+        let first = rows.first().ok_or_else(|| {
+            StoreError::InvalidRecord("Assignment Attempt has no native Questions".to_string())
+        })?;
+        let presentation_is_committed = presentation_is_resumed(
+            first
+                .try_get("question_attempt_id")
+                .map_err(map_sqlx_error)?,
+        );
+        let mut ple_sources = Vec::new();
+        let mut webwork_sources = Vec::new();
+        for row in rows {
+            if presentation_is_resumed(row.try_get("question_attempt_id").map_err(map_sqlx_error)?)
+                != presentation_is_committed
+            {
+                return Err(StoreError::InvalidRecord(
+                    "Assignment Attempt presentation state is incomplete".to_string(),
+                ));
+            }
+            let position = positive_i32(&row, "issued_position", "Issued Question position")?;
+            let question_id = row
+                .try_get::<String, _>("question_id")
+                .map_err(map_sqlx_error)?
+                .parse()
+                .map_err(|_| {
+                    StoreError::InvalidRecord("Issued Question ID is invalid".to_string())
+                })?;
+            let revision_number = u32::try_from(
+                row.try_get::<i32, _>("revision_number")
                     .map_err(map_sqlx_error)?,
             )
             .map_err(|_| {
-                StoreError::InvalidRecord("Assignment Attempt number is invalid".to_string())
-            })?,
-            resumed: first.try_get("resumed").map_err(map_sqlx_error)?,
-            title: first.try_get("assignment_title").map_err(map_sqlx_error)?,
-            instructions: first
-                .try_get("assignment_instructions")
-                .map_err(map_sqlx_error)?,
-            questions,
-        };
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(result)
-    }
-    async fn prepare_native_ple_issuance(
-        &self,
-        token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assignment: AssignmentReference,
-    ) -> Result<Vec<NativePleIssuanceSource>, StoreError> {
-        let mut tx = self.begin(token).await?;
-        let rows = sqlx::query("SELECT assignment_entry_id::text, issued_position, question_id, revision_number, source_object_id::text, source_object_address, source_object_checksum, resumed, question_seed::text, presentation_nonce, presentation_checksum FROM ple_api.prepare_live_demo_native_ple_issuance($1, $2)")
-            .bind(i64::from(course.number()))
-            .bind(i64::from(assignment.number()))
-            .fetch_all(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        let mut values = rows
-            .into_iter()
-            .map(|row| {
-                let position = u32::try_from(
-                    row.try_get::<i32, _>("issued_position")
-                        .map_err(map_sqlx_error)?,
-                )
-                .map_err(|_| {
-                    StoreError::InvalidRecord("Issued Question position is invalid".to_string())
-                })?;
-                Ok(NativePleIssuanceSource {
-                    assignment_entry_id: row
-                        .try_get("assignment_entry_id")
-                        .map_err(map_sqlx_error)?,
-                    position,
-                    question_id: row
-                        .try_get::<String, _>("question_id")
-                        .map_err(map_sqlx_error)?
-                        .parse()
-                        .map_err(|_| {
-                            StoreError::InvalidRecord("Issued Question ID is invalid".to_string())
-                        })?,
-                    revision_number: u32::try_from(
-                        row.try_get::<i32, _>("revision_number")
-                            .map_err(map_sqlx_error)?,
-                    )
-                    .map_err(|_| {
-                        StoreError::InvalidRecord("Question Revision number is invalid".to_string())
-                    })?,
-                    source_object_id: row.try_get("source_object_id").map_err(map_sqlx_error)?,
+                StoreError::InvalidRecord("Question Revision number is invalid".to_string())
+            })?;
+            let common = (
+                row.try_get("issued_question_id").map_err(map_sqlx_error)?,
+                row.try_get("assignment_entry_id").map_err(map_sqlx_error)?,
+                position,
+                question_id,
+                revision_number,
+                row.try_get("source_object_id").map_err(map_sqlx_error)?,
+                row.try_get("source_object_checksum")
+                    .map_err(map_sqlx_error)?,
+                ready_question_asset_renditions(&row)?,
+            );
+            let retained_presentation =
+                super::assignment_delivery_source::optional_presentation_evidence_from_row(&row)?;
+            match row
+                .try_get::<String, _>("backend")
+                .map_err(map_sqlx_error)?
+                .as_str()
+            {
+                "ple" => ple_sources.push(NativePleIssuanceSource {
+                    issued_question_id: Some(common.0),
+                    assignment_entry_id: common.1,
+                    position: common.2,
+                    question_id: common.3,
+                    revision_number: common.4,
+                    source_object_id: common.5,
                     source_object_address: row
                         .try_get("source_object_address")
                         .map_err(map_sqlx_error)?,
-                    source_object_checksum: row
-                        .try_get("source_object_checksum")
-                        .map_err(map_sqlx_error)?,
-                    resumed: row.try_get("resumed").map_err(map_sqlx_error)?,
+                    source_object_checksum: common.6,
                     question_seed: row
                         .try_get::<Option<String>, _>("question_seed")
                         .map_err(map_sqlx_error)?
@@ -539,130 +623,18 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
                     presentation_checksum: row
                         .try_get("presentation_checksum")
                         .map_err(map_sqlx_error)?,
-                    question_asset_renditions: Vec::new(),
-                })
-            })
-            .collect::<Result<Vec<_>, StoreError>>()?;
-        for source in &mut values {
-            let rows = sqlx::query("SELECT asset_id::text, question_asset_checksum, rendition_checksum, intrinsic_width, intrinsic_height FROM ple_api.select_live_demo_ready_question_asset_renditions($1, $2)")
-                .bind(source.question_id.to_string())
-                .bind(i32::try_from(source.revision_number).map_err(|_| StoreError::InvalidRecord("Question Revision number is invalid".to_string()))?)
-                .fetch_all(&mut *tx)
-                .await
-                .map_err(map_sqlx_error)?;
-            source.question_asset_renditions = rows
-                .into_iter()
-                .map(|row| {
-                    let asset_id = row
-                        .try_get::<String, _>("asset_id")
-                        .map_err(map_sqlx_error)?;
-                    Ok(ReadyQuestionAssetRendition {
-                        question_asset: uuid::Uuid::parse_str(&asset_id)
-                            .map(question_model::QuestionAssetId::from_uuid)
-                            .map_err(|_| {
-                                StoreError::InvalidRecord(
-                                    "Question Asset ID is invalid".to_string(),
-                                )
-                            })?,
-                        question_asset_checksum: row
-                            .try_get("question_asset_checksum")
-                            .map_err(map_sqlx_error)?,
-                        rendition_checksum: row
-                            .try_get("rendition_checksum")
-                            .map_err(map_sqlx_error)?,
-                        intrinsic_width: u32::try_from(
-                            row.try_get::<i32, _>("intrinsic_width")
-                                .map_err(map_sqlx_error)?,
-                        )
-                        .map_err(|_| {
-                            StoreError::InvalidRecord("Question Asset width is invalid".to_string())
-                        })?,
-                        intrinsic_height: u32::try_from(
-                            row.try_get::<i32, _>("intrinsic_height")
-                                .map_err(map_sqlx_error)?,
-                        )
-                        .map_err(|_| {
-                            StoreError::InvalidRecord(
-                                "Question Asset height is invalid".to_string(),
-                            )
-                        })?,
-                    })
-                })
-                .collect::<Result<Vec<_>, StoreError>>()?;
-        }
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(values)
-    }
-
-    async fn commit_native_ple_issuance(
-        &self,
-        token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assignment: AssignmentReference,
-        presentations: Vec<NativePlePresentationInput>,
-    ) -> Result<LiveAssignmentAttempt, StoreError> {
-        let payload = serde_json::to_value(presentations.iter().map(|value| serde_json::json!({
-            "issued_question_id": value.issued_question_id, "assignment_entry_id": value.assignment_entry_id,
-            "issued_position": value.position, "question_id": value.question_id.to_string(),
-            "revision_number": value.revision_number, "question_seed": value.question_seed.to_string(),
-            "parameter_hash": value.parameter_hash, "reproduction_details": value.reproduction_details,
-            "presentation_nonce": value.presentation_nonce, "presentation_checksum": value.presentation_checksum,
-            "question_assets": value.question_asset_renditions.iter().map(|asset| serde_json::json!({
-                "asset_id": asset.question_asset.as_uuid(),
-                "rendition_checksum": asset.rendition_checksum,
-            })).collect::<Vec<_>>(),
-        })).collect::<Vec<_>>()).map_err(|_| StoreError::InvalidRecord("Native PLE issue is invalid".to_string()))?;
-        let mut tx = self.begin(token).await?;
-        let rows = sqlx::query("SELECT attempt_number, resumed, assignment_title, assignment_instructions, assignment_entry_id::text, question_id, revision_number, issued_position, question_seed::text, presentation_nonce, presentation_checksum FROM ple_api.start_live_demo_native_ple_assignment($1, $2, $3)")
-            .bind(i64::from(course.number())).bind(i64::from(assignment.number())).bind(&payload)
-            .fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
-        // A successful, authorized native-issuance call must return every
-        // persisted Question Presentation. An empty result is therefore an
-        // internal availability failure, not an absent browser resource.
-        let first = rows.first().ok_or_else(|| {
-            StoreError::Unavailable(
-                "native assignment issuance returned no presentation rows".to_string(),
-            )
-        })?;
-        let resumed: bool = first.try_get("resumed").map_err(map_sqlx_error)?;
-        if !presentations.is_empty() && !resumed {
-            sqlx::query("SELECT ple_api.bind_live_demo_native_ple_presentation_assets($1, $2, $3)")
-                .bind(i64::from(course.number()))
-                .bind(i64::from(assignment.number()))
-                .bind(&payload)
-                .execute(&mut *tx)
-                .await
-                .map_err(map_sqlx_error)?;
-        }
-        let questions = rows
-            .iter()
-            .map(|row| {
-                Ok(IssuedQuestionPresentation {
-                    assignment_entry_id: row
-                        .try_get("assignment_entry_id")
-                        .map_err(map_sqlx_error)?,
-                    question_id: row
-                        .try_get::<String, _>("question_id")
-                        .map_err(map_sqlx_error)?
-                        .parse()
-                        .map_err(|_| {
-                            StoreError::InvalidRecord("Issued Question ID is invalid".to_string())
-                        })?,
-                    description: String::new(),
-                    position: u32::try_from(
-                        row.try_get::<i32, _>("issued_position")
-                            .map_err(map_sqlx_error)?,
-                    )
-                    .map_err(|_| {
-                        StoreError::InvalidRecord("Issued Question position is invalid".to_string())
-                    })?,
-                    revision_number: u32::try_from(
-                        row.try_get::<i32, _>("revision_number")
-                            .map_err(map_sqlx_error)?,
-                    )
-                    .map_err(|_| {
-                        StoreError::InvalidRecord("Question Revision is invalid".to_string())
-                    })?,
+                    retained_presentation,
+                    question_asset_renditions: common.7,
+                }),
+                "webwork" => webwork_sources.push(NativeWebworkIssuanceSource {
+                    issued_question_id: Some(common.0),
+                    assignment_entry_id: common.1,
+                    position: common.2,
+                    question_id: common.3,
+                    revision_number: common.4,
+                    source_object_id: common.5,
+                    source_object_checksum: common.6,
+                    webwork_pg_path: row.try_get("webwork_pg_path").map_err(map_sqlx_error)?,
                     question_seed: row
                         .try_get::<String, _>("question_seed")
                         .map_err(map_sqlx_error)?
@@ -670,35 +642,73 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
                         .map_err(|_| {
                             StoreError::InvalidRecord("Question Seed is invalid".to_string())
                         })?,
-                    presentation_nonce: row
-                        .try_get("presentation_nonce")
-                        .map_err(map_sqlx_error)?,
-                    presentation_checksum: row
-                        .try_get("presentation_checksum")
-                        .map_err(map_sqlx_error)?,
-                })
-            })
-            .collect::<Result<Vec<_>, StoreError>>()?;
-        let assignment_attempt =
-            Self::active_attempt_reference(&mut tx, course, assignment).await?;
-        let result = LiveAssignmentAttempt {
-            assignment_attempt,
-            assignment,
-            attempt_number: u32::try_from(
-                first
-                    .try_get::<i32, _>("attempt_number")
-                    .map_err(map_sqlx_error)?,
+                    retained_presentation,
+                    question_asset_renditions: common.7,
+                }),
+                _ => {
+                    return Err(StoreError::InvalidRecord(
+                        "Question backend is unavailable".to_string(),
+                    ));
+                }
+            }
+        }
+        if !presentation_is_committed {
+            for source in &mut ple_sources {
+                source.question_asset_renditions = current_ready_question_asset_renditions(
+                    &mut tx,
+                    source.question_id.as_compact_str(),
+                    source.revision_number,
+                )
+                .await?;
+            }
+            for source in &mut webwork_sources {
+                source.question_asset_renditions = current_ready_question_asset_renditions(
+                    &mut tx,
+                    source.question_id.as_compact_str(),
+                    source.revision_number,
+                )
+                .await?;
+            }
+        }
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(NativeAssignmentIssuanceBatch {
+            assignment_attempt_id: started.assignment_attempt.as_uuid(),
+            attempt_was_resumed: started.resumed,
+            presentation_is_committed,
+            committed_attempt: None,
+            retained_presentations: Vec::new(),
+            ple_sources,
+            webwork_sources,
+        })
+    }
+
+    async fn commit_native_assignment_issuance(
+        &self,
+        token: SessionTokenHash,
+        assignment_attempt_id: Uuid,
+        presentations: Vec<NativePresentationInput>,
+    ) -> Result<LiveAssignmentAttempt, StoreError> {
+        let payload = presentation_payloads(presentations.iter().map(|value| {
+            (
+                &value.issued_question_id,
+                &value.parameter_hash,
+                &value.reproduction_details,
+                &value.presentation,
+                &value.presentation_nonce,
+                &value.presentation_checksum,
+                value.question_asset_renditions.as_slice(),
+                value.replay_details.as_ref(),
+                value.response_item_bindings.as_slice(),
             )
-            .map_err(|_| {
-                StoreError::InvalidRecord("Assignment Attempt number is invalid".to_string())
-            })?,
-            resumed: first.try_get("resumed").map_err(map_sqlx_error)?,
-            title: first.try_get("assignment_title").map_err(map_sqlx_error)?,
-            instructions: first
-                .try_get("assignment_instructions")
-                .map_err(map_sqlx_error)?,
-            questions,
-        };
+        }))?;
+        let mut tx = self.begin(token).await?;
+        let rows = sqlx::query("SELECT issued_question_id::text, issued_position, presentation_nonce, presentation_checksum, resumed FROM ple_api.commit_student_assignment_attempt_presentation($1, $2)")
+            .bind(assignment_attempt_id).bind(&payload)
+            .fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
+        rows.first().ok_or_else(|| {
+            StoreError::Unavailable("Assignment presentation commit returned no rows".to_string())
+        })?;
+        let result = read_committed_assignment_attempt(&mut tx, assignment_attempt_id).await?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
     }
@@ -726,71 +736,6 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
         assignment_attempt: AssignmentAttemptReference,
     ) -> Result<Vec<StudentAssignmentAttemptHistoryResponseSource>, StoreError> {
         super::assignment_delivery_history_response::read(self, token, assignment_attempt).await
-    }
-
-    async fn start_live_assignment(
-        &self,
-        token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assignment: AssignmentReference,
-    ) -> Result<LiveAssignmentAttempt, StoreError> {
-        let mut tx = self.begin(token).await?;
-        let rows = sqlx::query("SELECT * FROM ple_api.start_live_demo_assignment($1, $2)")
-            .bind(i64::from(course.number()))
-            .bind(i64::from(assignment.number()))
-            .fetch_all(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        let first = rows.first().ok_or(StoreError::NotFound)?;
-        let attempt_number: i32 = first.try_get("attempt_number").map_err(map_sqlx_error)?;
-        let title: String = first.try_get("assignment_title").map_err(map_sqlx_error)?;
-        let instructions: String = first
-            .try_get("assignment_instructions")
-            .map_err(map_sqlx_error)?;
-        let resumed: bool = first.try_get("resumed").map_err(map_sqlx_error)?;
-        let questions = rows
-            .iter()
-            .map(|row| {
-                Ok(IssuedQuestionPresentation {
-                    assignment_entry_id: String::new(),
-                    question_id: row
-                        .try_get::<String, _>("question_id")
-                        .map_err(map_sqlx_error)?
-                        .parse()
-                        .map_err(|_| {
-                            StoreError::InvalidRecord("Issued Question ID is invalid".to_string())
-                        })?,
-                    description: row
-                        .try_get("question_description")
-                        .map_err(map_sqlx_error)?,
-                    position: u32::try_from(
-                        row.try_get::<i32, _>("issued_position")
-                            .map_err(map_sqlx_error)?,
-                    )
-                    .map_err(|_| {
-                        StoreError::InvalidRecord("Issued Question position is invalid".to_string())
-                    })?,
-                    revision_number: 0,
-                    question_seed: 0,
-                    presentation_nonce: String::new(),
-                    presentation_checksum: String::new(),
-                })
-            })
-            .collect::<Result<Vec<_>, StoreError>>()?;
-        let assignment_attempt =
-            Self::active_attempt_reference(&mut tx, course, assignment).await?;
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(LiveAssignmentAttempt {
-            assignment_attempt,
-            assignment,
-            attempt_number: u32::try_from(attempt_number).map_err(|_| {
-                StoreError::InvalidRecord("Assignment Attempt number is invalid".to_string())
-            })?,
-            resumed,
-            title,
-            instructions,
-            questions,
-        })
     }
 }
 
@@ -854,6 +799,10 @@ fn response_state(value: &str) -> Result<StudentAssignmentAttemptResponseState, 
     }
 }
 
+fn presentation_is_resumed(question_attempt_id: Option<Uuid>) -> bool {
+    question_attempt_id.is_some()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -865,128 +814,48 @@ mod tests {
             StudentAssignmentAttemptResponseState::Saved
         );
     }
-}
 
-pub(super) fn source_from_row(
-    row: &sqlx::postgres::PgRow,
-) -> Result<StudentAssignmentAttemptPresentationSource, StoreError> {
-    let backend: String = row.try_get("backend").map_err(map_sqlx_error)?;
-    let question_attempt = row
-        .try_get::<String, _>("question_attempt_id")
-        .map_err(map_sqlx_error)
-        .and_then(|value| {
-            uuid::Uuid::parse_str(&value)
-                .map(question_model::QuestionAttemptId::from_uuid)
-                .map_err(|_| {
-                    StoreError::InvalidRecord("Question Attempt ID is invalid".to_string())
-                })
-        })?;
-    let question_id = row
-        .try_get::<String, _>("question_id")
-        .map_err(map_sqlx_error)?
-        .parse()
-        .map_err(|_| StoreError::InvalidRecord("Issued Question ID is invalid".to_string()))?;
-    let revision_number = u32::try_from(
-        row.try_get::<i32, _>("revision_number")
-            .map_err(map_sqlx_error)?,
-    )
-    .map_err(|_| StoreError::InvalidRecord("Question Revision number is invalid".to_string()))?;
-    let source_object_id: String = row.try_get("source_object_id").map_err(map_sqlx_error)?;
-    let question_seed = row
-        .try_get::<String, _>("question_seed")
-        .map_err(map_sqlx_error)?
-        .parse()
-        .map_err(|_| StoreError::InvalidRecord("Question Seed is invalid".to_string()))?;
-    let nonce: String = row.try_get("presentation_nonce").map_err(map_sqlx_error)?;
-    let checksum: String = row
-        .try_get("presentation_checksum")
-        .map_err(map_sqlx_error)?;
-    match backend.as_str() {
-        "ple" => Ok(StudentAssignmentAttemptPresentationSource::Ple {
-            question_attempt,
-            source: NativePleIssuanceSource {
-                assignment_entry_id: String::new(),
-                position: 0,
-                question_id,
-                revision_number,
-                source_object_id,
-                source_object_address: row
-                    .try_get("source_object_address")
-                    .map_err(map_sqlx_error)?,
-                source_object_checksum: row
-                    .try_get("source_object_checksum")
-                    .map_err(map_sqlx_error)?,
-                resumed: true,
-                question_seed: Some(question_seed),
-                presentation_nonce: Some(nonce),
-                presentation_checksum: Some(checksum),
-                question_asset_renditions: ready_question_asset_renditions(row)?,
-            },
-        }),
-        "webwork" => Ok(StudentAssignmentAttemptPresentationSource::Webwork {
-            question_attempt,
-            source: NativeWebworkIssuanceSource {
-                assignment_entry_id: String::new(),
-                position: 0,
-                question_id,
-                revision_number,
-                source_object_id,
-                source_object_checksum: row
-                    .try_get("source_object_checksum")
-                    .map_err(map_sqlx_error)?,
-                webwork_pg_path: row
-                    .try_get::<Option<String>, _>("webwork_pg_path")
-                    .map_err(map_sqlx_error)?
-                    .ok_or_else(|| {
-                        StoreError::InvalidRecord("WeBWorK path is missing".to_string())
-                    })?,
-                resumed: true,
-            },
-            question_seed,
-            presentation_nonce: nonce,
-            presentation_checksum: checksum,
-        }),
-        _ => Err(StoreError::InvalidRecord(
-            "Question backend is unavailable".to_string(),
-        )),
+    #[test]
+    fn an_unpresented_attempt_is_not_a_renderer_resume_for_a_sibling_backend() {
+        assert!(!presentation_is_resumed(None));
+        assert!(presentation_is_resumed(Some(Uuid::nil())));
     }
-}
 
-#[derive(serde::Deserialize)]
-struct ReadyQuestionAssetRenditionRow {
-    asset_id: String,
-    question_asset_checksum: String,
-    rendition_checksum: String,
-    intrinsic_width: i32,
-    intrinsic_height: i32,
-}
+    #[test]
+    fn public_issued_question_positions_start_at_one() {
+        assert_eq!(positive_position(1).expect("first position is public"), 1);
+        assert!(matches!(
+            positive_position(0),
+            Err(StoreError::InvalidRecord(_))
+        ));
+    }
 
-fn ready_question_asset_renditions(
-    row: &sqlx::postgres::PgRow,
-) -> Result<Vec<ReadyQuestionAssetRendition>, StoreError> {
-    let values: Vec<ReadyQuestionAssetRenditionRow> = serde_json::from_value(
-        row.try_get("question_asset_renditions")
-            .map_err(map_sqlx_error)?,
-    )
-    .map_err(|_| StoreError::InvalidRecord("Question Asset renditions are invalid".to_string()))?;
-    values
-        .into_iter()
-        .map(|value| {
-            Ok(ReadyQuestionAssetRendition {
-                question_asset: uuid::Uuid::parse_str(&value.asset_id)
-                    .map(question_model::QuestionAssetId::from_uuid)
-                    .map_err(|_| {
-                        StoreError::InvalidRecord("Question Asset ID is invalid".to_string())
-                    })?,
-                question_asset_checksum: value.question_asset_checksum,
-                rendition_checksum: value.rendition_checksum,
-                intrinsic_width: u32::try_from(value.intrinsic_width).map_err(|_| {
-                    StoreError::InvalidRecord("Question Asset width is invalid".to_string())
-                })?,
-                intrinsic_height: u32::try_from(value.intrinsic_height).map_err(|_| {
-                    StoreError::InvalidRecord("Question Asset height is invalid".to_string())
-                })?,
-            })
-        })
-        .collect()
+    #[test]
+    fn prepared_issued_question_identity_is_preserved_in_commit_payload() {
+        let issued_question_id = Uuid::from_u128(42).to_string();
+        let details = serde_json::json!({
+            "backend": { "name": "ple", "version": "test" },
+            "rendererVersion": null,
+            "sourceObjectReference": null,
+            "sourceObjectChecksum": null,
+            "assetObjects": [],
+            "grader": { "name": "ple", "version": "test" },
+            "renderedQuestionSha256": "0".repeat(64),
+        });
+        let payload = presentation_payloads(std::iter::once((
+            &issued_question_id,
+            &"parameter-hash".to_string(),
+            &details,
+            &serde_json::json!({}),
+            &"nonce".to_string(),
+            &"checksum".to_string(),
+            &[][..],
+            None,
+            &[][..],
+        )))
+        .expect("commit payload");
+
+        assert_eq!(payload[0]["issued_question_id"], issued_question_id);
+        assert!(payload[0].get("webwork_replay").is_none());
+    }
 }

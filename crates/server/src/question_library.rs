@@ -10,9 +10,12 @@ use std::sync::Arc;
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode, header::COOKIE},
+    http::{
+        HeaderMap, HeaderValue, StatusCode,
+        header::{COOKIE, ETAG, IF_MATCH},
+    },
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
 };
 use learning_data_access::{
     PublishedQuestionLibraryEntry, QuestionLibraryStore, SessionTokenHash, StoreError,
@@ -21,16 +24,18 @@ use learning_data_access::{
 use objects::{ResolvedQuestionSource, s3::S3ObjectStore};
 use question_model::{
     Capability, QuestionBackend, QuestionBackendCapabilities, QuestionDetails,
-    QuestionDetailsPromptView, QuestionId, QuestionSearchAuthorFacet, QuestionSearchAuthorship,
-    QuestionSearchBackendFacet, QuestionSearchCapabilityFacet, QuestionSearchCourseUse,
-    QuestionSearchCourseUseFacet, QuestionSearchFacets, QuestionSearchPage,
-    QuestionSearchQuestionLicenseFacet, QuestionSearchRequest, QuestionSearchResult,
-    QuestionSearchTagFacet, QuestionStatistics, QuestionSummary, QuestionType, QuestionTypeFacet,
-    QuestionUseDetails, QuestionUseSummary,
+    QuestionDetailsPromptView, QuestionId, QuestionRevisionReference, QuestionSearchAuthorFacet,
+    QuestionSearchAuthorship, QuestionSearchBackendFacet, QuestionSearchCapabilityFacet,
+    QuestionSearchCourseUse, QuestionSearchCourseUseFacet, QuestionSearchFacets,
+    QuestionSearchPage, QuestionSearchQuestionLicenseFacet, QuestionSearchRequest,
+    QuestionSearchResult, QuestionSearchTagFacet, QuestionStatistics, QuestionSummary,
+    QuestionType, QuestionTypeFacet, QuestionUseDetails, QuestionUseSummary,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 use crate::auth::{AuthError, resolve_session};
+use crate::question_publication::HmacQuestionIdIssuer;
 use question_model::ProductRole;
 
 const DEFAULT_PAGE_SIZE: u16 = 50;
@@ -41,6 +46,7 @@ struct QuestionLibraryRouteState {
     sessions: Arc<learning_data_access::postgres::PostgresSessionStore>,
     store: PostgresQuestionLibraryStore,
     objects: S3ObjectStore,
+    question_id_issuer: HmacQuestionIdIssuer,
 }
 
 /// Registers the Instructor-only Question Library browse and detail routes.
@@ -48,6 +54,7 @@ pub fn question_library_router(
     sessions: Arc<learning_data_access::postgres::PostgresSessionStore>,
     store: PostgresQuestionLibraryStore,
     objects: S3ObjectStore,
+    question_id_issuer: HmacQuestionIdIssuer,
 ) -> Router {
     Router::new()
         .route("/api/questions/search", get(search_questions))
@@ -56,11 +63,37 @@ pub fn question_library_router(
             "/api/questions/by-id/{question_id}/detail",
             get(question_details),
         )
+        .route(
+            "/api/questions/by-id/{question_id}/revisions/{revision_number}",
+            get(question_revision_details),
+        )
+        .route(
+            "/api/questions/by-id/{question_id}/archive",
+            post(archive_question),
+        )
+        .route(
+            "/api/questions/by-id/{question_id}/restore",
+            post(restore_question),
+        )
         .with_state(QuestionLibraryRouteState {
             sessions,
             store,
             objects,
+            question_id_issuer,
         })
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ArchiveQuestionRequest {
+    confirmation_title: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct QuestionAvailabilityResponse {
+    availability: question_model::QuestionAvailability,
+    edit_number: question_model::QuestionAvailabilityEditNumber,
 }
 
 /// URL form of the current Question Search request.
@@ -196,9 +229,9 @@ async fn resolve_question(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let question_id = match question_id.parse::<QuestionId>() {
-        Ok(question_id) => question_id,
-        Err(_) => return concealed(),
+    let question_id = match verified_question_id(&state.question_id_issuer, &question_id) {
+        Some(question_id) => question_id,
+        None => return concealed(),
     };
     let entry = match state
         .store
@@ -208,8 +241,9 @@ async fn resolve_question(
         Ok(entry) => entry,
         Err(error) => return store_error_response(error),
     };
+    let edit_number = entry.availability_edit_number;
     match summary_from_entry(&state.objects, entry).await {
-        Ok(summary) => crate::auth::no_store(Json(summary).into_response()),
+        Ok(summary) => question_response(Json(summary).into_response(), edit_number),
         Err(()) => route_error(
             StatusCode::SERVICE_UNAVAILABLE,
             "Question Library unavailable",
@@ -226,9 +260,9 @@ async fn question_details(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let question_id = match question_id.parse::<QuestionId>() {
-        Ok(question_id) => question_id,
-        Err(_) => return concealed(),
+    let question_id = match verified_question_id(&state.question_id_issuer, &question_id) {
+        Some(question_id) => question_id,
+        None => return concealed(),
     };
     let entry = match state
         .store
@@ -238,7 +272,8 @@ async fn question_details(
         Ok(entry) => entry,
         Err(error) => return store_error_response(error),
     };
-    let resolved = match resolved_ple_question(&state.objects, entry).await {
+    let edit_number = entry.availability_edit_number;
+    let resolved = match answer_free_question_library_entry(&state.objects, entry).await {
         Ok(resolved) => resolved,
         Err(()) => {
             return route_error(
@@ -247,7 +282,151 @@ async fn question_details(
             );
         }
     };
-    let detail = QuestionDetails {
+    let detail = details_from_resolved(resolved);
+    question_response(Json(detail).into_response(), edit_number)
+}
+
+/// Resolves one exact immutable Question Revision. This route deliberately
+/// bypasses ordinary discovery availability so retained Assignment evidence
+/// remains interpretable after the stable lineage is archived.
+async fn question_revision_details(
+    State(state): State<QuestionLibraryRouteState>,
+    headers: HeaderMap,
+    Path((question_id, revision_number)): Path<(String, String)>,
+) -> Response {
+    let session_hash = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let question_id = match verified_question_id(&state.question_id_issuer, &question_id) {
+        Some(question_id) => question_id,
+        None => return concealed(),
+    };
+    let revision_number = match revision_number
+        .parse::<u32>()
+        .ok()
+        .and_then(|value| question_model::QuestionRevisionNumber::new(value).ok())
+    {
+        Some(value) => value,
+        None => return concealed(),
+    };
+    let reference = QuestionRevisionReference {
+        question_id,
+        revision_number,
+    };
+    let entry = match state
+        .store
+        .load_published_question_revision_library_entry(session_hash, &reference)
+        .await
+    {
+        Ok(entry) => entry,
+        Err(error) => return store_error_response(error),
+    };
+    let edit_number = entry.availability_edit_number;
+    let resolved = match answer_free_question_library_entry(&state.objects, entry).await {
+        Ok(resolved) => resolved,
+        Err(()) => return unavailable(),
+    };
+    let detail = details_from_resolved(resolved);
+    question_response(Json(detail).into_response(), edit_number)
+}
+
+async fn archive_question(
+    State(state): State<QuestionLibraryRouteState>,
+    headers: HeaderMap,
+    Path(question_id): Path<String>,
+    Json(input): Json<ArchiveQuestionRequest>,
+) -> Response {
+    transition_question_availability(
+        &state,
+        &headers,
+        question_id,
+        Some(input.confirmation_title),
+    )
+    .await
+}
+
+async fn restore_question(
+    State(state): State<QuestionLibraryRouteState>,
+    headers: HeaderMap,
+    Path(question_id): Path<String>,
+) -> Response {
+    transition_question_availability(&state, &headers, question_id, None).await
+}
+
+/// ASVS 2.2.1 and 2.3.3: the HTTP boundary requires a qualified edit number;
+/// PostgreSQL then atomically locks, authorizes, validates, and records the
+/// availability transition.
+async fn transition_question_availability(
+    state: &QuestionLibraryRouteState,
+    headers: &HeaderMap,
+    value: String,
+    confirmation_title: Option<String>,
+) -> Response {
+    let question_id = match verified_question_id(&state.question_id_issuer, &value) {
+        Some(question_id) => question_id,
+        None => return concealed(),
+    };
+    let expected = match expected_availability_edit_number(headers) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let session_hash = match instructor_session_hash(state, headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let result = match confirmation_title {
+        Some(title) => {
+            state
+                .store
+                .archive_published_question(session_hash, &question_id, expected, &title)
+                .await
+        }
+        None => {
+            state
+                .store
+                .restore_published_question(session_hash, &question_id, expected)
+                .await
+        }
+    };
+    match result {
+        Ok(value) => availability_response(value.availability, value.edit_number),
+        Err(StoreError::InvalidRecord(_)) => route_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Question availability transition is invalid",
+        ),
+        Err(error) => store_error_response(error),
+    }
+}
+
+fn expected_availability_edit_number(
+    headers: &HeaderMap,
+) -> Result<question_model::QuestionAvailabilityEditNumber, Box<Response>> {
+    let Some(value) = headers.get(IF_MATCH).and_then(|value| value.to_str().ok()) else {
+        return Err(Box::new(route_error(
+            StatusCode::PRECONDITION_REQUIRED,
+            "Question Availability Edit Number is required",
+        )));
+    };
+    let Some(number) = value
+        .strip_prefix('"')
+        .and_then(|candidate| candidate.strip_suffix('"'))
+    else {
+        return Err(Box::new(route_error(
+            StatusCode::BAD_REQUEST,
+            "Question Availability Edit Number is invalid",
+        )));
+    };
+    question_model::QuestionAvailabilityEditNumber::from_str(number).map_err(|_| {
+        Box::new(route_error(
+            StatusCode::BAD_REQUEST,
+            "Question Availability Edit Number is invalid",
+        ))
+    })
+}
+
+fn details_from_resolved(resolved: ResolvedQuestionLibraryEntry) -> QuestionDetails {
+    QuestionDetails {
         summary: resolved.summary,
         prompt: QuestionDetailsPromptView::Static {
             blocks: resolved.prompt,
@@ -263,8 +442,20 @@ async fn question_details(
             own_courses: Vec::new(),
             own_courses_truncated: false,
         },
-    };
-    crate::auth::no_store(Json(detail).into_response())
+    }
+}
+
+/// Parses a browser-supplied exact ID and accepts only the deployment-issued
+/// canonical identity. Syntax remains a shared model concern; the HMAC check
+/// is server-only and intentionally uses the concealed resolution outcome.
+fn verified_question_id(
+    question_id_issuer: &HmacQuestionIdIssuer,
+    value: &str,
+) -> Option<QuestionId> {
+    let question_id = value.parse::<QuestionId>().ok()?;
+    question_id_issuer
+        .validates_question_id(&question_id)
+        .then_some(question_id)
 }
 
 async fn instructor_session_hash(
@@ -316,13 +507,13 @@ async fn entries_to_summaries(
 pub(crate) async fn answer_free_question_search_results(
     objects: &S3ObjectStore,
     entries: Vec<PublishedQuestionLibraryEntry>,
-) -> Result<BTreeMap<QuestionId, QuestionSearchResult>, ()> {
+) -> Result<BTreeMap<QuestionRevisionReference, QuestionSearchResult>, ()> {
     let mut results = BTreeMap::new();
     for entry in entries {
-        let question_id = entry.question_revision.question_id.clone();
+        let question_revision = entry.question_revision.clone();
         let resolved = answer_free_question_library_entry(objects, entry).await?;
         results.insert(
-            question_id,
+            question_revision,
             QuestionSearchResult {
                 summary: resolved.summary,
                 evidence: QuestionStatistics::Unavailable,
@@ -589,23 +780,102 @@ fn store_error_response(error: StoreError) -> Response {
             StatusCode::SERVICE_UNAVAILABLE,
             "Question Library unavailable",
         ),
+        StoreError::Conflict | StoreError::RetryableTransaction => {
+            route_error(StatusCode::PRECONDITION_FAILED, "Question Library changed")
+        }
         StoreError::AlreadyExists
         | StoreError::OwnershipMismatch
-        | StoreError::Conflict
-        | StoreError::RetryableTransaction
         | StoreError::AssignmentActivity(_)
         | StoreError::TimedOut
         | StoreError::Unavailable(_) => route_error(
             StatusCode::SERVICE_UNAVAILABLE,
             "Question Library unavailable",
         ),
+        StoreError::LifecycleConflict => {
+            route_error(StatusCode::CONFLICT, "Question Library lifecycle conflict")
+        }
     }
+}
+
+fn question_response(
+    response: Response,
+    edit_number: question_model::QuestionAvailabilityEditNumber,
+) -> Response {
+    let mut response = crate::auth::no_store(response);
+    match HeaderValue::from_str(&format!("\"{edit_number}\"")) {
+        Ok(value) => {
+            response.headers_mut().insert(ETAG, value);
+            response
+        }
+        Err(_) => unavailable(),
+    }
+}
+
+fn availability_response(
+    availability: question_model::QuestionAvailability,
+    edit_number: question_model::QuestionAvailabilityEditNumber,
+) -> Response {
+    question_response(
+        Json(QuestionAvailabilityResponse {
+            availability,
+            edit_number,
+        })
+        .into_response(),
+        edit_number,
+    )
 }
 
 fn concealed() -> Response {
     route_error(StatusCode::NOT_FOUND, "Question Library unavailable")
 }
 
+fn unavailable() -> Response {
+    route_error(
+        StatusCode::SERVICE_UNAVAILABLE,
+        "Question Library unavailable",
+    )
+}
+
 fn route_error(status: StatusCode, message: &'static str) -> Response {
     crate::auth::no_store((status, Json(serde_json::json!({ "error": message }))).into_response())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::question_publication::QuestionIdSecret;
+    use axum::http::HeaderValue;
+
+    use super::*;
+
+    #[test]
+    fn exact_question_routes_reject_a_syntax_valid_wrong_hmac_character() {
+        let issuer =
+            HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes(std::array::from_fn(|index| {
+                index as u8
+            })));
+
+        assert_eq!(
+            verified_question_id(&issuer, "000-000N")
+                .expect("documented issuer vector")
+                .to_string(),
+            "000-000N"
+        );
+        assert!(verified_question_id(&issuer, "000-000P").is_none());
+    }
+
+    #[test]
+    fn availability_transitions_require_one_canonical_strong_edit_number() {
+        let mut headers = HeaderMap::new();
+        headers.insert(IF_MATCH, HeaderValue::from_static("\"7\""));
+        assert_eq!(
+            expected_availability_edit_number(&headers)
+                .expect("canonical availability edit number")
+                .value(),
+            7
+        );
+        headers.insert(IF_MATCH, HeaderValue::from_static("\"07\""));
+        assert!(expected_availability_edit_number(&headers).is_err());
+        headers.insert(IF_MATCH, HeaderValue::from_static("W/\"7\""));
+        assert!(expected_availability_edit_number(&headers).is_err());
+    }
 }

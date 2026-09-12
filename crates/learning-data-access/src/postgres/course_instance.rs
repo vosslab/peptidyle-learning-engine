@@ -120,7 +120,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         let rows = sqlx::query(
             "SELECT reference_number, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, course_theme \
-             FROM ple_api.list_live_demo_course_instances()",
+             FROM ple_api.list_course_instances()",
         )
         .fetch_all(&mut *transaction)
         .await
@@ -145,10 +145,9 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         let row = sqlx::query(
             "SELECT reference_number, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, creator_is_assigned_instructor \
-             FROM ple_api.create_live_demo_course_instance(\
-             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11::date, $12)",
+             FROM ple_api.create_course_instance(\
+             $1, $2, $3, $4, $5, $6, $7, $8, $9::date, $10::date, $11)",
         )
-        .bind(random_uuid()?)
         .bind(random_uuid()?)
         .bind(random_uuid()?)
         .bind(random_uuid()?)
@@ -202,7 +201,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         let row = sqlx::query(
             "SELECT reference_number, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, course_theme, is_assigned_instructor, \
-             active_instructor_count FROM ple_api.load_live_demo_course_instance($1)",
+             active_instructor_count FROM ple_api.load_course_instance($1)",
         )
         .bind(i64::from(reference.number()))
         .fetch_optional(&mut *transaction)
@@ -224,11 +223,10 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
-        let rows =
-            sqlx::query("SELECT * FROM ple_api.list_live_demo_course_creation_instructors()")
-                .fetch_all(&mut *transaction)
-                .await
-                .map_err(map_sqlx_error)?;
+        let rows = sqlx::query("SELECT * FROM ple_api.list_course_creation_instructors()")
+            .fetch_all(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
         let records = rows
             .iter()
             .map(|row| {

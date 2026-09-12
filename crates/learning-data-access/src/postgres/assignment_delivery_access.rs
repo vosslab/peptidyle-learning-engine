@@ -21,7 +21,7 @@ pub(super) async fn read(
     let row = sqlx::query(
         "SELECT start_decision, assignment_title, question_count, points_possible, \
          assignment_attempt_time_limit_seconds, previous_attempts \
-         FROM ple_api.live_demo_assignment_access($1, $2)",
+         FROM ple_api.read_student_assignment_access($1, $2)",
     )
     .bind(i64::from(course.number()))
     .bind(i64::from(assignment.number()))

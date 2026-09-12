@@ -61,7 +61,7 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
             "SELECT reference_number, state, \
              (extract(epoch FROM last_successful_sign_in) * 1000)::bigint \
              AS last_successful_sign_in_millis \
-             FROM ple_api.list_live_demo_instructor_accounts()",
+             FROM ple_api.list_instructor_accounts()",
         )
         .fetch_all(&mut *tx)
         .await
@@ -103,7 +103,7 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
             "SELECT reference_number, state, \
              (extract(epoch FROM last_successful_sign_in) * 1000)::bigint \
              AS last_successful_sign_in_millis \
-             FROM ple_api.create_live_demo_instructor_account($1)",
+             FROM ple_api.create_instructor_account($1)",
         )
         .bind(input.normalized_email)
         .fetch_one(&mut *tx)
@@ -147,7 +147,7 @@ impl PostgresInstructorAccountStore {
             "SELECT reference_number, state, \
              (extract(epoch FROM last_successful_sign_in) * 1000)::bigint \
              AS last_successful_sign_in_millis \
-             FROM ple_api.change_live_demo_instructor_account_state($1, $2, $3)",
+             FROM ple_api.change_instructor_account_state($1, $2, $3)",
         )
         .bind(i64::from(reference.number()))
         .bind(state)

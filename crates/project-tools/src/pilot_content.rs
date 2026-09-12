@@ -14,6 +14,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 const DEFAULT_MANIFEST: &str = "content/pilot/chapter_1_assignments.yaml";
+const IMAGE_CONTENT_ROOT: &str = "/opt/ple/content";
 const EXPECTED_QUESTION_SHAPES: [(Backend, PilotQuestionType); 4] = [
     (Backend::Webwork, PilotQuestionType::MultipleChoice),
     (Backend::Webwork, PilotQuestionType::Matching),
@@ -32,12 +33,12 @@ pub(crate) struct PilotManifest {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct SourceProject {
-    repository: String,
-    revision: String,
-    author: String,
-    affiliation: String,
-    content_license: String,
-    pgml_code_license: String,
+    pub(crate) repository: String,
+    pub(crate) revision: String,
+    pub(crate) author: String,
+    pub(crate) affiliation: String,
+    pub(crate) content_license: String,
+    pub(crate) pgml_code_license: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -56,6 +57,8 @@ pub(crate) struct Chapter {
 pub(crate) struct Question {
     pub(crate) slug: String,
     pub(crate) question_title: String,
+    pub(crate) question_description: String,
+    pub(crate) language: String,
     pub(crate) backend: Backend,
     pub(crate) question_type: PilotQuestionType,
     pub(crate) points: u32,
@@ -88,31 +91,47 @@ pub(crate) enum PilotQuestionType {
     Matching,
 }
 
-struct ValidationReport {
-    chapters: Vec<String>,
-    question_count: usize,
-    adapted_source_count: usize,
+/// One exact reviewed source ready for the ordinary Question-publication path.
+///
+/// The source selector is the manifest slug, never a public Question ID. The
+/// installation publisher mints that ID with the active deployment capability
+/// immediately before it writes the immutable source object.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PublicationSource {
+    pub(crate) slug: String,
+    pub(crate) question_title: String,
+    pub(crate) question_description: String,
+    pub(crate) language: String,
+    pub(crate) backend: Backend,
+    pub(crate) question_type: PilotQuestionType,
+    pub(crate) source_bytes: Vec<u8>,
+    pub(crate) source_sha256: String,
+    pub(crate) source_media_type: &'static str,
+    /// Stable renderer-facing source name for a WeBWorK source only.
+    pub(crate) webwork_pg_path: Option<String>,
 }
 
-pub(super) fn run(args: &[String]) -> Result<()> {
-    let manifest = match args {
-        [] => Path::new(DEFAULT_MANIFEST),
-        [path] => Path::new(path),
-        _ => bail!("usage: cargo tools pilot-content [manifest.yaml]"),
-    };
-    let report = validate(manifest)?;
-    println!(
-        "pilot content: {} chapters, {} reviewed questions, {} adapted PGML sources",
-        report.chapters.len(),
-        report.question_count,
-        report.adapted_source_count
-    );
-    for chapter in report.chapters {
-        println!(
-            "- {chapter}: WeBWorK MC, WeBWorK MATCH, PLE Question JSON MC, PLE Question JSON MATCH"
-        );
-    }
-    Ok(())
+/// Complete validated fixed inventory for installation publication.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PublicationPlan {
+    pub(crate) source_project_author: String,
+    pub(crate) source_project_content_license: String,
+    pub(crate) questions: Vec<PublicationSource>,
+}
+
+mod command;
+mod publication;
+
+#[cfg(test)]
+mod tests;
+
+pub(super) use command::run;
+pub(crate) use publication::{publish, publish_with_context, validate_publication_mapping_json};
+
+pub(super) struct ValidationReport {
+    pub(super) chapters: Vec<String>,
+    pub(super) question_count: usize,
+    pub(super) adapted_source_count: usize,
 }
 
 fn validate(manifest_path: &Path) -> Result<ValidationReport> {
@@ -121,6 +140,108 @@ fn validate(manifest_path: &Path) -> Result<ValidationReport> {
         .parent()
         .ok_or_else(|| anyhow::anyhow!("pilot manifest must have a parent directory"))?;
     validate_loaded_manifest(&manifest, root)
+}
+
+/// Loads the checked-in Pilot inventory for publication through the ordinary
+/// Question lineage owner. The caller cannot select another manifest or
+/// substitute source bytes.
+pub(crate) fn publication_plan() -> Result<PublicationPlan> {
+    let manifest_path = tracked_manifest_path()?;
+    let manifest = read_manifest(&manifest_path)?;
+    let root = manifest_path
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("pilot manifest must have a parent directory"))?;
+    validate_loaded_manifest(&manifest, root)?;
+
+    let mut questions = Vec::with_capacity(8);
+    for chapter in &manifest.chapters {
+        for question in &chapter.questions {
+            let (source_path, expected_checksum, source_media_type, webwork_pg_path) =
+                publication_source_path(root, question)?;
+            let source_bytes = std::fs::read(&source_path).with_context(|| {
+                format!("reading Pilot publication source {}", source_path.display())
+            })?;
+            if sha256_hex(&source_bytes) != expected_checksum {
+                bail!(
+                    "Pilot publication source checksum changed for {}",
+                    question.slug
+                );
+            }
+            let source_bytes = canonical_publication_source(question.backend, source_bytes)?;
+            let source_sha256 = sha256_hex(&source_bytes);
+            questions.push(PublicationSource {
+                slug: question.slug.clone(),
+                question_title: question.question_title.clone(),
+                question_description: question.question_description.clone(),
+                language: question.language.clone(),
+                backend: question.backend,
+                question_type: question.question_type,
+                source_bytes,
+                source_sha256,
+                source_media_type,
+                webwork_pg_path,
+            });
+        }
+    }
+    Ok(PublicationPlan {
+        source_project_author: manifest.source_project.author,
+        source_project_content_license: manifest.source_project.content_license,
+        questions,
+    })
+}
+
+fn tracked_manifest_path() -> Result<PathBuf> {
+    let source_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .context("locating the repository root for the Pilot Question Set")?;
+    for path in [
+        PathBuf::from(IMAGE_CONTENT_ROOT).join("pilot/chapter_1_assignments.yaml"),
+        source_root.join(DEFAULT_MANIFEST),
+    ] {
+        if path.is_file() {
+            return Ok(path);
+        }
+    }
+    bail!("the checked-in Pilot Question Set is unavailable")
+}
+
+fn canonical_publication_source(backend: Backend, source_bytes: Vec<u8>) -> Result<Vec<u8>> {
+    match backend {
+        Backend::Webwork => Ok(source_bytes),
+        Backend::PleQuestionJson => PleQuestionJsonDocument::parse(&source_bytes)
+            .context("parsing reviewed PLE Question JSON publication source")?
+            .canonical_bytes()
+            .context("canonicalizing reviewed PLE Question JSON publication source"),
+    }
+}
+
+fn publication_source_path(
+    root: &Path,
+    question: &Question,
+) -> Result<(PathBuf, String, &'static str, Option<String>)> {
+    match question.backend {
+        Backend::Webwork => Ok((
+            pilot_question_set_file(root, &question.source)?,
+            question.source_sha256.clone(),
+            "text/x-wework-pg",
+            Some(question.source.to_string_lossy().into_owned()),
+        )),
+        Backend::PleQuestionJson => {
+            let payload = question.payload.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("PLE Question JSON Pilot entry lacks its payload")
+            })?;
+            let checksum = question.payload_sha256.clone().ok_or_else(|| {
+                anyhow::anyhow!("PLE Question JSON Pilot entry lacks its payload checksum")
+            })?;
+            Ok((
+                pilot_question_set_file(root, payload)?,
+                checksum,
+                "application/vnd.peptidyle.question+json",
+                None,
+            ))
+        }
+    }
 }
 
 fn read_manifest(manifest_path: &Path) -> Result<PilotManifest> {
@@ -239,6 +360,20 @@ fn validate_question(
     if question.question_title.trim().is_empty() || question.slug.trim().is_empty() {
         bail!("pilot Question Title and slug must not be blank");
     }
+    if question.question_description != question.question_description.trim()
+        || question.question_description.is_empty()
+        || question.question_description.chars().count() > 4_000
+        || question.question_description.chars().any(char::is_control)
+    {
+        bail!(
+            "pilot Question Description must be trimmed, nonempty, control-free, and at most 4000 characters"
+        );
+    }
+    if question.language != question.language.trim()
+        || !(2..=35).contains(&question.language.chars().count())
+    {
+        bail!("pilot Question language must be trimmed and contain 2 through 35 characters");
+    }
     let expected_points = match question.question_type {
         PilotQuestionType::MultipleChoice => 1,
         PilotQuestionType::Matching => 4,
@@ -344,6 +479,11 @@ fn validate_flat(
     )?;
     if compiled.presentation().question_title() != question.question_title {
         bail!("PLE Question JSON pilot payload Question Title differs from its manifest entry");
+    }
+    if compiled.presentation().metadata().question_description != question.question_description {
+        bail!(
+            "PLE Question JSON pilot payload Question Description differs from its manifest entry"
+        );
     }
     if !bytes
         .windows(b"\"questionLicense\":\"CC-BY-4.0\"".len())
@@ -533,14 +673,19 @@ fn validate_checksum(path: &Path, expected: &str) -> Result<()> {
     }
     let bytes = std::fs::read(path)
         .with_context(|| format!("reading Pilot Question Set file {}", path.display()))?;
-    let mut actual = String::with_capacity(64);
-    for byte in Sha256::digest(bytes) {
-        write!(&mut actual, "{byte:02x}").expect("writing to a String cannot fail");
-    }
+    let actual = sha256_hex(&bytes);
     if actual != expected {
         bail!("Pilot Question Set checksum changed for {}", path.display());
     }
     Ok(())
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let mut actual = String::with_capacity(64);
+    for byte in Sha256::digest(bytes) {
+        write!(&mut actual, "{byte:02x}").expect("writing to a String cannot fail");
+    }
+    actual
 }
 
 fn is_lower_hex(value: &str, length: usize) -> bool {
@@ -548,25 +693,4 @@ fn is_lower_hex(value: &str, length: usize) -> bool {
         && value
             .bytes()
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn tracked_chapter_one_pilot_question_set_has_the_required_human_guidance_shape() {
-        let manifest = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../content/pilot/chapter_1_assignments.yaml");
-        let report = validate(&manifest).expect("tracked pilot content should validate");
-        assert_eq!(report.chapters.len(), 2);
-        assert_eq!(report.question_count, 8);
-    }
-
-    #[test]
-    fn checksum_validation_requires_lowercase_sha256() {
-        assert!(is_lower_hex(&"a".repeat(64), 64));
-        assert!(!is_lower_hex(&"A".repeat(64), 64));
-        assert!(!is_lower_hex(&"a".repeat(63), 64));
-    }
 }

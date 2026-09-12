@@ -1,160 +1,99 @@
-# Roadmap: pre-production database and release readiness
+# Roadmap: production-baseline readiness
 
-Status: foundational pre-production database work is accepted, while browser restoration,
-data-separation, release, and production-readiness gates remain open. This is the durable forward
-roadmap, not an implementation authorization or a production-release claim. [CONTRACTS.md](CONTRACTS.md)
-owns durable boundaries, [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) owns validation rules,
-and [TODO.md](TODO.md) routes unfinished work. Bounded execution notes do not replace these
-permanent authorities.
+Status: implementation gates for the pre-production database reset are complete.
+This roadmap records the release boundary; it does not authorize deployment.
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) is the product authority,
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) is the semantic implementation
+contract, and [TODO.md](TODO.md) owns genuinely unfinished product work.
 
-## Evidence boundary
+## Database lifecycle
 
-The current pre-production reset is the 49-file foundational migration baseline,
-from `2026082901_principal_baseline.sql` through
-`2026090401_account_creation_audit.sql`. A clean PostgreSQL 17 volume applies the
-complete checked-in sequence, accepts a second no-op run, and passes the
-restricted-login Question Library probes. `2026082905` and `2026082927` are not
-migration files. Earlier migration epochs and their migration-count claims are
-historical evidence only; they are not part of the material schema contract.
-[DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) owns the checked-in migration sequence
-and forward allocation rule.
+Before the first human-approved production deployment, the modular base schema
+is the editable source of truth. Structural corrections change the owning file
+under `schemas/base_schema/`; no corrective pre-production migration chain is
+maintained. `install.sql` stays a small ordered `psql` manifest, while its
+domain modules own the current tables, constraints, functions, RLS policies,
+and grants.
 
-The automated-grading operation boundary has accepted historical evidence. Its
-former 99-migration validation tree predates the current reset and does not
-describe the material schema contract. The completed wire-naming and terminology
-cutovers are recorded in [CHANGELOG.md](CHANGELOG.md) and governed by
-[NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) and
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md). Student-work inspection and
-grade-scheme-aware calculated Gradebook work remain acceptance-open for their
-remaining visual and documentation gates. Provider/mailbox, unrelated passkey,
-multi-replica, security, HCI, and release work remain acceptance-open. Instructor
-live-demo acceptance does not imply production onboarding, deployment, or release
-acceptance.
+The first human-approved production deployment records the freeze in the
+release decision and [CHANGELOG.md](CHANGELOG.md). From that point, the base is
+immutable and each structural change is one bounded, forward-only SQLx
+migration in `schemas/migrations/`, recorded by
+`ple_migration._sqlx_migrations`. This rule, rather than a migration count,
+filename inventory, or product-version label, prevents a return to
+patches-on-patches.
 
-## Accepted/current/future
+[DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) describes the resulting
+catalog. [CONTRACTS.md](CONTRACTS.md) owns the administration and installation
+contracts.
 
-### Accepted
+## Completed production-baseline evidence
 
-- The foundational clean-cluster baseline and its explicit migration administration boundary.
-- The forward-only migration allocation policy and accepted feature migrations recorded in
-  [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
-- The real Live Demo deployment and session boundary: a seeded Account selector, ordinary
-  server-owned Authenticated Session resolution, and the connected role-owned browser workflows
-  specified in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
-- The mounted Application Shell and its single role-aware Ribbon. Its backed destinations are
-  available only through their declared Product Role routes; the registry remains a UI admission
-  ceiling rather than Server authorization.
-- Course Appearance: one current course-scoped `{ theme, banner }` reader, independent Instructor
-  Theme and Banner saves, private Banner source/rendition delivery, and the admitted Instructor
-  Appearance task. Its focused accessibility and cross-member propagation evidence are complete;
-  optional visual refinement and unrelated theme-system work remain separately scoped.
-- The connected Instructor authoring, Student delivery and recovery, Gradebook, Sysadmin Account,
-  scoped-support, protected export, and automated-grading evidence recorded in
-  [CHANGELOG.md](CHANGELOG.md). These pre-production receipts do not establish deployment or
-  release acceptance.
-- Existing normalized operational models only where [CHANGELOG.md](CHANGELOG.md) records accepted
-  evidence. This roadmap does not broaden those claims.
+The canonical administration path is deliberately small:
 
-### Current and acceptance-open
+1. `cargo tools database initialize` installs a fresh eligible database from
+   the base manifest.
+2. `cargo tools database migrate` applies any pending forward migration.
+3. `cargo tools installation-data provision` ordinarily provisions the complete
+   known-good Live Demo as ordinary product data. `provision --without-live-demo`
+   explicitly omits that data phase; `apply` is only the narrower
+   database-owned graph operation.
+4. `cargo tools database verify`, using the application role, confirms the
+   restricted schema-state contract.
 
-- Evolve the current Course, authoring, delivery, grading, Gradebook, and administration route
-  surface only with separate browser, visual, accessibility, and task-completion evidence. The
-  mounted shell may expose a destination only after its complete usable capability path is established.
-- Rerun the complete named Validation suite on each final material tree. Focused or historical
-  migration counts do not establish release acceptance.
-- Keep documentation links GitHub-browsable through the material-tree Markdown-link gate.
-- Keep schema administration explicit and privileged: `cargo tools database migrate` uses
-  `PLE_MIGRATION_DATABASE_URL`; application startup and browser capabilities do not own DDL.
-- Close live-demo data separation. The typed lifecycle may apply migrations first, but the
-  baseline installer currently still accepts `--apply-migrations` and therefore retains a
-  duplicate schema authority. The target is a compatible pre-migrated database followed by a
-  data-only installer for fictional, disposable teaching data.
-- Complete the remaining QSOM1 product capability under one bounded owner: same-lineage
-  publication, Draft Question expiration, orphan cleanup, Question Search isolation, Server
-  Routes, Browser Surfaces, and connected acceptance. This is feature delivery, not a vocabulary
-  replacement gate; settle and allocate the operation contract before implementation.
-- Complete clean-volume real-stack, browser, backup/restore, and independent security/operations
-  review gates before any production deployment decision.
-- Continue the broader version 1 platform goal through bounded work items; this roadmap records the
-  durable database and release-readiness boundary.
+The final material tree has passed the following release-readiness evidence:
 
-### Future
+- PostgreSQL 17 fresh initialization, replay, restricted application-role
+  verification, schema ownership/RLS/DDL checks, and the populated Unrelease
+  closure and lock race;
+- default full Live Demo provisioning and replay, plus the connected explicit
+  opt-out that leaves no product-data roots and exposes no demo surface;
+- released Assignment edits with retained existing-Attempt evidence and
+  accepted-current-state later Attempts; Question and Blueprint archive/restore;
+  Blueprint Draft publication and replay; and Assignment Unrelease;
+- authoring API/S3/browser publication and WebWork worker-grading boundaries;
+  and
+- backup restore followed by the ordinary migrate-and-verify path, together with
+  the aggregate Rust, TypeScript/Node, and Python gates.
 
-- Allocate currently absent vocabulary-adjacent capabilities only when their product work becomes
-  current: Watched Questions, Blueprint Updates, Course Invitation Email Delivery, a configured
-  Question Backend selector, durable Blueprint-operation replay,
-  and Job Kind registration/readiness. Their reserved names do not create implementation work in
-  the Vocabulary Replacement Checklist.
-- Treat further database normalization as future design work, owned by a later bounded work item
-  after evidence demonstrates a real need. Do not add speculative tables, bridges, down
-  migrations, legacy readers, or data-adoption paths to close current release gaps.
-- Choose production backup retention, restore cadence, capacity thresholds, and operational
-  tuning from measured deployment evidence; do not encode those choices
-  in the pre-production baseline.
-- Production deployment and durable user-data migration remain outside this roadmap until human
-  release approval and all required durable acceptance gates are complete.
+The Live Demo uses the production schema and ordinary records. Database-owned
+facts belong in its idempotent data manifest; effects that leave PostgreSQL use
+their normal owning path. It has no parallel demo schema, special lifecycle,
+or teardown subsystem.
 
-## Architecture and ownership
+## Product work that remains separate
 
-The authoritative schema is SQL in `schemas/migrations/`; SQLx's `_sqlx_migrations` table is the
-applied-ledger record. `learning-data-access` embeds and verifies the schema epoch. `project-tools`
-owns explicit migration status, migrate, and verify commands. The application and browser consume
-verified capabilities; neither owns DDL. The live-demo lifecycle should therefore be:
+The reset establishes the current model: Question Revisions and Blueprint
+Revisions are immutable publication evidence; Course and Assignment
+configuration are current state; Attempts and Issued Questions retain the
+facts needed to interpret Student Work. It removes retired Assignment, Course
+Schedule, Question Change Proposal, and Course Retention Revision scaffolding
+instead of presenting incomplete capabilities as launch work.
 
-1. A migration principal applies and verifies the compatible schema.
-2. A data-only host installation creates the known fictional, disposable
-   teaching-data baseline.
-3. The normal application, worker, storage, and browser paths exercise that live state.
+Future product capabilities are allocated only when they have a bounded
+workflow, Store/Server authorization, user contract, and evidence plan. The
+current candidates and their priority belong in [TODO.md](TODO.md), not in
+schema reservations or compatibility layers.
 
-The product path is not redesigned by this database roadmap. [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md)
-and [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) remain authoritative for grading secrecy,
-determinism, ordinary teaching workflows, and demo identity boundaries.
+## Evidence and release boundary
 
-## Dependency-ordered work
+Keep fast tests deterministic, offline, and behavior-focused. PostgreSQL,
+Podman, browser, real-stack, and restore exercises remain explicit acceptance
+evidence rather than hidden unit-test machinery. Retain a test only when it
+protects a durable behavior, authorization boundary, evidence-integrity rule,
+or schema lifecycle requirement; record one-time rebuild investigations in
+the changelog rather than making them permanent suites.
 
-| Stage | Work                                                                                 | Exit evidence                                                                      |
-| ----- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| D1    | Finish the current Instructor work item and its authority proofs                     | Focused gates and final Validation pass                                            |
-| D2    | Migration Check of the final migration inventory and clean-cluster baseline evidence | Fresh/no-op/status/verify and role/RLS evidence on disposable clusters             |
-| D3    | Remove migration authority from the live-demo data installer                         | Incompatible or absent baseline is refused without DDL; data-only install succeeds |
-| D4    | Exercise release operations                                                          | Clean-volume lifecycle, real-stack browser, restore, and independent review pass   |
-| D5    | Human release decision                                                               | No unresolved required gate; deployment approval is explicitly recorded            |
-
-Stages are intentionally serial where later work depends on accepted schema or package
-contracts. Any new schema work receives an allocation in the shared Migration Allocation Registry before
-implementation; non-schema work receives no implicit migration number.
-
-## Durable migration policy
-
-Before v1 ships, disposable databases may be recreated from the reviewed baseline and current
-forward chain. There is no user-data downgrade or hypothetical legacy-data adoption. After v1
-ships, never edit a migration filename, version, SQL, or checksum. Every schema change uses one
-later forward migration owned by a bounded work item, with fresh/no-op migration evidence, role and
-RLS evidence, and behavior tests justified by [PYTEST_STYLE.md](PYTEST_STYLE.md).
-
-Keep fast pytest deterministic, offline, and behavioral. Do not add brittle assertions over dates,
-collection sizes, required key lists, hardcoded defaults, migration filenames, or complete Question Library
-output. External-network, Podman, PostgreSQL, lifecycle, browser, and restore checks remain
-explicit E2E, Playwright, or operational gates rather than hidden fast tests.
-
-## Risks and release gates
-
-| Risk                                            | Required response                                                              |
-| ----------------------------------------------- | ------------------------------------------------------------------------------ |
-| Schema or security object drift                 | Block the cutover; compare clean clusters and repeat independent review.       |
-| Installer still applies DDL                     | Keep release acceptance open; remove the flag and migration application path.  |
-| Current source changes during evidence capture  | Refresh the inventory and rerun the affected gates on the final material tree. |
-| Recovery procedure is untested                  | Block release until a disposable restore exercise passes.                      |
-| Normalization is proposed without measured need | Defer it to a future work item with an explicit owner and allocation.          |
-
-Release is not ready until [CHANGELOG.md](CHANGELOG.md) records accepted predecessors, complete
-Validation, data-only live-demo installation, clean-stack/browser evidence, recovery evidence, and
-independent review. This roadmap does not authorize deployment.
+The remaining release decision is human approval of the first production
+deployment. It freezes the base and opens the forward-migration era. Preservation
+or upgrade of an existing user-data database is outside this pre-production
+release boundary.
 
 ## Related documentation
 
-- [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) - current schema inventory and migration inventory and allocation registry.
-- [CONTRACTS.md](CONTRACTS.md) - durable service and capability contracts.
-- [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) - Validation evidence model.
-- [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) - durable owner decisions.
-- [CHANGELOG.md](CHANGELOG.md) - dated package history and receipts.
+- [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) - product authority and lifecycle decision.
+- [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) - Revision and evidence semantics.
+- [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) - final database catalog and ownership.
+- [CONTRACTS.md](CONTRACTS.md) - administration and installation interfaces.
+- [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) - durable versus one-time evidence.
+- [TODO.md](TODO.md) - bounded, unfinished product work.

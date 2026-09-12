@@ -59,6 +59,7 @@ lettre = { version = "*", default-features = false, features = [
 ] }
 rand_chacha = "*"
 bigdecimal = "*"
+reqwest = { version = "*", features = ["json"] }
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 serde_yaml_ng = "*"
@@ -98,8 +99,8 @@ csv = "*"
 
 # Product PostgreSQL access belongs to `crates/learning-data-access`, which owns
 # the Store trait, active migrations, and RLS context. `project-tools` also uses
-# SQLx for explicit repository-administration commands, including the isolated
-# PostgreSQL Migration Acceptance Runtime oracle.
+# SQLx for explicit repository-administration commands and baseline installation
+# acceptance.
 sqlx = { version = "*", features = [
     "json",
     "macros",
@@ -123,3 +124,4 @@ adapter_ple = { path = "./crates/adapters/ple" }
 adapter_webwork = { path = "./crates/adapters/webwork" }
 adapter_qti = { path = "./crates/adapters/qti" }
 adapter_imathas = { path = "./crates/adapters/imathas" }
+browser-api-contract = { path = "./crates/browser-api-contract" }

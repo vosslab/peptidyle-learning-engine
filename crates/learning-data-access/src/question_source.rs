@@ -228,6 +228,110 @@ pub trait NewQuestionLineagePublicationStore: Send + Sync {
     ) -> Result<QuestionRevisionReference, StoreError>;
 }
 
+/// Complete server-validated input for publishing one new immutable Question
+/// Revision in an existing stable Question lineage.
+///
+/// The caller supplies the exact current parent revision selected by the
+/// Instructor. PostgreSQL repeats that precondition while it locks the lineage
+/// and records the successor, so a concurrent publication becomes an ordinary
+/// optimistic-concurrency conflict rather than a reserved revision number.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExistingQuestionRevisionPublicationInput {
+    /// Current private Draft Question selected for publication.
+    pub draft_question_uuid: DraftQuestionUuid,
+    /// Exact saved Draft Question state validated by the server.
+    pub expected_draft_question_edit_number: DraftQuestionEditNumber,
+    /// Authoring Workspace that owns the Draft Question.
+    pub workspace: WorkspaceId,
+    /// Exact immutable parent revision selected for this moderate edit.
+    pub parent_question_revision: QuestionRevisionReference,
+    /// Verified immutable target object created by the bytes-first copy.
+    pub question_source_object_record: ObjectRecord,
+    /// Reviewed reason for accepting this revision. PostgreSQL copies the
+    /// existing lineage's immutable authorship and license from the exact
+    /// parent rather than accepting replacements at this boundary.
+    pub question_revision_reason: QuestionRevisionReason,
+    /// Fresh immutable Question Publication Event identity.
+    pub question_publication_event_id: Uuid,
+}
+
+/// Failure from an existing-lineage publication after the target object has
+/// been written. The dedicated stale category identifies the two named
+/// PostgreSQL precondition failures whose rolled-back transaction leaves that
+/// exact object unregistered and safe to remove.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExistingQuestionRevisionPublicationError {
+    /// The exact Draft or parent Question Revision precondition is stale.
+    Stale,
+    /// Any other persistence outcome remains ambiguous to object storage.
+    Store(StoreError),
+}
+
+impl ExistingQuestionRevisionPublicationInput {
+    /// Returns the exact successor revision owned by this publication.
+    pub fn question_revision(&self) -> Result<QuestionRevisionReference, StoreError> {
+        let revision_number = self
+            .parent_question_revision
+            .revision_number
+            .get()
+            .checked_add(1)
+            .and_then(|value| QuestionRevisionNumber::new(value).ok())
+            .ok_or_else(|| {
+                StoreError::InvalidRecord(
+                    "Question Revision Number cannot advance further".to_string(),
+                )
+            })?;
+        Ok(QuestionRevisionReference {
+            question_id: self.parent_question_revision.question_id.clone(),
+            revision_number,
+        })
+    }
+
+    /// Refuses a target object that is not owned by the exact successor.
+    pub fn validate(&self) -> Result<(), StoreError> {
+        let expected_revision = self.question_revision()?;
+        let ObjectAddress::QuestionSource {
+            question_revision,
+            object,
+        } = &self.question_source_object_record.address
+        else {
+            return Err(StoreError::InvalidRecord(
+                "Question Revision Publication requires a Question Source Object Address"
+                    .to_string(),
+            ));
+        };
+        if question_revision != &expected_revision
+            || *object != self.question_source_object_record.id
+            || self.question_source_object_record.storage_area != ObjectStorageArea::PrivateContent
+            || self.question_source_object_record.data_class != ObjectDataClass::QuestionSource
+            || self
+                .question_source_object_record
+                .question_revision
+                .as_ref()
+                != Some(&expected_revision)
+        {
+            return Err(StoreError::InvalidRecord(
+                "Question Revision Publication Object Record must derive from its exact successor"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Session-authorized persistence for existing-lineage Question Revision publication.
+#[async_trait]
+pub trait ExistingQuestionRevisionPublicationStore: Send + Sync {
+    /// Atomically verifies current ownership and the exact parent revision,
+    /// then records one immutable successor without changing lineage
+    /// availability.
+    async fn publish_question_revision(
+        &self,
+        session_token_hash: SessionTokenHash,
+        input: ExistingQuestionRevisionPublicationInput,
+    ) -> Result<QuestionRevisionReference, ExistingQuestionRevisionPublicationError>;
+}
+
 #[cfg(test)]
 mod tests {
     use objects::{ObjectDataClass, ObjectStorageArea, Sha256Checksum};
@@ -341,6 +445,63 @@ mod tests {
             };
         assert!(matches!(
             wrong_address.validate(),
+            Err(StoreError::InvalidRecord(_))
+        ));
+    }
+
+    #[test]
+    fn same_lineage_publication_requires_the_immediate_successor_object() {
+        let question_id =
+            QuestionId::from_canonical_parts("ABCDEF", 'G').expect("canonical Question ID");
+        let parent_question_revision = QuestionRevisionReference {
+            question_id,
+            revision_number: QuestionRevisionNumber::new(1)
+                .expect("positive Question Revision Number"),
+        };
+        let successor = QuestionRevisionReference {
+            question_id: parent_question_revision.question_id.clone(),
+            revision_number: QuestionRevisionNumber::new(2)
+                .expect("positive Question Revision Number"),
+        };
+        let object = ObjectId::from_uuid(Uuid::from_u128(7));
+        let input = ExistingQuestionRevisionPublicationInput {
+            draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::from_u128(1)),
+            expected_draft_question_edit_number: DraftQuestionEditNumber::new(2)
+                .expect("positive Draft Question Edit Number"),
+            workspace: WorkspaceId::from_uuid(Uuid::from_u128(2)),
+            parent_question_revision,
+            question_source_object_record: ObjectRecord {
+                id: object,
+                storage_area: ObjectStorageArea::PrivateContent,
+                data_class: ObjectDataClass::QuestionSource,
+                address: ObjectAddress::QuestionSource {
+                    question_revision: successor,
+                    object,
+                },
+                sha256: Sha256Checksum::compute(b"complete Question Source"),
+                size_bytes: 24,
+                media_type: "application/json".to_string(),
+                question_revision: Some(QuestionRevisionReference {
+                    question_id: QuestionId::from_canonical_parts("ABCDEF", 'G')
+                        .expect("canonical Question ID"),
+                    revision_number: QuestionRevisionNumber::new(2)
+                        .expect("positive Question Revision Number"),
+                }),
+                created_at: Timestamp::from_unix_millis(1_000),
+            },
+            question_revision_reason: QuestionRevisionReason::new(
+                "Correct the amino-acid charge".to_string(),
+            )
+            .expect("reviewed Question Revision Reason"),
+            question_publication_event_id: Uuid::from_u128(9),
+        };
+        assert_eq!(input.validate(), Ok(()));
+
+        let mut wrong_target = input;
+        wrong_target.question_source_object_record.question_revision =
+            Some(wrong_target.parent_question_revision.clone());
+        assert!(matches!(
+            wrong_target.validate(),
             Err(StoreError::InvalidRecord(_))
         ));
     }

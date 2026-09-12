@@ -11,6 +11,8 @@ pub enum StoreError {
     OwnershipMismatch,
     /// Stored state changed after a caller validated its expected value.
     Conflict,
+    /// The requested operation is not valid for the record's current lifecycle state.
+    LifecycleConflict,
     /// PostgreSQL aborted the whole transaction due to a serialization or deadlock conflict.
     RetryableTransaction,
     /// Authenticated identity lacks ownership or role for the operation.
@@ -32,6 +34,12 @@ impl std::fmt::Display for StoreError {
             Self::AlreadyExists => write!(formatter, "immutable record already exists"),
             Self::OwnershipMismatch => write!(formatter, "record ownership does not match context"),
             Self::Conflict => write!(formatter, "record changed before the operation committed"),
+            Self::LifecycleConflict => {
+                write!(
+                    formatter,
+                    "operation is not valid in the record's current lifecycle state"
+                )
+            }
             Self::RetryableTransaction => write!(formatter, "transaction must be retried"),
             Self::Forbidden => write!(formatter, "operation is not authorized"),
             Self::InvalidRecord(message) => write!(formatter, "invalid record: {message}"),

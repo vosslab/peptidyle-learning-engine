@@ -2,8 +2,8 @@
 
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { ApiClient } from "../client";
-import type { LiveDemoGradebook, LiveDemoGradebookClient } from "../live_gradebook";
-import { decodeLiveDemoGradebook } from "../decoders/live_gradebook";
+import type { CourseGradebook, CourseGradebookClient } from "../live_gradebook";
+import { decodeCourseGradebook } from "../decoders/live_gradebook";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
@@ -16,12 +16,12 @@ function gradebookPath(course: CourseInstanceReference): string {
 }
 
 /** Composes only the registered answer-free Gradebook handler. */
-export function createLiveDemoGradebookClient(
+export function createCourseGradebookClient(
   fetchImplementation: ApiFetch,
   basePath: string,
-): Pick<ApiClient, keyof LiveDemoGradebookClient> {
+): Pick<ApiClient, keyof CourseGradebookClient> {
   return {
-    getLiveDemoGradebook: async (course): Promise<LiveDemoGradebook> => {
+    getCourseGradebook: async (course): Promise<CourseGradebook> => {
       const path = gradebookPath(course);
       const response = await requestSameOrigin(fetchImplementation, basePath, path);
       requireNoStore(response, path);
@@ -29,7 +29,7 @@ export function createLiveDemoGradebookClient(
       if (response.status !== 200) {
         throw new ApiProtocolError(`API response ${path} must use status 200`);
       }
-      return decodeLiveDemoGradebook(await boundedResponseJson(response, path), "response");
+      return decodeCourseGradebook(await boundedResponseJson(response, path), "response");
     },
   };
 }

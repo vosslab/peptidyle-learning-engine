@@ -49,7 +49,6 @@ const EXPECTED_DESTINATION_GLYPHS = {
   assignmentOverview: "clipboard-list",
   assignmentQuestions: "list-check",
   assignmentPolicies: "gear",
-  assignmentGradingOperations: "table-list",
   assignmentStudentView: "user-graduate",
   gradeSettings: "table-list",
   appearance: "palette",

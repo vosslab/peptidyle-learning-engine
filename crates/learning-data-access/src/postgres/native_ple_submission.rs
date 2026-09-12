@@ -70,7 +70,7 @@ impl NativePleSubmissionStore for PostgresNativePleSubmissionStore {
         let row = sqlx::query(
             "SELECT question_attempt_id, question_id, revision_number, source_object_id::text, \
              source_object_checksum, question_seed::text, presentation_nonce, presentation_checksum \
-             FROM ple_api.resolve_live_demo_native_ple_submission($1, $2, $3)",
+             FROM ple_api.resolve_native_ple_submission($1, $2, $3)",
         )
         .bind(course_reference_number)
         .bind(assignment_reference_number)
@@ -91,9 +91,9 @@ impl NativePleSubmissionStore for PostgresNativePleSubmissionStore {
         .map_err(|_| StoreError::InvalidRecord("Question Revision is invalid".to_string()))?;
         let rendition_rows = sqlx::query(
             "SELECT asset_id::text, question_asset_checksum, rendition_checksum, intrinsic_width, intrinsic_height \
-             FROM ple_api.select_live_demo_ready_question_asset_renditions($1, $2)",
+             FROM ple_api.select_ready_question_asset_renditions($1, $2)",
         )
-        .bind(question_id.to_string())
+        .bind(question_id.as_compact_str())
         .bind(i32::try_from(revision_number).map_err(|_| {
             StoreError::InvalidRecord("Question Revision is invalid".to_string())
         })?)
@@ -177,17 +177,16 @@ impl NativePleSubmissionStore for PostgresNativePleSubmissionStore {
             )
         })?;
         let mut transaction = self.begin(token).await?;
-        let grading_state: String = sqlx::query_scalar(
-            "SELECT ple_api.accept_live_demo_native_ple_submission($1, $2, $3, $4, $5)",
-        )
-        .bind(submission.question_attempt.as_uuid())
-        .bind(submission.student_response)
-        .bind(submission_id)
-        .bind(grading_id)
-        .bind(job_id)
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
+        let grading_state: String =
+            sqlx::query_scalar("SELECT ple_api.accept_native_ple_submission($1, $2, $3, $4, $5)")
+                .bind(submission.question_attempt.as_uuid())
+                .bind(submission.student_response)
+                .bind(submission_id)
+                .bind(grading_id)
+                .bind(job_id)
+                .fetch_one(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
         let result = match grading_state.as_str() {
             "pending" => StudentQuestionSubmissionGradingState::Pending,
             _ => {
@@ -216,7 +215,7 @@ impl NativePleSubmissionStore for PostgresNativePleSubmissionStore {
         let mut transaction = self.begin(token).await?;
         let row = sqlx::query(
             "SELECT presentation_nonce, grading_state \
-             FROM ple_api.read_live_demo_native_ple_submission_status($1, $2, $3)",
+             FROM ple_api.read_native_ple_submission_status($1, $2, $3)",
         )
         .bind(course)
         .bind(assignment)
