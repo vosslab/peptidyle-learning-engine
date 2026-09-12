@@ -145,6 +145,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - QTI is for import, export, and archival interchange rather than the internal source model.
 - WeBWorK and iMathAS are PLE-managed Question Backends. Use exact
   backend-specific terms when a concrete implementation or lifecycle matters.
+- Treat each Question Backend as the authority for the presentation and behavior of its Questions. A Question Backend owns 
+  presentation, interaction semantics, response interpretation, grading, partial credit, feedback, and backend-specific state. PLE 
+  owns authorization, immutable Question identity, assignment and attempt lifecycle, persistence, and recorded outcomes.
+- the webwork backend should handle everything, PLE should not care what webwork serves. The webwork renderer container iamge 
+  should receive the webwork code from PLE, render the question and send the JSON or HTML to PLE, I am not sure who handles the 
+  choice/answer verificaction, but probably the webwork renderer engine is the ideal design.
 - **Published Questions** use opaque copyable Crockford Base32 Question IDs in the form `AAA-BBBB`: six
   cryptographically chosen identity characters plus one HMAC validation character. Creation order is never exposed.
 - **Published Questions** maintain version history, so updates can be propagated to other courses.
