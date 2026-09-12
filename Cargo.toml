@@ -104,6 +104,7 @@ sqlx = { version = "*", features = [
     "json",
     "macros",
     "migrate",
+    "sqlx-toml",
     "runtime-tokio",
     "tls-rustls-aws-lc-rs",
     "postgres",
