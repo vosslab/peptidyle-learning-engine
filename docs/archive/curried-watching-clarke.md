@@ -20,7 +20,7 @@ The chain also carries four revision families that
 [docs/HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md) now reject: `course_schedule_revision`,
 `assignment_revision` plus its four entry-snapshot tables, `question_change_proposal_revision`, and
 `course_retention_plan_revision`. The owner's triage in
-[docs/active_plans/revision_concerns.txt](../revision_concerns.txt) named them; the audit behind this
+[docs/archive/revision_concerns.txt](revision_concerns.txt) named them; the audit behind this
 plan confirmed each one. `course_schedule_revision` is written exactly once per Course (revision 1)
 and every reader either hardcodes `revision_number = 1` or takes the latest.
 `course_retention_plan_revision` has no writer at all. `assignment_revision` is read by twenty-two
@@ -28,7 +28,7 @@ SQL functions, but the facts they consume reduce to a short list that belongs on
 `ple_private.assignment_attempt` and `ple_private.issued_question` directly. The Attempt already
 captures its started title and due instant; this plan finishes that move.
 
-[docs/ROADMAP.md](../../ROADMAP.md) already states the governing policy: before v1 ships, disposable
+[docs/ROADMAP.md](../ROADMAP.md) already states the governing policy: before v1 ships, disposable
 databases may be recreated from the reviewed baseline; after v1 ships, no migration is ever edited.
 This plan is the pre-v1 recreation. It replaces the chain with one authored base schema in
 `schemas/base_schema/`, split by table family so every file stays under the 1000-line source cap,
