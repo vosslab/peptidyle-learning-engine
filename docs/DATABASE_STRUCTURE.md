@@ -81,6 +81,14 @@ immutable `(question_id, revision_number)` identity. Publication, stewardship,
 source bindings, authorship, licensing, citations, assets, and the lineage's
 availability events retain the facts that make an exact Revision interpretable.
 
+Question Type is immutable, author-declared educational metadata on the
+Published Question Revision. The author selects it on the mutable Draft
+Question Source Binding, and publication copies that value into
+`ple_data.question_revision`. Search, filtering, and labels use that retained
+metadata. An external Question Backend may use any valid controls or document
+structure for the declared type; PLE does not infer Question Type from backend
+output.
+
 Availability is current state on the stable Question lineage, qualified by an
 Availability Edit Number and append-only transition events. Archiving excludes
 the lineage from ordinary discovery and new selection while preserving
@@ -146,6 +154,16 @@ size, media type, data class, and owner relationship. Question source and asset
 relationships refer to those exact records; Student Work retains the
 presentation binding it used rather than re-resolving mutable current assets.
 
+For a WeBWorK-issued position, that immutable binding also retains one nonempty
+`backend_document` with the explicit `webwork_presentation` capability. The
+database accepts no backend document for PLE-native presentations and none for
+non-presented positions. `read_student_assignment_attempt_backend_document`
+returns only the exact document for the owning Student, open Attempt, and
+issued position; it excludes the source, seed, response, and backend state.
+There is no WeBWorK replay table, renderer cache, or per-attempt backend state.
+The shared saved-response and whole-Attempt finalization lifecycle stores the
+bounded opaque backend response and queues grading without decoding PG fields.
+
 Whole-Attempt finalization atomically creates immutable Question Submissions
 and one typed grading Job with its pending grading row for each supported
 Question before it creates the Assignment Submission. That order gives workers
@@ -162,8 +180,8 @@ Edit Number, and deletes the Student Work closure rooted at that Assignment's
 Attempts in the same transaction.
 
 Root-oriented foreign-key cascades remove dependent issued questions, pool
-selections, question attempts, saved responses, presentation and replay
-bindings, submissions, grading records, backend exchanges, statistics
+selections, question attempts, saved responses, presentation bindings,
+submissions, grading records, backend exchanges, statistics
 observations, and correction-target links. Shared Question Revisions, assets,
 current Assignment configuration, Course records, and membership survive. The
 operation rebuilds affected Question Revision statistics from surviving

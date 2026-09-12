@@ -8,7 +8,7 @@
 use async_trait::async_trait;
 use question_model::{
     QuestionAuthorship, QuestionAvailability, QuestionAvailabilityEditNumber, QuestionBackend,
-    QuestionId, QuestionLicense, QuestionRevisionReference, SourceObjectChecksum,
+    QuestionId, QuestionLicense, QuestionRevisionReference, QuestionType, SourceObjectChecksum,
     SourceObjectReference, Timestamp,
 };
 
@@ -21,6 +21,8 @@ pub struct PublishedQuestionLibraryEntry {
     pub question_revision: QuestionRevisionReference,
     /// The exact backend that must interpret the immutable source.
     pub backend: QuestionBackend,
+    /// Immutable author-declared educational type of this revision.
+    pub question_type: QuestionType,
     /// Database-authoritative publication time.
     pub published_at: Timestamp,
     /// Current shared Published Question title.

@@ -120,7 +120,7 @@ WITH pilot_question_input AS (
                 'blueprint_assignment_reference', '00000000-0000-0000-0000-000000000212',
                 'content', jsonb_build_object(
                     'title', 'Chapter 1 Pilot Practice',
-                    'instructions', 'Complete the eight reviewed Chapter 1 practice questions.',
+                    'instructions', 'Complete the four reviewed Chapter 1 practice questions.',
                     'entries', (
                         SELECT jsonb_agg(jsonb_build_object(
                             'kind', 'fixed',
@@ -129,12 +129,14 @@ WITH pilot_question_input AS (
                                 'revisionNumber', input.revision_number
                             )
                         ) ORDER BY array_position(ARRAY[
-                            'genetics-disorders-webwork-mc', 'genetics-disorders-webwork-matching',
                             'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
-                            'biochemistry-functional-groups-webwork-mc', 'biochemistry-functional-groups-webwork-matching',
                             'biochemistry-functional-groups-ple-question-json-mc', 'biochemistry-functional-groups-ple-question-json-matching'
                         ], input.slug))
                         FROM pilot_question_input AS input
+                       WHERE input.slug IN (
+                           'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
+                           'biochemistry-functional-groups-ple-question-json-mc', 'biochemistry-functional-groups-ple-question-json-matching'
+                       )
                     )
                 )
             ))
@@ -359,18 +361,20 @@ BEGIN
                   AND assignment_title = 'Chapter 1 Pilot Practice'
            )
            OR (SELECT count(*) FROM ple_data.assignment_entry
-                WHERE assignment_id = '00000000-0000-0000-0000-000000000270') <> 8
+                WHERE assignment_id = '00000000-0000-0000-0000-000000000270') <> 4
            OR EXISTS (
                WITH input AS (
                    SELECT replace(value -> 'questionRevision' ->> 'questionId', '-', '') AS question_id,
                           (value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number,
                           row_number() OVER (ORDER BY array_position(ARRAY[
-                              'genetics-disorders-webwork-mc', 'genetics-disorders-webwork-matching',
                               'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
-                              'biochemistry-functional-groups-webwork-mc', 'biochemistry-functional-groups-webwork-matching',
                               'biochemistry-functional-groups-ple-question-json-mc', 'biochemistry-functional-groups-ple-question-json-matching'
                           ], key)) - 1 AS position
                      FROM jsonb_each(current_setting('ple.installation_pilot_question_publications')::jsonb)
+                    WHERE key IN (
+                        'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
+                        'biochemistry-functional-groups-ple-question-json-mc', 'biochemistry-functional-groups-ple-question-json-matching'
+                    )
                )
                SELECT 1 FROM input
                LEFT JOIN ple_data.assignment_entry AS entry
@@ -407,7 +411,7 @@ BEGIN
         '00000000-0000-0000-0000-000000000220',
         (SELECT blueprint_course_reference_number FROM ple_data.course_instance WHERE course_id = '00000000-0000-0000-0000-000000000220'),
         1, '00000000-0000-0000-0000-000000000212', clock_timestamp(), clock_timestamp(),
-        'Chapter 1 Pilot Practice', 'Complete the eight reviewed Chapter 1 practice questions.',
+        'Chapter 1 Pilot Practice', 'Complete the four reviewed Chapter 1 practice questions.',
         1800, 'accept', 'answer_all', 'highest', 'unlimited', 'reuse_selection',
         'new_variation', 'resumable', 'one_question_at_a_time', 'free_navigation',
         'authored_order', 'after_submit', 'after_submit', 'after_submit', 'after_submit',
@@ -429,13 +433,15 @@ BEGIN
                  replace(publication.value -> 'questionRevision' ->> 'questionId', '-', '') AS question_id,
                  (publication.value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number,
                  row_number() OVER (ORDER BY array_position(ARRAY[
-                     'genetics-disorders-webwork-mc', 'genetics-disorders-webwork-matching',
                      'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
-                     'biochemistry-functional-groups-webwork-mc', 'biochemistry-functional-groups-webwork-matching',
                      'biochemistry-functional-groups-ple-question-json-mc', 'biochemistry-functional-groups-ple-question-json-matching'
                  ], publication.key)) - 1 AS input_position
             FROM jsonb_each(current_setting('ple.installation_pilot_question_publications')::jsonb)
                  AS publication(key, value)
+           WHERE publication.key IN (
+               'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
+               'biochemistry-functional-groups-ple-question-json-mc', 'biochemistry-functional-groups-ple-question-json-matching'
+           )
       ) AS input;
     PERFORM ple_data.validate_assignment_release(new_assignment_id);
     UPDATE ple_data.assignment SET assignment_status = 'released',

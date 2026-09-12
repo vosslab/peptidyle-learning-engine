@@ -98,43 +98,38 @@ not by hand-editing the generated table.
 
 ### 3. Treat WeBWorK as a bounded integration that needs a teaching walkthrough
 
-- [ ] Test representative questions from the content Neil actually intends to teach with before
-  depending on WeBWorK. Do not equate a passing pilot with general PG/PGML compatibility.
 - [ ] Complete the visible answer -> save -> reload -> submit -> result -> Instructor Gradebook
-  journey for both supported interaction families.
+  journey with representative Questions from the content Neil actually intends to teach with.
 - [ ] Decide the required feedback experience and make unsupported teaching feedback clear.
 - [ ] Prove the user-visible outcome and recovery path when the renderer fails during grading.
 
-Answer to "Does WeBWorK fully work as expected?": not established, and the current integration
-has explicit limits. It is more than a stub, but it is not a general WeBWorK browser embedded in
-PLE. The current adapter projects a restricted set of renderer output into PLE controls.
+Answer to "Does WeBWorK fully work as expected?": not established. M12 accepted the bounded
+opaque lifecycle: PLE hosts the renderer's backend-owned document and passes its ordered form
+pairs back for grading without projecting PG controls into PLE-native controls. That connected
+evidence does not replace the teaching, feedback, outage-recovery, reload, or Gradebook walkthrough
+needed before relying on content in class.
 
 | Boundary | Current evidence and limit |
 | --- | --- |
-| Render and response formats | [client.rs](../../../crates/adapters/webwork/src/http_renderer/client.rs) projects a specific single radio group or matching group. Grading accepts their corresponding single-choice or matching responses. Arbitrary numeric, algebraic, multi-part, or other PG controls are not implemented by this adapter. |
-| Matching details | [matching_projection.rs](../../../crates/adapters/webwork/src/http_renderer/matching_projection.rs) accepts a particular two-column PGML structure, with bounded, corresponding prompt/choice sets. Matching parser fixtures exist in [current_matching.rs](../../../crates/adapters/webwork/src/http_renderer/tests/current_matching.rs); these are not a full live classroom journey. |
-| Capabilities | [source_profile.rs](../../../crates/adapters/webwork/src/lib/source_profile.rs) limits reviewed partial-credit matching to two exact source identities and immediate-correctness capability to four. New or modified content does not automatically inherit those claims. |
-| Connected grading proof | [e2e_live_demo_webwork.sh](../../../tests/e2e/e2e_live_demo_webwork.sh) selects an ordinarily published single-choice Question, saves/releases an Assignment, starts/resumes it, saves a response, submits, and checks a completed/graded database state. The September 12 changelog reports worker-grading acceptance. This check does not assert a matrix of correct, incorrect, and partial-credit scores. |
-| Browser proof | [e2e_live_demo_webwork_browser.mjs](../../../tests/playwright/e2e_live_demo_webwork_browser.mjs) navigates to an active Attempt and checks visible radio controls and answer-free presentation. It does not click an answer, submit through the browser, or inspect the resulting Gradebook. |
-| Teaching feedback | [history.rs](../../../crates/server/src/assignment_delivery/history.rs) projects Question feedback, answers, and explanations from native PLE sources only. WeBWorK teaching content is absent from selected Attempt history. This is distinct from recorded scores/correctness and readable submitted responses. |
-| Renderer outage | [worker.rs](../../../crates/server/src/worker.rs)::run_webwork_until_shutdown marks an unsuccessful renderer grading result failed. It does not automatically retry that failed grading result. A usable Instructor recovery journey is not established by this worker code. |
+| Render and presentation | [issue.rs](../../../crates/adapters/webwork/src/lib/issue.rs) renders once and stores the exact backend-owned document. [webwork_document_route.rs](../../../crates/server/src/webwork_document_route.rs) serves that immutable document only to the Student's issued position. [backend_owned_document.tsx](../../../src/components/question_response_controls/backend_owned_document.tsx) presents it in a generic iframe. The current source is intentionally not a PG-control parser or a PLE-native response projection. |
+| Response and grading | [ple_bridge.js](../../../src/public/ple_bridge.js) serializes complete form data as ordered `[name, value]` pairs, including legitimate PG hidden fields. [client.rs](../../../crates/adapters/webwork/src/http_renderer/client.rs) validates bounded ordered pairs and forwards them to the renderer without recognizing interaction types. [webwork_grading.rs](../../../crates/learning-data-access/src/postgres/webwork_grading.rs) loads only the persisted backend-owned payload; [worker.rs](../../../crates/server/src/worker.rs) reconstructs that opaque response for the one renderer grade call. |
+| Educational metadata | The published revision's author-declared Question Type is used for library presentation. It is separate from WeBWorK controls and does not restrict how a PG Question renders or submits. |
+| Current durable boundary evidence | [tests.rs](../../../crates/adapters/webwork/src/lib/tests.rs) asserts one render and one grade of a backend-owned payload, and refusal of native PLE response semantics. It is a compact contract suite, not a catalog of PG interactions. |
+| Connected/browser evidence | [webwork_opaque_e2e_findings.md](webwork_opaque_e2e_findings.md) records the accepted one-time opaque curl and built-browser lifecycle: a generic iframe control saved and finished on a fresh Attempt without browser errors, and worker-to-history propagation recorded the result. Projection-era end-to-end machinery that assumed PLE-native response shapes or radio controls is retired; no replacement fixture corpus was created. |
+| Teaching feedback | The completed submission and recorded score are distinct from optional Question-authored feedback. The actual feedback experience remains a product decision to walk through with the representative M12 Questions. |
+| Renderer outage | [worker.rs](../../../crates/server/src/worker.rs) marks the affected grading Job failed when the renderer cannot return an evaluated result. It does not retry automatically. The Instructor recovery journey remains unproven until the connected walkthrough. |
 
-Use a small content matrix: one actual single-choice Question and one actual matching Question;
-correct and incorrect answers; partial credit where supported; unanswered/incomplete input;
-reload/resume; a repeated Attempt; and renderer failure/recovery. Check scientific notation,
-subscripts, superscripts, emphasis, images, and equations where the chosen content uses them.
-Do not assume the strict HTML-to-PLE projection preserves arbitrary rich PG presentation.
+Use a small representative set with materially different backend-controlled behavior. Exercise
+correct, incorrect, and partial credit where useful; save/reload; final submission; recorded
+score; and renderer failure/recovery. Include scientific notation, subscripts, superscripts,
+emphasis, images, and equations when the selected instructional Questions use them. This is
+connected behavior evidence, not a permanent compatibility catalog.
 
 Completion means that the displayed Question remains scientifically meaningful, saved responses
 survive reload, expected scores agree in Student history and Instructor Gradebook, disclosure
 rules behave as described, and failed grading does not leave the learner guessing whether work
-was submitted. A content format outside the supported boundary should be identified before
-release, not discovered by a Student pressing Start Assignment.
-
-The existing focused connected command is `bash tests/e2e/e2e_live_demo_webwork.sh --all` on its
-owned disposable Live Demo. It creates Assignments, enrollments, Attempts, and submissions, so it
-was intentionally not run during this read-only inspection. It is a useful first check, not a
-substitute for the broader visible walkthrough above.
+was submitted. M12 records the bounded lifecycle evidence; this report retains the broader
+teaching walkthrough as a release decision requirement.
 
 ### 4. Provide a trustworthy Instructor view of Student delivery
 

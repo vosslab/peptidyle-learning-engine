@@ -145,7 +145,7 @@ BEGIN
             JOIN ple_data.blueprint_course AS blueprint
               ON blueprint.reference_number = pin.blueprint_course_reference_number
             WHERE blueprint.blueprint_id = '00000000-0000-0000-0000-000000000210'
-              AND pin.blueprint_revision_number = 1) <> 8
+              AND pin.blueprint_revision_number = 1) <> 4
        OR EXISTS (
            WITH input AS (
                SELECT replace(value -> 'questionRevision' ->> 'questionId', '-', '') AS question_id,
@@ -153,6 +153,12 @@ BEGIN
                  FROM jsonb_each(
                      current_setting('ple.installation_pilot_question_publications')::jsonb
                  )
+                WHERE key IN (
+                    'genetics-disorders-ple-question-json-mc',
+                    'genetics-disorders-ple-question-json-matching',
+                    'biochemistry-functional-groups-ple-question-json-mc',
+                    'biochemistry-functional-groups-ple-question-json-matching'
+                )
            )
            SELECT 1 FROM input
            LEFT JOIN ple_data.blueprint_revision_question_pin AS pin
@@ -248,7 +254,7 @@ BEGIN
                AND source_blueprint_revision_number = 1
                AND source_blueprint_assignment_reference = '00000000-0000-0000-0000-000000000212') <> 1
        OR (SELECT count(*) FROM ple_data.assignment_entry
-             WHERE assignment_id = '00000000-0000-0000-0000-000000000270') <> 8
+             WHERE assignment_id = '00000000-0000-0000-0000-000000000270') <> 4
        OR EXISTS (
            SELECT 1 FROM ple_data.assignment_entry
             WHERE assignment_id = '00000000-0000-0000-0000-000000000270'
@@ -259,14 +265,20 @@ BEGIN
                SELECT replace(value -> 'questionRevision' ->> 'questionId', '-', '') AS question_id,
                       (value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number,
                       row_number() OVER (ORDER BY array_position(ARRAY[
-                          'genetics-disorders-webwork-mc', 'genetics-disorders-webwork-matching',
-                          'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
-                          'biochemistry-functional-groups-webwork-mc', 'biochemistry-functional-groups-webwork-matching',
-                          'biochemistry-functional-groups-ple-question-json-mc', 'biochemistry-functional-groups-ple-question-json-matching'
+                          'genetics-disorders-ple-question-json-mc',
+                          'genetics-disorders-ple-question-json-matching',
+                          'biochemistry-functional-groups-ple-question-json-mc',
+                          'biochemistry-functional-groups-ple-question-json-matching'
                       ], key)) - 1 AS authored_position
                  FROM jsonb_each(
                      current_setting('ple.installation_pilot_question_publications')::jsonb
                  )
+                WHERE key IN (
+                    'genetics-disorders-ple-question-json-mc',
+                    'genetics-disorders-ple-question-json-matching',
+                    'biochemistry-functional-groups-ple-question-json-mc',
+                    'biochemistry-functional-groups-ple-question-json-matching'
+                )
            )
            SELECT 1 FROM input
            LEFT JOIN ple_data.assignment_entry AS entry

@@ -639,17 +639,15 @@ warms at most 12 deduplicated same-origin logical asset routes, and advances
 from it only after an exact `nextIssued` receipt match. No prefetched Question Presentation or
 descriptor enters `localStorage` or `sessionStorage`.
 
-The server first validates browser-visible Presentation Response Item References and response shape
-against the checksummed issued public snapshot, then translates those references and
-validates the result against the server-only Question Grading Input before calling
-the injected grader. Native and WeBWorK first grading additionally require
-their matching issued private grading contracts, so neither path reloads a
-Latest Question Revision or grader view. The immutable Question Submission retains the
-original public Student Response; the translated private response is grade-only. Submission persistence
-rejects malformed point values and atomically commits the Question Submission, grade
-event, Assignment Attempt and enrollment transitions, summary, and Question Submission Receipt. The one-Submission-per-Question-Attempt
-constraint is enforced for the application role; an exact repeat returns its existing
-Receipt, while a changed response conflicts.
+PLE-native grading validates browser-visible Presentation Response Item References
+and response shape against the checksummed issued public snapshot, then validates
+the server-only Question Grading Input before calling the native grader. The
+immutable Question Submission retains the original Student Response. Submission
+persistence rejects malformed point values and atomically commits the Question
+Submission, grade event, Assignment Attempt and enrollment transitions, summary,
+and Question Submission Receipt. The one-Submission-per-Question-Attempt
+constraint is enforced for the application role; an exact repeat returns its
+existing Receipt, while a changed response conflicts.
 
 The current attempt DTO is answer-free but broader than the student needs: it
 still carries version, seed, Question Attempt Reproduction Details, implementation IDs,
@@ -662,6 +660,56 @@ submission authority. Policy-permitted results may contain correctness and
 points, but never an answer key, expected value, private rubric, or checker
 state. Student Feedback uses an explicit sanitized disclosure DTO; it
 never serializes the server-only key as a shortcut.
+
+## WeBWorK backend-owned document and grading boundary
+
+An issued WeBWorK Question has one immutable, attempt-bound Backend Document.
+The Student document route rederives the authenticated Student's ownership of
+the exact Assignment Attempt and issued position before returning those bytes.
+Unavailable, foreign, PLE-native, and incomplete positions are concealed before
+any document bytes are returned. The browser receives HTML only; the source,
+seed, private grading data, response, and backend state remain server-only.
+Question Type is immutable author-declared educational metadata on the Published
+Question Revision. It is not inferred from the Backend Document, its controls,
+or a submitted response.
+
+The server-to-renderer HTTP client has a fixed renderer origin and sends a
+closed request assembled from trusted source, Question Revision, seed, and
+display flags. It accepts only bounded JSON with a JSON media type, rejects
+redirects and duplicate or unsupported envelope members, and validates the
+expected response shapes before use. Renderer-issued problem, session, and
+answer JWTs are private server inputs. PLE rejects a rendered document that
+reflects any of those exact values, so renderer credentials and renderer state
+never enter the Student document or a durable Student Response.
+
+Generic submission accepts only the `BackendOwned` response paired with an
+issued `BackendOwned` format, with a bounded 64 KiB opaque payload. Generic
+persistence does not interpret that payload. Before a WeBWorK worker makes its
+single renderer grading request, the WeBWorK adapter requires canonical JSON
+encoding of ordered `[name, value]` pairs, preserves duplicate pairs, and
+rejects empty, oversized, or case-insensitive server-owned and reserved names.
+It then adds the trusted source, seed, and server flags itself. This is
+backend-specific protocol validation, deliberately outside the generic save
+path. A malformed backend payload can therefore be saved as opaque Student
+work, but its grade fails closed before the renderer is called. WeBWorK uses
+the E1 stateless lifecycle: one grade request, no renderer-issued state, and
+no replay or render cache.
+
+The Backend Document is displayed in the selected C2 iframe context with
+`allow-scripts allow-forms allow-same-origin`. Its response has the exact
+document CSP, `Cross-Origin-Resource-Policy: same-origin`, and
+`Cache-Control: no-store` headers. This context depends on trusted same-origin PG code; it does
+not claim isolation from third-party code in the document. The bridge accepts a
+capture reply only from the exact iframe window and same origin, and correlates
+it to an exact 16-lowercase-hex capture ID. It transports form pairs without
+recognizing a PG control or Question Type.
+
+The public WeBWorK asset proxy uses one fixed private renderer base and only
+the `webwork2_files` and `pg_files` namespaces. It validates the requested
+path, rejects redirects, returns only allowed media types, and enforces its
+8 MiB response limit before serving an asset. These controls let renderer and
+PG resources load through PLE without granting a browser-chosen upstream URL
+or exposing the renderer network boundary.
 
 ## iMathAS Question Backend indeterminate-effect boundary
 

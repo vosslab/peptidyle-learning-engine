@@ -5,7 +5,10 @@
 //! `domain::validation` checks the pairing and the variant-specific structural
 //! rules identically on the server and in the browser.
 
-use serde::{Deserialize, Serialize};
+use base64::Engine as _;
+use serde::de::Visitor;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt;
 
 use crate::answer::{NumericResponseTolerance, ResponseSelectionRule, TextResponseMatchRule};
 use crate::question_content::{QuestionAssetReference, QuestionContentBlock};
@@ -61,6 +64,101 @@ pub enum QuestionResponseControl {
     Ordering,
     Hotspot,
     ImathasQuestionBackend,
+    /// A Question Backend renders and captures its own interaction.
+    BackendOwned,
+}
+
+/// Maximum raw bytes accepted from one Backend-Owned browser response.
+///
+/// The bound applies after base64 decoding so a hostile JSON string cannot
+/// turn the generic submission boundary into an unbounded allocation sink.
+/// ASVS 5.3 and 13.2 require this trusted-boundary limit.
+pub const MAX_BACKEND_OWNED_PAYLOAD_BYTES: usize = 64 * 1024;
+
+/// Largest canonical standard-base64 spelling of one bounded opaque payload.
+pub const MAX_BACKEND_OWNED_PAYLOAD_BASE64_BYTES: usize =
+    4 * MAX_BACKEND_OWNED_PAYLOAD_BYTES.div_ceil(3);
+
+pub(crate) mod backend_owned_payload {
+    use super::*;
+
+    pub fn serialize<S>(payload: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if payload.len() > MAX_BACKEND_OWNED_PAYLOAD_BYTES {
+            return Err(serde::ser::Error::custom(
+                "Backend-Owned response payload exceeds the 64 KiB limit",
+            ));
+        }
+        let encoded = base64::engine::general_purpose::STANDARD.encode(payload);
+        serializer.serialize_str(&encoded)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_str(BackendOwnedPayloadVisitor)
+    }
+
+    struct BackendOwnedPayloadVisitor;
+
+    impl<'de> Visitor<'de> for BackendOwnedPayloadVisitor {
+        type Value = Vec<u8>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            formatter.write_str("a bounded canonical base64 Backend-Owned response payload")
+        }
+
+        fn visit_borrowed_str<E>(self, encoded: &'de str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            decode_bounded_payload(encoded)
+        }
+
+        fn visit_str<E>(self, encoded: &str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            decode_bounded_payload(encoded)
+        }
+
+        fn visit_string<E>(self, encoded: String) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            decode_bounded_payload(&encoded)
+        }
+    }
+
+    fn decode_bounded_payload<E>(encoded: &str) -> Result<Vec<u8>, E>
+    where
+        E: serde::de::Error,
+    {
+        if encoded.len() > MAX_BACKEND_OWNED_PAYLOAD_BASE64_BYTES {
+            return Err(E::custom(
+                "Backend-Owned response payload encoded length exceeds the 64 KiB limit",
+            ));
+        }
+        let payload = base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .map_err(|_| {
+                serde::de::Error::custom("Backend-Owned response payload is not base64")
+            })?;
+        if payload.len() > MAX_BACKEND_OWNED_PAYLOAD_BYTES {
+            return Err(serde::de::Error::custom(
+                "Backend-Owned response payload exceeds the 64 KiB limit",
+            ));
+        }
+        if base64::engine::general_purpose::STANDARD.encode(&payload) != encoded {
+            return Err(serde::de::Error::custom(
+                "Backend-Owned response payload is not canonical base64",
+            ));
+        }
+        Ok(payload)
+    }
 }
 
 /// Identifies one response item within a Question Response Format.
@@ -247,6 +345,11 @@ pub enum QuestionResponseFormat {
     /// This marker deliberately contains no iMathAS Question Backend identity, launch, answer, score,
     /// token, or completion data. The server owns the later iMathAS Result Exchange.
     ImathasQuestionBackend {},
+    /// A Question Backend owns the presentation and response protocol.
+    ///
+    /// This marker has no transport vocabulary or browser-visible backend
+    /// identity. The server supplies the backend-owned document separately.
+    BackendOwned {},
 }
 
 impl QuestionResponseFormat {
@@ -261,6 +364,7 @@ impl QuestionResponseFormat {
             Self::Ordering { .. } => QuestionResponseControl::Ordering,
             Self::Hotspot { .. } => QuestionResponseControl::Hotspot,
             Self::ImathasQuestionBackend {} => QuestionResponseControl::ImathasQuestionBackend,
+            Self::BackendOwned {} => QuestionResponseControl::BackendOwned,
         }
     }
 
@@ -283,6 +387,7 @@ impl QuestionResponseFormat {
             Self::Ordering { .. } => matches!(question_type, QuestionType::Ordering),
             Self::Hotspot { .. } => matches!(question_type, QuestionType::Hotspot),
             Self::ImathasQuestionBackend {} => true,
+            Self::BackendOwned {} => true,
         }
     }
 }
@@ -340,6 +445,15 @@ pub enum StudentResponse {
     /// data
     /// can never enter the generic submission record through this variant.
     ImathasQuestionBackend {},
+    /// Opaque form data captured for a Backend-Owned response.
+    ///
+    /// JSON carries canonical standard-base64 text while Rust keeps the
+    /// adapter-owned bytes opaque. The 64 KiB limit is enforced at serde
+    /// boundaries before any Question Backend forwarding (ASVS 5.3, 8.1).
+    BackendOwned {
+        #[serde(with = "backend_owned_payload")]
+        payload: Vec<u8>,
+    },
 }
 
 #[cfg(test)]
@@ -387,6 +501,42 @@ mod tests {
             .unwrap(),
             response
         );
+    }
+
+    #[test]
+    fn backend_owned_response_round_trips_as_bounded_base64() {
+        let response_format = QuestionResponseFormat::BackendOwned {};
+        let response = StudentResponse::BackendOwned {
+            payload: b"AnSwEr0001=value".to_vec(),
+        };
+
+        assert_eq!(
+            serde_json::to_value(&response_format).unwrap(),
+            serde_json::json!({"kind": "backendOwned"})
+        );
+        assert_eq!(
+            serde_json::to_value(&response).unwrap(),
+            serde_json::json!({"kind": "backendOwned", "payload": "QW5Td0VyMDAwMT12YWx1ZQ=="})
+        );
+        assert_eq!(
+            serde_json::from_value::<StudentResponse>(serde_json::to_value(&response).unwrap())
+                .unwrap(),
+            response
+        );
+    }
+
+    #[test]
+    fn backend_owned_response_refuses_oversize_or_noncanonical_payloads() {
+        let oversize = base64::engine::general_purpose::STANDARD.encode(vec![
+            0_u8;
+            MAX_BACKEND_OWNED_PAYLOAD_BYTES
+                + 1
+        ]);
+        let oversize_json = serde_json::json!({"kind": "backendOwned", "payload": oversize});
+        assert!(serde_json::from_value::<StudentResponse>(oversize_json).is_err());
+
+        let noncanonical_json = serde_json::json!({"kind": "backendOwned", "payload": "YQ"});
+        assert!(serde_json::from_value::<StudentResponse>(noncanonical_json).is_err());
     }
 
     #[test]

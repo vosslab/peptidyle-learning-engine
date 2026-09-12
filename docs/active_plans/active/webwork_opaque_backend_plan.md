@@ -1,6 +1,7 @@
 # Plan: opaque backend-owned WeBWorK interactions
 
-Publish location on approval: `docs/active_plans/active/webwork_opaque_backend_plan.md`.
+Closure status: complete. Archival to `docs/archive/` awaits repair of the external Git-index
+permission failure; the required `git mv` must be run only after that repair.
 
 ## Context
 
@@ -154,6 +155,25 @@ stack records the image OCI configuration ID (`local_stack_control/renderer.py:3
 | M11 | Boundary tests | Replace projection tests | Few strong adapter tests |
 | M12 | One-time connected E2E evidence | Representative opaque behavior through the generic path | Primary evidence green |
 | M13 | Documentation and changelog | Rewrite contracts, decisions, guidance | Docs match code |
+
+### Milestone status
+
+| M | Status | Evidence |
+| --- | --- | --- |
+| M0 | Complete | One-time representative connected evidence was accepted; temporary inputs are not a tracked corpus. |
+| M1 | Complete | The minimum demonstrated renderer delta is present in reviewed image `296f4f4bba83563aec7092c7e89de128bac810a62e0f3215df784874490e4df3`. |
+| M2 | Complete | Probe findings selected C2 and E1; the retained report records the decision evidence. |
+| M3 | Complete | Shared opaque boundary types passed focused Rust verification. |
+| M4 | Complete | The adapter validates its renderer envelope and forwards opaque pairs without projection; focused adapter tests passed. |
+| M5 | Complete | One-render issuance and one-grade-request lifecycle passed focused adapter tests. |
+| M6 | Complete | Schema and data-access behavior passed focused tests and the real M12 PostgreSQL lifecycle. The attempted extra permanent SQL oracle was removed because privileged fixture-like setup duplicated M11/M12 evidence. |
+| M7 | Complete | The two-prefix asset route served connected renderer and generated assets through PLE. |
+| M8 | Complete | Authorized document delivery, generic save/finalize, worker grading, and persisted outcome passed the M12 curl lane. |
+| M9 | Complete | The generic bridge and backend-owned iframe completed the built-browser Save/Finish lane with zero post-repair page errors. |
+| M10 | Complete | The WeBWorK projection/replay implementation and obsolete browser tests were removed; the scoped legacy scan is clean. |
+| M11 | Complete | Compact adapter and bridge boundary tests protect the opaque document-to-score contract and the repaired token boundary. |
+| M12 | Complete | Connected curl and built-browser lifecycle evidence is accepted in `docs/active_plans/reports/webwork_opaque_e2e_findings.md`. |
+| M13 | Complete | Durable contracts, architecture documents, findings, plan closeout, and changelog now match the delivered boundary. |
 
 Dependency graph (IDs, not order labels):
 
@@ -392,22 +412,47 @@ M11}; {M12, M13 draft}; M13 final.
   Perl projection and regex scrape; `local_stack_control/renderer.py` probe expectations updated.
 - Workstreams: coder.
 - Entry criteria: M4 exit.
-- Exit criteria: `git grep -n 'opaque_choice_id\|replay_details\|parse_single_radio\|
-  parse_matching_group\|source_profile\|lib/cache' crates/ src/ schemas/ containers/` returns
-  nothing; workspace builds.
+- Exit criteria: one-time closeout evidence is a source scan limited to WeBWorK-owned adapter,
+  server, schema, container, and WeBWorK browser paths that finds no `opaque_choice_id`,
+  `replay_details`, `parse_single_radio`, or `parse_matching_group` projection/replay
+  implementation. If it finds a consumer, remove that remaining WeBWorK translation consumer;
+  legitimate iMathAS cache code is outside this temporary scan. Workspace builds.
 - Parallel-plan ready: yes.
 
 ### Milestone: M11 boundary tests
 
 - Depends on: M4, M5, M10.
-- Deliverables: in `http_renderer/tests.rs`: deterministic document bytes for an inline stable
-  transport input;
-  envelope refusals (unknown member, duplicate key, redirect, oversize, `error`, non-JSON); JWT
-  shape then discard; grade forwards fields verbatim; grade refuses browser-supplied
-  `problemSource`/`problemSeed`/`isInstructor`/`showSolutions`; score 0, 0.5, 1 mapping; timeout
-  and outage refusal; the canonical pair-array payload preserves duplicate names and rejects
-  reserved names; if selected, E2 carries render-issued state to one grade request and records
-  returned state without a document re-render or second browser submission.
+- Deliverables: retain only the following stable contracts, each with an actionable repair path:
+  - `opaque_lifecycle_renders_once_and_grades_one_backend_owned_payload` protects the one-document,
+    one-opaque-payload adapter lifecycle; repair a regression in the WeBWorK adapter rather than
+    adding a native PLE control path.
+  - `issuance_refuses_renderer_lifecycle_state_for_stateless_webwork` protects selected E1
+    statelessness; investigate an observed renderer state return and either correct the adapter
+    request or reopen the documented E decision with connected evidence.
+  - `render_refuses_exact_private_jwt_reflection` protects renderer credentials from entering the
+    browser-visible stored document; reject the reflection at the adapter boundary before delivery
+    or persistence.
+  - `response_pairs_preserve_order_and_duplicates` and
+    `response_pairs_refuse_noncanonical_and_server_owned_names` protect ordinary ordered PG form
+    semantics and the WeBWorK adapter's server-owned field boundary; correct that adapter's pair
+    decoder or its trusted request construction.
+  - `backend_owned_response_round_trips_as_bounded_base64`,
+    `backend_owned_response_refuses_oversize_or_noncanonical_payloads`, and
+    `backend_owned_presentation_rebuilds_answer_free` protect the generic wire bound and
+    answer-free rebuild; repair the shared response or presentation contract at its owner.
+  - `bridge captures an entire minimal form in order, including duplicate and hidden values`,
+    `bridge accepts a strict string capture request only from its exact parent and origin`,
+    `browser response capture shares the backend's raw 64 KiB limit`,
+    `only the matching capture reply can advance Finish past queued bridge submissions`,
+    `parent accepts only the bridge message and builds only the current document route`, and
+    `Finish Assignment captures the active backend document, saves it, then finalizes` protect
+    the strict capture-save-finalize browser protocol. The 64 KiB check specifically protects
+    browser preflight and the shared response API from diverging; repair ordinary drift at the
+    layer that diverged. If real supported content reaches the intentional bound, revise the
+    shared model, browser, and adapter contract together and update the test.
+  - `Backend-Owned response formats are independent of author-declared Question Type` protects
+    separation of immutable educational metadata from backend interaction semantics; correct the
+    response-format contract without inferring Question Type from backend output.
 - Workstreams: tester.
 - Entry criteria: M10 exit.
 - Exit criteria: `cargo test -p adapter_webwork --all-targets`; clippy clean; each test names
@@ -504,6 +549,12 @@ implemented in full by this plan.
 - Implementation: document route sets the selected CSP; component sets the selected `sandbox` and
   validates exact frame source plus the C2 same origin or the C1 opaque sender; M7 sets selected
   route-specific CORP without changing global CORP behavior.
+- **Selection (M2): C2.** Use `sandbox="allow-scripts allow-forms allow-same-origin"` with the
+  planned document CSP. C1 failed real opaque-origin behavior for every representative item, and
+  the Formula observation specifically failed MathQuill font loading from the opaque origin. The
+  temporary C2 diagnostic came from a generic bridge object/string collision with the renderer's
+  `CSSMessage` listener. The bridge now sends its strict same-origin string request; the final
+  connected browser lane recorded zero iframe or page JavaScript errors.
 
 ### Decision E: backend state
 
@@ -518,6 +569,9 @@ implemented in full by this plan.
   table; adapter returns state on render, worker carries it to the one grade request, and the
   restricted lease-checked commit records returned state without weakening immutable presentation
   binding.
+- **Selection (M2): E1 stateless.** Every representative one-grade-request comparison returned
+  identical `problem_result` and `problem_state` with and without render-issued state. M5/M6 use
+  no WeBWorK state row and set the shared opaque state slot to `None`.
 
 ### Facts captured for later feedback and continuation work
 
@@ -651,7 +705,8 @@ relations for their owned paths.
 - Browser gate: one-time built-browser walkthrough of representative temporary inputs passes.
 - Review gate: reviewer agent per merged work package. A broad security review occurs after the
   integrated implementation and before final changelog entry. Human commit is outside the plan's
-  completion condition; the plan completes with a green working tree and changelog.
+  completion condition; archival requires the repository-prescribed `git mv` after the external
+  Git-index permission failure is repaired.
 
 ## Test and verification strategy
 
@@ -664,10 +719,11 @@ relations for their owned paths.
   a representative authored override. It is not a permanent visual compatibility gate.
 - The generic probe is a maintainer debug harness for future PG authoring problems; its inputs and
   results remain temporary.
-- Permanent tests cover only the opaque boundary: representative document-to-score behavior,
-  ordered duplicate pair payloads, reserved internal-field separation, and the generated-image
-  route. They do not assert corpus inventory, current PG field names or ordering, or external
-  fixture state. One-time behavior evidence is removed at closeout.
+- The retained permanent inventory is M11's named contract list. It does not assert a corpus
+  inventory, current PG field names or ordering, decoder sequencing, descriptor bytes, test
+  dependency inventory, raw Compose configuration, or external fixture state. The M10 scoped
+  legacy scan is temporary closeout evidence, not a recurring gate. One-time behavior evidence is
+  removed at closeout.
 - Failure semantics: a gate failure blocks dependent milestones only; independent lanes continue.
 
 ## Risk register
@@ -685,17 +741,18 @@ relations for their owned paths.
 
 ## Rollout and release checklist
 
-- [ ] Fork working tree builds to `localhost/pg-renderer:reviewed`; OCI ID recorded.
-- [ ] Fresh database provision replays the edited base schema.
-- [ ] Live Demo serves representative temporary inputs through ordinary provisioning.
-- [ ] One-time curl and browser lanes are green.
-- [ ] Old projection symbols absent (M10 grep).
-- [ ] Changelog entry written; `tests/_temp/` empty.
+- [x] Fork working tree builds to `localhost/pg-renderer:reviewed`; final OCI ID recorded.
+- [x] Fresh database provision replays the edited base schema.
+- [x] Live Demo served representative temporary inputs through ordinary provisioning.
+- [x] One-time curl and browser lanes are green.
+- [x] Old WeBWorK projection symbols are absent from their owned paths.
+- [x] Changelog entry written; `tests/_temp/` is empty.
 
 ## Documentation close-out requirements
 
 - Active plan / progress tracker: `docs/active_plans/active/webwork_opaque_backend_plan.md`
-  with a status table per milestone; `git mv` to `docs/archive/` at closure.
+  has a status table per milestone. Its required `git mv` to `docs/archive/` remains an external
+  follow-up because Git could not create `.git/index.lock`; do not use a filesystem-move fallback.
 - `docs/HUMAN_GUIDANCE.md`: replace lines 149-151 and fold line 193 into the "Question Backend
   ownership" section verbatim (text below); state that Question Type is immutable author-declared
   educational metadata on the Published Question Revision, used by PLE for search, filters, labels,
@@ -733,8 +790,9 @@ relations for their owned paths.
 
 ## Runtime decisions and follow-ups
 
-- Runtime decisions: C and E are selected by the manager applying their written rules to
-  `findings.json`; a reviewer agent re-derives each selection.
+- Runtime decisions: M2 selected C2 and E1 from the one-time findings. The concise durable record
+  is `docs/active_plans/reports/webwork_opaque_render_findings.md`; the temporary JSON remains
+  implementation evidence only.
 - Non-blocking follow-ups: post-submit feedback display; stateful continuation UI for Scaffold or
   compound PG progression; iMathAS and H5P adapters adopting the boundary; OPL breadth.
 

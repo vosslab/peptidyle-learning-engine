@@ -212,6 +212,16 @@ mod tests {
     }
 
     #[test]
+    fn backend_owned_validation_accepts_the_bounded_base64_wire_shape() {
+        let check = validate_response_format(
+            r#"{"kind":"backendOwned"}"#,
+            r#"{"kind":"backendOwned","payload":"QW5Td0VyMDAwMT12YWx1ZQ=="}"#,
+        )
+        .expect("bounded base64 payload should be valid");
+        assert_eq!(check, r#"{"issues":[]}"#);
+    }
+
+    #[test]
     fn timer_evaluation_delegates_to_the_clock_free_domain_module() {
         let verdict = question_attempt_timing_decision(
             r#"{

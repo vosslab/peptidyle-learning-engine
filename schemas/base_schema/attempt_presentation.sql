@@ -1,5 +1,5 @@
--- Immutable presentation/replay bindings.  Format-specific private payloads
--- remain below a Question Attempt so Unrelease can remove them with Student Work.
+-- Immutable presentation bindings.  Backend-owned documents remain below a
+-- Question Attempt so Unrelease can remove them with Student Work.
 
 SET LOCAL ROLE ple_private_owner;
 
@@ -9,6 +9,9 @@ CREATE TABLE ple_private.question_attempt_presentation_binding (
     presentation_nonce text NOT NULL CHECK (presentation_nonce ~ '^[0-9a-f]{32,128}$'),
     presentation_checksum bytea NOT NULL CHECK (octet_length(presentation_checksum) = 32),
     presentation jsonb NOT NULL CHECK (jsonb_typeof(presentation) = 'object'),
+    -- The backend-owned document is retained with this immutable Question
+    -- Attempt.  Only the WeBWorK capability supplies it.
+    backend_document text,
     UNIQUE (question_attempt_id, presentation_nonce)
 );
 
@@ -37,12 +40,6 @@ CREATE TABLE ple_private.question_attempt_presentation_asset_rendition (
     PRIMARY KEY (question_attempt_id, asset_id)
 );
 
-CREATE TABLE ple_private.question_attempt_webwork_replay (
-    question_attempt_id uuid PRIMARY KEY REFERENCES ple_private.question_attempt(question_attempt_id) ON DELETE CASCADE,
-    replay_version smallint NOT NULL CHECK (replay_version = 1),
-    replay_details jsonb NOT NULL CHECK (jsonb_typeof(replay_details) = 'object')
-);
-
 CREATE FUNCTION ple_private.reject_attempt_presentation_change()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 BEGIN RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'Question Attempt presentation evidence is immutable'; END $$;
@@ -57,7 +54,7 @@ SET search_path = pg_catalog, ple_private AS $$
 DECLARE question_attempt_id_value uuid := CASE WHEN TG_OP = 'DELETE' THEN OLD.question_attempt_id ELSE NEW.question_attempt_id END;
 DECLARE capability text;
 DECLARE has_presentation boolean;
-DECLARE has_webwork_replay boolean;
+DECLARE backend_document_value text;
 BEGIN
     SELECT issued_capability INTO capability
       FROM ple_private.question_attempt
@@ -67,23 +64,22 @@ BEGIN
         SELECT 1 FROM ple_private.question_attempt_presentation_binding
          WHERE question_attempt_id = question_attempt_id_value
     ) INTO has_presentation;
-    SELECT EXISTS (
-        SELECT 1 FROM ple_private.question_attempt_webwork_replay
-         WHERE question_attempt_id = question_attempt_id_value
-    ) INTO has_webwork_replay;
+    SELECT backend_document INTO backend_document_value
+      FROM ple_private.question_attempt_presentation_binding
+     WHERE question_attempt_id = question_attempt_id_value;
     IF capability IN ('question_presentation', 'ple_question_json_presentation')
-       AND (NOT has_presentation OR has_webwork_replay) THEN
+       AND (NOT has_presentation OR backend_document_value IS NOT NULL) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Question Attempt presentation capability requires one presentation bundle and no WeBWorK replay';
+            MESSAGE = 'Question Attempt presentation capability requires one presentation bundle and no backend document';
     END IF;
     IF capability = 'webwork_presentation'
-       AND (NOT has_presentation OR NOT has_webwork_replay) THEN
+       AND (NOT has_presentation OR backend_document_value IS NULL OR char_length(btrim(backend_document_value)) = 0) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'WeBWorK Question Attempt requires presentation and replay evidence';
+            MESSAGE = 'WeBWorK Question Attempt requires presentation and a backend document';
     END IF;
-    IF capability = 'not_applicable' AND (has_presentation OR has_webwork_replay) THEN
+    IF capability = 'not_applicable' AND (has_presentation OR backend_document_value IS NOT NULL) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Non-presented Question Attempt has no presentation or replay evidence';
+            MESSAGE = 'Non-presented Question Attempt has no presentation or backend document';
     END IF;
     RETURN NULL;
 END $$;
@@ -104,15 +100,9 @@ CREATE TRIGGER question_attempt_presentation_asset_rendition_is_immutable BEFORE
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_attempt_presentation_change();
 CREATE TRIGGER question_attempt_presentation_asset_rendition_delete_is_guarded BEFORE DELETE ON ple_private.question_attempt_presentation_asset_rendition
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_student_work_delete();
-CREATE TRIGGER question_attempt_webwork_replay_is_immutable BEFORE UPDATE ON ple_private.question_attempt_webwork_replay
-FOR EACH ROW EXECUTE FUNCTION ple_private.reject_attempt_presentation_change();
-CREATE TRIGGER question_attempt_webwork_replay_delete_is_guarded BEFORE DELETE ON ple_private.question_attempt_webwork_replay
-FOR EACH ROW EXECUTE FUNCTION ple_private.reject_student_work_delete();
 CREATE CONSTRAINT TRIGGER question_attempt_reproduction_is_complete AFTER INSERT OR UPDATE OR DELETE ON ple_private.question_attempt
 DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_attempt_reproduction();
 CREATE CONSTRAINT TRIGGER presentation_binding_matches_capability AFTER INSERT OR UPDATE OR DELETE ON ple_private.question_attempt_presentation_binding
-DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_attempt_reproduction();
-CREATE CONSTRAINT TRIGGER webwork_replay_matches_capability AFTER INSERT OR UPDATE OR DELETE ON ple_private.question_attempt_webwork_replay
 DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_attempt_reproduction();
 
 ALTER TABLE ple_private.question_attempt_presentation_binding ENABLE ROW LEVEL SECURITY;
@@ -123,18 +113,14 @@ ALTER TABLE ple_private.question_attempt_presentation_asset_binding ENABLE ROW L
 ALTER TABLE ple_private.question_attempt_presentation_asset_binding FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.question_attempt_presentation_asset_rendition ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.question_attempt_presentation_asset_rendition FORCE ROW LEVEL SECURITY;
-ALTER TABLE ple_private.question_attempt_webwork_replay ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ple_private.question_attempt_webwork_replay FORCE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE ple_private.question_attempt_presentation_binding,
     ple_private.question_attempt_response_item_binding,
     ple_private.question_attempt_presentation_asset_binding,
-    ple_private.question_attempt_presentation_asset_rendition,
-    ple_private.question_attempt_webwork_replay FROM PUBLIC;
+    ple_private.question_attempt_presentation_asset_rendition FROM PUBLIC;
 CREATE POLICY question_attempt_presentation_binding_private_owner_access ON ple_private.question_attempt_presentation_binding FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 CREATE POLICY question_attempt_response_item_binding_private_owner_access ON ple_private.question_attempt_response_item_binding FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 CREATE POLICY question_attempt_presentation_asset_binding_private_owner_access ON ple_private.question_attempt_presentation_asset_binding FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 CREATE POLICY question_attempt_presentation_asset_rendition_private_owner_access ON ple_private.question_attempt_presentation_asset_rendition FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
-CREATE POLICY question_attempt_webwork_replay_private_owner_access ON ple_private.question_attempt_webwork_replay FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 REVOKE ALL ON FUNCTION ple_private.reject_attempt_presentation_change(),
     ple_private.validate_question_attempt_reproduction() FROM PUBLIC;
 
@@ -187,7 +173,7 @@ CREATE FUNCTION ple_private.prepare_student_assignment_attempt_presentation(
     issued_capability text, source_object_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text,
     question_attempt_id uuid, presentation_nonce text, presentation_checksum text,
-    presentation jsonb, replay_details jsonb, question_asset_renditions jsonb
+    presentation jsonb, question_asset_renditions jsonb
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
@@ -204,7 +190,6 @@ BEGIN
            CASE WHEN binding.question_attempt_id IS NULL THEN NULL
                 ELSE encode(binding.presentation_checksum, 'hex') END,
            binding.presentation,
-           replay.replay_details,
            COALESCE(jsonb_agg(jsonb_build_object(
                'asset_id', rendition.asset_id,
                'question_asset_checksum', encode(rendition.question_asset_checksum, 'hex'),
@@ -222,8 +207,6 @@ BEGIN
         ON attempt.issued_question_id = issued.issued_question_id
       LEFT JOIN ple_private.question_attempt_presentation_binding AS binding
         ON binding.question_attempt_id = attempt.question_attempt_id
-      LEFT JOIN ple_private.question_attempt_webwork_replay AS replay
-        ON replay.question_attempt_id = attempt.question_attempt_id
       LEFT JOIN ple_private.question_attempt_presentation_asset_rendition AS rendition
         ON rendition.question_attempt_id = attempt.question_attempt_id
      WHERE issued.assignment_attempt_id = p_assignment_attempt_id
@@ -233,8 +216,7 @@ BEGIN
               issued.question_id, issued.revision_number, issued.question_seed, source.backend,
               source.source_object_id, object_record.object_address, source.source_object_checksum,
               source.webwork_pg_path, attempt.question_attempt_id, binding.presentation_nonce,
-              binding.question_attempt_id, binding.presentation_checksum, binding.presentation,
-              replay.replay_details
+              binding.question_attempt_id, binding.presentation_checksum, binding.presentation
      ORDER BY issued.issued_position;
 END $$;
 
@@ -265,7 +247,7 @@ DECLARE item_capability text;
 DECLARE item_nonce text;
 DECLARE item_checksum text;
 DECLARE item_presentation jsonb;
-DECLARE item_replay jsonb;
+DECLARE item_backend_document text;
 DECLARE item_response_item_bindings jsonb;
 BEGIN
     IF jsonb_typeof(p_presentations) <> 'array' THEN
@@ -294,13 +276,11 @@ BEGIN
               ON question_attempt.issued_question_id = issued.issued_question_id
             LEFT JOIN ple_private.question_attempt_presentation_binding AS binding
               ON binding.question_attempt_id = question_attempt.question_attempt_id
-            LEFT JOIN ple_private.question_attempt_webwork_replay AS replay
-              ON replay.question_attempt_id = question_attempt.question_attempt_id
             WHERE issued.assignment_attempt_id = attempt_row.assignment_attempt_id
               AND source.backend IN ('ple', 'webwork')
               AND (binding.question_attempt_id IS NULL
-                OR (source.backend = 'webwork' AND replay.question_attempt_id IS NULL)
-                OR (source.backend = 'ple' AND replay.question_attempt_id IS NOT NULL))
+                OR (source.backend = 'webwork' AND (binding.backend_document IS NULL OR char_length(btrim(binding.backend_document)) = 0))
+                OR (source.backend = 'ple' AND binding.backend_document IS NOT NULL))
         ) THEN
             RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'Assignment Attempt presentation evidence is incomplete';
         END IF;
@@ -344,7 +324,7 @@ BEGIN
         item_nonce := item ->> 'presentation_nonce';
         item_checksum := item ->> 'presentation_checksum';
         item_presentation := item -> 'presentation';
-        item_replay := item -> 'webwork_replay';
+        item_backend_document := item ->> 'backend_document';
         item_response_item_bindings := item -> 'response_item_bindings';
         SELECT issued.* INTO issued_row FROM ple_private.issued_question AS issued
          WHERE issued.issued_question_id = item_issued_question_id
@@ -365,8 +345,8 @@ BEGIN
            OR jsonb_typeof(item_response_item_bindings) <> 'array'
            OR (source_row.backend = 'ple' AND item_capability NOT IN ('question_presentation', 'ple_question_json_presentation'))
            OR (source_row.backend = 'webwork' AND item_capability <> 'webwork_presentation')
-           OR (source_row.backend = 'ple' AND item_replay IS NOT NULL)
-           OR (source_row.backend = 'webwork' AND jsonb_typeof(item_replay) <> 'object') THEN
+           OR (source_row.backend = 'ple' AND item_backend_document IS NOT NULL)
+           OR (source_row.backend = 'webwork' AND (item_backend_document IS NULL OR char_length(btrim(item_backend_document)) = 0)) THEN
             RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Question presentation evidence is invalid';
         END IF;
         IF EXISTS (
@@ -419,8 +399,12 @@ BEGIN
             item_grader_name, item_grader_version, decode(item_rendered_hash, 'hex'), item_capability
         );
         INSERT INTO ple_private.question_attempt_presentation_binding(
-            question_attempt_id, descriptor_version, presentation_nonce, presentation_checksum, presentation
-        ) VALUES (item_question_attempt_id, 1, item_nonce, decode(item_checksum, 'hex'), item_presentation);
+            question_attempt_id, descriptor_version, presentation_nonce, presentation_checksum, presentation,
+            backend_document
+        ) VALUES (
+            item_question_attempt_id, 1, item_nonce, decode(item_checksum, 'hex'), item_presentation,
+            item_backend_document
+        );
         INSERT INTO ple_private.question_attempt_response_item_binding(
             question_attempt_id, presentation_response_item_reference, response_item_reference
         )
@@ -457,10 +441,6 @@ BEGIN
             INSERT INTO ple_private.question_attempt_presentation_asset_rendition(question_attempt_id, asset_id, question_asset_checksum, rendition_checksum, intrinsic_width, intrinsic_height)
             SELECT item_question_attempt_id, supplied.asset_id, decode(supplied.question_asset_checksum, 'hex'), decode(supplied.rendition_checksum, 'hex'), supplied.intrinsic_width, supplied.intrinsic_height
               FROM jsonb_to_recordset(item -> 'question_assets') AS supplied(asset_id uuid, question_asset_checksum text, rendition_checksum text, intrinsic_width integer, intrinsic_height integer);
-        END IF;
-        IF source_row.backend = 'webwork' THEN
-            INSERT INTO ple_private.question_attempt_webwork_replay(question_attempt_id, replay_version, replay_details)
-            VALUES (item_question_attempt_id, 1, item_replay);
         END IF;
     END LOOP;
     SET CONSTRAINTS ALL IMMEDIATE;
@@ -568,12 +548,11 @@ BEGIN
         ON source.question_id = issued.question_id AND source.revision_number = issued.revision_number
       JOIN ple_private.question_attempt_presentation_binding AS binding
         ON binding.question_attempt_id = question_attempt.question_attempt_id
-      LEFT JOIN ple_private.question_attempt_webwork_replay AS replay
-        ON replay.question_attempt_id = question_attempt.question_attempt_id
      WHERE issued.assignment_attempt_id = p_assignment_attempt_id
        AND source.backend IN ('ple', 'webwork')
-       AND ((source.backend = 'ple' AND replay.question_attempt_id IS NULL)
-         OR (source.backend = 'webwork' AND replay.question_attempt_id IS NOT NULL));
+       AND ((source.backend = 'ple' AND binding.backend_document IS NULL)
+         OR (source.backend = 'webwork' AND binding.backend_document IS NOT NULL
+             AND char_length(btrim(binding.backend_document)) > 0));
     IF attempt_count <> 0 AND (attempt_count <> expected_count OR complete_count <> expected_count) THEN
         RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'Assignment Attempt presentation evidence is incomplete';
     END IF;
@@ -602,18 +581,52 @@ BEGIN
      ORDER BY issued.issued_position;
 END $$;
 
+-- The backend document has a distinct read seam.  The ordinary presentation
+-- evidence reader remains answer-free JSON and never serializes backend HTML.
+CREATE FUNCTION ple_private.read_student_assignment_attempt_backend_document(
+    p_assignment_attempt_reference_number bigint, p_issued_position integer
+) RETURNS TABLE (backend_document text) LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+DECLARE assignment_attempt_id_value uuid;
+BEGIN
+    IF p_assignment_attempt_reference_number IS NULL OR p_issued_position < 0 THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Issued Question position is invalid';
+    END IF;
+    SELECT assignment_attempt_id INTO assignment_attempt_id_value
+      FROM ple_private.assignment_attempt
+     WHERE reference_number = p_assignment_attempt_reference_number;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question backend document is unavailable';
+    END IF;
+    PERFORM ple_private.require_owned_attempt_for_presentation(assignment_attempt_id_value);
+    RETURN QUERY
+    SELECT binding.backend_document
+      FROM ple_private.issued_question AS issued
+      JOIN ple_private.question_attempt AS question_attempt
+        ON question_attempt.issued_question_id = issued.issued_question_id
+      JOIN ple_private.question_attempt_presentation_binding AS binding
+        ON binding.question_attempt_id = question_attempt.question_attempt_id
+     WHERE issued.assignment_attempt_id = assignment_attempt_id_value
+       AND issued.issued_position = p_issued_position
+       AND question_attempt.issued_capability = 'webwork_presentation'
+       AND binding.backend_document IS NOT NULL
+       AND char_length(btrim(binding.backend_document)) > 0;
+END $$;
+
 REVOKE ALL ON FUNCTION ple_private.require_owned_attempt_for_presentation(uuid),
     ple_private.prepare_student_assignment_attempt_presentation(uuid),
     ple_private.commit_student_assignment_attempt_presentation(uuid, jsonb),
     ple_private.read_student_assignment_attempt_presentation_evidence(bigint, integer),
-    ple_private.read_student_assignment_attempt_presentation_evidence_set(uuid) FROM PUBLIC;
+    ple_private.read_student_assignment_attempt_presentation_evidence_set(uuid),
+    ple_private.read_student_assignment_attempt_backend_document(bigint, integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.prepare_student_assignment_attempt_presentation(uuid),
     ple_private.commit_student_assignment_attempt_presentation(uuid, jsonb),
     ple_private.read_student_assignment_attempt_presentation_evidence(bigint, integer),
-    ple_private.read_student_assignment_attempt_presentation_evidence_set(uuid) TO ple_api_owner;
+    ple_private.read_student_assignment_attempt_presentation_evidence_set(uuid),
+    ple_private.read_student_assignment_attempt_backend_document(bigint, integer) TO ple_api_owner;
 
-COMMENT ON TABLE ple_private.question_attempt_presentation_binding IS 'Checksummed issued presentation retained for one Question Attempt.';
-COMMENT ON TABLE ple_private.question_attempt_webwork_replay IS 'Exact private WeBWorK replay evidence retained for one Question Attempt.';
+COMMENT ON TABLE ple_private.question_attempt_presentation_binding IS
+    'Checksummed issued presentation and, for backend-owned Questions, immutable document retained for one Question Attempt.';
 
 RESET ROLE;
 
@@ -626,7 +639,7 @@ RETURNS TABLE (
     issued_capability text, source_object_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text,
     question_attempt_id uuid, presentation_nonce text, presentation_checksum text,
-    presentation jsonb, replay_details jsonb, question_asset_renditions jsonb
+    presentation jsonb, question_asset_renditions jsonb
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT assignment_attempt_id, issued_question_id, issued_position + 1,
            assignment_entry_id, assignment_content_entry_index,
@@ -634,7 +647,7 @@ RETURNS TABLE (
            issued_capability, source_object_id, source_object_address,
            source_object_checksum, webwork_pg_path,
            question_attempt_id, presentation_nonce, presentation_checksum,
-           presentation, replay_details, question_asset_renditions
+           presentation, question_asset_renditions
       FROM ple_private.prepare_student_assignment_attempt_presentation($1)
 $$;
 CREATE FUNCTION ple_api.commit_student_assignment_attempt_presentation(uuid, jsonb)
@@ -663,12 +676,20 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api
     SELECT assignment_entry_id, issued_position + 1, question_id, revision_number, question_seed, presentation_nonce, presentation_checksum, presentation, question_asset_renditions, response_item_bindings
       FROM ple_private.read_student_assignment_attempt_presentation_evidence_set($1)
 $$;
+CREATE FUNCTION ple_api.read_student_assignment_attempt_backend_document(bigint, integer)
+RETURNS TABLE (backend_document text)
+LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
+    SELECT backend_document
+      FROM ple_private.read_student_assignment_attempt_backend_document($1, $2 - 1)
+$$;
 REVOKE ALL ON FUNCTION ple_api.prepare_student_assignment_attempt_presentation(uuid),
     ple_api.commit_student_assignment_attempt_presentation(uuid, jsonb),
     ple_api.read_student_assignment_attempt_presentation_evidence(bigint, integer),
-    ple_api.read_student_assignment_attempt_presentation_evidence_set(uuid) FROM PUBLIC;
+    ple_api.read_student_assignment_attempt_presentation_evidence_set(uuid),
+    ple_api.read_student_assignment_attempt_backend_document(bigint, integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.prepare_student_assignment_attempt_presentation(uuid),
     ple_api.commit_student_assignment_attempt_presentation(uuid, jsonb),
     ple_api.read_student_assignment_attempt_presentation_evidence(bigint, integer),
-    ple_api.read_student_assignment_attempt_presentation_evidence_set(uuid) TO ple_app;
+    ple_api.read_student_assignment_attempt_presentation_evidence_set(uuid),
+    ple_api.read_student_assignment_attempt_backend_document(bigint, integer) TO ple_app;
 RESET ROLE;

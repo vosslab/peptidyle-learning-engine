@@ -6,7 +6,7 @@ use syn::{Attribute, Expr, Fields, Lit, Meta, Type};
 
 use super::serde::{
     effective_name, is_flattened, is_skipped, rename_all, rename_all_fields, serde_string_value,
-    serde_tag, skips_when_none,
+    serde_tag, serde_with, skips_when_none,
 };
 
 const PRINT_WIDTH: usize = 100;
@@ -113,6 +113,24 @@ fn first_argument(
     map_type(inner, dependencies)
 }
 
+fn map_field_type(
+    rust_type: &Type,
+    attrs: &[Attribute],
+    dependencies: &mut BTreeSet<String>,
+) -> Result<String> {
+    match serde_with(attrs).as_deref() {
+        // StudentResponse::BackendOwned uses this serializer to carry opaque
+        // bytes as canonical base64 in JSON rather than a number array.
+        Some("backend_owned_payload") | Some("crate::response::backend_owned_payload") => {
+            Ok("string".to_string())
+        }
+        Some(serializer) => {
+            bail!("unsupported serde with serializer for browser contract: {serializer}")
+        }
+        None => map_type(rust_type, dependencies),
+    }
+}
+
 pub(super) fn generate_struct(item: &syn::ItemStruct) -> Result<Generated> {
     let mut dependencies = BTreeSet::new();
     let rule = rename_all(&item.attrs)?;
@@ -136,7 +154,7 @@ pub(super) fn generate_struct(item: &syn::ItemStruct) -> Result<Generated> {
                     bail!("named field without an identifier");
                 };
                 let name = effective_name(&field.attrs, &ident.to_string(), rule.as_deref())?;
-                let mapped = map_type(&field.ty, &mut dependencies)?;
+                let mapped = map_field_type(&field.ty, &field.attrs, &mut dependencies)?;
                 let optional = skips_when_none(&field.attrs);
                 let mapped = if optional {
                     option_inner_type(&field.ty, &mut dependencies)?
@@ -219,7 +237,7 @@ pub(super) fn generate_enum(item: &syn::ItemEnum) -> Result<Generated> {
                     let mapped = if optional {
                         option_inner_type(&field.ty, &mut dependencies)?
                     } else {
-                        map_type(&field.ty, &mut dependencies)?
+                        map_field_type(&field.ty, &field.attrs, &mut dependencies)?
                     };
                     let marker = if optional { "?" } else { "" };
                     lines.push(format!(
@@ -261,7 +279,7 @@ pub(super) fn generate_enum(item: &syn::ItemEnum) -> Result<Generated> {
                         if skips_when_none(&field.attrs) {
                             bail!("flattened optional fields are unsupported");
                         }
-                        flattened.push(map_type(&field.ty, &mut dependencies)?);
+                        flattened.push(map_field_type(&field.ty, &field.attrs, &mut dependencies)?);
                         continue;
                     }
                     let Some(ident) = &field.ident else {
@@ -273,7 +291,7 @@ pub(super) fn generate_enum(item: &syn::ItemEnum) -> Result<Generated> {
                     let mapped = if optional {
                         option_inner_type(&field.ty, &mut dependencies)?
                     } else {
-                        map_type(&field.ty, &mut dependencies)?
+                        map_field_type(&field.ty, &field.attrs, &mut dependencies)?
                     };
                     let marker = if optional { "?" } else { "" };
                     lines.push(format!(

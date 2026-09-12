@@ -55,7 +55,8 @@ pub(super) fn validate_public_assets(
         }
         QuestionPresentationResponseFormat::FillIn { .. }
         | QuestionPresentationResponseFormat::Numerical { .. }
-        | QuestionPresentationResponseFormat::ImathasQuestionBackend {} => {}
+        | QuestionPresentationResponseFormat::ImathasQuestionBackend {}
+        | QuestionPresentationResponseFormat::BackendOwned {} => {}
     }
     validate_asset_refs(&referenced, bindings)
 }
@@ -194,7 +195,8 @@ fn collect_response_assets(response: &QuestionResponseFormat, target: &mut BTree
         }
         QuestionResponseFormat::Numeric { .. }
         | QuestionResponseFormat::ShortText { .. }
-        | QuestionResponseFormat::ImathasQuestionBackend {} => {}
+        | QuestionResponseFormat::ImathasQuestionBackend {}
+        | QuestionResponseFormat::BackendOwned {} => {}
     }
 }
 

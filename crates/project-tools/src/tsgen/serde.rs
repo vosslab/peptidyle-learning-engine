@@ -101,6 +101,11 @@ pub(super) fn skips_when_none(attrs: &[Attribute]) -> bool {
     serde_string_value(attrs, "skip_serializing_if").is_some_and(|value| value == "Option::is_none")
 }
 
+/// Returns a named Serde field serializer when its browser wire type is known.
+pub(super) fn serde_with(attrs: &[Attribute]) -> Option<String> {
+    serde_string_value(attrs, "with")
+}
+
 pub(super) fn apply_rename(name: &str, rule: Option<&str>) -> Result<String> {
     match rule {
         None => Ok(name.to_string()),

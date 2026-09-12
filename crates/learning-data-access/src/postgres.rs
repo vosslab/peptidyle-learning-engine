@@ -76,8 +76,6 @@ mod sessions;
 mod support_capability;
 #[cfg(feature = "postgres")]
 mod webwork_grading;
-#[cfg(feature = "postgres")]
-mod webwork_submission;
 
 #[cfg(feature = "postgres")]
 pub use account_time_zone::PostgresAccountTimeZoneStore;
@@ -140,8 +138,6 @@ pub use sessions::PostgresSessionStore;
 pub use support_capability::PostgresSupportCapabilityStore;
 #[cfg(feature = "postgres")]
 pub use webwork_grading::PostgresWebworkGradingStore;
-#[cfg(feature = "postgres")]
-pub use webwork_submission::PostgresWebworkSubmissionStore;
 
 #[cfg(feature = "postgres")]
 pub type Pool = sqlx::postgres::PgPool;

@@ -91,6 +91,12 @@ pub(super) fn project(
         ) => Some(text(
             "Your iMathAS Question Backend response was recorded.".to_string(),
         )),
+        (
+            StudentResponseInspection::BackendOwned { .. },
+            QuestionPresentationResponseFormat::BackendOwned {},
+        ) => Some(text(
+            "Your Question Backend response was recorded.".to_string(),
+        )),
         _ => None,
     }
 }

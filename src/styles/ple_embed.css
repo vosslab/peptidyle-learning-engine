@@ -1,0 +1,33 @@
+/* Shared baseline for backend-owned documents. Question-authored CSS follows this file. */
+:root {
+  background: var(--ple-document-background, #ffffff);
+  color: var(--ple-document-foreground, #1b1b1b);
+  font-family:
+    "Atkinson Hyperlegible Next",
+    Atkinson Hyperlegible,
+    Arial,
+    sans-serif;
+}
+
+html,
+body {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 1rem;
+}
+
+input,
+button,
+select,
+textarea {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid #005a9c;
+  outline-offset: 2px;
+}

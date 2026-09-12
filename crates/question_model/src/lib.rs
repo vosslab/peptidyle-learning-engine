@@ -127,7 +127,10 @@ pub use crate::blueprint_course::{
     ReusableQuestionView, ReusableSelectionAvailability, validate_blueprint_course_title,
 };
 pub use crate::blueprint_operations::*;
-pub use crate::capability::{Capability, QuestionBackendCapabilities};
+pub use crate::capability::{
+    BackendOwnedLifecycleState, BackendOwnedLifecycleStateError, Capability,
+    QuestionBackendCapabilities,
+};
 pub use crate::course::{
     AssignmentEntrySummary, AssignmentOverview, AssignmentSummary, CourseMembershipRole,
     CourseSummary, FixedQuestionAssignmentEntrySummary, GradebookSummaryRow,
@@ -231,7 +234,8 @@ pub use crate::question_variation::{
     NativeChoiceOrder, QuestionVariation, QuestionVariationPresentation,
 };
 pub use crate::response::{
-    QuestionResponseControl, QuestionResponseFormat, QuestionType, StudentResponse,
+    MAX_BACKEND_OWNED_PAYLOAD_BYTES, QuestionResponseControl, QuestionResponseFormat, QuestionType,
+    StudentResponse,
 };
 pub use crate::statistics::{ClassStatistics, DEFAULT_STATISTICS_MINIMUM_COHORT_SIZE};
 pub use crate::student_work::{

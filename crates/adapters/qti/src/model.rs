@@ -179,7 +179,8 @@ pub fn qti_question_asset_checksums(
         }
         question_model::QuestionResponseFormat::Numeric { .. }
         | question_model::QuestionResponseFormat::ShortText { .. }
-        | question_model::QuestionResponseFormat::ImathasQuestionBackend {} => {}
+        | question_model::QuestionResponseFormat::ImathasQuestionBackend {}
+        | question_model::QuestionResponseFormat::BackendOwned {} => {}
     }
     for block in question.prompt.iter().chain(response_blocks) {
         if let QuestionContentBlock::Image { question_asset, .. } = block

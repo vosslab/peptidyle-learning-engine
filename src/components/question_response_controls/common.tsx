@@ -5,6 +5,7 @@ import { createContext, createSignal, onCleanup, useContext, type JSX } from "so
 import type { QuestionContentBlock } from "../../../generated/api/QuestionContentBlock";
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { CourseId } from "../../../generated/api/CourseId";
+import type { AssignmentAttemptReference } from "../../../generated/api/AssignmentAttemptReference";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { QuestionPresentationResponseFormat } from "../../../generated/api/QuestionPresentationResponseFormat";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
@@ -90,6 +91,15 @@ export interface QuestionResponseControlBaseProps {
   /** Exact navigation scope required to activate an iMathAS Question Backend response. */
   readonly studentWorkRoute?: StudentWorkRouteScope;
   readonly beginImathasQuestionBackendLaunch?: () => Promise<ImathasQuestionBackendLaunch>;
+  /** Current authorized lifecycle reference for a backend-owned document route. */
+  readonly assignmentAttempt?: AssignmentAttemptReference;
+  /** Current 1-based position for a backend-owned document route. */
+  readonly position?: number;
+  /**
+   * The active backend document registers its one generic form capture with
+   * Assignment Attempt delivery so Finish can save that same opaque response.
+   */
+  readonly registerBackendOwnedCapture?: (capture: () => Promise<boolean>) => () => void;
 }
 
 export interface QuestionResponseControlProps extends QuestionResponseControlBaseProps {

@@ -4,6 +4,7 @@ import type { JSX } from "solid-js";
 
 import { QUESTION_RESPONSE_CONTROL_STYLES } from "../question_response_control_styles";
 import { ImathasQuestionBackendResponse } from "./imathas_question_backend";
+import { BackendOwnedDocument } from "./backend_owned_document";
 import { HotspotResponse } from "./hotspot";
 import { MatchingResponse } from "./matching";
 import { MultipleChoiceResponse as MultipleChoiceController } from "./multiple_choice";
@@ -147,6 +148,18 @@ function QuestionResponseControlBody(props: QuestionResponseControlProps): JSX.E
           onResponseChange={props.onResponseChange}
           studentWorkRoute={props.studentWorkRoute}
           beginImathasQuestionBackendLaunch={props.beginImathasQuestionBackendLaunch}
+        />
+      );
+    case "backendOwned":
+      return props.assignmentAttempt === undefined || props.position === undefined ? (
+        <p class="inline-error" role="alert">
+          This Question document is not available right now.
+        </p>
+      ) : (
+        <BackendOwnedDocument
+          {...props}
+          assignmentAttempt={props.assignmentAttempt}
+          position={props.position}
         />
       );
     default:

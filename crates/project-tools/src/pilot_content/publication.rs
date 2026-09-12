@@ -17,7 +17,7 @@ use objects::{ObjectAddress, ObjectStore, PutObject};
 use question_model::{
     ObjectId, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionBackend,
     QuestionFormat, QuestionLicense, QuestionRevisionReason, QuestionRevisionReference,
-    SourceObjectChecksum, SourceObjectReference, Timestamp, WorkspaceId,
+    QuestionType, SourceObjectChecksum, SourceObjectReference, Timestamp, WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -181,6 +181,7 @@ async fn publish_plan(
                     workspace,
                     question_backend: question_backend(question.backend),
                     question_format: question_format(question.backend),
+                    question_type: question_type(question.question_type),
                     webwork_pg_path: question.webwork_pg_path.clone(),
                     draft_imathas_question_backend_binding: None,
                     source_object_reference: SourceObjectReference {
@@ -257,6 +258,7 @@ fn existing_publication(
     if entry.question_title != question.question_title
         || entry.question_description != question.question_description
         || entry.backend != question_backend(question.backend)
+        || entry.question_type != question_type(question.question_type)
         || entry.source_media_type != question.source_media_type
         || entry.authorship != *authorship
         || entry.question_license != *license
@@ -316,6 +318,7 @@ async fn matching_or_new_draft(
                 draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::now_v7()),
                 source_record,
                 webwork_pg_path: question.webwork_pg_path.clone(),
+                question_type: question_type(question.question_type),
                 title: question.question_title.clone(),
                 description: question.question_description.clone(),
                 language: question.language.clone(),
@@ -336,6 +339,13 @@ fn question_format(backend: Backend) -> QuestionFormat {
     match backend {
         Backend::Webwork => QuestionFormat::WebworkPg,
         Backend::PleQuestionJson => QuestionFormat::PleQuestionJson,
+    }
+}
+
+fn question_type(question_type: super::PilotQuestionType) -> QuestionType {
+    match question_type {
+        super::PilotQuestionType::MultipleChoice => QuestionType::MultipleChoice,
+        super::PilotQuestionType::Matching => QuestionType::Matching,
     }
 }
 

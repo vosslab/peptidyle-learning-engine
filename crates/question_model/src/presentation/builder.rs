@@ -541,7 +541,8 @@ fn pending_items(
                 )?;
             }
         }
-        QuestionResponseFormat::ImathasQuestionBackend {} => {}
+        QuestionResponseFormat::ImathasQuestionBackend {}
+        | QuestionResponseFormat::BackendOwned {} => {}
     }
     Ok(items)
 }
@@ -772,6 +773,9 @@ fn public_presentation(
         }
         QuestionResponseFormat::ImathasQuestionBackend {} => {
             QuestionPresentationResponseFormat::ImathasQuestionBackend {}
+        }
+        QuestionResponseFormat::BackendOwned {} => {
+            QuestionPresentationResponseFormat::BackendOwned {}
         }
     };
     Ok(QuestionPresentation {

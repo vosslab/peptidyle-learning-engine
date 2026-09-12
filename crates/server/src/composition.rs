@@ -100,7 +100,8 @@ pub async fn production_router_from_env() -> Result<Router> {
     let authoring_drafts = PostgresAuthoringDraftStore::new(pool.clone());
     let authoring_publication = PostgresDraftQuestionSourceBindingStore::new(pool);
     let question_library_objects = question_library_object_store_from_env().await?;
-    let webwork_adapter = webwork_adapter_from_env(question_library_objects.clone())?;
+    let webwork_adapter = webwork_adapter_from_env()?;
+    let webwork_asset_proxy = webwork_asset_proxy_from_env()?;
     let question_id_issuer = question_id_issuer_from_env()?;
     let session_config = production_session_config();
     let readiness_router = Router::new()
@@ -194,6 +195,10 @@ pub async fn production_router_from_env() -> Result<Router> {
             webwork_adapter,
         ))
         .merge(
+            crate::webwork_asset_proxy::webwork_asset_proxy_router(webwork_asset_proxy)
+                .map_err(anyhow::Error::msg)?,
+        )
+        .merge(
             crate::question_asset_delivery::question_asset_delivery_router(
                 Arc::clone(&sessions),
                 question_asset_delivery,
@@ -215,9 +220,7 @@ pub async fn production_router_from_env() -> Result<Router> {
 
 /// Constructs the private WeBWorK boundary from deployment-owned settings.
 /// The renderer version is an attested private file, never a browser input.
-fn webwork_adapter_from_env(
-    objects: S3ObjectStore,
-) -> Result<Arc<WebworkAdapter<S3ObjectStore, HttpWebworkRenderer>>> {
+fn webwork_adapter_from_env() -> Result<Arc<WebworkAdapter<HttpWebworkRenderer>>> {
     let version_file = required_env("PLE_WEBWORK_RENDERER_VERSION_FILE")?;
     let attestation = std::fs::read_to_string(version_file)
         .context("could not read the Question Renderer Version attestation")?;
@@ -240,10 +243,24 @@ fn webwork_adapter_from_env(
             name: required_env("PLE_WEBWORK_RENDERER_ID")?,
             version: version.to_string(),
         },
+        &required_env("PLE_BROWSER_ORIGIN")?,
     )
     .map_err(anyhow::Error::msg)?;
     let renderer = HttpWebworkRenderer::new(config).map_err(anyhow::Error::msg)?;
-    Ok(Arc::new(WebworkAdapter::new(objects, renderer)))
+    Ok(Arc::new(WebworkAdapter::new(renderer)))
+}
+
+/// Builds the public, read-only renderer asset route from the same private
+/// renderer address and deadline that issuance and grading use.
+fn webwork_asset_proxy_from_env() -> Result<crate::webwork_asset_proxy::WebworkAssetProxyConfig> {
+    let timeout = required_env("PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS")?
+        .parse::<u64>()
+        .context("PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS must be an integer")?;
+    crate::webwork_asset_proxy::WebworkAssetProxyConfig::new(
+        &required_env("PLE_WEBWORK_RENDERER_BASE_URL")?,
+        std::time::Duration::from_secs(timeout),
+    )
+    .map_err(anyhow::Error::msg)
 }
 
 /// Reads the deployment-owned HMAC key that validates newly minted Question IDs.
@@ -386,7 +403,7 @@ pub async fn run_webwork_grading_worker_from_env() -> Result<()> {
         .await
         .context("the attested WeBWorK worker database pool could not connect")?;
     let objects = webwork_worker_object_store_from_env().await?;
-    let adapter = webwork_adapter_from_env(objects.clone())?;
+    let adapter = webwork_adapter_from_env()?;
     crate::worker::run_webwork_until_shutdown(
         PostgresWebworkGradingStore::new(pool),
         objects,

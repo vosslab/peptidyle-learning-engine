@@ -169,6 +169,9 @@ function issuedQuestionResponseFormat(
 ): QuestionPresentationResponseFormat {
   const record = decodeRecord(value, path);
   switch (kind(record, path)) {
+    case "backendOwned":
+      requireOnlyFields(record, path, ["kind"]);
+      return { kind: "backendOwned" };
     case "imathasQuestionBackend":
       requireOnlyFields(record, path, ["kind"]);
       return { kind: "imathasQuestionBackend" };

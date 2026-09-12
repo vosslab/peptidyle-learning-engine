@@ -1,68 +1,61 @@
-//! Renderer-client and deterministic render-cache contract.
+//! Private renderer transport and immutable per-attempt document evidence.
 //!
 //! This module intentionally does not parse or execute PG.  A constrained
-//! renderer service owns that work.  The adapter holds the network boundary,
-//! cache key, and conversion to the shared question model so no PG process,
-//! answer key, or renderer credential can reach a browser or the database.
+//! renderer service owns that work. The adapter validates the private network
+//! boundary and preserves the exact document and renderer version issued for
+//! each attempt, so no PG process, answer key, or renderer credential can
+//! reach a browser or the database.
 
 use async_trait::async_trait;
 use grading::QuestionGradingOutcome;
-use question_model::response::ResponseItemReference;
-use question_model::{QuestionRendererVersion, QuestionVariationPresentation, StudentResponse};
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use question_model::{BackendOwnedLifecycleState, QuestionRendererVersion};
+use sha2::{Digest, Sha256};
 
-/// One private upstream form control/value pair for a visible item.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WebworkUpstreamControl {
-    pub field: String,
-    pub value: String,
-}
-
-/// One private matching prompt and its visible-choice value map.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WebworkUpstreamMatchingPrompt {
-    pub field: String,
-    pub choices: BTreeMap<ResponseItemReference, String>,
-}
-
-/// Bounded answer-free replay state captured during trusted issuance.
+/// Untrusted result of rendering one PG question after envelope validation.
 ///
-/// This contains form field names and visible option values, never the
-/// correct response, session key, password, source, or renderer credential.
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum WebworkQuestionAttemptReplayDetails {
-    SingleChoice {
-        controls: BTreeMap<ResponseItemReference, WebworkUpstreamControl>,
-    },
-    Matching {
-        prompts: BTreeMap<ResponseItemReference, WebworkUpstreamMatchingPrompt>,
-    },
-}
-
-/// Untrusted result of rendering one PG question after strict conversion.
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+/// The document remains verbatim backend-owned bytes.  PLE neither parses PG
+/// controls nor derives educational metadata from this value.
+#[derive(Clone, PartialEq, Eq)]
 pub struct RenderedWebworkQuestion {
-    /// Backend-neutral prompt and Question Response Format safe for a browser.
-    pub presentation: QuestionVariationPresentation,
+    /// The bounded standalone renderer document that the attempt store serves.
+    pub document: Vec<u8>,
+    /// SHA-256 of exactly `document`, retained as an immutable audit fact.
+    pub document_sha256: [u8; 32],
     /// The implementation that actually produced this particular render.
     ///
-    /// This is part of renderer output rather than sampled from a client on a
-    /// cache hit, so historical output is never relabelled after an upgrade.
+    /// This is preserved with the issued document, so historical attempt
+    /// evidence is never relabelled after a renderer upgrade.
     pub renderer_version: QuestionRendererVersion,
-    /// Private issuance-only mapping excluded from every serialized form.
-    #[serde(skip)]
-    pub replay: Option<WebworkQuestionAttemptReplayDetails>,
+    /// WeBWorK grading is stateless, so the shared slot is explicitly `None`.
+    pub lifecycle_state: BackendOwnedLifecycleState,
+}
+
+impl RenderedWebworkQuestion {
+    pub(crate) fn from_document(
+        document: Vec<u8>,
+        renderer_version: QuestionRendererVersion,
+    ) -> Self {
+        let document_sha256 = Sha256::digest(&document).into();
+        Self {
+            document,
+            document_sha256,
+            renderer_version,
+            lifecycle_state: BackendOwnedLifecycleState::none(),
+        }
+    }
 }
 
 impl std::fmt::Debug for RenderedWebworkQuestion {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("RenderedWebworkQuestion")
-            .field("presentation", &self.presentation)
+            .field("document", &format_args!("[{} bytes]", self.document.len()))
+            .field("document_sha256", &"[REDACTED]")
             .field("renderer_version", &self.renderer_version)
-            .field("replay", &self.replay.as_ref().map(|_| "[REDACTED]"))
+            .field(
+                "lifecycle_state",
+                &self.lifecycle_state.as_deref().map(|_| "[REDACTED]"),
+            )
             .finish()
     }
 }
@@ -146,8 +139,8 @@ pub struct GradeRequest<'a> {
     pub question_revision: &'a question_model::QuestionRevisionReference,
     /// Deterministic attempt seed.
     pub seed: u64,
-    /// Browser-submitted response, never an answer key.
-    pub response: &'a StudentResponse,
-    /// Exact issuance mapping already bound to the persisted attempt.
-    pub replay: &'a WebworkQuestionAttemptReplayDetails,
+    /// Canonical bounded JSON `[name, value]` pairs from the backend document.
+    pub response_payload: &'a [u8],
+    /// WeBWorK grading is stateless; supplied for the shared lifecycle contract.
+    pub lifecycle_state: &'a BackendOwnedLifecycleState,
 }

@@ -50,5 +50,9 @@ pub mod question_publication;
 pub mod request_lifecycle;
 /// Exact-course, direct-Instructor support-capability routes.
 pub(crate) mod support_capability;
+/// Public, bounded proxy for renderer-owned WeBWorK assets.
+pub(crate) mod webwork_asset_proxy;
+/// Student-authorized immutable WeBWorK document delivery route.
+pub(crate) mod webwork_document_route;
 /// Least-privilege worker process lifecycle with no browser or HTTP listener.
 pub mod worker;

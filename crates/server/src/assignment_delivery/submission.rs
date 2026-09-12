@@ -205,6 +205,9 @@ pub(super) fn restore_saved_response(
         StudentResponseInspection::ImathasQuestionBackend { .. } => {
             StudentResponse::ImathasQuestionBackend {}
         }
+        StudentResponseInspection::BackendOwned { payload } => {
+            StudentResponse::BackendOwned { payload }
+        }
     })
 }
 
@@ -263,6 +266,23 @@ mod tests {
         build_question_presentation(&presentation, &[]).expect("issued presentation")
     }
 
+    fn issued_backend_owned() -> IssuedQuestionPresentation {
+        let presentation = QuestionVariationPresentation {
+            variation: QuestionVariation::from_question_revision_and_question_seed(
+                QuestionRevisionReference {
+                    question_id: "123-4567".parse().expect("question id"),
+                    revision_number: QuestionRevisionNumber::new(1).expect("revision"),
+                },
+                QuestionSeed::new(42),
+            ),
+            question_title: "Backend-owned question".to_owned(),
+            prompt: Vec::new(),
+            response: QuestionResponseFormat::BackendOwned {},
+            native_choice_order: NativeChoiceOrder::Fixed,
+        };
+        build_question_presentation(&presentation, &[]).expect("issued presentation")
+    }
+
     #[test]
     fn restored_saved_response_uses_presentation_reference_not_durable_identifier() {
         let issued = issued_multiple_choice();
@@ -277,6 +297,17 @@ mod tests {
         assert_eq!(selected.len(), 1);
         assert_ne!(selected[0].as_str(), "durable-choice");
         assert_eq!(selected[0].as_str().len(), 4);
+    }
+
+    #[test]
+    fn restored_backend_owned_response_preserves_opaque_bytes_without_interpretation() {
+        let response = StudentResponse::BackendOwned {
+            payload: b"AnSwEr0001=value&control=next".to_vec(),
+        };
+
+        let restored = restore_saved_response(&response, &issued_backend_owned())
+            .expect("restore bounded opaque response");
+        assert_eq!(restored, response);
     }
 
     #[tokio::test]

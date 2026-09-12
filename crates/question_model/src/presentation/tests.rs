@@ -179,6 +179,33 @@ fn descriptor_is_stable_answer_free_and_bound_to_every_visible_field() {
 }
 
 #[test]
+fn backend_owned_presentation_rebuilds_answer_free() {
+    let mut source = fixture();
+    source.question_title = "Backend-owned response".to_owned();
+    source.prompt = Vec::new();
+    source.response = QuestionResponseFormat::BackendOwned {};
+
+    let mut first_nonces = Nonces::new([[0x22; 16]]);
+    let first = build_question_presentation_with_nonce_source(&source, &[], &mut first_nonces)
+        .expect("backend-owned presentation");
+    let mut second_nonces = Nonces::new([[0x22; 16]]);
+    let second = build_question_presentation_with_nonce_source(&source, &[], &mut second_nonces)
+        .expect("same fixed-nonce backend-owned presentation");
+
+    assert_eq!(first.checksum, second.checksum);
+    assert_eq!(
+        first.presentation.response,
+        QuestionPresentationResponseFormat::BackendOwned {}
+    );
+    assert!(first.item_bindings.is_empty());
+
+    let rebuilt = rebuild_public_question_presentation(&first.presentation, &[])
+        .expect("backend-owned public presentation rebuild");
+    assert_eq!(rebuilt.checksum, first.checksum);
+    assert!(rebuilt.item_bindings.is_empty());
+}
+
+#[test]
 fn retained_response_item_bindings_rebind_only_the_exact_public_set() {
     let mut source = Nonces::new([[0x11; 16]]);
     let issued = build_question_presentation_with_nonce_source(&fixture(), &[], &mut source)

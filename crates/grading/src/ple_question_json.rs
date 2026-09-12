@@ -845,7 +845,8 @@ fn selectable_ids(response: &QuestionResponseFormat) -> BTreeSet<ResponseItemRef
         QuestionResponseFormat::Numeric { .. }
         | QuestionResponseFormat::ShortText { .. }
         | QuestionResponseFormat::MultiBlank { .. }
-        | QuestionResponseFormat::ImathasQuestionBackend {} => BTreeSet::new(),
+        | QuestionResponseFormat::ImathasQuestionBackend {}
+        | QuestionResponseFormat::BackendOwned {} => BTreeSet::new(),
     }
 }
 

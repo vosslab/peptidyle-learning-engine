@@ -34,7 +34,7 @@ impl WebworkGradingStore for PostgresWebworkGradingStore {
         let row = sqlx::query(
             "SELECT job_id, question_attempt_id, question_id, revision_number, source_object_id, \
              source_object_checksum, webwork_pg_path, question_seed::text AS question_seed, \
-             student_response, replay_details \
+             student_response \
              FROM ple_api.claim_webwork_grading_job(\
                  $1, to_timestamp($2::double precision / 1000.0)\
              )",
@@ -76,8 +76,9 @@ impl WebworkGradingStore for PostgresWebworkGradingStore {
                     .map_err(map_sqlx_error)?
                     .parse()
                     .map_err(|_| StoreError::InvalidRecord("WeBWorK seed is invalid".into()))?,
-                student_response: row.try_get("student_response").map_err(map_sqlx_error)?,
-                replay_details: row.try_get("replay_details").map_err(map_sqlx_error)?,
+                backend_response_payload: backend_owned_response_payload(
+                    row.try_get("student_response").map_err(map_sqlx_error)?,
+                )?,
             })
         })
         .transpose()
@@ -115,5 +116,34 @@ impl WebworkGradingStore for PostgresWebworkGradingStore {
             .bind(lease.job_id).bind(lease.lease_token).bind(completed_at_unix_millis)
             .execute(&mut *transaction).await.map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)
+    }
+}
+
+fn backend_owned_response_payload(value: serde_json::Value) -> Result<Vec<u8>, StoreError> {
+    match serde_json::from_value::<question_model::StudentResponse>(value)
+        .map_err(|_| StoreError::InvalidRecord("WeBWorK response is invalid".into()))?
+    {
+        question_model::StudentResponse::BackendOwned { payload } => Ok(payload),
+        _ => Err(StoreError::InvalidRecord(
+            "WeBWorK response is not backend-owned".into(),
+        )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::backend_owned_response_payload;
+
+    #[test]
+    fn grading_claim_decodes_only_the_backend_owned_payload() {
+        let response = question_model::StudentResponse::BackendOwned {
+            payload: vec![1, 2, 3],
+        };
+        let payload = backend_owned_response_payload(
+            serde_json::to_value(response).expect("backend response wire value"),
+        )
+        .expect("backend-owned payload");
+        assert_eq!(payload, vec![1, 2, 3]);
+        assert!(backend_owned_response_payload(serde_json::json!({})).is_err());
     }
 }

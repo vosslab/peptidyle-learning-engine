@@ -5,9 +5,9 @@ use crate::{
     IssuedQuestionPresentation, LiveAssignmentAccess, LiveAssignmentAttempt,
     LiveAssignmentDeliveryStore, NativeAssignmentIssuanceBatch, NativePleIssuanceSource,
     NativePresentationInput, NativeWebworkIssuanceSource, SessionTokenHash, StoreError,
-    StudentAssignmentAttemptFinalization, StudentAssignmentAttemptHistoryEvidence,
-    StudentAssignmentAttemptHistoryResponseSource, StudentAssignmentAttemptPresentationEvidence,
-    StudentAssignmentAttemptSavedResponse,
+    StudentAssignmentAttemptBackendDocument, StudentAssignmentAttemptFinalization,
+    StudentAssignmentAttemptHistoryEvidence, StudentAssignmentAttemptHistoryResponseSource,
+    StudentAssignmentAttemptPresentationEvidence, StudentAssignmentAttemptSavedResponse,
 };
 use async_trait::async_trait;
 use question_model::{
@@ -196,12 +196,13 @@ fn presentation_payloads<'a>(
             &'a String,
             &'a String,
             &'a [ReadyQuestionAssetRendition],
-            Option<&'a serde_json::Value>,
+            &'a str,
+            Option<&'a String>,
             &'a [question_model::presentation::DurableResponseItemBinding],
         ),
     >,
 ) -> Result<serde_json::Value, StoreError> {
-    values.map(|(issued_question_id, parameter_hash, details, presentation, nonce, checksum, assets, replay, response_item_bindings)| {
+    values.map(|(issued_question_id, parameter_hash, details, presentation, nonce, checksum, assets, issued_capability, backend_document, response_item_bindings)| {
         let details: question_model::QuestionAttemptReproductionDetails = serde_json::from_value(details.clone())
             .map_err(|_| StoreError::InvalidRecord("Question reproduction details are invalid".to_string()))?;
         let mut payload = serde_json::json!({
@@ -214,7 +215,7 @@ fn presentation_payloads<'a>(
             "grader_name": details.grader.name,
             "grader_version": details.grader.version,
             "rendered_question_sha256": details.rendered_question_sha256,
-            "issued_capability": if replay.is_some() { "webwork_presentation" } else { "ple_question_json_presentation" },
+            "issued_capability": issued_capability,
             "presentation_nonce": nonce,
             "presentation_checksum": checksum,
             "presentation": presentation,
@@ -230,8 +231,8 @@ fn presentation_payloads<'a>(
                 "intrinsic_height": asset.intrinsic_height,
             })).collect::<Vec<_>>(),
         });
-        if let Some(replay) = replay {
-            payload["webwork_replay"] = replay.clone();
+        if let Some(backend_document) = backend_document {
+            payload["backend_document"] = serde_json::Value::String(backend_document.clone());
         }
         Ok(payload)
     }).collect::<Result<Vec<_>, StoreError>>().map(serde_json::Value::Array)
@@ -506,6 +507,32 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(evidence)
     }
+
+    async fn student_assignment_attempt_backend_document(
+        &self,
+        token: SessionTokenHash,
+        assignment_attempt: AssignmentAttemptReference,
+        position: u32,
+    ) -> Result<StudentAssignmentAttemptBackendDocument, StoreError> {
+        let position = i32::try_from(position).map_err(|_| StoreError::NotFound)?;
+        if position < 1 {
+            return Err(StoreError::NotFound);
+        }
+        let mut tx = self.begin(token).await?;
+        let row = sqlx::query(
+            "SELECT backend_document \
+             FROM ple_api.read_student_assignment_attempt_backend_document($1, $2)",
+        )
+        .bind(i64::from(assignment_attempt.number()))
+        .bind(position)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
+        let backend_document = row.try_get("backend_document").map_err(map_sqlx_error)?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(StudentAssignmentAttemptBackendDocument { backend_document })
+    }
     async fn prepare_native_assignment_issuance(
         &self,
         token: SessionTokenHash,
@@ -697,7 +724,8 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
                 &value.presentation_nonce,
                 &value.presentation_checksum,
                 value.question_asset_renditions.as_slice(),
-                value.replay_details.as_ref(),
+                value.issued_capability.as_str(),
+                value.backend_document.as_ref(),
                 value.response_item_bindings.as_slice(),
             )
         }))?;
@@ -850,12 +878,17 @@ mod tests {
             &"nonce".to_string(),
             &"checksum".to_string(),
             &[][..],
+            "ple_question_json_presentation",
             None,
             &[][..],
         )))
         .expect("commit payload");
 
         assert_eq!(payload[0]["issued_question_id"], issued_question_id);
-        assert!(payload[0].get("webwork_replay").is_none());
+        assert_eq!(
+            payload[0]["issued_capability"],
+            "ple_question_json_presentation"
+        );
+        assert!(payload[0].get("backend_document").is_none());
     }
 }

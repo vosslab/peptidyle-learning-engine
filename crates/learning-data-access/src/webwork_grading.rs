@@ -2,7 +2,6 @@
 
 use async_trait::async_trait;
 use question_model::{QuestionAttemptId, QuestionId};
-use serde_json::Value;
 use uuid::Uuid;
 
 use crate::StoreError;
@@ -19,8 +18,9 @@ pub struct WebworkGradingJobLease {
     pub source_object_checksum: String,
     pub webwork_pg_path: String,
     pub question_seed: u64,
-    pub student_response: Value,
-    pub replay_details: Value,
+    /// Bounded opaque bytes decoded at the persistence seam.  The worker
+    /// forwards them to WeBWorK without interpreting their form fields.
+    pub backend_response_payload: Vec<u8>,
 }
 
 impl std::fmt::Debug for WebworkGradingJobLease {

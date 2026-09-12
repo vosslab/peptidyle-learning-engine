@@ -1,31 +1,36 @@
-//! Server-only WeBWorK grading composition.
+//! Server-only opaque WeBWorK grading composition.
 
 use grading::QuestionGradingOutcome;
-use question_model::StudentResponse;
 use question_model::generation::QuestionSeed;
+use question_model::{BackendOwnedLifecycleState, StudentResponse};
 
 use super::{ResolvedWebworkQuestionSource, WebworkAdapterError};
-use crate::renderer_contract::{
-    GradeRequest, WebworkQuestionAttemptReplayDetails, WebworkRenderer,
-};
+use crate::renderer_contract::{GradeRequest, WebworkRenderer};
 
-/// Delegates a student response under the exact source's accepted grading policy.
+/// Delegates one opaque student payload under the exact immutable source.
 pub(super) async fn grade<R: WebworkRenderer>(
     renderer: &R,
     seed: QuestionSeed,
     source: &ResolvedWebworkQuestionSource,
     response: &StudentResponse,
-    replay: &WebworkQuestionAttemptReplayDetails,
 ) -> Result<QuestionGradingOutcome, WebworkAdapterError> {
     crate::source_object_reference::verify_source(source)?;
+    let StudentResponse::BackendOwned { payload } = response else {
+        return Err(WebworkAdapterError::Renderer(
+            crate::renderer_contract::RendererFailure::InvalidOutput(
+                "WeBWorK requires a backend-owned response".to_string(),
+            ),
+        ));
+    };
+    let lifecycle_state = BackendOwnedLifecycleState::none();
     renderer
         .grade(GradeRequest {
             pg_source: source.pg_source(),
             pg_path: source.pg_path(),
             question_revision: source.question_revision(),
             seed: seed.value(),
-            response,
-            replay,
+            response_payload: payload,
+            lifecycle_state: &lifecycle_state,
         })
         .await
         .map_err(WebworkAdapterError::Renderer)

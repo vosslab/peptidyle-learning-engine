@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use objects::ObjectRecord;
-use question_model::{DraftQuestionReference, WorkspaceId};
+use question_model::{DraftQuestionReference, QuestionType, WorkspaceId};
 use uuid::Uuid;
 
 use crate::{DraftQuestionEditNumber, DraftQuestionUuid, SessionTokenHash, StoreError};
@@ -26,6 +26,8 @@ pub struct AuthoringDraft {
     pub title: String,
     /// Private Instructor-facing discovery description.
     pub description: String,
+    /// Current author-declared educational type that publication makes immutable.
+    pub question_type: QuestionType,
     /// Exact current private source object evidence.
     pub source_record: ObjectRecord,
 }
@@ -49,6 +51,8 @@ pub struct CreateAuthoringDraftInput {
     /// Registered OPL-style PG location for a WeBWorK source. Native PLE
     /// Question JSON carries no WeBWorK routing field.
     pub webwork_pg_path: Option<String>,
+    /// Required author-declared educational Question Type.
+    pub question_type: QuestionType,
     /// Source-derived Question Title.
     pub title: String,
     /// Source-derived Question Description.
@@ -66,6 +70,8 @@ pub struct SaveAuthoringDraftInput {
     pub expected_edit_number: DraftQuestionEditNumber,
     /// Exact source Object Record written before persistence registration.
     pub source_record: ObjectRecord,
+    /// Required replacement author-declared educational Question Type.
+    pub question_type: QuestionType,
     /// Source-derived Question Title.
     pub title: String,
     /// Source-derived Question Description.

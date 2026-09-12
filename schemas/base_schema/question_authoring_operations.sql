@@ -4,7 +4,7 @@
 SET LOCAL ROLE ple_private_owner;
 CREATE FUNCTION ple_private.bind_draft_question_source(
     p_draft_question_uuid uuid, p_expected_edit_number bigint, p_workspace_id uuid,
-    p_backend text, p_question_format text, p_webwork_pg_path text,
+    p_backend text, p_question_format text, p_question_type text, p_webwork_pg_path text,
     p_imathas_deployment_reference text, p_imathas_item_reference text,
     p_imathas_profile text, p_source_object_id uuid, p_source_object_checksum text
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
@@ -27,6 +27,7 @@ BEGIN
     SELECT * INTO existing FROM ple_private.draft_question_source_binding
      WHERE draft_question_uuid = p_draft_question_uuid FOR UPDATE;
     IF FOUND AND existing.backend = p_backend AND existing.question_format = p_question_format
+       AND existing.question_type = p_question_type
        AND existing.webwork_pg_path IS NOT DISTINCT FROM p_webwork_pg_path
        AND existing.imathas_deployment_reference IS NOT DISTINCT FROM p_imathas_deployment_reference
        AND existing.imathas_item_reference IS NOT DISTINCT FROM p_imathas_item_reference
@@ -40,15 +41,16 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Draft Question Edit Number is stale';
     END IF;
     INSERT INTO ple_private.draft_question_source_binding AS binding (
-        draft_question_uuid, backend, question_format, webwork_pg_path,
+        draft_question_uuid, backend, question_format, question_type, webwork_pg_path,
         imathas_deployment_reference, imathas_item_reference, imathas_profile,
         source_object_id, source_object_checksum, created_at, updated_at
     ) VALUES (
-        p_draft_question_uuid, p_backend, p_question_format, p_webwork_pg_path,
+        p_draft_question_uuid, p_backend, p_question_format, p_question_type, p_webwork_pg_path,
         p_imathas_deployment_reference, p_imathas_item_reference, p_imathas_profile,
         p_source_object_id, p_source_object_checksum, pg_catalog.clock_timestamp(), pg_catalog.clock_timestamp()
     ) ON CONFLICT (draft_question_uuid) DO UPDATE SET
         backend = EXCLUDED.backend, question_format = EXCLUDED.question_format,
+        question_type = EXCLUDED.question_type,
         webwork_pg_path = EXCLUDED.webwork_pg_path,
         imathas_deployment_reference = EXCLUDED.imathas_deployment_reference,
         imathas_item_reference = EXCLUDED.imathas_item_reference,
@@ -63,9 +65,9 @@ BEGIN
 END
 $$;
 REVOKE ALL ON FUNCTION ple_private.bind_draft_question_source(
-    uuid, bigint, uuid, text, text, text, text, text, text, uuid, text) FROM PUBLIC;
+    uuid, bigint, uuid, text, text, text, text, text, text, text, uuid, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.bind_draft_question_source(
-    uuid, bigint, uuid, text, text, text, text, text, text, uuid, text) TO ple_api_owner;
+    uuid, bigint, uuid, text, text, text, text, text, text, text, uuid, text) TO ple_api_owner;
 RESET ROLE;
 
 -- A later publication creates another immutable version of an existing stable
@@ -148,8 +150,8 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Question Revision Publication target must preserve the exact Draft Question Source bytes';
     END IF;
-    INSERT INTO ple_data.question_revision(question_id, revision_number, backend, published_at)
-    VALUES (p_question_id, next_revision_number, binding.backend, published_at);
+    INSERT INTO ple_data.question_revision(question_id, revision_number, backend, question_type, published_at)
+    VALUES (p_question_id, next_revision_number, binding.backend, binding.question_type, published_at);
     INSERT INTO ple_private.object_record(
         object_id, object_address, object_storage_area, object_data_class, sha256, size_bytes, media_type, created_at
     ) VALUES (p_target_object_id, expected_address, 'private-content', 'question-source',
@@ -224,14 +226,14 @@ GRANT EXECUTE ON FUNCTION ple_api.current_session_account_is_authoring_workspace
 
 CREATE FUNCTION ple_api.bind_draft_question_source(
     p_draft_question_uuid uuid, p_expected_edit_number bigint, p_workspace_id uuid,
-    p_backend text, p_question_format text, p_webwork_pg_path text,
+    p_backend text, p_question_format text, p_question_type text, p_webwork_pg_path text,
     p_imathas_deployment_reference text, p_imathas_item_reference text,
     p_imathas_profile text, p_source_object_id uuid, p_source_object_checksum text
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT ple_private.bind_draft_question_source(
         p_draft_question_uuid, p_expected_edit_number, p_workspace_id, p_backend,
-        p_question_format, p_webwork_pg_path, p_imathas_deployment_reference,
+        p_question_format, p_question_type, p_webwork_pg_path, p_imathas_deployment_reference,
         p_imathas_item_reference, p_imathas_profile, p_source_object_id, p_source_object_checksum)
 $$;
 CREATE FUNCTION ple_api.publish_question_revision(
@@ -249,11 +251,11 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
         p_target_media_type, p_target_created_at_millis, p_reason_for_edit, p_publication_event_id)
 $$;
 REVOKE ALL ON FUNCTION ple_api.bind_draft_question_source(
-    uuid, bigint, uuid, text, text, text, text, text, text, uuid, text) FROM PUBLIC;
+    uuid, bigint, uuid, text, text, text, text, text, text, text, uuid, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_api.publish_question_revision(
     uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.bind_draft_question_source(
-    uuid, bigint, uuid, text, text, text, text, text, text, uuid, text) TO ple_app;
+    uuid, bigint, uuid, text, text, text, text, text, text, text, uuid, text) TO ple_app;
 GRANT EXECUTE ON FUNCTION ple_api.publish_question_revision(
     uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid) TO ple_app;
 RESET ROLE;
@@ -379,8 +381,8 @@ BEGIN
         question_id, question_title, question_description, language, created_at, updated_at
     ) VALUES (p_question_id, metadata.question_title, metadata.question_description, metadata.language,
         published_at, published_at);
-    INSERT INTO ple_data.question_revision(question_id, revision_number, backend, published_at)
-    VALUES (p_question_id, 1, binding.backend, published_at);
+    INSERT INTO ple_data.question_revision(question_id, revision_number, backend, question_type, published_at)
+    VALUES (p_question_id, 1, binding.backend, binding.question_type, published_at);
     INSERT INTO ple_private.object_record(
         object_id, object_address, object_storage_area, object_data_class, sha256, size_bytes, media_type, created_at
     ) VALUES (p_target_object_id, expected_address, 'private-content', 'question-source',
@@ -462,7 +464,7 @@ CREATE FUNCTION ple_private.question_library_entries(
     p_question_id text DEFAULT NULL, p_revision_number integer DEFAULT NULL,
     p_require_available boolean DEFAULT true
 ) RETURNS TABLE (
-    question_id text, revision_number integer, backend text, published_at_millis bigint,
+    question_id text, revision_number integer, backend text, question_type text, published_at_millis bigint,
     question_title text, question_description text, author_names text[],
     authored_by_current_account boolean, question_license text, availability text,
     availability_edit_number bigint, source_object_id uuid, source_object_checksum text,
@@ -475,7 +477,7 @@ BEGIN
             MESSAGE = 'Question Library requires an active Instructor Account';
     END IF;
     RETURN QUERY
-    SELECT revision.question_id, revision.revision_number, revision.backend,
+    SELECT revision.question_id, revision.revision_number, revision.backend, revision.question_type,
            floor(extract(epoch FROM revision.published_at) * 1000)::bigint,
            metadata.question_title, metadata.question_description,
            ARRAY(SELECT authorship.author_display_name
@@ -516,7 +518,7 @@ SET LOCAL ROLE ple_api_owner;
 CREATE VIEW ple_api.published_question_summary
 WITH (security_barrier = true, security_invoker = false) AS
 SELECT lineage.question_id, revision.revision_number AS latest_question_revision_number,
-       revision.backend, revision.published_at, metadata.question_title,
+       revision.backend, revision.question_type, revision.published_at, metadata.question_title,
        metadata.question_description, metadata.language, lineage.availability,
        lineage.availability_edit_number
   FROM ple_data.published_question AS lineage
@@ -530,7 +532,7 @@ SELECT lineage.question_id, revision.revision_number AS latest_question_revision
     ON revision.question_id = lineage.question_id AND revision.revision_number = latest.revision_number;
 CREATE FUNCTION ple_api.list_question_library_entries()
 RETURNS TABLE (
-    question_id text, revision_number integer, backend text, published_at_millis bigint,
+    question_id text, revision_number integer, backend text, question_type text, published_at_millis bigint,
     question_title text, question_description text, author_names text[],
     authored_by_current_account boolean, question_license text, availability text,
     availability_edit_number bigint, source_object_id uuid, source_object_checksum text,
@@ -540,7 +542,7 @@ RETURNS TABLE (
 $$;
 CREATE FUNCTION ple_api.load_question_library_revision(p_question_id text, p_revision_number integer)
 RETURNS TABLE (
-    question_id text, revision_number integer, backend text, published_at_millis bigint,
+    question_id text, revision_number integer, backend text, question_type text, published_at_millis bigint,
     question_title text, question_description text, author_names text[],
     authored_by_current_account boolean, question_license text, availability text,
     availability_edit_number bigint, source_object_id uuid, source_object_checksum text,
@@ -609,13 +611,13 @@ CREATE FUNCTION ple_private.load_authoring_draft(p_reference_number bigint)
 RETURNS TABLE (
     draft_question_uuid uuid, workspace_id uuid, reference_number bigint,
     draft_question_edit_number bigint, question_title text, question_description text,
-    language text, object_id uuid, object_address jsonb, sha256 bytea,
+    language text, question_type text, object_id uuid, object_address jsonb, sha256 bytea,
     size_bytes bigint, media_type text, created_at_millis bigint
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT question.draft_question_uuid, question.workspace_id, question.reference_number,
            question.draft_question_edit_number, metadata.question_title,
-           metadata.question_description, metadata.language, record.object_id,
+           metadata.question_description, metadata.language, binding.question_type, record.object_id,
            record.object_address, record.sha256, record.size_bytes, record.media_type,
            pg_catalog.round(extract(epoch FROM record.created_at) * 1000)::bigint
       FROM ple_private.draft_question AS question
@@ -641,7 +643,7 @@ CREATE FUNCTION ple_private.create_authoring_draft(
     p_workspace_id uuid, p_draft_question_uuid uuid, p_object_id uuid,
     p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint, p_media_type text,
     p_created_at_millis bigint, p_question_title text, p_question_description text,
-    p_language text, p_webwork_pg_path text
+    p_language text, p_webwork_pg_path text, p_question_type text
 ) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE
@@ -672,6 +674,8 @@ BEGIN
        OR char_length(p_question_description) NOT BETWEEN 1 AND 4000 OR p_question_description ~ '[[:cntrl:]]'
        OR p_language IS NULL OR p_language <> btrim(p_language)
        OR char_length(p_language) NOT BETWEEN 2 AND 35
+       OR p_question_type NOT IN ('multipleChoice', 'multipleAnswer', 'fillInBlank', 'multipleFillInBlank',
+           'numeric', 'matching', 'ordering', 'hotspot')
        OR NOT ple_api.current_session_account_is_instructor()
        OR NOT ple_api.current_session_account_is_authoring_workspace_owner(p_workspace_id) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -701,13 +705,13 @@ BEGIN
         p_object_id, expected_address, 'private-content', 'authoring-content',
         p_sha256, p_size_bytes, p_media_type, created_at);
     INSERT INTO ple_private.draft_question_source_binding(
-        draft_question_uuid, backend, question_format, webwork_pg_path, source_object_id,
+        draft_question_uuid, backend, question_format, question_type, webwork_pg_path, source_object_id,
         source_object_checksum, created_at, updated_at
     ) VALUES (
         p_draft_question_uuid,
         CASE p_media_type WHEN 'application/vnd.peptidyle.question+json' THEN 'ple' ELSE 'webwork' END,
         CASE p_media_type WHEN 'application/vnd.peptidyle.question+json' THEN 'pleQuestionJson' ELSE 'webworkPg' END,
-        p_webwork_pg_path, p_object_id,
+        p_question_type, p_webwork_pg_path, p_object_id,
         pg_catalog.encode(p_sha256, 'hex'), pg_catalog.clock_timestamp(), pg_catalog.clock_timestamp());
     RETURN reference_number;
 END
@@ -717,7 +721,7 @@ CREATE FUNCTION ple_private.save_authoring_draft(
     p_reference_number bigint, p_expected_edit_number bigint, p_object_id uuid,
     p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint, p_media_type text,
     p_created_at_millis bigint, p_question_title text, p_question_description text,
-    p_language text
+    p_language text, p_question_type text
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE
@@ -738,6 +742,8 @@ BEGIN
        OR char_length(p_question_description) NOT BETWEEN 1 AND 4000 OR p_question_description ~ '[[:cntrl:]]'
        OR p_language IS NULL OR p_language <> btrim(p_language)
        OR char_length(p_language) NOT BETWEEN 2 AND 35
+       OR p_question_type NOT IN ('multipleChoice', 'multipleAnswer', 'fillInBlank', 'multipleFillInBlank',
+           'numeric', 'matching', 'ordering', 'hotspot')
        OR NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Draft Question save arguments are invalid';
@@ -786,6 +792,7 @@ BEGIN
     UPDATE ple_private.draft_question_source_binding
        SET source_object_id = p_object_id,
            source_object_checksum = pg_catalog.encode(p_sha256, 'hex'),
+           question_type = p_question_type,
            updated_at = pg_catalog.clock_timestamp()
      WHERE draft_question_uuid = v_draft_question_uuid;
     UPDATE ple_private.draft_question_metadata
@@ -803,13 +810,13 @@ $$;
 
 REVOKE ALL ON FUNCTION ple_private.ensure_own_authoring_workspace(uuid),
     ple_private.list_authoring_drafts(), ple_private.load_authoring_draft(bigint),
-    ple_private.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text),
-    ple_private.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text)
+    ple_private.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text),
+    ple_private.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text)
     FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.ensure_own_authoring_workspace(uuid),
     ple_private.list_authoring_drafts(), ple_private.load_authoring_draft(bigint),
-    ple_private.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text),
-    ple_private.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text)
+    ple_private.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text),
+    ple_private.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text)
     TO ple_api_owner;
 RESET ROLE;
 
@@ -831,7 +838,7 @@ CREATE FUNCTION ple_api.load_authoring_draft(p_reference_number bigint)
 RETURNS TABLE (
     draft_question_uuid uuid, workspace_id uuid, reference_number bigint,
     draft_question_edit_number bigint, question_title text, question_description text,
-    language text, object_id uuid, object_address jsonb, sha256 bytea,
+    language text, question_type text, object_id uuid, object_address jsonb, sha256 bytea,
     size_bytes bigint, media_type text, created_at_millis bigint
 ) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -841,34 +848,34 @@ CREATE FUNCTION ple_api.create_authoring_draft(
     p_workspace_id uuid, p_draft_question_uuid uuid, p_object_id uuid,
     p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint, p_media_type text,
     p_created_at_millis bigint, p_question_title text, p_question_description text,
-    p_language text, p_webwork_pg_path text
+    p_language text, p_webwork_pg_path text, p_question_type text
 ) RETURNS bigint LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.create_authoring_draft(
         p_workspace_id, p_draft_question_uuid, p_object_id, p_object_address, p_sha256,
         p_size_bytes, p_media_type, p_created_at_millis, p_question_title,
-        p_question_description, p_language, p_webwork_pg_path)
+        p_question_description, p_language, p_webwork_pg_path, p_question_type)
 $$;
 CREATE FUNCTION ple_api.save_authoring_draft(
     p_reference_number bigint, p_expected_edit_number bigint, p_object_id uuid,
     p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint, p_media_type text,
     p_created_at_millis bigint, p_question_title text, p_question_description text,
-    p_language text
+    p_language text, p_question_type text
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.save_authoring_draft(
         p_reference_number, p_expected_edit_number, p_object_id, p_object_address, p_sha256,
         p_size_bytes, p_media_type, p_created_at_millis, p_question_title,
-        p_question_description, p_language)
+        p_question_description, p_language, p_question_type)
 $$;
 REVOKE ALL ON FUNCTION ple_api.ensure_own_authoring_workspace(uuid),
     ple_api.list_authoring_drafts(), ple_api.load_authoring_draft(bigint),
-    ple_api.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text),
-    ple_api.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text)
+    ple_api.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text),
+    ple_api.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text)
     FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.ensure_own_authoring_workspace(uuid),
     ple_api.list_authoring_drafts(), ple_api.load_authoring_draft(bigint),
-    ple_api.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text),
-    ple_api.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text)
+    ple_api.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text),
+    ple_api.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text)
     TO ple_app;
 RESET ROLE;

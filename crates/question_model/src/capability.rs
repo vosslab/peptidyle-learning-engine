@@ -15,6 +15,63 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
+use crate::response::MAX_BACKEND_OWNED_PAYLOAD_BYTES;
+
+/// Optional opaque state retained by a stateful Question Backend between issue
+/// and grade.
+///
+/// The model has capability declarations rather than a backend lifecycle
+/// trait. This narrow value object is the shared slot consumed by adapter
+/// lifecycle code without inventing a second abstraction. The server never
+/// sends these bytes to the browser, and adapters must validate their own
+/// format before use (ASVS 8.1 and 13.3).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BackendOwnedLifecycleState(Option<Vec<u8>>);
+
+impl BackendOwnedLifecycleState {
+    /// Creates the state-free lifecycle path.
+    pub const fn none() -> Self {
+        Self(None)
+    }
+
+    /// Retains one bounded adapter-owned state value.
+    pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, BackendOwnedLifecycleStateError> {
+        if bytes.len() > MAX_BACKEND_OWNED_PAYLOAD_BYTES {
+            return Err(BackendOwnedLifecycleStateError::TooLarge);
+        }
+        Ok(Self(Some(bytes)))
+    }
+
+    /// Returns the adapter-owned state without exposing a mutation path.
+    pub fn as_deref(&self) -> Option<&[u8]> {
+        self.0.as_deref()
+    }
+
+    /// Transfers the state into the persistence boundary.
+    pub fn into_bytes(self) -> Option<Vec<u8>> {
+        self.0
+    }
+}
+
+/// Why an adapter-owned lifecycle state cannot enter the shared boundary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BackendOwnedLifecycleStateError {
+    /// The state exceeds the bounded opaque backend contract.
+    TooLarge,
+}
+
+impl std::fmt::Display for BackendOwnedLifecycleStateError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::TooLarge => {
+                formatter.write_str("Backend-Owned lifecycle state exceeds the 64 KiB limit")
+            }
+        }
+    }
+}
+
+impl std::error::Error for BackendOwnedLifecycleStateError {}
+
 /// One thing a question backend either can or cannot do.
 ///
 /// The eight variants are the specification's capability set. They are an enum

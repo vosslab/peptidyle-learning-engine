@@ -4,7 +4,8 @@ use async_trait::async_trait;
 use question_model::{
     ObjectId, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
     QuestionAvailabilityEditNumber, QuestionBackend, QuestionId, QuestionRevisionNumber,
-    QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference, Timestamp,
+    QuestionRevisionReference, QuestionType, SourceObjectChecksum, SourceObjectReference,
+    Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -224,6 +225,10 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
         "imathas" => QuestionBackend::Imathas,
         _ => return Err(invalid("Question Backend")),
     };
+    let question_type: QuestionType = serde_json::from_value(serde_json::Value::String(
+        row.try_get("question_type").map_err(map_sqlx_error)?,
+    ))
+    .map_err(|_| invalid("Question Type"))?;
     let author_names: Vec<String> = row.try_get("author_names").map_err(map_sqlx_error)?;
     let authors = author_names
         .into_iter()
@@ -251,6 +256,7 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
             revision_number,
         },
         backend,
+        question_type,
         published_at: Timestamp::from_unix_millis(published_at_millis),
         question_title: row.try_get("question_title").map_err(map_sqlx_error)?,
         question_description: row

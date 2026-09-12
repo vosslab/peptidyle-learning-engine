@@ -2,7 +2,7 @@
 
 This document defines what PLE reproduces exactly, what it merely checks for
 consistency, and what must remain server-owned. It applies to static PLE
-Question JSON, WeBWorK renders, issued student presentations, cache entries,
+Question JSON, WeBWorK backend documents, issued student presentations, cache entries,
 and prefetch reservations.
 
 The central rule is deliberately narrow: **the same immutable inputs must
@@ -16,7 +16,7 @@ attempt uses the stored values.
 | Layer                           | Authoritative inputs                                                                 | Exact result                                                                                                                                                                             | Owner                              |
 | ------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
 | Static PLE Question JSON render | immutable Question Revision, Question Seed                                           | Question Variation Presentation and Question Attempt Reproduction Details                                                                                                                | trusted server backend             |
-| WeBWorK safe render             | Question, immutable Question Revision, source Object Reference, seed, renderer       | safe cached Question Variation Presentation                                                                                                                                              | private adapter/renderer           |
+| WeBWorK issue                   | Question, immutable Question Revision, source Object Reference, seed, renderer       | exact backend-owned document, digest, and reproduction details persisted with one Question Attempt                                                                                     | private adapter and attempt store  |
 | Student issuance                | Question Variation Presentation, server-held Question Asset Renditions, stored nonce | Question Presentation and server-held Issued Question Presentation with Question Presentation Response Format, Presentation Response Item References, and Question Presentation Checksum | trusted server; browser may verify |
 | Submission                      | authenticated Question Attempt, student response                                     | one stored receipt or conflict                                                                                                                                                           | trusted server/store               |
 
@@ -40,8 +40,8 @@ server-owned Question Seed, and `QuestionAttemptReproductionDetails`. The
 reproduction details record Question Backend Version, Source Object Reference,
 Question Renderer Version where applicable, Question Grader Version, asset
 objects, and Rendered Question SHA-256.
-This is the audit record used to reject a rerender that no longer reproduces
-the issued question.
+For WeBWorK, the same attempt also retains its exact backend-owned document.
+PLE serves that document rather than rerendering it.
 
 The authoritative types are in
 [`crates/question_model/src/generation.rs`](../crates/question_model/src/generation.rs)
@@ -135,71 +135,28 @@ other internal identities remain server-side.
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | Source Object Checksum                     | immutable source bytes match their published record                                                       | authorization or a rendered output                                                  |
 | Generated-variant SHA-256                  | same Question Seed and backend-owned variation inputs produced the reviewed Question Variation Parameters | a student presentation or grade                                                     |
-| Safe-render SHA-256                        | cached WeBWorK safe render has a stable Source Object Reference and Question Renderer Version             | private replay state or student authorization                                       |
+| Rendered Question SHA-256                  | stored WeBWorK backend document agrees with the document issued by its recorded renderer                  | student authorization or a grade                                                    |
 | Question Presentation Checksum             | persisted descriptor agrees with a reconstructed public presentation                                      | authentication, transport integrity, or pixel rendering                             |
 | `pd1_` Question Presentation Token         | compact browser/server presentation-consistency comparison                                                | a durable secret or a substitute for the full stored Question Presentation Checksum |
 | Presentation Response Item Reference CRC16 | selected Response Item corresponds to one unique object in this presentation                              | collision resistance across presentations or a security boundary                    |
 | Question Submission and Receipt            | exact repeat returns the existing Receipt and a changed response conflicts                                | question correctness                                                                |
 
-## WeBWorK cache and replay
+## WeBWorK document and grading contract
 
-The WeBWorK adapter caches only safe rendered output in content object storage.
-Its key is deterministic from `(Question Revision Reference, Question Seed)` and validates cache
-schema, immutable Source Object Reference, Question Revision Reference, Question Seed, Question Title, and nonempty
-renderer identity. Cached bytes contain an answer-free shared Question Variation Presentation,
-Source Object Reference binding, and renderer identity. They never
-contain PG source, credentials, answer keys, or upstream field/value mapping.
+WeBWorK is stateless under E1. Issue calls the renderer once with the immutable
+source and seed, then persists the exact returned backend document and its
+SHA-256 with the Question Attempt. The stored reproduction details retain the
+source identity, seed, renderer version, and grader version. An authorized
+browser read serves that stored document; it does not rerender it or inspect
+its controls.
 
-The cache is a reproducibility optimization, not a promise that no renderer
-work occurs. On a cache hit during **issue**, current code invokes the private
-renderer once with the same source and seed to reconstruct its private replay
-mapping and compares the resulting safe render with the immutable cached
-render. That adapter work emits the `ple.webwork.cache` `renderer_call` and
-`cache_hit` witnesses. In contrast, an already-issued attempt's active or
-submitted `GET` returns its persisted presentation or receipt snapshot; it
-does not call adapter `reproduce`, read the safe-render cache, call the
-renderer, or emit either witness. This distinction is important for latency
-estimates and operational evidence.
+The browser serializes the document's form data as an opaque ordered payload.
+PLE saves those bytes through the shared lifecycle. The WeBWorK grading worker
+uses the saved payload, stored source, and stored seed for one stateless
+renderer grade request. It accepts no PLE-native response shape and has no
+replay mapping, shared render cache, or backend lifecycle state to recreate.
 
-During issuance, the adapter holds bounded `WebworkQuestionAttemptReplayDetails`:
-immutable Question Revision Reference, Source Object Reference, Question Seed, Question Renderer Version, Question Presentation
-Checksum, and a redacted mapping from Presentation Response Item References to
-upstream fields and values. The mapping is never serialized to the browser or
-cache. A course-owned, validated, RLS-protected durable Attempt record is
-required before a WeBWorK delivery or grading Server Route can rely on it.
-
-Issued PLE Question JSON and WeBWorK attempts also retain checksummed, server-only
-first-grade contracts. A first grade validates its Question Backend-specific contract and
-fails unavailable if required material is absent or corrupt; it does not reread
-a current published Question Revision, private PLE Question JSON grader, or renderer to repair an
-earlier issuance.
-
-The future delivery route will thread that private mapping from
-`WebworkIssuedAttempt` through attempted-work persistence. It must store a
-checksummed public presentation snapshot and matching server-only Question
-Grading Input, then translate browser-supplied Presentation Response Item References through that protected
-record before one private grade RPC. Submitted reads and retries must
-cross-check those persisted artifacts against their owning Attempt;
-they do not reproduce a safe Question Variation Presentation or call a renderer. Successful
-submission and terminal instructor action delete the replay row in the same
-Store transaction.
-
-This is an implemented offline slice, not acceptance of the complete Question Presentation payload contract.
-The following remain planned integration and acceptance work:
-
-- prove the one-call path against disposable PostgreSQL and the private live renderer; and
-- expose the current `StudentAssignmentAttemptScreen` answer-free screen
-  contract and the compact, type-free answer wire as the browser's authoritative
-  active Question Attempt route.
-
-The approved integration sequence and acceptance criteria live in
-[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
-Until the compact student wire cuts over, submission is still the tagged
-`StudentResponse` body. Server-side response-shape validation uses the
-checksummed issued snapshot and translates through its server-only grading
-Question Grading Input, not an untrusted browser-selected question type or mutable renderer.
-
-## Prefetch and replay
+## Prefetch
 
 Prefetch is an authenticated, bodyless `POST` tied to the active predecessor
 attempt. The server selects the next position and fresh seed, renders the
@@ -240,7 +197,6 @@ The fixed Question Response Format Fixture Set is `crates/wasm/ple_question_json
 generated Node bindings, and production browser Wasm consume it unchanged. The Node/Rust checks
 prove key-free public-response parity; the canonical instructor scenario
 proves that the shipped `dist/` module initializes in Chromium and visibly reports `wasm` mode.
-These gates do not prove end-to-end Question Presentation Checksum enforcement. Do not claim the planned compact
-payload or one-RPC WeBWorK grade behavior from these checks. Those require the
-payload-plan integration gates, Store conformance, private-renderer
-request-count tests, and browser route tests specified in the active plan.
+These gates do not prove every backend's end-to-end lifecycle. WeBWorK
+validation is the adapter boundary suite and connected browser/renderer
+evidence described in the active WeBWorK plan.

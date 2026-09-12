@@ -30,6 +30,10 @@ This map identifies the owning location for current PLE behavior. The design bou
 ```
 
 `OTHER_REPOS/` contains reference snapshots. It is not a product source, runtime, or import path.
+The reviewed local WeBWorK renderer is the sibling
+`../webwork-pg-renderer/` checkout, built by Podman through
+`local_stack_control/renderer.py`; it is deliberately outside PLE's product
+tree.
 
 ## Schema and data
 
@@ -93,6 +97,15 @@ migrations belong in `schemas/migrations/`. SQLx configuration belongs to
 | [crates/project-tools/](../crates/project-tools/) | TypeScript generation, database lifecycle commands, Pilot publication, and installation-data tooling. |
 | [crates/acceptance-runtime/](../crates/acceptance-runtime/) | Disposable acceptance database connection handoff. |
 
+WeBWorK's opaque adapter boundary is owned by
+[crates/adapters/webwork/](../crates/adapters/webwork/). Its renderer contract,
+HTTP client, source resolution, issuance, and stateless grading remain there;
+it contains no HTML projection or PG-control matching module. Generic
+backend-owned response and presentation types belong in
+[crates/question_model/](../crates/question_model/), and
+[crates/learning-data-access/](../crates/learning-data-access/) owns immutable
+`backend_document` persistence and the authorized document read seam.
+
 The database command front door is [crates/project-tools/src/database.rs](../crates/project-tools/src/database.rs):
 `cargo tools database initialize`, `migrate`, and `verify`. The implementation coordinator is
 [crates/project-tools/src/database_coordinator.rs](../crates/project-tools/src/database_coordinator.rs).
@@ -105,6 +118,8 @@ src/
 +- api/                         Typed client contracts, HTTP client, and strict decoders
 +- auth/                        Browser session and sign-in support
 +- components/                  Shared answer-free UI and Question presentation
+|  `- question_response_controls/backend_owned_document.tsx
+|                               Generic iframe host and opaque form-pair capture
 +- features/
 |  +- blueprint_course/         Blueprint Draft editing and publication UI
 |  +- question_picker/          Available published-Question selection UI
@@ -127,6 +142,11 @@ src/
 `generated/api/` are derivative; modify their Rust source and regenerate rather
 than editing them.
 
+`src/public/ple_bridge.js` is copied into the browser build and transports an
+entire backend-owned form as ordered string pairs. `src/styles/ple_embed.css`
+supplies the generic iframe baseline; it contains no WeBWorK or control-type
+selectors.
+
 ## Local stack and deployment
 
 ```text
@@ -138,6 +158,7 @@ local_stack_control/
 +- cli.py                        Typed local-stack command interface
 +- lifecycle.py                  Stack lifecycle coordination
 +- lifecycle_database.py         Database initialization and verification path
++- renderer.py                   Reviewed sibling renderer selection and Podman build
 +- live_demo_seed.py             Local Live Demo environment and selector support
 `- browser_suite_developer.py    Browser-suite developer operations
 
@@ -147,6 +168,11 @@ deploy/opentofu/
 
 The migrator image contains the base manifest, installation-data manifest, and forward migrations.
 Runtime API and worker images do not carry the PostgreSQL client or DDL authority.
+
+`devel/webwork_render_probe.py` is a one-time connected renderer-evidence tool.
+It accepts explicit PG/PGML input or temporary input, records opaque document,
+asset, and one-grade-request observations, and creates no tracked question
+corpus or fixture.
 
 ## Tests and generated output
 

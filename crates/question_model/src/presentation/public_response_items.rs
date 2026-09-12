@@ -135,7 +135,8 @@ pub(super) fn public_item_bindings(
                 )?;
             }
         }
-        QuestionPresentationResponseFormat::ImathasQuestionBackend {} => {}
+        QuestionPresentationResponseFormat::ImathasQuestionBackend {}
+        | QuestionPresentationResponseFormat::BackendOwned {} => {}
     }
     match response {
         QuestionPresentationResponseFormat::SingleChoice { choices } if choices.len() < 2 => {

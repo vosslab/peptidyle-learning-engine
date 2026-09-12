@@ -159,6 +159,7 @@ pub fn validate_response_format(
             QuestionResponseFormat::ImathasQuestionBackend {},
             StudentResponse::ImathasQuestionBackend {},
         ) => {}
+        (QuestionResponseFormat::BackendOwned {}, StudentResponse::BackendOwned { .. }) => {}
         _ => issues.push(StudentResponseFormatIssue::ResponseKindMismatch),
     }
 
@@ -255,6 +256,10 @@ pub fn validate_presentation_response_format(
         (
             QuestionPresentationResponseFormat::ImathasQuestionBackend {},
             StudentResponse::ImathasQuestionBackend {},
+        ) => {}
+        (
+            QuestionPresentationResponseFormat::BackendOwned {},
+            StudentResponse::BackendOwned { .. },
         ) => {}
         _ => issues.push(StudentResponseFormatIssue::ResponseKindMismatch),
     }
@@ -859,6 +864,31 @@ mod tests {
         };
         assert_eq!(
             validate_response_format(&numeric, &StudentResponse::ImathasQuestionBackend {}).issues,
+            vec![StudentResponseFormatIssue::ResponseKindMismatch]
+        );
+    }
+
+    #[test]
+    fn backend_owned_accepts_only_its_opaque_response() {
+        let backend_owned = QuestionResponseFormat::BackendOwned {};
+        let response = StudentResponse::BackendOwned {
+            payload: b"AnSwEr0001=value".to_vec(),
+        };
+        assert!(validate_response_format(&backend_owned, &response).is_valid());
+        assert_eq!(
+            validate_response_format(&backend_owned, &StudentResponse::Numeric { value: 1.0 })
+                .issues,
+            vec![StudentResponseFormatIssue::ResponseKindMismatch]
+        );
+
+        let issued = QuestionPresentationResponseFormat::BackendOwned {};
+        assert!(validate_presentation_response_format(&issued, &response).is_valid());
+        assert_eq!(
+            validate_presentation_response_format(
+                &issued,
+                &StudentResponse::ImathasQuestionBackend {},
+            )
+            .issues,
             vec![StudentResponseFormatIssue::ResponseKindMismatch]
         );
     }

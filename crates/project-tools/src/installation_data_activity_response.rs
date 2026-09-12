@@ -7,6 +7,7 @@ use serde_json::{Value, json};
 
 use super::closed_object;
 
+/// Returns a response for the PLE-native controls this activity owns.
 pub(super) fn response_from_presentation(response: &Value) -> Result<Value> {
     let object = response
         .as_object()
@@ -121,6 +122,17 @@ mod tests {
                 "matches": [{"prompt": "prompt-1", "choice": "choice-1"}]
             })
         );
+    }
+
+    #[test]
+    fn response_derivation_rejects_non_ple_native_presentations() {
+        assert!(
+            response_from_presentation(&json!({
+                "kind": "backendOwned"
+            }))
+            .is_err()
+        );
+        assert!(response_from_presentation(&json!({"kind": "unknown"})).is_err());
     }
 
     #[test]

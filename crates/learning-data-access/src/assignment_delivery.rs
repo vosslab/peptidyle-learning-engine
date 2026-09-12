@@ -307,8 +307,20 @@ pub struct NativePresentationInput {
     /// Exact ready PLE renditions for a mixed native Assignment. WeBWorK-only
     /// entries carry an empty list; this never crosses the browser boundary.
     pub question_asset_renditions: Vec<ReadyQuestionAssetRendition>,
-    /// Provider form/value mapping; this is never browser data.
-    pub replay_details: Option<serde_json::Value>,
+    /// Explicit issued capability.  It is recorded independently from the
+    /// backend document so PLE never infers a backend from document presence.
+    pub issued_capability: String,
+    /// Immutable backend-owned document.  WeBWorK supplies one; PLE-native
+    /// presentations leave this absent.
+    pub backend_document: Option<String>,
+}
+
+/// One Student-authorized immutable backend document for an issued position.
+/// This remains separate from public presentation evidence because it can be
+/// backend HTML rather than an answer-free PLE presentation descriptor.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StudentAssignmentAttemptBackendDocument {
+    pub backend_document: String,
 }
 
 /// One complete native issuance operation. The Attempt identity and start
@@ -482,6 +494,15 @@ pub trait LiveAssignmentDeliveryStore: Send + Sync {
         assignment_attempt: AssignmentAttemptReference,
         position: u32,
     ) -> Result<StudentAssignmentAttemptPresentationEvidence, StoreError>;
+
+    /// Reads the one backend-owned document for an owned WeBWorK issued
+    /// position.  Source pins, seed, response, and backend state stay private.
+    async fn student_assignment_attempt_backend_document(
+        &self,
+        session_token_hash: SessionTokenHash,
+        assignment_attempt: AssignmentAttemptReference,
+        position: u32,
+    ) -> Result<StudentAssignmentAttemptBackendDocument, StoreError>;
     /// Starts exactly one current Attempt and resolves every native source pin
     /// for its one presentation transaction.
     async fn prepare_native_assignment_issuance(

@@ -38,7 +38,7 @@ separate from the browser-facing API.
 | Service            | Necessary role                                                                                                                                                         | Durable state                                                              | Network boundary                                                                 |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | `gateway`          | Serves the built browser client and forwards same-origin `/api` and `/health` requests to the API. It is the only PLE browser entry point.                             | None. The built `dist/` directory is mounted read-only.                    | Publishes one loopback port; joins only `gateway_api`.                           |
-| `api`              | Authenticates sessions, authorizes course actions, coordinates attempts, and translates private backend results into browser-safe PLE responses.                       | None in the container. Authoritative records live in PostgreSQL and MinIO. | Joins the data network, `gateway_api`, and `renderer_private`.                   |
+| `api`              | Authenticates sessions, authorizes course actions, coordinates attempts, and delivers either PLE-native presentations or exact backend-owned documents.               | None in the container. Authoritative records live in PostgreSQL and MinIO. | Joins the data network, `gateway_api`, and `renderer_private`.                   |
 | `worker`           | Runs general authorized background work.                                                                                                                               | None in the container. Job state is in PostgreSQL.                          | Joins the data network.                                                          |
 | `native-ple-worker` | Claims and grades native PLE work with its dedicated capability.                                                                                                      | None in the container. Job state is in PostgreSQL.                          | Joins the data network.                                                          |
 | `webwork-worker`   | Claims and grades WeBWorK-backed work with its dedicated capability.                                                                                                  | None in the container. Job state is in PostgreSQL.                          | Joins the data network and `renderer_private`.                                   |
@@ -52,8 +52,9 @@ layer in the named `ple_pgdata` volume. Removing and recreating the container
 keeps that volume unless the operator explicitly requests volume deletion.
 
 The external renderer is genuinely stateless from PLE's perspective. PLE owns
-immutable question source, attempt state, replay mapping, and grades. A
-renderer restart therefore cannot lose an educational record.
+immutable Question Source, the exact attempt-bound backend document, saved
+opaque response, and recorded grade. The E1 WeBWorK path keeps no replay mapping
+or renderer session state, so a renderer restart cannot lose an educational record.
 
 Every long-running local service is non-root where its upstream image permits,
 has a read-only root filesystem, drops all Linux capabilities, sets
@@ -119,7 +120,7 @@ projects or volumes with global Podman commands.
 | -------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------- |
 | default data network | `postgres`, `minio`, `api`, setup jobs, `database-migrator` | Relational and object-storage communication.                                                 |
 | `gateway_api`        | `gateway`, `api`                       | Same-origin browser delivery without publishing the API directly.                            |
-| `renderer_private`   | `api`, `webwork-renderer`              | Private PG render/grade traffic. The browser, gateway, PostgreSQL, and MinIO do not join it. |
+| `renderer_private`   | `api`, `webwork-worker`, `webwork-renderer` | Private PG render/grade traffic. The browser, gateway, PostgreSQL, and MinIO do not join it. |
 
 There is no `webwork_db_private` network because PLE does not run WeBWorK2 or
 MariaDB. WebWork2 remains reference material for application behavior; the

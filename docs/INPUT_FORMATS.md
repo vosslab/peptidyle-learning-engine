@@ -52,10 +52,15 @@ ordinary PLE Question Backend later produces the answer-free Question Presentati
 ## Private server source
 
 PLE can publish a private immutable PG or PGML Question Source through a Source Object Reference to the configured external
-`webwork-pg-renderer`. The server sends source, path, seed, display policy, and
-resolved answer to `/render-api`; the browser receives only the typed PLE Question Presentation
-and submits a PLE response. The four reviewed Chapter 1 sources are the current evidence boundary.
-See [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
+`webwork-pg-renderer`. The author declares the educational Question Type on the Published Question
+Revision; PLE uses that immutable metadata for labeling and discovery, never by inspecting renderer
+controls. The server sends source bytes, source path, seed, display and embed policy, PLE origin,
+and asset-base parameters to `/render-api`. The browser receives an authenticated exact
+backend-owned document through PLE and saves a bounded opaque canonical ordered-pair Student
+Response. WeBWorK owns the HTML, controls, response interpretation, and grading. The local
+Chapter 1 sources provide representative connected evidence; they do not restrict the integration
+to four sources or control shapes, and they do not claim Open Problem Library breadth. See
+[WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
 
 iMathAS is a PLE-managed Question Backend, not a file format. Its iMathAS Question Backend Launch
 and Result Verification tokens remain server-private; no unverified hosted MyOpenMath import is

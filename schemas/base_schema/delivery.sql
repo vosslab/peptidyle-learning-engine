@@ -295,40 +295,6 @@ BEGIN
        AND source.backend = 'ple' AND source.question_format = 'pleQuestionJson';
 END $$;
 
-CREATE FUNCTION ple_api.resolve_webwork_submission(
-    p_course_reference_number bigint, p_assignment_reference_number bigint, p_presentation_nonce text
-) RETURNS TABLE (
-    question_attempt_id uuid, question_id text, revision_number integer, source_object_id uuid,
-    source_object_checksum text, webwork_pg_path text, question_seed numeric,
-    presentation_nonce text, presentation_checksum text, replay_details jsonb
-) LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-BEGIN
-    IF p_presentation_nonce IS NULL OR p_presentation_nonce !~ '^[0-9a-f]{32,128}$' THEN
-        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question Submission is unavailable';
-    END IF;
-    RETURN QUERY
-    SELECT attempt.question_attempt_id, issued.question_id, issued.revision_number,
-           source.source_object_id, source.source_object_checksum, source.webwork_pg_path,
-           attempt.question_seed, presentation.presentation_nonce, presentation.presentation_checksum, replay.replay_details
-      FROM ple_data.course_instance AS course
-      JOIN ple_data.assignment AS assignment ON assignment.course_id = course.course_id
-      JOIN ple_private.assignment_attempt AS assignment_attempt
-        ON assignment_attempt.assignment_id = assignment.assignment_id AND assignment_attempt.completed_at IS NULL
-      JOIN ple_data.student_record AS student ON student.student_record_id = assignment_attempt.student_record_id
-      JOIN ple_private.issued_question AS issued ON issued.assignment_attempt_id = assignment_attempt.assignment_attempt_id
-      JOIN ple_private.question_attempt AS attempt ON attempt.issued_question_id = issued.issued_question_id
-        AND attempt.question_attempt_state = 'open'
-      JOIN ple_private.question_attempt_presentation_binding AS presentation ON presentation.question_attempt_id = attempt.question_attempt_id
-      JOIN ple_private.question_attempt_webwork_replay AS replay ON replay.question_attempt_id = attempt.question_attempt_id
-      JOIN ple_private.question_revision_source_binding AS source ON source.question_id = issued.question_id
-        AND source.revision_number = issued.revision_number
-     WHERE course.reference_number = p_course_reference_number AND assignment.reference_number = p_assignment_reference_number
-       AND student.student_account_id = ple_api.current_session_account_id()
-       AND ple_api.current_session_account_owns_student_record(assignment.course_id, student.student_record_id)
-       AND presentation.presentation_nonce = p_presentation_nonce
-       AND source.backend = 'webwork' AND source.question_format = 'webworkPg';
-END $$;
-
 CREATE FUNCTION ple_api.read_native_ple_submission_status(
     p_course_reference_number bigint, p_assignment_reference_number bigint, p_presentation_nonce text
 ) RETURNS TABLE (presentation_nonce text, grading_state text)
@@ -403,44 +369,6 @@ BEGIN
     RETURN 'pending';
 END $$;
 
-CREATE FUNCTION ple_api.accept_webwork_submission(p_question_attempt_id uuid, p_student_response jsonb, p_submission_id uuid, p_grading_id uuid, p_job_id uuid)
-RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
-DECLARE course_id uuid;
-DECLARE assignment_id uuid;
-BEGIN
-    IF p_question_attempt_id IS NULL OR p_submission_id IS NULL OR p_grading_id IS NULL OR p_job_id IS NULL
-       OR jsonb_typeof(p_student_response) IS DISTINCT FROM 'object' THEN
-        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Question Submission facts are invalid';
-    END IF;
-    SELECT assignment.course_id, assignment.assignment_id INTO course_id, assignment_id
-      FROM ple_private.question_attempt AS question_attempt
-      JOIN ple_private.issued_question AS issued ON issued.issued_question_id = question_attempt.issued_question_id
-      JOIN ple_private.assignment_attempt AS assignment_attempt ON assignment_attempt.assignment_attempt_id = issued.assignment_attempt_id
-      JOIN ple_data.assignment AS assignment ON assignment.assignment_id = assignment_attempt.assignment_id
-     WHERE question_attempt.question_attempt_id = p_question_attempt_id;
-    IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question Submission is unavailable'; END IF;
-    PERFORM ple_private.require_owned_open_question_attempt(course_id, assignment_id, p_question_attempt_id);
-    IF NOT EXISTS (
-        SELECT 1 FROM ple_private.question_attempt AS question_attempt
-        JOIN ple_private.issued_question AS issued ON issued.issued_question_id = question_attempt.issued_question_id
-        JOIN ple_private.question_revision_source_binding AS source ON source.question_id = issued.question_id AND source.revision_number = issued.revision_number
-        JOIN ple_private.question_attempt_webwork_replay AS replay ON replay.question_attempt_id = question_attempt.question_attempt_id
-        WHERE question_attempt.question_attempt_id = p_question_attempt_id
-          AND source.backend = 'webwork' AND source.question_format = 'webworkPg'
-    ) THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question Submission is unavailable'; END IF;
-    -- The same atomic evidence write follows the format-specific proof above.
-    INSERT INTO ple_private.question_submission(submission_id, question_attempt_id, submitted_at, student_response)
-    VALUES (p_submission_id, p_question_attempt_id, clock_timestamp(), p_student_response);
-    UPDATE ple_private.question_attempt SET question_attempt_state='submission_accepted', submitted_at=clock_timestamp()
-     WHERE question_attempt_id=p_question_attempt_id AND question_attempt_state='open';
-    IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'Question Submission is unavailable'; END IF;
-    PERFORM ple_private.enqueue_grade_accepted_submission(
-        p_job_id, p_grading_id, p_submission_id,
-        'webwork_grading', '{}'::jsonb, clock_timestamp(), 3, clock_timestamp()
-    );
-    RETURN 'pending';
-END $$;
-
 REVOKE ALL ON FUNCTION
     ple_api.create_imathas_question_backend_session(
         uuid, uuid, uuid, uuid, text, text, text, integer, uuid, bytea, text,
@@ -459,10 +387,8 @@ REVOKE ALL ON FUNCTION
     ple_api.claim_imathas_result_grading_job(uuid, uuid, timestamptz),
     ple_api.commit_imathas_result_grading(uuid, uuid, timestamptz),
     ple_api.resolve_native_ple_submission(bigint, bigint, text),
-    ple_api.resolve_webwork_submission(bigint, bigint, text),
     ple_api.read_native_ple_submission_status(bigint, bigint, text),
-    ple_api.accept_native_ple_submission(uuid, jsonb, uuid, uuid, uuid),
-    ple_api.accept_webwork_submission(uuid, jsonb, uuid, uuid, uuid)
+    ple_api.accept_native_ple_submission(uuid, jsonb, uuid, uuid, uuid)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
     ple_api.create_imathas_question_backend_session(
@@ -480,10 +406,8 @@ GRANT EXECUTE ON FUNCTION
         bytea, bytea, double precision, bytea, uuid, uuid, uuid, timestamptz
     ),
     ple_api.resolve_native_ple_submission(bigint, bigint, text),
-    ple_api.resolve_webwork_submission(bigint, bigint, text),
     ple_api.read_native_ple_submission_status(bigint, bigint, text),
-    ple_api.accept_native_ple_submission(uuid, jsonb, uuid, uuid, uuid),
-    ple_api.accept_webwork_submission(uuid, jsonb, uuid, uuid, uuid)
+    ple_api.accept_native_ple_submission(uuid, jsonb, uuid, uuid, uuid)
 TO ple_app;
 GRANT USAGE ON SCHEMA ple_api TO ple_imathas_question_backend_grading_worker;
 GRANT EXECUTE ON FUNCTION ple_api.claim_imathas_result_grading_job(uuid,uuid,timestamptz), ple_api.commit_imathas_result_grading(uuid,uuid,timestamptz) TO ple_imathas_question_backend_grading_worker;

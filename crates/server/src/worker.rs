@@ -112,7 +112,7 @@ pub async fn run_native_ple_until_shutdown<S: NativePleGradingStore>(
 pub async fn run_webwork_until_shutdown<S: WebworkGradingStore>(
     store: S,
     objects: S3ObjectStore,
-    webwork: Arc<WebworkAdapter<S3ObjectStore, HttpWebworkRenderer>>,
+    webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
 ) -> Result<()> {
     loop {
         let Some(lease) = store
@@ -142,17 +142,11 @@ pub async fn run_webwork_until_shutdown<S: WebworkGradingStore>(
         )
         .await
         .map_err(|_| anyhow::anyhow!("WeBWorK source is unavailable"))?;
-        let response = serde_json::from_value(lease.student_response.clone())
-            .map_err(|_| anyhow::anyhow!("stored WeBWorK response is invalid"))?;
-        let replay = serde_json::from_value(lease.replay_details.clone())
-            .map_err(|_| anyhow::anyhow!("stored WeBWorK replay is invalid"))?;
+        let response = question_model::StudentResponse::BackendOwned {
+            payload: lease.backend_response_payload.clone(),
+        };
         match webwork
-            .grade(
-                QuestionSeed::new(lease.question_seed),
-                &source,
-                &response,
-                &replay,
-            )
+            .grade(QuestionSeed::new(lease.question_seed), &source, &response)
             .await
         {
             Ok(grading::QuestionGradingOutcome::Evaluated(evaluation)) => store

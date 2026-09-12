@@ -31,7 +31,7 @@ use objects::{ObjectAddress, ObjectStore, PutObject, s3::S3ObjectStore};
 use question_model::{
     DraftQuestionReference, ObjectId, QuestionAuthor, QuestionAuthorDisplayName,
     QuestionAuthorship, QuestionId, QuestionLicense, QuestionRevisionNumber,
-    QuestionRevisionReason, QuestionRevisionReference, Timestamp,
+    QuestionRevisionReason, QuestionRevisionReference, QuestionType, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -204,6 +204,7 @@ async fn create_draft(
                 draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::now_v7()),
                 source_record,
                 webwork_pg_path: None,
+                question_type: source.question_type,
                 title: source.title,
                 description: source.description,
                 language: source.language,
@@ -326,6 +327,7 @@ async fn save_source(
                 reference,
                 expected_edit_number,
                 source_record,
+                question_type: source.question_type,
                 title: source.title,
                 description: source.description,
                 language: source.language,
@@ -389,6 +391,12 @@ async fn publish_draft(
             );
         }
     };
+    if source.question_type != draft.question_type {
+        return private_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Draft Question type declaration does not match its PLE source",
+        );
+    }
     let authorship = match question_authorship(request.authors) {
         Ok(authorship) => authorship,
         Err(()) => {
@@ -483,10 +491,19 @@ async fn publish_revision_draft(
             );
         }
     };
-    if validated_source(&bytes).is_err() {
+    let source = match validated_source(&bytes) {
+        Ok(source) => source,
+        Err(_) => {
+            return private_error(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Draft Question cannot be published",
+            );
+        }
+    };
+    if source.question_type != draft.question_type {
         return private_error(
             StatusCode::UNPROCESSABLE_ENTITY,
-            "Draft Question cannot be published",
+            "Draft Question type declaration does not match its PLE source",
         );
     }
     let publisher =
@@ -534,6 +551,7 @@ struct ValidatedSource {
     description: String,
     language: String,
     license: Option<QuestionLicense>,
+    question_type: QuestionType,
 }
 
 fn validated_source(bytes: &[u8]) -> Result<ValidatedSource, Box<Response>> {
@@ -563,6 +581,7 @@ fn validated_source(bytes: &[u8]) -> Result<ValidatedSource, Box<Response>> {
         description: metadata.question_description.clone(),
         language: metadata.language.clone(),
         license: metadata.question_license.clone(),
+        question_type: compiled.presentation().question_type(),
     })
 }
 

@@ -214,6 +214,8 @@ export function questionResponseFormatSupportsType(
       return questionType === "hotspot";
     case "imathasQuestionBackend":
       return true;
+    case "backendOwned":
+      return true;
   }
 }
 
@@ -365,6 +367,9 @@ export function decodeQuestionResponseFormat(
         ),
       } satisfies QuestionResponseFormat;
     case "imathasQuestionBackend":
+      if (strict) requireOnlyFields(record, path, ["kind"]);
+      return { kind: response } satisfies QuestionResponseFormat;
+    case "backendOwned":
       if (strict) requireOnlyFields(record, path, ["kind"]);
       return { kind: response } satisfies QuestionResponseFormat;
     default:

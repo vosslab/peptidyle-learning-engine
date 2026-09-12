@@ -56,9 +56,11 @@ No. PLE gives Instructors one learning and assignment model while adapters bring
 sources into it. Every supported technology uses the same Draft Question, publication, Assignment,
 issuance, presentation, submission, evaluation, feedback-release, and Gradebook operations. PLE
 Question JSON supports multiple choice, multiple answer,
-fill-in-the-blank, multiple blanks, numerical entry, matching, ordering, and image hotspots. The
-current WeBWorK path supports the four reviewed Chapter 1 MC/MATCH PGML sources. iMathAS and H5P
-retain their distinct Question Sources behind the shared operations. QTI is an interchange boundary:
+fill-in-the-blank, multiple blanks, numerical entry, matching, ordering, and image hotspots.
+WeBWorK retains its own rendered document, interaction semantics, response interpretation, and
+grading behind the shared lifecycle; its author-declared Question Type is educational metadata, not
+an inference from its controls. iMathAS and H5P retain their distinct Question Sources behind the
+shared operations. QTI is an interchange boundary:
 accepted imports become PLE Question JSON before entering the Draft Question lifecycle. See [QUESTION_MODEL.md](QUESTION_MODEL.md)
 and [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md).
 
@@ -106,18 +108,19 @@ format, so vendor XML and QTI expression trees do not become PLE's internal sche
 
 ## Can a Student browser contact WeBWorK?
 
-No. PLE is the sole WeBWorK client. The renderer is private; the browser calls PLE through its
-same-origin gateway. The current integration is limited to the four reviewed Genetics and
-Biochemistry Chapter 1 PGML sources: two multiple-choice and two matching questions, with matching
-partial credit bound to each exact Source Object Checksum. Broader compatibility and unreviewed PG controls
-remain future work. See [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md) and
+No. PLE is the sole WeBWorK renderer client. The renderer is private; the browser receives an
+authenticated exact backend-owned document through PLE's same-origin route and saves an opaque,
+bounded canonical ordered-pair response through PLE. WeBWorK owns the document, its controls, and
+grading behavior. The connected Chapter 1 cases are representative evidence for that boundary,
+not a claim of Open Problem Library compatibility breadth. See
+[WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md) and
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
 
 ## Why PostgreSQL and a renderer?
 
 They have separate jobs. PostgreSQL stores PLE-owned accounts, Blueprint Courses, Course Instances,
 assignments, attempts, and scores under exact relationship authorization and row-
-level security. The private external PG renderer evaluates a bounded WeBWorK question and has no PLE
+level security. The private external PG renderer evaluates the exact issued WeBWorK question and has no PLE
 database, student credentials, persistent volume, or host-published port. PLE remains the only
 assignment, roster, and Gradebook system. See [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and
 [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).

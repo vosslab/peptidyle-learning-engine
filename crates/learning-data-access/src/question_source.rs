@@ -12,7 +12,8 @@ use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea};
 use question_model::{
     DraftImathasQuestionBackendBinding, QuestionAuthorship, QuestionBackend, QuestionFormat,
     QuestionId, QuestionLicense, QuestionRevisionNumber, QuestionRevisionReason,
-    QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference, WorkspaceId,
+    QuestionRevisionReference, QuestionType, SourceObjectChecksum, SourceObjectReference,
+    WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -70,6 +71,8 @@ pub struct DraftQuestionSourceBindingInput {
     pub question_backend: QuestionBackend,
     /// Exact source representation.
     pub question_format: QuestionFormat,
+    /// Author-declared educational Question Type, never inferred from backend controls.
+    pub question_type: QuestionType,
     /// WeBWorK PG Path for a WeBWorK Question Backend only.
     pub webwork_pg_path: Option<String>,
     /// iMathAS Deployment and Item References for an iMathAS Question Backend only.
@@ -349,6 +352,7 @@ mod tests {
             workspace: WorkspaceId::from_uuid(Uuid::from_u128(2)),
             question_backend: QuestionBackend::Ple,
             question_format: QuestionFormat::PleQuestionJson,
+            question_type: QuestionType::MultipleChoice,
             webwork_pg_path: None,
             draft_imathas_question_backend_binding: None,
             source_object_reference: SourceObjectReference {

@@ -11,8 +11,8 @@ use learning_data_access::{
 };
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
 use question_model::{
-    ObjectId, QuestionBackend, QuestionFormat, SourceObjectChecksum, SourceObjectReference,
-    Timestamp, WorkspaceId,
+    ObjectId, QuestionBackend, QuestionFormat, QuestionType, SourceObjectChecksum,
+    SourceObjectReference, Timestamp, WorkspaceId,
 };
 use uuid::Uuid;
 
@@ -107,6 +107,7 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
                     draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::from_u128(0xa704)),
                     source_record: source_record(workspace, media_type),
                     webwork_pg_path: webwork_pg_path.map(str::to_owned),
+                    question_type: QuestionType::MultipleChoice,
                     title: "Rejected source tuple".to_owned(),
                     description: "This tuple must not create a Draft Question.".to_owned(),
                     language: "en".to_owned(),
@@ -128,6 +129,7 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
                 draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::from_u128(0xa705)),
                 source_record: source_record.clone(),
                 webwork_pg_path: Some("Library/Genetics/linked_traits.pg".to_owned()),
+                question_type: QuestionType::MultipleChoice,
                 title: "Connected WeBWorK Draft".to_owned(),
                 description: "A store-level source-binding oracle.".to_owned(),
                 language: "en".to_owned(),
@@ -140,8 +142,8 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
         .execute(&mut *catalog_transaction)
         .await
         .expect("private catalog assertion role");
-    let tuple: (String, String, Option<String>) = sqlx::query_as(
-        "SELECT backend, question_format, webwork_pg_path \
+    let tuple: (String, String, String, Option<String>) = sqlx::query_as(
+        "SELECT backend, question_format, question_type, webwork_pg_path \
          FROM ple_private.draft_question_source_binding WHERE draft_question_uuid = $1",
     )
     .bind(draft.draft_question_uuid.as_uuid())
@@ -157,6 +159,7 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
         (
             "webwork".to_owned(),
             "webworkPg".to_owned(),
+            "multipleChoice".to_owned(),
             Some("Library/Genetics/linked_traits.pg".to_owned()),
         )
     );
@@ -167,6 +170,7 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
         workspace,
         question_backend: QuestionBackend::Webwork,
         question_format: QuestionFormat::WebworkPg,
+        question_type: QuestionType::MultipleChoice,
         webwork_pg_path: Some("Library/Genetics/linked_traits.pg".to_owned()),
         draft_imathas_question_backend_binding: None,
         source_object_reference: SourceObjectReference {

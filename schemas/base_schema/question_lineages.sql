@@ -27,6 +27,10 @@ CREATE TABLE ple_data.question_revision (
     question_id text NOT NULL REFERENCES ple_data.published_question(question_id),
     revision_number integer NOT NULL CHECK (revision_number > 0),
     backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'imathas')),
+    question_type text NOT NULL CHECK (question_type IN (
+        'multipleChoice', 'multipleAnswer', 'fillInBlank', 'multipleFillInBlank',
+        'numeric', 'matching', 'ordering', 'hotspot'
+    )),
     published_at timestamptz NOT NULL,
     PRIMARY KEY (question_id, revision_number)
 );

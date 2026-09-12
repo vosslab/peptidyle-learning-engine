@@ -84,6 +84,10 @@ CREATE TABLE ple_private.draft_question_source_binding (
         REFERENCES ple_private.draft_question(draft_question_uuid) ON DELETE CASCADE,
     backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'imathas')),
     question_format text NOT NULL CHECK (question_format IN ('pleQuestionJson', 'webworkPg', 'imathas')),
+    question_type text NOT NULL CHECK (question_type IN (
+        'multipleChoice', 'multipleAnswer', 'fillInBlank', 'multipleFillInBlank',
+        'numeric', 'matching', 'ordering', 'hotspot'
+    )),
     webwork_pg_path text,
     imathas_deployment_reference text,
     imathas_item_reference text,
@@ -463,5 +467,4 @@ REVOKE ALL ON FUNCTION ple_private.question_source_binding_fields_are_valid(
     ple_private.validate_draft_question_source_binding_object_record(),
     ple_private.validate_question_revision_source_binding_object_record() FROM PUBLIC;
 RESET ROLE;
-
 

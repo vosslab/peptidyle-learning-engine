@@ -28,7 +28,8 @@ use http::{ProductApi, ProductResponse};
 mod response;
 use response::response_from_presentation;
 
-const LIVE_DEMO_QUESTION_COUNT: u64 = 8;
+// `live_demo.sql` assigns exactly the four PLE Question JSON Pilot entries.
+const LIVE_DEMO_QUESTION_COUNT: u64 = 4;
 const JACK_SAVED_RESPONSE_COUNT: u64 = 2;
 const TEMPORARY_SESSION_SECONDS: u32 = 5 * 60;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(12);

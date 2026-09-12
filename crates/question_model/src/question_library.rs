@@ -314,7 +314,8 @@ pub struct QuestionSummary {
     pub latest_question_revision: QuestionRevisionReference,
     /// Question Backend, without private backend fields or Question Source data.
     pub backend: QuestionBackend,
-    /// Immutable browser-safe Question Type derived at publication time.
+    /// Immutable author-declared educational Question Type copied to this Published Question
+    /// Revision at publication time. It is never inferred from backend controls.
     pub question_type: QuestionType,
     /// Capabilities declared by the owning adapter at publication time.
     pub capabilities: QuestionBackendCapabilities,

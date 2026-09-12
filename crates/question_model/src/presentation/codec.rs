@@ -433,6 +433,9 @@ impl Encoder {
             QuestionPresentationResponseFormat::ImathasQuestionBackend {} => {
                 self.u8(8);
             }
+            QuestionPresentationResponseFormat::BackendOwned {} => {
+                self.u8(9);
+            }
         }
         Ok(())
     }

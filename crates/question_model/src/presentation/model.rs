@@ -312,6 +312,8 @@ pub enum QuestionPresentationResponseFormat {
         maximum: u32,
     },
     ImathasQuestionBackend {},
+    /// The Question Backend supplies a separately served opaque document.
+    BackendOwned {},
 }
 
 /// Complete answer-free question state presented to one student.

@@ -4,8 +4,11 @@
 
 This is the durable interaction contract for every PLE-owned student browser surface. It applies to
 the course, assignment, Assignment Attempt, response, Student Feedback, summary, continued-practice, recovery,
-asset, and PLE-owned iMathAS Question Backend boundary. `HUMAN_GUIDANCE.md` is the owner decision: every student action
-must be possible with the keyboard alone. The primary path uses the browser platform contract: Tab
+asset, and PLE-owned iMathAS Question Backend boundary. For a backend-owned document, PLE owns its
+generic Student UI framing, keyboard reachability, bridge and lifecycle, and baseline theme; the
+Question Backend owns the document and its control semantics. `HUMAN_GUIDANCE.md` is the owner
+decision: every PLE-owned student action must be possible with the keyboard alone. The primary
+path uses the browser platform contract: Tab
 and Shift+Tab move focus, and Space selects choices or activates focused buttons. Arrow keys,
 digits 1-9, Enter-to-submit from a response input, and Escape are documented Question Response Control extensions that
 may improve efficiency but are never required to complete the task.
@@ -91,7 +94,7 @@ native radio controls supply the behavior.
 | Choose an assignment  | Tab reaches Start assignment; Enter opens it                                                                   | Assignment title and action are available                                      |
 | Begin or resume       | Tab reaches Start or continue practice; Space activates it                                                     | Question heading and Question Response Control appear                          |
 | Read the question     | Reading order follows prompt, assets, instructions, response, status, then submit                              | No interactive content is skipped or inserted out of order                     |
-| Answer                | The Question-Type-specific contract below works without a pointer                                              | The selected or entered response is visibly represented                        |
+| Answer                | A PLE-native Question Response Control follows its Question-Type-specific contract; a backend-owned document follows its backend-owned semantics | The selected or entered response is visibly represented                        |
 | Validate              | Format state is announced without grading or disclosing an answer                                              | Ready or actionable validation text is available                               |
 | Submit                | Tab reaches Submit answer; Space sends exactly one logical response                                            | Pending state prevents a duplicate submission                                  |
 | Read Student Feedback | Authorized Student Feedback receives a heading and sensible focus; unreleased Student Feedback is not inferred | Student can read result and next action                                        |
@@ -102,9 +105,9 @@ Route changes focus the main content rather than leaving focus on a removed navi
 Student Feedback may focus its heading and later its primary advance control only when the student has not
 moved focus elsewhere. A delayed focus helper never steals focus back from the student.
 
-## Question Type contract
+## PLE-native Question Type contract
 
-### Single choice and WeBWorK RadioButtons
+### Single choice
 
 - Tab enters the native radio group at the checked option or the browser's initial native option.
 - Space selects the focused option; Tab then reaches the explicit Submit answer button.
@@ -112,8 +115,6 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
   may select a visible ordinal while a choice has focus, and Enter may submit a locally ready
   response from that input.
 - Choice labels are readable text; visual letters such as A or B are not the response identity.
-- The shipped PLE-native radio Question Response Control converts the reviewed WeBWorK radio interaction.
-  The browser never focuses an upstream field, renderer page, or hidden WebWork control.
 
 ### Multiple answer
 
@@ -186,6 +187,20 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
   A third-party tool's internal interface is separately evaluated; PLE does not call the whole task
   accessible merely because its launch button is accessible.
 
+### Backend-owned documents
+
+- A backend-owned document supplies its own HTML, controls, labels, keyboard behavior, and response
+  interpretation. PLE does not infer its educational Question Type from those controls or convert
+  them into a PLE-native Question Response Control.
+- PLE provides a titled, keyboard-reachable document frame, ordinary focus movement into and out of
+  that frame, its generic baseline theme, and the authorized save and submission lifecycle.
+- The document bridge captures the complete submitted form as a bounded opaque canonical ordered-pair
+  Student Response. It preserves repeated names, form order, and legitimate backend hidden fields;
+  it never carries renderer credentials to the document.
+- The Question Backend remains responsible for accessibility of its document and controls. PLE
+  connected evidence establishes the framing and lifecycle boundary, not accessibility breadth for
+  untested backend content.
+
 ## Timing, mastery, and failure recovery
 
 - No keyboard operation requires a key to be pressed within a shorter interval than pointer use.
@@ -223,9 +238,11 @@ Permanent tests protect stable user behavior, not today's component layout:
 - the student question and Student Feedback surfaces have no serious or critical axe findings;
 - focus management tests cover Student Feedback, summaries, route changes, recovery, and avoidance of
   keyboard traps;
-- the live WebWork gate proves a keyboard-operated PLE-owned radio path and PLE-only network
+- connected WeBWorK evidence proves PLE can present a representative backend-owned document, save
+  its opaque response, and complete the backend-owned lifecycle through the PLE-only network
   boundary; and
-- each new Question Type adds its Question-Type-specific no-mouse behavior before acceptance.
+- each new PLE-native Question Type adds its Question-Type-specific no-mouse behavior before
+  acceptance.
 
 Tests assert outcomes such as focused control, changed selection, preserved response, announcement,
 and completed action. They do not freeze exact Tab counts, DOM ancestry, private helper names, or the

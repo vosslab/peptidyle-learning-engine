@@ -347,8 +347,7 @@ pub enum IssuedAttemptCapability {
     QuestionPresentation,
     /// A PLE Question JSON presentation and its required private grading contract.
     PleQuestionJsonPresentation,
-    /// The WeBWorK capability carries required server-only Question Grading Input and replay
-    /// details.
+    /// The WeBWorK capability requires a backend-owned document and opaque Student Response.
     WebworkPresentation,
     /// iMathAS session and launch lifecycle state without a format-specific
     /// private grading contract. Student delivery remains a Question Presentation.

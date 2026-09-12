@@ -89,6 +89,40 @@ An existing Attempt is interpreted from its retained Attempt and Issued Question
 later mutable Assignment state. A later released Assignment save is accepted when current release
 validation passes; later Attempts use the accepted state.
 
+## External Question Backends
+
+Question Type is immutable author-declared educational metadata on each
+Published Question Revision. An author selects it while binding a Draft
+Question Source; publication retains it for discovery and presentation. A
+Question Backend owns the controls and interaction structure it uses for that
+type, so PLE never infers Question Type from backend HTML or response fields.
+
+WeBWorK uses the shared external-backend lifecycle:
+
+```text
+immutable PG source + Question Seed
+  -> server-only WebworkAdapter -> private renderer JSON request
+  -> immutable backend document on the Question Attempt
+  -> authorized same-origin document route -> sandboxed backend-owned iframe
+  -> ordered opaque form pairs -> generic saved response/finalization
+  -> server-only stateless renderer grade request -> normalized credit
+```
+
+The adapter sends source, path, seed, and opaque response bytes only to the
+renderer. It renders once at issuance and grades once after submission. E1 is
+stateless: WeBWorK has no replay record, renderer cache, or per-attempt backend
+state in PLE. The browser bridge preserves ordered duplicate form names and
+ordinary hidden PG answer fields without recognizing controls; renderer
+credentials never enter the embed document. PLE provides only an accessible
+document baseline, while WeBWorK and Question-authored CSS own the document's
+structure and presentation.
+
+The server exposes the retained document only after Student ownership and
+issued-position authorization. It gives the document `no-store`, CSP, and
+same-origin CORP headers. The separate public asset proxy serves only validated
+`webwork2_files` and `pg_files` paths from the private renderer, with no caller
+supplied origin, redirect following, query string, or arbitrary media type.
+
 Assignment Unrelease is a database-owned operation. It checks current Teaching Team authority,
 the Assignment Edit Number, and a title confirmation; changes the Assignment to Unreleased; removes
 the Student Work closure rooted at that Assignment; rebuilds affected statistics; and records a
@@ -123,6 +157,13 @@ workspace. [src/pages/assignment_workspace/](../src/pages/assignment_workspace/)
 Assignment editing and release surfaces. Student delivery and retained presentation flow through
 [src/pages/assignment_attempt_page.tsx](../src/pages/assignment_attempt_page.tsx) and related
 components. Shared navigation and capability admission live in [src/ribbon/](../src/ribbon/).
+For backend-owned delivery,
+[crates/server/src/webwork_document_route.rs](../crates/server/src/webwork_document_route.rs)
+serves the retained document,
+[crates/server/src/webwork_asset_proxy.rs](../crates/server/src/webwork_asset_proxy.rs)
+serves its bounded assets, and
+[src/components/question_response_controls/backend_owned_document.tsx](../src/components/question_response_controls/backend_owned_document.tsx)
+hosts it and captures the generic response.
 
 ## Verification boundaries
 

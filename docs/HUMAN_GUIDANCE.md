@@ -145,12 +145,20 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - QTI is for import, export, and archival interchange rather than the internal source model.
 - WeBWorK and iMathAS are PLE-managed Question Backends. Use exact
   backend-specific terms when a concrete implementation or lifecycle matters.
-- Treat each Question Backend as the authority for the presentation and behavior of its Questions. A Question Backend owns 
-  presentation, interaction semantics, response interpretation, grading, partial credit, feedback, and backend-specific state. PLE 
-  owns authorization, immutable Question identity, assignment and attempt lifecycle, persistence, and recorded outcomes.
-- the webwork backend should handle everything, PLE should not care what webwork serves. The webwork renderer container iamge 
-  should receive the webwork code from PLE, render the question and send the JSON or HTML to PLE, I am not sure who handles the 
-  choice/answer verificaction, but probably the webwork renderer engine is the ideal design.
+
+## Question Backend ownership
+
+- Treat each Question Backend as the authority for its Questions' presentation and behavior. It owns
+  interaction, response interpretation, grading, feedback, and backend-specific state; PLE owns
+  authorization, immutable Question identity, Assignment and Attempt lifecycle, and outcomes.
+- WeBWorK owns PG/PGML rendering, controls, answer evaluators, partial credit, and feedback. H5P
+  owns its runtime, interactions, state, and scoring; iMathAS owns its rendering and evaluation.
+- PLE uses a backend-agnostic opaque lifecycle and outcome contract. Each Question Backend adapter
+  retains its interaction knowledge; PLE-native Questions use the PLE Question Backend.
+- An interaction already supported by a Question Backend should require Question content or backend
+  configuration, without a new PLE Question Type implementation.
+- Question Type is immutable author-declared educational metadata on the Published Question Revision.
+  PLE uses it for search, filtering, labeling, and presentation and never infers it from backend controls.
 - **Published Questions** use opaque copyable Crockford Base32 Question IDs in the form `AAA-BBBB`: six
   cryptographically chosen identity characters plus one HMAC validation character. Creation order is never exposed.
 - **Published Questions** maintain version history, so updates can be propagated to other courses.
@@ -191,7 +199,6 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Assignments and graded work remain pinned to exact immutable versions and are never changed automatically by later revisions.
 - Answer-choice randomization belongs to the Question.
 - PLE-native Questions can control their own answer-choice randomization.
-- External Question Backends such as WeBWorK and iMathAS own the presentation of their Questions.
 
 ## Course content philosophy
 

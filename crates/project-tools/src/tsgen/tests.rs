@@ -302,6 +302,22 @@ fn option_maps_to_a_nullable_union() {
             .contains("label: string | null;")
     );
 }
+
+#[test]
+fn backend_owned_payload_serializer_generates_its_base64_wire_type() {
+    let item: syn::ItemEnum = syn::parse_quote! {
+        #[derive(Serialize)]
+        #[serde(tag = "kind", rename_all = "camelCase")]
+        pub enum StudentResponse {
+            BackendOwned {
+                #[serde(with = "crate::response::backend_owned_payload")]
+                payload: Vec<u8>,
+            },
+        }
+    };
+    let generated = generate_enum(&item).expect("generation should support bounded base64 payload");
+    assert!(generated.body.contains("payload: string;"));
+}
 #[test]
 fn empty_named_struct_maps_to_an_exact_empty_record() {
     let item: syn::ItemStruct =

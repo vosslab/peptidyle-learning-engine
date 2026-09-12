@@ -526,6 +526,9 @@ services:
       webwork-renderer:
         condition: service_healthy
     environment:
+      # The worker constructs renderer embed URLs from this deployment-owned
+      # browser origin, exactly as the API does.
+      PLE_BROWSER_ORIGIN: ${PLE_BROWSER_ORIGIN:?set PLE_BROWSER_ORIGIN in the env file}
       PLE_STORAGE_TOPOLOGY: ${PLE_STORAGE_TOPOLOGY:?set PLE_STORAGE_TOPOLOGY in the env file}
       DATABASE_URL: ${PLE_WEBWORK_WORKER_DATABASE_URL:-postgres://ple_webwork_worker_login:service-login-setup-required@postgres:5432/${POSTGRES_DB:-peptidyle}}
       PLE_S3_ENDPOINT: http://minio:9000

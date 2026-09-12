@@ -62,12 +62,13 @@ Course Instance is `BCHM 301`, also named **Biochemistry 301: Proteins and
 Peptides**, runs from 2026-08-24 through 2026-12-11 in `America/Chicago`, and
 has Elena as its Assigned Instructor.
 
-Its released Assignment, **Chapter 1 Pilot Practice**, uses the eight reviewed
-Pilot Questions selected by
+The ordinary publisher makes all eight reviewed Pilot Questions available in
+the Question Library, including the four WeBWorK Questions described in
 [`content/pilot/chapter_1_assignments.yaml`](../content/pilot/chapter_1_assignments.yaml).
-Each entry pins the exact published Question Revision supplied by the ordinary
-publisher. The Assignment instructions are: "Complete the eight reviewed
-Chapter 1 practice questions."
+Its released Assignment, **Chapter 1 Pilot Practice**, uses the four
+PLE-native PLE Question JSON Pilot Questions. Each entry pins the exact
+published Question Revision. The Assignment instructions are: "Complete the
+four reviewed Chapter 1 practice questions."
 
 The database-owned graph includes the three ordinary Student records and
 Course Memberships below. The cross-system activity owner may then establish

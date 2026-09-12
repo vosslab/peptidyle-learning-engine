@@ -18,8 +18,9 @@ INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES
 SET LOCAL ROLE ple_data_owner;
 INSERT INTO ple_data.published_question (question_id, created_at)
 VALUES ('ABCDEF0', clock_timestamp());
-INSERT INTO ple_data.question_revision (question_id, revision_number, backend, published_at)
-VALUES ('ABCDEF0', 1, 'ple', clock_timestamp());
+INSERT INTO ple_data.question_revision (
+    question_id, revision_number, backend, question_type, published_at
+) VALUES ('ABCDEF0', 1, 'ple', 'multipleChoice', clock_timestamp());
 SET LOCAL ROLE ple_api_owner;
 INSERT INTO ple_data.blueprint_course (
     blueprint_id, reference_number, owner_account_id, created_at

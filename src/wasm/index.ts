@@ -50,6 +50,7 @@ function isQuestionPresentationResponseFormat(
       "multiFillIn",
       "numerical",
       "imathasQuestionBackend",
+      "backendOwned",
     ].includes(responseFormat.kind) ||
     (responseFormat.kind === "matching" && "reuseChoices" in responseFormat) ||
     (responseFormat.kind === "hotspot" && typeof responseFormat.surface === "object")

@@ -28,7 +28,6 @@ use question_model::{
     AssignmentAttemptReference, AssignmentReference, CourseInstanceReference, ObjectId,
     ProductRole, QuestionPresentation, QuestionPresentationChecksum, QuestionRevisionNumber,
     QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference, StudentResponse,
-    Timestamp,
 };
 use question_model::{generation::QuestionSeed, presentation::build_question_presentation};
 use serde::Serialize;
@@ -51,12 +50,12 @@ struct PositionQuery {
 }
 
 #[derive(Clone)]
-pub(super) struct StateData {
-    pub(super) sessions: Arc<PostgresSessionStore>,
-    pub(super) delivery: PostgresLiveAssignmentDeliveryStore,
-    pub(super) submissions: PostgresNativePleSubmissionStore,
-    pub(super) objects: S3ObjectStore,
-    pub(super) webwork: Arc<WebworkAdapter<S3ObjectStore, HttpWebworkRenderer>>,
+pub(crate) struct StateData {
+    pub(crate) sessions: Arc<PostgresSessionStore>,
+    pub(crate) delivery: PostgresLiveAssignmentDeliveryStore,
+    pub(crate) submissions: PostgresNativePleSubmissionStore,
+    pub(crate) objects: S3ObjectStore,
+    pub(crate) webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
 }
 
 /// The retained status read needs only authentication and its dedicated
@@ -82,7 +81,7 @@ pub fn assignment_delivery_router(
     delivery: PostgresLiveAssignmentDeliveryStore,
     submissions: PostgresNativePleSubmissionStore,
     objects: S3ObjectStore,
-    webwork: Arc<WebworkAdapter<S3ObjectStore, HttpWebworkRenderer>>,
+    webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
 ) -> Router {
     Router::new()
         .route(
@@ -112,6 +111,10 @@ pub fn assignment_delivery_router(
         .route(
             "/api/assignment-attempts/{assignment_attempt}/student-question",
             get(student_question),
+        )
+        .route(
+            "/api/assignment-attempts/{assignment_attempt}/questions/{position}/document",
+            get(crate::webwork_document_route::document),
         )
         .route(
             "/api/assignment-attempts/{assignment_attempt}/responses/{position}",
@@ -474,7 +477,8 @@ async fn issue_new_presentations(
                 question_model::presentation::extract_durable_response_item_bindings(&presentation)
                     .map_err(|_| StartError::Invalid)?,
             question_asset_renditions: source.question_asset_renditions.clone(),
-            replay_details: None,
+            issued_capability: "ple_question_json_presentation".to_string(),
+            backend_document: None,
         });
     }
     Ok(inputs)
@@ -485,24 +489,14 @@ async fn issue_new_webwork_presentations(
     sources: &[NativeWebworkIssuanceSource],
 ) -> Result<Vec<NativePresentationInput>, StartError> {
     let mut inputs = Vec::with_capacity(sources.len());
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|_| StartError::Unavailable)?;
-    let created_at = Timestamp::from_unix_millis(
-        i64::try_from(now.as_millis()).map_err(|_| StartError::Unavailable)?,
-    );
     for source in sources {
         let seed = QuestionSeed::new(source.question_seed);
         let issued = state
             .webwork
-            .issue(
-                seed,
-                &resolve_webwork_source(&state.objects, source).await?,
-                created_at,
-            )
+            .issue(seed, &resolve_webwork_source(&state.objects, source).await?)
             .await
             .map_err(|_| StartError::Unavailable)?;
-        let replay = issued.replay.ok_or(StartError::Invalid)?;
+        let document = String::from_utf8(issued.document).map_err(|_| StartError::Invalid)?;
         let presentation = build_question_presentation(
             &issued.presentation,
             &question_asset_renditions_from_ready(&source.question_asset_renditions),
@@ -529,7 +523,8 @@ async fn issue_new_webwork_presentations(
                 question_model::presentation::extract_durable_response_item_bindings(&presentation)
                     .map_err(|_| StartError::Invalid)?,
             question_asset_renditions: source.question_asset_renditions.clone(),
-            replay_details: Some(serde_json::to_value(replay).map_err(|_| StartError::Invalid)?),
+            issued_capability: "webwork_presentation".to_string(),
+            backend_document: Some(document),
         });
     }
     Ok(inputs)
@@ -600,7 +595,7 @@ pub(super) fn refs(
     ))
 }
 
-pub(super) async fn student(
+pub(crate) async fn student(
     state: &StateData,
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
@@ -680,7 +675,7 @@ pub(super) fn submission_store_error(value: StoreError) -> Response {
     }
 }
 
-pub(super) fn concealed() -> Response {
+pub(crate) fn concealed() -> Response {
     error(StatusCode::NOT_FOUND, "Assignment not found")
 }
 pub(super) fn error(status: StatusCode, message: &'static str) -> Response {

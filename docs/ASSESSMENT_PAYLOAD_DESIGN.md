@@ -67,13 +67,14 @@ The protected read or write performs the relationship check and data operation i
 transaction.
 
 The attempt also carries a server-owned typed capability such as
-`IssuedAttemptCapability::PleQuestionJsonPresentation` or `WebworkPresentation`. Its matching private
-Question Grading Input, presentation snapshot, and (for WeBWorK) replay state are required or explicitly
-`NotApplicable`; a missing or mismatched required capability is unavailable. Worker execution uses
-the same exact target from a locked typed lease. Provider metadata remains external protocol data
-only: renderer identity, provider profile, upstream field/value names, and source-artifact details
-may support one server-to-provider exchange but never act as an Account, course, Student, attempt, or
-authorization selector.
+`IssuedAttemptCapability::PleQuestionJsonPresentation` or `WebworkPresentation`. Its matching
+private grading input and presentation snapshot are required or explicitly `NotApplicable`; a
+missing or mismatched required capability is unavailable. A WeBWorK attempt additionally holds
+its exact backend-owned document and any saved `BackendOwned` response bytes. E1 supplies no
+WeBWorK backend lifecycle state. Worker execution uses the same exact target from a locked typed
+lease. Provider metadata remains external protocol data only: renderer identity and
+source-artifact details may support one server-to-provider exchange but never act as an Account,
+course, Student, attempt, or authorization selector.
 
 ## Current PLE boundary
 
@@ -432,56 +433,35 @@ scores or grading metadata.
 
 ## WeBWorK grading
 
-### Current private flow
+### Current opaque flow
 
-The browser-facing WeBWorK Question Presentation is typed and answer-free. PLE resolves immutable Question Source
-from server-only object storage and caches the safe render by Question Revision Reference and Question Seed. An
-**issue** cache hit reuses that public render but still makes one private same-Question-Seed renderer call to
-recover and verify the replay mapping that the safe cache deliberately excludes. In contrast,
-reproducing an already-issued attempt reads only the safe cache and makes no renderer call; its
-attempt-bound replay mapping is loaded separately from the protected record for the exact
-`CourseId`, `StudentRecordId`, `AssignmentAttemptId`, and `QuestionAttemptId`.
+At issue time, the WeBWorK adapter resolves the immutable Question Source under server authority,
+calls the standalone renderer once, and persists the returned document exactly for that Question
+Attempt. PLE does not parse the document, project its controls into PLE response types, or derive
+Question Type from it. The Student receives that document only through the authorized, no-store
+attempt-document route.
 
-PLE privately calls the external standalone `/render-api` form endpoint with Question Source, file path,
-its registered `seed` field, fixed display controls, and signed renderer state. Those fields never cross the browser
-boundary. The historical RC3 compatibility grading path originally performed two private calls:
+The bridge serializes the submitted HTML form as bounded, ordered `[name, value]` pairs. It includes
+ordinary PG hidden fields because they belong to the rendered form, but it neither recognizes nor
+rewrites any PG control. The generic submission lifecycle stores those bytes as
+`StudentResponse::BackendOwned`; it does not interpret their contents.
 
-1. rerender the same Question Source and Question Seed to recover and validate the opaque PLE-choice to upstream
-   `AnSwEr...` field/value mapping; and
-2. call the same endpoint with the selected upstream field/value and `WWsubmit=1`.
+The WeBWorK adapter alone decodes the stored pairs for its renderer request. It preserves duplicate
+field names and their order, bounds the payload, and rejects renderer-reserved fields before making
+one private grade call. It supplies the immutable source, path, seed, and renderer configuration
+server-side, then accepts the renderer's bounded score outcome. E1 is state-free: no WeBWorK replay
+mapping, cache entry, or backend lifecycle-state record participates in issue, submission, or grade.
 
-The receipt-era persistence slice stores the validated mapping, exact public snapshot, matching
-server-only Question Grading Input, and frozen WeBWorK Question Source under the issued attempt. Normal grade
-validates those artifacts and performs only the private grade call; it never resolves a current
-published Question Revision or rerenders to recover state. The official upstream endpoint is stateless, so
-PLE still sends the immutable Source Object Reference and Source Object Checksum with signed server state on that private grade call. That
-repetition is an internal service cost, not student payload.
+The normal lifecycle is therefore:
 
-### Implemented private replay slice and remaining target
+1. render once and retain the exact backend-owned document for one issued attempt;
+2. deliver that document after the Student/attempt/position authorization check;
+3. save the opaque browser payload through the shared Question Submission lifecycle; and
+4. forward only that payload and server-held attempt facts to the WeBWorK adapter for grading.
 
-At issue time, PLE now persists a bounded, server-only replay record mapping each Presentation Response Item Reference
-to its validated upstream field/value. The record contains no source, credential, session key,
-correct-answer flag, raw provider result, or browser-visible field name.
-
-Normal grade then:
-
-1. loads and validates the attempt-bound replay record;
-2. validates the public response against the issued snapshot and resolves its Presentation Response Item Reference to
-   one protected upstream field/value;
-3. loads immutable source and private renderer credentials server-side;
-4. makes one private `/render-api` grade call; and
-5. accepts only the supported result shape and score policy.
-
-Binding disagreement refuses before grading. Successful submission and terminal instructor action
-delete replay state atomically. Missing or malformed state is an intentional unavailable failure:
-pre-production receipt-era data has no rerender, self-heal, or compatibility reader. The browser
-never receives or resubmits PG source, upstream field names, radio values, passwords, session keys,
-renderer URLs, or provider score objects.
-
-The reviewed Chapter 1 WeBWorK profile supports its two `RadioButtons` sources and two matching
-sources. Matching partial credit is admitted only when both the source path and immutable Source Object
-Checksum match the accepted evidence profile. Other WeBWorK interactions still require their own
-adapter contract and live evidence.
+The browser never receives PG source, renderer credentials, renderer URLs, renderer-reserved
+fields, raw provider results, or backend state. This boundary permits a valid WeBWorK Question to
+use its own interaction structure without a corresponding PLE response-control implementation.
 
 ## ADAPT comparison
 
@@ -579,9 +559,9 @@ Removing a roughly 20-byte `kind` field improves clarity but is not a meaningful
 optimization by itself. The higher-value actions are:
 
 - collapse the Assignment Attempt screen request fan-out into one Student Question Attempt View;
-- cache immutable assets and safe renders;
+- cache immutable assets and answer-free native PLE presentations where their lifecycle permits it;
 - avoid inline binary media;
-- remove the normal extra WeBWorK rerender;
+- keep the WeBWorK render-once and grade-once lifecycle;
 - keep database access bounded and indexed; and
 - instrument stage timing before selecting further optimizations.
 
@@ -592,10 +572,12 @@ counts or arbitrary latency thresholds into permanent tests.
 
 ### Safe caching
 
-PLE may cache public render data by immutable `QuestionRevisionReference`, Question Seed, and the presentation binding.
-Cache entries may contain only the answer-free Question Presentation, public asset references, and
-Question Renderer Version needed to identify the render. They must not contain correct answers, private rubrics,
-credentials, session keys, source archives, or raw provider responses.
+PLE may cache native PLE public render data by immutable `QuestionRevisionReference`, Question
+Seed, and the presentation binding. Cache entries may contain only the answer-free Question
+Presentation, public asset references, and Question Renderer Version needed to identify the render.
+They must not contain correct answers, private rubrics, credentials, session keys, source archives,
+or raw provider responses. A WeBWorK backend-owned document is instead an immutable, per-attempt
+Student-work record; it is not a reusable render cache entry.
 
 Assets use immutable logical URLs and content checksums. The browser can fetch and cache them
 independently. The presentation becomes submission-ready only after required Question Response Controls and
@@ -660,7 +642,7 @@ easy to navigate without duplicating its exact migration and codec specification
 - Files: `2026080908_secure_question_grading_payloads.sql`, Store traits, Memory/PostgreSQL stores,
   prefetch promotion, retention, backup/restore, and conformance tests.
 - Behavior: persist the presentation version, nonce, Question Presentation Checksum, request-contract version, prefetch
-  binding, and bounded private WeBWorK replay state under forced RLS.
+  binding, and per-attempt backend-owned document and response records under forced RLS.
 - Success: constraints reject malformed data; another AccountId, another course, and a foreign attempt
   cannot read or write it; Memory and PostgreSQL agree; retention and restore preserve or remove
   bindings correctly.
@@ -680,17 +662,18 @@ easy to navigate without duplicating its exact migration and codec specification
 - Validation: focused Axum and security tests, Question Type wire vectors, PLE regression, and independent
   server review.
 
-### WeBWorK replay
+### WeBWorK opaque boundary
 
-- Owner: WebWork adapter and server backend, independently security reviewed.
-- Files: renderer contract, WebWork backend, replay-state Store API, request-count tests, and private
-  live test.
-- Behavior: persist the safe issued mapping and make normal grading one private RPC; permit one
-  receipt-era missing or mismatched replay state fails closed without rerendering.
-- Success: normal, retry, recovery, and mismatch traces prove exact call behavior and prove no source,
-  credential, session key, upstream mapping, or raw result reaches browser-visible state.
-- Validation: recorded upstream contract tests, private-container trace, state scans, and security
-  review.
+- Owner: WeBWorK adapter and server backend.
+- Files: renderer contract, WeBWorK adapter, backend-document delivery, generic submission and
+  worker lifecycle, and focused adapter tests.
+- Behavior: persist one exact renderer document per issued attempt; save an opaque ordered-pair
+  response through the generic lifecycle; and let only the adapter validate reserved fields and
+  perform the one renderer grade call.
+- Success: materially different valid PG interactions use the same PLE lifecycle; PLE does not
+  project controls, inspect response pairs, or hold WeBWorK lifecycle state.
+- Validation: focused adapter and route tests plus temporary connected evidence for the real
+  renderer/browser path. A final security review evaluates the integrated boundary separately.
 
 ### Browser recovery
 
@@ -730,7 +713,7 @@ Permanent tests protect stable behavior:
 - exact repeat returns the existing Question Submission Receipt and a changed response conflicts;
 - student-screen and receipt allowlists;
 - target prefetch promotion and timed-content withholding;
-- normal one-call WeBWorK grading; and
+- one opaque WeBWorK payload forwarded through the shared lifecycle to one grade call; and
 - browser traces exclude Answer Keys, Question Feedback, and Question Grading Inputs.
 
 One-time implementation evidence records:
@@ -774,9 +757,9 @@ cutover because they require their own backend-session design.
 - Use SHA-256 for whole-presentation consistency and CRC16 for compact item correspondence.
 - Keep all correctness, component scoring, and partial credit server-owned.
 - Return one minimal student screen and one compact, policy-projected receipt.
-- Cache only answer-free public renders and immutable assets.
+- Cache only answer-free native PLE public renders and immutable assets.
 - Use server-owned reservations for prefetch; add timed-content withholding at the target cutover.
-- Keep the official WeBWorK exchange private and reduce normal grading from two RPCs to one through
-  bounded server-only replay state.
+- Keep the WeBWorK document and form semantics backend-owned; store its exact per-attempt document
+  and forward its opaque response only through the shared lifecycle.
 - Optimize request fan-out, assets, database work, and renderer execution before shaving already tiny
   answer JSON.

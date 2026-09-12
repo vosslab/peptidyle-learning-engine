@@ -29,7 +29,7 @@ use question_model::{
     QuestionSearchCourseUse, QuestionSearchCourseUseFacet, QuestionSearchFacets,
     QuestionSearchPage, QuestionSearchQuestionLicenseFacet, QuestionSearchRequest,
     QuestionSearchResult, QuestionSearchTagFacet, QuestionStatistics, QuestionSummary,
-    QuestionType, QuestionTypeFacet, QuestionUseDetails, QuestionUseSummary,
+    QuestionTypeFacet, QuestionUseDetails, QuestionUseSummary,
 };
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -557,10 +557,7 @@ fn webwork_question_library_entry(
             question_id: entry.question_revision.question_id.clone(),
             latest_question_revision: entry.question_revision,
             backend: entry.backend,
-            // The current reviewed WeBWorK publication path is a single-choice
-            // PGML control. A future WebWork publication summary must supply
-            // its own validated Question Type rather than inspect PG source.
-            question_type: QuestionType::MultipleChoice,
+            question_type: entry.question_type,
             capabilities: adapter_webwork::webwork_source_capabilities(QuestionBackend::Webwork)
                 .map_err(|_| ())?,
             metadata: question_model::QuestionMetadata {
@@ -608,6 +605,7 @@ async fn resolved_ple_question(
     if metadata.question_title != entry.question_title
         || metadata.question_description != entry.question_description
         || metadata.question_license.as_ref() != Some(&entry.question_license)
+        || presentation.question_type() != entry.question_type
     {
         return Err(());
     }
@@ -617,7 +615,7 @@ async fn resolved_ple_question(
             question_id: entry.question_revision.question_id.clone(),
             latest_question_revision: entry.question_revision,
             backend: entry.backend,
-            question_type: presentation.question_type(),
+            question_type: entry.question_type,
             capabilities: QuestionBackendCapabilities::from_iter([
                 Capability::ClientRendering,
                 Capability::ServerGrading,

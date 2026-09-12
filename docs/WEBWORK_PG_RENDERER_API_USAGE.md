@@ -1,212 +1,151 @@
-# WeBWorK PG renderer contract
+# WeBWorK PG renderer API usage
 
-This document defines PLE's server-only integration with the external
-`webwork-pg-renderer` service. PLE is the only renderer client. A student
-browser calls PLE and never contacts the renderer.
+PLE uses the standalone `webwork-pg-renderer` service as an opaque Question
+Backend. WeBWorK owns PG/PGML rendering, document structure, controls,
+interaction semantics, response interpretation, grading, partial credit, and
+backend state. PLE owns authorization, immutable Question Revision selection,
+Assignment Attempt lifecycle, persistence, and recorded outcomes.
 
-## Three different projects
+Question Type is immutable author-declared educational metadata on the
+Published Question Revision. PLE uses it for labels, filtering, and search;
+it does not infer Question Type from a WeBWorK document or controls.
 
-The similar names describe different layers:
+## Runtime boundary
 
-| Project                                                               | Responsibility                                                                      | PLE use                                                  |
-| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| [WeBWorK PG](https://github.com/openwebwork/pg)                       | PG/PGML language, seeded execution, rendering, answer evaluators, and grading.      | Engine used by the renderer.                             |
-| [webwork-pg-renderer](https://github.com/vosslab/webwork-pg-renderer) | Small HTTP service around WeBWorK PG render and grade operations.                   | Required private runtime service.                        |
-| [WeBWorK2](https://github.com/openwebwork/webwork2)                   | Complete homework application with users, courses, sets, attempts, and persistence. | Reference and prior art only; not a PLE runtime service. |
-
-PLE owns courses, assignments, enrollment, attempts, feedback, scores, and
-retention. The runtime is:
+The renderer is a private Podman service. Student browsers call PLE only:
 
 ```text
-browser -> PLE gateway -> PLE API -> private PG renderer -> WeBWorK PG
+browser -> PLE API -> private webwork-pg-renderer -> WeBWorK PG
 ```
 
-There is one assignment distribution system: PLE. No WebWork2 course, roster,
-assignment, password, session store, or SQL database participates.
+The local stack builds `localhost/pg-renderer:reviewed` from the maintained
+sibling checkout `../webwork-pg-renderer`. PLE records the selected image
+reference and its OCI configuration ID in private Local Stack State. That OCI
+ID is the `QuestionRendererVersion` retained with each rendered Question; PLE
+does not maintain a second renderer-version value.
 
-`OTHER_REPOS/pg`, `OTHER_REPOS/webwork-pg-renderer`, and
-`OTHER_REPOS/webwork2` are read-only comparison snapshots. They are not build
-contexts, imports, checked-out dependencies, or runtime sources. PLE consumes a separately built
-renderer image through its published API.
+The renderer has no public host port, PLE database access, student session,
+or persistent educational record. PLE calls its `POST /render-api` endpoint
+with form data over the private service network. The adapter accepts only the
+expected JSON envelope, checks its private renderer state, then discards that
+state before the browser-facing document is stored or served.
 
-## Accepted scope
+## Render request
 
-The accepted live release path is four licensed, user-authored immutable PGML sources: one
-`RadioButtons` and one matching question for each of Genetics and Biochemistry Chapter 1. PLE
-projects them into answer-free multiple-choice or matching Question Variation Presentations, grades correct, incorrect,
-and partial-credit responses as appropriate, and keeps all upstream controls and values private.
-Matching partial credit is admitted only for the reviewed path-and-Source Object Checksum pairs.
+PLE derives the PG source, source path, Question Revision, seed, renderer
+identity, PLE origin, and asset origin from trusted attempt and deployment
+state. The browser supplies none of them.
 
-This is not a claim of broad live PG compatibility. Other PG controls, source revisions, and Open
-Problem Library items require their own reviewed source examples and the same PLE E2E and
-browser-boundary evidence before they are advertised as supported.
+Each render request includes the server-owned fields below. The PG source is
+base64 encoded in `problemSource`.
 
-## Deployment boundary
+| Field | Value or purpose |
+| --- | --- |
+| `_format` | `json` |
+| `problemSource`, `sourceFilePath`, `problemSeed` | Immutable source and attempt seed |
+| `outputFormat` | `ple_embed` |
+| `pleOrigin` | Trusted PLE origin |
+| `pleAssetBase` | `{pleOrigin}/api/webwork-assets` |
+| `displayMode` | `MathJax` |
+| Student display flags | Server-selected embed settings |
 
-The renderer is a normal service in `containers/compose.yaml`. The default
-typed lifecycle requires the declared `PLE_WEBWORK_RENDERER_IMAGE` to exist and starts
-it with the rest of PLE.
+`ple_embed` is a renderer format for PLE documents. It is not a PLE parser or
+a second Question presentation format.
 
-The service:
+## Backend-owned document
 
-- has no host-published port;
-- has no persistent volume;
-- has no SQL connection or database service;
-- joins only `renderer_private` with the API;
-- receives no PLE database, object-store, session, or student credential; and
-- can be recreated without losing an educational record.
+The adapter stores `renderedHTML` verbatim as one immutable backend document
+per issued WeBWorK Question Attempt, along with its SHA-256 and renderer OCI
+identity. The Student document route re-authorizes the current student and
+attempt position before returning that exact document with `no-store`.
 
-The API base is:
+The embed document omits renderer JWT inputs, form action, submit controls,
+footer, and base element. PLE can therefore capture ordinary PG form data
+without exposing renderer credentials. Legitimate PG hidden answer or control
+fields remain normal form fields and are not removed.
+
+PLE presents the document in a same-origin iframe with:
 
 ```text
-http://webwork-renderer:3000/
+sandbox="allow-scripts allow-forms allow-same-origin"
 ```
 
-The adapter joins the fixed relative path `render-api` and sends:
+The document route adds a CSP that permits same-origin scripts and styles,
+same-origin or data images, and blocks base URLs, objects, form navigation,
+and external framing. This is the C2 decision recorded in
+[webwork_opaque_render_findings.md](active_plans/reports/webwork_opaque_render_findings.md).
 
-```text
-POST http://webwork-renderer:3000/render-api
-Content-Type: application/x-www-form-urlencoded
-```
+## Presentation and assets
 
-It refuses embedded URL credentials, query strings, fragments, redirects,
-non-success status, non-JSON content, oversized bodies, malformed JSON,
-duplicate members, and unexpected response members.
+WeBWorK owns Question-authored presentation. PLE supplies the generic
+`/styles/ple_embed.css` baseline so a backend document fits the Student UI.
+It sets document colors, a readable default typeface, available width,
+inherited form fonts, and a visible focus outline. It does not recognize or
+style PG control types, Question Types, macros, or individual elements.
 
-## Server-owned request
+The renderer template orders styles as follows:
 
-PLE resolves immutable source, version, seed, and renderer identity from the
-authenticated attempt. The browser cannot select any of them.
+1. Renderer third-party styles.
+2. PLE's generic `ple_embed.css` baseline.
+3. PG `extra_css_files`.
 
-The fixed render form contains:
+PG-authored styles intentionally follow and can override the PLE baseline.
 
-| Field                                                                              | Server-owned value                                                                            |
-| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `_format`                                                                          | `json`                                                                                        |
-| `problemSource`                                                                    | Base64 of the immutable PG/PGML source bytes.                                                 |
-| `sourceFilePath`                                                                   | Bounded diagnostic source path. It is not a renderer filesystem path selected by the browser. |
-| `problemSeed`                                                                      | Attempt seed.                                                                                 |
-| `outputFormat`                                                                     | `default` for the standalone service.                                                         |
-| `displayMode`                                                                      | `MathJax`.                                                                                    |
-| `isInstructor`                                                                     | `0`.                                                                                          |
-| `showSummary`, `showHints`, `showSolutions`                                        | `0`.                                                                                          |
-| `hidePreviewButton`, `hideCheckAnswersButton`, `hideAttemptsTable`, `hideMessages` | `1`.                                                                                          |
-| `showCorrectAnswersButton`, `showFooter`                                           | `0`.                                                                                          |
+Every renderer asset URL in an embed document is query-free and uses one of
+these PLE proxy namespaces:
 
-For grading, PLE reconstructs the same source and seed and adds only
-`submitAnswers=1` plus the server-held upstream field/value that corresponds to
-the student's opaque PLE selection. The browser never submits an upstream field
-name or value.
+| PLE path | Renderer path | Cache policy |
+| --- | --- | --- |
+| `/api/webwork-assets/webwork2_files/...` | `/webwork2_files/...` | Public for one day |
+| `/api/webwork-assets/pg_files/...` | `/pg_files/...` | `no-store` |
 
-## Authentication and response identity
+The proxy accepts only `GET` for those two paths. It rejects other prefixes,
+queries, encoded path escapes, redirects, unsafe media types, and oversized
+responses. It forwards from the configured private renderer origin; the
+browser never selects an upstream URL.
 
-The renderer signs its problem, session, and answer state. Local development
-stores the problem and session JWT secrets in ignored mode-0600
-`containers/env.local`; deployed environments must provide independent secret
-values. These are API-to-renderer credentials, not student credentials.
+## Submission and grading
 
-The expected response is a closed object with these protocol members:
+The PLE bridge is loaded only inside the backend-owned document. It serializes
+the first form with `new FormData(form)` into a canonical JSON array of
+`[name, value]` pairs. This preserves form order and duplicate names, including
+repeated checkboxes and legitimate PG hidden fields. The bridge sends the pair
+array to the parent for ordinary submit events and for a parent-requested
+capture; the capture reply carries a per-request identifier.
 
-```text
-JWT debug flags problem_result problem_state renderedHTML resources
-```
+PLE stores the opaque bounded pair array as the shared `BackendOwned` Student
+Response. It does not inspect a field name to determine control behavior or
+Question Type. Before grading, the adapter rejects invalid or server-owned
+names, including source, seed, output, display, PLE-origin, JWT, credential,
+answer-key, submission-control, and `showCorrectAnswers*` fields. It forwards
+all remaining pairs in their original order, then appends its own
+`submitAnswers=1` to the trusted render fields.
 
-The adapter validates token shape and request binding, then discards private
-renderer tokens from the Question Presentation. `problem_result.score` is a finite
-normalized value between 0 and 1. The bounded all-or-nothing radio contract
-accepts 0 or 1 and maps it to the published PLE point value.
+The selected E1 lifecycle is stateless: PLE sends one grade request using the
+immutable source, seed, and submitted pair array. It stores no WeBWorK state
+row and passes `None` through the shared backend-state slot. The renderer's
+normalized score is validated and recorded as the PLE grading outcome; answer
+keys and renderer-private state never enter the Student response or document.
 
-Unknown members and protected Question Source, Answer Key, or credential values are a
-refusal. This exact closed shape is a security and compatibility boundary, not
-an arbitrary collection-size assertion.
+## Renderer fork and verification
 
-## Question Presentation
+The maintained renderer fork carries only the PLE functionality needed for
+this boundary: the additive `ple_embed` template, its format selection, the
+two generated-asset URL namespaces, and the static `/webwork2_files/` alias.
+Keep future renderer changes small and tied to a demonstrated functional need.
+Each fork change increases the merge surface for upstream WeBWorK renderer
+updates.
 
-The adapter selects the rendered `div#problem_body.problem-content`, verifies
-the same-origin renderer base/form metadata, and parses only recognized controls.
-It converts visible labels to PLE response options and stores the upstream
-field/value mapping only in server-side replay state.
+`devel/webwork_render_probe.py` is a development probe for a running renderer.
+It renders `ple_embed`, can submit ordered form pairs, records the response
+envelope and document observations, and writes evidence outside the tracked
+source tree. The one-time representative findings selected C2 and E1; they are
+implementation evidence, not a permanent compatibility corpus or fixture set.
 
-The Student Question Presentation may contain:
-
-- typed prompt blocks;
-- the PLE Question Type and browser rendering metadata;
-- visible choice labels; and
-- opaque PLE choice identifiers.
-
-It must not contain:
-
-- PG/PGML source;
-- a correct answer or answer hash;
-- upstream input names or values;
-- renderer JWTs or problem state;
-- renderer URLs or credentials; or
-- raw renderer HTML.
-
-Unsupported or executable markup, hostile styles and attributes, forms, frames,
-unsupported controls, duplicate attributes, and malformed HTML fail closed before typed conversion.
-
-## Cache and replay
-
-The public render cache contains only answer-free typed PLE output bound to
-source, version, seed, and renderer identity. Private upstream replay mapping is
-stored separately from public cached bytes.
-
-Current cache-hit issuance may make one private same-seed renderer call to
-reconstruct and verify replay mapping. The planned one-call replay optimization
-must preserve the same binding and secrecy contract; it cannot move private
-mapping into the browser cache.
-
-## Startup and failure behavior
-
-The private typed lifecycle:
-
-1. resolves the selected external image name or published digest to its OCI configuration ID;
-2. recreates the stateless renderer and verifies its container uses that ID;
-3. atomically records the selected image reference and OCI ID in ignored Local Stack State;
-4. runs `containers/webwork/probe_render_api.sh` inside the container;
-5. proves one deterministic public render plus correct and incorrect grades;
-6. seeds the owner-controlled PLE pilot source; and
-7. starts the API only after the renderer probe succeeds.
-
-The renderer's own startup diagnostics may report optional PG macro limitations.
-PLE acceptance is based on the supported owner-controlled Question Backend behavior, not
-on an invented wall-clock threshold or byte-identical container output.
-
-At request time, timeout, outage, malformed output, or identity drift causes a
-bounded backend-local refusal. The renderer cannot mutate PLE records directly.
-
-## Verification model
-
-Fast permanent tests cover stable parser and renderer transformation, score, secrecy, and
-topology behavior. They use inline recorded data and no real network.
-
-Live acceptance is intentionally separate:
-
-```bash
-cargo test -p adapter_webwork --all-targets
-cargo clippy -p adapter_webwork --all-targets -- -D warnings
-source source_me.sh && python3 local_stack.py validate
-./devel/run_playwright_tests.sh --build
-```
-
-Exact Compose and lifecycle source inspection was useful during the renderer
-cutover but is not retained as pytest. Read-only validation and live E2E
-exercise the maintained boundary without freezing configuration text.
-
-The original renderer E2E passed on 2026-08-10 for the licensed PGML `RadioButtons` pilot. The
-Chapter 1 release gate subsequently passed all four reviewed PGML sources, including both matching
-questions and matching partial credit, through the real renderer, PLE grading, and built-browser
-student path on 2026-08-11.
-
-That evidence supports this bounded path. It does not imply every Open Problem
-Library item or PG macro is compatible. New Question Types require behavior-focused
-adapter tests and a real source-to-browser acceptance path; temporary diagnostic
-probes should be removed after they have served that implementation purpose.
-
-See [LOCAL_STACK_ARCHITECTURE.md](LOCAL_STACK_ARCHITECTURE.md) for why each local service exists,
-[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for the render and
-response payload boundary, and
-[QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md) for comparison
-with PLE Question JSON, iMathAS, H5P, and the QTI Import pathway behind the
-shared Question operations.
+Permanent tests cover stable contracts such as request construction, envelope
+validation, ordered-pair forwarding, server-owned field refusal, score mapping,
+document authorization, and the two-prefix asset route. Connected validation
+uses a real local renderer and browser path when a renderer or document-boundary
+change needs evidence. See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for
+the test-lifetime policy and [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md)
+for the shared Question Backend lifecycle.

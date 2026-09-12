@@ -613,8 +613,13 @@ technology to an alternative PLE Question JSON source. It uses the shared
 backend-agnostic Question operations and remains reserved for future
 implementation and authoring work.
 
-**Question Type** classifies the educational interaction with the short values
-MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. In MATCH, a
+**Question Type** is immutable author-declared educational metadata on a
+Published Question Revision. It classifies the educational interaction with the
+short values MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. PLE uses
+it for search, filtering, labeling, and presentation. An author selects the
+Question Type while creating or publishing an external-backend Question
+Revision; PLE does not infer it from backend controls or interaction structure.
+Question Type remains separate from backend interaction implementation. In MATCH, a
 **Matching Prompt** is an item to be matched and a **Matching Choice** is a
 possible matching response. In HOTSPOT, a **Hotspot Surface** contains authored
 **Hotspot Regions** and a **Student Hotspot Selection** identifies one selected
@@ -795,8 +800,8 @@ Classification and Question Classification are current lineage discovery
 metadata too. Accepted edits replace those current values; use an Edit Number
 when concurrent writes require one.
 An exact Question Revision owns its Question Authorship, Question License,
-Question Citation, and derived Question Type, Question Format, and Question
-Backend facts. Current discovery-metadata edits preserve every immutable
+Question Citation, author-declared Question Type, and derived Question Format
+and Question Backend facts. Current discovery-metadata edits preserve every immutable
 Question Source.
 
 Question Subject, Question Subsubject, Question Classification, and Question
@@ -914,7 +919,7 @@ The Published Question discovery, credit, and control facts are closed:
 | Question Tag | Optional | Question lineage | Tag text and facet |
 | Question Bloom Classification | Assigned after publication | Question lineage | Both Bloom dimension facets |
 | Question Classification | Future supported system only | Question lineage | Future system/code filter and name text |
-| Question Type | Required, derived | Question Revision source | Exact Question Type facet |
+| Question Type | Required, author-declared | Question Revision | Exact Question Type facet |
 | Question Format | Required, derived | Question Revision source | Exact Question Format facet |
 | Question Backend | Required, derived | Question Revision source | Exact Question Backend facet |
 

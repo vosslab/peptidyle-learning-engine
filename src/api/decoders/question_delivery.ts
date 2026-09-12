@@ -145,6 +145,12 @@ export function decodeStudentResponse(value: unknown, path = "response"): Studen
     case "imathasQuestionBackend":
       requireOnlyFields(record, path, ["kind"]);
       return { kind: response } satisfies StudentResponse;
+    case "backendOwned":
+      requireOnlyFields(record, path, ["kind", "payload"]);
+      return {
+        kind: response,
+        payload: decodeNonemptyString(field(record, "payload", path), `${path}.payload`),
+      } satisfies StudentResponse;
     default:
       throw new DecodeError(`${path}.kind`, "a known student-response kind");
   }

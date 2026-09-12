@@ -944,26 +944,34 @@ does not wait for a generic final audit.
 
 ## Question Backend systems and evidence
 
-### Question Backends remain private adapters
+### Question Backends own presentation and evaluation
 
-**Decision.** PLE, never a student browser, contacts a managed Question Backend such as WeBWorK or iMathAS. PLE
-owns published source, issued seed, Student Response result, credentials, timeout, sanitization, and
-result translation.
+**Decision.** Each Question Backend owns presentation, interaction semantics,
+response interpretation, grading, partial credit, feedback, and backend-specific
+state for its Questions. PLE owns authorization, immutable Question identity,
+Assignment and Attempt lifecycle, persistence, recorded outcomes, and minimal
+generic hosting.
 
-**Why.** Upstream systems use their own fields, sessions, HTML, and credentials. Those are neither
-stable browser contracts nor safe student authority.
+**Why.** A backend may implement the same educational Question Type through
+different controls and interaction structures. Preserving its native document
+and opaque response boundary keeps that implementation knowledge with the
+backend while PLE supplies one consistent lifecycle.
 
-**Consequence.** The accepted WeBWorK path is the four reviewed Chapter 1 PGML sources, comprising
-one radio and one matching question per chapter, via the private standalone `/render-api` Question Backend;
-browser data is a PLE-native response. Raw source, hidden fields, sessions, Question Backend values, and
-renderer output do not cross the PLE browser boundary.
+**Consequence.** The boundary has two layers: PLE hosts backend-owned
+presentation and exchanges opaque backend values through a shared lifecycle and
+outcome contract; each backend adapter implements its own transport. The
+shared lifecycle renders a Question from its identity and Attempt context, then
+submits opaque response and state values for score, feedback, and updated state.
+The WeBWorK adapter renders and grades through the renderer API without PLE
+parsing or translating PG controls. iMathAS and H5P adopt the same boundary
+through their own transports when their adapters are implemented. An author
+declares the immutable educational Question Type on the Published Question
+Revision; PLE uses that metadata for presentation and discovery without
+inferring it from backend controls.
 
-**Owner.** [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md),
-[ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md), and WeBWorK Question Backend in
-[CONTRACTS.md](CONTRACTS.md#storage-and-adapter-contracts).
-
-**Planned closure.** Broader WeBWorK Question compatibility and any unreviewed matching source require their
-own accepted Question Presentation and live evidence; they are not inferred from the Chapter 1 profile.
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-backend-ownership),
+`crates/adapters/webwork`, and
+[WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
 
 ### H5P Package Import retains its minimal QSOM1 adaptation
 

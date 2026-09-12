@@ -28,9 +28,10 @@ pub enum PresentationResponseItemTranslationError {
 /// A closed rendering of one immutable submitted Student Response.
 ///
 /// This deliberately closed Student Response Inspection contains only the Student's
-/// submitted values and the Presentation Response Item References from the issued presentation;
-/// Answer Keys, Question Grading Input, durable Object Addresses, and Question Backend
-/// payloads have no representation here. The server creates it after verifying
+/// submitted values and the Presentation Response Item References from the issued presentation.
+/// Backend-Owned submissions retain only their bounded opaque bytes for the
+/// server-side response-restoration boundary; no consumer may decode or interpret them here.
+/// Answer Keys, Question Grading Input, and durable Object Addresses have no representation here. The server creates it after verifying
 /// the Issued Question Presentation. ASVS 14.1.1 and 14.2.1: sensitive
 /// educational-record data has one minimized response shape.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
@@ -81,6 +82,12 @@ pub enum StudentResponseInspection {
         /// Safe completion state, without iMathAS Question Backend data or launch authority.
         completion: InspectedImathasQuestionBackendState,
     },
+    /// A Backend-Owned submission retained for server-side opaque restoration.
+    BackendOwned {
+        /// Bounded opaque bytes; serialization uses canonical base64.
+        #[serde(with = "crate::response::backend_owned_payload")]
+        payload: Vec<u8>,
+    },
 }
 
 /// One text entry bound to the Presentation Response Item Reference visible in the issue.
@@ -122,6 +129,7 @@ impl std::fmt::Debug for StudentResponseInspection {
             Self::Ordering { .. } => "ordering",
             Self::Hotspot { .. } => "hotspot",
             Self::ImathasQuestionBackend { .. } => "imathas_question_backend",
+            Self::BackendOwned { .. } => "backend_owned",
         };
         formatter
             .debug_struct("StudentResponseInspection")
@@ -239,6 +247,9 @@ pub fn translate_presentation_response_item_references(
         StudentResponse::ImathasQuestionBackend {} => {
             Ok(StudentResponse::ImathasQuestionBackend {})
         }
+        StudentResponse::BackendOwned { payload } => Ok(StudentResponse::BackendOwned {
+            payload: payload.clone(),
+        }),
     }
 }
 
@@ -325,6 +336,9 @@ pub fn project_durable_response_to_presentation_response_item_references(
                 completion: InspectedImathasQuestionBackendState::SubmissionRecorded,
             })
         }
+        StudentResponse::BackendOwned { payload } => Ok(StudentResponseInspection::BackendOwned {
+            payload: payload.clone(),
+        }),
     }
 }
 
@@ -412,6 +426,9 @@ pub fn project_presentation_response_item_references_for_inspection(
                 completion: InspectedImathasQuestionBackendState::SubmissionRecorded,
             })
         }
+        StudentResponse::BackendOwned { payload } => Ok(StudentResponseInspection::BackendOwned {
+            payload: payload.clone(),
+        }),
     }
 }
 

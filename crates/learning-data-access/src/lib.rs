@@ -39,7 +39,6 @@ pub mod session;
 mod store_error;
 mod support_capability;
 mod webwork_grading;
-mod webwork_submission;
 
 pub use account_time_zone::AccountTimeZoneStore;
 pub use assignment_attempt::{
@@ -51,12 +50,13 @@ pub use assignment_delivery::{
     LiveAssignmentAttemptScore, LiveAssignmentDeliveryStore, LiveAssignmentPreviousAttempt,
     LiveAssignmentPreviousAttemptState, LiveAssignmentStartDecision, NativeAssignmentIssuanceBatch,
     NativePleIssuanceSource, NativePresentationInput, NativeWebworkIssuanceSource,
-    ReadyQuestionAssetRendition, StudentAssignmentAttemptContext,
-    StudentAssignmentAttemptFinalization, StudentAssignmentAttemptHistory,
-    StudentAssignmentAttemptHistoryAssignment, StudentAssignmentAttemptHistoryCourse,
-    StudentAssignmentAttemptHistoryEvidence, StudentAssignmentAttemptHistoryQuestion,
-    StudentAssignmentAttemptHistoryResponseSource, StudentAssignmentAttemptPresentationEvidence,
-    StudentAssignmentAttemptPresentationSource, StudentAssignmentAttemptSavedResponse,
+    ReadyQuestionAssetRendition, StudentAssignmentAttemptBackendDocument,
+    StudentAssignmentAttemptContext, StudentAssignmentAttemptFinalization,
+    StudentAssignmentAttemptHistory, StudentAssignmentAttemptHistoryAssignment,
+    StudentAssignmentAttemptHistoryCourse, StudentAssignmentAttemptHistoryEvidence,
+    StudentAssignmentAttemptHistoryQuestion, StudentAssignmentAttemptHistoryResponseSource,
+    StudentAssignmentAttemptPresentationEvidence, StudentAssignmentAttemptPresentationSource,
+    StudentAssignmentAttemptSavedResponse,
 };
 pub use assignment_release::{
     AssignmentPreview, AssignmentQuestionPickerEntry, AssignmentReleaseIssue,
@@ -175,4 +175,3 @@ pub use support_capability::{
     SupportMinimumProjection, SupportOperationKind,
 };
 pub use webwork_grading::{WebworkGradingJobLease, WebworkGradingStore};
-pub use webwork_submission::{ResolvedWebworkSubmission, WebworkSubmissionStore};

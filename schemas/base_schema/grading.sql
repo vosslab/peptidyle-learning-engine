@@ -279,8 +279,10 @@ BEGIN
                 AND source.backend = 'webwork' AND source.question_format = 'webworkPg'
                 AND EXISTS (
                     SELECT 1
-                      FROM ple_private.question_attempt_webwork_replay AS replay
-                     WHERE replay.question_attempt_id = question_attempt.question_attempt_id
+                      FROM ple_private.question_attempt_presentation_binding AS binding
+                     WHERE binding.question_attempt_id = question_attempt.question_attempt_id
+                       AND binding.backend_document IS NOT NULL
+                       AND char_length(btrim(binding.backend_document)) > 0
                 ))
             OR (p_worker_kind = 'imathas_question_backend_grading'
                 AND source.backend = 'imathas' AND source.question_format = 'imathas')
@@ -500,7 +502,7 @@ CREATE FUNCTION ple_private.claim_webwork_grading_job(
 ) RETURNS TABLE (
     job_id uuid, question_attempt_id uuid, question_id text, revision_number integer,
     source_object_id uuid, source_object_checksum text, webwork_pg_path text,
-    question_seed numeric, student_response jsonb, replay_details jsonb
+    question_seed numeric, student_response jsonb
 ) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private AS $$
     WITH claimed AS (
@@ -510,8 +512,7 @@ SET search_path = pg_catalog, ple_private AS $$
     SELECT claimed.job_id, question_attempt.question_attempt_id, issued.question_id,
            issued.revision_number, source.source_object_id,
            source.source_object_checksum, source.webwork_pg_path,
-           question_attempt.question_seed, submission.student_response,
-           replay.replay_details
+           question_attempt.question_seed, submission.student_response
       FROM claimed
       JOIN ple_private.question_submission AS submission
         ON submission.submission_id = claimed.submission_id
@@ -522,8 +523,6 @@ SET search_path = pg_catalog, ple_private AS $$
       JOIN ple_private.question_revision_source_binding AS source
         ON source.question_id = issued.question_id
        AND source.revision_number = issued.revision_number
-      JOIN ple_private.question_attempt_webwork_replay AS replay
-        ON replay.question_attempt_id = question_attempt.question_attempt_id
      WHERE source.backend = 'webwork' AND source.question_format = 'webworkPg'
 $$;
 
@@ -694,7 +693,7 @@ CREATE FUNCTION ple_api.claim_webwork_grading_job(
 ) RETURNS TABLE (
     job_id uuid, question_attempt_id uuid, question_id text, revision_number integer,
     source_object_id uuid, source_object_checksum text, webwork_pg_path text,
-    question_seed numeric, student_response jsonb, replay_details jsonb
+    question_seed numeric, student_response jsonb
 ) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private AS $$
     SELECT * FROM ple_private.claim_webwork_grading_job(p_lease_token, p_lease_expires_at)

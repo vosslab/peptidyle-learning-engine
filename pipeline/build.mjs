@@ -41,7 +41,13 @@ const skipWasm = process.argv.includes("--skip-wasm");
 const distDir = path.join(repoRoot, "dist");
 const srcDir = path.join(repoRoot, "src");
 const wasmWebDir = path.join(repoRoot, "dist_wasm", "web");
-const STATIC_STYLESHEETS = ["styles/browser_fonts.css", "style.css", "styles/accessibility.css"];
+const STATIC_STYLESHEETS = [
+  "styles/browser_fonts.css",
+  "style.css",
+  "styles/accessibility.css",
+  "styles/ple_embed.css",
+];
+const PUBLIC_BROWSER_FILES = ["ple_bridge.js"];
 const BROWSER_FONT_STYLESHEET = "styles/browser_fonts.css";
 const RIBBON_ICON_SPRITE = "assets/ribbon-icons.svg";
 const BROWSER_FONT_ASSET_DIR = "assets/fonts/atkinson_hyperlegible_next";
@@ -155,6 +161,13 @@ function copyStaticStylesheets() {
     fs.copyFileSync(sourcePath, targetPath);
   }
   return hashes;
+}
+
+/** Copies same-origin browser helpers loaded directly by backend-owned documents. */
+function copyPublicBrowserFiles() {
+  for (const source of PUBLIC_BROWSER_FILES) {
+    fs.copyFileSync(path.join(srcDir, "public", source), path.join(distDir, source));
+  }
 }
 
 //============================================
@@ -288,6 +301,7 @@ async function main() {
     .slice(0, 8);
   const stylesheetHashes = copyStaticStylesheets();
   copyIndexHtml(bundleHash, stylesheetHashes, componentStylesheetHash);
+  copyPublicBrowserFiles();
   copyRibbonIconSprite();
   copyBrowserFontAssets();
   checkBrowserFontDelivery();
@@ -299,6 +313,7 @@ async function main() {
     "main.js",
     "main.css",
     ...STATIC_STYLESHEETS,
+    ...PUBLIC_BROWSER_FILES,
     RIBBON_ICON_SPRITE,
     ...REQUIRED_BROWSER_FONT_ASSETS.map((asset) => path.join(BROWSER_FONT_ASSET_DIR, asset)),
   ]) {

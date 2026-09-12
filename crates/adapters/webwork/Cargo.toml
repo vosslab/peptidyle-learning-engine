@@ -1,4 +1,4 @@
-# WeBWorK PG Question Backend adapter, renderer client, and deterministic render cache.
+# WeBWorK PG Question Backend adapter and renderer client.
 [package]
 name = "adapter_webwork"
 version.workspace = true
@@ -22,7 +22,6 @@ base64.workspace = true
 reqwest = { version = "*", default-features = false, features = ["form", "json", "rustls"] }
 tokio.workspace = true
 url = "*"
-html5ever.workspace = true
 tracing = "*"
 
 [dev-dependencies]

@@ -21,6 +21,10 @@ import { StudentAssignmentAttemptNavigation } from "../components/student_assign
 import type { StudentAssignmentAttemptQuestionState } from "../components/student_assignment_attempt_navigation";
 import { QuestionPresentationRenderer } from "../components/question_renderer";
 import { QuestionPresentationResponseControl } from "../components/question_response_controls/question_response_control";
+import {
+  saveCapturedBackendOwnedResponse,
+  type BackendOwnedCapture,
+} from "./assignment_attempt_finish";
 import { AssignmentAttemptResponseState } from "./assignment_attempt_response_state";
 import {
   useRetryRouteScope,
@@ -77,6 +81,7 @@ function AttemptExperience(props: {
   let saveTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
   let activeSave: Promise<boolean> | undefined;
   let finishAssignmentButton: HTMLButtonElement | undefined;
+  let backendOwnedCapture: BackendOwnedCapture | undefined;
 
   const currentPosition = (): number | null => position();
   const isSubmitted = (): boolean => submissionState() === "submitted";
@@ -203,11 +208,19 @@ function AttemptExperience(props: {
 
   async function submitAttempt(): Promise<void> {
     if (submissionState() === "submitting" || isSubmitted()) return;
-    if (!(await saveCurrentResponse())) return;
     setSubmissionState("submitting");
     setSubmissionError(null);
     try {
-      await runtime.client.submitStudentAssignmentAttempt(props.context.assignmentAttempt);
+      const finalized = await saveCapturedBackendOwnedResponse(
+        backendOwnedCapture,
+        saveCurrentResponse,
+        () => runtime.client.submitStudentAssignmentAttempt(props.context.assignmentAttempt),
+      );
+      if (!finalized) {
+        setSubmissionState("error");
+        setSubmissionError(saveError() ?? "Response was not saved.");
+        return;
+      }
       setSubmissionState("submitted");
       await loadProgress();
     } catch (error: unknown) {
@@ -401,6 +414,14 @@ function AttemptExperience(props: {
               <div class="attempt-response">
                 <QuestionPresentationResponseControl
                   attemptId={`${props.context.assignmentAttempt}-${currentPresentation.position}`}
+                  assignmentAttempt={props.context.assignmentAttempt}
+                  position={currentPresentation.position}
+                  registerBackendOwnedCapture={(capture) => {
+                    backendOwnedCapture = capture;
+                    return () => {
+                      if (backendOwnedCapture === capture) backendOwnedCapture = undefined;
+                    };
+                  }}
                   responseFormat={currentPresentation.presentation.response}
                   initialResponse={currentPresentation.savedResponse ?? undefined}
                   validator={validator}
