@@ -182,9 +182,6 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Approved external dependencies may initially load from recorded CDN sources, but supported
   dependencies should eventually be vendored or otherwise PLE-owned and served locally.
 
-
-
-
 ## Question Backend ownership
 
 - Treat each Question Backend as the authority for its Questions' presentation and behavior. It owns
@@ -273,20 +270,40 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Course Instances pin exact Blueprint Revisions. Newer Blueprint Revisions should normally be propagated to eligible Course Instances through a simple Instructor review and approval. Changes are never applied silently, and routine fixes should be quick to approve.
 - Changes to existing Assignments follow the Blueprint Revision propagation workflow; newly added Assignments follow the unreleased-Assignment behavior above.
 
-## Assignment philosophy
+## Assessment philosophy
 
-- **Assignments** give **Students** regular practice applying course ideas outside class. They reinforce current learning and may also introduce new topics.
-- **Assignments** are designed as practice for learning, not merely as one-time assessments.
+- **Assessment** is the broad pedagogical category. **Regular Assignment**, **Practice Question Assignment**, **Bonus Assignment**, **Quiz**, and **Exam** are types of Assessments.
+- Graded course work may serve different pedagogical purposes. PLE should classify it as **Regular Assignment**, **Practice Question Assignment**, **Bonus Assignment**, **Quiz**, or **Exam**.
+- **Regular Assignments** give **Students** regular practice applying course ideas outside class. They reinforce current learning and may also introduce new topics.
+- **Regular Assignments** are designed as practice for learning, not merely as one-time assessments.
+- **Practice Question Assignments** provide focused review or study-guide practice using selected Questions from material already covered. They may be worth only a small number of points or a small amount of extra credit.
+- **Practice Question Assignments** always show the correct answer even when the student was incorrect.
+- **Bonus Assignments** provide optional opportunities for additional course credit. Bonus Assignments are extra credit and worth zero points possible. Bonus Assignments add points to the gradebook but do not add to the points possible.
+- **Quizzes** assess understanding of recent material and may use more restrictive Attempt and collaboration settings than Regular Assignments.
+- **Exams** are individual assessments associated with scheduled exam periods and may use more restrictive Attempt, timing, availability, and feedback settings.
+- The Assessment classification describes the pedagogical purpose and provides appropriate defaults. All assessment maintain the same underlying execution models for Assignments.
+
+## Assignment Attempt philosophy
+
 - Each **Assignment Attempt** has a time limit so **Students** develop an accurate sense of the expected working speed and Question sets do not remain open for days.
-- **Students** may start another **Assignment Attempt** as often as needed. Repeating an Assignment to a perfect score should build understanding and confidence.
-- Course orientation and in-class activities may precede regular online homework so **Students** have time to establish access and learn the assignment platform.
+- A timed **Assignment Attempt** uses wall-clock time. The server owns the Attempt start and expiration times, and the clock continues running while the **Student** is disconnected or the browser is closed.
+- A **Student** may reconnect, reload, or use another authenticated browser session to resume the same active Assignment Attempt. Reconnecting does not start a new Attempt or reset, pause, or extend its time limit.
+- Question responses should be saved as the **Student** works and remain part of the Assignment Attempt across browser sessions.
+- When an **Assignment Attempt** expires, its saved responses should be submitted automatically. Questions without a saved response should close unanswered.
+- Pedagogically, **Students** may start another **Assignment Attempt** as often as needed. Repeating an Assignment to a perfect score should build understanding and confidence.
+- **Instructors** control the number of permitted Assignment Attempts. Regular Assignments should default to unlimited Attempts, while Instructors may set a more restrictive limit when appropriate.
+- Submission belongs to the **Assignment Attempt**, not to individual Questions.
+
+## Assignment defaults and lifecycle
+
 - New Assignments should default to accepting submissions only through the due date.
 - New Assignments should default to starting new attempts only through the due date.
 - Late work should default to reject.
-- Question answer visibility should favor useful feedback for learning while allowing Instructors to choose more restrictive feedback when question security is more important.
+- **Regular Assignments** and **Bonus Assignments** should rarely show the correct answer. After a response, **Students** should see their response and whether it was correct or incorrect. When a Question includes optional feedback, that feedback should always be shown.
+- **Practice Question Assignments** should always show the correct answer after the **Student** responds, including when the response was incorrect.
+- **Quizzes** and **Exams** should show the correct answer after all **Students** in the Course have completed the Assessment. Until then, **Students** should not see the correct answer.
 - Assignment disclosure settings in the Assignment Properties Editor should remain separate and independently configurable.
-- Assignments Due Soon should show upcoming Assignments across the Courses an Instructor teaches, with the Course and due time visible.
-- Question responses should be saved as the Student works. Submission belongs to the Assignment Attempt, not to individual Questions.
+- Assignments Due Soon should show upcoming Assignments across the Courses an **Instructor** teaches, with the Course and due time visible.
 - Unreleasing an Assignment should permanently delete its Student work because the Assignment is being returned to a pre-release state.
 - Assignment randomization should be called **Randomize question order**.
 - Questions should have one canonical title. Compact interfaces may truncate that title rather than maintaining a separate short name.
