@@ -144,6 +144,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - QTI is for import, export, and archival interchange rather than the internal source model.
 - WeBWorK and iMathAS are PLE-managed Question Backends. Use exact
   backend-specific terms when a concrete implementation or lifecycle matters.
+- native JSON formats ideally should not contain any runnable code to reduce the attack surface. Javascript remains a gray area,
+  can javascript be sandboxed so it is does provide a security concern? should we sanitize the javascript? have a whitelist of CDN
+  servers like rkdit, etc.?
+
 
 ## Question Backend ownership
 
