@@ -146,7 +146,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   backend-specific terms when a concrete implementation or lifecycle matters.
 - The question importers for backend are transient; we do not control the format and we store the raw on the system.
 
-## Native JSON Question philosophy
+## Native PLE JSON Question philosophy
 
 - The native PLE JSON Question format is private and unpublished. When the format changes, all
   stored native JSON Questions can be upgraded together as part of that change.
@@ -160,14 +160,22 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Author-supplied JavaScript is treated as untrusted content and should run in an isolated browser
   environment without direct access to PLE application state, credentials, or privileged browser
   context.
+- Author-supplied JavaScript does not communicate with PLE. It is limited to isolated client-side
+  rendering or presentation and cannot call PLE application APIs or exchange privileged state with
+  the application.
+- Native interactive Question Types such as HOTSPOT use PLE-owned interaction code rather than
+  author-supplied JavaScript. HOTSPOT content is limited to supported static assets such as images
+  and SVG.
 - Backend grading and correctness decisions remain server-owned and independent of author-supplied
   JavaScript.
 - native PLE JSON Question format must support the following question types: MC, MA, FIB,
   MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT.
 - External JavaScript dependencies and CDN domains used by native JSON Questions should be
   explicitly recorded and reviewable so third-party code sources remain visible and auditable.
-- At some point, Native JSON Questions will be restricted to loading JavaScript only from approved
-  CDN domain sources.
+- External JavaScript dependencies used by native JSON Questions should eventually be brought under
+  PLE ownership and served locally rather than loaded from third-party CDNs.
+- Approved external dependencies may initially load from recorded CDN sources, but supported
+  dependencies should eventually be vendored or otherwise PLE-owned and served locally.
 
 ## Question Backend ownership
 
