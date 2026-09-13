@@ -217,8 +217,8 @@ integration repair, not a reason to rebuild Course Appearance.
 - [ ] Make Grade Settings and Teaching Operations routes truthful if reached directly.
 - [ ] Implement their missing backend workflow only if the first teaching release needs it.
 
-[course_grade_settings_page.tsx](../../../src/pages/course_grade_settings_page.tsx) attempts to
-load grade scheme and totals through [response.ts](../../../src/api/http_client/response.ts).
+At audit time, `src/pages/course_grade_settings_page.tsx` attempted to load grade scheme and
+totals through [response.ts](../../../src/api/http_client/response.ts).
 The `/api/courses/.../grade-scheme` and `/gradebook-totals` handlers are not present in the current
 server composition. [teaching_operations.ts](../../../src/api/http_client/teaching_operations.ts)
 also names teaching-management requests without current matching server handlers.

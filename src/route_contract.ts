@@ -65,12 +65,10 @@ export interface RouteContract {
     | "assignmentWorkspaceStudentView"
     | "assignmentsDueSoon"
     | "gradebook"
-    | "courseGradeSettings"
     | "courseAppearance"
     | "signIn"
     | "instructorProfile"
     | "courseRoster"
-    | "teachingOperations"
     | "assignmentPreview"
     | "instructorAccounts"
     | "supportRoster"
@@ -350,18 +348,6 @@ export const ROUTE_CONTRACT = [
     ribbon: { scope: "courseInstance", tab: "gradebook", contentLayout: "fullWidth" },
   },
   {
-    id: "courseGradeSettings",
-    path: "/instructor/courses/:courseRef/grade-settings",
-    surface: "Course grade settings and projected totals",
-    requiredProductRoles: ["instructor"],
-    ribbon: {
-      scope: "courseInstance",
-      tab: "courseSetup",
-      taskGroup: "courseSetup",
-      contentLayout: "reading",
-    },
-  },
-  {
     id: "courseAppearance",
     path: "/instructor/courses/:courseRef/appearance",
     surface: "Instructor Course Appearance",
@@ -379,13 +365,6 @@ export const ROUTE_CONTRACT = [
     surface: "Course roster, invitations, and import",
     requiredProductRoles: ["instructor"],
     ribbon: { scope: "courseInstance", tab: "students", contentLayout: "fullWidth" },
-  },
-  {
-    id: "teachingOperations",
-    path: "/instructor/courses/:courseRef/teaching-operations",
-    surface: "Course teaching operations hub",
-    requiredProductRoles: ["instructor"],
-    ribbon: { scope: "courseInstance", tab: "teachingOperations", contentLayout: "reading" },
   },
 ] as const satisfies ReadonlyArray<RouteContract>;
 

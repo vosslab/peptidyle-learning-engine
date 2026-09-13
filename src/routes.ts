@@ -13,7 +13,6 @@ import { QuestionDraftsPage } from "./pages/question_drafts_page";
 import { CourseInstancePage } from "./pages/course_instance_page";
 import { CourseListPage } from "./pages/course_list_page";
 import { GradebookPage } from "./pages/gradebook_page";
-import { CourseGradeSettingsPage } from "./pages/course_grade_settings_page";
 import { CourseAppearancePage } from "./pages/course_appearance_page";
 import { withRouteAccessBoundary } from "./route_access_boundary";
 import { ROUTE_CONTRACT, type RouteId } from "./route_contract";
@@ -25,7 +24,6 @@ import { AccountPendingInvitationsPage } from "./pages/account_pending_invitatio
 import { StudentCourseInvitationPage } from "./pages/student_course_invitation_page";
 import { StudentCourseInvitationsPage } from "./pages/student_course_invitations_page";
 import { StudentCourseLandingPage } from "./pages/student_course_landing_page";
-import { TeachingOperationsPage } from "./pages/teaching_operations_page";
 import { InstructorAccountsPage } from "./pages/instructor_accounts_page";
 import { SupportRosterPage } from "./pages/support_roster_page";
 import { AssignmentPreviewPage } from "./pages/assignment_preview_page";
@@ -74,10 +72,8 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
     createComponent(AssignmentWorkspaceLivePage, { section: "studentView" }),
   assignmentPreview: AssignmentPreviewPage,
   gradebook: GradebookPage,
-  courseGradeSettings: CourseGradeSettingsPage,
   courseAppearance: CourseAppearancePage,
   courseRoster: CourseRosterPage,
-  teachingOperations: TeachingOperationsPage,
 };
 
 /** Router definitions derived from the frozen contract, not a second path list. */

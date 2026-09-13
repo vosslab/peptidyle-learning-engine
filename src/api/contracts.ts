@@ -27,7 +27,6 @@ import type { AssignmentEditNumber } from "../../generated/api/AssignmentEditNum
 import type { AssignmentReleaseValidation } from "../../generated/api/AssignmentReleaseValidation";
 import type { InstructorStudentView } from "../../generated/api/InstructorStudentView";
 import type { CreateAssignmentRequest } from "../../generated/api/CreateAssignmentRequest";
-import type { ReplaceAssignmentPoliciesRequest } from "../../generated/api/ReplaceAssignmentPoliciesRequest";
 
 export type {
   AssignmentSummary,
@@ -37,9 +36,6 @@ export type {
   StudentAssignmentLandingSummary,
 };
 export type { CreateAssignmentRequest as AssignmentCreateInput };
-
-/** The HTTP client adds the exact current Assignment edit precondition. */
-export type AssignmentPoliciesInput = Omit<ReplaceAssignmentPoliciesRequest, "baseEditNumber">;
 
 /** Questions-owned browser input; readonly collections retain page draft ownership. */
 export interface AssignmentContentInput {

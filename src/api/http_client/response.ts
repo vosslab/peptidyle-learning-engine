@@ -7,8 +7,6 @@ import type { CourseAppearanceView } from "../../../generated/api/CourseAppearan
 import type { CourseThemeUpdate } from "../../../generated/api/CourseThemeUpdate";
 import type { CourseBannerUpdate } from "../../../generated/api/CourseBannerUpdate";
 import type { CourseBannerUploadReceipt } from "../../../generated/api/CourseBannerUploadReceipt";
-import type { CourseGradeSchemeView } from "../../../generated/api/CourseGradeSchemeView";
-import type { CourseGradebookTotalsView } from "../../../generated/api/CourseGradebookTotalsView";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { CourseBannerReference } from "../../../generated/api/CourseBannerReference";
 import type { StudentRecordId } from "../../../generated/api/StudentRecordId";
@@ -35,8 +33,6 @@ import {
   decodeCourseThemeUpdate,
   decodeCourseBannerUpdate,
   decodeCourseBannerUploadReceipt,
-  decodeCourseGradeSchemeView,
-  decodeCourseGradebookTotalsView,
   decodeCoursePage,
   decodeCourseSummary,
   decodeImathasQuestionBackendLaunch,
@@ -387,8 +383,6 @@ export function createResponseClient(
   | "uploadCourseBanner"
   | "setCourseBanner"
   | "removeCourseBanner"
-  | "getCourseGradeScheme"
-  | "getCourseGradebookTotals"
   | "listAssignments"
   | "getAssignment"
   | "getAssignmentSummary"
@@ -462,40 +456,6 @@ export function createResponseClient(
     setCourseBanner: (courseId, update) =>
       setCourseBanner(fetchImplementation, basePath, courseId, update),
     removeCourseBanner: (courseId) => removeCourseBanner(fetchImplementation, basePath, courseId),
-    getCourseGradeScheme: async (
-      courseId,
-    ): Promise<CourseGradeSchemeView & { readonly revision: string }> => {
-      const path = `/api/courses/${encodedId(courseId)}/grade-scheme`;
-      const response = await fetchImplementation(requestPath(basePath, path), {
-        headers: { accept: "application/json" },
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      requireNoStore(response, path);
-      if (!response.ok) throw new ApiRequestError(response.status, path);
-      const scheme = decodeCourseGradeSchemeView(await boundedResponseJson(response, path));
-      const revision = response.headers.get("etag");
-      if (
-        revision === null ||
-        !/^"[1-9][0-9]*"$/u.test(revision) ||
-        BigInt(revision.slice(1, -1)) > 9_223_372_036_854_775_807n
-      )
-        throw new ApiProtocolError(
-          `API response ${path} must include one positive strong numeric ETag`,
-        );
-      return { ...scheme, revision };
-    },
-    getCourseGradebookTotals: async (courseId): Promise<CourseGradebookTotalsView> => {
-      const path = `/api/courses/${encodedId(courseId)}/gradebook-totals`;
-      const response = await fetchImplementation(requestPath(basePath, path), {
-        headers: { accept: "application/json" },
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      requireNoStore(response, path);
-      if (!response.ok) throw new ApiRequestError(response.status, path);
-      return decodeCourseGradebookTotalsView(await boundedResponseJson(response, path));
-    },
     listAssignments: (courseId, cursor) =>
       requestJson(
         fetchImplementation,

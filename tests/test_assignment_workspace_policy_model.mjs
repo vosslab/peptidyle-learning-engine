@@ -2,10 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  assignmentPoliciesInput,
-  assignmentPolicyCanReload,
-  assignmentPoliciesValidationFeedback,
-  assignmentPolicyFeedbackRole,
   canonicalLocalDateAndTime,
   DEFAULT_DUE_TIME,
   dueDateDraft,
@@ -19,16 +15,6 @@ import {
   scoreFractionDraft,
 } from "../src/pages/assignment_workspace/assignment_workspace_policy_model.ts";
 
-const studentFeedbackReleaseRule = {
-  score: "after_submit",
-  per_item_correctness: "after_submit",
-  submitted_response: "after_due",
-  question_feedback: "after_due",
-  question_answer: "after_close",
-  question_answer_explanation: "after_close",
-  class_statistics: "never",
-};
-
 const policies = {
   assignmentCompletionRule: { kind: "allCorrect" },
   assignmentAttemptGradeRule: "highest",
@@ -40,26 +26,6 @@ const policies = {
   assignmentNavigationRule: "freeNavigation",
   assignmentQuestionOrderRule: "authoredOrder",
 };
-
-const assignmentAuthoredContent = {
-  instructions: "Use a clear structural drawing.",
-  available_at: null,
-  due_at: "2026-09-01T17:00:00.000",
-  closes_at: null,
-  assignment_attempt_time_limit_seconds: null,
-  attempt_limit: null,
-  late_work_rule: "mark_late",
-};
-
-test("focused policy input preserves direct delivery settings", () => {
-  const input = assignmentPoliciesInput(
-    studentFeedbackReleaseRule,
-    policies,
-    assignmentAuthoredContent,
-  );
-
-  assert.equal(input.assignmentAuthoredContent.instructions, "Use a clear structural drawing.");
-});
 
 test("policy local-time normalization preserves valid native time precision", () => {
   assert.equal(canonicalLocalDateAndTime("2026-09-01T17:00"), "2026-09-01T17:00:00.000");
@@ -78,18 +44,6 @@ test("a selected due date starts at the teaching default while authored times st
   assert.equal(dueDateDraft("2026-12-01T12:34:56.789"), "2026-12-01");
   assert.equal(dueTimeDraft("2026-12-01T12:34:56.789"), "12:34:56.789");
   assert.equal(localDueDateAndTime("", DEFAULT_DUE_TIME), "");
-});
-
-test("policy feedback makes save failures and conflicts actionable while successes stay quiet", () => {
-  assert.equal(
-    assignmentPolicyFeedbackRole({ kind: "error", message: "Fix this field." }),
-    "alert",
-  );
-  assert.equal(assignmentPolicyFeedbackRole({ kind: "conflict", message: "Reload." }), "alert");
-  assert.equal(assignmentPolicyFeedbackRole({ kind: "success", message: "Saved." }), "status");
-  assert.equal(assignmentPolicyFeedbackRole({ kind: "info", message: "Loaded." }), "status");
-  assert.equal(assignmentPolicyCanReload({ kind: "conflict", message: "Reload." }), true);
-  assert.equal(assignmentPolicyCanReload({ kind: "error", message: "Fix this field." }), false);
 });
 
 test("numeric policy drafts preserve invalid text and provide no stale payload value", () => {
@@ -126,30 +80,4 @@ test("inactive conditional Assignment activity-rule drafts survive a successful 
     additionalAssignmentAttempts: "3",
   });
   assert.deepEqual(mergeSavedActivityRuleDraft(original, saved), original);
-});
-
-test("server policy issues select the first repair while keeping concise safe details", () => {
-  const feedback = assignmentPoliciesValidationFeedback([
-    {
-      kind: "capability",
-      questionTitle: "Peptide geometry",
-      questionId: "7K3-M9QP",
-      capability: "serverGrading",
-    },
-  ]);
-
-  assert.equal(feedback.target, "questions");
-  assert.equal(feedback.questionRepairRequired, true);
-  assert.deepEqual(feedback.details, ["Peptide geometry needs server grading."]);
-  assert.equal(JSON.stringify(feedback).includes("7K3-M9QP"), false);
-});
-
-test("Assignment Release Requirements give a Questions repair route", () => {
-  const feedback = assignmentPoliciesValidationFeedback([
-    { kind: "assignmentReleaseRequirements", blockingIssues: [{ kind: "questionsRequired" }] },
-  ]);
-
-  assert.equal(feedback.target, "questions");
-  assert.equal(feedback.questionRepairRequired, true);
-  assert.equal(feedback.message, "Add at least one question before releasing this assignment.");
 });

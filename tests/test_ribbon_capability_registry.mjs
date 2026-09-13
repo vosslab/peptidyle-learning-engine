@@ -103,6 +103,8 @@ test("unbacked Instructor Product destinations remain unavailable without invent
     "starred",
     "watched",
     "assignmentTemplates",
+    "teachingOperations",
+    "gradeSettings",
   ]) {
     const entry = CAPABILITY_REGISTRY[id];
     assert.equal(entry.capability.kind, "unbacked", id);
@@ -131,6 +133,24 @@ test("Assignments Due Soon is backed by the bounded cross-Course Assignment read
     handler: "crates/server/src/assignment_release.rs::assignment_release_router",
   });
   assert.equal(ribbonAvailability(dueSoon, "instructor", RESOLVED_ALLOW), "Available");
+});
+
+test("Assignment workspace Overview and Questions have complete Assignment router evidence", () => {
+  for (const id of ["assignmentOverview", "assignmentQuestions", "assignmentPolicies"]) {
+    const entry = CAPABILITY_REGISTRY[id];
+    assert.equal(entry.capability.kind, "backed", id);
+    assert.equal(entry.capability.clientMethod, "ApiClient.getLiveAssignmentWorkspace", id);
+    assert.equal(ribbonAvailability(entry, "instructor", RESOLVED_ALLOW), "Available", id);
+  }
+  assert.ok(
+    CAPABILITY_REGISTRY.assignmentQuestions.capability.evidence.includes(
+      "src/api/http_client/assignment_release.ts::listLiveAssignmentQuestionPicker",
+    ),
+  );
+  assert.deepEqual(CAPABILITY_REGISTRY.assignmentOverview.capability.serverEvidence, {
+    kind: "registeredHandler",
+    handler: "crates/server/src/assignment_release.rs::assignment_release_router",
+  });
 });
 
 test("Student Attempt navigation is backed by the registered Assignment delivery handler", () => {

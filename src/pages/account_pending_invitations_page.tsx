@@ -9,13 +9,13 @@ import { ApiRequestError } from "../api/http_client/error";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import {
-  appendTeachingTeamPage,
+  appendPendingInvitationPage,
   conflictRecoveryCopy,
   invitationStateLabel,
   isPendingInvitation,
   serverExpiryCopy,
-} from "./teaching_team_model";
-import "./teaching_team_panel.css";
+} from "./pending_invitations_model";
+import "./account_pending_invitations_page.css";
 
 interface PendingInvitationData {
   readonly displayTimeZone: PendingCourseInvitationsPage["displayTimeZone"];
@@ -81,7 +81,7 @@ export function AccountPendingInvitationsPage(): JSX.Element {
       }
       setData({
         displayTimeZone: current.displayTimeZone,
-        invitations: appendTeachingTeamPage(current.invitations, page.invitations),
+        invitations: appendPendingInvitationPage(current.invitations, page.invitations),
         nextCursor: page.nextCursor,
       });
       setAnnouncement(`Loaded ${page.invitations.length} more invitations.`);

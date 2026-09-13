@@ -32,8 +32,6 @@ pub mod capability;
 pub mod course;
 /// Closed, browser-safe course appearance and banner presentation contracts.
 pub mod course_appearance;
-/// Closed course-grade aggregation configuration.
-pub mod course_grade;
 /// Validated inclusive course-calendar bounds and authoritative IANA zone.
 pub mod course_term;
 /// Private Question Feedback and policy-redacted Student Feedback.
@@ -141,13 +139,6 @@ pub use crate::course_appearance::{
     CourseAppearanceView, CourseBanner, CourseBannerAlternativeText, CourseBannerInformativeText,
     CourseBannerReference, CourseBannerRendition, CourseBannerUpdate, CourseBannerUploadReceipt,
     CourseBannerUploadReference, CourseTheme, CourseThemeUpdate,
-};
-pub use crate::course_grade::{
-    CourseGradeAssignmentSetting, CourseGradeAssignmentView, CourseGradeMode,
-    CourseGradeOutcomeView, CourseGradeRoundingRule, CourseGradeScheme, CourseGradeSchemeError,
-    CourseGradeSchemeUpdateView, CourseGradeSchemeView, CourseGradeUnavailableReasonView,
-    CourseGradebookTotalViewRow, CourseGradebookTotalsView, GradeCategory, GradeCategoryReference,
-    GradeCategoryTitle, LetterGradeBand, LetterGradeBandLabel,
 };
 pub use crate::course_term::{
     CourseDate, CourseDateError, CourseTerm, CourseTermError, CourseTermFailureCode,
@@ -259,14 +250,9 @@ pub use crate::teaching_authority::{
 };
 pub use crate::teaching_operations::{
     AccommodationAdjustmentView, AccommodationApplicationRuleView,
-    CourseInvitationStatePrecondition, CourseInvitationStateView, CourseInvitationTargetSearchPage,
-    CourseInvitationTargetSearchRequest, CourseInvitationTargetView,
-    CourseInvitationTerminalAction, CourseInvitationTerminalActionRequest,
-    CourseRosterChangeNumber, InstructorCourseInvitationCreateRequest,
-    InstructorCourseInvitationView, InstructorCourseInvitationsPage,
-    InstructorMembershipRemovalRequest, InstructorMembershipView, InstructorMembershipsPage,
-    MembershipPageRequest, PendingCourseInvitationView, PendingCourseInvitationsPage,
-    TeachingAccountSearchQuery, TeachingAccountView, TeachingAssignmentAttemptTimeLimitFieldPatch,
+    CourseInvitationStatePrecondition, CourseInvitationStateView, CourseInvitationTerminalAction,
+    CourseInvitationTerminalActionRequest, CourseRosterChangeNumber, PendingCourseInvitationView,
+    PendingCourseInvitationsPage, TeachingAssignmentAttemptTimeLimitFieldPatch,
     TeachingAssignmentAttemptTimeLimitSeconds, TeachingAttemptLimit,
-    TeachingAttemptLimitFieldPatch, TeachingDisplayLabel, TeachingPageSize, TeachingTimeFieldPatch,
+    TeachingAttemptLimitFieldPatch, TeachingDisplayLabel, TeachingTimeFieldPatch,
 };

@@ -63,7 +63,8 @@ pub use assignment_release::{
     AssignmentReleaseValidation, AssignmentUnreleaseImpact, AuthoredAssignmentQuestion,
     CourseAssignmentSourceChoice, CourseAssignmentSummary, CreateLiveAssignmentInput,
     DueSoonAssignmentSummary, DueSoonAssignments, LiveAssignmentStore, LiveAssignmentWorkspace,
-    SaveLiveAssignmentInlineInput, SaveLiveAssignmentInput, UnreleasedLiveAssignment,
+    SaveBaseAssignmentPolicyInput, SaveLiveAssignmentInlineInput, SaveLiveAssignmentInput,
+    UnreleasedLiveAssignment,
 };
 pub use authentication_ceremony::{
     AuthenticatedAccount, AuthenticationCeremonyLifetime, AuthenticationCeremonyStore,

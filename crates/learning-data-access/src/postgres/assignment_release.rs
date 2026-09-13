@@ -26,8 +26,8 @@ use crate::{
     AssignmentReleaseValidation, AssignmentUnreleaseImpact, AuthoredAssignmentQuestion,
     CourseAssignmentSourceChoice, CourseAssignmentSummary, CreateLiveAssignmentInput,
     DueSoonAssignmentSummary, DueSoonAssignments, LiveAssignmentStore, LiveAssignmentWorkspace,
-    SaveLiveAssignmentInlineInput, SaveLiveAssignmentInput, SessionTokenHash, StoreError,
-    UnreleasedLiveAssignment,
+    SaveBaseAssignmentPolicyInput, SaveLiveAssignmentInlineInput, SaveLiveAssignmentInput,
+    SessionTokenHash, StoreError, UnreleasedLiveAssignment,
 };
 
 /// PostgreSQL Store for the direct-Instructor Assignment Workspace.
@@ -404,6 +404,39 @@ impl LiveAssignmentStore for PostgresLiveAssignmentStore {
                     .map_err(map_sqlx_error)?,
             )?,
         };
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(result)
+    }
+
+    async fn save_base_assignment_policy(
+        &self,
+        token: SessionTokenHash,
+        course: CourseInstanceReference,
+        assignment: AssignmentReference,
+        input: SaveBaseAssignmentPolicyInput,
+    ) -> Result<LiveAssignmentWorkspace, StoreError> {
+        let mut tx = self.begin(token).await?;
+        let context = schedule_context(&mut tx, course).await?;
+        let resolve = |value: Option<&LocalDateAndTime>, field| {
+            resolve_local_timestamp(value, &context, field)
+        };
+        let available_at_millis = resolve(
+            input.available_at.as_ref(),
+            AssignmentAuthoredContentField::AvailableAt,
+        )?;
+        let due_at_millis = resolve(input.due_at.as_ref(), AssignmentAuthoredContentField::DueAt)?;
+        let closes_at_millis = resolve(
+            input.closes_at.as_ref(),
+            AssignmentAuthoredContentField::ClosesAt,
+        )?;
+        let values = super::assignment_workspace_save::base_assignment_policy_values_json(&input);
+        sqlx::query("SELECT * FROM ple_api.save_assignment_policies($1, $2, $3, $4::jsonb || jsonb_build_object('available_at', CASE WHEN $5 IS NULL THEN NULL::timestamptz ELSE to_timestamp($5::double precision / 1000) END, 'due_at', CASE WHEN $6 IS NULL THEN NULL::timestamptz ELSE to_timestamp($6::double precision / 1000) END, 'closes_at', CASE WHEN $7 IS NULL THEN NULL::timestamptz ELSE to_timestamp($7::double precision / 1000) END))")
+            .bind(i64::from(course.number())).bind(i64::from(assignment.number()))
+            .bind(i64::try_from(input.expected_edit_number.value()).map_err(|_| invalid("Assignment Edit Number"))?)
+            .bind(values).bind(available_at_millis).bind(due_at_millis).bind(closes_at_millis)
+            .fetch_one(&mut *tx).await.map_err(map_sqlx_error)?;
+        let rows = workspace_rows(&mut tx, course, assignment).await?;
+        let result = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
     }

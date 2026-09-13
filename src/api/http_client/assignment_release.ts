@@ -23,6 +23,7 @@ import {
   decodeLiveAssignmentWorkspace,
   decodeSaveLiveAssignmentInlineInput,
   decodeSaveLiveAssignmentInput,
+  decodeSaveBaseAssignmentPolicyInput,
   decodeUnreleasedLiveAssignment,
 } from "../decoders/assignment_release";
 import { ApiProtocolError, ApiRequestError } from "./error";
@@ -208,6 +209,30 @@ export function createLiveAssignmentReleaseClient(
         {
           method: "PUT",
           body: decodeSaveLiveAssignmentInput(input),
+          etag,
+          status: 200,
+        },
+      );
+      return {
+        workspace: result.body,
+        etag: requireWorkspaceEtag(result.response, result.body.editNumber, path),
+      };
+    },
+    saveBaseAssignmentPolicy: async (
+      course,
+      assignment,
+      input,
+      etag,
+    ): Promise<LiveAssignmentWorkspaceResponse> => {
+      const path = `${assignmentPath(course, assignment)}/policies`;
+      const result = await assignmentJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeLiveAssignmentWorkspace,
+        {
+          method: "PUT",
+          body: decodeSaveBaseAssignmentPolicyInput(input),
           etag,
           status: 200,
         },

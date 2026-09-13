@@ -409,6 +409,19 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
     )
 $$;
 
+CREATE FUNCTION ple_api.save_assignment_policies(
+    p_course_reference_number bigint, p_assignment_reference_number bigint,
+    p_expected_edit_number bigint, p_policies jsonb
+) RETURNS TABLE (
+    assignment_reference_number bigint, assignment_edit_number bigint,
+    assignment_status text, assignment_title text, assignment_instructions text
+)
+LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+    SELECT * FROM ple_data.save_assignment_policies(
+        p_course_reference_number, p_assignment_reference_number, p_expected_edit_number, p_policies)
+$$;
+
 CREATE FUNCTION ple_api.release_assignment(
     p_course_reference_number bigint,
     p_assignment_reference_number bigint,
@@ -437,6 +450,7 @@ REVOKE ALL ON FUNCTION ple_api.list_course_assignments(bigint),
     ple_api.create_assignment(uuid, bigint, uuid, text, text),
     ple_api.save_assignment(bigint, bigint, bigint, jsonb, jsonb),
     ple_api.save_assignment_inline(bigint, bigint, bigint, text, timestamptz),
+    ple_api.save_assignment_policies(bigint, bigint, bigint, jsonb),
     ple_api.release_assignment(bigint, bigint, bigint)
     FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.list_course_assignments(bigint),
@@ -449,6 +463,7 @@ GRANT EXECUTE ON FUNCTION ple_api.list_course_assignments(bigint),
     ple_api.create_assignment(uuid, bigint, uuid, text, text),
     ple_api.save_assignment(bigint, bigint, bigint, jsonb, jsonb),
     ple_api.save_assignment_inline(bigint, bigint, bigint, text, timestamptz),
+    ple_api.save_assignment_policies(bigint, bigint, bigint, jsonb),
     ple_api.release_assignment(bigint, bigint, bigint)
     TO ple_app;
 

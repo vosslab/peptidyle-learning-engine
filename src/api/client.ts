@@ -11,9 +11,6 @@ import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRe
 import type { CourseId } from "../../generated/api/CourseId";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import type { CourseThemeUpdate } from "../../generated/api/CourseThemeUpdate";
-import type { CourseGradeSchemeView } from "../../generated/api/CourseGradeSchemeView";
-import type { CourseGradeSchemeUpdateView } from "../../generated/api/CourseGradeSchemeUpdateView";
-import type { CourseGradebookTotalsView } from "../../generated/api/CourseGradebookTotalsView";
 import type { CourseBannerReference } from "../../generated/api/CourseBannerReference";
 import type { CourseBannerUpdate } from "../../generated/api/CourseBannerUpdate";
 import type { CourseBannerUploadReceipt } from "../../generated/api/CourseBannerUploadReceipt";
@@ -28,18 +25,10 @@ import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
-import type { InstructorCourseInvitationCreateRequest } from "../../generated/api/InstructorCourseInvitationCreateRequest";
 import type { CourseInvitationReference } from "../../generated/api/CourseInvitationReference";
 import type { CourseInvitationTerminalActionRequest } from "../../generated/api/CourseInvitationTerminalActionRequest";
-import type { CourseInvitationTargetSearchPage } from "../../generated/api/CourseInvitationTargetSearchPage";
-import type { TeachingAccountSearchQuery } from "../../generated/api/TeachingAccountSearchQuery";
-import type { InstructorCourseInvitationsPage } from "../../generated/api/InstructorCourseInvitationsPage";
-import type { CourseMembershipReference } from "../../generated/api/CourseMembershipReference";
-import type { InstructorMembershipRemovalRequest } from "../../generated/api/InstructorMembershipRemovalRequest";
-import type { InstructorMembershipsPage } from "../../generated/api/InstructorMembershipsPage";
 import type { PendingCourseInvitationsPage } from "../../generated/api/PendingCourseInvitationsPage";
 import type { CourseInvitationStatePrecondition } from "../../generated/api/CourseInvitationStatePrecondition";
-import type { CourseRosterChangeNumber } from "../../generated/api/CourseRosterChangeNumber";
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { CapabilityValidator, FormatValidator, TimerEvaluator } from "../wasm/index";
 import type { CourseRosterClient } from "./enrollment";
@@ -47,7 +36,6 @@ import type {
   AssignmentEditorDetail,
   AssignmentCreateInput,
   AssignmentContentInput,
-  AssignmentPoliciesInput,
   InstructorStudentView,
   StudentAssignmentLandingSummary,
   StudentAssignmentDetail,
@@ -103,26 +91,6 @@ export interface ApiClient
   readonly getInstructorProfileThumbnail: () => Promise<InstructorProfileThumbnail>;
   readonly replaceInstructorProfileThumbnail: (image: Blob) => Promise<InstructorProfileThumbnail>;
   readonly fetchInstructorProfileThumbnail: (reference: string) => Promise<Blob>;
-  readonly listInstructorCourseInvitations: (
-    courseId: CourseId,
-    cursor?: string,
-    pageSize?: number,
-  ) => Promise<InstructorCourseInvitationsPage>;
-  readonly searchInstructorCourseInvitationTargets: (
-    courseId: CourseId,
-    query: TeachingAccountSearchQuery,
-    cursor?: string,
-    pageSize?: number,
-  ) => Promise<CourseInvitationTargetSearchPage>;
-  readonly createInstructorCourseInvitation: (
-    courseId: CourseId,
-    request: InstructorCourseInvitationCreateRequest,
-  ) => Promise<CourseInvitationReference>;
-  readonly revokeInstructorCourseInvitation: (
-    courseId: CourseId,
-    invitation: CourseInvitationReference,
-    statePrecondition: CourseInvitationStatePrecondition,
-  ) => Promise<void>;
   readonly listPendingCourseInvitations: (
     cursor?: string,
     pageSize?: number,
@@ -132,29 +100,6 @@ export interface ApiClient
     request: CourseInvitationTerminalActionRequest,
     statePrecondition: CourseInvitationStatePrecondition,
   ) => Promise<void>;
-  readonly listCourseInstructors: (
-    courseId: CourseId,
-    cursor?: string,
-    pageSize?: number,
-  ) => Promise<InstructorMembershipsPage>;
-  readonly removeCourseInstructor: (
-    courseId: CourseId,
-    membership: CourseMembershipReference,
-    request: InstructorMembershipRemovalRequest,
-    rosterChangeNumber: CourseRosterChangeNumber,
-  ) => Promise<void>;
-  readonly getCourseGradeScheme: (
-    courseId: CourseId,
-  ) => Promise<CourseGradeSchemeView & { readonly revision: string }>;
-  readonly saveCourseGradeScheme: (
-    courseId: CourseId,
-    update: CourseGradeSchemeUpdateView,
-    revision: string,
-  ) => Promise<CourseGradeSchemeView & { readonly revision: string }>;
-  readonly getCourseGradebookTotals: (courseId: CourseId) => Promise<CourseGradebookTotalsView>;
-  readonly createCourseGradeExport: (
-    courseId: CourseId,
-  ) => Promise<{ readonly exportId: string; readonly filename: string; readonly csv: Blob }>;
   readonly getSession: () => Promise<AuthenticatedSession>;
   /** Resolves a compact visible reference inside the current authorization boundary. */
   readonly resolveNavigation: (reference: PublicRouteReference) => Promise<NavigationResolution>;
@@ -212,14 +157,6 @@ export interface ApiClient
     assignmentId: AssignmentId,
     assignmentReference: AssignmentReference,
     input: AssignmentContentInput,
-    assignmentEtag: string,
-  ) => Promise<AssignmentEditorDetail>;
-  /** Replaces only Policies-owned disclosure, Assignment Activity, and teaching settings. */
-  readonly saveAssignmentPolicies: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    assignmentReference: AssignmentReference,
-    input: AssignmentPoliciesInput,
     assignmentEtag: string,
   ) => Promise<AssignmentEditorDetail>;
   /** Reads the non-mutating, answer-free Instructor Student view. */

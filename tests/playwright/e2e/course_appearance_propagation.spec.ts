@@ -5,6 +5,7 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { configuredLiveDemoInputs } from "../../../playwright.config";
+import type { CourseTheme } from "../../../generated/api/CourseTheme";
 import { COURSE_THEME_REGISTRY } from "../../../src/features/course_appearance/course_theme_registry";
 import {
   chooseSeededIdentity,
@@ -20,7 +21,7 @@ import {
 const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 120_000;
 const seededCourseTitle = "Biochemistry 301: Proteins and Peptides";
-const savedTheme = "forest";
+const savedTheme: CourseTheme = "forest";
 const contextOptions = { ignoreHTTPSErrors: true, viewport: { width: 1280, height: 800 } };
 
 // Complete, non-animated PNG. The server decodes these bytes and derives its WebP renditions.
@@ -47,12 +48,12 @@ async function openAppearanceFromCourseActions(page: Page): Promise<void> {
   ).toHaveAttribute("aria-current", "page");
 }
 
-async function expectSavedTheme(page: Page): Promise<void> {
-  const scope = page.locator(`.course-theme-scope[data-course-theme="${savedTheme}"]`);
+async function expectSavedTheme(page: Page, expectedTheme: CourseTheme): Promise<void> {
+  const scope = page.locator(`.course-theme-scope[data-course-theme="${expectedTheme}"]`);
   await expect(scope).toHaveCount(1);
   await expect(scope).toHaveCSS(
     "--ple-theme-secondary",
-    COURSE_THEME_REGISTRY[savedTheme].anchors.secondary,
+    COURSE_THEME_REGISTRY[expectedTheme].anchors.secondary,
   );
 }
 
@@ -118,7 +119,7 @@ test.describe("Course Appearance propagation on the production PLE stack", () =>
         await expect(
           instructor.locator(".course-appearance-form").first().getByRole("status"),
         ).toContainText("Theme saved.");
-        await expectSavedTheme(instructor);
+        await expectSavedTheme(instructor, savedTheme);
       });
 
       await test.step("Instructor uploads and saves a real PNG banner independently", async () => {
@@ -135,11 +136,21 @@ test.describe("Course Appearance propagation on the production PLE stack", () =>
         await expect(instructor.locator("[data-course-banner-saved-preview]")).toBeVisible();
       });
 
+      await test.step("Instructor saves the theme again and keeps the saved banner before reload", async () => {
+        await instructor.getByRole("radio", { name: /^Grass/u }).check();
+        await instructor.getByRole("button", { name: "Save theme", exact: true }).click();
+        await expect(
+          instructor.locator(".course-appearance-form").first().getByRole("status"),
+        ).toContainText("Theme saved.");
+        await expectSavedTheme(instructor, "grass");
+        await expect(instructor.locator("[data-course-banner-saved-preview] img")).toHaveCount(2);
+      });
+
       await test.step("Instructor reload proves the stored theme and saved banner", async () => {
         await instructor.reload();
         await expect(instructor.locator('[data-route-surface="courseAppearance"]')).toBeVisible();
-        await expect(instructor.getByRole("radio", { name: /^Forest/u })).toBeChecked();
-        await expectSavedTheme(instructor);
+        await expect(instructor.getByRole("radio", { name: /^Grass/u })).toBeChecked();
+        await expectSavedTheme(instructor, "grass");
         await expect(instructor.locator("[data-course-banner-saved-preview] img")).toHaveCount(2);
       });
 
@@ -155,7 +166,7 @@ test.describe("Course Appearance propagation on the production PLE stack", () =>
         configureContextAndPage(studentContext, student, actionTimeoutMs);
         await chooseSeededIdentity(student, /Mary Okafor/u);
         await enterStudentCourse(student, seededCourseTitle);
-        await expectSavedTheme(student);
+        await expectSavedTheme(student, "grass");
         const banner = student.locator(".course-entry-banner");
         await expect(banner).toHaveCount(1);
         await expect(banner).toBeVisible();

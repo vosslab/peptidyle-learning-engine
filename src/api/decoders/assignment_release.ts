@@ -32,6 +32,7 @@ import type {
   LiveAssignmentStatus,
   LiveAssignmentWorkspace,
   SaveLiveAssignmentInlineInput,
+  SaveBaseAssignmentPolicyInput,
   SaveLiveAssignmentInput,
   UnreleasedLiveAssignment,
 } from "../assignment_release";
@@ -601,6 +602,50 @@ export function decodeSaveLiveAssignmentInput(
       `${path}.studentFeedbackReleaseRule`,
     ),
     entries: entries(field(record, "entries", path), `${path}.entries`),
+  };
+}
+
+export function decodeSaveBaseAssignmentPolicyInput(
+  value: unknown,
+  path = "request",
+): SaveBaseAssignmentPolicyInput {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "instructions",
+    "dueAt",
+    "availableAt",
+    "closesAt",
+    "lateWorkRule",
+    "assignmentAttemptTimeLimitSeconds",
+    "attemptLimit",
+    "activityRules",
+    "studentFeedbackReleaseRule",
+  ]);
+  return {
+    instructions: decodeAssignmentInstructions(
+      field(record, "instructions", path),
+      `${path}.instructions`,
+    ),
+    dueAt: localDateAndTime(field(record, "dueAt", path), `${path}.dueAt`),
+    availableAt: localDateAndTime(field(record, "availableAt", path), `${path}.availableAt`),
+    closesAt: localDateAndTime(field(record, "closesAt", path), `${path}.closesAt`),
+    lateWorkRule: lateWorkRule(field(record, "lateWorkRule", path), `${path}.lateWorkRule`),
+    assignmentAttemptTimeLimitSeconds: optionalPositiveInteger(
+      field(record, "assignmentAttemptTimeLimitSeconds", path),
+      `${path}.assignmentAttemptTimeLimitSeconds`,
+    ),
+    attemptLimit: optionalPositiveInteger(
+      field(record, "attemptLimit", path),
+      `${path}.attemptLimit`,
+    ),
+    activityRules: decodeAssignmentActivityRules(
+      field(record, "activityRules", path),
+      `${path}.activityRules`,
+    ),
+    studentFeedbackReleaseRule: decodeStudentFeedbackReleaseRule(
+      field(record, "studentFeedbackReleaseRule", path),
+      `${path}.studentFeedbackReleaseRule`,
+    ),
   };
 }
 

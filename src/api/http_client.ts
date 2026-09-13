@@ -30,8 +30,6 @@ export {
   ApiProtocolError,
   ApiRequestError,
   AssignmentConflictError,
-  AssignmentPoliciesValidationError,
-  CourseGradeSchemeConflictError,
   BlueprintCourseConflictError,
 } from "./http_client/error";
 export type { ApiFetch, HttpApiClientConfig } from "./http_client/request";

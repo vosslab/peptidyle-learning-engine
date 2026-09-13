@@ -11,7 +11,7 @@ import { App } from "../../src/app";
 import { routeScopeKey } from "../../src/navigation/route_params";
 import { appRoutes, notFoundRoute } from "../../src/routes";
 
-type EvidenceCase = "policies" | "preview" | "workspace" | "roster" | "teaching";
+type EvidenceCase = "policies" | "preview" | "workspace" | "roster";
 
 interface DeferredContentHarness {
   readonly dispose: () => void;
@@ -28,7 +28,6 @@ const PATHS: Readonly<Record<EvidenceCase, string>> = {
   preview: "/instructor/courses/C-2/assignments/A-2/delivery-check",
   workspace: "/instructor/courses/C-3/assignments/A-3",
   roster: "/instructor/courses/C-4/students",
-  teaching: "/instructor/courses/C-5/teaching-operations",
 };
 
 /**
@@ -51,7 +50,6 @@ const COURSE_REFERENCE: Readonly<Record<EvidenceCase, string>> = {
   preview: "C-2",
   workspace: "C-3",
   roster: "C-4",
-  teaching: "C-5",
 };
 
 function instructorCourse(reference: string): CourseRouteView {
@@ -147,9 +145,6 @@ export function mountRibbonDeferredContentHarness(target: HTMLElement): Deferred
         if (property === "getLiveAssignmentPreview")
           return () => unresolved("getLiveAssignmentPreview");
         if (property === "getLiveCourseRoster") return () => unresolved("getLiveCourseRoster");
-        if (property === "listCourseInstructors") return () => unresolved("listCourseInstructors");
-        if (property === "listInstructorCourseInvitations")
-          return () => unresolved("listInstructorCourseInvitations");
         if (property === "assetUrl") return () => "/asset";
         return () =>
           Promise.reject(

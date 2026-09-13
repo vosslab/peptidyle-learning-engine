@@ -5,6 +5,7 @@ import type { AssignmentEntry } from "../../../generated/api/AssignmentEntry";
 import type { AssignmentEntryId } from "../../../generated/api/AssignmentEntryId";
 import type {
   AssignmentQuestionPickerEntry,
+  LiveAssignmentWorkspace,
   SaveLiveAssignmentInput,
 } from "../../api/assignment_release";
 import { useApplicationApi } from "../../api/application_api";
@@ -17,15 +18,39 @@ import {
   questionRevisionKey,
   removeAssignmentEntry,
 } from "./assignment_workspace_questions_model";
+import { UnsavedChangesGuard } from "./unsaved_changes_guard";
 
 const MAX_ASSIGNMENT_ENTRIES = 1024;
 
-function saveInput(
-  current: SaveLiveAssignmentInput,
+export type QuestionEditDirtyEvent =
+  "title" | "move" | "remove" | "add" | "saveSucceeded" | "saveFailed";
+
+/** Keeps the leave guard active until the current structural edit was persisted successfully. */
+export function nextQuestionEditDirty(current: boolean, event: QuestionEditDirtyEvent): boolean {
+  if (event === "saveSucceeded") return false;
+  if (event === "saveFailed") return current;
+  return true;
+}
+
+/** Builds the closed save payload from the editable Assignment workspace values only. */
+export function questionSaveInput(
+  current: LiveAssignmentWorkspace,
   title: string,
   entries: ReadonlyArray<AssignmentEntry>,
 ): SaveLiveAssignmentInput {
-  return { ...current, title, entries };
+  return {
+    title,
+    instructions: current.instructions,
+    entries,
+    dueAt: current.dueAt,
+    availableAt: current.availableAt,
+    closesAt: current.closesAt,
+    lateWorkRule: current.lateWorkRule,
+    assignmentAttemptTimeLimitSeconds: current.assignmentAttemptTimeLimitSeconds,
+    attemptLimit: current.attemptLimit,
+    activityRules: current.activityRules,
+    studentFeedbackReleaseRule: current.studentFeedbackReleaseRule,
+  };
 }
 
 function entryId(): AssignmentEntryId {
@@ -74,6 +99,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
   const [needsReload, setNeedsReload] = createSignal(false);
+  const [dirty, setDirty] = createSignal(false);
 
   const descriptions = createMemo(() => {
     const known = new Map<string, string>();
@@ -114,30 +140,35 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
 
   function move(index: number, offset: -1 | 1): void {
     setEntries((current) => moveAssignmentEntry(current, index, offset));
+    setDirty((current) => nextQuestionEditDirty(current, "move"));
     setMessage("Entry order changed. Save Questions when ready.");
   }
 
   function remove(index: number): void {
     setEntries((current) => removeAssignmentEntry(current, index));
+    setDirty((current) => nextQuestionEditDirty(current, "remove"));
     setMessage("Entry removed. Save Questions when ready.");
   }
 
   function add(candidate: AssignmentQuestionPickerEntry): void {
     setEntries((current) => appendAvailableFixedQuestion(current, candidate, entryId()));
+    setDirty((current) => nextQuestionEditDirty(current, "add"));
     setMessage(
       "Available published Question added with its exact revision pin. Save Questions when ready.",
     );
   }
 
-  async function save(): Promise<void> {
+  async function save(): Promise<boolean> {
     if (needsReload()) {
       setMessage("Reload the latest assignment before saving. Your current Entries remain here.");
-      return;
+      return false;
     }
     setBusy(true);
     try {
-      await workspace.save(saveInput(workspace.assignment().workspace, title(), entries()));
+      await workspace.save(questionSaveInput(workspace.assignment().workspace, title(), entries()));
+      setDirty((current) => nextQuestionEditDirty(current, "saveSucceeded"));
       setMessage("Questions and order saved. Review assignment policies when you are ready.");
+      return true;
     } catch (error: unknown) {
       const conflict = error instanceof LiveAssignmentWorkspaceConflictError;
       setNeedsReload(conflict);
@@ -146,6 +177,8 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
           ? "This assignment changed elsewhere. Reload latest assignment before saving; your current Entries remain here."
           : "Questions were not saved. Try again.",
       );
+      setDirty((current) => nextQuestionEditDirty(current, "saveFailed"));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -168,6 +201,7 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
 
   return (
     <section class="assignment-workspace-questions" aria-labelledby="assignment-questions-heading">
+      <UnsavedChangesGuard dirty={dirty} save={save} />
       <header class="assignment-workspace-header">
         <p class="eyebrow">Assignment workspace</p>
         <h1 id="assignment-questions-heading">Questions</h1>
@@ -184,7 +218,13 @@ export function AssignmentWorkspaceQuestionsPage(): JSX.Element {
       </Show>
       <label class="assignment-editor-field">
         Assignment title
-        <input value={title()} onInput={(event) => setTitle(event.currentTarget.value)} />
+        <input
+          value={title()}
+          onInput={(event) => {
+            setTitle(event.currentTarget.value);
+            setDirty((current) => nextQuestionEditDirty(current, "title"));
+          }}
+        />
       </label>
       <section class="assignment-editor-panel" aria-labelledby="selected-questions-heading">
         <h2 id="selected-questions-heading">Ordered Assignment Entries</h2>

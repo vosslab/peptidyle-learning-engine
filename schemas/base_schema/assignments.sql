@@ -747,6 +747,108 @@ BEGIN
 END
 $$;
 
+-- Policy-only persistence keeps Question Entries and title outside this write boundary.
+CREATE FUNCTION ple_data.save_assignment_policies(
+    p_course_reference_number bigint, p_assignment_reference_number bigint,
+    p_expected_edit_number bigint, p_policies jsonb
+) RETURNS TABLE (
+    assignment_reference_number bigint, assignment_edit_number bigint,
+    assignment_status text, assignment_title text, assignment_instructions text
+)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+DECLARE current_assignment ple_data.assignment%ROWTYPE; candidate ple_data.assignment%ROWTYPE;
+    values_changed boolean;
+    allowed_keys text[] := ARRAY[
+        'assignment_instructions', 'available_at', 'due_at', 'closes_at',
+        'assignment_attempt_time_limit_seconds', 'attempt_limit', 'late_work_rule',
+        'assignment_completion_rule', 'assignment_completion_score_threshold',
+        'assignment_attempt_grade_rule', 'assignment_attempt_continuation_rule',
+        'max_additional_assignment_attempts', 'question_pool_reuse_rule', 'question_variation_rule',
+        'assignment_attempt_resume_rule', 'assignment_question_display_rule',
+        'assignment_navigation_rule', 'assignment_question_order_rule', 'feedback_score',
+        'feedback_per_item_correctness', 'feedback_submitted_response', 'feedback_question_feedback',
+        'feedback_question_answer', 'feedback_question_answer_explanation', 'feedback_class_statistics'];
+BEGIN
+    IF p_course_reference_number NOT BETWEEN 1 AND 2147483647
+       OR p_assignment_reference_number NOT BETWEEN 1 AND 2147483647
+       OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
+       OR p_policies IS NULL OR jsonb_typeof(p_policies) <> 'object'
+       OR EXISTS (SELECT 1 FROM jsonb_object_keys(p_policies) AS key WHERE key <> ALL (allowed_keys))
+       OR EXISTS (SELECT 1 FROM unnest(allowed_keys) AS key WHERE NOT p_policies ? key) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Assignment policy save is invalid';
+    END IF;
+    SELECT assignment.* INTO current_assignment FROM ple_data.course_instance AS course
+      JOIN ple_data.assignment AS assignment ON assignment.course_id = course.course_id
+     WHERE course.reference_number = p_course_reference_number
+       AND assignment.reference_number = p_assignment_reference_number
+       AND ple_api.current_session_account_is_course_instructor(course.course_id)
+     FOR UPDATE OF assignment;
+    IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assignment is unavailable'; END IF;
+    IF current_assignment.assignment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
+        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Assignment Edit Number is stale';
+    END IF;
+    SELECT * INTO candidate FROM jsonb_populate_record(current_assignment, p_policies);
+    values_changed := ROW(candidate.assignment_instructions, candidate.available_at, candidate.due_at,
+        candidate.closes_at, candidate.assignment_attempt_time_limit_seconds, candidate.attempt_limit,
+        candidate.late_work_rule, candidate.assignment_completion_rule, candidate.assignment_completion_score_threshold,
+        candidate.assignment_attempt_grade_rule, candidate.assignment_attempt_continuation_rule,
+        candidate.max_additional_assignment_attempts, candidate.question_pool_reuse_rule,
+        candidate.question_variation_rule, candidate.assignment_attempt_resume_rule,
+        candidate.assignment_question_display_rule, candidate.assignment_navigation_rule,
+        candidate.assignment_question_order_rule, candidate.feedback_score, candidate.feedback_per_item_correctness,
+        candidate.feedback_submitted_response, candidate.feedback_question_feedback, candidate.feedback_question_answer,
+        candidate.feedback_question_answer_explanation, candidate.feedback_class_statistics)
+      IS DISTINCT FROM ROW(current_assignment.assignment_instructions, current_assignment.available_at,
+        current_assignment.due_at, current_assignment.closes_at, current_assignment.assignment_attempt_time_limit_seconds,
+        current_assignment.attempt_limit, current_assignment.late_work_rule, current_assignment.assignment_completion_rule,
+        current_assignment.assignment_completion_score_threshold, current_assignment.assignment_attempt_grade_rule,
+        current_assignment.assignment_attempt_continuation_rule, current_assignment.max_additional_assignment_attempts,
+        current_assignment.question_pool_reuse_rule, current_assignment.question_variation_rule,
+        current_assignment.assignment_attempt_resume_rule, current_assignment.assignment_question_display_rule,
+        current_assignment.assignment_navigation_rule, current_assignment.assignment_question_order_rule,
+        current_assignment.feedback_score, current_assignment.feedback_per_item_correctness,
+        current_assignment.feedback_submitted_response, current_assignment.feedback_question_feedback,
+        current_assignment.feedback_question_answer, current_assignment.feedback_question_answer_explanation,
+        current_assignment.feedback_class_statistics);
+    IF values_changed THEN
+        UPDATE ple_data.assignment AS updated SET
+          assignment_instructions = candidate.assignment_instructions, available_at = candidate.available_at,
+          due_at = candidate.due_at, closes_at = candidate.closes_at,
+          assignment_attempt_time_limit_seconds = candidate.assignment_attempt_time_limit_seconds,
+          attempt_limit = candidate.attempt_limit, late_work_rule = candidate.late_work_rule,
+          assignment_completion_rule = candidate.assignment_completion_rule,
+          assignment_completion_score_threshold = candidate.assignment_completion_score_threshold,
+          assignment_attempt_grade_rule = candidate.assignment_attempt_grade_rule,
+          assignment_attempt_continuation_rule = candidate.assignment_attempt_continuation_rule,
+          max_additional_assignment_attempts = candidate.max_additional_assignment_attempts,
+          question_pool_reuse_rule = candidate.question_pool_reuse_rule,
+          question_variation_rule = candidate.question_variation_rule,
+          assignment_attempt_resume_rule = candidate.assignment_attempt_resume_rule,
+          assignment_question_display_rule = candidate.assignment_question_display_rule,
+          assignment_navigation_rule = candidate.assignment_navigation_rule,
+          assignment_question_order_rule = candidate.assignment_question_order_rule,
+          feedback_score = candidate.feedback_score, feedback_per_item_correctness = candidate.feedback_per_item_correctness,
+          feedback_submitted_response = candidate.feedback_submitted_response,
+          feedback_question_feedback = candidate.feedback_question_feedback,
+          feedback_question_answer = candidate.feedback_question_answer,
+          feedback_question_answer_explanation = candidate.feedback_question_answer_explanation,
+          feedback_class_statistics = candidate.feedback_class_statistics,
+          assignment_edit_number = updated.assignment_edit_number + 1, updated_at = clock_timestamp()
+          WHERE updated.assignment_id = current_assignment.assignment_id
+        RETURNING updated.reference_number, updated.assignment_edit_number, updated.assignment_status,
+          updated.assignment_title, updated.assignment_instructions INTO assignment_reference_number,
+          assignment_edit_number, assignment_status, assignment_title, assignment_instructions;
+        IF assignment_status = 'released' THEN PERFORM ple_data.validate_assignment_release(current_assignment.assignment_id); END IF;
+    ELSE
+        assignment_reference_number := current_assignment.reference_number; assignment_edit_number := current_assignment.assignment_edit_number;
+        assignment_status := current_assignment.assignment_status; assignment_title := current_assignment.assignment_title;
+        assignment_instructions := current_assignment.assignment_instructions;
+    END IF;
+    RETURN NEXT;
+END
+$$;
+
 CREATE FUNCTION ple_data.release_assignment(
     p_course_reference_number bigint,
     p_assignment_reference_number bigint,
@@ -851,6 +953,7 @@ REVOKE ALL ON FUNCTION ple_data.enforce_assignment_edit(),
     ple_data.create_assignment(uuid, bigint, uuid, text, text),
     ple_data.save_assignment(bigint, bigint, bigint, jsonb, jsonb),
     ple_data.save_assignment_inline(bigint, bigint, bigint, text, timestamptz),
+    ple_data.save_assignment_policies(bigint, bigint, bigint, jsonb),
     ple_data.release_assignment(bigint, bigint, bigint)
     FROM PUBLIC;
 GRANT SELECT ON ple_data.assignment, ple_data.assignment_entry, ple_data.question_pool_item
@@ -860,6 +963,7 @@ GRANT SELECT ON ple_data.assignment, ple_data.assignment_entry, ple_data.questio
 GRANT EXECUTE ON FUNCTION ple_data.create_assignment(uuid, bigint, uuid, text, text),
     ple_data.save_assignment(bigint, bigint, bigint, jsonb, jsonb),
     ple_data.save_assignment_inline(bigint, bigint, bigint, text, timestamptz),
+    ple_data.save_assignment_policies(bigint, bigint, bigint, jsonb),
     ple_data.release_assignment(bigint, bigint, bigint),
     ple_data.validate_assignment_release(uuid)
     TO ple_api_owner;

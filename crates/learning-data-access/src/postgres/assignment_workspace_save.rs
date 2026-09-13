@@ -11,7 +11,7 @@ use question_model::{
 use serde_json::{Value, json};
 
 use super::assignment_release::{invalid, late_work_rule};
-use crate::{SaveLiveAssignmentInput, StoreError};
+use crate::{SaveBaseAssignmentPolicyInput, SaveLiveAssignmentInput, StoreError};
 
 #[rustfmt::skip]
 fn activity_rule_values(r: &AssignmentActivityRules) -> [&'static str; 9] { [match r.assignment_completion_rule { AssignmentCompletionRule::AnswerAll => "answer_all", AssignmentCompletionRule::AllCorrect => "all_correct", AssignmentCompletionRule::ScoreAtLeast { .. } => "score_at_least" }, match r.assignment_attempt_grade_rule { AssignmentAttemptGradeRule::First => "first", AssignmentAttemptGradeRule::Latest => "latest", AssignmentAttemptGradeRule::Highest => "highest", AssignmentAttemptGradeRule::InstructorSelected => "instructor_selected" }, match r.assignment_attempt_continuation_rule { AssignmentAttemptContinuationRule::Unlimited => "unlimited", AssignmentAttemptContinuationRule::Capped { .. } => "capped", AssignmentAttemptContinuationRule::Closed => "closed" }, match r.question_pool_reuse_rule { QuestionPoolReuseRule::ReuseSelection => "reuse_selection", QuestionPoolReuseRule::SelectAgain => "select_again" }, match r.question_variation_rule { AssignmentQuestionVariationRule::ReuseVariation => "reuse_variation", AssignmentQuestionVariationRule::NewVariation => "new_variation" }, match r.assignment_attempt_resume_rule { AssignmentAttemptResumeRule::Resumable => "resumable", AssignmentAttemptResumeRule::SingleSession => "single_session" }, match r.assignment_question_display_rule { AssignmentQuestionDisplayRule::AllQuestions => "all_questions", AssignmentQuestionDisplayRule::OneQuestionAtATime => "one_question_at_a_time" }, match r.assignment_navigation_rule { question_model::AssignmentNavigationRule::FreeNavigation => "free_navigation", question_model::AssignmentNavigationRule::ForwardOnly => "forward_only" }, match r.assignment_question_order_rule { AssignmentQuestionOrderRule::AuthoredOrder => "authored_order", AssignmentQuestionOrderRule::Shuffled => "shuffled" }] }
@@ -35,6 +35,20 @@ pub(super) fn assignment_values_json(input: &SaveLiveAssignmentInput) -> Result<
         "question_pool_reuse_rule": activity[3], "question_variation_rule": activity[4], "assignment_attempt_resume_rule": activity[5], "assignment_question_display_rule": activity[6], "assignment_navigation_rule": activity[7], "assignment_question_order_rule": activity[8],
         "feedback_score": feedback[0], "feedback_per_item_correctness": feedback[1], "feedback_submitted_response": feedback[2], "feedback_question_feedback": feedback[3], "feedback_question_answer": feedback[4], "feedback_question_answer_explanation": feedback[5], "feedback_class_statistics": feedback[6]
     }))
+}
+
+/// Encodes the closed Base Assignment Policy allowlist; title and Entries have no representation.
+pub(super) fn base_assignment_policy_values_json(input: &SaveBaseAssignmentPolicyInput) -> Value {
+    let activity = activity_rule_values(&input.activity_rules);
+    let (completion_threshold, additional_attempts) = activity_rule_extras(&input.activity_rules);
+    let feedback = feedback_rule_values(&input.student_feedback_release_rule);
+    json!({
+        "assignment_instructions": input.instructions.as_str(), "available_at": Value::Null, "due_at": Value::Null, "closes_at": Value::Null,
+        "assignment_attempt_time_limit_seconds": input.assignment_attempt_time_limit_seconds.map(|value| value.get()), "attempt_limit": input.attempt_limit.map(|value| value.get()), "late_work_rule": late_work_rule(&input.late_work_rule),
+        "assignment_completion_rule": activity[0], "assignment_completion_score_threshold": completion_threshold, "assignment_attempt_grade_rule": activity[1], "assignment_attempt_continuation_rule": activity[2], "max_additional_assignment_attempts": additional_attempts,
+        "question_pool_reuse_rule": activity[3], "question_variation_rule": activity[4], "assignment_attempt_resume_rule": activity[5], "assignment_question_display_rule": activity[6], "assignment_navigation_rule": activity[7], "assignment_question_order_rule": activity[8],
+        "feedback_score": feedback[0], "feedback_per_item_correctness": feedback[1], "feedback_submitted_response": feedback[2], "feedback_question_feedback": feedback[3], "feedback_question_answer": feedback[4], "feedback_question_answer_explanation": feedback[5], "feedback_class_statistics": feedback[6]
+    })
 }
 
 pub(super) fn assignment_entries_json(entries: &[AssignmentEntry]) -> Result<Value, StoreError> {

@@ -64,6 +64,19 @@ test("Course Appearance Theme client validates and saves the independent theme u
   assert.equal(await requests[0].text(), '{"theme":"forest"}');
 });
 
+test("Course Appearance Theme client retains the complete banner view returned after a theme save", async () => {
+  const banner = {
+    reference: "00000000-0000-0000-0000-000000000007",
+    alternativeText: { kind: "decorative" },
+  };
+  const client = appearanceClient(appearanceResponse({ theme: "forest", banner }));
+
+  assert.deepEqual(await client.updateCourseTheme(COURSE_ID, { theme: "forest" }), {
+    theme: "forest",
+    banner,
+  });
+});
+
 test("Course Appearance Theme client refuses an unknown ID before dispatch", async () => {
   const { recordingFetch, requests } = createRecordingFetch(async () =>
     appearanceResponse(appearanceView()),

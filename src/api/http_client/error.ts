@@ -27,15 +27,6 @@ export class AssignmentConflictError extends ApiRequestError {
   }
 }
 
-/** A course-grade save lost its strong ETag race; the caller must retain its draft. */
-export class CourseGradeSchemeConflictError extends ApiRequestError {
-  declare public readonly status: 412;
-  public constructor(path: string) {
-    super(412, path);
-    this.name = "CourseGradeSchemeConflictError";
-  }
-}
-
 /** A Blueprint Course replacement lost its strong revision race. */
 export class BlueprintCourseConflictError extends ApiRequestError {
   declare public readonly status: 412;
@@ -43,18 +34,5 @@ export class BlueprintCourseConflictError extends ApiRequestError {
   public constructor(path: string) {
     super(412, path);
     this.name = "BlueprintCourseConflictError";
-  }
-}
-
-/** A complete browser-safe Policies correction list from the aggregate save boundary. */
-export class AssignmentPoliciesValidationError extends ApiRequestError {
-  public constructor(
-    path: string,
-    public readonly issues: ReadonlyArray<
-      import("../../../generated/api/AssignmentPoliciesValidationIssue").AssignmentPoliciesValidationIssue
-    >,
-  ) {
-    super(422, path);
-    this.name = "AssignmentPoliciesValidationError";
   }
 }

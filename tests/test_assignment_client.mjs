@@ -9,7 +9,86 @@ import {
   decodeCourseAssignments as decodeCourseAssignmentRows,
   decodeCourseAssignmentSourceChoices,
   decodeSaveLiveAssignmentInlineInput,
+  decodeSaveBaseAssignmentPolicyInput,
 } from "../src/api/decoders/assignment_release.ts";
+import { createHttpApiClient } from "../src/api/http_client.ts";
+import { LiveAssignmentWorkspaceConflictError } from "../src/api/http_client/assignment_release.ts";
+import { createRecordingFetch } from "./http_client_test_support.mjs";
+
+function savedPolicyWorkspace() {
+  return {
+    reference: "A-2",
+    editNumber: "4",
+    status: "unreleased",
+    source: {
+      blueprint_revision: { reference: "BP-1", revision: "1" },
+      blueprint_assignment_reference: "00000000-0000-0000-0000-000000000011",
+    },
+    title: "Peptide bonds",
+    instructions: "Read carefully.",
+    dueAt: null,
+    availableAt: null,
+    closesAt: null,
+    lateWorkRule: "reject",
+    assignmentAttemptTimeLimitSeconds: 60,
+    attemptLimit: null,
+    activityRules: {
+      assignmentCompletionRule: { kind: "answerAll" },
+      assignmentAttemptGradeRule: "highest",
+      assignmentAttemptContinuationRule: { kind: "unlimited" },
+      questionPoolReuseRule: "reuseSelection",
+      questionVariationRule: "newVariation",
+      assignmentAttemptResumeRule: "resumable",
+      assignmentQuestionDisplayRule: "oneQuestionAtATime",
+      assignmentNavigationRule: "freeNavigation",
+      assignmentQuestionOrderRule: "authoredOrder",
+    },
+    studentFeedbackReleaseRule: {
+      score: "after_submit",
+      per_item_correctness: "after_submit",
+      submitted_response: "after_submit",
+      question_feedback: "after_submit",
+      question_answer: "after_submit",
+      question_answer_explanation: "after_submit",
+      class_statistics: "never",
+    },
+    displayTimeZone: "America/Chicago",
+    entries: [],
+    questions: [],
+  };
+}
+
+function baseAssignmentPolicy() {
+  return {
+    instructions: "Read carefully.",
+    dueAt: null,
+    availableAt: null,
+    closesAt: null,
+    lateWorkRule: "reject",
+    assignmentAttemptTimeLimitSeconds: 60,
+    attemptLimit: null,
+    activityRules: {
+      assignmentCompletionRule: { kind: "answerAll" },
+      assignmentAttemptGradeRule: "highest",
+      assignmentAttemptContinuationRule: { kind: "unlimited" },
+      questionPoolReuseRule: "reuseSelection",
+      questionVariationRule: "newVariation",
+      assignmentAttemptResumeRule: "resumable",
+      assignmentQuestionDisplayRule: "oneQuestionAtATime",
+      assignmentNavigationRule: "freeNavigation",
+      assignmentQuestionOrderRule: "authoredOrder",
+    },
+    studentFeedbackReleaseRule: {
+      score: "after_submit",
+      per_item_correctness: "after_submit",
+      submitted_response: "after_submit",
+      question_feedback: "after_submit",
+      question_answer: "after_submit",
+      question_answer_explanation: "after_submit",
+      class_statistics: "never",
+    },
+  };
+}
 
 test("Course Assignment rows require exact due and Instructor-zone display facts", () => {
   const rows = decodeCourseAssignmentRows([
@@ -62,6 +141,75 @@ test("inline Assignment row saves accept only title and a required nullable loca
       title: "Peptide bonds",
       dueAt: "2026-09-11T14:30",
     }),
+  );
+});
+
+test("Base Assignment Policy saves are closed and cannot carry title or Entries", () => {
+  const policy = baseAssignmentPolicy();
+  assert.deepEqual(decodeSaveBaseAssignmentPolicyInput(policy), policy);
+  assert.throws(() =>
+    decodeSaveBaseAssignmentPolicyInput({ ...policy, title: "must not cross boundary" }),
+  );
+});
+
+test("Base Assignment Policy save uses the current workspace boundary and exact replacement ETag", async () => {
+  const { recordingFetch, requests } = createRecordingFetch(
+    async () =>
+      new Response(JSON.stringify(savedPolicyWorkspace()), {
+        headers: { "cache-control": "no-store", "content-type": "application/json", etag: '"4"' },
+      }),
+  );
+
+  const saved = await createHttpApiClient({ fetch: recordingFetch }).saveBaseAssignmentPolicy(
+    "C-1",
+    "A-2",
+    baseAssignmentPolicy(),
+    '"3"',
+  );
+
+  assert.equal(saved.workspace.editNumber, "4");
+  assert.equal(saved.etag, '"4"');
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    "/api/course-instances/C-1/assignments/A-2/policies",
+  );
+  assert.equal(requests[0].method, "PUT");
+  assert.equal(requests[0].headers.get("if-match"), '"3"');
+  assert.deepEqual(JSON.parse(await requests[0].text()), baseAssignmentPolicy());
+});
+
+test("Base Assignment Policy save requires a matching response ETag and maps an Edit Number conflict", async () => {
+  const missingEtag = createRecordingFetch(
+    async () =>
+      new Response(JSON.stringify(savedPolicyWorkspace()), {
+        headers: { "cache-control": "no-store", "content-type": "application/json" },
+      }),
+  );
+  await assert.rejects(
+    createHttpApiClient({ fetch: missingEtag.recordingFetch }).saveBaseAssignmentPolicy(
+      "C-1",
+      "A-2",
+      baseAssignmentPolicy(),
+      '"3"',
+    ),
+    /ETag must match/u,
+  );
+
+  const conflict = createRecordingFetch(
+    async () =>
+      new Response("Assignment Workspace changed", {
+        status: 412,
+        headers: { "cache-control": "no-store" },
+      }),
+  );
+  await assert.rejects(
+    createHttpApiClient({ fetch: conflict.recordingFetch }).saveBaseAssignmentPolicy(
+      "C-1",
+      "A-2",
+      baseAssignmentPolicy(),
+      '"3"',
+    ),
+    LiveAssignmentWorkspaceConflictError,
   );
 });
 

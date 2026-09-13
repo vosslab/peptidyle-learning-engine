@@ -12,53 +12,16 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AccountReference, CourseInvitationReference, CourseMembershipReference, LocalDateAndTime,
-    MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, Timestamp,
+    CourseInvitationReference, LocalDateAndTime, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
+    MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, Timestamp,
 };
 
 pub use crate::preview_plane::HypotheticalStudentViewScenarioModifiers;
-
-mod target_search;
-
-pub use target_search::{
-    CourseInvitationTargetSearchPage, CourseInvitationTargetSearchRequest,
-    CourseInvitationTargetView, MAX_TEACHING_ACCOUNT_SEARCH_QUERY_UNICODE_SCALARS,
-    MIN_TEACHING_ACCOUNT_SEARCH_QUERY_UNICODE_SCALARS, TeachingAccountSearchQuery,
-    TeachingAccountView,
-};
 
 /// Maximum Unicode scalar count for an authorized account or membership label.
 pub const MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS: usize = 200;
 /// Maximum rows in one browser teaching-operations page.
 pub const MAX_TEACHING_PAGE_SIZE: u32 = 100;
-
-/// A nonzero teaching-operations page size that cannot exceed the route limit.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(try_from = "u32", into = "u32")]
-pub struct TeachingPageSize(NonZeroU32);
-
-impl TeachingPageSize {
-    pub fn get(self) -> u32 {
-        self.0.get()
-    }
-}
-
-impl TryFrom<u32> for TeachingPageSize {
-    type Error = &'static str;
-
-    fn try_from(value: u32) -> Result<Self, Self::Error> {
-        NonZeroU32::new(value)
-            .filter(|size| size.get() <= MAX_TEACHING_PAGE_SIZE)
-            .map(Self)
-            .ok_or("teaching page size must be between 1 and 100")
-    }
-}
-
-impl From<TeachingPageSize> for u32 {
-    fn from(value: TeachingPageSize) -> Self {
-        value.get()
-    }
-}
 
 fn canonical_positive_postgres_bigint(value: &str) -> Result<NonZeroU64, &'static str> {
     if value.is_empty()
@@ -203,24 +166,6 @@ impl From<TeachingDisplayLabel> for String {
     }
 }
 
-/// One opaque, bounded cursor request for teaching operations.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct MembershipPageRequest {
-    /// Server-issued opaque continuation token, or `null` for the first page.
-    pub after: Option<String>,
-    /// Required bounded page size.
-    pub size: TeachingPageSize,
-}
-
-/// Closed browser current-status vocabulary for a course membership.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum TeachingMembershipStatus {
-    Active,
-    Revoked,
-}
-
 /// Closed modification behavior.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -313,41 +258,6 @@ pub struct AccommodationAdjustmentView {
     pub attempt_limit: TeachingAttemptLimitFieldPatch,
 }
 
-/// Strict Instructor Course Invitation creation request for one existing Account.
-///
-/// The target-discovery and teaching-team endpoints are exclusively for adding
-/// an Instructor Course Membership. The generic `CourseInvitation` persistence
-/// value carries the role for workflows that support other membership roles.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct InstructorCourseInvitationCreateRequest {
-    pub target: AccountReference,
-}
-
-/// Course-authorized Instructor Course Invitation row with no email or raw identity.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct InstructorCourseInvitationView {
-    pub reference: CourseInvitationReference,
-    pub target: CourseInvitationTargetView,
-    pub state: CourseInvitationStateView,
-    pub created_at: Timestamp,
-    pub expires_at: Timestamp,
-    /// Exact lifecycle-state precondition required by Instructor revoke `If-Match`.
-    #[serde(rename = "state_precondition")]
-    pub state_precondition: CourseInvitationStatePrecondition,
-}
-
-/// Bounded exact-course Instructor Course Invitation page.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct InstructorCourseInvitationsPage {
-    /// Authenticated Instructor's own IANA zone for rendering this page's instants.
-    pub display_time_zone: crate::AccountTimeZone,
-    pub invitations: Vec<InstructorCourseInvitationView>,
-    pub next_cursor: Option<String>,
-}
-
 /// Pending account-owned invitation row. It intentionally contains no email.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -397,36 +307,12 @@ pub struct CourseInvitationTerminalActionRequest {
     pub action: CourseInvitationTerminalAction,
 }
 
-/// Current Instructor Course Membership row for one Teaching Team Member.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct InstructorMembershipView {
-    pub membership: CourseMembershipReference,
-    pub account: TeachingAccountView,
-    pub status: TeachingMembershipStatus,
-}
-
-/// Bounded Teaching Team list.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct InstructorMembershipsPage {
-    pub instructors: Vec<InstructorMembershipView>,
-    pub next_cursor: Option<String>,
-    /// Exact roster change number required by Instructor Course Membership removal `If-Match`.
-    pub roster_change_number: CourseRosterChangeNumber,
-}
-
-/// Empty-body Instructor Course Membership removal action; its roster change number is `If-Match`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct InstructorMembershipRemovalRequest {}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn state_preconditions_change_numbers_and_labels_are_canonical_and_bounded() {
+    fn state_preconditions_and_labels_are_canonical_and_bounded() {
         assert!("01".parse::<CourseInvitationStatePrecondition>().is_err());
         assert!("0".parse::<CourseInvitationStatePrecondition>().is_err());
         assert_eq!(
@@ -451,35 +337,10 @@ mod tests {
         })
         .unwrap();
         assert_eq!(action, serde_json::json!({"action":"accept"}));
-        assert_eq!(
-            serde_json::to_value(InstructorMembershipRemovalRequest {}).unwrap(),
-            serde_json::json!({})
-        );
     }
 
     #[test]
     fn validated_deserialization_rejects_bounds_and_duplicate_members() {
-        assert!(
-            serde_json::from_str::<MembershipPageRequest>(r#"{"after":null,"size":101}"#).is_err()
-        );
-        assert!(
-            serde_json::from_str::<CourseInvitationTargetSearchRequest>(
-                r#"{"query":"t","after":null,"size":10}"#
-            )
-            .is_err()
-        );
-        assert!(
-            serde_json::from_str::<CourseInvitationTargetSearchRequest>(
-                r#"{"query":"  target","after":null,"size":10}"#
-            )
-            .is_err()
-        );
-        assert!(
-            serde_json::from_str::<CourseInvitationTargetSearchRequest>(
-                r#"{"query":"target","after":null,"size":10,"email":"x@example.edu"}"#
-            )
-            .is_err()
-        );
         assert!(
             serde_json::from_str::<AccommodationAdjustmentView>(concat!(
                 r#"{"available_at":{"kind":"inherit"},"due_at":{"kind":"inherit"},"#,
@@ -507,23 +368,14 @@ mod tests {
     #[test]
     fn invitation_pages_keep_the_viewer_zone_at_the_page_envelope() {
         let display_time_zone: crate::AccountTimeZone = "America/New_York".parse().unwrap();
-        let instructor_page = InstructorCourseInvitationsPage {
-            display_time_zone: display_time_zone.clone(),
-            invitations: vec![],
-            next_cursor: None,
-        };
         let pending_page = PendingCourseInvitationsPage {
             display_time_zone,
             invitations: vec![],
             next_cursor: None,
         };
 
-        for page in [
-            serde_json::to_value(instructor_page).unwrap(),
-            serde_json::to_value(pending_page).unwrap(),
-        ] {
-            assert_eq!(page["displayTimeZone"], "America/New_York");
-            assert_eq!(page["invitations"], serde_json::json!([]));
-        }
+        let page = serde_json::to_value(pending_page).unwrap();
+        assert_eq!(page["displayTimeZone"], "America/New_York");
+        assert_eq!(page["invitations"], serde_json::json!([]));
     }
 }

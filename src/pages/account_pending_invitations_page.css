@@ -1,0 +1,38 @@
+/* Account-owned pending Course Invitation layout. */
+
+.pending-invitations-page {
+  width: min(100%, 80rem);
+}
+
+.pending-invitation-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ple-space-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pending-invitation-card > div {
+  min-width: min(100%, 14rem);
+}
+
+.pending-invitation-list {
+  display: grid;
+  gap: var(--ple-space-2);
+}
+
+@media (max-width: 30rem) {
+  .pending-invitation-card {
+    align-items: stretch;
+  }
+
+  .pending-invitation-card .action-row {
+    width: 100%;
+  }
+
+  .pending-invitation-card .action-row button {
+    flex: 1 1 9rem;
+  }
+}

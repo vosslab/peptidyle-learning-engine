@@ -41,7 +41,9 @@ export type FutureRibbonDestinationId =
   | "myQuestions"
   | "starredQuestions"
   | "watchedQuestions"
-  | "assignmentTemplates";
+  | "assignmentTemplates"
+  | "teachingOperations"
+  | "gradeSettings";
 
 /** A destination is either a declared route or an honest future identity, never a URL guess. */
 export type RibbonDestination =
@@ -195,7 +197,7 @@ export const TAB_CATALOG = [
   {
     id: "teachingOperations",
     label: "Teaching Operations",
-    destination: { kind: "route", routeId: "teachingOperations" },
+    destination: { kind: "future", futureId: "teachingOperations" },
     requiredParams: ["courseRef"],
     role: "supporting",
     priority: "normal",
@@ -454,7 +456,7 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "gradeSettings",
     label: "Grade Settings",
-    destination: { kind: "route", routeId: "courseGradeSettings" },
+    destination: { kind: "future", futureId: "gradeSettings" },
     requiredParams: ["courseRef"],
     taskGroup: "courseSetup",
     area: "courseSetup",

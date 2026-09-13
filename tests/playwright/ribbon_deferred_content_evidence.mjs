@@ -158,18 +158,6 @@ try {
       1,
       false,
     ],
-    [
-      "teaching",
-      "teachingOperations",
-      "teachingOperations",
-      "Loading teaching operations...",
-      "Teaching operations",
-      "scopeCourse",
-      "listCourseInstructors",
-      0,
-      1,
-      false,
-    ],
   ];
   for (const [
     caseName,
@@ -284,15 +272,6 @@ try {
       expectedAfterRelease,
       `${caseName} initializes exactly its expected downstream operation after release`,
     );
-    if (caseName === "teaching") {
-      assert.equal(
-        await page.evaluate(() =>
-          window.ribbonDeferredContent.count("teaching", "listInstructorCourseInvitations"),
-        ),
-        1,
-        "teaching starts its paired invitation load once",
-      );
-    }
     await assertHarnessRibbon(`${caseName} after scope release`, taskRowReserved);
     assert.equal(
       await page.locator(RETIRED_NAVIGATION_SELECTOR).count(),

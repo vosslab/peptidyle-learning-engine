@@ -56,7 +56,8 @@ test("route contracts fail closed and reserve declared teaching routes for instr
   assert.equal(productRoleMayAccessRoute("assignmentWorkspaceOverview", "instructor"), true);
   assert.equal(routeContractForPathname("/workspace"), undefined);
   assert.equal(routeContractForPathname("/workspace/draft-1"), undefined);
-  assert.equal(productRoleMayAccessRoute("teachingOperations", "sysadmin"), false);
+  assert.equal(routeContractForPathname("/instructor/courses/C-1/grade-settings"), undefined);
+  assert.equal(routeContractForPathname("/instructor/courses/C-1/teaching-operations"), undefined);
   assert.equal(productRoleMayAccessRoute("blueprintCourses", "student"), false);
   assert.equal(productRoleMayAccessRoute("blueprintCourses", "sysadmin"), false);
   assert.equal(productRoleMayAccessRoute("blueprintCourses", "instructor"), true);

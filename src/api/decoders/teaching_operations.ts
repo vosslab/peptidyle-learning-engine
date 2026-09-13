@@ -5,17 +5,9 @@ import { MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS } from "../../../generated/ap
 import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";
 import { MAX_TEACHING_PAGE_SIZE } from "../../../generated/api/MAX_TEACHING_PAGE_SIZE";
 import type { HypotheticalStudentViewScenarioModifiers } from "../../../generated/api/HypotheticalStudentViewScenarioModifiers";
-import type { InstructorCourseInvitationCreateRequest } from "../../../generated/api/InstructorCourseInvitationCreateRequest";
 import type { CourseInvitationTerminalActionRequest } from "../../../generated/api/CourseInvitationTerminalActionRequest";
 import type { AccountTimeZone } from "../../../generated/api/AccountTimeZone";
-import type { InstructorCourseInvitationsPage } from "../../../generated/api/InstructorCourseInvitationsPage";
-import type { InstructorMembershipRemovalRequest } from "../../../generated/api/InstructorMembershipRemovalRequest";
-import type { InstructorMembershipsPage } from "../../../generated/api/InstructorMembershipsPage";
 import type { PendingCourseInvitationsPage } from "../../../generated/api/PendingCourseInvitationsPage";
-import type { TeachingAccountView } from "../../../generated/api/TeachingAccountView";
-import type { CourseInvitationTargetView } from "../../../generated/api/CourseInvitationTargetView";
-import type { CourseInvitationTargetSearchPage } from "../../../generated/api/CourseInvitationTargetSearchPage";
-import type { CourseInvitationTargetSearchRequest } from "../../../generated/api/CourseInvitationTargetSearchRequest";
 import {
   DecodeError,
   decodeNullable,
@@ -33,7 +25,6 @@ import {
 } from "./shared";
 
 const MAX_ROUTE_REFERENCE = 2_147_483_647;
-const MEMBERSHIP_STATUSES = ["active", "revoked"] as const;
 const INVITATION_STATES = ["pending", "expired", "accepted", "declined", "revoked"] as const;
 
 function closed(
@@ -215,134 +206,6 @@ export function decodeHypotheticalStudentViewScenarioModifiers(
   return decodeAccommodationAdjustmentWrite(value, path);
 }
 
-function teachingAccount(value: unknown, path: string): TeachingAccountView {
-  const record = closed(value, path, ["reference", "display"]);
-  return {
-    reference: reference(record.reference, `${path}.reference`, "U"),
-    display: boundedTrimmedText(
-      record.display,
-      `${path}.display`,
-      MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS,
-    ),
-  };
-}
-
-export function decodeInstructorMembershipsPage(
-  value: unknown,
-  path = "response",
-): InstructorMembershipsPage {
-  const record = closed(value, path, ["instructors", "nextCursor", "rosterChangeNumber"]);
-  return {
-    instructors: decodeBoundedArray(
-      record.instructors,
-      `${path}.instructors`,
-      MAX_TEACHING_PAGE_SIZE,
-      (entry, entryPath) => {
-        const instructor = closed(entry, entryPath, ["membership", "account", "status"]);
-        return {
-          membership: reference(instructor.membership, `${entryPath}.membership`, "M"),
-          account: teachingAccount(instructor.account, `${entryPath}.account`),
-          status: decodeStringEnum(instructor.status, `${entryPath}.status`, MEMBERSHIP_STATUSES),
-        };
-      },
-    ),
-    nextCursor: pageCursor(record.nextCursor, `${path}.nextCursor`),
-    rosterChangeNumber: canonicalPositivePostgresBigint(
-      record.rosterChangeNumber,
-      `${path}.rosterChangeNumber`,
-    ),
-  };
-}
-
-export function decodeInstructorCourseInvitationCreateRequest(
-  value: unknown,
-  path = "request",
-): InstructorCourseInvitationCreateRequest {
-  const record = closed(value, path, ["target"]);
-  return {
-    target: reference(record.target, `${path}.target`, "U"),
-  };
-}
-
-function courseInvitationTarget(value: unknown, path: string): CourseInvitationTargetView {
-  const record = closed(value, path, ["account"]);
-  return {
-    account: teachingAccount(record.account, `${path}.account`),
-  };
-}
-
-/** Decode the bounded safe-picker search page without accepting account PII. */
-export function decodeCourseInvitationTargetSearchPage(
-  value: unknown,
-  path = "response",
-): CourseInvitationTargetSearchPage {
-  const record = closed(value, path, ["targets", "nextCursor"]);
-  return {
-    targets: decodeBoundedArray(
-      record.targets,
-      `${path}.targets`,
-      MAX_TEACHING_PAGE_SIZE,
-      courseInvitationTarget,
-    ),
-    nextCursor: pageCursor(record.nextCursor, `${path}.nextCursor`),
-  };
-}
-
-/** Decode the strict display-name-only target-search request before URL serialization. */
-export function decodeCourseInvitationTargetSearchRequest(
-  value: unknown,
-  path = "request",
-): CourseInvitationTargetSearchRequest {
-  const record = closed(value, path, ["query", "after", "size"]);
-  const query = boundedTrimmedText(record.query, `${path}.query`, 100);
-  if (Array.from(query).length < 2) {
-    throw new DecodeError(`${path}.query`, "a trimmed search query of 2 to 100 Unicode scalars");
-  }
-  return {
-    query,
-    after: pageCursor(record.after, `${path}.after`),
-    size: positiveInteger(record.size, `${path}.size`, MAX_TEACHING_PAGE_SIZE),
-  };
-}
-
-export function decodeInstructorCourseInvitationsPage(
-  value: unknown,
-  path = "response",
-): InstructorCourseInvitationsPage {
-  const record = closed(value, path, ["displayTimeZone", "invitations", "nextCursor"]);
-  return {
-    // ASVS 8.2.3/14.2.6: viewer-owned metadata belongs to the outer page only.
-    displayTimeZone: displayTimeZone(record.displayTimeZone, `${path}.displayTimeZone`),
-    invitations: decodeBoundedArray(
-      record.invitations,
-      `${path}.invitations`,
-      MAX_TEACHING_PAGE_SIZE,
-      (entry, entryPath) => {
-        const invitation = closed(entry, entryPath, [
-          "reference",
-          "target",
-          "state",
-          "createdAt",
-          "expiresAt",
-          "state_precondition",
-        ]);
-        return {
-          reference: reference(invitation.reference, `${entryPath}.reference`, "CI"),
-          target: courseInvitationTarget(invitation.target, `${entryPath}.target`),
-          state: decodeStringEnum(invitation.state, `${entryPath}.state`, INVITATION_STATES),
-          createdAt: decodeTimestamp(invitation.createdAt, `${entryPath}.createdAt`),
-          expiresAt: decodeTimestamp(invitation.expiresAt, `${entryPath}.expiresAt`),
-          state_precondition: canonicalPositivePostgresBigint(
-            invitation.state_precondition,
-            `${entryPath}.state_precondition`,
-          ),
-        };
-      },
-    ),
-    nextCursor: pageCursor(record.nextCursor, `${path}.nextCursor`),
-  };
-}
-
 export function decodePendingCourseInvitationsPage(
   value: unknown,
   path = "response",
@@ -391,12 +254,4 @@ export function decodeCourseInvitationTerminalActionRequest(
   return {
     action: decodeStringEnum(record.action, `${path}.action`, ["accept", "decline"] as const),
   };
-}
-
-export function decodeInstructorMembershipRemovalRequest(
-  value: unknown,
-  path = "request",
-): InstructorMembershipRemovalRequest {
-  closed(value, path, []);
-  return {};
 }

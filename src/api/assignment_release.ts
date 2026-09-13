@@ -130,6 +130,19 @@ export interface SaveLiveAssignmentInput {
   readonly studentFeedbackReleaseRule: StudentFeedbackReleaseRule;
 }
 
+/** Closed policy-only write payload; it intentionally cannot carry title or Entries. */
+export interface SaveBaseAssignmentPolicyInput {
+  readonly instructions: string;
+  readonly dueAt: LocalDateAndTime | null;
+  readonly availableAt: LocalDateAndTime | null;
+  readonly closesAt: LocalDateAndTime | null;
+  readonly lateWorkRule: LateWorkRule;
+  readonly assignmentAttemptTimeLimitSeconds: number | null;
+  readonly attemptLimit: number | null;
+  readonly activityRules: AssignmentActivityRules;
+  readonly studentFeedbackReleaseRule: StudentFeedbackReleaseRule;
+}
+
 export interface AssignmentReleaseValidation {
   readonly canRelease: boolean;
   readonly issues: ReadonlyArray<
@@ -193,6 +206,13 @@ export interface LiveAssignmentReleaseClient {
     course: CourseInstanceReference,
     assignment: AssignmentReference,
     input: SaveLiveAssignmentInput,
+    etag: string,
+  ) => Promise<LiveAssignmentWorkspaceResponse>;
+  /** Saves only Base Assignment Policy fields with an exact Assignment Edit Number. */
+  readonly saveBaseAssignmentPolicy: (
+    course: CourseInstanceReference,
+    assignment: AssignmentReference,
+    input: SaveBaseAssignmentPolicyInput,
     etag: string,
   ) => Promise<LiveAssignmentWorkspaceResponse>;
   readonly validateLiveAssignmentRelease: (

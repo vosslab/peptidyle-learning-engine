@@ -130,7 +130,6 @@ src/
 +- pages/
 |  +- assignment_workspace/     Current Assignment edit, release, and Unrelease UI
 |  +- assignment_access/        Student Assignment entry UI
-|  `- teaching_operations/      Instructor teaching workflow pages
 +- ribbon/                      Capability-aware navigation catalog and rendering
 +- styles/                      Browser-wide styles and local font declarations
 +- wasm/                        Browser bridge modules

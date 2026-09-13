@@ -15,8 +15,6 @@ pub mod assignment_question_analysis;
 /// Assignment Attempt state machine.
 /// Completion derivation within an Assignment Attempt.
 pub mod completion;
-/// Pure course-grade aggregation from selected assignment scores.
-pub mod course_grade;
 /// Key-free deterministic Workspace Draft Question prompt preview.
 pub mod draft_preview;
 /// Pure current assignment-policy resolution after Student Assignment Access.
@@ -40,10 +38,6 @@ pub mod timing;
 /// Browser-safe Student Response format validation.
 pub mod validation;
 
-pub use crate::course_grade::{
-    CourseGradeAssignment, CourseGradeError, CourseGradeOutcome, CourseGradeUnavailableReason,
-    calculate_course_grade,
-};
 pub use crate::question_pool_selection::{
     QuestionPoolSelectionEntropy, QuestionPoolSelectionError, select_question_pool_items,
 };

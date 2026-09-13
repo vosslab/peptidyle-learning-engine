@@ -1,7 +1,5 @@
 import type { AssignmentId } from "../../../generated/api/AssignmentId";
-import type { AssignmentReference } from "../../../generated/api/AssignmentReference";
 import type { AssignmentAttempt } from "../../../generated/api/AssignmentAttempt";
-import type { CourseGradeSchemeUpdateView } from "../../../generated/api/CourseGradeSchemeUpdateView";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
@@ -10,7 +8,6 @@ import type {
   AssignmentEditorDetail,
   AssignmentContentInput,
   AssignmentCreateInput,
-  AssignmentPoliciesInput,
   StudentFeedbackReleaseResponse,
   InstructorStudentView,
   PrefetchedNextQuestion,
@@ -19,11 +16,8 @@ import type {
 import {
   decodeAssignmentContentInput,
   decodeInstructorStudentView,
-  decodeAssignmentPoliciesValidationFailure,
   decodeAssignmentAttempt,
   decodeCapabilityViolations,
-  decodeCourseGradeSchemeView,
-  decodeCourseGradeSchemeUpdateView,
   decodeStudentFeedbackReleaseResponse,
   decodePrefetchedNextQuestion,
   decodeStudentResponseFormatCheck,
@@ -32,13 +26,7 @@ import {
   decodeQuestionAttemptTimingDecision,
 } from "../decoders";
 import { decodeAssignmentEditorDetail } from "../decoders/assignment_workspace";
-import {
-  ApiProtocolError,
-  ApiRequestError,
-  AssignmentConflictError,
-  AssignmentPoliciesValidationError,
-  CourseGradeSchemeConflictError,
-} from "./error";
+import { ApiProtocolError, ApiRequestError, AssignmentConflictError } from "./error";
 import {
   MAX_RESPONSE_CHARACTERS,
   boundedResponseJson,
@@ -212,66 +200,14 @@ export async function requestAssignmentEditor(
   return { ...detail, revision };
 }
 
-/** Policies owns the aggregate 422 validation response; Questions retain their separate save contract. */
-async function requestAssignmentPolicies(
-  fetchImplementation: ApiFetch,
-  basePath: string,
-  courseId: CourseId,
-  assignmentId: AssignmentId,
-  _assignmentReference: AssignmentReference,
-  input: AssignmentPoliciesInput,
-  assignmentEtag: string,
-): Promise<AssignmentEditorDetail> {
-  const path = `${assignmentPath(courseId, assignmentId)}/policies`;
-  const baseEditNumber = assignmentEditPrecondition(assignmentEtag);
-  const response = await requestSameOrigin(fetchImplementation, basePath, path, {
-    method: "PUT",
-    body: { ...input, baseEditNumber },
-    headers: { "if-match": assignmentEtag },
-  });
-  if (response.status === 409 || response.status === 412 || response.status === 428)
-    throw new AssignmentConflictError(response.status, path);
-  if (response.status === 422) {
-    const value = await boundedResponseJson(response, path);
-    try {
-      const validationFailure = decodeAssignmentPoliciesValidationFailure(value, "response");
-      throw new AssignmentPoliciesValidationError(path, validationFailure.issues);
-    } catch (error: unknown) {
-      if (error instanceof AssignmentPoliciesValidationError) throw error;
-      throw new ApiRequestError(response.status, path);
-    }
-  }
-  if (!response.ok) throw new ApiRequestError(response.status, path);
-  const value = await boundedResponseJson(response, path);
-  const detail = decodeAssignmentEditorDetail(value, "response");
-  if (detail.id !== assignmentId) {
-    throw new ApiProtocolError(
-      "assignment policies response does not match the requested assignment",
-    );
-  }
-  if (detail.courseId !== courseId) {
-    throw new ApiProtocolError("assignment policies response does not match the requested course");
-  }
-  const revisionHeader = response.headers.get("etag");
-  if (revisionHeader === null || !validRevision(revisionHeader)) {
-    throw new ApiProtocolError(
-      `API response ${path} must include one positive strong numeric ETag`,
-    );
-  }
-  return { ...detail, revision: revisionHeader };
-}
-
 export function createRequestClient(
   fetchImplementation: ApiFetch,
   basePath: string,
 ): Pick<
   ApiClient,
-  | "saveCourseGradeScheme"
-  | "createCourseGradeExport"
   | "createAssignment"
   | "getAssignmentWorkspace"
   | "saveAssignmentContent"
-  | "saveAssignmentPolicies"
   | "getInstructorStudentView"
   | "startAssignmentAttempt"
   | "prefetchNextQuestion"
@@ -283,68 +219,6 @@ export function createRequestClient(
   | "validateAssignmentConfigOnServer"
 > {
   return {
-    saveCourseGradeScheme: async (
-      courseId,
-      update: CourseGradeSchemeUpdateView,
-      revision: string,
-    ): ReturnType<ApiClient["saveCourseGradeScheme"]> => {
-      if (!validRevision(revision))
-        throw new ApiProtocolError("course grade scheme needs one positive strong revision");
-      const body = decodeCourseGradeSchemeUpdateView(update, "request");
-      const path = `/api/courses/${encodedId(courseId)}/grade-scheme`;
-      const response = await fetchImplementation(requestPath(basePath, path), {
-        method: "PUT",
-        headers: {
-          accept: "application/json",
-          "content-type": "application/json",
-          "if-match": revision,
-        },
-        body: JSON.stringify(body),
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      requireNoStore(response, path);
-      if (response.status === 412) throw new CourseGradeSchemeConflictError(path);
-      if (!response.ok) throw new ApiRequestError(response.status, path);
-      const scheme = decodeCourseGradeSchemeView(await boundedResponseJson(response, path));
-      const nextRevision = response.headers.get("etag");
-      if (nextRevision === null || !validRevision(nextRevision))
-        throw new ApiProtocolError(
-          `API response ${path} must include one positive strong numeric ETag`,
-        );
-      return { ...scheme, revision: nextRevision };
-    },
-    createCourseGradeExport: async (courseId): ReturnType<ApiClient["createCourseGradeExport"]> => {
-      const path = `/api/courses/${encodedId(courseId)}/grade-export.csv`;
-      const response = await fetchImplementation(requestPath(basePath, path), {
-        method: "POST",
-        headers: { accept: "text/csv" },
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      requireNoStore(response, path);
-      if (!response.ok) throw new ApiRequestError(response.status, path);
-      if (
-        response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "text/csv"
-      )
-        throw new ApiProtocolError(`API response ${path} must use text/csv`);
-      const exportId = response.headers.get("x-ple-course-grade-export-id");
-      const filename = response.headers
-        .get("content-disposition")
-        ?.match(/^attachment; filename=([A-Za-z0-9._-]+)$/u)?.[1];
-      if (
-        exportId === null ||
-        !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu.test(exportId) ||
-        filename === undefined
-      )
-        throw new ApiProtocolError(
-          `API response ${path} must include a safe export identity and filename`,
-        );
-      const csv = await response.blob();
-      if (csv.size > 4 * 1_024 * 1_024)
-        throw new ApiProtocolError(`API response ${path} exceeds the course export limit`);
-      return { exportId, filename, csv };
-    },
     getAssignmentWorkspace: (courseId, assignmentId) =>
       requestAssignmentEditor(
         fetchImplementation,
@@ -384,23 +258,6 @@ export function createRequestClient(
           body: { ...decodeAssignmentContentInput(input, "request"), baseEditNumber },
           headers: { "if-match": assignmentEtag },
         },
-      );
-    },
-    saveAssignmentPolicies: (
-      courseId,
-      assignmentId,
-      assignmentReference,
-      input: AssignmentPoliciesInput,
-      assignmentEtag,
-    ): ReturnType<ApiClient["saveAssignmentPolicies"]> => {
-      return requestAssignmentPolicies(
-        fetchImplementation,
-        basePath,
-        courseId,
-        assignmentId,
-        assignmentReference,
-        input,
-        assignmentEtag,
       );
     },
     getInstructorStudentView: async (courseId, assignmentId): Promise<InstructorStudentView> => {

@@ -13,6 +13,10 @@ genuinely needs no server call may be backed with a specific no-server-call rati
 client method, server test, or structural fixture by itself never makes a destination backed.
 Ribbon visibility never grants permission to view or perform an operation.
 
+The current Assignment workspace admits **Overview**, **Questions**, and **Policies** through its
+shared typed Assignment loader. The Questions page additionally reads the published Question picker;
+its page-owned unsaved-changes guard remains in force when the Ribbon navigates between tasks.
+
 Use the repository's precise capability vocabulary in evidence and review:
 
 - **Server Route exists** only after the production server registers the handler and its request

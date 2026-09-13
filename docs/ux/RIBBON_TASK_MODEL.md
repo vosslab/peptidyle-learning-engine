@@ -64,11 +64,12 @@ Product Role's ordered schema. An Instructor's designed Tabs are **Assignments**
 **Assignments**; a Sysadmin's is **Teaching Operations**. Capability admission may omit an unavailable
 destination, but the schema never changes order because loading, a title, or a page error occurs.
 
-An Instructor's assignment-workspace Tasks are **Overview**, **Questions**, **Policies**, **Grading
-Operations**, and **Student View** when backed. **Grade Settings** and **Appearance** are Course Setup
-Tasks when backed. **Create Assignment** is a Page Action in Assignments content, not a Ribbon Tab or
-Task. A route declaring one of these task groups reserves the Task Row even when no Task is admitted,
-so admission never moves the content origin. A route with no declared task group omits that row.
+An Instructor's backed assignment-workspace Tasks are **Overview**, **Questions**, and **Policies**.
+**Grading Operations** and **Student View** remain absent until backed. **Grade Settings** and
+**Appearance** are Course Setup Tasks when backed. **Create Assignment** is a Page Action in
+Assignments content, not a Ribbon Tab or Task. A route declaring one of these task groups reserves the
+Task Row even when no Task is admitted, so admission never moves the content origin. A route with no
+declared task group omits that row.
 
 ### Assignment Attempt boundary
 
@@ -98,7 +99,8 @@ changes.
 - At Course Instance scope, confirm the course identity in the dense top bar, then choose the admitted
   Course Instance Tab appropriate to the teaching decision.
 - On Assignments, use the content-local **Create Assignment** Page Action when creating rather than
-  navigating; use an admitted assignment-workspace Task only after an assignment is selected.
+  navigating; use the admitted **Overview**, **Questions**, and **Policies** Assignment workspace
+  Tasks only after an assignment is selected. Question edits keep their page-owned leave guard.
 - On a route reached through a Context Control, recognize **No Selected Ribbon Tab** as an intentional
   state and use the persistent schema to return to a teaching destination.
 

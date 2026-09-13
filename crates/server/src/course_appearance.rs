@@ -131,20 +131,37 @@ async fn update_theme(
         // oversized body before any state-changing Store call.
         Err(_) => return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Course Theme is invalid"),
     };
-    match state
-        .themes
-        .update_course_theme(session_hash, course, update.theme)
-        .await
+    match update_course_appearance(
+        &state.themes,
+        &state.banners,
+        session_hash,
+        course,
+        update.theme,
+    )
+    .await
     {
-        Ok(theme) => crate::auth::no_store(
-            Json(CourseAppearanceView {
-                theme,
-                banner: None,
-            })
-            .into_response(),
-        ),
+        Ok(appearance) => crate::auth::no_store(Json(appearance).into_response()),
         Err(error) => store_error_response(error),
     }
+}
+
+/// Updates the independent Course Theme, then returns the complete Course Appearance View.
+///
+/// After the theme is persisted, the existing Course Banner is read without changing it.
+async fn update_course_appearance(
+    themes: &(impl CourseThemeStore + ?Sized),
+    banners: &(impl CourseBannerStore + ?Sized),
+    session_hash: SessionTokenHash,
+    course: CourseId,
+    theme: question_model::CourseTheme,
+) -> Result<CourseAppearanceView, StoreError> {
+    let theme = themes
+        .update_course_theme(session_hash, course, theme)
+        .await?;
+    let banner = banners
+        .read_current_course_banner(session_hash, course)
+        .await?;
+    Ok(CourseAppearanceView { theme, banner })
 }
 
 async fn read_appearance(

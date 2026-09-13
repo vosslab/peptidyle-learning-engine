@@ -4,6 +4,10 @@
 
 ### Additions and New Features
 
+- Added Base Assignment Policy autosave that persists only valid policy values,
+  labels saving, invalid, rejected, failed, and conflicted drafts, and keeps
+  Check release and Release unavailable until the visible policy state is saved.
+
 - Completed the WeBWorK opaque backend-owned lifecycle. PLE now delivers an exact authorized
   backend document, bridges generic ordered form pairs, persists the bounded opaque response, and
   sends it to the WeBWorK adapter for grading. The adapter owns WeBWorK response validation and
@@ -25,6 +29,15 @@
   roots or persona surface.
 
 ### Behavior or Interface Changes
+
+- The Assignment Question Editor now protects structural Question changes with
+  Save, Discard, and Stay navigation choices.
+
+- Course Appearance theme updates preserve the complete Course Appearance,
+  including its current Course Banner.
+
+- Assignment Overview, Questions, and Policies are now backed Ribbon
+  destinations; the regenerated destination ledger records their availability.
 
 - Question Type is immutable author-declared educational metadata on each Published Question
   Revision. PLE uses it for search, filtering, and labels; it never infers it from a backend
@@ -98,6 +111,11 @@
 
 ### Removals and Deprecations
 
+- Removed speculative Grade Settings and Teaching Operations routes, pages,
+  browser/API code, generated DTOs, and unsupported model code. Their direct
+  URLs now use ordinary not-found. Separate pending Account Invitations and
+  shared enrollment domain concepts remain supported.
+
 - Removed the WeBWorK HTML projection/replay layer, replay persistence, renderer cache plumbing,
   and projection-era browser tests. The compact permanent suite now protects the opaque boundary
   rather than a catalog of PG interaction shapes.
@@ -114,6 +132,11 @@
   scaffolding, not supported product or acceptance paths.
 
 ### Decisions and Failures
+
+- Added a concise execution goal beside the Phase 1 Instructor safety and
+  truthful UI plan. The goal keeps Human Guidance and the Terminology Contract
+  authoritative and leaves the plan as the primary source for scope and
+  implementation detail.
 
 - M2 selected C2, the same-origin iframe with its document CSP, and E1, stateless one-grade-request
   submission. The temporary behavior corpus and a failed privileged SQL oracle were demoted: they
@@ -150,6 +173,13 @@
 
 ### Developer Tests and Notes
 
+- Connected Assignment browser and service evidence, the Course Appearance
+  browser scenario, focused Rust/Node/type/ledger gates, `./check_codebase.sh`,
+  and the final `./launchers/all_test.sh` aggregate passed for Phase 1. The
+  aggregate covered generated TypeScript contracts, Rust checks and tests,
+  Python tests, disposable PostgreSQL baseline and installation-data paths, and
+  Course Appearance PostgreSQL/MinIO acceptance.
+
 - M11 boundary checks and accepted M12 connected curl/browser evidence cover render, capture,
   Save, Finish, assets, styling, document headers, grading, PostgreSQL persistence, and the Student
   history outcome. The final reviewed renderer OCI is
@@ -163,7 +193,7 @@
   404 Node tests, 6,066
   pytest tests, disposable PostgreSQL baseline, ordinary installation-data provision/opt-out, and
   Course Appearance PostgreSQL-plus-MinIO acceptance all passed, ending `PASS: complete live
-  acceptance is green.`
+acceptance is green.`
 
 - The final six-perspective audit found no comment blocker and identified
   lifecycle, installation-data, race-determinism, duplicated libpq parsing,
@@ -363,7 +393,7 @@
 ### Developer Tests and Notes
 
 - `node --import tsx devel/generate_ribbon_destination_ledger.mjs --check` passed with `Ribbon
-  destination ledger generated section is current.`
+destination ledger generated section is current.`
 
 - Final aggregate receipt: `./launchers/all_test.sh` exited 0 with 432 Node checks, 6,456 pytest
   checks, Rust/Wasm, fresh/no-op PostgreSQL authority and persistence, MinIO, Course Appearance,
@@ -396,7 +426,7 @@
 
 - Accepted M10/WP-DUE1's narrow cross-course Due Soon read path. The authenticated Instructor-only
   `GET /api/assignments/due-soon` response is exactly `{ items, nextCursor: null, displayTimeZone
-  }`; each item contains only Course reference/long name, Assignment reference/title/status, and
+}`; each item contains only Course reference/long name, Assignment reference/title/status, and
   `dueAtMillis`. The implementation uses an owner-selected rolling next-seven-days window for
   unreleased and released Assignments. It is not a new product-policy or human-guidance decision.
   The Store independently applies the existing active-Instructor membership predicate, so revoked
@@ -414,8 +444,7 @@
   6,321 pytest, 99 fresh/no-op migrations, PostgreSQL, MinIO, Profile, Course Appearance, and
   cleanup lanes passing (`/private/tmp/ple-interface-cleanup.QVsF3M/m7-final-all-test.log`). The
   prior failed backend and stale-seed receipts remain historical diagnostics, not current status.
-  Canonical HTTP (session 30817), answer-only and All/Never disclosure policy, and UI (session
-  11049) browser lanes passed at `https://localhost:55230`; `m7-ui-accepted.log` records UI
+  Canonical HTTP (session 30817), answer-only and All/Never disclosure policy, and UI (session 11049) browser lanes passed at `https://localhost:55230`; `m7-ui-accepted.log` records UI
   automation passing all profiles, axe 0, focus, 503 retry, and resume. Canonical stop session
   48488 exited 0 (`m7-accepted-stop.log`). The native PLE source
   mapping now transports `question_attempt_id`, `source_object_id`, and `question_seed` as text,

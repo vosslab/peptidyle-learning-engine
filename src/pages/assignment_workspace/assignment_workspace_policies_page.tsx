@@ -1,11 +1,12 @@
 import { A } from "@solidjs/router";
-import { For, Show, createSignal, onMount, type JSX } from "solid-js";
+import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type { LateWorkRule } from "../../../generated/api/LateWorkRule";
 import type {
   AssignmentUnreleaseImpact,
   AssignmentReleaseValidation,
-  SaveLiveAssignmentInput,
+  LiveAssignmentWorkspace,
+  SaveBaseAssignmentPolicyInput,
 } from "../../api/assignment_release";
 import { useApplicationApi } from "../../api/application_api";
 import { ApiRequestError } from "../../api/http_client/error";
@@ -14,11 +15,20 @@ import { assignmentWorkspacePath } from "./assignment_workspace_paths";
 import { useAssignmentWorkspace } from "./assignment_workspace_live_page";
 import {
   canonicalLocalDateAndTime,
-  assignmentPolicySaveInput,
   dueDateDraft,
   dueTimeDraft,
   localDueDateAndTime,
 } from "./assignment_workspace_policy_model";
+import {
+  allBaseAssignmentPolicyEditsPersisted,
+  baseAssignmentPolicyDraftChanged,
+  baseAssignmentPolicyReloaded,
+  baseAssignmentPolicyRequest,
+  baseAssignmentPolicyRetry,
+  baseAssignmentPolicySaveError,
+  baseAssignmentPolicySaveSucceeded,
+  createBaseAssignmentPolicyAutosaveState,
+} from "./base_assignment_policy_autosave_model";
 
 const FEEDBACK_FIELDS = [
   ["score", "Score"],
@@ -38,6 +48,22 @@ const FEEDBACK_FIELDS = [
   ],
 ] as const;
 
+function baseAssignmentPolicyInput(
+  workspace: LiveAssignmentWorkspace,
+): SaveBaseAssignmentPolicyInput {
+  return {
+    instructions: workspace.instructions,
+    dueAt: workspace.dueAt,
+    availableAt: workspace.availableAt,
+    closesAt: workspace.closesAt,
+    lateWorkRule: workspace.lateWorkRule,
+    assignmentAttemptTimeLimitSeconds: workspace.assignmentAttemptTimeLimitSeconds,
+    attemptLimit: workspace.attemptLimit,
+    activityRules: workspace.activityRules,
+    studentFeedbackReleaseRule: workspace.studentFeedbackReleaseRule,
+  };
+}
+
 /** Edits the full direct resource while keeping timing and feedback controls independent. */
 export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   const workspace = useAssignmentWorkspace();
@@ -53,6 +79,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   const [lateWorkRule, setLateWorkRule] = createSignal<LateWorkRule>(initial.lateWorkRule);
   const [activityRules, setActivityRules] = createSignal(initial.activityRules);
   const [feedbackRules, setFeedbackRules] = createSignal(initial.studentFeedbackReleaseRule);
+  const [policyState, setPolicyState] = createSignal(
+    createBaseAssignmentPolicyAutosaveState(baseAssignmentPolicyInput(initial)),
+  );
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
   const [needsReload, setNeedsReload] = createSignal(false);
@@ -60,13 +89,14 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
   const [validationFailed, setValidationFailed] = createSignal(false);
   const [unreleaseImpact, setUnreleaseImpact] = createSignal<AssignmentUnreleaseImpact>();
   const [confirmationTitle, setConfirmationTitle] = createSignal("");
+  let instructionSaveTimer: number | undefined;
+  let activeRequestSeq: number | undefined;
 
   function integer(value: string): number | null | undefined {
     if (value === "") return null;
     return /^[1-9][0-9]*$/u.test(value) ? Number(value) : undefined;
   }
-  function currentInput(): SaveLiveAssignmentInput | null {
-    const base = workspace.assignment().workspace;
+  function currentInput(): SaveBaseAssignmentPolicyInput | null {
     const parsedDueAt = canonicalLocalDateAndTime(localDueDateAndTime(dueDate(), dueTime()));
     const parsedTimeLimit = integer(timeLimit());
     const parsedAttemptLimit = integer(attemptLimit());
@@ -76,7 +106,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       parsedAttemptLimit === undefined
     )
       return null;
-    return assignmentPolicySaveInput(base, {
+    return {
       instructions: instructions(),
       dueAt: parsedDueAt,
       lateWorkRule: lateWorkRule(),
@@ -84,7 +114,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       attemptLimit: parsedAttemptLimit,
       activityRules: activityRules(),
       studentFeedbackReleaseRule: feedbackRules(),
-    });
+      availableAt: workspace.assignment().workspace.availableAt,
+      closesAt: workspace.assignment().workspace.closesAt,
+    };
   }
   function updateOrder(shuffled: boolean): void {
     setActivityRules((current) => ({
@@ -103,34 +135,91 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       setFeedbackRules((current) => ({ ...current, [field]: value }));
     }
   }
-  async function save(): Promise<void> {
+  function classifySaveError(error: unknown): "rejected" | "failed" | "conflict" {
+    if (error instanceof LiveAssignmentWorkspaceConflictError) return "conflict";
+    if (error instanceof ApiRequestError && error.status === 422) return "rejected";
+    return "failed";
+  }
+  function startSave(state = policyState()): void {
+    const request = baseAssignmentPolicyRequest(state);
+    if (request === undefined || activeRequestSeq === request.seq) return;
+    activeRequestSeq = request.seq;
+    void (async (): Promise<void> => {
+      try {
+        const saved = await workspace.saveBaseAssignmentPolicy(request.input);
+        setReleaseValidation(undefined);
+        const next = baseAssignmentPolicySaveSucceeded(
+          policyState(),
+          request.seq,
+          baseAssignmentPolicyInput(saved.workspace),
+          currentInput() !== null,
+        );
+        setPolicyState(next);
+        if (next.persistence === "saved") {
+          setMessage("Assignment policies saved. Future Attempts use the current policy values.");
+        }
+        activeRequestSeq = undefined;
+        startSave(next);
+      } catch (error: unknown) {
+        const persistence = classifySaveError(error);
+        const next = baseAssignmentPolicySaveError(policyState(), request.seq, persistence);
+        setPolicyState(next);
+        if (persistence === "conflict") {
+          setNeedsReload(true);
+          setMessage(
+            "This assignment changed elsewhere. Reload server state before saving; your typed policies remain here.",
+          );
+        } else if (persistence === "rejected") {
+          setMessage("The server did not accept these policy values.");
+        } else {
+          setMessage("Assignment policies were not saved. Retry with the current values.");
+        }
+        activeRequestSeq = undefined;
+      }
+    })();
+  }
+  function recordDraft(requestNow = true): void {
     const input = currentInput();
+    if (needsReload()) {
+      setPolicyState((state) => ({
+        ...state,
+        draft: input ?? state.draft,
+        draftSeq: state.draftSeq + 1,
+        pending: undefined,
+        persistence: input === null ? "invalid" : "conflict",
+      }));
+      return;
+    }
     if (input === null) {
+      setPolicyState((state) => baseAssignmentPolicyDraftChanged(state, state.draft, false));
       setMessage(
         "Enter a complete local due time and positive whole-number limits, or leave them blank.",
       );
       return;
     }
-    if (needsReload()) {
-      setMessage("Reload the latest assignment before saving. Your typed policies remain here.");
-      return;
-    }
-    setBusy(true);
-    try {
-      await workspace.save(input);
-      setReleaseValidation(undefined);
-      setMessage("Assignment policies saved. Future Attempts use the current policy values.");
-    } catch (error: unknown) {
-      const conflict = error instanceof LiveAssignmentWorkspaceConflictError;
-      setNeedsReload(conflict);
-      setMessage(
-        conflict
-          ? "This assignment changed elsewhere. Reload latest assignment before saving; your typed policies remain here."
-          : "Assignment policies were not saved. Try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
+    const next = baseAssignmentPolicyDraftChanged(policyState(), input, true, requestNow);
+    setPolicyState(next);
+    if (requestNow) startSave(next);
+  }
+  function scheduleInstructionsSave(): void {
+    if (instructionSaveTimer !== undefined) window.clearTimeout(instructionSaveTimer);
+    recordDraft(false);
+    instructionSaveTimer = window.setTimeout(() => {
+      const next = baseAssignmentPolicyRetry(policyState(), currentInput() !== null);
+      setPolicyState(next);
+      startSave(next);
+    }, 600);
+  }
+  function saveInstructionsNow(): void {
+    if (instructionSaveTimer !== undefined) window.clearTimeout(instructionSaveTimer);
+    const next = baseAssignmentPolicyRetry(policyState(), currentInput() !== null);
+    setPolicyState(next);
+    startSave(next);
+  }
+  function retry(): void {
+    const next = baseAssignmentPolicyRetry(policyState(), currentInput() !== null);
+    setPolicyState(next);
+    startSave(next);
   }
   async function reload(): Promise<void> {
     setBusy(true);
@@ -145,6 +234,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
       setLateWorkRule(current.lateWorkRule);
       setActivityRules(current.activityRules);
       setFeedbackRules(current.studentFeedbackReleaseRule);
+      setPolicyState((state) =>
+        baseAssignmentPolicyReloaded(state, baseAssignmentPolicyInput(current)),
+      );
       setNeedsReload(false);
       setReleaseValidation(undefined);
       setMessage("Latest assignment loaded. Review the current policies.");
@@ -196,6 +288,7 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     } catch (error: unknown) {
       const conflict = error instanceof LiveAssignmentWorkspaceConflictError;
       setNeedsReload(conflict);
+      if (conflict) setPolicyState((state) => ({ ...state, persistence: "conflict" }));
       setMessage(
         conflict
           ? "This assignment changed elsewhere. Reload latest assignment before releasing it."
@@ -269,6 +362,9 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
     }
   }
   onMount(() => void loadUnreleaseImpact());
+  onCleanup(() => {
+    if (instructionSaveTimer !== undefined) window.clearTimeout(instructionSaveTimer);
+  });
   const questionsPath = assignmentWorkspacePath(
     workspace.courseReference,
     workspace.assignmentReference,
@@ -283,6 +379,19 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
           Times use your Instructor time zone: {workspace.assignment().workspace.displayTimeZone}.
         </p>
       </header>
+      <p class="assignment-workspace-save-message" role="status">
+        {policyState().persistence === "saving"
+          ? "Saving"
+          : policyState().persistence === "saved"
+            ? "Saved"
+            : policyState().persistence === "invalid"
+              ? "Invalid"
+              : policyState().persistence === "rejected"
+                ? "Not accepted"
+                : policyState().persistence === "failed"
+                  ? "Save failed"
+                  : "Conflict"}
+      </p>
       <Show when={message()}>
         {(value) => (
           <p
@@ -293,7 +402,11 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
           </p>
         )}
       </Show>
-      <fieldset class="assignment-workspace-policy-controls" disabled={busy()} aria-busy={busy()}>
+      <fieldset
+        class="assignment-workspace-policy-controls"
+        disabled={busy()}
+        aria-busy={busy() || policyState().persistence === "saving"}
+      >
         <legend>Assignment policies</legend>
         <section class="assignment-editor-policy-panel">
           <h2>Assignment and delivery</h2>
@@ -302,7 +415,11 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
             <textarea
               rows="4"
               value={instructions()}
-              onInput={(event) => setInstructions(event.currentTarget.value)}
+              onInput={(event) => {
+                setInstructions(event.currentTarget.value);
+                scheduleInstructionsSave();
+              }}
+              onBlur={saveInstructionsNow}
             />
           </label>
           <div class="assignment-workspace-schedule" role="group" aria-label="Due date and time">
@@ -311,7 +428,10 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
               <input
                 type="date"
                 value={dueDate()}
-                onInput={(event) => setDueDate(event.currentTarget.value)}
+                onInput={(event) => {
+                  setDueDate(event.currentTarget.value);
+                  recordDraft();
+                }}
               />
             </label>
             <label class="assignment-editor-field">
@@ -320,7 +440,10 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                 type="time"
                 step="0.001"
                 value={dueTime()}
-                onInput={(event) => setDueTime(event.currentTarget.value)}
+                onInput={(event) => {
+                  setDueTime(event.currentTarget.value);
+                  recordDraft();
+                }}
               />
             </label>
           </div>
@@ -330,7 +453,10 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
               type="number"
               min="1"
               value={timeLimit()}
-              onInput={(event) => setTimeLimit(event.currentTarget.value)}
+              onInput={(event) => {
+                setTimeLimit(event.currentTarget.value);
+                recordDraft();
+              }}
             />
           </label>
           <label class="assignment-editor-field">
@@ -339,7 +465,10 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
               type="number"
               min="1"
               value={attemptLimit()}
-              onInput={(event) => setAttemptLimit(event.currentTarget.value)}
+              onInput={(event) => {
+                setAttemptLimit(event.currentTarget.value);
+                recordDraft();
+              }}
             />
           </label>
           <p>
@@ -350,7 +479,10 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
             Late-work rule
             <select
               value={lateWorkRule()}
-              onChange={(event) => setLateWorkRule(event.currentTarget.value as LateWorkRule)}
+              onChange={(event) => {
+                setLateWorkRule(event.currentTarget.value as LateWorkRule);
+                recordDraft();
+              }}
             >
               <option value="reject">Reject late work</option>
               <option value="mark_late">Accept and mark late</option>
@@ -361,7 +493,10 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
             <input
               type="checkbox"
               checked={activityRules().assignmentQuestionOrderRule === "shuffled"}
-              onChange={(event) => updateOrder(event.currentTarget.checked)}
+              onChange={(event) => {
+                updateOrder(event.currentTarget.checked);
+                recordDraft();
+              }}
             />
             <span>Randomize question order</span>
           </label>
@@ -378,7 +513,10 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
                 <select
                   value={feedbackRules()[field]}
                   aria-describedby={help === undefined ? undefined : `feedback-${field}-help`}
-                  onChange={(event) => updateFeedback(field, event.currentTarget.value)}
+                  onChange={(event) => {
+                    updateFeedback(field, event.currentTarget.value);
+                    recordDraft();
+                  }}
                 >
                   <option value="during_attempt">During attempt</option>
                   <option value="after_submit">After submit</option>
@@ -394,30 +532,31 @@ export function AssignmentWorkspacePoliciesPage(): JSX.Element {
           </For>
         </section>
         <p class="assignment-editor-actions">
-          <button
-            class="primary-action"
-            type="button"
-            disabled={needsReload()}
-            onClick={() => void save()}
-          >
-            {busy() ? "Saving policies..." : "Save assignment policies"}
-          </button>
+          <Show when={policyState().persistence === "failed"}>
+            <button class="primary-action" type="button" onClick={retry}>
+              Retry
+            </button>
+          </Show>
           <Show when={workspace.assignment().workspace.status === "unreleased"}>
-            <button type="button" disabled={needsReload()} onClick={() => void validateRelease()}>
+            <button
+              type="button"
+              disabled={!allBaseAssignmentPolicyEditsPersisted(policyState()) || busy()}
+              onClick={() => void validateRelease()}
+            >
               {busy() ? "Checking release readiness..." : "Check release readiness"}
             </button>
             <button
               class="primary-action"
               type="button"
-              disabled={needsReload()}
+              disabled={!allBaseAssignmentPolicyEditsPersisted(policyState()) || busy()}
               onClick={() => void release()}
             >
               Release assignment
             </button>
           </Show>
-          <Show when={needsReload()}>
+          <Show when={policyState().persistence === "conflict"}>
             <button type="button" onClick={() => void reload()}>
-              Reload latest assignment
+              Reload server state
             </button>
           </Show>
           <A class="quiet-link" href={questionsPath}>

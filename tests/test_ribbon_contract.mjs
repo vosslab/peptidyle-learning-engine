@@ -304,6 +304,40 @@ test("Student Assignment Access and its Course landing retain the role-owned Ass
   assert.deepEqual(courseLanding.tabs, expectedTab);
 });
 
+test("Assignment workspace tasks retain supported links and exactly one selected task", async () => {
+  const RealAppRibbon = await loadAppRibbonForSsr();
+  const expected = {
+    assignmentWorkspaceOverview: "/instructor/courses/C-1/assignments/A-1",
+    assignmentWorkspaceQuestions: "/instructor/courses/C-1/assignments/A-1/questions",
+    assignmentWorkspacePolicies: "/instructor/courses/C-1/assignments/A-1/policies",
+  };
+  for (const [routeId, selectedHref] of Object.entries(expected)) {
+    const { model, controls } = controlsFor(routeId, "instructor");
+    const tasks = controls.filter((control) =>
+      ["assignmentOverview", "assignmentQuestions", "assignmentPolicies"].includes(control.id),
+    );
+    assert.deepEqual(
+      tasks.map(({ id, href }) => ({ id, href })),
+      [
+        { id: "assignmentOverview", href: expected.assignmentWorkspaceOverview },
+        { id: "assignmentQuestions", href: expected.assignmentWorkspaceQuestions },
+        { id: "assignmentPolicies", href: expected.assignmentWorkspacePolicies },
+      ],
+      routeId,
+    );
+    assert.deepEqual(
+      tasks.filter((control) => control.selected).map((control) => control.href),
+      [selectedHref],
+    );
+    const html = renderToString(() => createComponent(RealAppRibbon, { model }));
+    assert.match(
+      html,
+      new RegExp(`href="${selectedHref}"[^>]*aria-current="page"[^>]*data-ribbon-control=`),
+      routeId,
+    );
+  }
+});
+
 test("missing source parameters withhold a backed destination without changing its position", () => {
   const entry = CAPABILITY_REGISTRY.backToAssignments;
   const descriptors = Object.getOwnPropertyDescriptors(entry);

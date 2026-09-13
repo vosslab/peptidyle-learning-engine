@@ -1,29 +1,19 @@
-// Pure presentation helpers for the bounded teaching-team API projections.
+// Pure presentation helpers for account-owned pending Course Invitations.
 
-import type { CourseInvitationStateView } from "../../generated/api/CourseInvitationStateView";
 import type { AccountTimeZone } from "../../generated/api/AccountTimeZone";
+import type { CourseInvitationStateView } from "../../generated/api/CourseInvitationStateView";
 
-export interface ReferenceRow {
+interface ReferenceRow {
   readonly reference: string;
 }
 
 /** Appends one cursor page without duplicating a stable server row. */
-export function appendTeachingTeamPage<T extends ReferenceRow>(
+export function appendPendingInvitationPage<T extends ReferenceRow>(
   current: ReadonlyArray<T>,
   next: ReadonlyArray<T>,
 ): ReadonlyArray<T> {
-  return appendTeachingTeamRows(current, next, (row) => row.reference);
-}
-
-/** Appends a cursor page using the API row's stable, browser-safe Reference. */
-export function appendTeachingTeamRows<T>(
-  current: ReadonlyArray<T>,
-  next: ReadonlyArray<T>,
-  key: (row: T) => string,
-): ReadonlyArray<T> {
-  const existing = new Set(current.map(key));
-  const appended = next.filter((row) => !existing.has(key(row)));
-  return [...current, ...appended];
+  const existing = new Set(current.map((row) => row.reference));
+  return [...current, ...next.filter((row) => !existing.has(row.reference))];
 }
 
 export function invitationStateLabel(state: CourseInvitationStateView): string {
@@ -55,10 +45,6 @@ export function isPendingInvitation(state: CourseInvitationStateView): boolean {
   return state === "pending";
 }
 
-export function finalInstructorConflictCopy(): string {
-  return "This course must keep one active instructor. Reload the teaching team before trying again.";
-}
-
 export function conflictRecoveryCopy(): string {
-  return "The teaching team changed. The current list was reloaded; your search and selected invitee remain available.";
+  return "The invitation changed. The current list was reloaded.";
 }

@@ -13,6 +13,7 @@ import {
 
 import type {
   LiveAssignmentWorkspaceResponse,
+  SaveBaseAssignmentPolicyInput,
   SaveLiveAssignmentInput,
   UnreleasedLiveAssignment,
 } from "../../api/assignment_release";
@@ -37,6 +38,9 @@ export interface AssignmentWorkspaceContextValue {
   readonly assignment: Accessor<LiveAssignmentWorkspaceResponse>;
   readonly assignmentReference: AssignmentRouteReference;
   readonly save: (input: SaveLiveAssignmentInput) => Promise<LiveAssignmentWorkspaceResponse>;
+  readonly saveBaseAssignmentPolicy: (
+    input: SaveBaseAssignmentPolicyInput,
+  ) => Promise<LiveAssignmentWorkspaceResponse>;
   readonly release: (etag: string) => Promise<LiveAssignmentWorkspaceResponse>;
   readonly unrelease: (confirmationTitle: string) => Promise<UnreleasedLiveAssignment>;
   readonly reloadAssignment: () => Promise<LiveAssignmentWorkspaceResponse>;
@@ -168,6 +172,18 @@ function AssignmentWorkspaceLiveContent(props: AssignmentWorkspaceLivePageProps)
         setCurrentAssignment(saved);
         return saved;
       };
+      const saveBaseAssignmentPolicy = async (
+        input: SaveBaseAssignmentPolicyInput,
+      ): Promise<LiveAssignmentWorkspaceResponse> => {
+        const saved = await applicationApi.client.saveBaseAssignmentPolicy(
+          courseReference,
+          assignmentReference,
+          input,
+          currentAssignment().etag,
+        );
+        setCurrentAssignment(saved);
+        return saved;
+      };
       const release = async (etag: string): Promise<LiveAssignmentWorkspaceResponse> => {
         const released = await applicationApi.client.releaseLiveAssignment(
           courseReference,
@@ -194,6 +210,7 @@ function AssignmentWorkspaceLiveContent(props: AssignmentWorkspaceLivePageProps)
         release,
         unrelease,
         save,
+        saveBaseAssignmentPolicy,
         reloadAssignment,
       });
     } catch (error: unknown) {

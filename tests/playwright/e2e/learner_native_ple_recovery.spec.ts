@@ -147,10 +147,7 @@ async function createCourseAssignment(
   await page.getByLabel("Due time", { exact: true }).fill("12:00");
   await page.getByLabel("Time limit in seconds", { exact: true }).fill("3600");
   await page.getByLabel("Late-work rule").selectOption("mark_late");
-  await page.getByRole("button", { name: "Save assignment policies", exact: true }).click();
-  await expect(
-    page.getByText("Assignment policies saved. Future Attempts use the current policy values."),
-  ).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   const deliveryCheckPage = page.context().waitForEvent("page");
   await page.getByRole("link", { name: "Check assignment delivery", exact: true }).click();
   const deliveryCheck = await deliveryCheckPage;

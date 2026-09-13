@@ -561,14 +561,10 @@ function breadcrumbsFor(
       return Object.freeze(courseTrail("Delivery Check", courseAssignments));
     case "gradebook":
       return Object.freeze(courseTrail("Gradebook", courseAssignments));
-    case "courseGradeSettings":
-      return Object.freeze(courseTrail("Grade Settings", courseAssignments));
     case "courseAppearance":
       return Object.freeze(courseTrail("Appearance", courseAssignments));
     case "courseRoster":
       return Object.freeze(courseTrail("Students", courseAssignments));
-    case "teachingOperations":
-      return Object.freeze(courseTrail("Teaching Operations", courseAssignments));
     case "assignmentAttempt":
       if (
         courses === undefined ||
@@ -617,10 +613,8 @@ function breadcrumbPreludeReservedFor(route: RouteContract): boolean {
     case "assignmentWorkspaceStudentView":
     case "assignmentPreview":
     case "gradebook":
-    case "courseGradeSettings":
     case "courseAppearance":
     case "courseRoster":
-    case "teachingOperations":
     case "assignmentOverview":
     case "assignmentAttempt":
     case "assignmentAttemptSummary":

@@ -1,11 +1,15 @@
 # Plan: production release-readiness phases
 
-Status: approved planning scope; implementation has not started under this plan.
+Status: Phase 1 completed 2026-09-12; Phase 2 is unblocked. Later phases and
+release readiness remain planned.
 
 Primary source: `plan-production_release_readiness_2026_09_12.md`
 
 Related active authority:
 `docs/active_plans/active/webwork_opaque_backend_plan.md`
+
+Completed Phase 1 detail:
+[instructor_safety_truthful_ui_plan.md](../../archive/instructor_safety_truthful_ui_plan.md)
 
 ## Context
 
@@ -130,18 +134,18 @@ The plan also incorporates these product decisions:
 
 ## Current state summary
 
-| Item | Current interpretation | Plan status |
-| --- | --- | --- |
-| 1 | Simple policies can display unsaved values while Release uses saved state; structural edits can be lost on navigation. | Phase 1, milestone 1.1 |
-| 2 | Assignment pages work but the Ribbon capability registry hides supported destinations. | Phase 1, milestone 1.4 |
-| 3 | The older bounded-control implementation is being replaced by an opaque backend-owned interaction. | In progress in the separate active plan |
-| 4 | Student-view scenario and policy modeling exists, but the route, store, and real learner presentation are incomplete. | Phase 3, milestones 3.1-3.3 |
-| 5 | Policy timestamps exist but the Student projection and presentation do not provide a complete decision summary. | Phase 2, milestone 2.1 |
-| 6 | Submission and grading states are not sufficiently distinct, recovery is weak, and the worker has an avoidable post-claim delay. | Phase 2, milestones 2.2-2.3 |
-| 7 | A theme update can return an incomplete Course Appearance and temporarily hide an existing banner. | Phase 1, milestone 1.2 |
-| 8 | Hidden management routes can still call nonexistent endpoints and look broken when visited directly. | Phase 1, milestone 1.3 |
-| 9 | Backend archive and restore actions exist without a narrow owner-facing browser workflow. | Phase 4, milestone 4.1 |
-| 10 | Staged media cleanup and application recovery contracts are incomplete or implicit. | Phase 4, milestone 4.2 |
+| Item | Current interpretation                                                                                                           | Plan status                             |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| 1    | Simple policies can display unsaved values while Release uses saved state; structural edits can be lost on navigation.           | Phase 1, milestone 1.1                  |
+| 2    | Assignment pages work but the Ribbon capability registry hides supported destinations.                                           | Phase 1, milestone 1.4                  |
+| 3    | The older bounded-control implementation is being replaced by an opaque backend-owned interaction.                               | In progress in the separate active plan |
+| 4    | Student-view scenario and policy modeling exists, but the route, store, and real learner presentation are incomplete.            | Phase 3, milestones 3.1-3.3             |
+| 5    | Policy timestamps exist but the Student projection and presentation do not provide a complete decision summary.                  | Phase 2, milestone 2.1                  |
+| 6    | Submission and grading states are not sufficiently distinct, recovery is weak, and the worker has an avoidable post-claim delay. | Phase 2, milestones 2.2-2.3             |
+| 7    | A theme update can return an incomplete Course Appearance and temporarily hide an existing banner.                               | Phase 1, milestone 1.2                  |
+| 8    | Hidden management routes can still call nonexistent endpoints and look broken when visited directly.                             | Phase 1, milestone 1.3                  |
+| 9    | Backend archive and restore actions exist without a narrow owner-facing browser workflow.                                        | Phase 4, milestone 4.1                  |
+| 10   | Staged media cleanup and application recovery contracts are incomplete or implicit.                                              | Phase 4, milestone 4.2                  |
 
 `StudentViewScenario` is interpreted as:
 
@@ -200,21 +204,21 @@ storage live, and how backups are produced.
 
 ### Mapping
 
-| Phase | Milestone | Readiness item | Workstreams | Primary ownership |
-| --- | --- | --- | --- | --- |
-| 1 - Instructor safety and truthful UI | 1.1 Assignment persistence safety | 1 | A | Browser UI and narrow Rust API |
-| 1 - Instructor safety and truthful UI | 1.2 Course Appearance coherence | 7 | B | Rust API and browser cache |
-| 1 - Instructor safety and truthful UI | 1.3 Intentional unavailable routes | 8 | C | Browser UI |
-| 1 - Instructor safety and truthful UI | 1.4 Assignment Ribbon navigation | 2 | D | Browser UI and generated Ribbon ledger |
-| 2 - Student decisions and grading trust | 2.1 Student deadline and access decisions | 5 | E | Rust projection and browser UI |
-| 2 - Student decisions and grading trust | 2.2 Grading lifecycle foundation | 6 | F | Rust domain, Store, and schema if needed |
-| 2 - Student decisions and grading trust | 2.3 Grading responsiveness and recovery | 6 | G, H, I | Rust worker/API and browser UI |
-| 2 - Student decisions and grading trust | 2.4 Fall teaching walkthrough | 3 acceptance | J | Teaching and real-content evidence |
-| 3 - Instructor Student View | 3.1 Scenario delivery contract | 4 | K | Rust preview projection |
-| 3 - Instructor Student View | 3.2 Real preview presentation | 4 | K | Rust service and shared presentation |
-| 3 - Instructor Student View | 3.3 Instructor browser experience | 4 | K | Browser UI and non-mutation evidence |
-| 4 - Owner and operational closure | 4.1 Authoring archive and restore | 9 | L | Browser UI and existing APIs |
-| 4 - Owner and operational closure | 4.2 Provider-neutral Course Media operations | 10 | M | Rust Store, worker, and Object Store |
+| Phase                                   | Milestone                                    | Readiness item | Workstreams | Primary ownership                        |
+| --------------------------------------- | -------------------------------------------- | -------------- | ----------- | ---------------------------------------- |
+| 1 - Instructor safety and truthful UI   | 1.1 Assignment persistence safety            | 1              | A           | Browser UI and narrow Rust API           |
+| 1 - Instructor safety and truthful UI   | 1.2 Course Appearance coherence              | 7              | B           | Rust API and browser cache               |
+| 1 - Instructor safety and truthful UI   | 1.3 Intentional unavailable routes           | 8              | C           | Browser UI                               |
+| 1 - Instructor safety and truthful UI   | 1.4 Assignment Ribbon navigation             | 2              | D           | Browser UI and generated Ribbon ledger   |
+| 2 - Student decisions and grading trust | 2.1 Student deadline and access decisions    | 5              | E           | Rust projection and browser UI           |
+| 2 - Student decisions and grading trust | 2.2 Grading lifecycle foundation             | 6              | F           | Rust domain, Store, and schema if needed |
+| 2 - Student decisions and grading trust | 2.3 Grading responsiveness and recovery      | 6              | G, H, I     | Rust worker/API and browser UI           |
+| 2 - Student decisions and grading trust | 2.4 Fall teaching walkthrough                | 3 acceptance   | J           | Teaching and real-content evidence       |
+| 3 - Instructor Student View             | 3.1 Scenario delivery contract               | 4              | K           | Rust preview projection                  |
+| 3 - Instructor Student View             | 3.2 Real preview presentation                | 4              | K           | Rust service and shared presentation     |
+| 3 - Instructor Student View             | 3.3 Instructor browser experience            | 4              | K           | Browser UI and non-mutation evidence     |
+| 4 - Owner and operational closure       | 4.1 Authoring archive and restore            | 9              | L           | Browser UI and existing APIs             |
+| 4 - Owner and operational closure       | 4.2 Provider-neutral Course Media operations | 10             | M           | Rust Store, worker, and Object Store     |
 
 ## Milestone plan
 
@@ -223,12 +227,12 @@ next phase until the current phase's exit gate passes. The separate item 3
 implementation lane may continue throughout; its work joins this plan only at
 milestone 2.4.
 
-| Phase | Priority | Included items | Internal milestone order | Safe concurrency |
-| --- | --- | --- | --- | --- |
-| 1 - Instructor safety and truthful UI | P0 | 1, 7, 8, then 2 | 1.1/1.2/1.3 in parallel; 1.4 after 1.1 | Maximum three streams, then one navigation patch |
-| 2 - Student decisions and grading trust | P1 | 5, 6, and item 3 acceptance | 2.1; 2.2; 2.3; 2.4 | Within 2.3, G/H/I may run in parallel after F |
-| 3 - Instructor Student View | P1 | 4 | 3.1; 3.2; 3.3 | Integrated contract first; tests may split later |
-| 4 - Owner and operational closure | P2 | 9 and 10 | 4.1 and 4.2 in parallel | Maximum two streams, then one recovery gate |
+| Phase                                   | Priority | Included items              | Internal milestone order               | Safe concurrency                                 |
+| --------------------------------------- | -------- | --------------------------- | -------------------------------------- | ------------------------------------------------ |
+| 1 - Instructor safety and truthful UI   | P0       | 1, 7, 8, then 2             | 1.1/1.2/1.3 in parallel; 1.4 after 1.1 | Maximum three streams, then one navigation patch |
+| 2 - Student decisions and grading trust | P1       | 5, 6, and item 3 acceptance | 2.1; 2.2; 2.3; 2.4                     | Within 2.3, G/H/I may run in parallel after F    |
+| 3 - Instructor Student View             | P1       | 4                           | 3.1; 3.2; 3.3                          | Integrated contract first; tests may split later |
+| 4 - Owner and operational closure       | P2       | 9 and 10                    | 4.1 and 4.2 in parallel                | Maximum two streams, then one recovery gate      |
 
 ### Phase 1 - Instructor safety and truthful UI
 
@@ -261,17 +265,17 @@ pre-existing failures are recorded.
 
 **Exit criteria:** saving a theme does not temporarily hide an existing Banner.
 
-#### Milestone 1.3 - Intentional unavailable routes
+#### Milestone 1.3 - Unsupported routes use ordinary not-found
 
-Make Grade Settings and Teaching Operations direct routes render an intentional
-unavailable state without mounting clients for unsupported endpoints through
+Remove the speculative Grade Settings and Teaching Operations browser and API
+scaffold so their direct URLs use the ordinary not-found surface through
 workstream C.
 
 **Entry criteria:** the current capability registry and direct routes have been
 verified.
 
-**Exit criteria:** direct navigation is truthful and generates no unsupported
-management request.
+**Exit criteria:** direct navigation reaches ordinary not-found and generates no
+unsupported management request.
 
 Milestones 1.1, 1.2, and 1.3 may run in parallel with exclusive feature-module
 ownership.
@@ -888,20 +892,20 @@ delays, provider names, or implementation choreography.
 
 ## Risk register
 
-| Risk | Trigger or signal | Mitigation | Release consequence |
-| --- | --- | --- | --- |
-| Collision with active item 3 | Both plans edit generated presentation, response, or browser contract files | Honor WW-C1/WW-C2 checkpoints; assign exclusive file ownership; regenerate once after integration | Pause dependent stream, not item 3 |
-| Autosave race or silent overwrite | Responses arrive out of order or a stale editor saves | One in-flight queue, coalescing, ETags, full authoritative response, conflict UI | Blocks milestone 1.1 and Ribbon admission |
-| Invalid local value looks saved | Date/time parser accepts partial input or status remains `Saved` | Separate local validity from persistence status; disable release; server revalidation | Blocks release gate |
-| Student browser makes access decisions | Client clock or timezone changes the start control | Return server decision and evaluation instant; browser only formats | Blocks milestone 2.1 |
-| Grading retry duplicates or overwrites | Repeated Retry or stale worker completion | Immutable response reference, idempotency, operation generation fencing | Blocks Phase 2 |
-| Public grading status leaks internals | DTO includes Job ID, private answers, renderer trace, or cross-Course context | Closed metadata-only DTOs and negative authorization/projection tests | Security release blocker |
-| Preview mutates real Student state | Delivery helper implicitly creates an Attempt or response | Dedicated preview operation, submission bridge disabled, before/after persistence proof | Blocks Phase 3 |
-| Simulated preview is mistaken for exact history | Hypothetical prior Attempt or time is unlabeled | Deterministic sample with persistent `Simulated preview` label | Blocks Phase 3 |
-| Cleanup deletes live or foreign data | Raw path/key input, stale claim, or promoted object selected | Typed server-derived subjects, locked bounded claim, receipts, leases, idempotency | Security/data-loss blocker |
-| Provider work expands the plan | Infrastructure manifests or provider backup procedures enter patches | Enforce Non-goals and provider-neutral acceptance language | Remove from patch before review |
-| Authoring lifecycle expands into governance | Revision editor or collaboration behavior appears in Phase 4 | Limit L to existing archive/restore handlers | Split into a future approved plan |
-| Brittle tests accumulate | Tests assert exact HTML, delays, file inventories, or external fixture state | Apply `docs/TEST_EVIDENCE_MODEL.md`; keep only behavior-protecting evidence | Remove brittle test before close-out |
+| Risk                                            | Trigger or signal                                                             | Mitigation                                                                                        | Release consequence                       |
+| ----------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Collision with active item 3                    | Both plans edit generated presentation, response, or browser contract files   | Honor WW-C1/WW-C2 checkpoints; assign exclusive file ownership; regenerate once after integration | Pause dependent stream, not item 3        |
+| Autosave race or silent overwrite               | Responses arrive out of order or a stale editor saves                         | One in-flight queue, coalescing, ETags, full authoritative response, conflict UI                  | Blocks milestone 1.1 and Ribbon admission |
+| Invalid local value looks saved                 | Date/time parser accepts partial input or status remains `Saved`              | Separate local validity from persistence status; disable release; server revalidation             | Blocks release gate                       |
+| Student browser makes access decisions          | Client clock or timezone changes the start control                            | Return server decision and evaluation instant; browser only formats                               | Blocks milestone 2.1                      |
+| Grading retry duplicates or overwrites          | Repeated Retry or stale worker completion                                     | Immutable response reference, idempotency, operation generation fencing                           | Blocks Phase 2                            |
+| Public grading status leaks internals           | DTO includes Job ID, private answers, renderer trace, or cross-Course context | Closed metadata-only DTOs and negative authorization/projection tests                             | Security release blocker                  |
+| Preview mutates real Student state              | Delivery helper implicitly creates an Attempt or response                     | Dedicated preview operation, submission bridge disabled, before/after persistence proof           | Blocks Phase 3                            |
+| Simulated preview is mistaken for exact history | Hypothetical prior Attempt or time is unlabeled                               | Deterministic sample with persistent `Simulated preview` label                                    | Blocks Phase 3                            |
+| Cleanup deletes live or foreign data            | Raw path/key input, stale claim, or promoted object selected                  | Typed server-derived subjects, locked bounded claim, receipts, leases, idempotency                | Security/data-loss blocker                |
+| Provider work expands the plan                  | Infrastructure manifests or provider backup procedures enter patches          | Enforce Non-goals and provider-neutral acceptance language                                        | Remove from patch before review           |
+| Authoring lifecycle expands into governance     | Revision editor or collaboration behavior appears in Phase 4                  | Limit L to existing archive/restore handlers                                                      | Split into a future approved plan         |
+| Brittle tests accumulate                        | Tests assert exact HTML, delays, file inventories, or external fixture state  | Apply `docs/TEST_EVIDENCE_MODEL.md`; keep only behavior-protecting evidence                       | Remove brittle test before close-out      |
 
 ## Rollout and release checklist
 
@@ -915,10 +919,10 @@ delays, provider names, or implementation choreography.
 
 ### Phase 1
 
-- [ ] Land A, B, and C as separate bounded patches with narrow gates.
-- [ ] Run the shared milestones 1.1-1.3 integration/browser gate.
-- [ ] Land milestone 1.4 only after Assignment persistence safety passes.
-- [ ] Confirm no unsupported route makes a dead API call.
+- [x] Land A, B, and C as separate bounded patches with narrow gates.
+- [x] Run the shared milestones 1.1-1.3 integration/browser gate.
+- [x] Land milestone 1.4 only after Assignment persistence safety passes.
+- [x] Confirm no unsupported route makes a dead API call.
 
 ### Phase 2
 

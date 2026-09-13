@@ -72,6 +72,31 @@ pub struct SaveLiveAssignmentInput {
     pub entries: Vec<AssignmentEntry>,
 }
 
+/// The policy-owned slice of one current Assignment, saved with its exact Edit Number.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SaveBaseAssignmentPolicyInput {
+    #[serde(skip_deserializing, default = "initial_assignment_edit_number")]
+    pub expected_edit_number: AssignmentEditNumber,
+    pub instructions: AssignmentInstructions,
+    #[serde(default)]
+    pub due_at: Option<LocalDateAndTime>,
+    #[serde(default)]
+    pub available_at: Option<LocalDateAndTime>,
+    #[serde(default)]
+    pub closes_at: Option<LocalDateAndTime>,
+    #[serde(default = "default_late_work_rule")]
+    pub late_work_rule: LateWorkRule,
+    #[serde(default)]
+    pub assignment_attempt_time_limit_seconds: Option<NonZeroU32>,
+    #[serde(default)]
+    pub attempt_limit: Option<NonZeroU32>,
+    #[serde(default)]
+    pub activity_rules: AssignmentActivityRules,
+    #[serde(default)]
+    pub student_feedback_release_rule: StudentFeedbackReleaseRule,
+}
+
 fn initial_assignment_edit_number() -> AssignmentEditNumber {
     AssignmentEditNumber::INITIAL
 }
@@ -480,6 +505,15 @@ pub trait LiveAssignmentStore: Send + Sync {
         expected_edit_number: AssignmentEditNumber,
         input: SaveLiveAssignmentInlineInput,
     ) -> Result<CourseAssignmentSummary, StoreError>;
+
+    /// Saves policy fields only; title and normalized Entries remain untouched.
+    async fn save_base_assignment_policy(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course: CourseInstanceReference,
+        assignment: AssignmentReference,
+        input: SaveBaseAssignmentPolicyInput,
+    ) -> Result<LiveAssignmentWorkspace, StoreError>;
 
     /// Calculates the current small release boundary without mutating state.
     async fn validate_live_assignment_release(

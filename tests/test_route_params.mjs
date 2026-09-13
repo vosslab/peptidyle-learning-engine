@@ -78,19 +78,7 @@ const routeCases = [
     courseKey("C-1"),
   ],
   ["gradebook", "/instructor/courses/C-1/gradebook", { courseRef: "C-1" }, courseKey("C-1")],
-  [
-    "courseGradeSettings",
-    "/instructor/courses/C-1/grade-settings",
-    { courseRef: "C-1" },
-    courseKey("C-1"),
-  ],
   ["courseRoster", "/instructor/courses/C-1/students", { courseRef: "C-1" }, courseKey("C-1")],
-  [
-    "teachingOperations",
-    "/instructor/courses/C-1/teaching-operations",
-    { courseRef: "C-1" },
-    courseKey("C-1"),
-  ],
 ];
 
 function courseKey(courseReference) {

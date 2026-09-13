@@ -254,11 +254,9 @@ const CAPABILITY_DECLARATIONS = {
   },
   teachingOperations: {
     kind: "unbacked",
-    reason: "Teaching Operations has no registered production teaching/data handler.",
-    evidence: [
-      ...NO_TEACHING_HANDLER,
-      "src/pages/teaching_operations_page.tsx::TeachingOperationsPage",
-    ],
+    reason:
+      "Teaching Operations has no declared route, page, client method, or registered handler.",
+    evidence: [...NO_TEACHING_HANDLER, "src/ribbon/ribbon_catalog.ts::teachingOperations"],
   },
   blueprintUpdates: {
     kind: "unbacked",
@@ -404,14 +402,35 @@ const CAPABILITY_DECLARATIONS = {
     evidence: ["src/ribbon/ribbon_catalog.ts::assignmentTemplates"],
   },
   assignmentOverview: {
-    kind: "unbacked",
-    reason: "Assignment workspace Overview has no registered production teaching/data handler.",
-    evidence: [...NO_TEACHING_HANDLER, "src/routes.ts::routeComponents"],
+    kind: "backed",
+    clientMethod: "ApiClient.getLiveAssignmentWorkspace",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/assignment_release.rs::assignment_release_router",
+    },
+    evidence: [
+      "src/routes.ts::routeComponents",
+      "src/pages/assignment_workspace/assignment_workspace_overview_page.tsx::AssignmentWorkspaceOverviewPage",
+      "src/pages/assignment_workspace/assignment_workspace_live_page.tsx::AssignmentWorkspaceLivePage",
+      "src/api/http_client/assignment_release.ts::getLiveAssignmentWorkspace",
+      "crates/server/src/assignment_release.rs::assignment_release_router",
+    ],
   },
   assignmentQuestions: {
-    kind: "unbacked",
-    reason: "Assignment workspace Questions has no registered production teaching/data handler.",
-    evidence: [...NO_TEACHING_HANDLER, "src/routes.ts::routeComponents"],
+    kind: "backed",
+    clientMethod: "ApiClient.getLiveAssignmentWorkspace",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/assignment_release.rs::assignment_release_router",
+    },
+    evidence: [
+      "src/routes.ts::routeComponents",
+      "src/pages/assignment_workspace/assignment_workspace_questions_page.tsx::AssignmentWorkspaceQuestionsPage",
+      "src/pages/assignment_workspace/assignment_workspace_live_page.tsx::AssignmentWorkspaceLivePage",
+      "src/api/http_client/assignment_release.ts::getLiveAssignmentWorkspace",
+      "src/api/http_client/assignment_release.ts::listLiveAssignmentQuestionPicker",
+      "crates/server/src/assignment_release.rs::assignment_release_router",
+    ],
   },
   assignmentPolicies: {
     kind: "backed",
@@ -433,11 +452,8 @@ const CAPABILITY_DECLARATIONS = {
   },
   gradeSettings: {
     kind: "unbacked",
-    reason: "Grade Settings has no registered production teaching/data handler.",
-    evidence: [
-      ...NO_TEACHING_HANDLER,
-      "src/api/application_api.tsx::ApiClient.getCourseGradeSettings",
-    ],
+    reason: "Grade Settings has no declared route, page, client method, or registered handler.",
+    evidence: [...NO_TEACHING_HANDLER, "src/ribbon/ribbon_catalog.ts::gradeSettings"],
   },
   appearance: {
     kind: "backed",

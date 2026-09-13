@@ -17,6 +17,7 @@ struct CompletionStore {
     calls: Arc<Mutex<Vec<&'static str>>>,
     fail_completion: Option<usize>,
     fail_stage_finalize: bool,
+    current_banner: Option<question_model::CourseBanner>,
 }
 
 #[async_trait]
@@ -128,7 +129,7 @@ impl CourseBannerStore for CompletionStore {
         _: SessionTokenHash,
         _: CourseId,
     ) -> Result<Option<question_model::CourseBanner>, StoreError> {
-        Err(StoreError::Unavailable("unused".to_string()))
+        Ok(self.current_banner.clone())
     }
     async fn resolve_current_course_banner(
         &self,
@@ -151,6 +152,31 @@ impl CourseBannerStore for CompletionStore {
         _: CourseId,
     ) -> Result<PreparedCourseBannerRemoval, StoreError> {
         Err(StoreError::Unavailable("unused".to_string()))
+    }
+}
+
+#[derive(Clone, Copy)]
+struct ThemeStore {
+    accepted_theme: question_model::CourseTheme,
+}
+
+#[async_trait]
+impl CourseThemeStore for ThemeStore {
+    async fn read_course_theme(
+        &self,
+        _: SessionTokenHash,
+        _: CourseId,
+    ) -> Result<question_model::CourseTheme, StoreError> {
+        Ok(self.accepted_theme)
+    }
+
+    async fn update_course_theme(
+        &self,
+        _: SessionTokenHash,
+        _: CourseId,
+        _: question_model::CourseTheme,
+    ) -> Result<question_model::CourseTheme, StoreError> {
+        Ok(self.accepted_theme)
     }
 }
 
@@ -236,6 +262,50 @@ fn prepared_fixture() -> (CourseId, CourseBannerReference, PreparedFixtureObject
         })
         .collect();
     (course, banner, values)
+}
+
+#[tokio::test]
+async fn theme_update_returns_the_current_course_banner_in_the_complete_appearance_view() {
+    let course = CourseId::from_uuid(Uuid::from_u128(111));
+    let banner = question_model::CourseBanner {
+        reference: CourseBannerReference::from_uuid(Uuid::from_u128(112)),
+        alternative_text: question_model::CourseBannerAlternativeText::Decorative,
+    };
+    let appearance = update_course_appearance(
+        &ThemeStore {
+            accepted_theme: question_model::CourseTheme::Forest,
+        },
+        &CompletionStore {
+            current_banner: Some(banner.clone()),
+            ..Default::default()
+        },
+        SessionTokenHash::compute(b"theme-with-banner"),
+        course,
+        question_model::CourseTheme::Forest,
+    )
+    .await
+    .expect("accepted theme update and current banner should form one appearance view");
+
+    assert_eq!(appearance.theme, question_model::CourseTheme::Forest);
+    assert_eq!(appearance.banner, Some(banner));
+}
+
+#[tokio::test]
+async fn theme_update_keeps_banner_free_course_appearance_banner_free() {
+    let appearance = update_course_appearance(
+        &ThemeStore {
+            accepted_theme: question_model::CourseTheme::Ocean,
+        },
+        &CompletionStore::default(),
+        SessionTokenHash::compute(b"theme-without-banner"),
+        CourseId::from_uuid(Uuid::from_u128(113)),
+        question_model::CourseTheme::Ocean,
+    )
+    .await
+    .expect("accepted theme update without a banner should form one appearance view");
+
+    assert_eq!(appearance.theme, question_model::CourseTheme::Ocean);
+    assert_eq!(appearance.banner, None);
 }
 
 #[tokio::test]

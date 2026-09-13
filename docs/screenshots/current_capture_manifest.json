@@ -821,11 +821,6 @@
         "captureIds": ["instructor_gradebook_laptop"]
       },
       {
-        "routeId": "courseGradeSettings",
-        "status": "deferred",
-        "reason": "Grade Settings is not an available current Product Ribbon capability."
-      },
-      {
         "routeId": "courseAppearance",
         "status": "deferred",
         "reason": "Course Appearance is an admitted Instructor Ribbon destination; the current atlas has no dedicated Appearance capture. The completed M11 browser scenario separately proves reload, enrolled-Student propagation, and second-Course isolation."
@@ -842,11 +837,6 @@
           "instructor_course_roster_active_laptop",
           "instructor_course_roster_pending_invitation_laptop"
         ]
-      },
-      {
-        "routeId": "teachingOperations",
-        "status": "deferred",
-        "reason": "Teaching Operations is not an available current Product Ribbon capability."
       },
       {
         "routeId": "assignmentPreview",

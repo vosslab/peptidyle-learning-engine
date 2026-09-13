@@ -13,8 +13,8 @@ use axum::{
     routing::{get, post, put},
 };
 use learning_data_access::{
-    CreateLiveAssignmentInput, LiveAssignmentStore, SaveLiveAssignmentInlineInput,
-    SaveLiveAssignmentInput, SessionTokenHash, StoreError,
+    CreateLiveAssignmentInput, LiveAssignmentStore, SaveBaseAssignmentPolicyInput,
+    SaveLiveAssignmentInlineInput, SaveLiveAssignmentInput, SessionTokenHash, StoreError,
     postgres::{PostgresLiveAssignmentStore, PostgresSessionStore},
 };
 use question_model::{
@@ -70,6 +70,10 @@ pub fn assignment_release_router(
         .route(
             "/api/course-instances/{course}/assignments/{assignment}/inline",
             put(save_assignment_inline),
+        )
+        .route(
+            "/api/course-instances/{course}/assignments/{assignment}/policies",
+            put(save_base_assignment_policy),
         )
         .route(
             "/api/course-instances/{course}/assignments/{assignment}/release-validation",
@@ -284,6 +288,34 @@ async fn save_assignment_inline(
         .await
     {
         Ok(value) => summary_response(&value),
+        Err(error_value) => store_error(error_value),
+    }
+}
+async fn save_base_assignment_policy(
+    State(state): State<StateData>,
+    headers: HeaderMap,
+    Path((course, assignment)): Path<(String, String)>,
+    Json(mut input): Json<SaveBaseAssignmentPolicyInput>,
+) -> Response {
+    let (course, assignment) = match refs(&course, &assignment) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let expected = match edit_header(&headers) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    input.expected_edit_number = expected;
+    let token = match instructor(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .assignments
+        .save_base_assignment_policy(token, course, assignment, input)
+        .await
+    {
+        Ok(value) => workspace_response(StatusCode::OK, &value),
         Err(error_value) => store_error(error_value),
     }
 }
