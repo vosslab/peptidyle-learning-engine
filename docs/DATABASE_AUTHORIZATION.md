@@ -64,10 +64,10 @@ keeps authorization simple rather than adding another authorization mechanism.
 
 The base provides three ordinary no-login capabilities:
 
-| Capability | Purpose |
-| --- | --- |
-| `ple_app` | Authenticated application operations and read-only schema verification. |
-| `ple_auth` | Session resolution and authentication operations. |
+| Capability    | Purpose                                                                    |
+| ------------- | -------------------------------------------------------------------------- |
+| `ple_app`     | Authenticated application operations and read-only schema verification.    |
+| `ple_auth`    | Session resolution and authentication operations.                          |
 | `ple_student` | Bounded student-facing operations where a separate capability is required. |
 
 Platform provisioning creates separate `LOGIN NOINHERIT` service identities.
@@ -95,7 +95,8 @@ database facts for authorization:
   operations for that exact course;
 - a Student owns only their current course record and derived Attempt data;
 - authoring operations require their current workspace relationship, and
-  Blueprint Draft operations require the current Blueprint owner relationship;
+  Blueprint Course content Save and metadata operations require the current
+  Blueprint owner relationship;
   and
 - a Sysadmin is a product role, not ambient Student-record or teaching
   authority. Support access remains a separately scoped, audited capability.

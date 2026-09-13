@@ -82,8 +82,8 @@ Name every identifying value for its exact boundary, representation, and role:
 | Human-usable locator                                      | Its reviewed product name                 | `CourseInstanceReference`, `BlueprintCourseReference` |
 | Reviewed public identifier whose product name includes ID | `Id`                                      | `QuestionId`                                          |
 | Physical UUID column                                      | Complete subject plus `_uuid`             | `assignment_attempt_uuid`                             |
-| Immutable published revision number                       | Complete subject plus `RevisionNumber`    | `QuestionRevisionNumber`                              |
-| Immutable published revision reference                    | Complete subject plus `RevisionReference` | `BlueprintRevisionReference`                           |
+| Immutable revision number                                 | Complete subject plus `RevisionNumber`    | `QuestionRevisionNumber`                              |
+| Immutable revision reference                              | Complete subject plus `RevisionReference` | `BlueprintRevisionReference`                          |
 | Recalculation or worker fence                             | Complete subject plus `Generation`        | `ScoringGeneration`                                   |
 | Integrity value                                           | Complete subject plus `Checksum`          | `RequestChecksum`                                     |
 | Secret or bearer value                                    | Complete subject plus `Token`             | `WorkerLeaseToken`                                    |
@@ -140,6 +140,9 @@ for one live teaching context.
 
 A newly added Blueprint assignment propagates to its daughter Course Instances
 as unreleased. Each Course Instance makes its own explicit release decision.
+Future propagation treats a change inside a retained Blueprint Assignment
+separately: it requires Instructor review and approval before updating an
+eligible Course Instance.
 
 ## Boundary distinctions
 
@@ -214,8 +217,9 @@ learning outcomes.
   `updated_at`, `occurred_at`, `expires_at`, and `revoked_at`.
 - Name serialized documents with a `_payload` suffix and their SHA-256 companions with
   `_payload_sha256`, such as `report_payload` and `report_payload_sha256`.
-- Use a qualified `*_edit_number` for an aggregate's optimistic concurrency
-  token, such as `assignment_edit_number` or `blueprint_draft_edit_number`.
+- Use a qualified `*_edit_number` for a mutable aggregate's optimistic
+  concurrency token, such as `assignment_edit_number`. Blueprint Course
+  lineage metadata uses an opaque ETag rather than an Edit Number.
   Reserve an immutable `*_revision_number` for a Question Revision or Blueprint
   Revision; use a qualified generation counter such as `scoring_generation` for
   worker recalculation fences.

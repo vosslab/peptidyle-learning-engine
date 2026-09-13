@@ -1,4 +1,4 @@
-// Visible Instructor proof: Draft -> published Blueprint Revision -> Course -> current Assignment.
+// Visible Instructor proof: Blueprint Revision 1 -> Course -> current Assignment.
 // Selector contract: accessible labels/headings/actions in the Blueprint, Course, and Assignment
 // workspaces; the Question picker discovers its seeded published Question through its visible result.
 
@@ -75,7 +75,8 @@ try {
   await page.waitForURL(`${origin}/blueprint-courses`);
   await page.getByRole("button", { name: "Create Blueprint Course", exact: true }).click();
   await page.getByRole("heading", { name: "Create a Blueprint Course" }).waitFor();
-  await page.getByLabel("Blueprint Course title").fill(blueprintTitle);
+  await page.getByLabel("Blueprint Course short name").fill(`Current BP ${runId}`);
+  await page.getByLabel("Blueprint Course long name").fill(blueprintTitle);
   await page.getByRole("button", { name: "Choose published Questions", exact: true }).click();
   const questionPicker = page.getByRole("dialog", {
     name: "Choose the first reusable Questions",
@@ -92,18 +93,15 @@ try {
   await page.waitForURL(/\/blueprint-courses\/BP-[1-9][0-9]*$/u);
   await page.getByRole("heading", { name: blueprintTitle, exact: true }).waitFor();
 
-  await page.getByRole("button", { name: "Publish Blueprint Revision", exact: true }).click();
-  await page.getByText("Published Blueprint Revision 1.", { exact: true }).waitFor();
-
   await page
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Courses", exact: true })
     .click();
   await page.waitForURL(`${origin}/`);
   await page.getByRole("heading", { name: "Course Instances you teach", exact: true }).waitFor();
-  await page.getByLabel("Blueprint Course Revision").selectOption({
-    label: `${blueprintTitle} · Revision 1`,
-  });
+  await page
+    .getByLabel("Blueprint Course")
+    .selectOption({ label: `${blueprintTitle} · Revision 1` });
   await page.getByLabel("Course short name").fill(courseShortName);
   await page.getByLabel("Course long name").fill(courseLongName);
   await page.getByLabel("Course Term start date").fill("2026-09-01");

@@ -11,10 +11,12 @@ explicitly. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the executable bounda
 
 ## What is a Blueprint Course?
 
-A **Blueprint Course** is the reusable course-level lineage. Its Owner edits one
-private mutable Blueprint Draft. Explicit publication copies that Draft to an
-immutable Blueprint Revision; published revisions are reusable by every vetted
-(approved) Instructor. A Blueprint Course has no Students, live deadlines,
+A **Blueprint Course** is the reusable course-level lineage. Complete valid
+creation produces immutable Revision 1, and each changed explicit Save produces
+a successor Revision. Unsaved edits remain protected browser working state.
+Every vetted (approved) Instructor can reuse the current Revision of an Available
+Blueprint Course. Historical Revisions remain resolvable for existing provenance.
+A Blueprint Course has no Students, live deadlines,
 releases, accommodations, grades, or delivery settings.
 
 ## What is a Course Instance?
@@ -26,7 +28,7 @@ grades, and delivery settings. It is the only course type that receives student 
 
 ## How will I create a course?
 
-The current Instructor workflow can create a Course Instance from a published Blueprint Course.
+The current Instructor workflow can create a Course Instance from a Blueprint Course's current Revision.
 The retained design also permits first creating a minimal Blueprint Course. A Course Instance has
 its own teaching title, term, and IANA time zone; it receives reusable Blueprint Revision Content
 and reviewed relative schedule offsets, but never Students, invitations, grades, or other delivery
@@ -34,17 +36,19 @@ state from another instance.
 
 ## How do Blueprint updates reach a Course Instance?
 
-They do not yet propagate. A published Blueprint Revision is exact reusable
-content: an Instructor creates a Course Instance from it, and the resulting
-Course Instance owns its current delivery configuration. Blueprint-to-Course
-update proposals and propagation are future product work, listed in
+They do not yet propagate. A saved Blueprint Revision is exact reusable
+content: an Instructor creates a Course Instance from the current Revision, and
+the resulting Course Instance owns its current delivery configuration. Future
+propagation adds a newly added Blueprint Assignment to eligible Instances as
+Unreleased, while a change inside a retained Assignment needs Instructor review
+and approval. Blueprint-to-Course update proposals and propagation are future product work, listed in
 [TODO.md](TODO.md).
 
 ## What Blueprint and Course reuse is available now?
 
-An Owner creates a private Blueprint Draft and explicitly publishes immutable
-Blueprint Revisions. An Instructor can create a Course Instance from a
-published Blueprint Revision; the new Course retains that exact source as
+Complete valid creation creates immutable Blueprint Revision 1, and an Owner's
+changed explicit Save creates later Revisions. An Instructor can create a Course
+Instance from the Blueprint's current Revision; the new Course retains that exact source as
 provenance. Forking Blueprints, copying a Course for a new term, shifting
 Course dates, and Blueprint-to-Course propagation are not current workflows.
 They need bounded product designs before they gain routes, storage, or UI; see
@@ -181,7 +185,7 @@ compatibility alias. See [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
 ## Can I reuse a question or assignment?
 
 Yes, but reuse is explicit and versioned. Select a published question by its human-readable Question
-ID, reuse an assignment's ordered questions, or draw from a reusable pool. A published Blueprint
+ID, reuse an assignment's ordered questions, or draw from a reusable pool. A saved Blueprint
 Revision can supply ordered modules and assignments when an Instructor creates a new Course Instance.
 Existing issued Assignment Attempts keep their immutable question snapshot. See
 [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md).

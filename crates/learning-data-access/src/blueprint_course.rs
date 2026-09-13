@@ -1,7 +1,4 @@
-//! Session-authorized persistence contracts for Blueprint Drafts and publications.
-//!
-//! A Blueprint Course is a stable lineage. Its owner edits one private Draft;
-//! a deliberate publication copies that Draft into immutable revision evidence.
+//! Session-authorized persistence contracts for Blueprint Revisions and lineage metadata.
 
 use std::collections::BTreeMap;
 
@@ -10,14 +7,14 @@ use question_model::{
     AssignmentEntryScoringRule, AssignmentInstructions, AssignmentPointValue, AssignmentTitle,
     BlueprintAssignmentContent, BlueprintAssignmentContentInput, BlueprintAssignmentEditChoice,
     BlueprintAssignmentEntryContent, BlueprintAssignmentReference, BlueprintAvailability,
-    BlueprintAvailabilityEditNumber, BlueprintCourseContent, BlueprintCourseModuleContent,
-    BlueprintCourseReadAccess, BlueprintCourseReference, BlueprintCourseValidationError,
-    BlueprintDraftEditNumber, BlueprintModuleEditChoice, BlueprintModuleReference,
+    BlueprintCourseContent, BlueprintCourseModuleContent, BlueprintCourseReadAccess,
+    BlueprintCourseReference, BlueprintCourseValidationError, BlueprintMetadataEtag,
+    BlueprintMetadataState, BlueprintModuleEditChoice, BlueprintModuleReference,
     BlueprintQuestionPoolContent, BlueprintRevision, BlueprintRevisionContent,
-    BlueprintRevisionReference, CreateBlueprintCourseContentInput, CreateBlueprintDraftReceipt,
-    PublishBlueprintDraftReceipt, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId,
-    QuestionPoolSelectionRule, QuestionRevisionReference, RelativeAssignmentSchedule,
-    ReplaceBlueprintCourseContentInput, RequestChecksum, SaveBlueprintDraftReceipt,
+    BlueprintRevisionReference, CreateBlueprintCourseInput, CreateBlueprintCourseReceipt,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId, QuestionPoolSelectionRule,
+    QuestionRevisionReference, RelativeAssignmentSchedule, RenameBlueprintCourseInput,
+    ReplaceBlueprintCourseContentInput, RequestChecksum, SaveBlueprintCourseReceipt,
 };
 use serde::{Deserialize, Serialize};
 
@@ -27,25 +24,25 @@ use crate::{SessionTokenHash, StoreError};
 #[derive(Debug, Clone, PartialEq)]
 pub struct StoredBlueprintCourse {
     pub reference: BlueprintCourseReference,
-    pub title: String,
+    pub short_name: String,
+    pub long_name: String,
     pub availability: BlueprintAvailability,
-    pub availability_edit_number: BlueprintAvailabilityEditNumber,
-    pub latest_published_revision: Option<BlueprintRevision>,
+    pub metadata_etag: BlueprintMetadataEtag,
+    pub current_revision: BlueprintRevision,
     pub read_access: BlueprintCourseReadAccess,
-    /// The owner's Draft or the authorized reader's latest immutable Revision.
+    /// The exact current immutable Revision content.
     pub content: StoredBlueprintCourseContent,
-    /// Present only for the private owner Draft.
-    pub draft_edit_number: Option<BlueprintDraftEditNumber>,
 }
 
 /// Compact answer-free readable Blueprint lineage.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredBlueprintCourseSummary {
     pub reference: BlueprintCourseReference,
-    pub title: String,
+    pub short_name: String,
+    pub long_name: String,
     pub availability: BlueprintAvailability,
-    pub availability_edit_number: BlueprintAvailabilityEditNumber,
-    pub latest_published_revision: Option<BlueprintRevision>,
+    pub metadata_etag: BlueprintMetadataEtag,
+    pub current_revision: BlueprintRevision,
     pub read_access: BlueprintCourseReadAccess,
 }
 
@@ -56,18 +53,10 @@ pub struct StoredBlueprintRevision {
     pub content: StoredBlueprintCourseContent,
 }
 
-/// Current availability result after a qualified lineage transition.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct StoredBlueprintAvailability {
-    pub availability: BlueprintAvailability,
-    pub edit_number: BlueprintAvailabilityEditNumber,
-}
-
 /// Durable complete Blueprint content with server-resolved Question Revision pins.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct StoredBlueprintCourseContent {
-    pub title: String,
     pub modules: Vec<StoredBlueprintModule>,
 }
 
@@ -124,7 +113,7 @@ pub enum StoredBlueprintAssignmentEntry {
 impl StoredBlueprintCourseContent {
     /// Resolves a newly accepted browser request into server-owned child identities and pins.
     pub fn from_create(
-        input: CreateBlueprintCourseContentInput,
+        input: CreateBlueprintCourseInput,
         pins: &BTreeMap<QuestionId, QuestionRevisionReference>,
     ) -> Result<Self, StoreError> {
         input.validate().map_err(invalid_content)?;
@@ -151,15 +140,12 @@ impl StoredBlueprintCourseContent {
                 })
             })
             .collect::<Result<Vec<_>, StoreError>>()?;
-        let content = Self {
-            title: input.title,
-            modules,
-        };
+        let content = Self { modules };
         content.checksum()?;
         Ok(content)
     }
 
-    /// Resolves a complete Draft replacement while retaining only owned child identities.
+    /// Resolves a complete replacement against the exact expected head.
     pub fn from_replace(
         input: ReplaceBlueprintCourseContentInput,
         prior: &Self,
@@ -170,7 +156,7 @@ impl StoredBlueprintCourseContent {
             .modules
             .into_iter()
             .map(|module| {
-                let prior_module = match module.choice {
+                let module_reference = match module.choice {
                     BlueprintModuleEditChoice::Retained {
                         blueprint_module_reference,
                     } => prior
@@ -179,33 +165,31 @@ impl StoredBlueprintCourseContent {
                         .find(|candidate| {
                             candidate.blueprint_module_reference == blueprint_module_reference
                         })
+                        .map(|candidate| candidate.blueprint_module_reference)
                         .ok_or_else(|| invalid("retained Blueprint Module Reference"))?,
                     BlueprintModuleEditChoice::New => {
-                        return Self::new_module(module.label, module.assignments, pins);
+                        BlueprintModuleReference::from_uuid(random_uuid()?)
                     }
                 };
                 let assignments = module
                     .assignments
                     .into_iter()
-                    .map(|assignment| Self::replacement_assignment(assignment, prior_module, pins))
+                    .map(|assignment| Self::replacement_assignment(assignment, prior, pins))
                     .collect::<Result<Vec<_>, StoreError>>()?;
                 Ok(StoredBlueprintModule {
-                    blueprint_module_reference: prior_module.blueprint_module_reference,
+                    blueprint_module_reference: module_reference,
                     label: module.label,
                     assignments,
                 })
             })
             .collect::<Result<Vec<_>, StoreError>>()?;
-        let content = Self {
-            title: input.title,
-            modules,
-        };
+        let content = Self { modules };
         content.checksum()?;
         Ok(content)
     }
 
     pub fn requested_question_ids_from_create(
-        input: &CreateBlueprintCourseContentInput,
+        input: &CreateBlueprintCourseInput,
     ) -> Vec<QuestionId> {
         input
             .modules
@@ -235,57 +219,32 @@ impl StoredBlueprintCourseContent {
                 let assignments = module
                     .assignments
                     .iter()
-                    .map(|assignment| assignment.content.to_domain())
+                    .map(StoredBlueprintAssignment::to_domain)
                     .collect::<Result<Vec<_>, StoreError>>()?;
-                BlueprintCourseModuleContent::new(module.label.clone(), assignments)
-                    .map_err(invalid_content)
+                BlueprintCourseModuleContent::new(
+                    module.blueprint_module_reference,
+                    module.label.clone(),
+                    assignments,
+                )
+                .map_err(invalid_content)
             })
             .collect::<Result<Vec<_>, StoreError>>()?;
-        let course =
-            BlueprintCourseContent::new(self.title.clone(), modules).map_err(invalid_content)?;
+        let course = BlueprintCourseContent::new(modules).map_err(invalid_content)?;
         Ok(BlueprintRevisionContent::course(course).checksum())
-    }
-
-    fn new_module(
-        label: String,
-        assignments: Vec<question_model::BlueprintAssignmentReplacementInput>,
-        pins: &BTreeMap<QuestionId, QuestionRevisionReference>,
-    ) -> Result<StoredBlueprintModule, StoreError> {
-        let assignments = assignments
-            .into_iter()
-            .map(|assignment| match assignment.choice {
-                BlueprintAssignmentEditChoice::New => Ok(StoredBlueprintAssignment {
-                    blueprint_assignment_reference: BlueprintAssignmentReference::from_uuid(
-                        random_uuid()?,
-                    ),
-                    content: StoredBlueprintAssignmentContent::from_input(
-                        assignment.content,
-                        pins,
-                    )?,
-                }),
-                BlueprintAssignmentEditChoice::Retained { .. } => Err(invalid(
-                    "retained Blueprint Assignment in a new Blueprint Module",
-                )),
-            })
-            .collect::<Result<Vec<_>, StoreError>>()?;
-        Ok(StoredBlueprintModule {
-            blueprint_module_reference: BlueprintModuleReference::from_uuid(random_uuid()?),
-            label,
-            assignments,
-        })
     }
 
     fn replacement_assignment(
         assignment: question_model::BlueprintAssignmentReplacementInput,
-        prior_module: &StoredBlueprintModule,
+        prior: &StoredBlueprintCourseContent,
         pins: &BTreeMap<QuestionId, QuestionRevisionReference>,
     ) -> Result<StoredBlueprintAssignment, StoreError> {
         let reference = match assignment.choice {
             BlueprintAssignmentEditChoice::Retained {
                 blueprint_assignment_reference,
-            } => prior_module
-                .assignments
+            } => prior
+                .modules
                 .iter()
+                .flat_map(|module| module.assignments.iter())
                 .find(|candidate| {
                     candidate.blueprint_assignment_reference == blueprint_assignment_reference
                 })
@@ -347,7 +306,10 @@ impl StoredBlueprintAssignmentContent {
         })
     }
 
-    fn to_domain(&self) -> Result<BlueprintAssignmentContent, StoreError> {
+    fn to_domain(
+        &self,
+        blueprint_assignment_reference: BlueprintAssignmentReference,
+    ) -> Result<BlueprintAssignmentContent, StoreError> {
         let entries = self
             .entries
             .iter()
@@ -388,6 +350,7 @@ impl StoredBlueprintAssignmentContent {
             })
             .collect::<Result<Vec<_>, StoreError>>()?;
         BlueprintAssignmentContent::new(
+            blueprint_assignment_reference,
             AssignmentTitle::try_new(self.title.clone())
                 .map_err(|_| invalid("Blueprint Assignment title"))?,
             self.instructions.clone(),
@@ -399,7 +362,13 @@ impl StoredBlueprintAssignmentContent {
     }
 }
 
-/// Store boundary for the direct Blueprint Draft, publication, and availability lifecycle.
+impl StoredBlueprintAssignment {
+    fn to_domain(&self) -> Result<BlueprintAssignmentContent, StoreError> {
+        self.content.to_domain(self.blueprint_assignment_reference)
+    }
+}
+
+/// Store boundary for immutable Blueprint Revisions and lineage metadata.
 #[async_trait]
 pub trait BlueprintCourseStore: Send + Sync {
     async fn list_blueprint_courses(
@@ -416,40 +385,40 @@ pub trait BlueprintCourseStore: Send + Sync {
         session: SessionTokenHash,
         reference: BlueprintRevisionReference,
     ) -> Result<StoredBlueprintRevision, StoreError>;
-    async fn create_blueprint_draft(
+    async fn create_blueprint_course(
         &self,
         session: SessionTokenHash,
         request_checksum: RequestChecksum,
-        input: CreateBlueprintCourseContentInput,
-    ) -> Result<CreateBlueprintDraftReceipt, StoreError>;
-    async fn save_blueprint_draft(
+        input: CreateBlueprintCourseInput,
+    ) -> Result<CreateBlueprintCourseReceipt, StoreError>;
+    async fn save_blueprint_course(
         &self,
         session: SessionTokenHash,
         reference: BlueprintCourseReference,
-        expected_edit_number: BlueprintDraftEditNumber,
+        expected_revision: BlueprintRevision,
         request_checksum: RequestChecksum,
         input: ReplaceBlueprintCourseContentInput,
-    ) -> Result<SaveBlueprintDraftReceipt, StoreError>;
-    async fn publish_blueprint_draft(
+    ) -> Result<SaveBlueprintCourseReceipt, StoreError>;
+    async fn rename_blueprint_course(
         &self,
         session: SessionTokenHash,
         reference: BlueprintCourseReference,
-        expected_edit_number: BlueprintDraftEditNumber,
-        request_checksum: RequestChecksum,
-    ) -> Result<PublishBlueprintDraftReceipt, StoreError>;
+        expected_metadata_etag: BlueprintMetadataEtag,
+        input: RenameBlueprintCourseInput,
+    ) -> Result<BlueprintMetadataState, StoreError>;
     async fn archive_blueprint(
         &self,
         session: SessionTokenHash,
         reference: BlueprintCourseReference,
-        expected_edit_number: BlueprintAvailabilityEditNumber,
+        expected_metadata_etag: BlueprintMetadataEtag,
         confirmation_title: &str,
-    ) -> Result<StoredBlueprintAvailability, StoreError>;
+    ) -> Result<BlueprintMetadataState, StoreError>;
     async fn restore_blueprint(
         &self,
         session: SessionTokenHash,
         reference: BlueprintCourseReference,
-        expected_edit_number: BlueprintAvailabilityEditNumber,
-    ) -> Result<StoredBlueprintAvailability, StoreError>;
+        expected_metadata_etag: BlueprintMetadataEtag,
+    ) -> Result<BlueprintMetadataState, StoreError>;
 }
 
 fn requested_question_ids(input: &BlueprintAssignmentContentInput) -> Vec<QuestionId> {
@@ -486,4 +455,58 @@ fn random_uuid() -> Result<uuid::Uuid, StoreError> {
     crate::random_uuid::random_uuid_v4(|_| {
         StoreError::Unavailable("Blueprint Course UUID randomness unavailable".to_string())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use question_model::{
+        AssignmentActivityRules, BlueprintAssignmentDefaults, LateWorkRule,
+        StudentFeedbackReleaseRule,
+    };
+    use uuid::Uuid;
+
+    fn content(assignment_identity: u128) -> StoredBlueprintCourseContent {
+        StoredBlueprintCourseContent {
+            modules: vec![StoredBlueprintModule {
+                blueprint_module_reference: BlueprintModuleReference::from_uuid(Uuid::from_u128(1)),
+                label: "Module".to_string(),
+                assignments: vec![StoredBlueprintAssignment {
+                    blueprint_assignment_reference: BlueprintAssignmentReference::from_uuid(
+                        Uuid::from_u128(assignment_identity),
+                    ),
+                    content: StoredBlueprintAssignmentContent {
+                        title: "Assignment".to_string(),
+                        instructions: AssignmentInstructions::default(),
+                        entries: vec![StoredBlueprintAssignmentEntry::Fixed {
+                            question_revision: QuestionRevisionReference {
+                                question_id: "7K3-M9QX".parse().expect("Question ID"),
+                                revision_number: question_model::QuestionRevisionNumber::new(1)
+                                    .expect("revision"),
+                            },
+                            points_possible: AssignmentPointValue::from_whole(1),
+                            scoring_rule: AssignmentEntryScoringRule::Normal,
+                            question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+                            question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
+                        }],
+                        defaults: BlueprintAssignmentDefaults {
+                            assignment_attempt_time_limit_seconds: None,
+                            attempt_limit: None,
+                            late_work_rule: LateWorkRule::Accept,
+                            activity_rules: AssignmentActivityRules::default(),
+                            student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
+                        },
+                        schedule: RelativeAssignmentSchedule::default(),
+                    },
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn checksum_binds_stable_child_identities() {
+        let expected = content(2).checksum().expect("checksum");
+        let tampered = content(3).checksum().expect("checksum");
+        assert_ne!(expected, tampered);
+    }
 }

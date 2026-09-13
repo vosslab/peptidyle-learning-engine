@@ -1,6 +1,7 @@
 # Design decisions
 
 <!-- VENDORED HEADER: START -->
+
 Record each durable decision about how this code and repository are shaped, once it is settled, with
 the reasoning a later reader needs. Guidance Neil Voss states belongs in
 [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), dated history in `docs/CHANGELOG.md`, open discussion in
@@ -96,7 +97,7 @@ their owning paths.
 SQL makes database-owned state reproducible without creating a demo schema, special role, marker,
 or teardown service.
 
-**Consequence.** The Live Demo uses ordinary Accounts, published Questions, Blueprint Draft and
+**Consequence.** The Live Demo uses ordinary Accounts, published Questions, save-created Blueprint
 Revision records, Courses, Assignments, memberships, and lifecycle rules. An operator can opt out
 before provisioning. Once present, those records follow the same product retention and deletion
 rules as any other content.
@@ -123,21 +124,21 @@ independently of later teaching-configuration changes.
 **Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md), Assignment and Student Work
 families in `schemas/base_schema/`, and their Store and server contracts.
 
-### Published content has two revision families
+### Question publication and Blueprint Saves have two revision families
 
 **Decision.** Question Revision and Blueprint Revision are PLE's only Revision concepts. Stable
-Question and Blueprint lineages carry current Available or Archived state with qualified Edit
-Numbers and append-only availability events. A new Blueprint Course starts with its private
-mutable Draft; explicit publication copies that complete Draft into a new immutable Blueprint
-Revision.
+Question lineages carry current Available or Archived state with qualified Edit Numbers and
+append-only availability events. Blueprint lineage short name, long name, and availability share
+one opaque metadata ETag. Complete valid Blueprint creation atomically creates Available Revision
+1; a changed explicit Save creates each later immutable Revision.
 
-**Why.** Reusable published content needs exact durable history. Mutable working and teaching state
+**Why.** Reusable content needs exact durable history. Mutable working and teaching state
 needs current values plus concurrency control, not a parallel revision family.
 
 **Consequence.** Archive removes ordinary browsing and new selection while exact historical
-references continue to resolve. Publishing never resets availability. A Blueprint Draft save
-advances its Edit Number only when content changes; each deliberate publication creates one
-immutable Revision and its receipt. Blueprint Assignment provenance is an exact Blueprint Revision
+references continue to resolve. A Save never resets availability. A changed Save based on the exact
+current Revision creates one immutable successor and receipt; a canonical no-op returns the
+current Revision with `changed: false`. Blueprint Assignment provenance is an exact Blueprint Revision
 Reference plus stable Blueprint Assignment Reference, named `BlueprintAssignmentSource`.
 
 **Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md), Blueprint and Question lineage
@@ -186,9 +187,10 @@ deletion routine; ordinary Student Work remains immutable.
 ### Static sources do not carry a variation rule
 
 **Decision.** Static PLE Question JSON and QTI-imported static Questions do not carry a
-Question-authored `Static` variation-rule field. Static is a characteristic of the complete
-Question Source. The Assignment-owned Question Variation Rule remains the separate choice to reuse
-or replace Question Variations in later Assignment Attempts.
+Question-authored `Static` variation-rule field or receive a Question Seed. Static is a
+characteristic of the complete Question Source. These declarative formats do not contain runnable
+code. The Assignment-owned Question Variation Rule remains the separate choice to reuse or replace
+Question Variations in later Assignment Attempts.
 
 **Why.** A source field whose only current value is `Static` repeats what the source format and QTI
 profile already establish. It would also overload the Assignment rule that governs later-Attempt
@@ -533,21 +535,23 @@ families, and [API_CONTRACTS.md](API_CONTRACTS.md#instructor-assignment-workspac
 
 ### BlueprintCourse owns reusable course structure
 
-**Decision.** A Blueprint Course is one stable reusable lineage. Creation makes its private
-Blueprint Draft and no Blueprint Revision. An explicit publication validates and copies complete
-Draft content into one immutable Blueprint Revision with modules, assignments, relative schedule
-defaults, and exact Question Revision pins.
+**Decision.** A Blueprint Course is one stable reusable lineage. Complete valid creation atomically
+creates an Available Blueprint and immutable Revision 1 with modules, assignments, relative
+schedule defaults, and exact Question Revision pins. An explicit changed Save based on the current
+Revision creates its successor; unsaved browser edits remain local working state.
 
-**Why.** Reusable published course content needs an exact reference. Working content needs one
-private, mutable editing surface. Keeping them distinct protects Student delivery facts and avoids
-a fictional initial Revision.
+**Why.** Reusable course content needs one exact reference sequence. Explicit Save makes Revision
+boundaries meaningful while retaining a direct editor model and exact Course Instance provenance.
 
 **Consequence.** A Blueprint Course has no Students, live deadlines, releases, accommodations,
 grades, or FERPA state. Available content is browseable and selectable by active Instructors;
 Archived content is not, although exact Blueprint Revision References remain resolvable. A
 Blueprint Assignment Source records exact Blueprint Revision and stable Blueprint Assignment
 References as provenance for an ordinary current Assignment. Course Instances own their delivery
-state after creation from an exact published Blueprint.
+state after creation from the Blueprint's advertised exact current Revision. Later Blueprint Saves
+do not change existing Instances. Future propagation automatically adds a newly added Blueprint
+Assignment as Unreleased to eligible Instances, while a change within a retained Assignment needs
+Instructor review and approval.
 
 **Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md),
 [CONTRACTS.md](CONTRACTS.md#blueprint-and-instance-courses), and the Blueprint schema and Store
@@ -1615,7 +1619,7 @@ schema, generated transport source, fixture, or behavior. Independent QLB1
 review passed, and the browser-local/generated Question Search collision is
 closed.
 
-The settled identity, authentication, privacy, recovery, and Blueprint Draft
+The settled identity, authentication, privacy, recovery, and Blueprint Revision
 decisions are retained in [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md). The
 focused local-stack, Gradebook, wire-contract, and Blueprint-operation decisions
 are retained in [DESIGN_DECISIONS_OPERATIONS.md](DESIGN_DECISIONS_OPERATIONS.md).

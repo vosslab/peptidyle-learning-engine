@@ -1,18 +1,25 @@
-//! Browser-safe response projections for immutable Blueprint publication.
+//! Browser-safe response projections for immutable Blueprint Revisions.
 
-use question_model::{BlueprintModuleView, BlueprintRevisionReference};
+use question_model::{BlueprintCourseView, BlueprintModuleView, BlueprintRevisionReference};
 use serde::{Deserialize, Serialize};
 
 /// Answer-free immutable content resolved by its exact Blueprint Revision Reference.
 ///
-/// The reference identifies one published Revision.  It is independent of the
-/// mutable Blueprint Draft and stable-lineage availability state.
+/// The reference identifies one saved Revision independently of lineage names
+/// and availability.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlueprintRevisionView {
     pub blueprint_revision: BlueprintRevisionReference,
-    pub title: String,
     pub modules: Vec<BlueprintModuleView>,
+}
+
+/// Result of a changed or canonical no-op Blueprint Course Save.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintCourseSaveResponse {
+    pub blueprint_course: BlueprintCourseView,
+    pub changed: bool,
 }
 
 #[cfg(test)]
@@ -29,7 +36,6 @@ mod tests {
                     .expect("reference"),
                 revision: BlueprintRevision::new(3).expect("revision"),
             },
-            title: "Biochemistry Blueprint".to_string(),
             modules: Vec::new(),
         };
 

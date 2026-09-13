@@ -81,9 +81,8 @@ pub use authoring::{
 };
 pub use blueprint_course::{
     BlueprintCourseStore, StoredBlueprintAssignment, StoredBlueprintAssignmentContent,
-    StoredBlueprintAssignmentEntry, StoredBlueprintAvailability, StoredBlueprintCourse,
-    StoredBlueprintCourseContent, StoredBlueprintCourseSummary, StoredBlueprintModule,
-    StoredBlueprintRevision,
+    StoredBlueprintAssignmentEntry, StoredBlueprintCourse, StoredBlueprintCourseContent,
+    StoredBlueprintCourseSummary, StoredBlueprintModule, StoredBlueprintRevision,
 };
 pub use course_banner::{
     ClaimedCourseBannerUpload, CourseBannerDeleteWork, CourseBannerObjectMetadata,

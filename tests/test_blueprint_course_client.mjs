@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
-import { decodeBlueprintCourseView } from "../src/api/decoders/blueprint_course.ts";
+import {
+  decodeBlueprintCourseView,
+  decodeBlueprintMetadataState,
+} from "../src/api/decoders/blueprint_course.ts";
 import {
   ApiProtocolError,
   BlueprintCourseConflictError,
@@ -11,6 +14,7 @@ import {
 import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
 const { scope: _scope, ...publishedQuestion } = publishedQuestionFixture.publishedQuestion;
+const metadataEtag = "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d";
 
 function contentInput() {
   return {
@@ -88,28 +92,29 @@ function modules() {
   ];
 }
 
-function blueprint(editNumber = "7") {
+function blueprint(revision = "3") {
   return {
     reference: "BP-7",
-    title: "Biochemistry sequence",
+    short_name: "Biochemistry",
+    long_name: "Biochemistry sequence",
     availability: "available",
-    availability_edit_number: "4",
-    latest_published_revision: { reference: "BP-7", revision: "3" },
+    metadata_etag: metadataEtag,
+    current_revision: { reference: "BP-7", revision },
     read_access: "blueprint_course_owner",
-    draft: { edit_number: editNumber, modules: modules() },
+    modules: modules(),
   };
 }
 
 function creationInput() {
   return {
-    title: "Biochemistry sequence",
+    short_name: "Biochemistry",
+    long_name: "Biochemistry sequence",
     modules: [{ label: "Week one", assignments: [contentInput()] }],
   };
 }
 
 function replacementInput() {
   return {
-    title: "Biochemistry sequence",
     modules: [
       {
         choice: {
@@ -142,54 +147,81 @@ function noStoreJson(value, etag, status = 200) {
   });
 }
 
-test("B1 Blueprint Course decoder keeps private Draft state separate from immutable publication", () => {
-  assert.equal(decodeBlueprintCourseView(blueprint()).draft.edit_number, "7");
+test("B1 Blueprint Course decoder exposes one current Revision and opaque metadata", () => {
+  assert.equal(decodeBlueprintCourseView(blueprint()).current_revision.revision, "3");
+  assert.equal(decodeBlueprintCourseView(blueprint()).metadata_etag, metadataEtag);
   const hostile = structuredClone(blueprint());
-  hostile.draft.modules[0].assignments[0].content.entries[0].question.answerKey = "secret";
+  hostile.modules[0].assignments[0].content.entries[0].question.answerKey = "secret";
   assert.throws(() => decodeBlueprintCourseView(hostile), DecodeError);
   const retired = structuredClone(blueprint());
-  retired.revision = "7";
+  retired.draft = { edit_number: "7", modules: [] };
   assert.throws(() => decodeBlueprintCourseView(retired), DecodeError);
 });
 
-test("B1 client preserves separate Draft and availability ETags", async () => {
+test("B1 client sends Revision and metadata validators to their separate routes", async () => {
   const requests = [];
+  const metadata = {
+    short_name: "Biochemistry",
+    long_name: "Biochemistry sequence",
+    availability: "archived",
+    metadata_etag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6f",
+  };
+  const restoredMetadata = {
+    ...metadata,
+    availability: "available",
+    metadata_etag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d70",
+  };
   const client = createHttpApiClient({
     fetch: async (input, init) => {
       const request = new Request(new URL(input.toString(), "https://ple.example"), init);
       requests.push(request.clone());
       const path = new URL(request.url).pathname;
-      if (path.endsWith("/publish"))
-        return noStoreJson({ blueprintRevision: { reference: "BP-7", revision: "4" } });
-      if (path.endsWith("/archive"))
-        return noStoreJson({ availability: "archived", editNumber: "5" }, '"5"');
+      if (path.endsWith("/metadata")) return noStoreJson(metadata, `"${metadata.metadata_etag}"`);
+      if (path.endsWith("/archive")) return noStoreJson(metadata, `"${metadata.metadata_etag}"`);
+      if (path.endsWith("/restore"))
+        return noStoreJson(restoredMetadata, `"${restoredMetadata.metadata_etag}"`);
       if (path.endsWith("/revisions/3"))
         return noStoreJson({
           blueprintRevision: { reference: "BP-7", revision: "3" },
-          title: "Biochemistry sequence",
           modules: modules(),
         });
-      if (request.method === "GET" && path.endsWith("BP-7")) return noStoreJson(blueprint(), '"7"');
-      if (request.method === "POST") return noStoreJson(blueprint(), '"7"', 201);
-      if (request.method === "PUT") return noStoreJson(blueprint("8"), '"8"');
+      if (request.method === "GET" && path.endsWith("BP-7")) return noStoreJson(blueprint(), '"3"');
+      if (request.method === "POST" && path.endsWith("course-blueprints"))
+        return noStoreJson(blueprint("1"), '"1"', 201);
+      if (request.method === "PUT" && path.endsWith("BP-7"))
+        return noStoreJson({ blueprintCourse: blueprint("4"), changed: true }, '"4"');
       return noStoreJson({ items: [], nextCursor: null });
     },
   });
   const current = await client.getBlueprintCourse("BP-7");
-  assert.notEqual(current.draftEtag, undefined);
   await client.createBlueprintCourse(creationInput(), "create-7");
-  await client.saveBlueprintDraft("BP-7", replacementInput(), current.draftEtag, "save-7");
-  const publication = await client.publishBlueprintDraft("BP-7", current.draftEtag, "publish-7");
-  const archive = await client.archiveBlueprintCourse("BP-7", "Biochemistry sequence", '"4"');
+  const saved = await client.saveBlueprintCourse(
+    "BP-7",
+    replacementInput(),
+    current.revisionEtag,
+    "save-7",
+  );
+  const renamed = await client.renameBlueprintCourse(
+    "BP-7",
+    { short_name: "Biochemistry", long_name: "Biochemistry sequence" },
+    `"${metadataEtag}"`,
+  );
+  const archived = await client.archiveBlueprintCourse(
+    "BP-7",
+    "Biochemistry sequence",
+    renamed.metadataEtag,
+  );
+  const restored = await client.restoreBlueprintCourse("BP-7", archived.metadataEtag);
   const revision = await client.getBlueprintRevision("BP-7", "3");
-  assert.equal(publication.revision, "4");
-  assert.equal(archive.etag, '"5"');
+  assert.equal(saved.changed, true);
+  assert.equal(saved.revisionEtag, '"4"');
+  assert.equal(restored.metadata.availability, "available");
   assert.equal(revision.blueprintRevision.revision, "3");
-  const save = requests.find((request) => request.method === "PUT");
-  assert.equal(save.headers.get("if-match"), '"7"');
-  assert.equal(save.headers.get("idempotency-key"), "save-7");
+  const save = requests.find((request) => request.method === "PUT" && request.url.endsWith("BP-7"));
+  assert.equal(save?.headers.get("if-match"), '"3"');
+  assert.equal(save?.headers.get("idempotency-key"), "save-7");
   await assert.rejects(
-    client.saveBlueprintDraft("BP-7", replacementInput(), '"07"', "save-7"),
+    client.saveBlueprintCourse("BP-7", replacementInput(), '"07"', "save-7"),
     ApiProtocolError,
   );
   await assert.rejects(
@@ -198,7 +230,7 @@ test("B1 client preserves separate Draft and availability ETags", async () => {
   );
 });
 
-test("B1 client gives a typed conflict for a current Blueprint Draft save", async () => {
+test("B1 client gives a typed conflict for a stale Blueprint Revision Save", async () => {
   const client = createHttpApiClient({
     fetch: () =>
       Promise.resolve(
@@ -206,7 +238,30 @@ test("B1 client gives a typed conflict for a current Blueprint Draft save", asyn
       ),
   });
   await assert.rejects(
-    client.saveBlueprintDraft("BP-7", replacementInput(), '"7"', "save-7"),
+    client.saveBlueprintCourse("BP-7", replacementInput(), '"3"', "save-7"),
     BlueprintCourseConflictError,
+  );
+});
+
+test("B1 client accepts a canonical Save no-op at the current Blueprint Revision", async () => {
+  const client = createHttpApiClient({
+    fetch: () =>
+      Promise.resolve(noStoreJson({ blueprintCourse: blueprint("3"), changed: false }, '"3"')),
+  });
+  const saved = await client.saveBlueprintCourse("BP-7", replacementInput(), '"3"', "save-no-op");
+  assert.equal(saved.changed, false);
+  assert.equal(saved.revisionEtag, '"3"');
+});
+
+test("B1 metadata decoder rejects non-opaque validators", () => {
+  assert.throws(
+    () =>
+      decodeBlueprintMetadataState({
+        short_name: "Short",
+        long_name: "Long",
+        availability: "available",
+        metadata_etag: "7",
+      }),
+    DecodeError,
   );
 });

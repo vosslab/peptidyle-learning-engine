@@ -23,6 +23,7 @@ esac
 # shellcheck disable=SC1091
 source "$repository_root/source_me.sh"
 cd "$repository_root"
+readonly run_id="$(date +%s%N)"
 
 require_live_demo() {
 	if [ ! -f "$runtime_environment_path" ]; then
@@ -157,7 +158,7 @@ content = {
     },
     "schedule": {"available_at": None, "due_at": None, "closes_at": None},
 }
-print(json.dumps({"title": "Live Demo Blueprint Course", "modules": [{"label": "Module 1", "assignments": [content]}]}, separators=(",", ":")))
+print(json.dumps({"short_name": "Live Blueprint", "long_name": "Live Demo Blueprint Course", "modules": [{"label": "Module 1", "assignments": [content]}]}, separators=(",", ":")))
 ' "$question_id"
 }
 
@@ -166,12 +167,9 @@ replacement_payload() {
 	python3 -c '
 import json, sys
 course = json.loads(sys.argv[1])
-draft = course.get("draft")
-if not isinstance(draft, dict):
-    raise SystemExit("Blueprint Course creation did not return its private Draft")
-modules = draft.get("modules")
+modules = course.get("modules")
 if not isinstance(modules, list) or len(modules) != 1:
-    raise SystemExit("Blueprint Course creation did not return one reusable module")
+    raise SystemExit("Blueprint Course creation did not return Revision 1 reusable content")
 module = modules[0]
 assignments = module.get("assignments")
 if not isinstance(assignments, list) or len(assignments) != 1:
@@ -183,14 +181,13 @@ content = assignment.get("content")
 if not isinstance(module_ref, str) or not isinstance(assignment_ref, str) or not isinstance(content, dict):
     raise SystemExit("Blueprint Course creation did not return retained reusable identities")
 payload = {
-    "title": "{} (saved)".format(course.get("title")),
     "modules": [{
         "choice": {"kind": "retained", "blueprint_module_reference": module_ref},
         "label": module.get("label"),
         "assignments": [{
             "choice": {"kind": "retained", "blueprint_assignment_reference": assignment_ref},
             "content": {
-                "title": content.get("title"),
+                "title": "{} (saved)".format(content.get("title")),
                 "instructions": content.get("instructions"),
                 "entries": [{
                     "kind": "fixed",
@@ -210,36 +207,36 @@ print(json.dumps(payload, separators=(",", ":")))
 ' "$response"
 }
 
-assert_public_view() {
-	local response="$1" reference="$2" draft_edit="$3" title="$4"
+assert_current_view() {
+	local response="$1" reference="$2" revision="$3" short_name="$4" long_name="$5"
 	python3 -c '
 import json, sys
 payload = json.loads(sys.argv[1])
-reference, draft_edit, title = sys.argv[2:]
-expected = {"reference", "title", "availability", "availability_edit_number", "latest_published_revision", "read_access", "draft"}
+reference, revision, short_name, long_name = sys.argv[2:]
+expected = {"reference", "short_name", "long_name", "availability", "metadata_etag", "current_revision", "read_access", "modules"}
 if set(payload) != expected:
     raise SystemExit("Blueprint Course response did not have the current closed DTO shape")
-if (payload["reference"] != reference or payload["title"] != title
-        or payload["availability"] != "available" or payload["availability_edit_number"] != "1"
-        or payload["latest_published_revision"] is not None or payload["read_access"] != "blueprint_course_owner"):
-    raise SystemExit("Blueprint Course creation did not return an available private Draft without a Revision")
-draft = payload["draft"]
-if not isinstance(draft, dict) or draft.get("edit_number") != draft_edit or not isinstance(draft.get("modules"), list):
-    raise SystemExit("Blueprint Course creation did not return the expected private Draft")
-' "$response" "$reference" "$draft_edit" "$title"
+if (payload["reference"] != reference or payload["short_name"] != short_name or payload["long_name"] != long_name
+        or payload["availability"] != "available" or payload["read_access"] != "blueprint_course_owner"
+        or payload["current_revision"] != {"reference": reference, "revision": revision}
+        or not isinstance(payload["metadata_etag"], str) or not payload["metadata_etag"]
+        or not isinstance(payload["modules"], list)):
+    raise SystemExit("Blueprint Course did not return its available current immutable Revision")
+' "$response" "$reference" "$revision" "$short_name" "$long_name"
 }
 
-assert_publication() {
+assert_save() {
 	python3 -c '
 import json, sys
 value = json.loads(sys.argv[1])
-expected_reference, expected_revision = sys.argv[2:]
-if set(value) != {"blueprintRevision"}:
-    raise SystemExit("Blueprint publication receipt was not closed")
-revision = value["blueprintRevision"]
-if revision != {"reference": expected_reference, "revision": expected_revision}:
-    raise SystemExit("Blueprint publication did not return its exact immutable Revision")
-' "$1" "$2" "$3"
+reference, revision, changed = sys.argv[2:]
+if set(value) != {"blueprintCourse", "changed"}:
+    raise SystemExit("Blueprint Save response was not closed")
+course = value["blueprintCourse"]
+if (value["changed"] != (changed == "true")
+        or course.get("current_revision") != {"reference": reference, "revision": revision}):
+    raise SystemExit("Blueprint Save did not return its exact current Revision and changed outcome")
+' "$1" "$2" "$3" "$4"
 }
 
 assert_exact_revision() {
@@ -247,7 +244,7 @@ assert_exact_revision() {
 import json, sys
 value = json.loads(sys.argv[1])
 reference, revision = sys.argv[2:]
-if set(value) != {"blueprintRevision", "title", "modules"}:
+if set(value) != {"blueprintRevision", "modules"}:
     raise SystemExit("exact Blueprint Revision response was not closed")
 if value["blueprintRevision"] != {"reference": reference, "revision": revision}:
     raise SystemExit("exact Blueprint Revision did not resolve its immutable identity")
@@ -260,13 +257,18 @@ if not isinstance(assignments, list) or len(assignments) != 1:
 ' "$1" "$2" "$3"
 }
 
-assert_availability() {
+assert_metadata() {
 	python3 -c '
 import json, sys
 value = json.loads(sys.argv[1])
-if value != {"availability": sys.argv[2], "editNumber": sys.argv[3]}:
-    raise SystemExit("Blueprint availability transition did not return its qualified result")
-' "$1" "$2" "$3"
+if (set(value) != {"short_name", "long_name", "availability", "metadata_etag"}
+        or value["availability"] != sys.argv[2]
+        or value["short_name"] != sys.argv[3]
+        or value["long_name"] != sys.argv[4]
+        or not isinstance(value["metadata_etag"], str) or not value["metadata_etag"]):
+    raise SystemExit("Blueprint metadata transition did not return its opaque qualified result")
+print(value["metadata_etag"])
+' "$1" "$2" "$3" "$4"
 }
 
 assert_absent_from_listing() {
@@ -288,7 +290,7 @@ if not isinstance(items, list) or not any(item.get("reference") == sys.argv[2] f
 }
 
 prove_service() {
-	local anonymous student_cookie student instructor_cookie library question_id created body reference replacement saved detail publication replay deliberate exact archived restored listed
+	local anonymous student_cookie student instructor_cookie library question_id created body reference metadata_etag replacement saved stale_save no_op detail renamed archived restored listed
 	anonymous="$(request '/api/course-blueprints')"
 	assert_concealed "$anonymous"
 	student_cookie="$(persona_cookie maryStudent)"
@@ -305,64 +307,73 @@ prove_service() {
 		exit 1
 	fi
 	question_id="$(first_published_question_id "$(response_body "$library")")"
-	created="$(request '/api/course-blueprints' "$instructor_cookie" POST "$(creation_payload "$question_id")" '' 'm7-blueprint-create')"
+	created="$(request '/api/course-blueprints' "$instructor_cookie" POST "$(creation_payload "$question_id")" '' "m7-blueprint-create-$run_id")"
 	if [ "$(response_status "$created")" != "201" ]; then
-		echo "Instructor could not create a Blueprint Course Draft (HTTP $(response_status "$created"))" >&2
+		echo "Instructor could not create Blueprint Revision 1 (HTTP $(response_status "$created"))" >&2
 		exit 1
 	fi
 	body="$(response_body "$created")"
-	read -r reference < <(python3 -c '
+	read -r reference metadata_etag < <(python3 -c '
 import json, re, sys
 value = json.loads(sys.argv[1])
 reference = value.get("reference")
-if not isinstance(reference, str) or not re.fullmatch(r"BP-[1-9][0-9]{0,9}", reference):
-    raise SystemExit("Blueprint Course creation did not return an opaque Blueprint Course Reference")
-print(reference)
+revision = value.get("current_revision")
+metadata_etag = value.get("metadata_etag")
+if (not isinstance(reference, str) or not re.fullmatch(r"BP-[1-9][0-9]{0,9}", reference)
+        or revision != {"reference": reference, "revision": "1"}
+        or not isinstance(metadata_etag, str) or not metadata_etag):
+    raise SystemExit("Blueprint Course creation did not return Revision 1 and metadata identity")
+print(reference, metadata_etag)
 ' "$body")
-	assert_public_view "$body" "$reference" "1" "Live Demo Blueprint Course"
+	assert_current_view "$body" "$reference" "1" "Live Blueprint" "Live Demo Blueprint Course"
 	detail="$(request "/api/course-blueprints/$reference" "$instructor_cookie")"
 	if [ "$(response_status "$detail")" != "200" ]; then
-		echo "Blueprint Course Owner could not read its private Draft" >&2
+		echo "Blueprint Course Owner could not read the current Revision" >&2
 		exit 1
 	fi
-	assert_public_view "$(response_body "$detail")" "$reference" "1" "Live Demo Blueprint Course"
+	assert_current_view "$(response_body "$detail")" "$reference" "1" "Live Blueprint" "Live Demo Blueprint Course"
 	replacement="$(replacement_payload "$body")"
-	saved="$(request "/api/course-blueprints/$reference/draft" "$instructor_cookie" PUT "$replacement" '"1"' 'm7-blueprint-save')"
+	saved="$(request "/api/course-blueprints/$reference" "$instructor_cookie" PUT "$replacement" '"1"' "m7-blueprint-save-$run_id")"
 	if [ "$(response_status "$saved")" != "200" ]; then
-		echo "Blueprint Course Owner could not save its Draft (HTTP $(response_status "$saved"))" >&2
+		echo "Blueprint Course Owner could not Save Revision 2 (HTTP $(response_status "$saved"))" >&2
 		exit 1
 	fi
-	assert_public_view "$(response_body "$saved")" "$reference" "2" "Live Demo Blueprint Course (saved)"
-	publication="$(request "/api/course-blueprints/$reference/publish" "$instructor_cookie" POST '' '"2"' 'm7-blueprint-publish-1')"
-	if [ "$(response_status "$publication")" != "200" ]; then
-		echo "Blueprint Course Owner could not explicitly publish its Draft" >&2
+	assert_save "$(response_body "$saved")" "$reference" "2" true
+	stale_save="$(request "/api/course-blueprints/$reference" "$instructor_cookie" PUT "$replacement" '"1"' "m7-blueprint-stale-save-$run_id")"
+	if [ "$(response_status "$stale_save")" != "412" ]; then
+		echo "stale Blueprint Save did not receive a Revision conflict" >&2
 		exit 1
 	fi
-	assert_publication "$(response_body "$publication")" "$reference" "1"
-	replay="$(request "/api/course-blueprints/$reference/publish" "$instructor_cookie" POST '' '"2"' 'm7-blueprint-publish-1')"
-	if [ "$(response_status "$replay")" != "200" ]; then
-		echo "accepted Blueprint publication did not converge on replay" >&2
+	no_op="$(request "/api/course-blueprints/$reference" "$instructor_cookie" PUT "$replacement" '"2"' "m7-blueprint-save-no-op-$run_id")"
+	if [ "$(response_status "$no_op")" != "200" ]; then
+		echo "canonical no-op Blueprint Save was not accepted" >&2
 		exit 1
 	fi
-	assert_publication "$(response_body "$replay")" "$reference" "1"
-	deliberate="$(request "/api/course-blueprints/$reference/publish" "$instructor_cookie" POST '' '"2"' 'm7-blueprint-publish-2')"
-	if [ "$(response_status "$deliberate")" != "200" ]; then
-		echo "unchanged deliberate Blueprint publication was not accepted" >&2
+	assert_save "$(response_body "$no_op")" "$reference" "2" false
+	renamed="$(request "/api/course-blueprints/$reference/metadata" "$instructor_cookie" PUT '{"short_name":"Live Renamed Blueprint","long_name":"Live Demo Blueprint Course Renamed"}' "\"$metadata_etag\"")"
+	if [ "$(response_status "$renamed")" != "200" ]; then
+		echo "Blueprint Course Owner could not rename Blueprint lineage metadata" >&2
 		exit 1
 	fi
-	assert_publication "$(response_body "$deliberate")" "$reference" "2"
+	metadata_etag="$(assert_metadata "$(response_body "$renamed")" available "Live Renamed Blueprint" "Live Demo Blueprint Course Renamed")"
+	detail="$(request "/api/course-blueprints/$reference" "$instructor_cookie")"
+	if [ "$(response_status "$detail")" != "200" ]; then
+		echo "renamed Blueprint Course could not reload its current Revision" >&2
+		exit 1
+	fi
+	assert_current_view "$(response_body "$detail")" "$reference" "2" "Live Renamed Blueprint" "Live Demo Blueprint Course Renamed"
 	exact="$(request "/api/course-blueprints/$reference/revisions/1" "$instructor_cookie")"
 	if [ "$(response_status "$exact")" != "200" ]; then
-		echo "exact published Blueprint Revision did not resolve" >&2
+		echo "exact saved Blueprint Revision did not resolve" >&2
 		exit 1
 	fi
 	assert_exact_revision "$(response_body "$exact")" "$reference" "1"
-	archived="$(request "/api/course-blueprints/$reference/archive" "$instructor_cookie" POST '{"confirmationTitle":"Live Demo Blueprint Course (saved)"}' '"1"')"
+	archived="$(request "/api/course-blueprints/$reference/archive" "$instructor_cookie" POST '{"confirmationLongName":"Live Demo Blueprint Course Renamed"}' "\"$metadata_etag\"")"
 	if [ "$(response_status "$archived")" != "200" ]; then
 		echo "Blueprint Course Owner could not archive its lineage" >&2
 		exit 1
 	fi
-	assert_availability "$(response_body "$archived")" "archived" "2"
+	metadata_etag="$(assert_metadata "$(response_body "$archived")" archived "Live Renamed Blueprint" "Live Demo Blueprint Course Renamed")"
 	listed="$(request '/api/course-blueprints?pageSize=100' "$instructor_cookie")"
 	if [ "$(response_status "$listed")" != "200" ]; then
 		echo "Instructor could not browse Blueprint Courses after archive" >&2
@@ -374,26 +385,26 @@ print(reference)
 		echo "archive broke an exact Blueprint Revision reference" >&2
 		exit 1
 	fi
-	restored="$(request "/api/course-blueprints/$reference/restore" "$instructor_cookie" POST '' '"2"')"
+	restored="$(request "/api/course-blueprints/$reference/restore" "$instructor_cookie" POST '' "\"$metadata_etag\"")"
 	if [ "$(response_status "$restored")" != "200" ]; then
 		echo "Blueprint Course Owner could not restore its lineage" >&2
 		exit 1
 	fi
-	assert_availability "$(response_body "$restored")" "available" "3"
+	assert_metadata "$(response_body "$restored")" available "Live Renamed Blueprint" "Live Demo Blueprint Course Renamed" >/dev/null
 	listed="$(request '/api/course-blueprints?pageSize=100' "$instructor_cookie")"
 	if [ "$(response_status "$listed")" != "200" ]; then
 		echo "Instructor could not browse Blueprint Courses after restore" >&2
 		exit 1
 	fi
 	assert_present_in_listing "$(response_body "$listed")" "$reference"
-	echo "Blueprint Course service: Draft, publication replay, availability, and exact Revision behavior complete"
+	echo "Blueprint Course service: Revision creation, stale/no-op Save, metadata, availability, and exact Revision behavior complete"
 }
 
 prove_browser() {
 	local port
 	port="$(gateway_port)"
 	node tests/playwright/e2e_live_demo_blueprint_course_browser.mjs "$port"
-	echo "Blueprint Course browser: visible creation and publication complete"
+	echo "Blueprint Course browser: visible Revision 1 creation and explicit Save complete"
 }
 
 require_live_demo

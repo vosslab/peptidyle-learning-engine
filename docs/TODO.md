@@ -15,13 +15,12 @@ are in [ROADMAP.md](ROADMAP.md).
       authorization, and browser workflows.
 - [ ] Build reusable Assignment Templates as a bounded domain, Store, Server,
       authorization, and browser workflow capability.
-- [ ] Build Blueprint short- and long-name editing as mutable Blueprint-lineage
-      metadata with the required Store, Server, authorization, and browser
-      workflow.
 - [ ] Build Question Change Proposal as a complete domain, Store, Server,
       authorization, and browser workflow capability. Its design begins from
       the implemented Question publication and Forced Question Correction
       boundaries; it has no pre-existing persistence contract to extend.
+- [ ] Remove the generic Question Seed input from static PLE Question JSON
+      issuance; static declarative sources do not vary and do not execute code.
 - [ ] Build Course Retention as a complete domain, Store, Server,
       authorization, worker, and browser workflow capability. Its design must
       define the Course-wide Student Work lifecycle and evidence it requires;

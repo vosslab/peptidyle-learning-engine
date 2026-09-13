@@ -32,11 +32,55 @@ BEGIN
     RETURN result;
 END $$;
 
+CREATE FUNCTION ple_private.read_native_ple_submission_status(
+    p_course_reference_number bigint, p_assignment_reference_number bigint,
+    p_presentation_nonce text
+) RETURNS TABLE (presentation_nonce text, grading_state text)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+BEGIN
+    -- ASVS 8.2.1-8.2.3: submitted Attempt status remains restricted by
+    -- current-session Student ownership and the exact presentation nonce.
+    RETURN QUERY
+    SELECT presentation.presentation_nonce, grading.grading_state
+      FROM ple_data.assignment AS assignment
+      JOIN ple_private.assignment_attempt AS assignment_attempt
+        ON assignment_attempt.assignment_id = assignment.assignment_id
+      JOIN ple_private.issued_question AS issued
+        ON issued.assignment_attempt_id = assignment_attempt.assignment_attempt_id
+      JOIN ple_private.question_attempt AS attempt
+        ON attempt.issued_question_id = issued.issued_question_id
+       AND attempt.question_attempt_state = 'submission_accepted'
+      JOIN ple_private.question_attempt_presentation_binding AS presentation
+        ON presentation.question_attempt_id = attempt.question_attempt_id
+      JOIN ple_private.question_revision_source_binding AS source
+        ON source.question_id = issued.question_id
+       AND source.revision_number = issued.revision_number
+      JOIN ple_private.question_submission AS submission
+        ON submission.question_attempt_id = attempt.question_attempt_id
+      JOIN ple_private.question_submission_grading AS grading
+        ON grading.submission_id = submission.submission_id
+     WHERE ple_api.course_reference_number_for_attempt(assignment.course_id)
+               = p_course_reference_number
+       AND assignment.reference_number = p_assignment_reference_number
+       AND ple_api.current_session_account_owns_student_record(
+               assignment.course_id, assignment_attempt.student_record_id
+           )
+       AND presentation.presentation_nonce = p_presentation_nonce
+       AND source.backend = 'ple'
+       AND source.question_format = 'pleQuestionJson';
+END
+$$;
+
 -- API routines are owned by the API schema owner.  Their narrow private
 -- helper remains private-owner code, with an explicit execute boundary.
 REVOKE ALL ON FUNCTION ple_private.require_owned_open_question_attempt(uuid, uuid, uuid)
     FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.require_owned_open_question_attempt(uuid, uuid, uuid)
+    TO ple_api_owner;
+REVOKE ALL ON FUNCTION ple_private.read_native_ple_submission_status(bigint, bigint, text)
+    FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.read_native_ple_submission_status(bigint, bigint, text)
     TO ple_api_owner;
 RESET ROLE;
 SET LOCAL ROLE ple_api_owner;
@@ -298,31 +342,18 @@ END $$;
 CREATE FUNCTION ple_api.read_native_ple_submission_status(
     p_course_reference_number bigint, p_assignment_reference_number bigint, p_presentation_nonce text
 ) RETURNS TABLE (presentation_nonce text, grading_state text)
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
 BEGIN
     IF p_presentation_nonce IS NULL OR p_presentation_nonce !~ '^[0-9a-f]{32,128}$' THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question Submission is unavailable';
     END IF;
     RETURN QUERY
-    SELECT presentation.presentation_nonce, grading.grading_state
-      FROM ple_data.course_instance AS course
-      JOIN ple_data.assignment AS assignment ON assignment.course_id = course.course_id
-      JOIN ple_private.assignment_attempt AS assignment_attempt
-        ON assignment_attempt.assignment_id = assignment.assignment_id AND assignment_attempt.completed_at IS NULL
-      JOIN ple_data.student_record AS student ON student.student_record_id = assignment_attempt.student_record_id
-      JOIN ple_private.issued_question AS issued ON issued.assignment_attempt_id = assignment_attempt.assignment_attempt_id
-      JOIN ple_private.question_attempt AS attempt ON attempt.issued_question_id = issued.issued_question_id
-        AND attempt.question_attempt_state = 'submission_accepted'
-      JOIN ple_private.question_attempt_presentation_binding AS presentation ON presentation.question_attempt_id = attempt.question_attempt_id
-      JOIN ple_private.question_revision_source_binding AS source ON source.question_id = issued.question_id
-        AND source.revision_number = issued.revision_number
-      JOIN ple_private.question_submission AS submission ON submission.question_attempt_id = attempt.question_attempt_id
-      JOIN ple_private.question_submission_grading AS grading ON grading.submission_id = submission.submission_id
-     WHERE course.reference_number = p_course_reference_number AND assignment.reference_number = p_assignment_reference_number
-       AND student.student_account_id = ple_api.current_session_account_id()
-       AND ple_api.current_session_account_owns_student_record(assignment.course_id, student.student_record_id)
-       AND presentation.presentation_nonce = p_presentation_nonce
-       AND source.backend = 'ple' AND source.question_format = 'pleQuestionJson';
+    SELECT status.presentation_nonce, status.grading_state
+      FROM ple_private.read_native_ple_submission_status(
+          p_course_reference_number,
+          p_assignment_reference_number,
+          p_presentation_nonce
+      ) AS status;
 END $$;
 
 CREATE FUNCTION ple_api.accept_native_ple_submission(p_question_attempt_id uuid, p_student_response jsonb, p_submission_id uuid, p_grading_id uuid, p_job_id uuid)

@@ -1,28 +1,31 @@
-// Strict same-origin transport for the Blueprint lineage, Draft, and publication lifecycle.
+// Strict same-origin transport for Blueprint lineage metadata and immutable Revisions.
 
 import type { BlueprintCourseReference } from "../../../generated/api/BlueprintCourseReference";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
+import type { BlueprintCourseSaveResponse } from "../../../generated/api/BlueprintCourseSaveResponse";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
-import type { BlueprintRevisionReference } from "../../../generated/api/BlueprintRevisionReference";
+import type { BlueprintMetadataState } from "../../../generated/api/BlueprintMetadataState";
 import type { BlueprintRevisionView } from "../../../generated/api/BlueprintRevisionView";
 import type { ApiClient } from "../client";
 import type { CursorPage } from "../contracts";
 import {
-  decodeBlueprintAvailabilityTransition,
   decodeBlueprintCoursePage,
   decodeBlueprintCourseReference,
+  decodeBlueprintCourseSaveResponse,
   decodeBlueprintCourseView,
-  decodeBlueprintPublication,
+  decodeBlueprintMetadataState,
   decodeBlueprintRevision,
   decodeBlueprintRevisionView,
-  decodeCreateBlueprintCourseContentInput,
+  decodeCreateBlueprintCourseInput,
+  decodeRenameBlueprintCourseInput,
   decodeReplaceBlueprintCourseContentInput,
 } from "../decoders/blueprint_course";
 import type {
-  BlueprintAvailabilityTransition,
   BlueprintCourseClient,
   BlueprintIdempotencyKey,
+  BlueprintMetadataTransition,
   LoadedBlueprintCourse,
+  BlueprintRevisionEtag,
 } from "../blueprint_course";
 import { ApiProtocolError, ApiRequestError, BlueprintCourseConflictError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
@@ -30,6 +33,7 @@ import { boundedResponseJson, requireNoStore } from "./response";
 
 const MAX_PAGE_SIZE = 100;
 const MAX_IDEMPOTENCY_KEY_BYTES = 128;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 function pagePath(path: string, cursor: string | undefined, pageSize: number | undefined): string {
   if (
@@ -45,11 +49,26 @@ function pagePath(path: string, cursor: string | undefined, pageSize: number | u
   return `${path}${suffix}`;
 }
 
-function parseStrongEtag(value: string, path: string): string {
+function parseRevisionEtag(value: string, path: string): string {
   if (!/^"[1-9][0-9]*"$/u.test(value) || BigInt(value.slice(1, -1)) > 9_223_372_036_854_775_807n) {
-    throw new ApiProtocolError(`API ${path} ETag must be one strong positive numeric validator`);
+    throw new ApiProtocolError(`API ${path} ETag must be one strong positive Revision validator`);
   }
   return value;
+}
+
+function parseMetadataEtag(value: string, path: string): string {
+  const unquoted = /^"(.+)"$/u.exec(value)?.[1];
+  if (unquoted === undefined || !UUID.test(unquoted)) {
+    throw new ApiProtocolError(`API ${path} ETag must be one strong opaque metadata validator`);
+  }
+  return value;
+}
+
+function metadataEtag(value: string, path: string): string {
+  if (!UUID.test(value)) {
+    throw new ApiProtocolError(`API ${path} metadata ETag must be a canonical UUID`);
+  }
+  return `"${value}"`;
 }
 
 function idempotencyKey(value: BlueprintIdempotencyKey, path: string): string {
@@ -72,14 +91,6 @@ function blueprintPath(value: BlueprintCourseReference): string {
   return `/api/course-blueprints/${encodeURIComponent(decodeBlueprintCourseReference(value, "blueprint"))}`;
 }
 
-function requireMatchingEtag(response: Response, editNumber: string, path: string): string {
-  const etag = response.headers.get("etag");
-  if (etag === null || parseStrongEtag(etag, path) !== `"${editNumber}"`) {
-    throw new ApiProtocolError(`API response ${path} ETag must match its qualified Edit Number`);
-  }
-  return etag;
-}
-
 async function blueprintJson<T>(
   fetchImplementation: ApiFetch,
   basePath: string,
@@ -89,13 +100,18 @@ async function blueprintJson<T>(
     readonly method?: "GET" | "POST" | "PUT";
     readonly body?: unknown;
     readonly etag?: string;
+    readonly parseEtag?: (value: string, path: string) => string;
     readonly idempotencyKey?: BlueprintIdempotencyKey;
     readonly expectedStatus?: 200 | 201;
   } = {},
 ): Promise<{ readonly body: T; readonly response: Response }> {
   const headers: Record<string, string> = {};
-  if (options.etag !== undefined)
-    headers["if-match"] = parseStrongEtag(options.etag, `${path} If-Match`);
+  if (options.etag !== undefined) {
+    headers["if-match"] = (options.parseEtag ?? parseRevisionEtag)(
+      options.etag,
+      `${path} If-Match`,
+    );
+  }
   if (options.idempotencyKey !== undefined)
     headers["idempotency-key"] = idempotencyKey(options.idempotencyKey, path);
   const response = await requestSameOrigin(fetchImplementation, basePath, path, {
@@ -112,6 +128,31 @@ async function blueprintJson<T>(
   return { body: decoder(await boundedResponseJson(response, path), "response"), response };
 }
 
+function requireRevisionEtag(response: Response, revision: string, path: string): string {
+  const etag = response.headers.get("etag");
+  if (etag === null || parseRevisionEtag(etag, path) !== `"${revision}"`) {
+    throw new ApiProtocolError(
+      `API response ${path} ETag must match its current Blueprint Revision`,
+    );
+  }
+  return etag;
+}
+
+function requireMetadataEtag(
+  response: Response,
+  state: BlueprintMetadataState,
+  path: string,
+): string {
+  const etag = response.headers.get("etag");
+  const expected = metadataEtag(state.metadata_etag, path);
+  if (etag === null || parseMetadataEtag(etag, path) !== expected) {
+    throw new ApiProtocolError(
+      `API response ${path} ETag must match its opaque metadata validator`,
+    );
+  }
+  return etag;
+}
+
 function loadedBlueprintCourse(
   body: BlueprintCourseView,
   response: Response,
@@ -119,20 +160,16 @@ function loadedBlueprintCourse(
 ): LoadedBlueprintCourse {
   return {
     blueprintCourse: body,
-    draftEtag:
-      body.draft === null ? undefined : requireMatchingEtag(response, body.draft.edit_number, path),
+    revisionEtag: requireRevisionEtag(response, body.current_revision.revision, path),
   };
 }
 
-function availabilityTransition(
-  body: {
-    readonly availability: BlueprintAvailabilityTransition["availability"];
-    readonly editNumber: string;
-  },
+function metadataTransition(
+  metadata: BlueprintMetadataState,
   response: Response,
   path: string,
-): BlueprintAvailabilityTransition {
-  return { ...body, etag: requireMatchingEtag(response, body.editNumber, path) };
+): BlueprintMetadataTransition {
+  return { metadata, metadataEtag: requireMetadataEtag(response, metadata, path) };
 }
 
 /** Creates the complete Blueprint Course capability without coupling it to a screen model. */
@@ -168,49 +205,59 @@ export function createBlueprintCourseClient(
         decodeBlueprintCourseView,
         {
           method: "POST",
-          body: decodeCreateBlueprintCourseContentInput(content),
+          body: decodeCreateBlueprintCourseInput(content),
           idempotencyKey: requestKey,
           expectedStatus: 201,
         },
       );
       return loadedBlueprintCourse(result.body, result.response, path);
     },
-    saveBlueprintDraft: async (
+    saveBlueprintCourse: async (
       reference,
       content,
       etag,
       requestKey,
-    ): Promise<LoadedBlueprintCourse> => {
-      const path = `${blueprintPath(reference)}/draft`;
+    ): Promise<BlueprintCourseSaveResponse & { readonly revisionEtag: BlueprintRevisionEtag }> => {
+      const path = blueprintPath(reference);
       const result = await blueprintJson(
         fetchImplementation,
         basePath,
         path,
-        decodeBlueprintCourseView,
+        decodeBlueprintCourseSaveResponse,
         {
           method: "PUT",
           body: decodeReplaceBlueprintCourseContentInput(content),
           etag,
+          parseEtag: parseRevisionEtag,
           idempotencyKey: requestKey,
           expectedStatus: 200,
         },
       );
-      return loadedBlueprintCourse(result.body, result.response, path);
+      return {
+        ...result.body,
+        revisionEtag: requireRevisionEtag(
+          result.response,
+          result.body.blueprintCourse.current_revision.revision,
+          path,
+        ),
+      };
     },
-    publishBlueprintDraft: async (
-      reference,
-      etag,
-      requestKey,
-    ): Promise<BlueprintRevisionReference> => {
-      const path = `${blueprintPath(reference)}/publish`;
-      return (
-        await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintPublication, {
-          method: "POST",
+    renameBlueprintCourse: async (reference, names, etag): Promise<BlueprintMetadataTransition> => {
+      const path = `${blueprintPath(reference)}/metadata`;
+      const result = await blueprintJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeBlueprintMetadataState,
+        {
+          method: "PUT",
+          body: decodeRenameBlueprintCourseInput(names),
           etag,
-          idempotencyKey: requestKey,
+          parseEtag: parseMetadataEtag,
           expectedStatus: 200,
-        })
-      ).body;
+        },
+      );
+      return metadataTransition(result.body, result.response, path);
     },
     getBlueprintRevision: async (reference, revision): Promise<BlueprintRevisionView> => {
       const path = `${blueprintPath(reference)}/revisions/${encodeURIComponent(decodeBlueprintRevision(revision, "revision"))}`;
@@ -219,38 +266,40 @@ export function createBlueprintCourseClient(
     },
     archiveBlueprintCourse: async (
       reference,
-      confirmationTitle,
+      confirmationLongName,
       etag,
-    ): Promise<BlueprintAvailabilityTransition> => {
+    ): Promise<BlueprintMetadataTransition> => {
       const path = `${blueprintPath(reference)}/archive`;
       const result = await blueprintJson(
         fetchImplementation,
         basePath,
         path,
-        decodeBlueprintAvailabilityTransition,
+        decodeBlueprintMetadataState,
         {
           method: "POST",
-          body: { confirmationTitle },
+          body: { confirmationLongName },
           etag,
+          parseEtag: parseMetadataEtag,
           expectedStatus: 200,
         },
       );
-      return availabilityTransition(result.body, result.response, path);
+      return metadataTransition(result.body, result.response, path);
     },
-    restoreBlueprintCourse: async (reference, etag): Promise<BlueprintAvailabilityTransition> => {
+    restoreBlueprintCourse: async (reference, etag): Promise<BlueprintMetadataTransition> => {
       const path = `${blueprintPath(reference)}/restore`;
       const result = await blueprintJson(
         fetchImplementation,
         basePath,
         path,
-        decodeBlueprintAvailabilityTransition,
+        decodeBlueprintMetadataState,
         {
           method: "POST",
           etag,
+          parseEtag: parseMetadataEtag,
           expectedStatus: 200,
         },
       );
-      return availabilityTransition(result.body, result.response, path);
+      return metadataTransition(result.body, result.response, path);
     },
   };
 }

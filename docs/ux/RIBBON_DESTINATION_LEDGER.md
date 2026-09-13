@@ -60,7 +60,7 @@ destination; generation and tests intentionally leave this prose alone.
 ### Courses
 
 Courses is the Active Instructor's Course Instance starting surface. M8 makes
-the visible creation path available from one exact Available published Blueprint
+the visible creation path available from the Blueprint's exact Available current
 Revision and opens the new Course Instance's initial Teaching Team. A Sysadmin
 may assign an Active Instructor through the bounded service operation but gains
 no ambient Course access; roster, invitations, Assignments, Student work, and
@@ -77,10 +77,10 @@ the route and Store conceal it from Student and anonymous requests.
 
 Blueprint Courses is the Instructor workspace for reusable, answer-free
 Blueprint Course content. M7's registered route, strict decoder, and fixed
-browser evidence make creation and publication available: a Blueprint Course
-Owner may publish a successor Blueprint Revision, while another Active
+browser evidence make creation and explicit Save available: a Blueprint Course
+Owner may Save a successor Blueprint Revision, while another Active
 Instructor receives closed Blueprint Course Read Access. M8 uses one exact
-Available published Blueprint Revision only to bootstrap a Course Instance;
+Available current Blueprint Revision only to bootstrap a Course Instance;
 roster, Assignment delivery, Student work, and grading remain separate future
 work.
 

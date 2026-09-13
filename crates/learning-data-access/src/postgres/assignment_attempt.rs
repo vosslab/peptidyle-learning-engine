@@ -82,7 +82,7 @@ impl AssignmentAttemptStore for PostgresAssignmentAttemptStore {
         let selections = storage_selections(&start, &selection_ids);
         let question_seeds = (0..start.issued_questions.len())
             .map(|_| {
-                crate::random_uuid::random_u64(|error| {
+                crate::random_uuid::random_question_seed(|error| {
                     StoreError::Unavailable(format!(
                         "Question seed randomness unavailable: {error}"
                     ))

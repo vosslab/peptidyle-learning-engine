@@ -20,22 +20,38 @@ try {
   await page.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Continue as Elena Rivera" }).click();
   await page.waitForURL(`${origin}/library`);
-  await page.getByRole("link", { name: "Blueprint Courses" }).click();
+  await page
+    .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+    .getByRole("link", { name: "Courses", exact: true })
+    .click();
+  await page.waitForURL(`${origin}/`);
+  await page
+    .getByRole("navigation", { name: "Ribbon tasks", exact: true })
+    .getByRole("link", { name: "My Blueprint Courses", exact: true })
+    .click();
   await page.waitForURL(`${origin}/blueprint-courses`);
   await page.getByRole("button", { name: "Create Blueprint Course" }).click();
   await page.getByRole("heading", { name: "Create a Blueprint Course" }).waitFor();
-  await page.getByLabel("Blueprint Course title").fill(blueprintTitle);
+  await page.getByLabel("Blueprint Course short name").fill(`M9 BP ${runId}`);
+  await page.getByLabel("Blueprint Course long name").fill(blueprintTitle);
   await page.getByRole("button", { name: "Choose published Questions" }).click();
   await page.getByRole("heading", { name: "Choose the first reusable Questions" }).waitFor();
   await page.getByRole("button", { name: "Search questions" }).click();
-  await page.locator(".question-picker-result input").first().check();
+  await page
+    .getByRole("dialog", { name: "Choose the first reusable Questions", exact: true })
+    .getByRole("checkbox")
+    .first()
+    .check();
   await page.getByRole("button", { name: "Use selected Questions" }).click();
   await page.getByText("1 fixed Question selected in order.").waitFor();
   await page.getByRole("dialog").getByRole("button", { name: "Create Blueprint Course" }).click();
   await page.waitForURL(/\/blueprint-courses\/BP-[1-9][0-9]*$/u);
-  await page.getByRole("link", { name: "Courses", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+    .getByRole("link", { name: "Courses", exact: true })
+    .click();
   await page.waitForURL(`${origin}/`);
-  const source = page.getByLabel("Blueprint Course Revision");
+  const source = page.getByLabel("Blueprint Course");
   await source.selectOption({ label: `${blueprintTitle} · Revision 1` });
   await page.getByLabel("Course short name").fill(courseShortName);
   await page.getByLabel("Course long name").fill(courseLongName);

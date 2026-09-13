@@ -10,6 +10,14 @@ SELECT set_config(
     'ple.installation_pilot_publication_session_id',
     :'pilot_publication_session_id', true
 ) AS ignored \gset
+SELECT set_config(
+    'ple.installation_live_demo_blueprint_reference',
+    :'live_demo_blueprint_reference', true
+) AS ignored \gset
+SELECT set_config(
+    'ple.installation_live_demo_blueprint_assignment_reference',
+    :'live_demo_blueprint_assignment_reference', true
+) AS ignored \gset
 
 SET LOCAL ROLE ple_private_owner;
 
@@ -61,20 +69,30 @@ RESET ROLE;
 SET LOCAL ROLE ple_api_owner;
 
 DO $$
-DECLARE blueprint_exists boolean;
+DECLARE
+    blueprint_reference bigint := current_setting(
+        'ple.installation_live_demo_blueprint_reference'
+    )::bigint;
+    expected_blueprint_assignment_reference uuid := current_setting(
+        'ple.installation_live_demo_blueprint_assignment_reference'
+    )::uuid;
 BEGIN
-    SELECT EXISTS (
+    IF NOT EXISTS (
         SELECT 1 FROM ple_data.blueprint_course
-         WHERE blueprint_id = '00000000-0000-0000-0000-000000000210'
-    ) INTO blueprint_exists;
-    IF blueprint_exists AND NOT EXISTS (
-        SELECT 1 FROM ple_data.blueprint_course
-         WHERE blueprint_id = '00000000-0000-0000-0000-000000000210'
+         WHERE reference_number = blueprint_reference
            AND owner_account_id = '00000000-0000-0000-0000-000000000101'
            AND availability = 'available'
+           AND current_blueprint_revision_number = 1
+           AND EXISTS (
+               SELECT 1 FROM ple_data.blueprint_revision_assignment AS revision_assignment
+                WHERE revision_assignment.blueprint_course_reference_number = blueprint_reference
+                  AND revision_assignment.blueprint_revision_number = 1
+                  AND revision_assignment.blueprint_assignment_reference
+                      = expected_blueprint_assignment_reference
+           )
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Live Demo Blueprint root conflicts with existing product data';
+            MESSAGE = 'Live Demo Blueprint Revision 1 is unavailable';
     END IF;
     IF EXISTS (SELECT 1 FROM ple_data.course_instance WHERE course_id = '00000000-0000-0000-0000-000000000220')
        AND NOT EXISTS (
@@ -85,10 +103,7 @@ BEGIN
               AND course.course_long_name = 'Biochemistry 301: Proteins and Peptides'
               AND course.term_starts_on = date '2026-08-24'
               AND course.term_ends_on = date '2026-12-11'
-              AND course.blueprint_course_reference_number = (
-                  SELECT reference_number FROM ple_data.blueprint_course
-                   WHERE blueprint_id = '00000000-0000-0000-0000-000000000210'
-              )
+              AND course.blueprint_course_reference_number = blueprint_reference
               AND course.blueprint_revision_number = 1
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -97,193 +112,13 @@ BEGIN
 END
 $$;
 
-INSERT INTO ple_data.blueprint_course (blueprint_id, owner_account_id, created_at)
-VALUES ('00000000-0000-0000-0000-000000000210',
-        '00000000-0000-0000-0000-000000000101', clock_timestamp())
-ON CONFLICT (blueprint_id) DO NOTHING;
-
-INSERT INTO ple_data.blueprint_draft (
-    blueprint_course_reference_number, content, content_checksum, updated_at
-)
-WITH pilot_question_input AS (
-    SELECT publication.key AS slug,
-           replace(publication.value -> 'questionRevision' ->> 'questionId', '-', '') AS question_id,
-           (publication.value -> 'questionRevision' ->> 'revisionNumber')::integer AS revision_number
-      FROM jsonb_each(:'pilot_question_publications'::jsonb) AS publication(key, value)
-), content AS (
-    SELECT jsonb_build_object(
-        'title', 'Biochemistry 301: Proteins and Peptides',
-        'modules', jsonb_build_array(jsonb_build_object(
-            'blueprint_module_reference', '00000000-0000-0000-0000-000000000211',
-            'label', 'Chapter 1 reviewed practice',
-            'assignments', jsonb_build_array(jsonb_build_object(
-                'blueprint_assignment_reference', '00000000-0000-0000-0000-000000000212',
-                'content', jsonb_build_object(
-                    'title', 'Chapter 1 Pilot Practice',
-                    'instructions', 'Complete the four reviewed Chapter 1 practice questions.',
-                    'entries', (
-                        SELECT jsonb_agg(jsonb_build_object(
-                            'kind', 'fixed',
-                            'question_revision', jsonb_build_object(
-                                'questionId', input.question_id,
-                                'revisionNumber', input.revision_number
-                            )
-                        ) ORDER BY array_position(ARRAY[
-                            'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
-                            'biochemistry-functional-groups-ple-question-json-mc', 'biochemistry-functional-groups-ple-question-json-matching'
-                        ], input.slug))
-                        FROM pilot_question_input AS input
-                       WHERE input.slug IN (
-                           'genetics-disorders-ple-question-json-mc', 'genetics-disorders-ple-question-json-matching',
-                           'biochemistry-functional-groups-ple-question-json-mc', 'biochemistry-functional-groups-ple-question-json-matching'
-                       )
-                    )
-                )
-            ))
-        ))) AS value
-)
-SELECT course.reference_number, content.value,
-       sha256(convert_to(content.value::text, 'UTF8')), clock_timestamp()
-  FROM ple_data.blueprint_course AS course
- CROSS JOIN content
- CROSS JOIN LATERAL (
-     SELECT set_config(
-         'ple.installation_expected_blueprint_content', content.value::text, true
-     )
- ) AS expected_content(ignored)
- WHERE course.blueprint_id = '00000000-0000-0000-0000-000000000210'
-ON CONFLICT (blueprint_course_reference_number) DO NOTHING;
-
 DO $$
 DECLARE
-    expected_content jsonb := current_setting('ple.installation_expected_blueprint_content')::jsonb;
-    expected_checksum bytea := sha256(convert_to(
-        current_setting('ple.installation_expected_blueprint_content'), 'UTF8'
-    ));
-    blueprint_reference bigint;
+    course_reference bigint;
+    blueprint_reference bigint := current_setting(
+        'ple.installation_live_demo_blueprint_reference'
+    )::bigint;
 BEGIN
-    SELECT reference_number INTO blueprint_reference
-      FROM ple_data.blueprint_course
-     WHERE blueprint_id = '00000000-0000-0000-0000-000000000210';
-    IF NOT EXISTS (
-        SELECT 1 FROM ple_data.blueprint_draft
-         WHERE blueprint_course_reference_number = blueprint_reference
-           AND content = expected_content
-           AND content_checksum = expected_checksum
-    ) OR EXISTS (
-        SELECT 1 FROM ple_data.blueprint_course_revision
-         WHERE blueprint_course_reference_number = blueprint_reference
-           AND blueprint_revision_number = 1
-           AND (content <> expected_content OR content_checksum <> expected_checksum)
-    ) THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Live Demo Blueprint content conflicts with existing product data';
-    END IF;
-END
-$$;
-
-INSERT INTO ple_data.blueprint_draft_question_pin
-SELECT course.reference_number, pins.content_path, pins.question_id, pins.question_revision_number
-  FROM ple_data.blueprint_course AS course
-  JOIN ple_data.blueprint_draft AS draft
-    ON draft.blueprint_course_reference_number = course.reference_number
- CROSS JOIN LATERAL ple_data.blueprint_content_question_pins(draft.content) AS pins
- WHERE course.blueprint_id = '00000000-0000-0000-0000-000000000210'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO ple_data.blueprint_draft_module
-SELECT course.reference_number, module.blueprint_module_reference, module.module_position
-  FROM ple_data.blueprint_course AS course
-  JOIN ple_data.blueprint_draft AS draft
-    ON draft.blueprint_course_reference_number = course.reference_number
- CROSS JOIN LATERAL ple_data.blueprint_content_modules(draft.content) AS module
- WHERE course.blueprint_id = '00000000-0000-0000-0000-000000000210'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO ple_data.blueprint_draft_assignment
-SELECT course.reference_number, assignment.blueprint_module_reference,
-       assignment.blueprint_assignment_reference, assignment.assignment_position
-  FROM ple_data.blueprint_course AS course
-  JOIN ple_data.blueprint_draft AS draft
-    ON draft.blueprint_course_reference_number = course.reference_number
- CROSS JOIN LATERAL ple_data.blueprint_content_assignments(draft.content) AS assignment
- WHERE course.blueprint_id = '00000000-0000-0000-0000-000000000210'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO ple_data.blueprint_course_revision (
-    blueprint_course_reference_number, blueprint_revision_number, title,
-    content, content_checksum, published_at
-)
-SELECT course.reference_number, 1, draft.content ->> 'title',
-       draft.content, draft.content_checksum, clock_timestamp()
-  FROM ple_data.blueprint_course AS course
-  JOIN ple_data.blueprint_draft AS draft
-    ON draft.blueprint_course_reference_number = course.reference_number
- WHERE course.blueprint_id = '00000000-0000-0000-0000-000000000210'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO ple_data.blueprint_revision_question_pin
-SELECT revision.blueprint_course_reference_number, revision.blueprint_revision_number,
-       pin.content_path, pin.question_id, pin.question_revision_number
-  FROM ple_data.blueprint_course_revision AS revision
-  JOIN ple_data.blueprint_course AS course
-    ON course.reference_number = revision.blueprint_course_reference_number
-  JOIN ple_data.blueprint_draft_question_pin AS pin
-    ON pin.blueprint_course_reference_number = revision.blueprint_course_reference_number
- WHERE course.blueprint_id = '00000000-0000-0000-0000-000000000210'
-   AND revision.blueprint_revision_number = 1
-ON CONFLICT DO NOTHING;
-
-INSERT INTO ple_data.blueprint_revision_module
-SELECT revision.blueprint_course_reference_number, revision.blueprint_revision_number,
-       module.blueprint_module_reference, module.module_position
-  FROM ple_data.blueprint_course_revision AS revision
-  JOIN ple_data.blueprint_course AS course
-    ON course.reference_number = revision.blueprint_course_reference_number
-  JOIN ple_data.blueprint_draft_module AS module
-    ON module.blueprint_course_reference_number = revision.blueprint_course_reference_number
- WHERE course.blueprint_id = '00000000-0000-0000-0000-000000000210'
-   AND revision.blueprint_revision_number = 1
-ON CONFLICT DO NOTHING;
-
-INSERT INTO ple_data.blueprint_revision_assignment
-SELECT revision.blueprint_course_reference_number, revision.blueprint_revision_number,
-       assignment.blueprint_module_reference, assignment.blueprint_assignment_reference,
-       assignment.assignment_position
-  FROM ple_data.blueprint_course_revision AS revision
-  JOIN ple_data.blueprint_course AS course
-    ON course.reference_number = revision.blueprint_course_reference_number
-  JOIN ple_data.blueprint_draft_assignment AS assignment
-    ON assignment.blueprint_course_reference_number = revision.blueprint_course_reference_number
- WHERE course.blueprint_id = '00000000-0000-0000-0000-000000000210'
-   AND revision.blueprint_revision_number = 1
-ON CONFLICT DO NOTHING;
-
-INSERT INTO ple_data.blueprint_publication_event (
-    blueprint_course_reference_number, blueprint_revision_number, actor_account_id,
-    request_checksum, occurred_at
-)
-SELECT course.reference_number, 1, '00000000-0000-0000-0000-000000000101',
-       decode('8e441bad293e233213221aa4d56ed2b502c89cb7d555269f94fc453a1cbe0f6c', 'hex'),
-       clock_timestamp()
-  FROM ple_data.blueprint_course AS course
- WHERE course.blueprint_id = '00000000-0000-0000-0000-000000000210'
-ON CONFLICT DO NOTHING;
-
-INSERT INTO ple_data.blueprint_availability_event (
-    blueprint_course_reference_number, actor_account_id, availability, edit_number, occurred_at
-)
-SELECT course.reference_number, '00000000-0000-0000-0000-000000000101',
-       'available', 1, clock_timestamp()
-  FROM ple_data.blueprint_course AS course
- WHERE course.blueprint_id = '00000000-0000-0000-0000-000000000210'
-ON CONFLICT DO NOTHING;
-
-DO $$
-DECLARE course_reference bigint; blueprint_reference bigint;
-BEGIN
-    SELECT reference_number INTO blueprint_reference FROM ple_data.blueprint_course
-     WHERE blueprint_id = '00000000-0000-0000-0000-000000000210';
     INSERT INTO ple_data.course_instance (
         course_id, blueprint_course_reference_number, blueprint_revision_number,
         assigned_instructor_account_id, course_short_name, course_long_name,
@@ -312,8 +147,6 @@ BEGIN
         SELECT reference_number INTO course_reference FROM ple_data.course_instance
          WHERE course_id = '00000000-0000-0000-0000-000000000220';
     END IF;
-    PERFORM set_config('ple.installation_course_reference_number', course_reference::text, true);
-    PERFORM set_config('ple.installation_blueprint_reference_number', blueprint_reference::text, true);
 END
 $$;
 
@@ -393,7 +226,11 @@ END
 $$;
 
 DO $$
-DECLARE new_assignment_id uuid;
+DECLARE
+    new_assignment_id uuid;
+    expected_blueprint_assignment_reference uuid := current_setting(
+        'ple.installation_live_demo_blueprint_assignment_reference'
+    )::uuid;
 BEGIN
     INSERT INTO ple_data.assignment (
         assignment_id, course_id, source_blueprint_course_reference_number,
@@ -410,7 +247,7 @@ BEGIN
         '00000000-0000-0000-0000-000000000270',
         '00000000-0000-0000-0000-000000000220',
         (SELECT blueprint_course_reference_number FROM ple_data.course_instance WHERE course_id = '00000000-0000-0000-0000-000000000220'),
-        1, '00000000-0000-0000-0000-000000000212', clock_timestamp(), clock_timestamp(),
+        1, expected_blueprint_assignment_reference, clock_timestamp(), clock_timestamp(),
         'Chapter 1 Pilot Practice', 'Complete the four reviewed Chapter 1 practice questions.',
         1800, 'accept', 'answer_all', 'highest', 'unlimited', 'reuse_selection',
         'new_variation', 'resumable', 'one_question_at_a_time', 'free_navigation',

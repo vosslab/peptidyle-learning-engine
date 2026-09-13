@@ -9,6 +9,10 @@ readonly project_name="ple-live-demo-browser"
 readonly runtime_environment_path="local_stack_state/live_demo_browser/workspace/env.local"
 readonly course_short_name="BIOL 301"
 readonly course_long_name="Molecular Biology 301: Gene Expression"
+readonly second_course_short_name="BIOL 302"
+readonly second_course_long_name="Molecular Biology 302: Revision One Pin"
+readonly current_course_short_name="BIOL 303"
+readonly current_course_long_name="Molecular Biology 303: Revision Two Pin"
 
 usage() {
 	echo "Usage: bash tests/e2e/e2e_live_demo_course_instance.sh [--authority|--browser]" >&2
@@ -25,6 +29,7 @@ esac
 # shellcheck disable=SC1091
 source "$repository_root/source_me.sh"
 cd "$repository_root"
+readonly run_id="$(date +%s%N)"
 
 require_live_demo() {
 	if [ ! -f "$runtime_environment_path" ]; then
@@ -130,7 +135,33 @@ assignment = {
   "defaults": {"assignment_attempt_time_limit_seconds":None,"attempt_limit":2,"late_work_rule":"accept","activity_rules":{"assignmentCompletionRule":{"kind":"answerAll"},"assignmentAttemptGradeRule":"highest","assignmentAttemptContinuationRule":{"kind":"unlimited"},"questionPoolReuseRule":"reuseSelection","questionVariationRule":"newVariation","assignmentAttemptResumeRule":"resumable","assignmentQuestionDisplayRule":"allQuestions","assignmentNavigationRule":"freeNavigation","assignmentQuestionOrderRule":"authoredOrder"},"student_feedback_release_rule":{"score":"after_submit","submitted_response":"after_submit","per_item_correctness":"after_submit","question_feedback":"after_submit","question_answer":"never","question_answer_explanation":"never","class_statistics":"never"}},
   "schedule":{"available_at":None,"due_at":None,"closes_at":None},
 }
-print(json.dumps({"title":"M8 exact Blueprint source","modules":[{"label":"M8 module","assignments":[assignment]}]}, separators=(",",":")))
+print(json.dumps({"short_name":"M8 source","long_name":"M8 exact Blueprint source","modules":[{"label":"M8 module","assignments":[assignment]}]}, separators=(",",":")))
+' "$1"
+}
+
+replacement_payload() {
+	python3 -c '
+import json, sys
+course = json.loads(sys.argv[1])
+modules = course.get("modules")
+if not isinstance(modules, list) or len(modules) != 1:
+    raise SystemExit("Blueprint Revision 1 did not return one reusable module")
+module = modules[0]
+assignments = module.get("assignments") if isinstance(module, dict) else None
+if not isinstance(assignments, list) or len(assignments) != 1:
+    raise SystemExit("Blueprint Revision 1 did not return one reusable assignment")
+assignment = assignments[0]
+module_ref = module.get("blueprint_module_reference")
+assignment_ref = assignment.get("blueprint_assignment_reference") if isinstance(assignment, dict) else None
+content = assignment.get("content") if isinstance(assignment, dict) else None
+if not isinstance(module_ref, str) or not isinstance(assignment_ref, str) or not isinstance(content, dict):
+    raise SystemExit("Blueprint Revision 1 did not return stable reusable identities")
+entry = content.get("entries", [None])[0]
+question = entry.get("question", {}).get("question_library", {}).get("summary", {}).get("questionId") if isinstance(entry, dict) else None
+if not isinstance(question, str):
+    raise SystemExit("Blueprint Revision 1 did not return its reusable Question")
+replacement = {"modules":[{"choice":{"kind":"retained","blueprint_module_reference":module_ref},"label":module.get("label"),"assignments":[{"choice":{"kind":"retained","blueprint_assignment_reference":assignment_ref},"content":{"title":content.get("title") + " revised","instructions":content.get("instructions"),"entries":[{"kind":"fixed","question_id":question,"points_possible":entry.get("points_possible"),"scoring_rule":entry.get("scoring_rule"),"question_attempt_limit":entry.get("question_attempt_limit"),"question_attempt_time_limit":entry.get("question_attempt_time_limit")}],"defaults":content.get("defaults"),"schedule":content.get("schedule")}}]}]}
+print(json.dumps(replacement, separators=(",",":")))
 ' "$1"
 }
 
@@ -139,7 +170,7 @@ course_payload() {
 import json, sys
 blueprint, revision, assigned, short_name, long_name = sys.argv[1:]
 print(json.dumps({"blueprintCourse":blueprint,"blueprintRevision":revision,"shortName":short_name,"longName":long_name,"term":{"startDate":"2026-09-01","endDate":"2026-12-18"},"assignedInstructor":assigned}, separators=(",",":")))
-' "$1" "$2" "$3" "$course_short_name" "$course_long_name"
+' "$1" "$2" "$3" "$4" "$5"
 }
 
 assert_course_receipt() {
@@ -276,7 +307,7 @@ if not isinstance(source["blueprint_assignment_reference"], str) or not source["
 }
 
 prove_authority() {
-	local instructor_cookie sysadmin_cookie student_cookie library question_id created blueprint draft_edit published reference candidates assigned course_created course_reference course_list course_view source_choices
+	local instructor_cookie sysadmin_cookie student_cookie library question_id created blueprint revision_one replacement saved revision_two candidates assigned course_created course_reference second_course_created second_course_reference course_list course_view source_choices stale_created newer_created newer_course_reference
 	instructor_cookie="$(persona_cookie elenaInstructor)"
 	sysadmin_cookie="$(persona_cookie morganSysadmin)"
 	student_cookie="$(persona_cookie maryStudent)"
@@ -288,34 +319,19 @@ prove_authority() {
 		exit 1
 	fi
 	question_id="$(first_published_question_id "$(response_body "$library")")"
-	created="$(request '/api/course-blueprints' "$instructor_cookie" POST "$(blueprint_payload "$question_id")" '' 'm8-blueprint-create')"
+	created="$(request '/api/course-blueprints' "$instructor_cookie" POST "$(blueprint_payload "$question_id")" '' "m8-blueprint-create-$run_id")"
 	if [ "$(response_status "$created")" != "201" ]; then
 		echo "Instructor could not create the exact Blueprint source" >&2
 		exit 1
 	fi
-	read -r blueprint draft_edit < <(python3 -c '
+read -r blueprint revision_one < <(python3 -c '
 import json, re, sys
-value=json.loads(sys.argv[1]); reference=value.get("reference"); draft=value.get("draft")
+value=json.loads(sys.argv[1]); reference=value.get("reference"); revision=value.get("current_revision")
 if (not isinstance(reference,str) or not re.fullmatch(r"BP-[1-9][0-9]{0,9}",reference)
-    or value.get("latest_published_revision") is not None or not isinstance(draft,dict)
-    or draft.get("edit_number") != "1"):
-    raise SystemExit("Blueprint creation did not return lineage plus private Draft without a Revision")
-print(reference, draft["edit_number"])
+    or revision != {"reference": reference, "revision": "1"}):
+    raise SystemExit("Blueprint creation did not return available exact Revision 1")
+print(reference, revision["revision"])
 ' "$(response_body "$created")")
-	published="$(request "/api/course-blueprints/$blueprint/publish" "$instructor_cookie" POST '' "\"$draft_edit\"" 'm8-blueprint-publish')"
-	if [ "$(response_status "$published")" != "200" ]; then
-		echo "Instructor could not publish the exact Blueprint source" >&2
-		exit 1
-	fi
-	reference="$(python3 -c '
-import json, sys
-value = json.loads(sys.argv[1])
-revision = value.get("blueprintRevision")
-if (not isinstance(revision, dict) or set(revision) != {"reference", "revision"}
-        or revision.get("reference") != sys.argv[2] or revision.get("revision") != "1"):
-    raise SystemExit("Blueprint publication did not create exact Revision 1")
-print(revision["revision"])
-' "$(response_body "$published")" "$blueprint")"
 	candidates="$(request '/api/course-instance-creation/instructors' "$sysadmin_cookie")"
 	if [ "$(response_status "$candidates")" != "200" ]; then
 		echo "Sysadmin could not obtain the bounded Assigned Instructor selection" >&2
@@ -333,12 +349,20 @@ if len(set(references)) != len(references):
     raise SystemExit("Assigned Instructor selection duplicates a public Account Reference")
 print(references[0])
 ' "$(response_body "$candidates")")"
-	course_created="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$reference" "$assigned")")"
+	course_created="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$revision_one" "$assigned" "$course_short_name" "$course_long_name")")"
 	if [ "$(response_status "$course_created")" != "201" ]; then
-		echo "Sysadmin could not create the Course Instance for the selected Instructor" >&2
+		echo "Sysadmin could not create the Course Instance for the selected Instructor (HTTP $(response_status "$course_created"): $(response_body "$course_created"))" >&2
 		exit 1
 	fi
 	course_reference="$(assert_course_receipt "$(response_body "$course_created")" "$course_short_name" "$course_long_name")"
+	second_course_created="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$revision_one" "$assigned" "$second_course_short_name" "$second_course_long_name")")"
+	if [ "$(response_status "$second_course_created")" != "201" ]; then
+		echo "Sysadmin could not create the second Revision 1 Course Instance (HTTP $(response_status "$second_course_created"): $(response_body "$second_course_created"))" >&2
+		exit 1
+	fi
+	second_course_reference="$(assert_course_receipt "$(response_body "$second_course_created")" "$second_course_short_name" "$second_course_long_name")"
+	assert_database_evidence "$course_reference" "$blueprint" "$revision_one" "$assigned"
+	assert_database_evidence "$second_course_reference" "$blueprint" "$revision_one" "$assigned"
 	assert_concealed "$(request '/api/course-instances' "$sysadmin_cookie")"
 	assert_concealed "$(request "/api/course-instances/$course_reference" "$sysadmin_cookie")"
 	course_list="$(request '/api/course-instances' "$instructor_cookie")"
@@ -358,9 +382,36 @@ print(references[0])
 		echo "Assigned Instructor could not obtain exact Blueprint Assignment sources" >&2
 		exit 1
 	fi
-	assert_blueprint_source_choice "$(response_body "$source_choices")" "$blueprint" "$reference"
-	assert_database_evidence "$course_reference" "$blueprint" "$reference" "$assigned"
-	echo "Course Instance authority: exact source, Assigned Instructor, and no ambient Sysadmin access complete"
+	assert_blueprint_source_choice "$(response_body "$source_choices")" "$blueprint" "$revision_one"
+	replacement="$(replacement_payload "$(response_body "$created")")"
+	saved="$(request "/api/course-blueprints/$blueprint" "$instructor_cookie" PUT "$replacement" '"1"' "m8-blueprint-save-$run_id")"
+	if [ "$(response_status "$saved")" != "200" ]; then
+		echo "Instructor could not Save the next Blueprint Revision" >&2
+		exit 1
+	fi
+	revision_two="$(python3 -c '
+import json, sys
+value=json.loads(sys.argv[1]); course=value.get("blueprintCourse")
+if (value.get("changed") is not True or not isinstance(course,dict)
+        or course.get("current_revision") != {"reference":sys.argv[2],"revision":"2"}):
+    raise SystemExit("changed Blueprint Save did not create exact Revision 2")
+print("2")
+' "$(response_body "$saved")" "$blueprint")"
+	assert_database_evidence "$course_reference" "$blueprint" "$revision_one" "$assigned"
+	assert_database_evidence "$second_course_reference" "$blueprint" "$revision_one" "$assigned"
+	stale_created="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$revision_one" "$assigned" "BIOL stale" "Molecular Biology stale Revision Pin")")"
+	if [ "$(response_status "$stale_created")" != "412" ]; then
+		echo "new Course Instance accepted a superseded Blueprint Revision" >&2
+		exit 1
+	fi
+	newer_created="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$revision_two" "$assigned" "$current_course_short_name" "$current_course_long_name")")"
+	if [ "$(response_status "$newer_created")" != "201" ]; then
+		echo "Sysadmin could not create a Course Instance from the current Blueprint Revision" >&2
+		exit 1
+	fi
+	newer_course_reference="$(assert_course_receipt "$(response_body "$newer_created")" "$current_course_short_name" "$current_course_long_name")"
+	assert_database_evidence "$newer_course_reference" "$blueprint" "$revision_two" "$assigned"
+	echo "Course Instance authority: current source selection, historical pin preservation, and no ambient Sysadmin access complete"
 }
 
 prove_browser() {

@@ -46,13 +46,14 @@ assumptions, and one-time results.
 
 The permanent database evidence is intentionally small:
 
-| Protected claim | Suitable evidence |
-| --- | --- |
-| Runtime roles cannot change structure; schema ownership, forced RLS, grants, and capability roles are closed. | Connected database security acceptance. |
-| Question and Blueprint provenance is exact; Question IDs have canonical compact storage and validation; old Student Work remains interpretable. | Focused domain tests plus connected evidence where persistence or RLS matters. |
-| Current Assignment save/release, released edits, future Attempts, archive/restore, Blueprint Draft publication, and Unrelease follow their lifecycle and concurrency contracts. | Narrow owner tests at the lowest layer that proves the behavior. |
-| Fresh base initialization, no-op compatible replay, and application-role verification work through supported commands. | Connected lifecycle acceptance. |
-| Default installation-data provisioning converges and the explicit opt-out leaves ordinary product data unprovisioned. | Connected installation-data acceptance. |
+| Protected claim                                                                                                                                                                          | Suitable evidence                                                                     |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Runtime roles cannot change structure; schema ownership, forced RLS, grants, and capability roles are closed.                                                                            | Connected database security acceptance.                                               |
+| Question and Blueprint provenance is exact; Question IDs have canonical compact storage and validation; old Student Work remains interpretable.                                          | Focused domain tests plus connected evidence where persistence or RLS matters.        |
+| Current Assignment save/release, released edits, future Attempts, archive/restore, Blueprint Revision creation and Save, and Unrelease follow their lifecycle and concurrency contracts. | Narrow owner tests at the lowest layer that proves the behavior.                      |
+| Two Course Instances can pin one Blueprint Revision; a later changed Save leaves both pinned while a new Instance pins the newer current Revision.                                       | Deterministic Store or service fixture covering creation, Save, and exact provenance. |
+| Fresh base initialization, no-op compatible replay, and application-role verification work through supported commands.                                                                   | Connected lifecycle acceptance.                                                       |
+| Default installation-data provisioning converges and the explicit opt-out leaves ordinary product data unprovisioned.                                                                    | Connected installation-data acceptance.                                               |
 
 Migration-file counts, historical checksums, module layouts, SQL body snippets,
 custom splitter behavior, retired Revision projections, and broad source

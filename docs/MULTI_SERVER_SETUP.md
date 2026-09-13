@@ -22,7 +22,7 @@ not a new authorization claim.
 | Account, Authentication Email, future passkey, session          | Global `AccountId` and Authenticated Session                          | Account/session contract; passkeys are deferred                 |
 | Published question and presentation asset                       | Stable `QuestionId` lineage and immutable Question Revision Reference | Every active Instructor                                         |
 | Draft Question or private curriculum workspace                  | `WorkspaceId` and Authoring Workspace relationship                    | Authoring Workspace Owner or Workspace Collaborator             |
-| Blueprint Draft or Blueprint Revision                           | Exact Blueprint Course and Draft/Revision reference                   | Blueprint Course Owner                                          |
+| Blueprint Course metadata or Blueprint Revision                 | Exact Blueprint Course and current Revision reference                 | Blueprint Course Owner                                          |
 | Course, roster, assignment, schedule                            | Exact `CourseId` and child identity                                   | Current Instructor Course Membership                            |
 | Assignment Attempt, Question Attempt, response, grade, artifact | Exact `CourseId` plus Student owner                                   | Student self or current course Instructor                       |
 | Question Folder, Star, Watch, or Saved Question Search          | Account-owned reference to a Published Question                       | Exact Account relationship; Question Folder Shares are explicit |
@@ -272,7 +272,7 @@ deployment evidence. This document does not claim those runs occurred.
 | --------------------------- | ------------------------------------------------------------- | ------------------------------------------------------ |
 | API replica stops           | Gateway retries a healthy peer; shared records preserve state | Replace the replica and run the replica oracle         |
 | API readiness is `503`      | Gateway removes that replica from rotation                    | Repair database, object store, or schema compatibility |
-| PostgreSQL is unavailable   | API is not ready; workers do not drain                        | Restore the database and run schema verification        |
+| PostgreSQL is unavailable   | API is not ready; workers do not drain                        | Restore the database and run schema verification       |
 | Object store is unavailable | Object delivery fails closed; relational records remain       | Restore endpoint, bucket, credentials, or network      |
 | Worker crashes after claim  | Lease expires; bounded reclaim is possible                    | Inspect redacted worker evidence and queue depth       |
 | Renderer fails              | PG-backed work fails closed; PLE records remain               | Recreate and re-attest the renderer                    |

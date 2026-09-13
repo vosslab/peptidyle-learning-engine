@@ -9,12 +9,12 @@ use sha2::{Digest, Sha256};
 use crate::{
     AccountTimeZone, AssignmentAuthoredContentField, AssignmentAuthoredContentLocalError,
     AssignmentEntryScoringRule, AssignmentInstructions, AssignmentPointValue, AssignmentTitle,
-    BaseAssignmentPolicy, BlueprintAssignmentDefaults, BlueprintCourseValidationError, CourseTerm,
-    LocalDateAndTime, LocalTimeOfDay, MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    MAX_ASSIGNMENT_QUESTION_POOL_ITEMS, MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
-    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionRevisionReference,
-    RelativeAssignmentSchedule, RelativeAssignmentScheduleMoment, Timestamp,
-    validate_blueprint_course_title,
+    BaseAssignmentPolicy, BlueprintAssignmentDefaults, BlueprintAssignmentReference,
+    BlueprintCourseValidationError, BlueprintModuleReference, CourseTerm, LocalDateAndTime,
+    LocalTimeOfDay, MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, QuestionAttemptLimit, QuestionAttemptTimeLimit,
+    QuestionRevisionReference, RelativeAssignmentSchedule, RelativeAssignmentScheduleMoment,
+    Timestamp, validate_blueprint_course_title,
 };
 
 mod contracts;
@@ -22,15 +22,12 @@ mod contracts;
 pub use contracts::*;
 
 const DOMAIN: &[u8] = b"ple:blueprint-revision-content\0";
-/// Current normalized Blueprint Revision Content encoding version.
-pub const BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION: u8 = 3;
-const BLUEPRINT_REVISION_CONTENT_LEGACY_ENCODING_VERSION: u8 = 2;
 
 #[derive(Debug, Clone, PartialEq)]
 /// Validated Blueprint Revision Content stored independently from operation evidence.
 pub enum BlueprintRevisionContent {
     /// One Blueprint Assignment Content record.
-    Assignment(BlueprintAssignmentContent),
+    Assignment(Box<BlueprintAssignmentContent>),
     /// One Blueprint Course Content record.
     Course(BlueprintCourseContent),
 }
@@ -38,33 +35,24 @@ pub enum BlueprintRevisionContent {
 impl BlueprintRevisionContent {
     /// Wraps one validated Blueprint Assignment Content record.
     pub fn assignment(value: BlueprintAssignmentContent) -> Self {
-        Self::Assignment(value)
+        Self::Assignment(Box::new(value))
     }
     /// Wraps one validated Blueprint Course Content record.
     pub fn course(value: BlueprintCourseContent) -> Self {
         Self::Course(value)
     }
-    /// Returns the encoding version persisted beside this Blueprint Revision Content.
-    pub const fn encoding_version(&self) -> u8 {
-        BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION
-    }
     /// Produces the one validated persistence record for this Blueprint Revision Content.
     pub fn encoding_record(&self) -> BlueprintRevisionContentRecord {
-        self.encoding_record_for_version(BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION)
-            .expect("the current Blueprint Revision Content encoding version is supported")
+        let encoded_bytes = deterministic_encoded_bytes(self);
+        let checksum = BlueprintContentChecksum(Sha256::digest(&encoded_bytes).into());
+        BlueprintRevisionContentRecord {
+            encoded_bytes,
+            checksum,
+        }
     }
-    /// Computes the full versioned Blueprint Revision Content checksum.
+    /// Computes the canonical Blueprint Revision Content checksum.
     pub fn checksum(&self) -> BlueprintContentChecksum {
         self.encoding_record().checksum()
-    }
-    /// Computes one recognized historic or current persistence checksum.
-    ///
-    /// The storage adapter uses version two only to verify immutable records
-    /// written before submitted-response timing became explicit. New records
-    /// always use the current version returned by [`Self::encoding_version`].
-    pub fn checksum_for_encoding_version(&self, version: u8) -> Option<BlueprintContentChecksum> {
-        self.encoding_record_for_version(version)
-            .map(|record| record.checksum())
     }
     /// Checks Blueprint Revision Content and reports both checksums when it changed.
     pub fn compare(&self, other: &Self) -> BlueprintContentCheck {
@@ -79,27 +67,12 @@ impl BlueprintRevisionContent {
             }
         }
     }
-
-    fn encoding_record_for_version(&self, version: u8) -> Option<BlueprintRevisionContentRecord> {
-        let encoded_bytes = match version {
-            BLUEPRINT_REVISION_CONTENT_LEGACY_ENCODING_VERSION => {
-                deterministic_encoded_bytes_v2(self)
-            }
-            BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION => deterministic_encoded_bytes_v3(self),
-            _ => return None,
-        };
-        let checksum = BlueprintContentChecksum(Sha256::digest(&encoded_bytes).into());
-        Some(BlueprintRevisionContentRecord {
-            version,
-            encoded_bytes,
-            checksum,
-        })
-    }
 }
 
 /// One validated Blueprint Assignment with trusted immutable question pins.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlueprintAssignmentContent {
+    blueprint_assignment_reference: BlueprintAssignmentReference,
     title: AssignmentTitle,
     instructions: AssignmentInstructions,
     entries: Vec<BlueprintAssignmentEntryContent>,
@@ -109,6 +82,7 @@ pub struct BlueprintAssignmentContent {
 impl BlueprintAssignmentContent {
     /// Validates all Blueprint Assignment meaning before constructing a baseline.
     pub fn new(
+        blueprint_assignment_reference: BlueprintAssignmentReference,
         title: AssignmentTitle,
         instructions: AssignmentInstructions,
         entries: Vec<BlueprintAssignmentEntryContent>,
@@ -135,12 +109,17 @@ impl BlueprintAssignmentContent {
             return Err(BlueprintCourseValidationError::TooManyQuestionPoolItems);
         }
         Ok(Self {
+            blueprint_assignment_reference,
             title,
             instructions,
             entries,
             defaults,
             schedule,
         })
+    }
+    /// Returns the stable Blueprint Assignment identity retained across Revisions.
+    pub fn blueprint_assignment_reference(&self) -> BlueprintAssignmentReference {
+        self.blueprint_assignment_reference
     }
     /// Returns the Blueprint Assignment title.
     pub fn title(&self) -> &str {
@@ -167,12 +146,14 @@ impl BlueprintAssignmentContent {
 /// One validated labelled module in Blueprint Course Content.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlueprintCourseModuleContent {
+    blueprint_module_reference: BlueprintModuleReference,
     label: String,
     assignments: Vec<BlueprintAssignmentContent>,
 }
 impl BlueprintCourseModuleContent {
     /// Validates a module label and its nonempty ordered assignments.
     pub fn new(
+        blueprint_module_reference: BlueprintModuleReference,
         label: String,
         assignments: Vec<BlueprintAssignmentContent>,
     ) -> Result<Self, BlueprintCourseValidationError> {
@@ -181,7 +162,15 @@ impl BlueprintCourseModuleContent {
         if assignments.is_empty() || assignments.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
             return Err(BlueprintCourseValidationError::InvalidModuleAssignmentCount);
         }
-        Ok(Self { label, assignments })
+        Ok(Self {
+            blueprint_module_reference,
+            label,
+            assignments,
+        })
+    }
+    /// Returns the stable Blueprint Module identity retained across Revisions.
+    pub fn blueprint_module_reference(&self) -> BlueprintModuleReference {
+        self.blueprint_module_reference
     }
     /// Returns the reusable module label.
     pub fn label(&self) -> &str {
@@ -196,25 +185,17 @@ impl BlueprintCourseModuleContent {
 /// One validated Blueprint Course Content record.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlueprintCourseContent {
-    title: String,
     modules: Vec<BlueprintCourseModuleContent>,
 }
 impl BlueprintCourseContent {
-    /// Validates a reusable course title and its nonempty ordered modules.
+    /// Validates nonempty ordered reusable modules.
     pub fn new(
-        title: String,
         modules: Vec<BlueprintCourseModuleContent>,
     ) -> Result<Self, BlueprintCourseValidationError> {
-        validate_blueprint_course_title(&title)
-            .map_err(|_| BlueprintCourseValidationError::InvalidBlueprintTitle)?;
         if modules.is_empty() || modules.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
             return Err(BlueprintCourseValidationError::InvalidModuleCount);
         }
-        Ok(Self { title, modules })
-    }
-    /// Returns the reusable course title.
-    pub fn title(&self) -> &str {
-        &self.title
+        Ok(Self { modules })
     }
     /// Returns reusable modules in meaningful authored order.
     pub fn modules(&self) -> &[BlueprintCourseModuleContent] {
@@ -323,17 +304,11 @@ impl BlueprintContentChecksum {
 /// mistaken for normalized qmodel meaning.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintRevisionContentRecord {
-    version: u8,
     encoded_bytes: Vec<u8>,
     checksum: BlueprintContentChecksum,
 }
 
 impl BlueprintRevisionContentRecord {
-    /// Returns the encoding version included in the hashed bytes.
-    pub const fn version(&self) -> u8 {
-        self.version
-    }
-
     /// Borrows the complete domain-separated Blueprint Revision Content encoding.
     pub fn encoded_bytes(&self) -> &[u8] {
         &self.encoded_bytes
@@ -364,25 +339,20 @@ pub enum BlueprintContentCheck {
 #[derive(Serialize)]
 #[serde(rename_all = "snake_case")]
 struct EncodedPayload<'a> {
-    version: u8,
     meaning: EncodedMeaning<'a>,
 }
 
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum EncodedMeaning<'a> {
-    Assignment {
-        content: EncodedAssignment<'a>,
-    },
-    Course {
-        title: &'a str,
-        modules: Vec<EncodedModule<'a>>,
-    },
+    Assignment { content: EncodedAssignment<'a> },
+    Course { modules: Vec<EncodedModule<'a>> },
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "snake_case")]
 struct EncodedModule<'a> {
+    blueprint_module_reference: BlueprintModuleReference,
     label: &'a str,
     assignments: Vec<EncodedAssignment<'a>>,
 }
@@ -390,68 +360,12 @@ struct EncodedModule<'a> {
 #[derive(Serialize)]
 #[serde(rename_all = "snake_case")]
 struct EncodedAssignment<'a> {
+    blueprint_assignment_reference: BlueprintAssignmentReference,
     title: &'a str,
     instructions: &'a AssignmentInstructions,
     entries: Vec<EncodedEntry<'a>>,
     defaults: &'a BlueprintAssignmentDefaults,
     schedule: &'a RelativeAssignmentSchedule,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "snake_case")]
-struct EncodedPayloadV2<'a> {
-    version: u8,
-    meaning: EncodedMeaningV2<'a>,
-}
-
-#[derive(Serialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-enum EncodedMeaningV2<'a> {
-    Assignment {
-        content: EncodedAssignmentV2<'a>,
-    },
-    Course {
-        title: &'a str,
-        modules: Vec<EncodedModuleV2<'a>>,
-    },
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "snake_case")]
-struct EncodedModuleV2<'a> {
-    label: &'a str,
-    assignments: Vec<EncodedAssignmentV2<'a>>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "snake_case")]
-struct EncodedAssignmentV2<'a> {
-    title: &'a str,
-    instructions: &'a AssignmentInstructions,
-    entries: Vec<EncodedEntry<'a>>,
-    defaults: EncodedBlueprintAssignmentDefaultsV2<'a>,
-    schedule: &'a RelativeAssignmentSchedule,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "snake_case")]
-struct EncodedBlueprintAssignmentDefaultsV2<'a> {
-    assignment_attempt_time_limit_seconds: &'a Option<std::num::NonZeroU32>,
-    attempt_limit: &'a Option<std::num::NonZeroU32>,
-    late_work_rule: crate::LateWorkRule,
-    activity_rules: &'a crate::AssignmentActivityRules,
-    student_feedback_release_rule: EncodedStudentFeedbackReleaseRuleV2,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "snake_case")]
-struct EncodedStudentFeedbackReleaseRuleV2 {
-    score: crate::StudentFeedbackReleaseTiming,
-    per_item_correctness: crate::StudentFeedbackReleaseTiming,
-    question_feedback: crate::StudentFeedbackReleaseTiming,
-    question_answer: crate::StudentFeedbackReleaseTiming,
-    question_answer_explanation: crate::StudentFeedbackReleaseTiming,
-    class_statistics: crate::StudentFeedbackReleaseTiming,
 }
 
 #[derive(Serialize)]
@@ -475,60 +389,25 @@ enum EncodedEntry<'a> {
     },
 }
 
-fn deterministic_encoded_bytes_v3(payload: &BlueprintRevisionContent) -> Vec<u8> {
+fn deterministic_encoded_bytes(payload: &BlueprintRevisionContent) -> Vec<u8> {
     let meaning = match payload {
         BlueprintRevisionContent::Assignment(assignment) => EncodedMeaning::Assignment {
             content: encode_assignment(assignment),
         },
         BlueprintRevisionContent::Course(course) => EncodedMeaning::Course {
-            title: course.title(),
             modules: course
                 .modules()
                 .iter()
                 .map(|module| EncodedModule {
+                    blueprint_module_reference: module.blueprint_module_reference(),
                     label: module.label(),
                     assignments: module.assignments().iter().map(encode_assignment).collect(),
                 })
                 .collect(),
         },
     };
-    let json = serde_json::to_vec(&EncodedPayload {
-        version: BLUEPRINT_REVISION_CONTENT_ENCODING_VERSION,
-        meaning,
-    })
-    .expect("validated private Blueprint Revision Content serializes");
-    let mut bytes = Vec::with_capacity(DOMAIN.len() + json.len());
-    bytes.extend_from_slice(DOMAIN);
-    bytes.extend_from_slice(&json);
-    bytes
-}
-
-fn deterministic_encoded_bytes_v2(payload: &BlueprintRevisionContent) -> Vec<u8> {
-    let meaning = match payload {
-        BlueprintRevisionContent::Assignment(assignment) => EncodedMeaningV2::Assignment {
-            content: encode_assignment_v2(assignment),
-        },
-        BlueprintRevisionContent::Course(course) => EncodedMeaningV2::Course {
-            title: course.title(),
-            modules: course
-                .modules()
-                .iter()
-                .map(|module| EncodedModuleV2 {
-                    label: module.label(),
-                    assignments: module
-                        .assignments()
-                        .iter()
-                        .map(encode_assignment_v2)
-                        .collect(),
-                })
-                .collect(),
-        },
-    };
-    let json = serde_json::to_vec(&EncodedPayloadV2 {
-        version: BLUEPRINT_REVISION_CONTENT_LEGACY_ENCODING_VERSION,
-        meaning,
-    })
-    .expect("validated private Blueprint Revision Content serializes");
+    let json = serde_json::to_vec(&EncodedPayload { meaning })
+        .expect("validated private Blueprint Revision Content serializes");
     let mut bytes = Vec::with_capacity(DOMAIN.len() + json.len());
     bytes.extend_from_slice(DOMAIN);
     bytes.extend_from_slice(&json);
@@ -537,6 +416,7 @@ fn deterministic_encoded_bytes_v2(payload: &BlueprintRevisionContent) -> Vec<u8>
 
 fn encode_assignment(assignment: &BlueprintAssignmentContent) -> EncodedAssignment<'_> {
     EncodedAssignment {
+        blueprint_assignment_reference: assignment.blueprint_assignment_reference(),
         title: assignment.title(),
         instructions: assignment.instructions(),
         entries: assignment
@@ -568,59 +448,6 @@ fn encode_assignment(assignment: &BlueprintAssignmentContent) -> EncodedAssignme
             })
             .collect(),
         defaults: assignment.defaults(),
-        schedule: assignment.schedule(),
-    }
-}
-
-fn encode_assignment_v2(assignment: &BlueprintAssignmentContent) -> EncodedAssignmentV2<'_> {
-    let feedback = assignment.defaults().student_feedback_release_rule;
-    EncodedAssignmentV2 {
-        title: assignment.title(),
-        instructions: assignment.instructions(),
-        entries: assignment
-            .entries()
-            .iter()
-            .map(|entry| match entry {
-                BlueprintAssignmentEntryContent::Fixed {
-                    reference,
-                    points_possible,
-                    scoring_rule,
-                    question_attempt_limit,
-                    question_attempt_time_limit,
-                } => EncodedEntry::Fixed {
-                    reference,
-                    points_possible: *points_possible,
-                    scoring_rule: *scoring_rule,
-                    question_attempt_limit,
-                    question_attempt_time_limit,
-                },
-                BlueprintAssignmentEntryContent::Pool(pool) => EncodedEntry::Pool {
-                    items: &pool.items,
-                    selection_count: pool.selection_count,
-                    points_per_item: pool.points_per_item,
-                    scoring_rule: pool.scoring_rule,
-                    selection_rule: pool.selection_rule,
-                    question_attempt_limit: &pool.question_attempt_limit,
-                    question_attempt_time_limit: &pool.question_attempt_time_limit,
-                },
-            })
-            .collect(),
-        defaults: EncodedBlueprintAssignmentDefaultsV2 {
-            assignment_attempt_time_limit_seconds: &assignment
-                .defaults()
-                .assignment_attempt_time_limit_seconds,
-            attempt_limit: &assignment.defaults().attempt_limit,
-            late_work_rule: assignment.defaults().late_work_rule,
-            activity_rules: &assignment.defaults().activity_rules,
-            student_feedback_release_rule: EncodedStudentFeedbackReleaseRuleV2 {
-                score: feedback.score,
-                per_item_correctness: feedback.per_item_correctness,
-                question_feedback: feedback.question_feedback,
-                question_answer: feedback.question_answer,
-                question_answer_explanation: feedback.question_answer_explanation,
-                class_statistics: feedback.class_statistics,
-            },
-        },
         schedule: assignment.schedule(),
     }
 }

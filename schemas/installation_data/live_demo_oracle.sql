@@ -101,50 +101,42 @@ RESET ROLE;
 SET LOCAL ROLE ple_api_owner;
 DO $$
 DECLARE
-    expected_content jsonb := current_setting('ple.installation_expected_blueprint_content')::jsonb;
-    expected_checksum bytea := sha256(convert_to(
-        current_setting('ple.installation_expected_blueprint_content'), 'UTF8'
-    ));
     blueprint_reference bigint;
+    expected_blueprint_assignment_reference uuid;
 BEGIN
-    SELECT reference_number INTO blueprint_reference
-      FROM ple_data.blueprint_course
-     WHERE blueprint_id = '00000000-0000-0000-0000-000000000210';
+    blueprint_reference := current_setting(
+        'ple.installation_live_demo_blueprint_reference'
+    )::bigint;
+    expected_blueprint_assignment_reference := current_setting(
+        'ple.installation_live_demo_blueprint_assignment_reference'
+    )::uuid;
     IF (SELECT count(*) FROM ple_data.blueprint_course
-             WHERE blueprint_id = '00000000-0000-0000-0000-000000000210') <> 1
+             WHERE reference_number = blueprint_reference) <> 1
        OR NOT EXISTS (
-           SELECT 1 FROM ple_data.blueprint_draft
-            WHERE blueprint_course_reference_number = blueprint_reference
-              AND content = expected_content
-              AND content_checksum = expected_checksum
+           SELECT 1 FROM ple_data.blueprint_course
+            WHERE reference_number = blueprint_reference
+              AND owner_account_id = '00000000-0000-0000-0000-000000000101'
+              AND short_name = 'BCHM 301'
+              AND long_name = 'Biochemistry 301: Proteins and Peptides'
+              AND availability = 'available'
+              AND current_blueprint_revision_number = 1
        )
        OR NOT EXISTS (SELECT 1 FROM ple_data.course_instance
                        WHERE course_id = '00000000-0000-0000-0000-000000000220'
                          AND course_short_name = 'BCHM 301'
                          AND course_long_name = 'Biochemistry 301: Proteins and Peptides'
                          AND term_starts_on = date '2026-08-24' AND term_ends_on = date '2026-12-11'
-                         AND blueprint_course_reference_number = (
-                             SELECT reference_number FROM ple_data.blueprint_course
-                              WHERE blueprint_id = '00000000-0000-0000-0000-000000000210'
-                         )
+                         AND blueprint_course_reference_number = blueprint_reference
                          AND blueprint_revision_number = 1)
        OR (SELECT count(*) FROM ple_data.blueprint_course_revision AS revision
             JOIN ple_data.blueprint_course AS blueprint
               ON blueprint.reference_number = revision.blueprint_course_reference_number
-            WHERE blueprint.blueprint_id = '00000000-0000-0000-0000-000000000210'
+            WHERE blueprint.reference_number = blueprint_reference
               AND revision.blueprint_revision_number = 1) <> 1
-       OR NOT EXISTS (
-           SELECT 1 FROM ple_data.blueprint_course_revision
-            WHERE blueprint_course_reference_number = blueprint_reference
-              AND blueprint_revision_number = 1
-              AND title = 'Biochemistry 301: Proteins and Peptides'
-              AND content = expected_content
-              AND content_checksum = expected_checksum
-       )
        OR (SELECT count(*) FROM ple_data.blueprint_revision_question_pin AS pin
             JOIN ple_data.blueprint_course AS blueprint
               ON blueprint.reference_number = pin.blueprint_course_reference_number
-            WHERE blueprint.blueprint_id = '00000000-0000-0000-0000-000000000210'
+            WHERE blueprint.reference_number = blueprint_reference
               AND pin.blueprint_revision_number = 1) <> 4
        OR EXISTS (
            WITH input AS (
@@ -167,6 +159,13 @@ BEGIN
             AND pin.question_id = input.question_id
             AND pin.question_revision_number = input.revision_number
             WHERE pin.question_id IS NULL
+       )
+       OR NOT EXISTS (
+           SELECT 1 FROM ple_data.blueprint_revision_assignment AS revision_assignment
+            WHERE revision_assignment.blueprint_course_reference_number = blueprint_reference
+              AND revision_assignment.blueprint_revision_number = 1
+              AND revision_assignment.blueprint_assignment_reference
+                  = expected_blueprint_assignment_reference
        )
        OR NOT EXISTS (
            SELECT 1 FROM ple_data.course_origin
@@ -244,7 +243,13 @@ RESET ROLE;
 
 SET LOCAL ROLE ple_data_owner;
 DO $$
-DECLARE blueprint_reference bigint := current_setting('ple.installation_blueprint_reference_number', true)::bigint;
+DECLARE
+    blueprint_reference bigint := current_setting(
+        'ple.installation_live_demo_blueprint_reference'
+    )::bigint;
+    expected_blueprint_assignment_reference uuid := current_setting(
+        'ple.installation_live_demo_blueprint_assignment_reference'
+    )::uuid;
 BEGIN
     IF (SELECT count(*) FROM ple_data.assignment
              WHERE assignment_id = '00000000-0000-0000-0000-000000000270'
@@ -252,7 +257,8 @@ BEGIN
                AND course_id = '00000000-0000-0000-0000-000000000220'
                AND source_blueprint_course_reference_number = blueprint_reference
                AND source_blueprint_revision_number = 1
-               AND source_blueprint_assignment_reference = '00000000-0000-0000-0000-000000000212') <> 1
+               AND source_blueprint_assignment_reference
+                   = expected_blueprint_assignment_reference) <> 1
        OR (SELECT count(*) FROM ple_data.assignment_entry
              WHERE assignment_id = '00000000-0000-0000-0000-000000000270') <> 4
        OR EXISTS (

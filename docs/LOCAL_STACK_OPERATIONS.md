@@ -29,15 +29,15 @@ course selected by the user from current membership rows. A route course ID,
 workspace ID, Question ID, Object Address, queue payload, or client-supplied integration field
 is only a lookup/input value; it cannot establish authority.
 
-| Data                          | Exact owner                                                            | Local enforcement                         |
-| ----------------------------- | ---------------------------------------------------------------------- | ----------------------------------------- |
-| Account, session, and passkey | Global `AccountId`                                                     | Server session and PostgreSQL             |
-| Published question            | Stable `QuestionId` lineage plus immutable `QuestionRevisionReference` | Approved-Instructor Question Library      |
-| Draft authoring               | `WorkspaceId` plus owner/collaborators                                 | Workspace relationship                    |
-| Reusable curriculum           | Blueprint Course Reference plus exact Blueprint Revision                | Blueprint Course Owner lifecycle or Active Instructor read access |
-| Course and assignment         | `CourseId` and child records                                           | Current Instructor Course Membership      |
-| Student work and grades       | Exact course plus Student owner                                        | Student self or current course Instructor |
-| Jobs and objects              | Typed target from the locked lease                                     | Store/PostgreSQL capability boundary      |
+| Data                          | Exact owner                                                            | Local enforcement                                                 |
+| ----------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Account, session, and passkey | Global `AccountId`                                                     | Server session and PostgreSQL                                     |
+| Published question            | Stable `QuestionId` lineage plus immutable `QuestionRevisionReference` | Approved-Instructor Question Library                              |
+| Draft authoring               | `WorkspaceId` plus owner/collaborators                                 | Workspace relationship                                            |
+| Reusable curriculum           | Blueprint Course Reference plus exact Blueprint Revision               | Blueprint Course Owner lifecycle or Active Instructor read access |
+| Course and assignment         | `CourseId` and child records                                           | Current Instructor Course Membership                              |
+| Student work and grades       | Exact course plus Student owner                                        | Student self or current course Instructor                         |
+| Jobs and objects              | Typed target from the locked lease                                     | Store/PostgreSQL capability boundary                              |
 
 Current Teaching Team Members are equal. Course creation inserts the creator's first
 ordinary Instructor membership and does not create an elevated owner. Students
@@ -63,7 +63,7 @@ always authoritative.
 | `minio`                | S3-compatible object storage                                           | Loopback `9000` and console `9001` |
 | `createbuckets`        | Idempotently creates four storage buckets                              | One-shot, no host port             |
 | `identity-secret-init` | Copies two host capabilities into an API-only volume                   | Networkless, one-shot              |
-| `database-migrator`   | Applies schema and checks the API database login before startup         | Profile-only, no host port         |
+| `database-migrator`    | Applies schema and checks the API database login before startup        | Profile-only, no host port         |
 | `webwork-renderer`     | Private stateless PG/PGML render and grade engine                      | No host port                       |
 
 All published ports bind to `127.0.0.1`. The API is the sole PLE application
@@ -156,7 +156,7 @@ accept a browser role claim.
 
 The default local installation runs `cargo tools installation-data provision`
 after the API and supporting services are ready. It creates the database-owned
-Pilot publication, ordinary Accounts, Blueprint Draft and Revision, Course,
+Pilot Question publication, ordinary Accounts, Blueprint Revision, Course,
 roster, and released Assignment, then uses ordinary authenticated routes for
 the cross-system Student Work and grading effects. Mary and Jack receive real
 Assignment Attempts; Avery remains enrolled without one. The database-owned

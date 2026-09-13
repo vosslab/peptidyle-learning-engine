@@ -35,3 +35,33 @@ fn publication_mapping_rejects_a_checksum_that_is_not_the_canonical_source() {
     let tampered = serde_json::to_string(&mapping).expect("mapping serializes");
     assert!(validate_publication_mapping_json(&tampered).is_err());
 }
+
+#[test]
+fn validated_mapping_selects_the_four_ple_question_json_revisions_in_plan_order() {
+    let plan = publication_plan().expect("tracked Pilot content should load for publication");
+    let mapping = plan
+        .questions
+        .iter()
+        .enumerate()
+        .map(|(index, question)| {
+            (
+                question.slug.clone(),
+                serde_json::json!({
+                    "sourceSha256": question.source_sha256,
+                    "questionRevision": {
+                        "questionId": format!("A{index:02}-BCDE"),
+                        "revisionNumber": 1,
+                    },
+                }),
+            )
+        })
+        .collect::<serde_json::Map<_, _>>();
+    let value = serde_json::to_string(&mapping).expect("mapping serializes");
+
+    let selected = validated_ple_question_json_revisions(&value)
+        .expect("approved PLE Question JSON publications resolve");
+
+    assert_eq!(selected.len(), 4);
+    assert_eq!(selected[0].question_id.to_string(), "A02-BCDE");
+    assert_eq!(selected[3].question_id.to_string(), "A07-BCDE");
+}

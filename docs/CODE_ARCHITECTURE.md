@@ -8,18 +8,18 @@ and server-side services retain authorization, answer keys, grading inputs, and 
 
 ## Major components
 
-| Component | Ownership |
-| --- | --- |
-| [crates/question_model/](../crates/question_model/) | Shared typed identifiers, Question and Blueprint contracts, current Assignment state, and retained Student Work evidence. |
-| [crates/domain/](../crates/domain/) | Pure policy, timing, validation, scoring, disclosure, and generation rules. |
-| [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts and PostgreSQL implementations, including transaction and row-security context. |
-| [crates/server/](../crates/server/) | Axum HTTP routes, authenticated request composition, authorization, and server-only service composition. |
-| [crates/grading/](../crates/grading/) | Answer-bearing grading decisions; it is not a browser dependency. |
-| [crates/adapters/](../crates/adapters/) | PLE, WeBWorK, iMathAS, QTI, and H5P integration boundaries behind typed Question operations. |
-| [crates/objects/](../crates/objects/) | Typed object addresses, integrity metadata, image validation, and object-store backends. |
-| [crates/browser-api-contract/](../crates/browser-api-contract/) | Rust declarations used to generate browser-facing TypeScript contracts. |
-| [src/](../src/) | SolidJS application, strict HTTP decoders, answer-free presentation, routes, and UI features. |
-| [local_stack_control/](../local_stack_control/) | Disposable-stack lifecycle and connected acceptance orchestration. |
+| Component                                                       | Ownership                                                                                                                 |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [crates/question_model/](../crates/question_model/)             | Shared typed identifiers, Question and Blueprint contracts, current Assignment state, and retained Student Work evidence. |
+| [crates/domain/](../crates/domain/)                             | Pure policy, timing, validation, scoring, disclosure, and generation rules.                                               |
+| [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts and PostgreSQL implementations, including transaction and row-security context.                           |
+| [crates/server/](../crates/server/)                             | Axum HTTP routes, authenticated request composition, authorization, and server-only service composition.                  |
+| [crates/grading/](../crates/grading/)                           | Answer-bearing grading decisions; it is not a browser dependency.                                                         |
+| [crates/adapters/](../crates/adapters/)                         | PLE, WeBWorK, iMathAS, QTI, and H5P integration boundaries behind typed Question operations.                              |
+| [crates/objects/](../crates/objects/)                           | Typed object addresses, integrity metadata, image validation, and object-store backends.                                  |
+| [crates/browser-api-contract/](../crates/browser-api-contract/) | Rust declarations used to generate browser-facing TypeScript contracts.                                                   |
+| [src/](../src/)                                                 | SolidJS application, strict HTTP decoders, answer-free presentation, routes, and UI features.                             |
+| [local_stack_control/](../local_stack_control/)                 | Disposable-stack lifecycle and connected acceptance orchestration.                                                        |
 
 The Rust workspace root is [Cargo.toml](../Cargo.toml). Browser dependencies and the TypeScript
 toolchain are declared in [package.json](../package.json). Generated TypeScript declarations are
@@ -51,16 +51,17 @@ default: it runs the Pilot publication and database-owned graph, then creates
 cross-system Student Work and grading effects through their owning product
 paths. `--without-live-demo` skips this phase; `apply` is only the narrower
 convergent SQL/Pilot graph. Neither creates a demo-only model: Accounts,
-Blueprint Draft and Revision, Course, roster, released Assignment, and exact
+Blueprint Revision, Course, roster, released Assignment, and exact
 Question Revision pins are ordinary product records.
 
 ## Content and revision model
 
-Only published Question content and published Blueprint content use immutable Revisions. A
-Question lineage stores current availability, while each immutable Question Revision preserves its
-published content. A Blueprint lineage has current availability and a private mutable Blueprint
-Draft with its own Edit Number. Explicit publication copies that Draft into a new immutable Blueprint
-Revision.
+Question and Blueprint reusable content use immutable Revisions. A Question
+lineage stores current availability, while each immutable Question Revision
+preserves its published content. A complete Blueprint creation atomically
+creates Available Revision 1; each changed explicit Save from its current
+Revision creates a successor. Blueprint browser edits remain protected local
+working state until Save.
 
 Question IDs use the seven-character compact storage form. The familiar `AAA-BBBB` spelling is
 presentation-only; the first six Crockford Base32 characters are random and the final character is
@@ -152,8 +153,8 @@ SolidJS route
   -> browser state and accessible presentation
 ```
 
-[src/features/blueprint_course/](../src/features/blueprint_course/) owns the Blueprint Draft
-workspace. [src/pages/assignment_workspace/](../src/pages/assignment_workspace/) owns instructor
+[src/features/blueprint_course/](../src/features/blueprint_course/) owns the Blueprint Revision
+editor. [src/pages/assignment_workspace/](../src/pages/assignment_workspace/) owns instructor
 Assignment editing and release surfaces. Student delivery and retained presentation flow through
 [src/pages/assignment_attempt_page.tsx](../src/pages/assignment_attempt_page.tsx) and related
 components. Shared navigation and capability admission live in [src/ribbon/](../src/ribbon/).

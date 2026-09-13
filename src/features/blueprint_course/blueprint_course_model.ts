@@ -1,7 +1,7 @@
-// Immutable browser drafts for the one reusable Blueprint Course model.
+// Immutable browser working state for the one reusable Blueprint Course model.
 
 import type { BlueprintModuleView } from "../../../generated/api/BlueprintModuleView";
-import type { CreateBlueprintCourseContentInput } from "../../../generated/api/CreateBlueprintCourseContentInput";
+import type { CreateBlueprintCourseInput } from "../../../generated/api/CreateBlueprintCourseInput";
 import type { BlueprintAssignmentDefaults } from "../../../generated/api/BlueprintAssignmentDefaults";
 import type { BlueprintAssignmentContentInput } from "../../../generated/api/BlueprintAssignmentContentInput";
 import type { BlueprintAssignmentContentView } from "../../../generated/api/BlueprintAssignmentContentView";
@@ -94,10 +94,11 @@ export function emptyReusableContent(
   };
 }
 
-/** Builds one complete local Blueprint Course draft with one labelled module. */
-export function emptyBlueprintCourseContent(): CreateBlueprintCourseContentInput {
+/** Builds complete local Blueprint Course working state with one labelled module. */
+export function emptyBlueprintCourseContent(): CreateBlueprintCourseInput {
   return {
-    title: "Untitled Blueprint Course",
+    short_name: "Untitled Blueprint",
+    long_name: "Untitled Blueprint Course",
     modules: [{ label: "Module 1", assignments: [emptyReusableContent()] }],
   };
 }
@@ -260,7 +261,7 @@ function validateSchedule(schedule: RelativeAssignmentSchedule): BlueprintCourse
   return { valid: true, message: null };
 }
 
-/** Guides local drafting before the server performs authoritative validation. */
+/** Guides local authoring before the server performs authoritative validation. */
 export function validateReusableContent(
   content: BlueprintAssignmentContentInput,
 ): BlueprintCourseValidation {
@@ -303,10 +304,18 @@ export function validateReusableContent(
 
 /** Validates the complete local Blueprint Course tree before its create request. */
 export function validateBlueprintCourseContent(
-  content: CreateBlueprintCourseContentInput,
+  content: CreateBlueprintCourseInput,
 ): BlueprintCourseValidation {
-  if (content.title.trim().length === 0 || content.title.length > MAX_REUSABLE_TITLE_LENGTH) {
-    return { valid: false, message: "Give this Blueprint Course a title of up to 200 characters." };
+  if (
+    content.short_name.trim().length === 0 ||
+    content.short_name.length > MAX_REUSABLE_TITLE_LENGTH ||
+    content.long_name.trim().length === 0 ||
+    content.long_name.length > MAX_REUSABLE_TITLE_LENGTH
+  ) {
+    return {
+      valid: false,
+      message: "Give this Blueprint Course short and long names of up to 200 characters.",
+    };
   }
   if (content.modules.length === 0 || content.modules.length > MAX_REUSABLE_ENTRIES) {
     return {
@@ -367,13 +376,11 @@ export function reusableContentInputFromView(
   };
 }
 
-/** Converts one owner Draft or exact immutable Revision content to an editable Draft command. */
+/** Converts exact immutable Revision content to a complete editable Save command. */
 export function replacementContentFromBlueprintModules(
-  title: string,
   modules: ReadonlyArray<BlueprintModuleView>,
 ): import("../../../generated/api/ReplaceBlueprintCourseContentInput").ReplaceBlueprintCourseContentInput {
   return {
-    title,
     modules: modules.map((module) => ({
       choice: {
         kind: "retained",

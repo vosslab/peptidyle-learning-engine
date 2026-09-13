@@ -12,7 +12,10 @@ import type { BlueprintAvailability } from "../../../generated/api/BlueprintAvai
 import type { BlueprintRevisionReference } from "../../../generated/api/BlueprintRevisionReference";
 import type { BlueprintRevisionView } from "../../../generated/api/BlueprintRevisionView";
 import type { BlueprintModuleView } from "../../../generated/api/BlueprintModuleView";
-import type { CreateBlueprintCourseContentInput } from "../../../generated/api/CreateBlueprintCourseContentInput";
+import type { BlueprintCourseSaveResponse } from "../../../generated/api/BlueprintCourseSaveResponse";
+import type { BlueprintMetadataState } from "../../../generated/api/BlueprintMetadataState";
+import type { CreateBlueprintCourseInput } from "../../../generated/api/CreateBlueprintCourseInput";
+import type { RenameBlueprintCourseInput } from "../../../generated/api/RenameBlueprintCourseInput";
 import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/ReplaceBlueprintCourseContentInput";
 import type { CursorPage } from "../contracts";
 import {
@@ -34,6 +37,7 @@ import { decodeBoundedArray, decodeCursor, field, requireOnlyFields } from "./sh
 const MAX_PAGE_SIZE = 100;
 const QUESTION_ID = /^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u;
 const POSITIVE_REVISION = /^[1-9][0-9]*$/u;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const LOCAL_TIME = /^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\.[0-9]{3}$/u;
 
 function text(value: unknown, path: string): string {
@@ -371,12 +375,12 @@ function createModule(value: unknown, path: string): unknown {
   return value;
 }
 
-export function decodeCreateBlueprintCourseContentInput(
+export function decodeCreateBlueprintCourseInput(
   value: unknown,
   path = "request",
-): CreateBlueprintCourseContentInput {
+): CreateBlueprintCourseInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["title", "modules"]);
+  requireOnlyFields(record, path, ["short_name", "long_name", "modules"]);
   const modules = decodeBoundedArray(
     field(record, "modules", path),
     `${path}.modules`,
@@ -384,8 +388,9 @@ export function decodeCreateBlueprintCourseContentInput(
     createModule,
   );
   if (modules.length === 0) throw new DecodeError(`${path}.modules`, "at least one ordered module");
-  text(field(record, "title", path), `${path}.title`);
-  return value as CreateBlueprintCourseContentInput;
+  text(field(record, "short_name", path), `${path}.short_name`);
+  text(field(record, "long_name", path), `${path}.long_name`);
+  return value as CreateBlueprintCourseInput;
 }
 
 // ASVS 1.5.2, 2.2.1, and 2.2.2: accept only the exact retained-reference-or-New shape.
@@ -428,7 +433,7 @@ export function decodeReplaceBlueprintCourseContentInput(
   path = "request",
 ): ReplaceBlueprintCourseContentInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["title", "modules"]);
+  requireOnlyFields(record, path, ["modules"]);
   const modules = decodeBoundedArray(
     field(record, "modules", path),
     `${path}.modules`,
@@ -436,7 +441,6 @@ export function decodeReplaceBlueprintCourseContentInput(
     replacementModule,
   );
   if (modules.length === 0) throw new DecodeError(`${path}.modules`, "at least one ordered module");
-  text(field(record, "title", path), `${path}.title`);
   return value as ReplaceBlueprintCourseContentInput;
 }
 
@@ -525,8 +529,10 @@ function availability(value: unknown, path: string): BlueprintAvailability {
   return decodeStringEnum(value, path, ["available", "archived"]);
 }
 
-function availabilityEditNumber(value: unknown, path: string): string {
-  return revision(value, path);
+function metadataEtag(value: unknown, path: string): string {
+  const decoded = decodeString(value, path);
+  if (!UUID.test(decoded)) throw new DecodeError(path, "a canonical opaque metadata UUID");
+  return decoded;
 }
 
 function revisionReference(value: unknown, path: string): BlueprintRevisionReference {
@@ -542,24 +548,22 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "reference",
-    "title",
+    "short_name",
+    "long_name",
     "availability",
-    "availability_edit_number",
-    "latest_published_revision",
+    "metadata_etag",
+    "current_revision",
     "read_access",
   ]);
   return {
     reference: blueprintReference(field(record, "reference", path), `${path}.reference`),
-    title: text(field(record, "title", path), `${path}.title`),
+    short_name: text(field(record, "short_name", path), `${path}.short_name`),
+    long_name: text(field(record, "long_name", path), `${path}.long_name`),
     availability: availability(field(record, "availability", path), `${path}.availability`),
-    availability_edit_number: availabilityEditNumber(
-      field(record, "availability_edit_number", path),
-      `${path}.availability_edit_number`,
-    ),
-    latest_published_revision: decodeNullable(
-      field(record, "latest_published_revision", path),
-      `${path}.latest_published_revision`,
-      revisionReference,
+    metadata_etag: metadataEtag(field(record, "metadata_etag", path), `${path}.metadata_etag`),
+    current_revision: revisionReference(
+      field(record, "current_revision", path),
+      `${path}.current_revision`,
     ),
     read_access: decodeStringEnum(field(record, "read_access", path), `${path}.read_access`, [
       "blueprint_course_owner",
@@ -602,44 +606,33 @@ function modules(value: unknown, path: string): Array<BlueprintModuleView> {
   return decoded as Array<BlueprintModuleView>;
 }
 
-function draft(value: unknown, path: string): NonNullable<BlueprintCourseView["draft"]> {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["edit_number", "modules"]);
-  return {
-    edit_number: revision(field(record, "edit_number", path), `${path}.edit_number`),
-    modules: modules(field(record, "modules", path), `${path}.modules`),
-  };
-}
-
 export function decodeBlueprintCourseView(value: unknown, path = "response"): BlueprintCourseView {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "reference",
-    "title",
+    "short_name",
+    "long_name",
     "availability",
-    "availability_edit_number",
-    "latest_published_revision",
+    "metadata_etag",
+    "current_revision",
     "read_access",
-    "draft",
+    "modules",
   ]);
   return {
     reference: blueprintReference(field(record, "reference", path), `${path}.reference`),
-    title: text(field(record, "title", path), `${path}.title`),
+    short_name: text(field(record, "short_name", path), `${path}.short_name`),
+    long_name: text(field(record, "long_name", path), `${path}.long_name`),
     availability: availability(field(record, "availability", path), `${path}.availability`),
-    availability_edit_number: availabilityEditNumber(
-      field(record, "availability_edit_number", path),
-      `${path}.availability_edit_number`,
-    ),
-    latest_published_revision: decodeNullable(
-      field(record, "latest_published_revision", path),
-      `${path}.latest_published_revision`,
-      revisionReference,
+    metadata_etag: metadataEtag(field(record, "metadata_etag", path), `${path}.metadata_etag`),
+    current_revision: revisionReference(
+      field(record, "current_revision", path),
+      `${path}.current_revision`,
     ),
     read_access: decodeStringEnum(field(record, "read_access", path), `${path}.read_access`, [
       "blueprint_course_owner",
       "active_instructor",
     ]),
-    draft: decodeNullable(field(record, "draft", path), `${path}.draft`, draft),
+    modules: modules(field(record, "modules", path), `${path}.modules`),
   };
 }
 
@@ -648,36 +641,56 @@ export function decodeBlueprintRevisionView(
   path = "response",
 ): BlueprintRevisionView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["blueprintRevision", "title", "modules"]);
+  requireOnlyFields(record, path, ["blueprintRevision", "modules"]);
   return {
     blueprintRevision: revisionReference(
       field(record, "blueprintRevision", path),
       `${path}.blueprintRevision`,
     ),
-    title: text(field(record, "title", path), `${path}.title`),
     modules: modules(field(record, "modules", path), `${path}.modules`),
   };
 }
 
-export function decodeBlueprintPublication(
+export function decodeBlueprintCourseSaveResponse(
   value: unknown,
   path = "response",
-): BlueprintRevisionReference {
+): BlueprintCourseSaveResponse {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["blueprintRevision"]);
-  return revisionReference(field(record, "blueprintRevision", path), `${path}.blueprintRevision`);
+  requireOnlyFields(record, path, ["blueprintCourse", "changed"]);
+  const changed = field(record, "changed", path);
+  if (typeof changed !== "boolean") throw new DecodeError(`${path}.changed`, "a boolean");
+  return {
+    blueprintCourse: decodeBlueprintCourseView(
+      field(record, "blueprintCourse", path),
+      `${path}.blueprintCourse`,
+    ),
+    changed,
+  };
 }
 
-export function decodeBlueprintAvailabilityTransition(
+export function decodeBlueprintMetadataState(
   value: unknown,
   path = "response",
-): { readonly availability: BlueprintAvailability; readonly editNumber: string } {
+): BlueprintMetadataState {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["availability", "editNumber"]);
+  requireOnlyFields(record, path, ["short_name", "long_name", "availability", "metadata_etag"]);
   return {
+    short_name: text(field(record, "short_name", path), `${path}.short_name`),
+    long_name: text(field(record, "long_name", path), `${path}.long_name`),
     availability: availability(field(record, "availability", path), `${path}.availability`),
-    editNumber: availabilityEditNumber(field(record, "editNumber", path), `${path}.editNumber`),
+    metadata_etag: metadataEtag(field(record, "metadata_etag", path), `${path}.metadata_etag`),
   };
+}
+
+export function decodeRenameBlueprintCourseInput(
+  value: unknown,
+  path = "request",
+): RenameBlueprintCourseInput {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["short_name", "long_name"]);
+  text(field(record, "short_name", path), `${path}.short_name`);
+  text(field(record, "long_name", path), `${path}.long_name`);
+  return value as RenameBlueprintCourseInput;
 }
 
 export function decodeBlueprintCourseReference(

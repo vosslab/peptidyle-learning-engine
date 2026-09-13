@@ -175,8 +175,8 @@ export function AssignmentWorkspaceCreatePage(): JSX.Element {
           </label>
           <Show when={sourcesLoaded() && sourceChoices().length === 0}>
             <p class="assignment-editor-note">
-              This Course's Blueprint Revision has no Assignment to use. Publish a Blueprint with an
-              Assignment, then create the Course again.
+              This Course's Blueprint Revision has no Assignment to use. Save a Blueprint Course
+              with an Assignment, then create the Course again.
             </p>
           </Show>
           <p class="assignment-editor-note">

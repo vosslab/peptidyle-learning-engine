@@ -99,28 +99,30 @@ guarded deletion procedure. API, worker, and ordinary application capabilities
 do not inherit it. A failed precondition changes neither Assignment state,
 Student Work, statistics, nor audit state.
 
-## Published content and Blueprint Courses
+## Published Questions and Blueprint Courses
 
 Question Revision and Blueprint Revision are the only product Revision
-concepts. Each is immutable. A Question or Blueprint Course lineage carries
-current `available` or `archived` state and an Availability Edit Number, with
-append-only availability events. Archive removes content from ordinary
+concepts. Each is immutable. A Question lineage carries current `available` or
+`archived` state and an Availability Edit Number. A Blueprint Course lineage
+keeps short name, long name, and availability behind one opaque metadata ETag.
+Archive removes content from ordinary
 browsing and new selection; it preserves resolution of exact historical
 revision references. Restore is the corresponding current-state transition.
 
-New Assignments and Blueprint Draft pins select exact available Question
+New Assignments and Blueprint Revision pins select exact available Question
 Revisions. A later Question publication, availability transition, correction,
 or worker action never advances an Assignment or retained Student Work pin.
 
-An active Instructor owns one private Blueprint Draft for a Blueprint Course.
-Blueprint Draft saves require its Edit Number and increment it only when the
-content changes. An explicit publication copies the complete Draft into a new
-immutable Blueprint Revision and retains an accepted-request receipt for safe
-replay. A Blueprint Draft is single-owner state; this reset does not define a
-Blueprint collaborator relationship.
+An active Instructor owns Blueprint Course content Save and lineage-metadata
+operations. Complete valid creation atomically produces Available Revision 1.
+Save requires the exact current Revision and creates its immutable successor
+only for changed canonical content; an unchanged Save returns the current
+Revision with `changed: false`. Accepted requests retain receipts for safe
+replay. Unsaved browser state is not a server domain object, and this reset
+does not define a Blueprint collaborator relationship.
 
 Question authoring workspace relationships remain their own authoring
-capability and do not widen course, Assignment, Blueprint Draft, or Student
+capability and do not widen course, Assignment, Blueprint Course, or Student
 Work authority.
 
 ## Workers, objects, and service identities

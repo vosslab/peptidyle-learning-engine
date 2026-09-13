@@ -126,7 +126,10 @@ mod publication;
 mod tests;
 
 pub(super) use command::run;
-pub(crate) use publication::{publish, publish_with_context, validate_publication_mapping_json};
+pub(crate) use publication::{
+    publish, publish_with_context, validate_publication_mapping_json,
+    validated_ple_question_json_revisions,
+};
 
 pub(super) struct ValidationReport {
     pub(super) chapters: Vec<String>,

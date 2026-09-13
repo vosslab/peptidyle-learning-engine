@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-09-13
+
+### Fixes and Maintenance
+
+- Audited the Blueprint Revision-only cutover, removed unused command and event
+  contracts plus stale Draft/publish wording, corrected current-Revision
+  availability documentation, and made connected browser journeys select the
+  exact Blueprint they create. The existing PostgreSQL lifecycle oracle now
+  also proves that a non-owner Instructor can discover and read an Available
+  Blueprint through ordinary application authorization. Newly issued Question
+  seeds now remain exactly representable by the browser's numeric JSON contract,
+  and Students can read nonce-bound grading status after submitting the whole
+  Assignment Attempt. Static PLE Question JSON now explicitly excludes Question
+  Seeds and runnable code; removing its generic issuance seed is bounded
+  follow-up work.
+
 ## 2026-09-12
 
 ### Additions and New Features
@@ -47,12 +63,27 @@
   sample activity selects PLE-native Questions by model semantics, while connected WeBWorK
   behavior uses the ordinary backend-owned lifecycle.
 
-- The current product model retains only immutable Question Revisions and
-  Blueprint Revisions. Course and Assignment configuration are current state;
+- The current product model retains immutable Question Revisions and
+  save-created Blueprint Revisions. Complete valid Blueprint creation atomically
+  produces an Available lineage and Revision 1. A changed explicit Save creates
+  the next Revision; a canonical no-op returns the current Revision with
+  `changed: false`; there is no persisted Blueprint Draft or separate Blueprint
+  publish action. Course and Assignment configuration remain current state, and
   Assignment Attempts and Issued Questions retain the exact evidence needed to
-  interpret Student Work after released Assignment edits. Blueprint creation
-  creates a private Draft, and each deliberate publication creates an immutable
-  Revision.
+  interpret Student Work after released Assignment edits.
+
+- Blueprint Module and Assignment References are durable course-wide identity
+  across Revisions: a move preserves its reference while delete-and-recreate
+  allocates a new one. New Course Instances pin only the advertised current
+  Blueprint Revision; existing Instances retain their exact historical pins.
+  Blueprint short name, long name, and availability share one opaque metadata
+  ETag and never create a Revision.
+
+- Blueprint Save uses one unversioned canonical pre-production content encoding,
+  checksum, and exact aggregate comparison. The Store-backed Live Demo seed
+  creates Revision 1 through the ordinary lifecycle, and the Blueprint editor
+  protects dirty local work during initial-creation Close and Escape,
+  navigation, Back, reload, and window close.
 
 - Published Question and Blueprint availability now belongs to their stable
   lineages. Archive removes ordinary selection while existing exact Revision
@@ -209,11 +240,16 @@ acceptance is green.`
   provisioning, replay convergence, and a separate fresh `--without-live-demo`
   absence/non-enumeration proof.
 
-- Focused real-stack evidence passed released-Assignment retained-evidence and
-  later-Attempt behavior, Blueprint Draft publication/archive/restore, authoring
-  API/S3/browser publication, and WebWork worker grading. Backup restore followed
-  by ordinary migrate and application-role verify passed. Aggregate Rust,
-  TypeScript/Node, and Python gates passed.
+- Connected database, installation-data replay and opt-out, service, and
+  Playwright evidence passed the Blueprint Revision lifecycle: atomic Revision 1
+  creation, changed and no-op Save, stale-write rejection, archive/restore,
+  stable child identity, current-head Course Instance pinning, dirty-work
+  protection, and retained historical provenance. Backup restore followed by
+  ordinary migrate and application-role verification passed. The complete gate
+  regenerated 330 Rust-owned browser types and passed strict Rust checks, 406
+  Node tests, 6,044 Python tests, the canonical PostgreSQL baseline,
+  installation-data provision/replay/opt-out, and the PostgreSQL-MinIO coherence
+  oracle.
 
 - A forced fresh Graphify extraction removed the old migration forest from the
   architecture view. The semantic closeout checks found zero nodes from

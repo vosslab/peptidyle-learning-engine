@@ -1,29 +1,30 @@
-// Browser capability contract for the Blueprint lineage, Draft, and publication lifecycle.
+// Browser capability contract for Blueprint lineage metadata and immutable Revisions.
 
-import type { BlueprintAvailability } from "../../generated/api/BlueprintAvailability";
 import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../generated/api/BlueprintCourseView";
-import type { BlueprintRevisionReference } from "../../generated/api/BlueprintRevisionReference";
 import type { BlueprintRevisionView } from "../../generated/api/BlueprintRevisionView";
-import type { CreateBlueprintCourseContentInput } from "../../generated/api/CreateBlueprintCourseContentInput";
+import type { BlueprintCourseSaveResponse } from "../../generated/api/BlueprintCourseSaveResponse";
+import type { BlueprintMetadataState } from "../../generated/api/BlueprintMetadataState";
+import type { CreateBlueprintCourseInput } from "../../generated/api/CreateBlueprintCourseInput";
+import type { RenameBlueprintCourseInput } from "../../generated/api/RenameBlueprintCourseInput";
 import type { ReplaceBlueprintCourseContentInput } from "../../generated/api/ReplaceBlueprintCourseContentInput";
 import type { CursorPage } from "./contracts";
 
-export type BlueprintDraftEtag = string;
-export type BlueprintAvailabilityEtag = string;
+export type BlueprintRevisionEtag = string;
+export type BlueprintMetadataEtag = string;
 export type BlueprintIdempotencyKey = string;
 
 export interface LoadedBlueprintCourse {
   readonly blueprintCourse: BlueprintCourseView;
-  /** Present exactly when the private Draft is present for its owner. */
-  readonly draftEtag: BlueprintDraftEtag | undefined;
+  /** Strong validator for the exact current Blueprint Revision. */
+  readonly revisionEtag: BlueprintRevisionEtag;
 }
 
-export interface BlueprintAvailabilityTransition {
-  readonly availability: BlueprintAvailability;
-  readonly editNumber: string;
-  readonly etag: BlueprintAvailabilityEtag;
+export interface BlueprintMetadataTransition {
+  readonly metadata: BlueprintMetadataState;
+  /** Strong opaque validator for future lineage metadata changes. */
+  readonly metadataEtag: BlueprintMetadataEtag;
 }
 
 /** Browser capability for Instructor-owned reusable Blueprint Course lifecycle operations. */
@@ -36,31 +37,31 @@ export interface BlueprintCourseClient {
     reference: BlueprintCourseReference,
   ) => Promise<LoadedBlueprintCourse>;
   readonly createBlueprintCourse: (
-    content: CreateBlueprintCourseContentInput,
+    content: CreateBlueprintCourseInput,
     idempotencyKey: BlueprintIdempotencyKey,
   ) => Promise<LoadedBlueprintCourse>;
-  readonly saveBlueprintDraft: (
+  readonly saveBlueprintCourse: (
     reference: BlueprintCourseReference,
     content: ReplaceBlueprintCourseContentInput,
-    etag: BlueprintDraftEtag,
+    etag: BlueprintRevisionEtag,
     idempotencyKey: BlueprintIdempotencyKey,
-  ) => Promise<LoadedBlueprintCourse>;
-  readonly publishBlueprintDraft: (
+  ) => Promise<BlueprintCourseSaveResponse & { readonly revisionEtag: BlueprintRevisionEtag }>;
+  readonly renameBlueprintCourse: (
     reference: BlueprintCourseReference,
-    etag: BlueprintDraftEtag,
-    idempotencyKey: BlueprintIdempotencyKey,
-  ) => Promise<BlueprintRevisionReference>;
+    names: RenameBlueprintCourseInput,
+    etag: BlueprintMetadataEtag,
+  ) => Promise<BlueprintMetadataTransition>;
   readonly getBlueprintRevision: (
     reference: BlueprintCourseReference,
     revision: string,
   ) => Promise<BlueprintRevisionView>;
   readonly archiveBlueprintCourse: (
     reference: BlueprintCourseReference,
-    confirmationTitle: string,
-    etag: BlueprintAvailabilityEtag,
-  ) => Promise<BlueprintAvailabilityTransition>;
+    confirmationLongName: string,
+    etag: BlueprintMetadataEtag,
+  ) => Promise<BlueprintMetadataTransition>;
   readonly restoreBlueprintCourse: (
     reference: BlueprintCourseReference,
-    etag: BlueprintAvailabilityEtag,
-  ) => Promise<BlueprintAvailabilityTransition>;
+    etag: BlueprintMetadataEtag,
+  ) => Promise<BlueprintMetadataTransition>;
 }

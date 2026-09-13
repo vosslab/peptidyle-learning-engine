@@ -47,7 +47,7 @@ schemas/
 |  +- authorization.sql               Course and authoring authority relationships
 |  +- question_*.sql                  Question lineages, stewardship, authoring, assets, and their operations
 |  +- object_records.sql              Typed object-record ownership
-|  +- blueprints.sql                  Blueprint lineage, Draft, publication, and availability
+|  +- blueprints.sql                  Blueprint lineage, save-created Revisions, and availability
 |  +- course_*.sql                    Course terms, membership, roster, operations, and media
 |  +- profile_media.sql               Instructor profile-media ownership
 |  +- assignments.sql                 Current Assignment state and exact Question pins
@@ -82,20 +82,20 @@ migrations belong in `schemas/migrations/`. SQLx configuration belongs to
 
 ## Rust workspace
 
-| Path | Purpose |
-| --- | --- |
-| [crates/question_model/](../crates/question_model/) | Shared product concepts: Question IDs and Revisions, Blueprint Drafts and Revisions, current Assignments, and retained Student Work evidence. |
-| [crates/domain/](../crates/domain/) | Pure validation, timing, policy, scoring, disclosure, and generation behavior. |
-| [crates/grading/](../crates/grading/) | Server-only answer-bearing checkers. |
-| [crates/learning-data-access/](../crates/learning-data-access/) | Store traits, PostgreSQL implementations, SQLx forward-migration ledger support, and schema verification. |
-| [crates/server/](../crates/server/) | Axum HTTP routes, authentication, authorization, and service composition. |
-| [crates/browser-api-contract/](../crates/browser-api-contract/) | Browser-safe Rust contract roots for TypeScript generation. |
-| [crates/adapters/](../crates/adapters/) | PLE, WeBWorK, iMathAS, QTI, and H5P backend or import adapters. |
-| [crates/objects/](../crates/objects/) | Object-address, checksum, image, and object-store ownership. |
-| [crates/wasm/](../crates/wasm/) | Answer-free Rust-to-browser WebAssembly facade. |
-| [crates/export/](../crates/export/) | PDF and DOCX export models and writers. |
-| [crates/project-tools/](../crates/project-tools/) | TypeScript generation, database lifecycle commands, Pilot publication, and installation-data tooling. |
-| [crates/acceptance-runtime/](../crates/acceptance-runtime/) | Disposable acceptance database connection handoff. |
+| Path                                                            | Purpose                                                                                                                                         |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| [crates/question_model/](../crates/question_model/)             | Shared product concepts: Question IDs and Revisions, save-created Blueprint Revisions, current Assignments, and retained Student Work evidence. |
+| [crates/domain/](../crates/domain/)                             | Pure validation, timing, policy, scoring, disclosure, and generation behavior.                                                                  |
+| [crates/grading/](../crates/grading/)                           | Server-only answer-bearing checkers.                                                                                                            |
+| [crates/learning-data-access/](../crates/learning-data-access/) | Store traits, PostgreSQL implementations, SQLx forward-migration ledger support, and schema verification.                                       |
+| [crates/server/](../crates/server/)                             | Axum HTTP routes, authentication, authorization, and service composition.                                                                       |
+| [crates/browser-api-contract/](../crates/browser-api-contract/) | Browser-safe Rust contract roots for TypeScript generation.                                                                                     |
+| [crates/adapters/](../crates/adapters/)                         | PLE, WeBWorK, iMathAS, QTI, and H5P backend or import adapters.                                                                                 |
+| [crates/objects/](../crates/objects/)                           | Object-address, checksum, image, and object-store ownership.                                                                                    |
+| [crates/wasm/](../crates/wasm/)                                 | Answer-free Rust-to-browser WebAssembly facade.                                                                                                 |
+| [crates/export/](../crates/export/)                             | PDF and DOCX export models and writers.                                                                                                         |
+| [crates/project-tools/](../crates/project-tools/)               | TypeScript generation, database lifecycle commands, Pilot publication, and installation-data tooling.                                           |
+| [crates/acceptance-runtime/](../crates/acceptance-runtime/)     | Disposable acceptance database connection handoff.                                                                                              |
 
 WeBWorK's opaque adapter boundary is owned by
 [crates/adapters/webwork/](../crates/adapters/webwork/). Its renderer contract,
@@ -121,7 +121,7 @@ src/
 |  `- question_response_controls/backend_owned_document.tsx
 |                               Generic iframe host and opaque form-pair capture
 +- features/
-|  +- blueprint_course/         Blueprint Draft editing and publication UI
+|  +- blueprint_course/         Blueprint Revision editing and explicit Save UI
 |  +- question_picker/          Available published-Question selection UI
 |  +- question_curation/        Question Library discovery and availability UI
 |  +- question_attempt/         Student Attempt interactions

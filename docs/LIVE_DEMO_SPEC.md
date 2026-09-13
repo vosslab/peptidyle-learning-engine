@@ -42,7 +42,7 @@ fresh installation:
 
 - fixed fictional Accounts and their ordinary roles;
 - subject organization;
-- a Blueprint Course, its Draft, published Blueprint Revision, and exact
+- a Blueprint Course, its save-created Blueprint Revision, and exact
   Question Revision pins;
 - a Course Instance, Instructor relationship, invitations, Student records,
   and Course Memberships; and
@@ -57,7 +57,7 @@ storage, renderer, worker, and grading behavior used by product workflows.
 ## Known-good teaching graph
 
 The reusable Blueprint Course is **Biochemistry 301: Proteins and Peptides**.
-Elena Rivera owns its ordinary published Blueprint Revision. The resulting
+Elena Rivera owns its ordinary save-created Blueprint Revision. The resulting
 Course Instance is `BCHM 301`, also named **Biochemistry 301: Proteins and
 Peptides**, runs from 2026-08-24 through 2026-12-11 in `America/Chicago`, and
 has Elena as its Assigned Instructor.
@@ -74,10 +74,10 @@ The database-owned graph includes the three ordinary Student records and
 Course Memberships below. The cross-system activity owner may then establish
 the demonstration work states through normal delivery and grading paths.
 
-| Student | Roster ID | Demonstration state |
-| --- | --- | --- |
-| Mary Okafor | `BIO301-MARY` | Completed and graded work |
-| Jack Nguyen | `BIO301-JACK` | Open work with saved responses |
+| Student        | Roster ID      | Demonstration state                    |
+| -------------- | -------------- | -------------------------------------- |
+| Mary Okafor    | `BIO301-MARY`  | Completed and graded work              |
+| Jack Nguyen    | `BIO301-JACK`  | Open work with saved responses         |
 | Avery Thompson | `BIO301-AVERY` | Released Assignment available to start |
 
 These are ordinary relationships and Student Work records. Instructor views,

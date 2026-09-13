@@ -11,20 +11,16 @@ import { courseThemeTokens } from "../features/course_appearance/course_theme_re
 import { courseInstanceRouteReference } from "../navigation/public_route";
 import { StudentCoursesPage } from "./student_courses_page";
 
-type PublishedAvailableBlueprintCourse = BlueprintCourseSummaryView & {
-  readonly latest_published_revision: NonNullable<
-    BlueprintCourseSummaryView["latest_published_revision"]
-  >;
-};
+type AvailableBlueprintCourse = BlueprintCourseSummaryView;
 
-function isPublishedAvailableBlueprintCourse(
+function isAvailableBlueprintCourse(
   blueprint: BlueprintCourseSummaryView,
-): blueprint is PublishedAvailableBlueprintCourse {
-  return blueprint.availability === "available" && blueprint.latest_published_revision !== null;
+): blueprint is AvailableBlueprintCourse {
+  return blueprint.availability === "available";
 }
 
-function blueprintSourceValue(blueprint: PublishedAvailableBlueprintCourse): string {
-  const revision = blueprint.latest_published_revision;
+function blueprintSourceValue(blueprint: AvailableBlueprintCourse): string {
+  const revision = blueprint.current_revision;
   return `${revision.reference}:${revision.revision}`;
 }
 
@@ -56,13 +52,13 @@ function CourseInstanceRow(props: { readonly course: CourseInstanceSummary }): J
 }
 
 function BlueprintSourceSelect(props: {
-  readonly blueprints: ReadonlyArray<PublishedAvailableBlueprintCourse>;
+  readonly blueprints: ReadonlyArray<AvailableBlueprintCourse>;
   readonly value: string;
   readonly onChange: (value: string) => void;
 }): JSX.Element {
   return (
     <label for="course-blueprint-source">
-      Blueprint Course Revision
+      Blueprint Course
       <select
         id="course-blueprint-source"
         name="blueprintSource"
@@ -74,7 +70,7 @@ function BlueprintSourceSelect(props: {
         <For each={props.blueprints}>
           {(blueprint) => (
             <option value={blueprintSourceValue(blueprint)}>
-              {blueprint.title} · Revision {blueprint.latest_published_revision.revision}
+              {blueprint.long_name} · Revision {blueprint.current_revision.revision}
             </option>
           )}
         </For>
@@ -119,7 +115,7 @@ function TeachingCourseListPage(): JSX.Element {
     });
   });
   const availableBlueprints = createMemo(() =>
-    (blueprints()?.items ?? []).filter(isPublishedAvailableBlueprintCourse),
+    (blueprints()?.items ?? []).filter(isAvailableBlueprintCourse),
   );
 
   async function createCourseInstance(event: SubmitEvent): Promise<void> {
@@ -129,7 +125,7 @@ function TeachingCourseListPage(): JSX.Element {
       (blueprint) => blueprintSourceValue(blueprint) === source(),
     );
     if (selected === undefined) {
-      setCreationError("Choose the exact Blueprint Course Revision for this Course Instance.");
+      setCreationError("Choose the current Blueprint Course Revision for this Course Instance.");
       return;
     }
     if (
@@ -150,7 +146,7 @@ function TeachingCourseListPage(): JSX.Element {
     try {
       const created = await applicationApi.client.createCourseInstance({
         blueprintCourse: selected.reference,
-        blueprintRevision: selected.latest_published_revision.revision,
+        blueprintRevision: selected.current_revision.revision,
         shortName: shortName(),
         longName: longName(),
         term: { startDate: startDate(), endDate: endDate() },
@@ -195,7 +191,7 @@ function TeachingCourseListPage(): JSX.Element {
             when={availableBlueprints().length > 0}
             fallback={
               <p class="empty-state">
-                Create and publish a Blueprint Course before creating a Course Instance.
+                Create a Blueprint Course before creating a Course Instance.
               </p>
             }
           >

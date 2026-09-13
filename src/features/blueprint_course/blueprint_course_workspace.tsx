@@ -1,4 +1,4 @@
-// Live discovery, inspection, and Blueprint Course Owner editing for reusable Blueprint Courses.
+// Live discovery and explicit Revision Save editing for reusable Blueprint Courses.
 
 import { A } from "@solidjs/router";
 import { For, Match, Show, Switch, createSignal, onMount, type JSX } from "solid-js";
@@ -6,9 +6,15 @@ import { For, Match, Show, Switch, createSignal, onMount, type JSX } from "solid
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/ReplaceBlueprintCourseContentInput";
+import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
-import type { BlueprintCourseClient, BlueprintDraftEtag } from "../../api/blueprint_course";
+import type {
+  BlueprintCourseClient,
+  BlueprintMetadataEtag,
+  BlueprintRevisionEtag,
+} from "../../api/blueprint_course";
 import type { QuestionPickerSource, QuestionPickerSourceRepository } from "../question_picker";
+import { BlueprintAssignmentContentEditor } from "./blueprint_assignment_content_editor";
 import { BlueprintCourseCreateDialog } from "./blueprint_course_create_dialog";
 import {
   appendBlueprintCoursePage,
@@ -16,7 +22,6 @@ import {
   replacementContentFromBlueprintModules,
   validateReusableContent,
 } from "./blueprint_course_model";
-import { BlueprintAssignmentContentEditor } from "./blueprint_assignment_content_editor";
 import "./blueprint_course.css";
 
 type LoadState = "loading" | "ready" | "error";
@@ -29,8 +34,12 @@ interface Notice {
 
 interface LoadedBlueprintCourse {
   readonly view: BlueprintCourseView;
-  readonly draftEtag: BlueprintDraftEtag | undefined;
-  readonly draft: ReplaceBlueprintCourseContentInput;
+  /** The exact Revision and ETag on which this local editor state is based. */
+  readonly revisionEtag: BlueprintRevisionEtag;
+  /** Opaque validator for lineage names and availability only. */
+  readonly metadataEtag: BlueprintMetadataEtag;
+  readonly content: ReplaceBlueprintCourseContentInput;
+  readonly savedContent: ReplaceBlueprintCourseContentInput;
 }
 
 export interface BlueprintCoursesWorkspaceProps {
@@ -47,7 +56,33 @@ function referencePath(reference: string): string {
   return `/blueprint-courses/${encodeURIComponent(reference)}`;
 }
 
+function metadataEtagForView(value: string): BlueprintMetadataEtag {
+  return `"${value}"`;
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    return `{${Object.entries(value)
+      .sort(([first], [second]) => first.localeCompare(second))
+      .map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+/** Local no-op detection ignores object-property construction order while retaining authored array order. */
+function sameContent(
+  first: ReplaceBlueprintCourseContentInput,
+  second: ReplaceBlueprintCourseContentInput,
+): boolean {
+  return canonicalJson(first) === canonicalJson(second);
+}
+
 function errorMessage(error: unknown, fallback: string): string {
+  if (error instanceof BlueprintCourseConflictError) {
+    return "Blueprint Course content changed in another editor. Reload before saving.";
+  }
   if (error instanceof ApiRequestError) {
     if (error.status === 401)
       return "Your session ended. Sign in again, then return to this Blueprint Course.";
@@ -168,14 +203,12 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
                   {(course) => (
                     <li>
                       <A href={referencePath(course.reference)}>
-                        <strong>{course.title}</strong>
+                        <strong>{course.long_name}</strong>
                         <span>
                           {course.read_access === "blueprint_course_owner"
                             ? "You are the Blueprint Course Owner."
                             : "Inspect its reusable modules."}{" "}
-                          {course.latest_published_revision === null
-                            ? "No Blueprint Revision has been published yet."
-                            : `Latest Blueprint Revision ${course.latest_published_revision.revision}.`}
+                          Current Blueprint Revision {course.current_revision.revision}.
                         </span>
                       </A>
                     </li>
@@ -214,7 +247,7 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
   );
 }
 
-/** Loads one BP-* Blueprint Course and exposes its exact reusable structure. */
+/** Loads one BP-* Blueprint Course and lets its owner Save complete Revision content. */
 export function BlueprintCourseDetailWorkspace(
   props: BlueprintCourseDetailWorkspaceProps,
 ): JSX.Element {
@@ -225,10 +258,18 @@ export function BlueprintCourseDetailWorkspace(
     text: "Loading Blueprint Course.",
   });
   const [saving, setSaving] = createSignal(false);
-  const [dirty, setDirty] = createSignal(false);
   const [conflict, setConflict] = createSignal(false);
+  const [metadataSaving, setMetadataSaving] = createSignal(false);
+  const [metadataConflict, setMetadataConflict] = createSignal(false);
+  const [shortName, setShortName] = createSignal("");
+  const [longName, setLongName] = createSignal("");
+  const [archiveConfirmation, setArchiveConfirmation] = createSignal("");
+  const dirty = (): boolean => {
+    const loaded = current();
+    return loaded !== undefined && !sameContent(loaded.content, loaded.savedContent);
+  };
 
-  async function load(keepDraft: boolean): Promise<void> {
+  async function load(keepLocalContent: boolean): Promise<void> {
     if (!/^BP-[1-9][0-9]*$/u.test(props.blueprintCourseRef)) {
       setState("error");
       setNotice({ kind: "alert", text: "Blueprint Course references begin with BP-." });
@@ -238,29 +279,26 @@ export function BlueprintCourseDetailWorkspace(
     try {
       const result = await props.client.getBlueprintCourse(props.blueprintCourseRef);
       const prior = current();
-      const privateDraft = result.blueprintCourse.draft;
-      const draft =
-        keepDraft && prior !== undefined
-          ? prior.draft
-          : privateDraft === null
-            ? await publishedContent(result.blueprintCourse)
-            : replacementContentFromBlueprintModules(
-                result.blueprintCourse.title,
-                privateDraft.modules,
-              );
+      const savedContent = replacementContentFromBlueprintModules(result.blueprintCourse.modules);
+      const content = keepLocalContent && prior !== undefined ? prior.content : savedContent;
       setCurrent({
         view: result.blueprintCourse,
-        draftEtag: result.draftEtag,
-        draft,
+        revisionEtag: result.revisionEtag,
+        metadataEtag: metadataEtagForView(result.blueprintCourse.metadata_etag),
+        content,
+        savedContent,
       });
-      if (!keepDraft) setDirty(false);
-      setConflict(false);
+      if (!keepLocalContent || prior === undefined) {
+        setShortName(result.blueprintCourse.short_name);
+        setLongName(result.blueprintCourse.long_name);
+      }
+      if (!keepLocalContent) setConflict(false);
       setState("ready");
       setNotice({
         kind: "status",
         text:
           result.blueprintCourse.read_access === "blueprint_course_owner"
-            ? "Blueprint Course loaded. Update its Blueprint Assignments deliberately."
+            ? "Blueprint Course loaded. Save creates one immutable Blueprint Revision."
             : "Blueprint Course loaded. Inspect its answer-free reusable structure.",
       });
     } catch (error: unknown) {
@@ -272,24 +310,10 @@ export function BlueprintCourseDetailWorkspace(
     }
   }
 
-  async function publishedContent(
-    view: BlueprintCourseView,
-  ): Promise<ReplaceBlueprintCourseContentInput> {
-    const reference = view.latest_published_revision;
-    if (reference === null) {
-      throw new Error(
-        "This Blueprint Course has no private Draft or published Blueprint Revision.",
-      );
-    }
-    const revision = await props.client.getBlueprintRevision(view.reference, reference.revision);
-    return replacementContentFromBlueprintModules(revision.title, revision.modules);
-  }
-
-  function changeDraft(next: ReplaceBlueprintCourseContentInput, text: string): void {
+  function changeContent(next: ReplaceBlueprintCourseContentInput, text: string): void {
     const loaded = current();
-    if (loaded === undefined || loaded.draftEtag === undefined) return;
-    setCurrent({ ...loaded, draft: next });
-    setDirty(true);
+    if (loaded === undefined || loaded.view.read_access !== "blueprint_course_owner") return;
+    setCurrent({ ...loaded, content: next });
     setNotice({ kind: "status", text });
   }
 
@@ -300,21 +324,20 @@ export function BlueprintCourseDetailWorkspace(
     text: string,
   ): void {
     const loaded = current();
-    const module = loaded?.draft.modules[moduleIndex];
+    const module = loaded?.content.modules[moduleIndex];
     const assignment = module?.assignments[assignmentIndex];
     if (loaded === undefined || module === undefined || assignment === undefined) return;
-    const modules = [...loaded.draft.modules];
+    const modules = [...loaded.content.modules];
     const assignments = [...module.assignments];
     assignments[assignmentIndex] = { ...assignment, content };
     modules[moduleIndex] = { ...module, assignments };
-    changeDraft({ ...loaded.draft, modules }, text);
+    changeContent({ ...loaded.content, modules }, text);
   }
 
-  async function save(): Promise<void> {
+  async function save(): Promise<boolean> {
     const loaded = current();
-    if (loaded === undefined || loaded.draftEtag === undefined) return;
-    const draftEtag = loaded.draftEtag;
-    for (const module of loaded.draft.modules) {
+    if (loaded === undefined || loaded.view.read_access !== "blueprint_course_owner") return false;
+    for (const module of loaded.content.modules) {
       for (const assignment of module.assignments) {
         const validation = validateReusableContent(assignment.content);
         if (!validation.valid) {
@@ -322,67 +345,220 @@ export function BlueprintCourseDetailWorkspace(
             kind: "alert",
             text: validation.message ?? "Review this Blueprint Course before saving.",
           });
-          return;
+          return false;
         }
       }
     }
     setSaving(true);
     try {
-      const saved = await props.client.saveBlueprintDraft(
+      const saved = await props.client.saveBlueprintCourse(
         loaded.view.reference,
-        loaded.draft,
-        draftEtag,
+        loaded.content,
+        loaded.revisionEtag,
         crypto.randomUUID(),
       );
-      const privateDraft = saved.blueprintCourse.draft;
-      if (privateDraft === null || saved.draftEtag === undefined) {
-        throw new Error("The saved Blueprint Draft is no longer available to this Account.");
-      }
+      const savedContent = replacementContentFromBlueprintModules(saved.blueprintCourse.modules);
       setCurrent({
         view: saved.blueprintCourse,
-        draftEtag: saved.draftEtag,
-        draft: replacementContentFromBlueprintModules(
-          saved.blueprintCourse.title,
-          privateDraft.modules,
-        ),
+        revisionEtag: saved.revisionEtag,
+        metadataEtag: metadataEtagForView(saved.blueprintCourse.metadata_etag),
+        content: savedContent,
+        savedContent,
       });
-      setDirty(false);
       setConflict(false);
       setNotice({
         kind: "status",
-        text: "Blueprint Draft saved. Publish when you want a new immutable Blueprint Revision.",
+        text: saved.changed
+          ? `Saved Blueprint Revision ${saved.blueprintCourse.current_revision.revision}.`
+          : `No content changed. Blueprint Revision ${saved.blueprintCourse.current_revision.revision} remains current.`,
       });
+      return true;
     } catch (error: unknown) {
       setConflict(error instanceof BlueprintCourseConflictError);
       setNotice({
         kind: "alert",
         text: errorMessage(
           error,
-          "Blueprint Course could not save. Your local draft remains available.",
+          "Blueprint Course could not save. Your local changes remain available.",
         ),
       });
+      return false;
     } finally {
       setSaving(false);
     }
   }
 
-  async function publish(): Promise<void> {
+  function applyMetadata(
+    metadata: Awaited<ReturnType<BlueprintCourseClient["renameBlueprintCourse"]>>,
+  ): void {
     const loaded = current();
-    if (loaded === undefined || loaded.draftEtag === undefined) return;
-    setSaving(true);
+    if (loaded === undefined) return;
+    setCurrent({
+      ...loaded,
+      metadataEtag: metadata.metadataEtag,
+      view: {
+        ...loaded.view,
+        short_name: metadata.metadata.short_name,
+        long_name: metadata.metadata.long_name,
+        availability: metadata.metadata.availability,
+        metadata_etag: metadata.metadata.metadata_etag,
+      },
+    });
+    setShortName(metadata.metadata.short_name);
+    setLongName(metadata.metadata.long_name);
+    setMetadataConflict(false);
+  }
+
+  function validNames(): boolean {
+    if (
+      shortName().trim() !== shortName() ||
+      shortName().length === 0 ||
+      longName().trim() !== longName() ||
+      longName().length === 0
+    ) {
+      setNotice({ kind: "alert", text: "Enter trimmed Blueprint Course short and long names." });
+      return false;
+    }
+    return true;
+  }
+
+  async function saveNames(): Promise<void> {
+    const loaded = current();
+    if (
+      loaded === undefined ||
+      loaded.view.read_access !== "blueprint_course_owner" ||
+      !validNames()
+    ) {
+      return;
+    }
+    setMetadataSaving(true);
     try {
-      const published = await props.client.publishBlueprintDraft(
+      const metadata = await props.client.renameBlueprintCourse(
         loaded.view.reference,
-        loaded.draftEtag,
-        crypto.randomUUID(),
+        { short_name: shortName(), long_name: longName() },
+        loaded.metadataEtag,
       );
-      setNotice({ kind: "status", text: `Published Blueprint Revision ${published.revision}.` });
-      await load(false);
+      applyMetadata(metadata);
+      setNotice({
+        kind: "status",
+        text: "Blueprint Course names saved. Revision content is unchanged.",
+      });
     } catch (error: unknown) {
-      setConflict(error instanceof BlueprintCourseConflictError);
-      setNotice({ kind: "alert", text: errorMessage(error, "Blueprint Draft could not publish.") });
+      setMetadataConflict(error instanceof BlueprintCourseConflictError);
+      setNotice({
+        kind: "alert",
+        text:
+          error instanceof BlueprintCourseConflictError
+            ? "Blueprint Course metadata changed elsewhere. Your typed names remain available."
+            : errorMessage(
+                error,
+                "Blueprint Course names could not save. Your typed names remain available.",
+              ),
+      });
     } finally {
-      setSaving(false);
+      setMetadataSaving(false);
+    }
+  }
+
+  async function archive(): Promise<void> {
+    const loaded = current();
+    if (loaded === undefined || loaded.view.read_access !== "blueprint_course_owner") return;
+    if (archiveConfirmation() !== loaded.view.long_name) {
+      setNotice({
+        kind: "alert",
+        text: "Enter the current Blueprint Course long name to archive it.",
+      });
+      return;
+    }
+    setMetadataSaving(true);
+    try {
+      const metadata = await props.client.archiveBlueprintCourse(
+        loaded.view.reference,
+        archiveConfirmation(),
+        loaded.metadataEtag,
+      );
+      applyMetadata(metadata);
+      setArchiveConfirmation("");
+      setNotice({
+        kind: "status",
+        text: "Blueprint Course archived. Its saved Revisions are unchanged.",
+      });
+    } catch (error: unknown) {
+      setMetadataConflict(error instanceof BlueprintCourseConflictError);
+      setNotice({
+        kind: "alert",
+        text:
+          error instanceof BlueprintCourseConflictError
+            ? "Blueprint Course metadata changed elsewhere. Your confirmation remains available."
+            : errorMessage(
+                error,
+                "Blueprint Course could not archive. Your confirmation remains available.",
+              ),
+      });
+    } finally {
+      setMetadataSaving(false);
+    }
+  }
+
+  async function restore(): Promise<void> {
+    const loaded = current();
+    if (loaded === undefined || loaded.view.read_access !== "blueprint_course_owner") return;
+    setMetadataSaving(true);
+    try {
+      const metadata = await props.client.restoreBlueprintCourse(
+        loaded.view.reference,
+        loaded.metadataEtag,
+      );
+      applyMetadata(metadata);
+      setNotice({
+        kind: "status",
+        text: "Blueprint Course restored. Its saved Revisions are unchanged.",
+      });
+    } catch (error: unknown) {
+      setMetadataConflict(error instanceof BlueprintCourseConflictError);
+      setNotice({
+        kind: "alert",
+        text:
+          error instanceof BlueprintCourseConflictError
+            ? "Blueprint Course metadata changed elsewhere. Reload before restoring."
+            : errorMessage(error, "Blueprint Course could not restore."),
+      });
+    } finally {
+      setMetadataSaving(false);
+    }
+  }
+
+  async function reloadMetadata(): Promise<void> {
+    const loaded = current();
+    if (loaded === undefined) return;
+    setMetadataSaving(true);
+    try {
+      const result = await props.client.getBlueprintCourse(loaded.view.reference);
+      const prior = current();
+      if (prior === undefined || prior.view.reference !== result.blueprintCourse.reference) return;
+      setCurrent({
+        ...prior,
+        metadataEtag: metadataEtagForView(result.blueprintCourse.metadata_etag),
+        view: {
+          ...prior.view,
+          short_name: result.blueprintCourse.short_name,
+          long_name: result.blueprintCourse.long_name,
+          availability: result.blueprintCourse.availability,
+          metadata_etag: result.blueprintCourse.metadata_etag,
+        },
+      });
+      setMetadataConflict(false);
+      setNotice({
+        kind: "status",
+        text: "Current Blueprint Course metadata loaded. Your typed names remain available.",
+      });
+    } catch (error: unknown) {
+      setNotice({
+        kind: "alert",
+        text: errorMessage(error, "Blueprint Course metadata could not load."),
+      });
+    } finally {
+      setMetadataSaving(false);
     }
   }
 
@@ -409,38 +585,143 @@ export function BlueprintCourseDetailWorkspace(
             <section class="blueprint-course-detail-editor">
               <header class="blueprint-course-page-heading">
                 <p class="eyebrow">Blueprint Course</p>
-                <h1>{loaded.view.title}</h1>
+                <h1>{loaded.view.long_name}</h1>
                 <p class="page-lede">
                   Reusable course structure without Students, deadlines, or course delivery
-                  settings.
+                  settings. Current Revision {loaded.view.current_revision.revision}.
                 </p>
               </header>
               <Show
-                when={
-                  loaded.view.read_access === "blueprint_course_owner" &&
-                  loaded.draftEtag !== undefined
+                when={loaded.view.read_access === "blueprint_course_owner"}
+                fallback={
+                  <aside class="blueprint-course-inspection">
+                    <h2>Inspect reusable structure</h2>
+                    <p>
+                      Only the Blueprint Course Owner can change this reusable course structure.
+                    </p>
+                  </aside>
                 }
               >
-                <footer class="blueprint-course-save-actions blueprint-course-detail-actions">
-                  <button type="button" disabled={saving()} onClick={() => void save()}>
-                    {saving() ? "Saving..." : "Save Blueprint Course"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={saving() || dirty()}
-                    onClick={() => void publish()}
-                  >
-                    Publish Blueprint Revision
-                  </button>
-                  <Show when={dirty() || conflict()}>
-                    <button type="button" class="quiet-action" onClick={() => void load(false)}>
-                      {conflict() ? "Reload current version" : "Discard local changes"}
-                    </button>
-                  </Show>
-                </footer>
+                <div class="blueprint-course-owner-controls">
+                  <aside class="blueprint-course-inspection">
+                    <h2>Save reusable structure</h2>
+                    <p>
+                      Your edits stay in this browser until Save creates the next Blueprint
+                      Revision.
+                    </p>
+                    <footer class="blueprint-course-save-actions blueprint-course-detail-actions">
+                      <button
+                        type="button"
+                        disabled={saving() || !dirty()}
+                        onClick={() => void save()}
+                      >
+                        {saving() ? "Saving..." : "Save Blueprint Course"}
+                      </button>
+                      <Show when={dirty() || conflict()}>
+                        <button type="button" class="quiet-action" onClick={() => void load(false)}>
+                          {conflict() ? "Reload current Revision" : "Discard local changes"}
+                        </button>
+                      </Show>
+                    </footer>
+                  </aside>
+                  <aside class="blueprint-course-inspection">
+                    <h2>Blueprint Course names</h2>
+                    <p>Names control discovery and do not create a Blueprint Revision.</p>
+                    <label>
+                      Blueprint Course short name
+                      <input
+                        value={shortName()}
+                        maxlength="200"
+                        disabled={metadataSaving()}
+                        onInput={(event) => setShortName(event.currentTarget.value)}
+                      />
+                    </label>
+                    <label>
+                      Blueprint Course long name
+                      <input
+                        value={longName()}
+                        maxlength="200"
+                        disabled={metadataSaving()}
+                        onInput={(event) => setLongName(event.currentTarget.value)}
+                      />
+                    </label>
+                    <footer class="blueprint-course-save-actions blueprint-course-detail-actions">
+                      <button
+                        type="button"
+                        disabled={
+                          metadataSaving() ||
+                          (shortName() === loaded.view.short_name &&
+                            longName() === loaded.view.long_name)
+                        }
+                        onClick={() => void saveNames()}
+                      >
+                        {metadataSaving() ? "Saving names..." : "Save Blueprint Course names"}
+                      </button>
+                      <Show when={metadataConflict()}>
+                        <div class="blueprint-course-inline-actions">
+                          <p class="blueprint-course-field-help" role="status">
+                            Blueprint Course metadata changed elsewhere. Your typed names remain
+                            here.
+                          </p>
+                          <button
+                            type="button"
+                            class="quiet-action"
+                            disabled={metadataSaving()}
+                            onClick={() => void reloadMetadata()}
+                          >
+                            Reload current metadata
+                          </button>
+                        </div>
+                      </Show>
+                    </footer>
+                  </aside>
+                  <aside class="blueprint-course-inspection">
+                    <Show
+                      when={loaded.view.availability === "available"}
+                      fallback={
+                        <>
+                          <h2>Restore Blueprint Course</h2>
+                          <p>
+                            Restore this Blueprint Course so Instructors can select its current
+                            Revision.
+                          </p>
+                          <button
+                            type="button"
+                            disabled={metadataSaving()}
+                            onClick={() => void restore()}
+                          >
+                            {metadataSaving() ? "Restoring..." : "Restore Blueprint Course"}
+                          </button>
+                        </>
+                      }
+                    >
+                      <h2>Archive Blueprint Course</h2>
+                      <p>
+                        Archive removes this Blueprint Course from new selection. Saved Revisions
+                        remain intact.
+                      </p>
+                      <label>
+                        Confirm Blueprint Course long name
+                        <input
+                          value={archiveConfirmation()}
+                          maxlength="200"
+                          disabled={metadataSaving()}
+                          onInput={(event) => setArchiveConfirmation(event.currentTarget.value)}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        disabled={metadataSaving()}
+                        onClick={() => void archive()}
+                      >
+                        {metadataSaving() ? "Archiving..." : "Archive Blueprint Course"}
+                      </button>
+                    </Show>
+                  </aside>
+                </div>
               </Show>
               <div class="blueprint-course-editor-content">
-                <For each={loaded.draft.modules}>
+                <For each={loaded.content.modules}>
                   {(module, moduleIndex) => (
                     <section class="blueprint-course-module">
                       <h2>{module.label}</h2>
@@ -467,6 +748,18 @@ export function BlueprintCourseDetailWorkspace(
           )}
         </Match>
       </Switch>
+      <UnsavedChangesGuard
+        dirty={dirty}
+        save={save}
+        copy={{
+          heading: "Save Blueprint Course changes?",
+          description: "Your reusable Blueprint Course changes have not been saved as a Revision.",
+          saveActionLabel: "Save and continue",
+          savingActionLabel: "Saving Blueprint Course...",
+          saveFailureMessage:
+            "Blueprint Course changes were not saved. Resolve the save error, then try again or stay here.",
+        }}
+      />
     </main>
   );
 }

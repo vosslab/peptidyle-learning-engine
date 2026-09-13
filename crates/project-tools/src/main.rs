@@ -6,6 +6,7 @@ mod database_coordinator;
 mod fixtures;
 mod installation_data;
 mod installation_data_activity;
+mod installation_data_blueprint;
 mod libpq_environment;
 mod pilot_content;
 mod tsgen;

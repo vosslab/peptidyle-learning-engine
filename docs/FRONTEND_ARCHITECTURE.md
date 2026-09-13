@@ -40,14 +40,14 @@ the TypeScript types in `generated/api/` are derived from Rust contract roots.
 
 The executable route contract includes these user-facing areas:
 
-| Area | Routes | Browser responsibility |
-| --- | --- | --- |
-| Account and invitations | `/`, `/sign-in`, `/profile`, invitation routes | Session-oriented navigation and account-owned actions |
-| Student delivery | Student Course landing, Assignment access, `R-*` Attempt and summary routes | Answer-free start, resume, response, submission, and disclosed history views |
-| Question authoring | `/library`, Question detail, `/authoring/drafts` | Library discovery and private Draft editing/publication |
-| Blueprint Courses | `/blueprint-courses` and detail route | Browse, owner Draft editing, and explicit publication |
-| Course teaching | Course, Assignment workspace, roster, Gradebook, appearance, grade settings, operations | Current Course configuration and Instructor workflows |
-| System support | Instructor-account and scoped-support roster routes | Bounded Sysadmin tools |
+| Area                    | Routes                                                                                  | Browser responsibility                                                          |
+| ----------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Account and invitations | `/`, `/sign-in`, `/profile`, invitation routes                                          | Session-oriented navigation and account-owned actions                           |
+| Student delivery        | Student Course landing, Assignment access, `R-*` Attempt and summary routes             | Answer-free start, resume, response, submission, and disclosed history views    |
+| Question authoring      | `/library`, Question detail, `/authoring/drafts`                                        | Library discovery and private Draft editing/publication                         |
+| Blueprint Courses       | `/blueprint-courses` and detail route                                                   | Browse, complete creation, explicit Revision Save, and lineage metadata actions |
+| Course teaching         | Course, Assignment workspace, roster, Gradebook, appearance, grade settings, operations | Current Course configuration and Instructor workflows                           |
+| System support          | Instructor-account and scoped-support roster routes                                     | Bounded Sysadmin tools                                                          |
 
 The exact paths, route parameters, product-role admission, ribbon state, and
 layout remain in [src/route_contract.ts](../src/route_contract.ts). A browser
@@ -81,20 +81,24 @@ types, routes, decoders, and pages are absent.
 ## Published content and Blueprint Courses
 
 Question and Blueprint availability belong to their stable lineages. The
-browser availability clients in [src/api/question_availability.ts](../src/api/question_availability.ts)
-and [src/api/blueprint_course.ts](../src/api/blueprint_course.ts) use an exact
-Availability Edit Number ETag. Archive includes title confirmation; restore
-uses the Edit Number. Ordinary discovery lists Available lineages, while an
-authorized exact immutable Revision read remains available after archive.
+Question availability client in
+[src/api/question_availability.ts](../src/api/question_availability.ts) uses an
+exact Availability Edit Number ETag. The Blueprint client in
+[src/api/blueprint_course.ts](../src/api/blueprint_course.ts) uses one opaque
+metadata ETag for names and availability. Archive includes title confirmation;
+restore carries the applicable lineage ETag. Ordinary discovery lists
+Available lineages, while an authorized exact immutable Revision read remains
+available after archive.
 
-A Blueprint Course create response contains its stable lineage and private
-current Draft, with no Blueprint Revision. The owner-facing workflow in
-[src/features/blueprint_course/](../src/features/blueprint_course/) saves that
-Draft with its Draft ETag and publishes it explicitly. Publishing returns an
-immutable `BlueprintRevisionReference`; the Draft remains the owner working
-copy. The browser retains a local Draft across recoverable validation or
-concurrency errors. This is a single-owner Draft workflow; collaboration is
-not a browser capability.
+A complete Blueprint Course create request atomically creates its stable
+Available lineage and immutable Revision 1. The owner-facing workflow in
+[src/features/blueprint_course/](../src/features/blueprint_course/) keeps
+incomplete and unsaved work in browser state. One explicit Save submits the
+complete reusable structure with the exact current Revision ETag. Changed
+content creates the next immutable Revision; a canonical no-op returns the
+current Revision. Navigation and window-close guards protect dirty state, and
+a stale-save conflict retains the Instructor's local work. Rename, archive,
+and restore use the lineage metadata ETag without creating a Revision.
 
 Blueprint Revision content is answer-free reusable course structure. A Course
 Assignment exposes `BlueprintAssignmentSource`: the stable Blueprint Assignment
@@ -135,7 +139,8 @@ existing Attempt from retained evidence rather than mutable Assignment state.
 ## Verification
 
 Keep focused TypeScript and Node coverage for strict decoding, route/reference
-binding, ETag behavior, Draft and response recovery, and answer-free DTOs.
+binding, ETag behavior, Question Draft and response recovery, Blueprint dirty
+state, and answer-free DTOs.
 Use real-stack browser acceptance for visible authoring, teaching, delivery,
 and destructive-workflow journeys. [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)
 classifies permanent checks separately from one-time implementation evidence.

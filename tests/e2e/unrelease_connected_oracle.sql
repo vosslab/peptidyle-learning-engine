@@ -23,15 +23,18 @@ INSERT INTO ple_data.question_revision (
 ) VALUES ('ABCDEF0', 1, 'ple', 'multipleChoice', clock_timestamp());
 SET LOCAL ROLE ple_api_owner;
 INSERT INTO ple_data.blueprint_course (
-    blueprint_id, reference_number, owner_account_id, created_at
+    blueprint_id, reference_number, owner_account_id, short_name, long_name,
+    metadata_etag, created_at
 ) OVERRIDING SYSTEM VALUE VALUES (
     '20000000-0000-0000-0000-000000000001', 1,
-    '10000000-0000-0000-0000-000000000001', clock_timestamp()
+    '10000000-0000-0000-0000-000000000001', 'UNR-1',
+    'Unrelease acceptance Blueprint', '20000000-0000-0000-0000-000000000004',
+    clock_timestamp()
 );
 INSERT INTO ple_data.blueprint_course_revision (
-    blueprint_course_reference_number, blueprint_revision_number, title,
-    content, content_checksum, published_at
-) VALUES (1, 1, 'Unrelease acceptance Blueprint', '{}'::jsonb,
+    blueprint_course_reference_number, blueprint_revision_number,
+    content, content_checksum, saved_at
+) VALUES (1, 1, '{}'::jsonb,
     decode(repeat('a', 64), 'hex'), clock_timestamp());
 INSERT INTO ple_data.blueprint_revision_module (
     blueprint_course_reference_number, blueprint_revision_number,
@@ -42,6 +45,11 @@ INSERT INTO ple_data.blueprint_revision_assignment (
     blueprint_module_reference, blueprint_assignment_reference, assignment_position
 ) VALUES (1, 1, '20000000-0000-0000-0000-000000000002',
     '20000000-0000-0000-0000-000000000003', 1);
+INSERT INTO ple_data.blueprint_revision_event (
+    blueprint_course_reference_number, blueprint_revision_number,
+    actor_account_id, request_checksum, occurred_at
+) VALUES (1, 1, '10000000-0000-0000-0000-000000000001',
+    decode(repeat('b', 64), 'hex'), clock_timestamp());
 INSERT INTO ple_data.course_instance (
     course_id, reference_number, blueprint_course_reference_number,
     blueprint_revision_number, assigned_instructor_account_id,

@@ -91,8 +91,38 @@ pub(crate) fn publish_with_context(
 
 /// Confirms that a handoff names exactly the fixed reviewed sources.
 pub(crate) fn validate_publication_mapping_json(value: &str) -> Result<()> {
-    let mut mapping: BTreeMap<String, PublishedPilotQuestion> =
+    validated_publication_mapping(value).map(|_| ())
+}
+
+/// Resolves the four reviewed PLE Question JSON publications in authored Pilot
+/// order.  The installation Blueprint uses only these native PLE Questions;
+/// the complete mapping still validates every published Pilot source first.
+pub(crate) fn validated_ple_question_json_revisions(
+    value: &str,
+) -> Result<Vec<QuestionRevisionReference>> {
+    let mut mapping = validated_publication_mapping(value)?;
+    let revisions = publication_plan()?
+        .questions
+        .into_iter()
+        .filter(|question| question.backend == Backend::PleQuestionJson)
+        .map(|question| {
+            mapping
+                .remove(&question.slug)
+                .map(|published| published.question_revision)
+                .with_context(|| format!("Pilot publication mapping lacks {}", question.slug))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    ensure!(
+        revisions.len() == 4,
+        "Pilot publication mapping has the wrong PLE Question JSON count"
+    );
+    Ok(revisions)
+}
+
+fn validated_publication_mapping(value: &str) -> Result<BTreeMap<String, PublishedPilotQuestion>> {
+    let published: BTreeMap<String, PublishedPilotQuestion> =
         serde_json::from_str(value).context("decoding the Pilot publication mapping")?;
+    let mut mapping = published.clone();
     let plan = publication_plan()?;
     ensure!(
         mapping.len() == plan.questions.len(),
@@ -117,7 +147,7 @@ pub(crate) fn validate_publication_mapping_json(value: &str) -> Result<()> {
         mapping.is_empty(),
         "Pilot publication mapping has an unknown source"
     );
-    Ok(())
+    Ok(published)
 }
 
 /// The ordinary stores and capabilities that make one Pilot publication run.

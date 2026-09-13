@@ -273,7 +273,7 @@ function selectedBlueprintAssignment(
     revision.blueprintRevision.revision !== source.blueprint_revision.revision
   ) {
     throw new Error(
-      "The selected Blueprint Revision did not resolve. Choose a published Blueprint Assignment.",
+      "The selected Blueprint Revision did not resolve. Choose an Assignment from the Course's Blueprint Revision.",
     );
   }
   for (const module of revision.modules) {

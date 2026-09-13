@@ -117,7 +117,7 @@ pub trait CourseInstanceStore: Send + Sync {
         session_token_hash: SessionTokenHash,
     ) -> Result<Vec<CourseInstanceSummary>, StoreError>;
 
-    /// Creates one Course Instance atomically from an exact published Blueprint Revision.
+    /// Creates one Course Instance atomically from an exact saved Blueprint Revision.
     async fn create_course_instance(
         &self,
         session_token_hash: SessionTokenHash,

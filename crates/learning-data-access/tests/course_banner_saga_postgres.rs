@@ -106,10 +106,12 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .execute(&mut *transaction)
         .await
         .expect("data fixture role");
-    sqlx::query("INSERT INTO ple_data.blueprint_course (blueprint_id, reference_number, owner_account_id, created_at) OVERRIDING SYSTEM VALUE VALUES ($1,1,$2,clock_timestamp())")
+    sqlx::query("INSERT INTO ple_data.blueprint_course (blueprint_id, reference_number, owner_account_id, short_name, long_name, metadata_etag, created_at) OVERRIDING SYSTEM VALUE VALUES ($1,1,$2,'BANNER','Banner oracle', '00000000-0000-0000-0000-00000000cd02',clock_timestamp())")
         .bind(id(0xcd01)).bind(id(INSTRUCTOR)).execute(&mut *transaction).await.expect("blueprint");
-    sqlx::query("INSERT INTO ple_data.blueprint_course_revision (blueprint_course_reference_number, blueprint_revision_number, title, content, content_checksum, published_at) VALUES (1,1,'Banner oracle','{}',decode(repeat('00',32),'hex'),clock_timestamp())")
+    sqlx::query("INSERT INTO ple_data.blueprint_course_revision (blueprint_course_reference_number, blueprint_revision_number, content, content_checksum, saved_at) VALUES (1,1,'{}',decode(repeat('00',32),'hex'),clock_timestamp())")
         .execute(&mut *transaction).await.expect("revision");
+    sqlx::query("INSERT INTO ple_data.blueprint_revision_event (blueprint_course_reference_number, blueprint_revision_number, actor_account_id, request_checksum, occurred_at) VALUES (1,1,$1,decode(repeat('cd',32),'hex'),clock_timestamp())")
+        .bind(id(INSTRUCTOR)).execute(&mut *transaction).await.expect("revision event");
     for (course, assigned) in [(COURSE, INSTRUCTOR), (FOREIGN_COURSE, FOREIGN)] {
         sqlx::query("INSERT INTO ple_data.course_instance (course_id, blueprint_course_reference_number, blueprint_revision_number, assigned_instructor_account_id, course_short_name, course_long_name, term_starts_on, term_ends_on, created_at) VALUES ($1,1,1,$2,'Banner','Banner course',current_date,current_date + 1,clock_timestamp())")
             .bind(id(course)).bind(id(assigned)).execute(&mut *transaction).await.expect("course");

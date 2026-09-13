@@ -9,6 +9,7 @@ import {
   emptyReusableContent,
   moveReusableEntry,
   updateReusableSchedule,
+  validateBlueprintCourseContent,
   validateReusableContent,
 } from "../src/features/blueprint_course/blueprint_course_model.ts";
 
@@ -16,7 +17,7 @@ function selection(...questionIds) {
   return { questionIds, questions: [] };
 }
 
-test("new Blueprint Assignment drafts keep answer-bearing feedback private", () => {
+test("new Blueprint Assignment working state keeps answer-bearing feedback private", () => {
   const feedback = emptyReusableContent("Quiz").defaults.student_feedback_release_rule;
 
   assert.deepEqual(feedback, {
@@ -30,7 +31,7 @@ test("new Blueprint Assignment drafts keep answer-bearing feedback private", () 
   });
 });
 
-test("new Blueprint Assignment drafts use the Assignment delivery defaults", () => {
+test("new Blueprint Assignment working state uses the Assignment delivery defaults", () => {
   const defaults = emptyReusableContent("Quiz").defaults;
 
   assert.equal(defaults.late_work_rule, "reject");
@@ -97,4 +98,29 @@ test("Blueprint Course pages append unique public references and name the next a
     visible: false,
     action: null,
   });
+});
+
+test("Blueprint Course creation requires separate short and long lineage names", () => {
+  const assignment = {
+    ...emptyReusableContent("Ready assignment"),
+    entries: [
+      { kind: "fixed", question_id: "AAA-BBBB", points_possible: "1", scoring_rule: "normal" },
+    ],
+  };
+  assert.equal(
+    validateBlueprintCourseContent({
+      short_name: "Blueprint",
+      long_name: "Protein folding Blueprint Course",
+      modules: [{ label: "Module 1", assignments: [assignment] }],
+    }).valid,
+    true,
+  );
+  assert.match(
+    validateBlueprintCourseContent({
+      short_name: " ",
+      long_name: "Protein folding Blueprint Course",
+      modules: [{ label: "Module 1", assignments: [assignment] }],
+    }).message ?? "",
+    /short and long names/,
+  );
 });

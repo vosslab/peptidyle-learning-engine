@@ -84,7 +84,7 @@ export function BlueprintAssignmentContentEditor(
     const change = field === "title" ? { title: value } : { instructions: value };
     props.onChange(
       updateReusableText(props.content, change),
-      "Draft updated. Add questions or review the reusable defaults next.",
+      "Local working state updated. Add Questions or review the reusable defaults next.",
     );
   }
 
@@ -99,7 +99,7 @@ export function BlueprintAssignmentContentEditor(
     }
     props.onChange(
       updateReusableSchedule(props.content, field, moment),
-      "Schedule draft updated. Review the calendar order before saving.",
+      "Schedule updated in local working state. Review the calendar order before saving.",
     );
   }
 
@@ -117,7 +117,7 @@ export function BlueprintAssignmentContentEditor(
     }
     props.onChange(
       updateReusableDefaults(props.content, { ...props.content.defaults, [field]: parsed }),
-      "Reusable defaults updated. Questions and schedule stay in this draft.",
+      "Reusable defaults updated. Questions and schedule remain unsaved until you Save the Blueprint Course.",
     );
   }
 

@@ -129,9 +129,11 @@ reads; neither another course nor a visible record ID extends that authority.
 | `ObjectId`                  | Immutable stored bytes                       | Names stored source, asset, export, or student-record bytes under an exact typed scope.                                                                                                               |
 
 Authoring Workspace relationships govern only private Question authoring. A
-Blueprint Course has its own Blueprint Course Owner and owner-private Blueprint
-Draft; it does not use Workspace Collaborator relationships for Draft or
-publication authority.
+Blueprint Course has its own Blueprint Course Owner and does not use Workspace
+Collaborator relationships. Its reusable structure exists only in immutable
+save-created Blueprint Revisions. The owner controls content Save plus the
+short name, long name, and availability protected by the lineage's opaque
+metadata ETag.
 
 Validated publication either starts a new stable Published Question identity for a new
 question or records a new immutable `QuestionRevision` under an existing stable
@@ -225,14 +227,14 @@ student authority to select another variant or browser input to define grading.
 
 ## Credentials, capabilities, and answer boundaries
 
-| Value                                                        | Holder and use                         | Storage and disclosure boundary                                                                                          |
-| ------------------------------------------------------------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Raw session cookie                                           | Browser and authentication endpoint    | Database stores only `SessionTokenHash`; raw token never enters DTOs, logs, or analytics.                                |
-| Future email authentication secret                           | Future email-code ceremony             | Deferred design only: if implemented, it must be short-lived, single-use, browser-bound, and persist only a hash.        |
-| Future passkey credential state                              | Account boundary                       | Deferred passkey design only; it is not a current credential, route, Store, or Browser Surface.                          |
-| `JobLeaseToken` and iMathAS Result Tokens                    | Exact worker/Result Exchange           | Opaque bounded capabilities, redacted from diagnostics and never serialized into generic question or submission records. |
-| Signed object URL                                            | Authorized delivery result             | Short-lived storage result, not an object identity or reusable browser capability.                                       |
-| Answer keys, scoring rules, private rubrics, grader payloads | Restricted server grading boundary     | Never appear in the Question Library, ordinary browser, Wasm, observer, or student-response DTOs.                        |
+| Value                                                        | Holder and use                      | Storage and disclosure boundary                                                                                          |
+| ------------------------------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Raw session cookie                                           | Browser and authentication endpoint | Database stores only `SessionTokenHash`; raw token never enters DTOs, logs, or analytics.                                |
+| Future email authentication secret                           | Future email-code ceremony          | Deferred design only: if implemented, it must be short-lived, single-use, browser-bound, and persist only a hash.        |
+| Future passkey credential state                              | Account boundary                    | Deferred passkey design only; it is not a current credential, route, Store, or Browser Surface.                          |
+| `JobLeaseToken` and iMathAS Result Tokens                    | Exact worker/Result Exchange        | Opaque bounded capabilities, redacted from diagnostics and never serialized into generic question or submission records. |
+| Signed object URL                                            | Authorized delivery result          | Short-lived storage result, not an object identity or reusable browser capability.                                       |
+| Answer keys, scoring rules, private rubrics, grader payloads | Restricted server grading boundary  | Never appear in the Question Library, ordinary browser, Wasm, observer, or student-response DTOs.                        |
 
 ## Maintainer checklist
 
@@ -295,38 +297,38 @@ generic unavailable outcomes with accessible guidance that does not disclose pro
 the EU ePrivacy Directive Article 5(3), Article 29 Working Party Opinion 04/2012, and current ICO
 strictly-necessary storage guidance.
 
-### Blueprint Draft and Revision identities
+### Blueprint Revision identities
 
-**Decision.** A Blueprint Course lineage has one owner-private mutable Blueprint
-Draft with a qualified Draft Edit Number. Explicit publication copies that
-complete Draft into one immutable Blueprint Revision. Creating the Draft does
-not create a Revision; each deliberate publication creates one, including when
-the Draft content is unchanged.
+**Decision.** A Blueprint Course lineage owns immutable saved Blueprint
+Revisions only. Complete valid creation atomically creates Available Revision
 
-**Why.** The Draft is current authoring state, while a Blueprint Revision is
-exact reusable published evidence. Keeping their identities and lifecycles
-separate keeps Blueprint authority with the lineage owner.
+1. An explicit Save based on the current Revision creates one next Revision
+   only when canonical content changed; a canonical no-op returns the current
+   Revision with `changed: false`. Browser working state is unsaved and local.
 
-**Consequence.** Blueprint Course Owner authority is required for its exact
-Draft and publication. Authoring Workspace Owner and Workspace Collaborator
+**Why.** One Revision sequence makes each reusable state and each Course
+Instance provenance reference unambiguous without adding a second Blueprint
+version sequence.
+
+**Consequence.** Blueprint Course Owner authority is required for its content
+Save and lineage metadata operations. Authoring Workspace Owner and Workspace Collaborator
 relationships authorize private Question authoring only; they neither grant
-Blueprint authority nor become published-course authority.
+Blueprint authority nor become reusable-course authority.
 
 ### Blueprint lineage availability
 
 **Decision.** The Blueprint Course lineage carries the current Available or
-Archived state under its qualified Edit Number. Immutable Blueprint Availability
+Archived state, short name, and long name under one opaque metadata ETag. Immutable Blueprint Availability
 Events record each transition; Blueprint Revisions do not carry independent
 availability state.
 
 **Why.** Availability governs ordinary browsing and new course selection for a
-published lineage, while exact historical Blueprint Revision References must
+Available lineage, while exact historical Blueprint Revision References must
 remain resolvable.
 
 **Consequence.** Archiving removes the lineage from ordinary browsing and new
 selection without invalidating exact Revision references. Restoring is an
-ordinary lineage transition, and publishing another Revision does not reset
-availability.
+ordinary lineage transition, and a later Save does not reset availability.
 
 ## Related documents
 

@@ -105,12 +105,37 @@ fn apply() -> Result<()> {
         .context("publishing the ordinary Pilot Question set")?;
     pilot_content::validate_publication_mapping_json(&publications)
         .context("validating the ordinary Pilot publication mapping")?;
+    let live_demo_blueprint =
+        crate::installation_data_blueprint::create_live_demo_blueprint(token_hash, &publications)
+            .context("creating the ordinary Live Demo Blueprint Course")?;
+    ensure!(
+        live_demo_blueprint
+            .blueprint_reference
+            .bytes()
+            .all(|byte| byte.is_ascii_digit()),
+        "Live Demo Blueprint Store receipt is not a decimal reference"
+    );
+    ensure!(
+        Uuid::parse_str(&live_demo_blueprint.assignment_reference)
+            .is_ok_and(
+                |value| value.hyphenated().to_string() == live_demo_blueprint.assignment_reference
+            ),
+        "Live Demo Blueprint Store receipt is not a canonical Assignment reference"
+    );
     run_manifest(
         &migration_database_url,
         "install.sql",
         &BTreeMap::from([
             ("pilot_publication_session_id", session_id_text),
             ("pilot_question_publications", publications.clone()),
+            (
+                "live_demo_blueprint_reference",
+                live_demo_blueprint.blueprint_reference,
+            ),
+            (
+                "live_demo_blueprint_assignment_reference",
+                live_demo_blueprint.assignment_reference,
+            ),
         ]),
     )?;
     println!("{publications}");
@@ -119,7 +144,7 @@ fn apply() -> Result<()> {
 
 fn fresh_session_token_hash() -> Result<SessionTokenHash> {
     let mut token = [0_u8; 32];
-    getrandom::getrandom(&mut token)
+    getrandom::fill(&mut token)
         .map_err(|_| anyhow::anyhow!("generating the temporary Pilot session token failed"))?;
     Ok(hash_session_token(token))
 }
@@ -333,11 +358,20 @@ mod tests {
                     "pilot_question_publications",
                     r#"{"pilot":{"sourceSha256":"abc","questionRevision":{"questionId":"ABC-1234","revisionNumber":1}}}"#.to_string(),
                 ),
+                ("live_demo_blueprint_reference", "12".to_string()),
+                (
+                    "live_demo_blueprint_assignment_reference",
+                    "00000000-0000-0000-0000-000000000012".to_string(),
+                ),
             ]),
         )
         .unwrap();
         assert!(script.contains("\\set pilot_publication_session_id"));
         assert!(script.contains("\\set pilot_question_publications"));
+        assert!(script.contains("\\set live_demo_blueprint_reference '12'"));
+        assert!(script.contains(
+            "\\set live_demo_blueprint_assignment_reference '00000000-0000-0000-0000-000000000012'"
+        ));
         assert!(script.ends_with("\\ir /opt/ple/schemas/installation_data/install.sql\n"));
     }
 

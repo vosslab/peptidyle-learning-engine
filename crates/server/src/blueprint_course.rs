@@ -1,9 +1,9 @@
-//! Blueprint lineage, private Draft, publication, and availability routes.
+//! Blueprint Revision, lineage metadata, and availability routes.
 //!
 //! Browser Question IDs are HMAC-validated before Store resolution. The Store
 //! alone resolves the exact immutable Question Revision pins.
 
-use std::{collections::BTreeMap, str::FromStr, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
 use axum::{
     Json, Router,
@@ -15,7 +15,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post, put},
 };
-use browser_api_contract::blueprint_course::BlueprintRevisionView;
+use browser_api_contract::blueprint_course::{BlueprintCourseSaveResponse, BlueprintRevisionView};
 use learning_data_access::{
     BlueprintCourseStore, QuestionLibraryStore, SessionTokenHash, StoreError,
     StoredBlueprintAssignmentContent, StoredBlueprintAssignmentEntry, StoredBlueprintCourse,
@@ -24,14 +24,13 @@ use learning_data_access::{
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    BlueprintAssignmentContentView, BlueprintAssignmentEntryView, BlueprintAvailability,
-    BlueprintAvailabilityEditNumber, BlueprintCourseAssignmentContentView,
-    BlueprintCourseReference, BlueprintCourseSummaryView, BlueprintCourseView,
-    BlueprintDraftEditNumber, BlueprintDraftView, BlueprintModuleView, BlueprintRevision,
-    BlueprintRevisionReference, CreateBlueprintCourseContentInput, QuestionId,
-    QuestionRevisionReference, QuestionSearchResult, ReplaceBlueprintCourseContentInput,
-    RequestChecksum, ReusablePoolView, ReusableQuestionPoolItemView, ReusableQuestionView,
-    ReusableSelectionAvailability,
+    BlueprintAssignmentContentView, BlueprintAssignmentEntryView,
+    BlueprintCourseAssignmentContentView, BlueprintCourseReference, BlueprintCourseSummaryView,
+    BlueprintCourseView, BlueprintMetadataEtag, BlueprintMetadataState, BlueprintModuleView,
+    BlueprintRevision, BlueprintRevisionReference, CreateBlueprintCourseInput, QuestionId,
+    QuestionRevisionReference, QuestionSearchResult, RenameBlueprintCourseInput,
+    ReplaceBlueprintCourseContentInput, RequestChecksum, ReusablePoolView,
+    ReusableQuestionPoolItemView, ReusableQuestionView, ReusableSelectionAvailability,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -53,7 +52,7 @@ struct BlueprintCourseRouteState {
     question_id_issuer: HmacQuestionIdIssuer,
 }
 
-/// Registers the instructor Blueprint lifecycle. Composition supplies the
+/// Registers the Instructor Blueprint lifecycle. Composition supplies the
 /// deployment-only issuer so input validation precedes Store access.
 pub fn blueprint_course_router(
     sessions: Arc<PostgresSessionStore>,
@@ -67,11 +66,13 @@ pub fn blueprint_course_router(
             "/api/course-blueprints",
             get(list_blueprints).post(create_blueprint),
         )
-        .route("/api/course-blueprints/{reference}", get(load_blueprint))
-        .route("/api/course-blueprints/{reference}/draft", put(save_draft))
         .route(
-            "/api/course-blueprints/{reference}/publish",
-            post(publish_draft),
+            "/api/course-blueprints/{reference}",
+            get(load_blueprint).put(save_blueprint),
+        )
+        .route(
+            "/api/course-blueprints/{reference}/metadata",
+            put(rename_blueprint),
         )
         .route(
             "/api/course-blueprints/{reference}/revisions/{revision}",
@@ -111,18 +112,7 @@ struct BlueprintCourseListResponse {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ArchiveBlueprintRequest {
-    confirmation_title: String,
-}
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct BlueprintPublicationResponse {
-    blueprint_revision: BlueprintRevisionReference,
-}
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct BlueprintAvailabilityResponse {
-    availability: BlueprintAvailability,
-    edit_number: BlueprintAvailabilityEditNumber,
+    confirmation_long_name: String,
 }
 async fn list_blueprints(
     State(state): State<BlueprintCourseRouteState>,
@@ -175,12 +165,12 @@ async fn load_blueprint(
 async fn create_blueprint(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
-    Json(input): Json<CreateBlueprintCourseContentInput>,
+    Json(input): Json<CreateBlueprintCourseInput>,
 ) -> Response {
     if !valid_create_question_ids(&state.question_id_issuer, &input) {
         return concealed();
     }
-    let checksum = match request_checksum("create-blueprint-draft", &headers, &input) {
+    let checksum = match request_checksum("create-blueprint-course", &headers, &input) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -190,20 +180,20 @@ async fn create_blueprint(
     };
     let receipt = match state
         .blueprints
-        .create_blueprint_draft(session, checksum, input)
+        .create_blueprint_course(session, checksum, input)
         .await
     {
         Ok(value) => value,
         Err(error) => return store_error_response(error),
     };
-    match load_view(&state, session, receipt.blueprint).await {
+    match load_view(&state, session, receipt.blueprint_revision.reference).await {
         Ok(view) => blueprint_response(StatusCode::CREATED, view),
         Err(RouteLoadError::Store(error)) => store_error_response(error),
         Err(RouteLoadError::Unavailable) => unavailable(),
     }
 }
 
-async fn save_draft(
+async fn save_blueprint(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
     Path(reference): Path<String>,
@@ -216,12 +206,12 @@ async fn save_draft(
     if !valid_replace_question_ids(&state.question_id_issuer, &input) {
         return concealed();
     }
-    let expected = match expected_edit_number::<BlueprintDraftEditNumber>(&headers, "Draft") {
+    let expected = match expected_revision(&headers) {
         Ok(value) => value,
         Err(response) => return *response,
     };
     let checksum = match request_checksum(
-        "save-blueprint-draft",
+        "save-blueprint-course",
         &headers,
         &(reference, expected, &input),
     ) {
@@ -234,11 +224,11 @@ async fn save_draft(
     };
     match state
         .blueprints
-        .save_blueprint_draft(session, reference, expected, checksum, input)
+        .save_blueprint_course(session, reference, expected, checksum, input)
         .await
     {
-        Ok(_) => match load_view(&state, session, reference).await {
-            Ok(view) => blueprint_response(StatusCode::OK, view),
+        Ok(receipt) => match load_view(&state, session, reference).await {
+            Ok(view) => blueprint_save_response(view, receipt.changed),
             Err(RouteLoadError::Store(error)) => store_error_response(error),
             Err(RouteLoadError::Unavailable) => unavailable(),
         },
@@ -246,42 +236,30 @@ async fn save_draft(
     }
 }
 
-async fn publish_draft(
+async fn rename_blueprint(
     State(state): State<BlueprintCourseRouteState>,
     headers: HeaderMap,
     Path(reference): Path<String>,
+    Json(input): Json<RenameBlueprintCourseInput>,
 ) -> Response {
     let reference = match parse_reference(&reference) {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let expected = match expected_edit_number::<BlueprintDraftEditNumber>(&headers, "Draft") {
+    let expected = match expected_metadata_etag(&headers) {
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let checksum =
-        match request_checksum("publish-blueprint-draft", &headers, &(reference, expected)) {
-            Ok(value) => value,
-            Err(response) => return *response,
-        };
     let session = match instructor_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
     match state
         .blueprints
-        .publish_blueprint_draft(session, reference, expected, checksum)
+        .rename_blueprint_course(session, reference, expected, input)
         .await
     {
-        Ok(receipt) => crate::auth::no_store(
-            (
-                StatusCode::OK,
-                Json(BlueprintPublicationResponse {
-                    blueprint_revision: receipt.blueprint_revision,
-                }),
-            )
-                .into_response(),
-        ),
+        Ok(value) => metadata_response(value),
         Err(error) => store_error_response(error),
     }
 }
@@ -319,7 +297,6 @@ async fn load_revision(
         Ok(modules) => crate::auth::no_store(
             Json(BlueprintRevisionView {
                 blueprint_revision,
-                title: record.content.title,
                 modules,
             })
             .into_response(),
@@ -339,7 +316,7 @@ async fn archive_blueprint(
         &state,
         &headers,
         reference,
-        Some(input.confirmation_title),
+        Some(input.confirmation_long_name),
         true,
     )
     .await
@@ -362,11 +339,10 @@ async fn transition_availability(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let expected =
-        match expected_edit_number::<BlueprintAvailabilityEditNumber>(headers, "Availability") {
-            Ok(value) => value,
-            Err(response) => return *response,
-        };
+    let expected = match expected_metadata_etag(headers) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
     let session = match instructor_session_hash(state, headers).await {
         Ok(value) => value,
         Err(response) => return *response,
@@ -388,7 +364,7 @@ async fn transition_availability(
             .await
     };
     match result {
-        Ok(value) => availability_response(value.availability, value.edit_number),
+        Ok(value) => metadata_response(value),
         Err(error) => store_error_response(error),
     }
 }
@@ -418,26 +394,18 @@ async fn view_from_record(
     session: SessionTokenHash,
     record: StoredBlueprintCourse,
 ) -> Result<BlueprintCourseView, RouteLoadError> {
-    let draft = match record.draft_edit_number {
-        Some(edit_number) => Some(BlueprintDraftView {
-            edit_number,
-            modules: content_modules(state, session, &record.content).await?,
-        }),
-        None => None,
-    };
     Ok(BlueprintCourseView {
         reference: record.reference,
-        title: record.title,
+        short_name: record.short_name,
+        long_name: record.long_name,
         availability: record.availability,
-        availability_edit_number: record.availability_edit_number,
-        latest_published_revision: record.latest_published_revision.map(|revision| {
-            BlueprintRevisionReference {
-                reference: record.reference,
-                revision,
-            }
-        }),
+        metadata_etag: record.metadata_etag,
+        current_revision: BlueprintRevisionReference {
+            reference: record.reference,
+            revision: record.current_revision,
+        },
         read_access: record.read_access,
-        draft,
+        modules: content_modules(state, session, &record.content).await?,
     })
 }
 fn summary_view(
@@ -445,15 +413,14 @@ fn summary_view(
 ) -> BlueprintCourseSummaryView {
     BlueprintCourseSummaryView {
         reference: record.reference,
-        title: record.title,
+        short_name: record.short_name,
+        long_name: record.long_name,
         availability: record.availability,
-        availability_edit_number: record.availability_edit_number,
-        latest_published_revision: record.latest_published_revision.map(|revision| {
-            BlueprintRevisionReference {
-                reference: record.reference,
-                revision,
-            }
-        }),
+        metadata_etag: record.metadata_etag,
+        current_revision: BlueprintRevisionReference {
+            reference: record.reference,
+            revision: record.current_revision,
+        },
         read_access: record.read_access,
     }
 }
@@ -647,7 +614,7 @@ fn selection_availability(
 // before a persistence resolver can disclose whether a Question exists.
 fn valid_create_question_ids(
     issuer: &HmacQuestionIdIssuer,
-    input: &CreateBlueprintCourseContentInput,
+    input: &CreateBlueprintCourseInput,
 ) -> bool {
     input
         .modules
@@ -684,14 +651,11 @@ fn valid_assignment_question_ids(
 fn parse_reference(value: &str) -> Result<BlueprintCourseReference, Box<Response>> {
     value.parse().map_err(|_| Box::new(concealed()))
 }
-fn expected_edit_number<T: FromStr>(
-    headers: &HeaderMap,
-    kind: &'static str,
-) -> Result<T, Box<Response>> {
+fn quoted_if_match(headers: &HeaderMap) -> Result<&str, Box<Response>> {
     let Some(value) = headers.get(IF_MATCH).and_then(|value| value.to_str().ok()) else {
         return Err(Box::new(route_error(
             StatusCode::PRECONDITION_REQUIRED,
-            "Blueprint Edit Number is required",
+            "Blueprint precondition is required",
         )));
     };
     let Some(number) = value
@@ -700,22 +664,29 @@ fn expected_edit_number<T: FromStr>(
     else {
         return Err(Box::new(route_error(
             StatusCode::BAD_REQUEST,
-            "Blueprint Edit Number is invalid",
+            "Blueprint precondition is invalid",
         )));
     };
-    number.parse().map_err(|_| {
+    Ok(number)
+}
+fn expected_revision(headers: &HeaderMap) -> Result<BlueprintRevision, Box<Response>> {
+    quoted_if_match(headers)?.parse().map_err(|_| {
         Box::new(route_error(
             StatusCode::BAD_REQUEST,
-            if kind == "Draft" {
-                "Blueprint Draft Edit Number is invalid"
-            } else {
-                "Blueprint Availability Edit Number is invalid"
-            },
+            "Blueprint Revision ETag is invalid",
+        ))
+    })
+}
+fn expected_metadata_etag(headers: &HeaderMap) -> Result<BlueprintMetadataEtag, Box<Response>> {
+    quoted_if_match(headers)?.parse().map_err(|_| {
+        Box::new(route_error(
+            StatusCode::BAD_REQUEST,
+            "Blueprint metadata ETag is invalid",
         ))
     })
 }
 // The operation name, standard transport key, and exact serialized command
-// form one receipt key; a new deliberate publish uses a new key (ASVS 2.3.1).
+// form one receipt key; a new deliberate operation uses a new key (ASVS 2.3.1).
 fn request_checksum<T: Serialize>(
     operation: &'static str,
     headers: &HeaderMap,
@@ -746,34 +717,37 @@ fn valid_idempotency_key(value: &str) -> bool {
         && value.bytes().all(|byte| byte.is_ascii_graphic())
 }
 fn blueprint_response(status: StatusCode, view: BlueprintCourseView) -> Response {
-    let edit = view
-        .draft
-        .as_ref()
-        .map(|draft| draft.edit_number.to_string());
+    let revision = view.current_revision.revision;
     let mut response = crate::auth::no_store((status, Json(view)).into_response());
-    match edit {
-        Some(edit) => match HeaderValue::from_str(&format!("\"{edit}\"")) {
-            Ok(value) => {
-                response.headers_mut().insert(ETAG, value);
-                response
-            }
-            Err(_) => unavailable(),
-        },
-        None => response,
+    match HeaderValue::from_str(&format!("\"{revision}\"")) {
+        Ok(value) => {
+            response.headers_mut().insert(ETAG, value);
+            response
+        }
+        Err(_) => unavailable(),
     }
 }
-fn availability_response(
-    availability: BlueprintAvailability,
-    edit_number: BlueprintAvailabilityEditNumber,
-) -> Response {
+fn blueprint_save_response(view: BlueprintCourseView, changed: bool) -> Response {
+    let revision = view.current_revision.revision;
     let mut response = crate::auth::no_store(
-        Json(BlueprintAvailabilityResponse {
-            availability,
-            edit_number,
+        Json(BlueprintCourseSaveResponse {
+            blueprint_course: view,
+            changed,
         })
         .into_response(),
     );
-    match HeaderValue::from_str(&format!("\"{edit_number}\"")) {
+    match HeaderValue::from_str(&format!("\"{revision}\"")) {
+        Ok(value) => {
+            response.headers_mut().insert(ETAG, value);
+            response
+        }
+        Err(_) => unavailable(),
+    }
+}
+fn metadata_response(state: BlueprintMetadataState) -> Response {
+    let etag = state.metadata_etag;
+    let mut response = crate::auth::no_store(Json(state).into_response());
+    match HeaderValue::from_str(&format!("\"{etag}\"")) {
         Ok(value) => {
             response.headers_mut().insert(ETAG, value);
             response
@@ -888,27 +862,34 @@ mod tests {
     }
 
     #[test]
-    fn separate_edit_numbers_and_request_receipts_keep_mutations_qualified() {
+    fn revision_and_metadata_preconditions_keep_mutations_qualified() {
         let mut headers = HeaderMap::new();
         headers.insert(IF_MATCH, HeaderValue::from_static("\"7\""));
-        headers.insert("idempotency-key", HeaderValue::from_static("publish-7"));
-        let draft = expected_edit_number::<BlueprintDraftEditNumber>(&headers, "Draft")
-            .expect("Draft CAS ETag");
-        let availability =
-            expected_edit_number::<BlueprintAvailabilityEditNumber>(&headers, "Availability")
-                .expect("availability CAS ETag");
-        assert_eq!(draft.value(), availability.value());
+        headers.insert("idempotency-key", HeaderValue::from_static("save-7"));
+        let revision = expected_revision(&headers).expect("Revision CAS ETag");
+        assert_eq!(revision.value(), 7);
 
-        let first = request_checksum("publish-blueprint-draft", &headers, &("BP-1", draft))
+        let first = request_checksum("save-blueprint-course", &headers, &("BP-1", revision))
             .expect("receipt checksum");
-        let replay = request_checksum("publish-blueprint-draft", &headers, &("BP-1", draft))
+        let replay = request_checksum("save-blueprint-course", &headers, &("BP-1", revision))
             .expect("same receipt checksum");
-        headers.insert("idempotency-key", HeaderValue::from_static("publish-8"));
+        headers.insert("idempotency-key", HeaderValue::from_static("save-8"));
         let deliberate_later =
-            request_checksum("publish-blueprint-draft", &headers, &("BP-1", draft))
+            request_checksum("save-blueprint-course", &headers, &("BP-1", revision))
                 .expect("new receipt checksum");
         assert_eq!(first, replay);
         assert_ne!(first, deliberate_later);
+
+        headers.insert(
+            IF_MATCH,
+            HeaderValue::from_static("\"00000000-0000-0000-0000-000000000007\""),
+        );
+        assert_eq!(
+            expected_metadata_etag(&headers)
+                .expect("metadata ETag")
+                .to_string(),
+            "00000000-0000-0000-0000-000000000007"
+        );
     }
 
     #[test]

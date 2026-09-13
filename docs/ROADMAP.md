@@ -50,7 +50,7 @@ The final material tree has passed the following release-readiness evidence:
   opt-out that leaves no product-data roots and exposes no demo surface;
 - released Assignment edits with retained existing-Attempt evidence and
   accepted-current-state later Attempts; Question and Blueprint archive/restore;
-  Blueprint Draft publication and replay; and Assignment Unrelease;
+  Blueprint Revision creation, Save, no-op, and replay; and Assignment Unrelease;
 - authoring API/S3/browser publication and WebWork worker-grading boundaries;
   and
 - backup restore followed by the ordinary migrate-and-verify path, together with

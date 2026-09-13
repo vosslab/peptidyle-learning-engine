@@ -332,6 +332,20 @@ def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, port: in
 		"connected Unrelease acceptance",
 		private_values + (admin_password, migrator_password, service_urls[0]),
 	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "blueprint_course_postgres",
+			"revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"Blueprint Revision PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
 
 
 #============================================

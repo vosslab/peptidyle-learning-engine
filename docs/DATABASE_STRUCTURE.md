@@ -49,12 +49,12 @@ database operation rather than a repair mechanism.
 
 The base creates four application schemas with separate no-login owners:
 
-| Schema | Responsibility |
-| --- | --- |
-| `ple_data` | Shared product records, stable lineages, current teaching configuration, and durable public facts. |
+| Schema        | Responsibility                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------------------------- |
+| `ple_data`    | Shared product records, stable lineages, current teaching configuration, and durable public facts.      |
 | `ple_private` | Account-private state and Student Work, including attempts, saved responses, and presentation bindings. |
-| `ple_audit` | Append-only, deliberately limited audit evidence. |
-| `ple_api` | Narrow, authenticated database operations and application-safe readers. |
+| `ple_audit`   | Append-only, deliberately limited audit evidence.                                                       |
+| `ple_api`     | Narrow, authenticated database operations and application-safe readers.                                 |
 
 `ple_migration` is separate and contains only the SQLx ledger. The platform
 bootstrap creates the complete PLE role graph. The base validates that graph,
@@ -95,14 +95,16 @@ the lineage from ordinary discovery and new selection while preserving
 authorized resolution of exact existing Revision references. A new Revision
 does not reset lineage availability.
 
-A Blueprint Course follows the same stable-lineage pattern. Creation produces
-one owner-private mutable Blueprint Draft with an Edit Number, rather than an
-implicit published Revision. Draft pins and authored modules are current
-working state. Explicit publication copies the complete Draft into an immutable
-Blueprint Revision and records the publication event. A deliberate publication
-is a new Revision; a replay of the accepted request resolves its existing
-receipt. Blueprint availability is lineage state, so archive and restore do not
-break an exact Blueprint Revision reference.
+A Blueprint Course follows the same stable-lineage pattern. Complete valid
+creation atomically produces its Available lineage and Revision 1. Its complete
+reusable structure appears only in immutable Revision rows. A changed explicit
+Save based on the current Revision inserts one successor; canonical content
+that is unchanged returns the current Revision with `changed: false`. The
+unversioned canonical pre-production encoding, its checksum, and exact stored
+aggregate equality make that decision. Replays resolve their existing receipt.
+Blueprint short name, long name, and availability are lineage metadata under
+one opaque ETag, so archive and restore do not break exact Revision resolution
+or create a Revision.
 
 `BlueprintAssignmentSource` records provenance with one stable Blueprint
 Assignment reference and one exact Blueprint Revision reference. It is
@@ -217,6 +219,6 @@ The database administration path proves a fresh atomic install, compatible
 replay, SQLx forward state, and the restricted application projection. Connected
 PostgreSQL acceptance additionally exercises RLS, capability boundaries,
 current Assignment and retained Student Work behavior, archive/restore,
-Blueprint publication, and Unrelease. Fast tests protect stable value and
+Blueprint Revision Save, and Unrelease. Fast tests protect stable value and
 transport contracts; they do not replace a connected database build. See
 [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md) for the evidence categories.

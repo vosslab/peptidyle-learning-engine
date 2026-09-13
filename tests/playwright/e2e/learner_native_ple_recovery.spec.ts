@@ -87,10 +87,15 @@ async function createCourseAssignment(
     .getByRole("link", { name: "My Blueprint Courses", exact: true })
     .click();
   await page.getByRole("button", { name: "Create Blueprint Course", exact: true }).click();
-  await page.getByLabel("Blueprint Course title").fill(blueprint);
+  await page.getByLabel("Blueprint Course short name").fill(`${courseShortName} BP`);
+  await page.getByLabel("Blueprint Course long name").fill(blueprint);
   await page.getByRole("button", { name: "Choose published Questions", exact: true }).click();
   await page.getByRole("button", { name: "Search questions", exact: true }).click();
-  await page.locator(".question-picker-result input").first().check();
+  await page
+    .getByRole("dialog", { name: "Choose the first reusable Questions", exact: true })
+    .getByRole("checkbox")
+    .first()
+    .check();
   await page.getByRole("button", { name: "Use selected Questions", exact: true }).click();
   await page
     .getByRole("dialog")
@@ -100,9 +105,7 @@ async function createCourseAssignment(
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Courses", exact: true })
     .click();
-  await page
-    .getByLabel("Blueprint Course Revision")
-    .selectOption({ label: `${blueprint} · Revision 1` });
+  await page.getByLabel("Blueprint Course").selectOption({ label: `${blueprint} · Revision 1` });
   await page.getByLabel("Course short name").fill(courseShortName);
   await page.getByLabel("Course long name").fill(courseLongName);
   await page.getByLabel("Course Term start date").fill("2026-09-01");
@@ -127,16 +130,21 @@ async function createCourseAssignment(
   await expect(page.getByRole("heading", { name: courseLongName, exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Create Assignment", exact: true }).click();
   await page.getByLabel("Assignment title").fill(assignment);
+  await page
+    .getByLabel("Blueprint Assignment source")
+    .selectOption({ label: "Module 1 assignment" });
   await page.getByRole("button", { name: "Create Assignment", exact: true }).click();
   await page.waitForURL(
     /\/instructor\/courses\/C-[1-9][0-9]*\/assignments\/A-[1-9][0-9]*\/questions$/u,
   );
   await expect(page.getByRole("heading", { name: "Questions", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Search question library", exact: true }).click();
-  const picker = page.getByRole("dialog", { name: "Choose assignment questions", exact: true });
-  await picker.getByRole("button", { name: "Search questions", exact: true }).click();
-  await picker.locator(".question-picker-result input").first().check();
-  await picker.getByRole("button", { name: "Add selected questions", exact: true }).click();
+  const availableQuestions = page
+    .getByRole("heading", { name: "Available published Questions", exact: true })
+    .locator("..");
+  const nativePleQuestion = availableQuestions.getByRole("listitem").filter({
+    hasText: "Identify the charged functional group in a biochemical context.",
+  });
+  await nativePleQuestion.getByRole("button", { name: "Add Question", exact: true }).click();
   await page.getByRole("button", { name: "Save Questions and order", exact: true }).click();
   await expect(
     page.getByText("Questions and order saved. Review assignment policies when you are ready."),

@@ -203,7 +203,12 @@ CREATE FUNCTION ple_api.create_course_instance(
 RETURNS TABLE(reference_number bigint, short_name text, long_name text, term_starts_on date,
               term_ends_on date, creator_is_assigned_instructor boolean)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
-DECLARE actor uuid; assigned uuid; course_reference bigint; now_at timestamptz;
+DECLARE
+    actor uuid;
+    assigned uuid;
+    course_reference bigint;
+    now_at timestamptz;
+    blueprint ple_data.blueprint_course%ROWTYPE;
 BEGIN
     IF p_course_id IS NULL OR p_origin_id IS NULL OR p_membership_id IS NULL OR p_event_id IS NULL
        OR p_blueprint_reference NOT BETWEEN 1 AND 2147483647 OR p_blueprint_revision <= 0
@@ -237,16 +242,19 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Course Instance creation requires an active Instructor or Sysadmin Account';
     END IF;
-    IF NOT EXISTS (
-        SELECT 1
-          FROM ple_data.blueprint_course_revision AS revision
-          JOIN ple_data.blueprint_course AS blueprint
-            ON blueprint.reference_number = revision.blueprint_course_reference_number
-         WHERE revision.blueprint_course_reference_number = p_blueprint_reference
-           AND revision.blueprint_revision_number = p_blueprint_revision
-           AND blueprint.availability = 'available'
-    ) THEN
+    -- Serialize against Blueprint Save and archive before comparing the exact
+    -- submitted Revision with the lineage head. The parent FK guarantees that
+    -- this locked head names an existing immutable Revision.
+    SELECT source_blueprint.* INTO blueprint
+      FROM ple_data.blueprint_course AS source_blueprint
+     WHERE source_blueprint.reference_number = p_blueprint_reference
+     FOR UPDATE OF source_blueprint;
+    IF NOT FOUND OR blueprint.availability <> 'available' THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course Instance source is unavailable';
+    END IF;
+    IF blueprint.current_blueprint_revision_number <> p_blueprint_revision THEN
+        RAISE EXCEPTION USING ERRCODE = '40001',
+            MESSAGE = 'Blueprint Revision precondition is stale';
     END IF;
     now_at := pg_catalog.transaction_timestamp();
     INSERT INTO ple_data.course_instance (

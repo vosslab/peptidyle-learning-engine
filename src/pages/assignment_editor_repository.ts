@@ -226,23 +226,15 @@ async function listBlueprintAssignmentSources(
 ): Promise<
   ReadonlyArray<Extract<QuestionPickerSource, { readonly kind: "blueprintCourseAssignment" }>>
 > {
-  const publishedRevisions = await Promise.all(
+  const currentRevisions = await Promise.all(
     courses
-      .filter(
-        (
-          course,
-        ): course is BlueprintCourseSummaryView & {
-          readonly latest_published_revision: NonNullable<
-            BlueprintCourseSummaryView["latest_published_revision"]
-          >;
-        } => course.availability === "available" && course.latest_published_revision !== null,
-      )
+      .filter((course): course is BlueprintCourseSummaryView => course.availability === "available")
       .map(async (course) => {
-        const revision = course.latest_published_revision;
+        const revision = course.current_revision;
         return await client.getBlueprintRevision(revision.reference, revision.revision);
       }),
   );
-  return publishedRevisions.flatMap((revision) =>
+  return currentRevisions.flatMap((revision) =>
     revision.modules.flatMap((module) =>
       module.assignments.map((content) => ({
         kind: "blueprintCourseAssignment" as const,
@@ -250,7 +242,7 @@ async function listBlueprintAssignmentSources(
           blueprint_revision: revision.blueprintRevision,
           blueprint_assignment_reference: content.blueprint_assignment_reference,
         },
-        label: `Blueprint Course: ${revision.title} - ${module.label} - ${content.content.title}`,
+        label: `Blueprint Course Revision ${revision.blueprintRevision.revision}: ${module.label} - ${content.content.title}`,
       })),
     ),
   );

@@ -4,14 +4,15 @@ import test from "node:test";
 import { createBlueprintCourseWhenReady } from "../src/features/blueprint_course/blueprint_course_creation.ts";
 import { emptyReusableContent } from "../src/features/blueprint_course/blueprint_course_model.ts";
 
-function draft(content) {
+function blueprint(content) {
   return {
-    title: "Local Blueprint Course",
+    short_name: "Local Blueprint",
+    long_name: "Local Blueprint Course",
     modules: [{ label: "Module 1", assignments: [content] }],
   };
 }
 
-test("incomplete Blueprint Course drafts remain local", async () => {
+test("incomplete Blueprint Course authoring remains local", async () => {
   let createCalls = 0;
   const client = {
     async createBlueprintCourse() {
@@ -22,7 +23,7 @@ test("incomplete Blueprint Course drafts remain local", async () => {
 
   const result = await createBlueprintCourseWhenReady(
     client,
-    draft(emptyReusableContent("Local draft")),
+    blueprint(emptyReusableContent("Local working state")),
     "create-local",
   );
 
@@ -41,7 +42,7 @@ test("complete Blueprint Course meaning invokes its one live create capability",
   const content = emptyReusableContent("Ready assignment");
   const result = await createBlueprintCourseWhenReady(
     client,
-    draft({
+    blueprint({
       ...content,
       entries: [
         { kind: "fixed", question_id: "AAA-BBBB", points_possible: "1", scoring_rule: "normal" },

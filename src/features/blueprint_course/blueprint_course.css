@@ -202,6 +202,24 @@
   align-items: start;
 }
 
+.blueprint-course-owner-controls {
+  display: grid;
+  gap: var(--ple-layout-gap);
+}
+
+.blueprint-course-owner-controls .blueprint-course-inspection {
+  display: grid;
+  gap: var(--ple-layout-gap);
+}
+
+.blueprint-course-owner-controls label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--ple-muted);
+  font-size: 0.9rem;
+  font-weight: 680;
+}
+
 .blueprint-course-detail-editor > .blueprint-course-page-heading {
   grid-column: 1 / -1;
 }

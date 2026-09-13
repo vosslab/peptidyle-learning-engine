@@ -28,7 +28,7 @@ pub use blueprint_children::{
     BlueprintAssignmentEditChoice, BlueprintAssignmentReference,
     BlueprintAssignmentReplacementInput, BlueprintChildIdError,
     BlueprintCourseAssignmentContentView, BlueprintModuleEditChoice, BlueprintModuleReference,
-    BlueprintModuleReplacementInput, BlueprintModuleView, CreateBlueprintCourseContentInput,
+    BlueprintModuleReplacementInput, BlueprintModuleView, CreateBlueprintCourseInput,
     CreateBlueprintModuleInput, ReplaceBlueprintCourseContentInput,
 };
 
@@ -368,7 +368,7 @@ impl_revision!(BlueprintRevision);
 pub enum BlueprintCourseReadAccess {
     /// The current Active Instructor Account is the exact Blueprint Course Owner.
     BlueprintCourseOwner,
-    /// The current Active Instructor Account reads reusable published Blueprint content.
+    /// The current Active Instructor Account reads reusable saved Blueprint content.
     ActiveInstructor,
 }
 
@@ -378,15 +378,16 @@ pub enum BlueprintCourseReadAccess {
 pub struct BlueprintCourseSummaryView {
     /// Blueprint Course Reference resolved under current read authority.
     pub reference: BlueprintCourseReference,
-    /// Display title from the aggregate.
-    pub title: String,
+    /// Compact stable-lineage name for constrained navigation.
+    pub short_name: String,
+    /// Descriptive stable-lineage name for headings and listings.
+    pub long_name: String,
     /// Current stable-lineage availability for discovery and new selection.
     pub availability: crate::BlueprintAvailability,
-    /// Qualified current-lineage value for archive or restore. It remains
-    /// independent of the private Draft Edit Number.
-    pub availability_edit_number: crate::BlueprintAvailabilityEditNumber,
-    /// Most recent immutable publication, if the owner has published one.
-    pub latest_published_revision: Option<crate::BlueprintRevisionReference>,
+    /// Opaque validator for rename and availability actions.
+    pub metadata_etag: crate::BlueprintMetadataEtag,
+    /// Exact current immutable reusable state.
+    pub current_revision: crate::BlueprintRevisionReference,
     /// Browser-safe classification for this returned Blueprint Course view.
     pub read_access: BlueprintCourseReadAccess,
 }
@@ -397,27 +398,19 @@ pub struct BlueprintCourseSummaryView {
 pub struct BlueprintCourseView {
     /// Blueprint Course Reference resolved for this returned read view.
     pub reference: BlueprintCourseReference,
-    /// Instructor-visible course title.
-    pub title: String,
+    /// Compact stable-lineage name for constrained navigation.
+    pub short_name: String,
+    /// Descriptive stable-lineage name for headings and listings.
+    pub long_name: String,
     /// Current stable-lineage availability for discovery and new selection.
     pub availability: crate::BlueprintAvailability,
-    /// Qualified current-lineage value for archive or restore. It remains
-    /// independent of the private Draft Edit Number.
-    pub availability_edit_number: crate::BlueprintAvailabilityEditNumber,
-    /// Most recent immutable publication, if one exists.
-    pub latest_published_revision: Option<crate::BlueprintRevisionReference>,
+    /// Opaque validator for rename and availability actions.
+    pub metadata_etag: crate::BlueprintMetadataEtag,
+    /// Exact current immutable reusable state.
+    pub current_revision: crate::BlueprintRevisionReference,
     /// Browser-safe classification for this returned Blueprint Course view.
     pub read_access: BlueprintCourseReadAccess,
-    /// Private mutable Draft visible to its owner. Public readers receive no
-    /// mutable draft through this view.
-    pub draft: Option<BlueprintDraftView>,
-}
-
-/// Browser-safe mutable Blueprint Draft returned only to its owner.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct BlueprintDraftView {
-    pub edit_number: crate::BlueprintDraftEditNumber,
+    /// Answer-free current Revision content.
     pub modules: Vec<BlueprintModuleView>,
 }
 
@@ -426,8 +419,8 @@ pub struct BlueprintDraftView {
 pub enum BlueprintCourseValidationError {
     /// A reusable content title is not durable instructor content.
     InvalidContentTitle,
-    /// A BlueprintCourse title is not durable instructor content.
-    InvalidBlueprintTitle,
+    /// A Blueprint Course lineage name is not durable instructor content.
+    InvalidBlueprintName,
     /// A module label is not durable instructor content.
     InvalidModuleLabel,
     /// A reusable content has no usable entries or exceeds its shared bound.
@@ -460,7 +453,7 @@ impl std::fmt::Display for BlueprintCourseValidationError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(match self {
             Self::InvalidContentTitle => "reusable content title is invalid",
-            Self::InvalidBlueprintTitle => "BlueprintCourse title is invalid",
+            Self::InvalidBlueprintName => "Blueprint Course name is invalid",
             Self::InvalidModuleLabel => "BlueprintCourse module label is invalid",
             Self::InvalidEntryCount => "reusable content must contain bounded ordered entries",
             Self::InvalidModuleCount => "BlueprintCourse must contain bounded modules",
@@ -698,8 +691,9 @@ mod tests {
             duplicate_pool.validate(),
             Err(BlueprintCourseValidationError::DuplicateQuestionPoolItem)
         );
-        let blueprint = CreateBlueprintCourseContentInput {
-            title: "Biochemistry Blueprint".to_string(),
+        let blueprint = CreateBlueprintCourseInput {
+            short_name: "Biochemistry".to_string(),
+            long_name: "Biochemistry Blueprint".to_string(),
             modules: vec![CreateBlueprintModuleInput {
                 label: "Week 1".to_string(),
                 assignments: vec![input(RelativeAssignmentSchedule::default())],
@@ -712,22 +706,24 @@ mod tests {
     fn blueprint_course_view_serializes_answer_free_question_library_rows_and_edit_choices() {
         let view = BlueprintCourseView {
             reference: "BP-12".parse().expect("valid reference"),
-            title: "Biochemistry Blueprint".to_string(),
+            short_name: "Biochemistry".to_string(),
+            long_name: "Biochemistry Blueprint".to_string(),
             availability: crate::BlueprintAvailability::Available,
-            availability_edit_number: crate::BlueprintAvailabilityEditNumber::INITIAL,
-            latest_published_revision: None,
+            metadata_etag: crate::BlueprintMetadataEtag::from_uuid(uuid::Uuid::from_u128(42)),
+            current_revision: crate::BlueprintRevisionReference {
+                reference: "BP-12".parse().expect("valid reference"),
+                revision: BlueprintRevision::INITIAL,
+            },
             read_access: BlueprintCourseReadAccess::ActiveInstructor,
-            draft: Some(BlueprintDraftView {
-                edit_number: crate::BlueprintDraftEditNumber::INITIAL,
-                modules: vec![BlueprintModuleView {
-                    blueprint_module_reference: blueprint_module_reference(),
-                    label: "Week 1".to_string(),
-                    assignments: vec![BlueprintCourseAssignmentContentView {
-                        blueprint_assignment_reference: blueprint_assignment_reference(),
-                        content: BlueprintAssignmentContentView {
-                            title: "Protein structure practice".to_string(),
-                            instructions: AssignmentInstructions::default(),
-                            entries: vec![
+            modules: vec![BlueprintModuleView {
+                blueprint_module_reference: blueprint_module_reference(),
+                label: "Week 1".to_string(),
+                assignments: vec![BlueprintCourseAssignmentContentView {
+                    blueprint_assignment_reference: blueprint_assignment_reference(),
+                    content: BlueprintAssignmentContentView {
+                        title: "Protein structure practice".to_string(),
+                        instructions: AssignmentInstructions::default(),
+                        entries: vec![
                             BlueprintAssignmentEntryView::Fixed {
                                 question: ReusableQuestionView {
                                     question_library: discovery(),
@@ -756,48 +752,43 @@ mod tests {
                                 question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                             }),
                         ],
-                            defaults: defaults(),
-                            schedule: RelativeAssignmentSchedule::default(),
-                        },
-                    }],
+                        defaults: defaults(),
+                        schedule: RelativeAssignmentSchedule::default(),
+                    },
                 }],
-            }),
+            }],
         };
         let wire = serde_json::to_value(view).expect("safe view serializes");
         assert_eq!(wire["reference"], "BP-12");
-        assert_eq!(wire["availability_edit_number"], "1");
+        assert_eq!(wire["current_revision"]["revision"], "1");
         assert_eq!(
-            wire["draft"]["modules"][0]["assignments"][0]["content"]["entries"][0]["kind"],
+            wire["modules"][0]["assignments"][0]["content"]["entries"][0]["kind"],
             "fixed"
         );
         assert!(
-            wire.pointer(
-                "/draft/modules/0/assignments/0/content/entries/0/question/question_library"
-            )
-            .is_some()
+            wire.pointer("/modules/0/assignments/0/content/entries/0/question/question_library")
+                .is_some()
         );
         assert_eq!(
-            wire.pointer("/draft/modules/0/assignments/0/blueprint_assignment_reference"),
+            wire.pointer("/modules/0/assignments/0/blueprint_assignment_reference"),
             Some(&serde_json::Value::String(
                 blueprint_assignment_reference().to_string(),
             ))
         );
         assert!(
-            wire.pointer("/draft/modules/0/assignments/0/content/entries/0/revision")
+            wire.pointer("/modules/0/assignments/0/content/entries/0/revision")
                 .is_none()
         );
         assert_eq!(
-            wire["draft"]["modules"][0]["assignments"][0]["content"]["entries"][1]["kind"],
+            wire["modules"][0]["assignments"][0]["content"]["entries"][1]["kind"],
             "pool"
         );
         assert!(
-            wire.pointer(
-                "/draft/modules/0/assignments/0/content/entries/1/items/0/question_library"
-            )
-            .is_some()
+            wire.pointer("/modules/0/assignments/0/content/entries/1/items/0/question_library")
+                .is_some()
         );
         assert!(
-            wire.pointer("/draft/modules/0/assignments/0/content/entries/1/items/0/revision")
+            wire.pointer("/modules/0/assignments/0/content/entries/1/items/0/revision")
                 .is_none()
         );
     }
@@ -810,8 +801,9 @@ mod blueprint_course_tests {
 
     #[test]
     fn blueprint_course_input_is_one_nested_question_id_tree() {
-        let input = CreateBlueprintCourseContentInput {
-            title: "Biochemistry".to_owned(),
+        let input = CreateBlueprintCourseInput {
+            short_name: "Biochemistry".to_owned(),
+            long_name: "Biochemistry Blueprint".to_owned(),
             modules: vec![CreateBlueprintModuleInput {
                 label: "Week 1".to_owned(),
                 assignments: vec![BlueprintAssignmentContentInput {
@@ -854,7 +846,7 @@ mod blueprint_course_tests {
         assert!(!wire.to_string().contains("QuestionRevisionReference"));
         let mut forged = wire;
         forged["owner"] = serde_json::json!("U-1");
-        assert!(serde_json::from_value::<CreateBlueprintCourseContentInput>(forged).is_err());
+        assert!(serde_json::from_value::<CreateBlueprintCourseInput>(forged).is_err());
     }
 
     #[test]
@@ -902,7 +894,6 @@ mod blueprint_course_tests {
             schedule: RelativeAssignmentSchedule::default(),
         };
         let replacement = ReplaceBlueprintCourseContentInput {
-            title: "Biochemistry".to_owned(),
             modules: vec![BlueprintModuleReplacementInput {
                 choice: BlueprintModuleEditChoice::Retained {
                     blueprint_module_reference,
@@ -958,7 +949,6 @@ mod blueprint_course_tests {
                     }],
                 },
             ],
-            ..replacement
         };
         assert_eq!(
             duplicated.validate(),

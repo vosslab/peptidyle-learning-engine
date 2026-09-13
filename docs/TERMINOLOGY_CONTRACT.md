@@ -33,10 +33,12 @@ mention it.
 PLE defines exactly two content Revision concepts:
 
 1. **Question Revision** is immutable published reusable Question content.
-2. **Blueprint Revision** is immutable published reusable Blueprint Course
+2. **Blueprint Revision** is immutable saved reusable Blueprint Course
    content.
 
-A Revision is a new immutable version of the same reusable published thing. An
+A Revision is a new immutable version of the same reusable thing. A Question
+Revision is published through Question authoring; a Blueprint Revision is saved
+through the Blueprint Course editor. An
 Attempt is a new independent occurrence: Assignment Attempt 2 is a separate
 record from Assignment Attempt 1, and both follow the Student Work retention
 policy.
@@ -48,8 +50,8 @@ Use these three patterns for every other domain concept:
   course settings, due dates, release settings, invitation rules, and
   accommodations replace their prior working state when an edit is accepted.
   Use an Edit Number when concurrent writers need optimistic concurrency.
-- **Exact published-content reference:** Use a Question Revision Reference or
-  Blueprint Revision Reference when another record depends on exact published
+- **Exact reusable-content reference:** Use a Question Revision Reference or
+  Blueprint Revision Reference when another record depends on exact reusable
   content. Issued work, grading, statistics, forks, assets, and Question Backend
   sessions use this pattern.
 - **Repeated activity and immutable evidence:** Create a separate record or
@@ -59,8 +61,8 @@ Use these three patterns for every other domain concept:
   Assignment Attempt and its Issued Questions retain their effective settings,
   selections, and other required facts directly.
 
-Add a future Revision concept only for published reusable content whose earlier
-published forms must remain independently selectable and resolvable.
+Add a future Revision concept only for reusable content whose earlier saved
+forms must remain independently selectable and resolvable.
 
 ## Technical boundary vocabulary
 
@@ -205,21 +207,21 @@ Collaborator Events. It grants only that private-authoring relationship.
 
 **Blueprint Course** is the stable public lineage for reusable, answer-free
 course content. It has no Students or delivery deadlines. Blueprint Course
-Availability controls its ordinary browsing and new selection. Its **Blueprint
-Draft** is the one current mutable working state being prepared for publication.
-A **Blueprint Draft Edit Number** supports concurrent saves. Publishing copies
-that state into one complete immutable **Blueprint Revision**. **Blueprint
-Revision Content** is the complete answer-free content held by one published
+Availability controls its ordinary browsing and new selection. Its reusable
+content exists only in immutable **Blueprint Revisions**. Browser edits are
+unsaved local working state; an explicit Save creates the next Revision. **Blueprint
+Revision Content** is the complete answer-free content held by one saved
 Blueprint Revision: its structure, defaults, relative schedules, and exact
 Question Revision References. A **Blueprint Content Checksum** is the SHA-256
-integrity value for that versioned content. A **Blueprint Content Check**
-compares two complete Blueprint Revision Content values by their checksums.
+integrity value for its one canonical pre-production encoding. A **Blueprint
+Content Check** compares complete Blueprint Revision Content using exact
+aggregate equality and that checksum.
 
 **Blueprint Module** is one labelled, ordered reusable section in Blueprint
 Revision Content. Its ordered Blueprint Assignments are part of that immutable
 content, not a separate Course Instance structure. A **Blueprint Module
 Reference** is the opaque stable reference retained for one Blueprint Module
-when a later publication keeps it. A **Blueprint Module Edit Choice**
+when a later Save keeps it. A **Blueprint Module Edit Choice**
 is either that retained Blueprint Module Reference or New. A **Blueprint
 Assignment Reference** is the opaque stable reference for one Blueprint
 Assignment within its Blueprint Course lineage. A Blueprint Revision supplies
@@ -241,7 +243,7 @@ reusable wall-clock intent; schedule resolution supplies the Account Time Zone
 and absolute Timestamp.
 
 **Blueprint Course Owner** is the Active Instructor Account accountable for one
-Blueprint Course's Draft, publication, fork, and availability decisions. Its
+Blueprint Course's content Save, fork, and availability decisions. Its
 inheritance path is Authenticated Session to Active Instructor Account to the
 exact Blueprint Course Owner relationship. The durable
 relationship can remain after that Account becomes inactive; it supplies no
@@ -250,9 +252,9 @@ authority unless an Authenticated Session resolves the Account as active.
 **Blueprint Course Read Access** is the closed browser-safe classification for
 one returned Blueprint Course view. `BlueprintCourseOwner` means the current
 Active Instructor Account is the exact Blueprint Course Owner; `ActiveInstructor`
-means the current Active Instructor Account reads reusable published Blueprint
+means the current Active Instructor Account reads reusable Available Blueprint
 content. Its inheritance path is Authenticated Session to Active Instructor
-Account to one published Blueprint Revision. The classification describes the
+Account to one saved Blueprint Revision. The classification describes the
 returned view and grants no authority.
 
 **Resolved Assignment Schedule** is the target-term result of resolving one
@@ -264,18 +266,19 @@ resulting current availability, due, and close instants. An Assignment Attempt
 retains any of those exact facts that its access, timing, or grading evidence
 requires.
 
-Each Blueprint Course has one private mutable **Blueprint Draft** owned by its
-Blueprint Course Owner. The Draft has a **Blueprint Draft Edit Number**; an
-accepted changed save advances that number. A deliberate **Publish Blueprint
-Draft** request copies the complete Draft into one new immutable Blueprint
-Revision. Replaying an already accepted request converges on its existing
-publication receipt and Revision. A distinct deliberate publish request creates
-a new Blueprint Revision even when the Draft content is unchanged. Publication
-leaves the owner's Draft available as the working copy for later edits.
+Creation accepts only complete reusable content and atomically creates an
+Available Blueprint Course and Revision 1. The deliberate minimum is one Module,
+one Assignment in every Module, and one Question-bearing entry in every
+Assignment, with every pin resolving to a Published Question Revision. A
+**Save Blueprint Course** request based on the exact current Revision creates
+one next immutable Revision only when canonical content changed. A canonical
+no-op returns the current Revision with `changed: false`; an accepted replay
+converges on its receipt and result. Unsaved browser edits are protected local
+working state, never a persisted server content object.
 **Blueprint Course Availability** is the mutable Available or Archived state of
-one stable Blueprint Course. Its **Blueprint Course Availability Edit Number**
-is the qualified optimistic-concurrency value for availability operations. The
-Blueprint Course Owner controls this state.
+one stable Blueprint Course. Its short name, long name, and availability share
+one opaque **Blueprint Metadata ETag** for optimistic-concurrency operations.
+The Blueprint Course Owner controls this state.
 Available permits ordinary browsing and new selection. **Archive Blueprint
 Course** is the Danger Zone action that changes it to Archived after presenting
 the shared-availability consequence and receiving explicit confirmation.
@@ -449,7 +452,8 @@ Question Edit Number** increases with each accepted save and supports
 concurrency checks for later saves and publication. The browser uses the Draft
 Question Reference for navigation and the Draft Question Edit Number for
 concurrency. The Draft Question UUID remains on the trusted server boundary.
-Use Revision for immutable published Question and Blueprint history.
+Use Revision for immutable published Question history and immutable saved
+Blueprint history.
 
 **Workspace Import** is one staged, Authoring Workspace-owned import through a
 registered Question Format. It retains the source package evidence, source
@@ -905,23 +909,23 @@ cognitive demand.
 
 The Published Question discovery, credit, and control facts are closed:
 
-| Canonical term | Publication requirement | Owning scope | Question Search use |
-| --- | --- | --- | --- |
-| Question Title | Required | Question lineage | Text search and visible result name |
-| Question Description | Required | Question lineage | Text search and visible discovery summary |
-| Question Authorship | Required | Question Revision | Author text, facet, and Authored by Me |
-| Question Owner | Required | Question lineage | My Questions relationship filter |
-| Question License | Required | Question Revision | Exact license facet |
-| Question Citation | Optional | Question Revision | Citation text and URL search |
-| Language | Required | Question lineage | Exact language facet |
-| Question Subject | One or more required | Question lineage | Subject text and facet |
-| Question Subsubject | Optional | Question lineage | Subsubject text and facet |
-| Question Tag | Optional | Question lineage | Tag text and facet |
-| Question Bloom Classification | Assigned after publication | Question lineage | Both Bloom dimension facets |
-| Question Classification | Future supported system only | Question lineage | Future system/code filter and name text |
-| Question Type | Required, author-declared | Question Revision | Exact Question Type facet |
-| Question Format | Required, derived | Question Revision source | Exact Question Format facet |
-| Question Backend | Required, derived | Question Revision source | Exact Question Backend facet |
+| Canonical term                | Publication requirement      | Owning scope             | Question Search use                       |
+| ----------------------------- | ---------------------------- | ------------------------ | ----------------------------------------- |
+| Question Title                | Required                     | Question lineage         | Text search and visible result name       |
+| Question Description          | Required                     | Question lineage         | Text search and visible discovery summary |
+| Question Authorship           | Required                     | Question Revision        | Author text, facet, and Authored by Me    |
+| Question Owner                | Required                     | Question lineage         | My Questions relationship filter          |
+| Question License              | Required                     | Question Revision        | Exact license facet                       |
+| Question Citation             | Optional                     | Question Revision        | Citation text and URL search              |
+| Language                      | Required                     | Question lineage         | Exact language facet                      |
+| Question Subject              | One or more required         | Question lineage         | Subject text and facet                    |
+| Question Subsubject           | Optional                     | Question lineage         | Subsubject text and facet                 |
+| Question Tag                  | Optional                     | Question lineage         | Tag text and facet                        |
+| Question Bloom Classification | Assigned after publication   | Question lineage         | Both Bloom dimension facets               |
+| Question Classification       | Future supported system only | Question lineage         | Future system/code filter and name text   |
+| Question Type                 | Required, author-declared    | Question Revision        | Exact Question Type facet                 |
+| Question Format               | Required, derived            | Question Revision source | Exact Question Format facet               |
+| Question Backend              | Required, derived            | Question Revision source | Exact Question Backend facet              |
 
 **Question Search** applies normalized criteria to the current Question
 Library. Its text search covers the Question ID, Question Title, Question
@@ -1314,17 +1318,17 @@ geometry, rendering, and interaction behavior.
 Authority is derived through exact stored relationships. These paths name the
 ordinary sources of PLE authority:
 
-| Capability                            | Required path                                                                                                                                                                                            |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Authenticate                          | Active Account -> Authenticated Session                                                                                                                                                                  |
-| Question Library                      | Authenticated Session -> Active Instructor Account -> Published Question                                                                                                                                 |
-| Private authoring                     | Authenticated Session -> Active Instructor Account -> exact Authoring Workspace Owner or Workspace Collaborator relationship                                                                             |
-| Blueprint Draft                       | Authenticated Session -> Active Instructor Account -> exact Blueprint Course Owner relationship -> exact Blueprint Draft                                                                               |
-| Teach a Course Instance               | Authenticated Session -> Active Instructor Account -> active Instructor Course Membership -> Course Instance                                                                                             |
-| Student course work                   | Authenticated Session -> Active Student Account -> active Student Course Membership -> Student Record -> Assignment -> Assignment Attempt -> Issued Question -> Question Attempt |
-| Student FERPA information             | exact Student Record and Course Instance relationship, limited to the approved viewer and requested record scope                                                                                         |
-| Course observation                    | Authenticated Session -> Active Instructor Account -> current Course Observer Relationship -> Course Instance, within its closed read scope                                                              |
-| System administration                 | Authenticated Session -> Active Sysadmin Account -> exact audited support operation; general Sysadmin status does not provide general FERPA access                                                       |
+| Capability                    | Required path                                                                                                                                                                    |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authenticate                  | Active Account -> Authenticated Session                                                                                                                                          |
+| Question Library              | Authenticated Session -> Active Instructor Account -> Published Question                                                                                                         |
+| Private authoring             | Authenticated Session -> Active Instructor Account -> exact Authoring Workspace Owner or Workspace Collaborator relationship                                                     |
+| Blueprint Course content Save | Authenticated Session -> Active Instructor Account -> exact Blueprint Course Owner relationship -> exact current Blueprint Revision                                              |
+| Teach a Course Instance       | Authenticated Session -> Active Instructor Account -> active Instructor Course Membership -> Course Instance                                                                     |
+| Student course work           | Authenticated Session -> Active Student Account -> active Student Course Membership -> Student Record -> Assignment -> Assignment Attempt -> Issued Question -> Question Attempt |
+| Student FERPA information     | exact Student Record and Course Instance relationship, limited to the approved viewer and requested record scope                                                                 |
+| Course observation            | Authenticated Session -> Active Instructor Account -> current Course Observer Relationship -> Course Instance, within its closed read scope                                      |
+| System administration         | Authenticated Session -> Active Sysadmin Account -> exact audited support operation; general Sysadmin status does not provide general FERPA access                               |
 
 The arrows show inheritance, not merely convenient joins. A caller may receive
 only the records and fields supported by the complete path. A direct

@@ -110,24 +110,29 @@ pub struct CreateBlueprintModuleInput {
     pub assignments: Vec<BlueprintAssignmentContentInput>,
 }
 
-/// Complete submitted meaning for a newly created BlueprintCourse.
+/// Complete submitted meaning for a newly created Blueprint Course.
 ///
-/// Creation deliberately has no identity fields, so the browser cannot choose
-/// stable module or assignment lineage identifiers.
+/// Creation carries lineage names beside the first reusable structure. It has
+/// no child identity fields, so the browser cannot choose stable Module or
+/// Assignment lineage identifiers.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct CreateBlueprintCourseContentInput {
-    /// Instructor-visible course title.
-    pub title: String,
+pub struct CreateBlueprintCourseInput {
+    /// Compact Blueprint Course name used in constrained navigation.
+    pub short_name: String,
+    /// Descriptive Blueprint Course name used in headings and listings.
+    pub long_name: String,
     /// Ordered labelled curriculum modules.
     pub modules: Vec<CreateBlueprintModuleInput>,
 }
 
-impl CreateBlueprintCourseContentInput {
-    /// Validates the complete ordered BlueprintCourse tree.
+impl CreateBlueprintCourseInput {
+    /// Validates lineage names and the complete ordered reusable structure.
     pub fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
-        validate_blueprint_course_title(&self.title)
-            .map_err(|_| BlueprintCourseValidationError::InvalidBlueprintTitle)?;
+        validate_blueprint_course_title(&self.short_name)
+            .map_err(|_| BlueprintCourseValidationError::InvalidBlueprintName)?;
+        validate_blueprint_course_title(&self.long_name)
+            .map_err(|_| BlueprintCourseValidationError::InvalidBlueprintName)?;
         if self.modules.is_empty() || self.modules.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
             return Err(BlueprintCourseValidationError::InvalidModuleCount);
         }
@@ -221,8 +226,6 @@ pub struct BlueprintModuleReplacementInput {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReplaceBlueprintCourseContentInput {
-    /// Instructor-visible course title.
-    pub title: String,
     /// Ordered labelled curriculum modules for the next complete snapshot.
     pub modules: Vec<BlueprintModuleReplacementInput>,
 }
@@ -230,8 +233,6 @@ pub struct ReplaceBlueprintCourseContentInput {
 impl ReplaceBlueprintCourseContentInput {
     /// Validates complete tree meaning and rejects duplicate retained References.
     pub fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
-        validate_blueprint_course_title(&self.title)
-            .map_err(|_| BlueprintCourseValidationError::InvalidBlueprintTitle)?;
         if self.modules.is_empty() || self.modules.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
             return Err(BlueprintCourseValidationError::InvalidModuleCount);
         }

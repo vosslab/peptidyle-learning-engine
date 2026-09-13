@@ -78,14 +78,16 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .execute(&mut *tx)
         .await
         .expect("API fixture role");
-    sqlx::query("INSERT INTO ple_data.blueprint_course (blueprint_id, reference_number, owner_account_id, created_at) OVERRIDING SYSTEM VALUE VALUES ($1, 1, $2, clock_timestamp())")
+    sqlx::query("INSERT INTO ple_data.blueprint_course (blueprint_id, reference_number, owner_account_id, short_name, long_name, metadata_etag, created_at) OVERRIDING SYSTEM VALUE VALUES ($1, 1, $2, 'POL-1', 'Policy oracle Blueprint', '00000000-0000-0000-0000-00000000bd02', clock_timestamp())")
         .bind(id(BLUEPRINT)).bind(id(INSTRUCTOR)).execute(&mut *tx).await.expect("Blueprint");
-    sqlx::query("INSERT INTO ple_data.blueprint_course_revision (blueprint_course_reference_number, blueprint_revision_number, title, content, content_checksum, published_at) VALUES (1, 1, 'Policy oracle Blueprint', '{}'::jsonb, decode(repeat('0', 64), 'hex'), clock_timestamp())")
+    sqlx::query("INSERT INTO ple_data.blueprint_course_revision (blueprint_course_reference_number, blueprint_revision_number, content, content_checksum, saved_at) VALUES (1, 1, '{}'::jsonb, decode(repeat('0', 64), 'hex'), clock_timestamp())")
         .execute(&mut *tx).await.expect("Blueprint Revision");
     sqlx::query("INSERT INTO ple_data.blueprint_revision_module (blueprint_course_reference_number, blueprint_revision_number, blueprint_module_reference, module_position) VALUES (1, 1, $1, 1)")
         .bind(id(MODULE)).execute(&mut *tx).await.expect("Blueprint Module");
     sqlx::query("INSERT INTO ple_data.blueprint_revision_assignment (blueprint_course_reference_number, blueprint_revision_number, blueprint_module_reference, blueprint_assignment_reference, assignment_position) VALUES (1, 1, $1, $2, 1)")
         .bind(id(MODULE)).bind(id(BLUEPRINT_ASSIGNMENT)).execute(&mut *tx).await.expect("Blueprint Assignment");
+    sqlx::query("INSERT INTO ple_data.blueprint_revision_event (blueprint_course_reference_number, blueprint_revision_number, actor_account_id, request_checksum, occurred_at) VALUES (1, 1, $1, decode(repeat('bd', 32), 'hex'), clock_timestamp())")
+        .bind(id(INSTRUCTOR)).execute(&mut *tx).await.expect("Blueprint Revision event");
     sqlx::query("INSERT INTO ple_data.course_instance (course_id, reference_number, blueprint_course_reference_number, blueprint_revision_number, assigned_instructor_account_id, assigned_instructor_role, course_short_name, course_long_name, term_starts_on, term_ends_on, created_at) OVERRIDING SYSTEM VALUE VALUES ($1, 1, 1, 1, $2, 'instructor', 'POL-1', 'Policy oracle Course', current_date, current_date + 1, clock_timestamp())")
         .bind(id(COURSE)).bind(id(INSTRUCTOR)).execute(&mut *tx).await.expect("Course");
     sqlx::query("INSERT INTO ple_data.course_membership (membership_id, course_id, account_id, role, student_record_id, joined_at) VALUES ($1, $2, $3, 'instructor', NULL, clock_timestamp())")
