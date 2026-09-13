@@ -65,7 +65,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - PLE is pre-production with no users or durable production data. Improve the design directly.
 - Readable `snake_case` should be used whenever possible; see [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) for details.
 - Adaptability should be a focus so the software can evolve as requirements and insights change.
-- Dependency versions should be the latest because security bugs are continually fixed.
+- Dependency versions of libraries should be the latest because security bugs are continually fixed.
 - Slow measured interface behavior may justify moving the hot path to Rust/WebAssembly.
 - The polished Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
 - The three major user types are **Sysadmins**, **Instructors**, and **Students**.
@@ -140,17 +140,34 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Draft Questions** must go through a validation process before being added to the library.
 - Questions are strictly and deterministically automated; do not add manual grading.
 - MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT Question Types should be supported.
-- Versioned PLE flat-question JSON is the canonical machine format for simple static questions.
+- PLE flat-question JSON is the canonical machine format for simple static questions.
 - QTI is for import, export, and archival interchange rather than the internal source model.
 - WeBWorK and iMathAS are PLE-managed Question Backends. Use exact
   backend-specific terms when a concrete implementation or lifecycle matters.
+- The question importers for backend are transient; we do not control the format and we store the raw on the system.
 
 ## Native JSON Question philosophy
-- native JSON formats are static, not algorithmic nor random, and should not get a random seed input
-- native JSON formats ideally should not contain any runnable code to reduce the attack surface. Javascript remains a gray area,
-  can javascript be sandboxed so it is does provide a security concern? should we sanitize the javascript? have a whitelist of CDN
-  servers like rkdit, etc.?
 
+- The native PLE JSON Question format is private and unpublished. When the format changes, all
+  stored native JSON Questions can be upgraded together as part of that change.
+- Native JSON formats are static, not algorithmic nor random, and should not get a random seed
+  input. in theory an author could use Javascript to make the native JSON somewhat algorithmic, but
+  in such cases cannot make use of a seed.
+- Native JSON Questions may contain author-supplied JavaScript when needed for rendering or
+  interaction, including chemistry content using RDKit.
+- Author-supplied JavaScript in native JSON is limited to client-side presentation/interaction,
+  runs only in the browser, and is sandboxed from the PLE backend.
+- Author-supplied JavaScript is treated as untrusted content and should run in an isolated browser
+  environment without direct access to PLE application state, credentials, or privileged browser
+  context.
+- Backend grading and correctness decisions remain server-owned and independent of author-supplied
+  JavaScript.
+- native PLE JSON Question format must support the following question types: MC, MA, FIB,
+  MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT.
+- External JavaScript dependencies and CDN domains used by native JSON Questions should be
+  explicitly recorded and reviewable so third-party code sources remain visible and auditable. At
+  some point, Native JSON Questions will be restricted to loading JavaScript only from approved CDN
+  domain sources.
 
 ## Question Backend ownership
 
