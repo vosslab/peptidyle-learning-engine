@@ -148,8 +148,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Native PLE JSON Question philosophy
 
-- The native PLE JSON Question format is private and unpublished. When the format changes, all
-  stored native JSON Questions can be upgraded together as part of that change.
+- The native PLE JSON Question format is closed source, private, and unpublished. When the format
+  changes, all stored native JSON Questions can be upgraded together as part of that change.
 - Native JSON formats are static, not algorithmic nor random, and should not get a random seed
   input. in theory an author could use Javascript to make the native JSON somewhat algorithmic, but
   in such cases cannot make use of a seed.
