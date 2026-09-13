@@ -165,9 +165,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - native PLE JSON Question format must support the following question types: MC, MA, FIB,
   MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT.
 - External JavaScript dependencies and CDN domains used by native JSON Questions should be
-  explicitly recorded and reviewable so third-party code sources remain visible and auditable. At
-  some point, Native JSON Questions will be restricted to loading JavaScript only from approved CDN
-  domain sources.
+  explicitly recorded and reviewable so third-party code sources remain visible and auditable.
+- At some point, Native JSON Questions will be restricted to loading JavaScript only from approved
+  CDN domain sources.
 
 ## Question Backend ownership
 
