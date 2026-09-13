@@ -144,6 +144,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - QTI is for import, export, and archival interchange rather than the internal source model.
 - WeBWorK and iMathAS are PLE-managed Question Backends. Use exact
   backend-specific terms when a concrete implementation or lifecycle matters.
+
+## Native JSON Question philosophy
+- native JSON formats are static, not algorithmic nor random, and should not get a random seed input
 - native JSON formats ideally should not contain any runnable code to reduce the attack surface. Javascript remains a gray area,
   can javascript be sandboxed so it is does provide a security concern? should we sanitize the javascript? have a whitelist of CDN
   servers like rkdit, etc.?
