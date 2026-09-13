@@ -45,6 +45,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ## Glossary
 
 - **Blueprint Course**: A reusable course definition used to create **Course Instances**. It has no enrolled **Students** or deadlines.
+- **Blueprint Revision**: An immutable snapshot of a Blueprint Course used when a stable reusable version must be preserved, including when a Course Instance pins Blueprint content.
 - **Course Instance**: A course created from a **Blueprint Course**. It contains enrolled **Students**, deadlines, releases, and other delivery-specific settings.
 - **Published Question**: A validated question that is part of the global question library and available to vetted **Instructors**.
 - **Draft Question**: A private, unpublished question being developed by an **Instructor**. It must pass Question Publication Validation before joining the global question library.
@@ -124,10 +125,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Course Instance** data defaults to notice after 30 days, archive after 100 days, and permanent deletion after 365 days.
 - Course-owned assignment definitions should be kept when **Student** records are archived or deleted.
 - Course work, attempts, submissions, and grades follow the course retention policy independently of the lifetime of the Student Account.
-- Be conservative tracking revisions. Assignments, Course Instances, and Draft Questions use current state;
-  only Published Questions and Blueprint Courses have immutable revisions.
-- Mutable working state gets Edit Numbers when needed for concurrency. Student Work retains the exact evidence needed
-  to interpret attempts, issued work, submissions, and grading after teaching configuration changes.
+- Be conservative tracking revisions. Assignments, Course Instances, and Draft Questions use current state; only Published Questions and Blueprint Courses have immutable revisions.
+- Mutable working state gets Edit Numbers when needed for concurrency. Student Work retains the exact evidence needed to interpret attempts, issued work, submissions, and grading after teaching configuration changes.
 - Assignment deadlines are stored as instants. Instructor dates and times use the Instructor's
   IANA time zone.
 - Students have their own IANA time zone for displaying dates and times.
@@ -206,7 +205,6 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Blueprint Courses** are reusable course definitions and serve as blueprints for building courses.
 - **Blueprint Courses** have no **Students** enrolled and no deadlines.
 - **Blueprint Courses** are the same concept as LibreTexts' ADAPT alpha courses.
-- A new assignment added to a **Blueprint Course** is added to its **Course Instances** as unreleased.
 - A **Course Instance** is a course created from a **Blueprint Course**.
 - **Course Instances** have **Students**, deadlines, releases, and other delivery-specific settings.
 - **Blueprint Courses** are visible and reusable by every vetted **Instructor**.
@@ -229,6 +227,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   - Course Instance names are properties of the Course Instance, not derived from the Blueprint Course names.
   - Short names are for space-constrained interface elements. Long names are the descriptive names used where space allows.
   - Blueprint Course names identify the Blueprint across revisions. Changing a Blueprint name does not create a new Blueprint Revision.
+- Blueprint Courses use Blueprint Revisions for saved history and concurrency. Each successful Blueprint Course Save creates the next immutable Blueprint Revision.
+- Blueprint Course editing uses explicit Save. Multiple edits made before Save become one Blueprint Revision.
+- Unsaved Blueprint Course changes should be protected from accidental navigation or window close.
+- Course Instances pin exact Blueprint Revisions. Newer Blueprint Revisions should normally be propagated to eligible Course Instances through a simple Instructor review and approval. Changes are never applied silently, and routine fixes should be quick to approve.
+- Changes to existing Assignments follow the Blueprint Revision propagation workflow; newly added Assignments follow the unreleased-Assignment behavior above.
 
 ## Assignment philosophy
 
