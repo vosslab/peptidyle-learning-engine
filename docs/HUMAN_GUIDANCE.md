@@ -170,12 +170,18 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   JavaScript.
 - native PLE JSON Question format must support the following question types: MC, MA, FIB,
   MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT.
+- All external URLs referenced by native JSON Questions, including links, images, scripts,
+  stylesheets, and other resources, should be explicitly recorded and reviewable so third-party
+  destinations and dependencies remain visible and auditable.
 - External JavaScript dependencies and CDN domains used by native JSON Questions should be
   explicitly recorded and reviewable so third-party code sources remain visible and auditable.
 - External JavaScript dependencies used by native JSON Questions should eventually be brought under
   PLE ownership and served locally rather than loaded from third-party CDNs.
 - Approved external dependencies may initially load from recorded CDN sources, but supported
   dependencies should eventually be vendored or otherwise PLE-owned and served locally.
+
+
+
 
 ## Question Backend ownership
 
