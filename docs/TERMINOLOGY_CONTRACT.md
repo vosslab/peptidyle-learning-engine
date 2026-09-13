@@ -595,14 +595,17 @@ It is neither a Question Source nor Question Authorship or credit.
 Object Delivery separately authorizes retrieval of the corresponding bytes.
 
 **Question Format** identifies the authored or imported representation of a
-Question. **PLE Question JSON version 3** is the sole PLE Question JSON reader and canonical Question
-Format for simple static Questions; its source excludes points, Question Attempt Limit, and Question
-Attempt Time Limit, which belong to the exact Assignment Entry. WeBWorK PG, H5P, and iMathAS retain
-their registered format-specific Question Sources at their exact adapter boundaries. QTI is a
-flat-question import, export, and archive format; an accepted Workspace Import converts a supported QTI
-item into a PLE Question JSON Draft Question. The QTI package, profile, item, mapping, warning,
-checksum, and vendor-points facts remain import evidence, not runtime/source/backend facts. Question
-Format remains independent of educational interaction, execution, and browser presentation.
+Question. **PLE Question JSON** is unversioned and has one current, strictly validated source shape.
+It is the canonical Question Format for simple static Questions. `format: "pleQuestionJson"`
+identifies the document, and all stored native Questions and readers are upgraded together whenever
+the shape changes. Its source excludes points, Question Attempt Limit, and Question Attempt Time
+Limit, which belong to the exact Assignment Entry. WeBWorK PG, H5P, and iMathAS retain their
+registered format-specific Question Sources at their exact adapter boundaries. QTI is a flat-question
+import, export, and archive format; an accepted Workspace Import converts a supported QTI item into a
+PLE Question JSON Draft Question. The QTI package, profile, item, mapping, warning, checksum, and
+vendor-points facts remain import evidence, not runtime/source/backend facts. Question Format remains
+independent of educational interaction, execution, and browser presentation. The format contract is
+owned by [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md).
 
 A Draft Question may use any supported Question Format. PLE applies one shared Draft Question,
 validation, preview, testing, publication, Assignment selection, issuance, presentation, submission,

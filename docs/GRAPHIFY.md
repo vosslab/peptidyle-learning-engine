@@ -36,7 +36,7 @@ well-connected symbols provide useful starting points for source inspection.
 | Browser API Decoders | 128 | `src/api/http_client/response.ts`, `src/api/http_client/request.ts` | `ApiProtocolError`, `response.ts`, `request.ts` |
 | Application Shell API Context | 124 | `src/pages/course_appearance_page.tsx`, `src/ribbon/route_scope_context.tsx` | `solid-js`, `routes.ts`, `useApplicationApi()` |
 | Container Lifecycle Runner | 117 | `local_stack_control/lifecycle.py`, `local_stack_control/lifecycle_commands.py` | `CommandRunner`, `lifecycle.py`, `ComposeTarget` |
-| Compiled PLE Question JSON | 114 | `crates/adapters/ple/src/question_json/schema_v3.rs`, `crates/adapters/ple/src/question_json.rs` | `schema_v3.rs`, `question_json.rs`, `invalid()` |
+| Compiled PLE Question JSON | 114 | `crates/adapters/ple/src/question_json/source_document.rs`, `crates/adapters/ple/src/question_json.rs` | `source_document.rs`, `question_json.rs`, `invalid()` |
 | Ribbon Capability Registry | 103 | `src/ribbon/ribbon_contract.ts`, `src/ribbon/capability_registry.ts` | `ribbon_contract.ts`, `capability_registry.ts`, `ribbon_catalog.ts` |
 | Acceptance Runtime Harness | 95 | `crates/acceptance-runtime/src/lib.rs`, `crates/project-tools/src/database.rs` | `acceptance-runtime/src/lib.rs`, `Result`, `RuntimeError` |
 | Pilot Content Publishing | 95 | `crates/project-tools/src/pilot_content.rs`, `crates/project-tools/src/pilot_content/publication.rs` | `pilot_content.rs`, `publication.rs`, `Result` |

@@ -1,6 +1,5 @@
 {
   "format": "pleQuestionJson",
-  "version": 3,
   "questionTitle": "Genetics Chapter 1: Genetic disorder matching",
   "questionDescription": "Match genetic-disorder descriptions to the corresponding condition.",
   "prompt": "Match each description to the genetic disorder it best describes.",

@@ -1,4 +1,4 @@
-//! Closed schema-version-3 source shapes for all supported PLE Question JSON Question Types.
+//! Strict source shapes for all supported PLE Question JSON Question Types.
 
 use std::collections::HashSet;
 
@@ -26,16 +26,14 @@ use super::{
     validate_optional_feedback, validate_optional_hint,
 };
 
-const PLE_QUESTION_JSON_SCHEMA_VERSION: u32 = 3;
 const MAX_BLANKS: usize = 50;
 const MAX_TEXT_RESPONSE_CHARS: u32 = 16_384;
 
-/// Version 3 keeps common metadata outside a closed, type-specific response object.
+/// Common metadata outside a closed, type-specific response object.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct PleQuestionJsonDocumentBody {
     format: String,
-    version: u32,
     question_title: String,
     question_description: String,
     prompt: String,
@@ -256,7 +254,6 @@ impl PleQuestionJsonDocumentBody {
     ) -> Self {
         Self {
             format: PLE_QUESTION_JSON_FORMAT_NAME.to_string(),
-            version: PLE_QUESTION_JSON_SCHEMA_VERSION,
             question_title,
             question_description,
             prompt,
@@ -277,9 +274,6 @@ impl PleQuestionJsonDocumentBody {
     pub(super) fn validate(&self) -> Result<(), PleQuestionJsonError> {
         if self.format != PLE_QUESTION_JSON_FORMAT_NAME {
             return Err(PleQuestionJsonError::UnsupportedFormat);
-        }
-        if self.version != PLE_QUESTION_JSON_SCHEMA_VERSION {
-            return Err(PleQuestionJsonError::UnsupportedVersion(self.version));
         }
         question_model::validate_question_title(&self.question_title)
             .map_err(PleQuestionJsonError::InvalidQuestionTitle)?;

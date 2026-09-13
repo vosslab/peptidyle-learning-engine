@@ -9,7 +9,6 @@ import {
   PLE_QUESTION_JSON_NUMERIC_RESPONSE_KIND,
   PLE_QUESTION_JSON_ORDERING_RESPONSE_KIND,
   PLE_QUESTION_JSON_SINGLE_CHOICE_RESPONSE_KIND,
-  PLE_QUESTION_JSON_SCHEMA_VERSION,
   createPleQuestionJsonMatchingChoice,
   createPleQuestionJsonMatchingPrompt,
   createPleQuestionJsonOrderingItem,
@@ -55,7 +54,7 @@ function onlyFields(
     if (!fields.includes(key)) {
       throw new DecodeError(
         `${path}.${key}`,
-        "a field allowed by PLE Question JSON schema version 3",
+        "a field allowed by the PLE Question JSON source format",
       );
     }
   }
@@ -577,7 +576,6 @@ export function decodePleQuestionJsonSource(
   const record = decodeRecord(value, path);
   onlyFields(record, path, [
     "format",
-    "version",
     "questionTitle",
     "questionDescription",
     "prompt",
@@ -591,9 +589,6 @@ export function decodePleQuestionJsonSource(
   ]);
   if (field(record, "format", path) !== PLE_QUESTION_JSON_FORMAT) {
     throw new DecodeError(`${path}.format`, `the literal ${PLE_QUESTION_JSON_FORMAT}`);
-  }
-  if (field(record, "version", path) !== PLE_QUESTION_JSON_SCHEMA_VERSION) {
-    throw new DecodeError(`${path}.version`, `the literal ${PLE_QUESTION_JSON_SCHEMA_VERSION}`);
   }
   const responsePath = `${path}.response`;
   const responseValue = field(record, "response", path);
@@ -695,7 +690,6 @@ export function decodePleQuestionJsonSource(
   }
   return {
     format: PLE_QUESTION_JSON_FORMAT,
-    version: PLE_QUESTION_JSON_SCHEMA_VERSION,
     questionTitle: boundedText(
       field(record, "questionTitle", path),
       `${path}.questionTitle`,

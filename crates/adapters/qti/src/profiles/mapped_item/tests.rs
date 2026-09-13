@@ -86,7 +86,8 @@ fn supported_qti_item_converts_to_ple_json_without_vendor_points_or_policy() {
         .expect("canonical PLE Question JSON");
     let text = String::from_utf8(bytes).expect("canonical JSON is UTF-8");
 
-    assert!(text.contains(r#""format":"pleQuestionJson","version":3"#));
+    assert!(text.contains(r#""format":"pleQuestionJson""#));
+    assert!(!text.contains(r#""version""#));
     assert!(!text.contains("1.0"));
     assert!(!text.contains("points"));
     assert!(!text.contains("attempt"));

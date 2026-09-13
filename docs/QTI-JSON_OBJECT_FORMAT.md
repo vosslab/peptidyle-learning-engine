@@ -1,19 +1,19 @@
 # PLE Question JSON
 
-Status: current PLE Question JSON version-3 source-reader contract. Version 3 is the sole reader and
-implements all eight required
+Status: current private PLE Question JSON source-reader contract. The `format` discriminator identifies
+the one current shape, which implements all eight required
 PLE Question JSON Question Types through strict parsing, answer-free compilation,
 Question Publication Validation, student rendering, response validation, and isolated
 server grading.
 
 ## Decision
 
-Peptidyle uses its own small, versioned JSON source format for ordinary static
+Peptidyle uses its own small JSON source format for ordinary static
 questions. The contract is named **PLE Question JSON**, not QTI JSON. QTI
 is an import/export adapter and archival interchange format; it does not define
 the internal model.
 
-Version 3 uses a closed type-specific `response` object. PLE does not add QTI
+The current shape uses a strict type-specific `response` object. PLE does not add QTI
 expression trees, arbitrary response processing, or vendor extension containers.
 
 ## Required Question Type roadmap
@@ -29,7 +29,7 @@ The complete product must support at least these eight PLE Question JSON Questio
 - ordered list (ORDER); and
 - image hot spot (HOTSPOT).
 
-Version 3 is based on the lossless semantics of QTI Package Maker's `MC`,
+The current shape is based on the lossless semantics of QTI Package Maker's `MC`,
 `MA`, `MATCH`, `NUM`, `FIB`, `MULTI_FIB`, and `ORDER` item models: visible content and stable item
 identifiers compile separately from accepted answers. PLE adds one bounded
 `hotspot` extension because the reviewed QTI Package Maker model does not
@@ -39,12 +39,12 @@ scope.
 This is an internal PLE source contract, not an implementation of a missing or
 future external QTI-JSONL specification. A later QTI-JSONL adapter may map an
 accepted external record into these public/private compiler outputs, but it
-must not silently reinterpret v3 source bytes.
+must not silently reinterpret PLE Question JSON source bytes.
 
 ## Stored example
 
 The complete accepted record lives in
-`crates/adapters/ple/tests/fixtures/ple_question_json_single_choice_schema_v3.json`.
+`crates/adapters/ple/tests/fixtures/ple_question_json_single_choice.json`.
 Parser and compiler tests load that stored Question data while executable source owns behavior.
 
 Choice IDs are semantic stable identifiers, not display labels such as `A`,
@@ -86,13 +86,13 @@ whose adaptive response processing cannot preserve these meanings produces an
 explicit unsupported Workspace Import Item Result and remains in the retained
 QTI import evidence. The adapter preserves the exact instructional meaning.
 
-The current PLE Question JSON schema-version-3 source implements Choice Feedback through
+The current PLE Question JSON source implements Choice Feedback through
 `response.choices[].feedback`, Correct Feedback through `feedback.correct`, and
 Incorrect Feedback through `feedback.incorrect`. Its accepted-answer members
 compile into the Answer Key. A dedicated Question Answer output, authored
 Question Hint, and authored Question Answer Explanation are open migration
 tasks. Unknown members remain invalid; the dedicated runtime Question Hint
-capability stays separate from the PLE Question JSON schema-version-3 source contract until that
+capability stays separate from the PLE Question JSON source contract until that
 migration lands.
 
 The current format supports one image-bearing source shape: the HOTSPOT
@@ -103,11 +103,11 @@ Their future image or file support uses explicit Question Hint Asset, Question
 Feedback Asset, Question Answer Asset, or Question Answer Explanation Asset
 relationships and retains the same checksum and accessibility requirements.
 
-## Version 3 contract
+## Current source contract
 
-Version 3 places response-specific data
-inside one closed `response` object. The common top-level members are
-`format`, `version`, `questionTitle`, `questionDescription`, `prompt`, `response`, optional
+The current format places response-specific data
+inside one strict `response` object. The common top-level members are
+`format`, `questionTitle`, `questionDescription`, `prompt`, `response`, optional
 `feedback`, optional `questionHint`, optional `tags`, optional `questionLicense`, optional
 `questionCitation`, and `language`. Unknown and duplicate members are refused at every level. Points,
 Question Attempt Limit, and Question Attempt Time Limit are not PLE Question JSON source members:
@@ -140,7 +140,6 @@ For example, a matching question is:
 ```json
 {
   "format": "pleQuestionJson",
-  "version": 3,
   "questionTitle": "Nucleic-acid sugars",
   "questionDescription": "Match nucleic acids with their characteristic sugars.",
   "prompt": "Match each nucleic acid with its sugar.",
@@ -260,7 +259,7 @@ second persisted interpretation of the same question.
 The native codec currently enforces these bounds:
 
 - the complete source is at most 256 KiB;
-- the exact format and schema version are required;
+- the exact `format: "pleQuestionJson"` discriminator is required;
 - unknown and duplicate members are rejected, including nested policies,
   Question Tags, and the exact Question License;
 - a choice question has 2 through 100 choices; `singleChoice` has exactly one correct choice;
@@ -270,7 +269,7 @@ The native codec currently enforces these bounds:
 - Choice, Correct, and Incorrect Feedback is optional; when present, it is nonblank and bounded;
 - Assignment Entry validates points and attempt/time controls outside this source contract.
 
-The v3 contract additionally enforces exact Question-Type-specific bindings: accepted text
+The current contract additionally enforces exact Question-Type-specific bindings: accepted text
 answers are nonempty and unique; multi-blank IDs and answers are complete;
 numeric answers and tolerance parameters are finite; matching binds every
 prompt once to one unique available choice; ordering names every item exactly
@@ -287,10 +286,11 @@ Whitespace and JSON object-member order do not change the canonical checksum.
 
 ## Evolution and QTI adapters
 
-Version 3 is the sole current PLE Question Source reader. Its closed shape is parsed exactly: no legacy
-reader, upcaster, source-byte fallback, or republishing path is retained. Additive optional members
-require review against the v3 contract; incompatible future semantics use a new explicit version with
-its own reader and migration plan rather than reinterpreting v3 bytes.
+PLE Question JSON is private, unpublished, and unversioned. It has one current, strictly validated
+source shape, and `format: "pleQuestionJson"` identifies the document. Every shape change upgrades
+all stored native JSON Questions together with every reader; the format remains unversioned across
+future changes. The documented strict shape and trusted PLE backend retain positive structural
+validation of the complete input (ASVS 1.5.2, 2.1.1, 2.2.1, and 2.2.2).
 
 Canvas QTI and Blackboard QTI remain separate import/export profiles. Each
 adapter may map the supported PLE Question JSON-supported subset into the same public/private compiler
@@ -299,14 +299,14 @@ vendor points as Workspace Import evidence, and record unsupported features. Ven
 copied into the PLE Question JSON schema merely because one exporter emits it.
 
 Vendor classification data remains QTI source-format vocabulary at the adapter
-boundary and in the retained Workspace Import evidence. PLE Question JSON version 3
+boundary and in the retained Workspace Import evidence. PLE Question JSON
 does not flatten it into a generic `classifications` member or imply a mapping.
 A future Question Classification package may define a mapping only after it
 supports one real Classification System end to end.
 
 The native parser/compiler facade is
-`crates/adapters/ple/src/question_json.rs`; schema-version-3 shapes and
-compilation live in `crates/adapters/ple/src/question_json/schema_v3.rs`.
+`crates/adapters/ple/src/question_json.rs`; source shapes and compilation live in
+`crates/adapters/ple/src/question_json/source_document.rs`.
 The persistence boundary is `crates/learning-data-access/src/question_source.rs`
 with its PostgreSQL adapter, and the server publication owner is
 `crates/server/src/question_publication.rs`. Private source saves stay bound to

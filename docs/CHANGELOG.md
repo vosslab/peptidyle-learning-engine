@@ -2,6 +2,12 @@
 
 ## 2026-09-13
 
+### Behavior or Interface Changes
+
+- PLE Question JSON is unversioned and uses one current source shape without a `version` member.
+  `format: "pleQuestionJson"` identifies the document across Rust compilation, browser authoring,
+  QTI mapping, fixtures, and connected authoring scenarios.
+
 ### Fixes and Maintenance
 
 - Audited the Blueprint Revision-only cutover, removed unused command and event
@@ -15,6 +21,24 @@
   Assignment Attempt. Static PLE Question JSON now explicitly excludes Question
   Seeds and runnable code; removing its generic issuance seed is bounded
   follow-up work.
+
+### Removals and Deprecations
+
+- Removed the derived private-grading schema counter, the transient H5P importer-iteration counter,
+  the two repository-owned fixture counters, and the browser-scenario module's two unread constants.
+  Private grading is recomputed from source, raw H5P packages remain available for re-import, and
+  repository fixtures change together with their consumers.
+
+### Decisions and Failures
+
+- Native PLE Question JSON remains unversioned across every shape change. All stored native JSON
+  Questions and readers are upgraded together.
+
+- Retained the runtime manifest `schema_version` as an independent cross-language operator boundary.
+  Browser Suite coordination/configuration records, screenshot capture/publication evidence, and
+  walked-journey baselines also retain their own counters because independently consumed process or
+  evidence artifacts may outlive the writer; QTI profile/mapping and package/release versions name
+  separate external or durable identities unrelated to native PLE Question JSON's unversioned shape.
 
 ## 2026-09-12
 

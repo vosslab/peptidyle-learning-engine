@@ -48,7 +48,6 @@ impl std::error::Error for PleQuestionJsonGradingError {}
 
 /// Upper bound shared by persisted PLE Question JSON Private Grading and source adapters.
 pub const MAX_PLE_QUESTION_JSON_BYTES: usize = 256 * 1024;
-const PRIVATE_SCHEMA_VERSION: u32 = 2;
 const MAX_CHOICES: usize = 100;
 const MAX_CHOICE_ID_BYTES: usize = 64;
 const MAX_FEEDBACK_CHARS: usize = 16_384;
@@ -61,7 +60,6 @@ pub enum PleQuestionJsonError {
     TooLarge,
     MalformedJson(String),
     UnsupportedFormat,
-    UnsupportedVersion(u32),
     InvalidDocument(String),
     InvalidQuestionTitle(QuestionTitleError),
     PublicContentChecksumMismatch,
@@ -80,10 +78,6 @@ impl std::fmt::Display for PleQuestionJsonError {
                 write!(formatter, "invalid PLE Question JSON: {message}")
             }
             Self::UnsupportedFormat => formatter.write_str("unsupported PLE Question JSON format"),
-            Self::UnsupportedVersion(version) => write!(
-                formatter,
-                "unsupported PLE Question JSON schema version {version}"
-            ),
             Self::InvalidDocument(message) => {
                 write!(formatter, "invalid PLE Question JSON document: {message}")
             }
@@ -106,7 +100,6 @@ impl std::error::Error for PleQuestionJsonError {}
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PleQuestionJsonPrivateGrading {
-    schema_version: u32,
     public_content_checksum: String,
     answer_key: AnswerKey,
     choice_feedback: Vec<PleQuestionJsonChoiceFeedback>,
@@ -170,7 +163,6 @@ impl PleQuestionJsonPrivateGrading {
         validate_optional_feedback(incorrect_feedback.as_deref())?;
         validate_key_against_response(response_format, &answer_key)?;
         Ok(Self {
-            schema_version: PRIVATE_SCHEMA_VERSION,
             public_content_checksum: source_checksum,
             answer_key,
             choice_feedback: feedback,
@@ -209,7 +201,6 @@ impl PleQuestionJsonPrivateGrading {
         validate_key_against_response(response_format, &self.answer_key)?;
         self.validate_feedback_targets(response_format)?;
         Ok(Self {
-            schema_version: self.schema_version,
             public_content_checksum: source_checksum,
             answer_key: self.answer_key.clone(),
             choice_feedback: self.choice_feedback.clone(),
@@ -294,11 +285,6 @@ impl PleQuestionJsonPrivateGrading {
     }
 
     fn validate_private_shape(&self) -> Result<(), PleQuestionJsonError> {
-        if self.schema_version != PRIVATE_SCHEMA_VERSION {
-            return Err(PleQuestionJsonError::UnsupportedVersion(
-                self.schema_version,
-            ));
-        }
         if !is_hex_sha256(&self.public_content_checksum) {
             return invalid(
                 "publicContentChecksum must be a 64-character lowercase SHA-256 checksum",
@@ -470,7 +456,7 @@ fn validate_response_for_type(
 }
 
 /// Evaluates one structurally valid PLE response without a generic Question
-/// container or Assignment scoring rule. PLE Question JSON v3 evaluates each
+/// container or Assignment scoring rule. PLE Question JSON evaluates each
 /// valid response all-or-nothing, returning normalized credit of zero or one.
 fn evaluate_response(
     response_format: &QuestionResponseFormat,

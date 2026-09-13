@@ -14,7 +14,7 @@ mod question_json_source;
 
 pub use question_json_source::ResolvedPleQuestionJsonSource;
 
-/// Strict, versioned PLE Question JSON source for first-party static Questions.
+/// Strict current PLE Question JSON source for first-party static Questions.
 pub mod question_json;
 
 #[cfg(test)]

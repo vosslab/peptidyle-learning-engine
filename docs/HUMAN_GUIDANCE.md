@@ -150,7 +150,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - The native PLE JSON Question format is private, unversioned, and unpublished. When the format
   changes, all stored native JSON Questions can be upgraded together as part of that change.
-- The native PLE JSON Question format is a strictly validated source shape that maintained
+- The native PLE JSON Question format is a strictly validated source shape that is maintained
   internally without an external API.
 - Native JSON formats are static, not algorithmic nor random, and should not get a random seed
   input. in theory an author could use Javascript to make the native JSON somewhat algorithmic, but

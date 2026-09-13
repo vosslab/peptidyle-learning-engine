@@ -1558,12 +1558,14 @@ test boundaries. **Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md),
 
 ### PLE Question JSON is the static-Question authority
 
-**Decision.** PLE Question JSON version 3 is the sole PLE Question JSON reader and is canonical for
-MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT. Its source excludes points, Question Attempt
-Limit, and Question Attempt Time Limit; the exact Assignment Entry owns those facts. YAML may compile
-once into that contract. QTI is an import, export, and archival pathway rather than a stored runtime
-Question Format or Question Backend. An accepted Workspace Import validates and maps each supported QTI
-item into one complete PLE Question JSON Draft Question.
+**Decision.** PLE Question JSON is unversioned and has one current, strictly validated source shape.
+It is canonical for MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT.
+`format: "pleQuestionJson"` identifies the document, and all stored native Questions and readers are
+upgraded together whenever its shape changes. Its source excludes points, Question Attempt Limit,
+and Question Attempt Time Limit; the exact Assignment Entry owns those facts. YAML may compile once
+into that contract. QTI is an import, export, and archival pathway rather than a stored runtime
+Question Format or Question Backend. An accepted Workspace Import validates and maps each supported
+QTI item into one complete PLE Question JSON Draft Question.
 When that Draft Question is published, its Question Revision owns the mapped PLE Question JSON as
 its immutable Question Source and the PLE Question Backend presents and evaluates it. Published
 Questions backed by WeBWorK, iMathAS, H5P, or another registered technology retain their own
@@ -1579,6 +1581,8 @@ separate future implementation and authoring work.
 
 **Why.** One deterministic cross-language contract avoids competing source models. QTI preserves
 interchange and import evidence without dictating runtime storage, presentation, or grading.
+
+**Owner.** [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md).
 
 ### Native interactions adapt the QTI self-test model
 

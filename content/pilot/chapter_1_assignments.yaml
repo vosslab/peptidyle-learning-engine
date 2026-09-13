@@ -51,7 +51,7 @@ chapters:
         source_sha256: d1555789992c6249b22d34c9852546209b1fa4989465500aa46d09106c3cd9a6
         source_item: 8894_6964
         payload: ple_question_json/genetics-disorders-mc.json
-        payload_sha256: 6caad6081615bd2127263fee6c3f5d0437997c5bc9c256ff27e4693a8d02c851
+        payload_sha256: ffb996970d16f84061d82976070899afb5ac03a30fc52f4850f9454ea6a9a94c
       - slug: genetics-disorders-ple-question-json-matching
         question_title: "Genetics Chapter 1: Genetic disorder matching"
         question_description: "Match genetic-disorder descriptions to the corresponding condition."
@@ -63,7 +63,7 @@ chapters:
         source_sha256: 10f25986c8faa47a449a71cf299eb99d15c51ecb1986c431e6cbb6f74f1823ed
         source_item: ce62_fc20
         payload: ple_question_json/genetics-disorders-matching.json
-        payload_sha256: 3961b0dfd425d38f9b1ac788892a6976ef3ff9bb9a7fe15141861b1c04cc552a
+        payload_sha256: f475beefeab224fbcb41efa32ac8dc30dad6ff611887c2edc64e2a17b46cc66d
 
   - slug: biochemistry-chapter-1
     course: Biochemistry
@@ -112,7 +112,7 @@ chapters:
         source_sha256: 12f176f64fb223f75ef699f51a688cd7029242a8cd61e9cf7f38e25e8ea8792c
         source_item: 1138_f177
         payload: ple_question_json/biochemistry-functional-groups-mc.json
-        payload_sha256: 49445388d2260eafe8c3038b89736c748c587b8279094349ac192bb51c6820af
+        payload_sha256: fd1c0a299c9f100c04f5940528dda9473ca4fed328e9363333132ce2974bf256
       - slug: biochemistry-functional-groups-ple-question-json-matching
         question_title: "Biochemistry Chapter 1: Functional group matching"
         question_description: "Match functional groups to their biochemical names and characteristics."
@@ -124,4 +124,4 @@ chapters:
         source_sha256: 331a5e806e4a5dd751640eaf22f8911e3870cbbf8b4019da79632ad77f391e44
         source_item: c4c1_c919
         payload: ple_question_json/biochemistry-functional-groups-matching.json
-        payload_sha256: 51c89588ec7cc317b60f91df76e93690f950f5e4c704093cea9190abee8177e0
+        payload_sha256: 1d290dd54381cde0f82aadf513bd8d6946f0abb16a70fbff16acc3038b171113

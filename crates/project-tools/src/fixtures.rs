@@ -22,8 +22,6 @@ const FIXTURE_SET_FILENAME: &str = "fixture_set.json";
 const ASSET_DIRECTORY: &str = "assets";
 const MAX_FIXTURE_SET_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_ASSET_BYTES: u64 = 16 * 1024 * 1024;
-const FIXTURE_SCHEMA_VERSION: u32 = 4;
-const MODEL_SCHEMA_VERSION: u32 = 1;
 
 /// Summary printed by the project-tools command.
 pub struct Report {
@@ -45,8 +43,6 @@ struct FixtureAsset {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct StoredFixtureSet {
-    fixture_schema_version: u32,
-    model_schema_version: u32,
     source_object_reference: SourceObjectReference,
     source_object_checksum: SourceObjectChecksum,
     question_summary: QuestionSummary,
@@ -84,20 +80,6 @@ fn load_fixture_set(fixture_dir: &Path) -> Result<StoredFixtureSet> {
 }
 
 fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> Result<()> {
-    ensure!(
-        fixture_set.fixture_schema_version == FIXTURE_SCHEMA_VERSION,
-        "{} uses fixture schema {}; expected {}",
-        fixture_dir.display(),
-        fixture_set.fixture_schema_version,
-        FIXTURE_SCHEMA_VERSION
-    );
-    ensure!(
-        fixture_set.model_schema_version == MODEL_SCHEMA_VERSION,
-        "{} uses model schema {}; expected {}",
-        fixture_dir.display(),
-        fixture_set.model_schema_version,
-        MODEL_SCHEMA_VERSION
-    );
     ensure!(
         !fixture_set.assets.is_empty(),
         "stored Question fixture has no assets"

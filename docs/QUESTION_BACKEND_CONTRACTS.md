@@ -54,7 +54,7 @@ See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) for current and
 
 | Backend                          | Current authority                                                                                                                                                                    | Browser response                  | Server grading authority                             | Current scope                                                                                                                                                            |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| PLE Question JSON                | One complete immutable PLE Question Source                                                                                                                                           | Typed PLE Question JSON response  | PLE Question Backend                                 | All eight PLE Question JSON version 3 Question Types; supported Authoring Workspace fields; M12 accepted issued native-control and Question Asset delivery for all eight types |
+| PLE Question JSON                | One complete immutable PLE Question Source                                                                                                                                           | Typed PLE Question JSON response  | PLE Question Backend                                 | All eight current PLE Question JSON Question Types; supported Authoring Workspace fields; M12 accepted issued native-control and Question Asset delivery for all eight types   |
 | QTI Import                       | Checksum-pinned archive, profile conversion, and Workspace Import evidence                                                                                                           | Becomes PLE Question JSON         | PLE Question Backend after conversion                | Canvas 1.2 and Blackboard 2.1 supported flat-item mappings                                                                                                               |
 | WeBWorK                          | Immutable PG source, author-declared Question Type, private standalone renderer, and issued backend document                                                                         | Opaque ordered form-pair payload  | Private `/render-api` through the WeBWorK adapter    | Backend-owned HTML, interaction semantics, response interpretation, and server grading; stateless E1 lifecycle                                                           |
 | iMathAS                          | Immutable Question Source resolution plus strict versioned iMathAS Launch State bytes                                                                                                | Same-origin `{ launchUrl }` only  | iMathAS Launch/Result HMAC and protocol verification | Browser shell has no Challenge/Session/backend secrets; live backend composition remains deferred                                                  |
@@ -78,7 +78,7 @@ blocks, public Question Response Format, Question Asset References, Question Rev
 response shape; it does not return source bytes, a private key, Question Hint, asset-object binding, implementation
 version, or a scoring decision.
 
-The current closed source contract supports multiple choice, multiple answer, fill-in-the-blank,
+The current strict source contract supports multiple choice, multiple answer, fill-in-the-blank,
 multi-blank, numerical, matching, ordering, and hotspot questions. The PLE Question Backend dispatches by
 registered PLE Question Implementation for the explicit Question Format and Question Type rather than making the Assignment Attempt model type-specific. The browser authoring
 surface exposes supported Authoring Workspace fields for the version 3 Question Types; HOTSPOT source data enters through
@@ -103,7 +103,7 @@ Question Attempt Reproduction Details mismatch is detectable.
 ### Capabilities and extension
 
 PLE Question JSON capabilities are the intersection declared by selected registered PLE Question Implementations. A new PLE Question Implementation supplies
-a closed source/parser/compiler contract, browser-safe Question Response Format, server-owned
+a strict source/parser/compiler contract, browser-safe Question Response Format, server-owned
 evaluation behavior, deterministic issue/reproduction, capability declaration, strict response
 validation, and conformance coverage through the shared Question operations.
 

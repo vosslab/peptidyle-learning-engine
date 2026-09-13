@@ -65,10 +65,10 @@ JSON values and returns serialized safe reports. Malformed public JSON becomes
 a JavaScript string error; a structurally invalid but well-formed response
 returns a report. No export accepts an answer key or produces correctness.
 
-PLE Question JSON version 3 source is answer-bearing, so its parser and compiler remain in the
+PLE Question JSON source is answer-bearing, so its parser and compiler remain in the
 server-only PLE Question Backend. Browser parity therefore covers the actual public
 boundary: answer-free `QuestionResponseFormat` values compiled from the current
-PLE Question JSON version 3 MC and MATCH Question Types, and `StudentResponse` values. Inline PLE,
+PLE Question JSON MC and MATCH Question Types, and `StudentResponse` values. Inline PLE,
 generated-Node, and headless-browser cases cover valid selections and matching
 permutations, empty-response boundaries, malformed JSON errors, and repeated
 calls. They compare serialized reports exactly. This is a behavior test, not a

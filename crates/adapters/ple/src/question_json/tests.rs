@@ -5,12 +5,12 @@ use uuid::Uuid;
 use super::{PLE_QUESTION_JSON_MEDIA_TYPE, PleQuestionJsonDocument, PleQuestionJsonError};
 
 const SINGLE_CHOICE_SOURCE: &[u8] =
-    include_bytes!("../../tests/fixtures/ple_question_json_single_choice_schema_v3.json");
+    include_bytes!("../../tests/fixtures/ple_question_json_single_choice.json");
 
 #[test]
-fn version_three_source_compiles_private_evaluation_from_its_exact_content() {
-    let document = PleQuestionJsonDocument::parse(SINGLE_CHOICE_SOURCE).expect("v3 source parses");
-    let compiled = document.compile().expect("v3 source compiles");
+fn source_compiles_private_evaluation_from_its_exact_content() {
+    let document = PleQuestionJsonDocument::parse(SINGLE_CHOICE_SOURCE).expect("source parses");
+    let compiled = document.compile().expect("source compiles");
     assert_eq!(
         PLE_QUESTION_JSON_MEDIA_TYPE,
         "application/vnd.peptidyle.question+json"
@@ -37,8 +37,8 @@ fn version_three_source_compiles_private_evaluation_from_its_exact_content() {
 
 #[test]
 fn recorded_teaching_projection_uses_recorded_outcome_without_regrading() {
-    let document = PleQuestionJsonDocument::parse(SINGLE_CHOICE_SOURCE).expect("v3 source parses");
-    let compiled = document.compile().expect("v3 source compiles");
+    let document = PleQuestionJsonDocument::parse(SINGLE_CHOICE_SOURCE).expect("source parses");
+    let compiled = document.compile().expect("source compiles");
     let response = StudentResponse::MultipleChoice {
         selected: vec![ResponseItemReference::new("blue")],
     };
@@ -70,8 +70,8 @@ fn recorded_teaching_projection_uses_recorded_outcome_without_regrading() {
 
 #[test]
 fn teaching_projection_keeps_selected_choice_feedback_without_an_outcome() {
-    let document = PleQuestionJsonDocument::parse(SINGLE_CHOICE_SOURCE).expect("v3 source parses");
-    let compiled = document.compile().expect("v3 source compiles");
+    let document = PleQuestionJsonDocument::parse(SINGLE_CHOICE_SOURCE).expect("source parses");
+    let compiled = document.compile().expect("source compiles");
     let response = StudentResponse::MultipleChoice {
         selected: vec![ResponseItemReference::new("blue")],
     };
@@ -94,10 +94,9 @@ fn teaching_projection_keeps_selected_choice_feedback_without_an_outcome() {
 }
 
 #[test]
-fn choice_randomization_is_choice_owned_and_defaults_for_legacy_sources() {
+fn choice_randomization_is_choice_owned_and_defaults_when_omitted() {
     let source = br#"{
         "format": "pleQuestionJson",
-        "version": 3,
         "questionTitle": "Randomize choices",
         "questionDescription": "A native choice question.",
         "prompt": "Choose one.",
@@ -123,7 +122,6 @@ fn choice_randomization_is_choice_owned_and_defaults_for_legacy_sources() {
 
     let non_choice_source = br#"{
         "format": "pleQuestionJson",
-        "version": 3,
         "questionTitle": "No choice order",
         "questionDescription": "A fill-in question.",
         "prompt": "Enter the answer.",
@@ -141,8 +139,8 @@ fn choice_randomization_is_choice_owned_and_defaults_for_legacy_sources() {
 
 #[test]
 fn source_checksum_refuses_a_substituted_presentation() {
-    let document = PleQuestionJsonDocument::parse(SINGLE_CHOICE_SOURCE).expect("v3 source parses");
-    let compiled = document.compile().expect("v3 source compiles");
+    let document = PleQuestionJsonDocument::parse(SINGLE_CHOICE_SOURCE).expect("source parses");
+    let compiled = document.compile().expect("source compiles");
     assert!(matches!(
         compiled.private().evaluate(
             "0000000000000000000000000000000000000000000000000000000000000000",
@@ -157,21 +155,9 @@ fn source_checksum_refuses_a_substituted_presentation() {
 }
 
 #[test]
-fn unsupported_version_is_refused_without_a_legacy_reader() {
-    let source = String::from_utf8(SINGLE_CHOICE_SOURCE.to_vec())
-        .expect("fixture utf-8")
-        .replacen("\"version\": 3", "\"version\": 2", 1);
-    assert!(matches!(
-        PleQuestionJsonDocument::parse(source.as_bytes()),
-        Err(PleQuestionJsonError::UnsupportedVersion(2))
-    ));
-}
-
-#[test]
 fn hotspot_publication_retargets_the_complete_question_asset_reference() {
     let source = br#"{
         "format": "pleQuestionJson",
-        "version": 3,
         "questionTitle": "Locate the active site",
         "questionDescription": "A hotspot question.",
         "prompt": "Select the active site.",

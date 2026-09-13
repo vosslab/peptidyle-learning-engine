@@ -106,7 +106,7 @@ source_payload() {
 	python3 -c '
 import json
 print(json.dumps({
-    "format": "pleQuestionJson", "version": 3,
+    "format": "pleQuestionJson",
     "questionTitle": "Live authoring boundary",
     "questionDescription": "Private authoring verification question.",
     "prompt": "Which choice demonstrates the authoring boundary?",

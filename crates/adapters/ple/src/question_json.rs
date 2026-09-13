@@ -1,6 +1,6 @@
 //! Strict PLE Question JSON source and compiler for static Questions.
 //!
-//! The closed version 3 Question Type set follows the reviewed QTI Package Maker item model.
+//! The fixed Question Type set follows the reviewed QTI Package Maker item model.
 //! Parsing produces two values:
 //! a browser-safe draft and PLE Question JSON Private Grading. The latter stays
 //! in this server-only adapter crate and is bound by checksum to the public
@@ -19,7 +19,7 @@ use sha2::{Digest, Sha256};
 
 /// Trusted QTI-profile mapping bridge for canonical PLE Question JSON source.
 pub mod imported;
-mod schema_v3;
+mod source_document;
 
 /// Canonical media type for canonical PLE Question JSON source payloads.
 pub const PLE_QUESTION_JSON_MEDIA_TYPE: &str = "application/vnd.peptidyle.question+json";
@@ -45,7 +45,7 @@ const MAX_METADATA_TEXT_CHARS: usize = 256;
 /// split it before persistence or delivery.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct PleQuestionJsonDocument(schema_v3::PleQuestionJsonDocumentBody);
+pub struct PleQuestionJsonDocument(source_document::PleQuestionJsonDocumentBody);
 
 /// One student-visible choice and its optional private teaching feedback.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -134,7 +134,7 @@ impl PleQuestionJsonDocument {
     /// # Errors
     ///
     /// Refuses oversized input, malformed or duplicate members, unknown
-    /// fields, unsupported versions, and invalid v3 content.
+    /// fields and invalid content.
     pub fn parse(bytes: &[u8]) -> Result<Self, PleQuestionJsonError> {
         if bytes.len() > MAX_PLE_QUESTION_JSON_BYTES {
             return Err(PleQuestionJsonError::TooLarge);

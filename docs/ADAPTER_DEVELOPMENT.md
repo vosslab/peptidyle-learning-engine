@@ -81,7 +81,7 @@ Use the following sequence for a question-agnostic adapter.
 6. Register the backend through the server Assignment Attempt boundary, where course authorization, attempt
    identity, Question Attempt one-submission rule, timer policy, and persistence remain PLE responsibilities.
 
-The PLE Question Backend is the small reference: it interprets complete PLE Question JSON version 3
+The PLE Question Backend is the small reference: it interprets the complete current PLE Question JSON
 and produces the answer-free Question Presentation and server-owned evaluation behavior required by
 the shared pipeline. Its supported Question Types are MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and
 HOTSPOT. See

@@ -2,7 +2,7 @@ import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionCitation } from "../../../generated/api/QuestionCitation";
 
 /**
- * The answer-bearing PLE ple-question-json v3 authoring contract. The server
+ * The answer-bearing PLE Question JSON authoring contract. The server
  * derives its separate PLE Question JSON Public Content Checksum when it
  * compiles the private Answer Key and Question Feedback binding.
  *
@@ -11,7 +11,6 @@ import type { QuestionCitation } from "../../../generated/api/QuestionCitation";
  */
 
 export const PLE_QUESTION_JSON_FORMAT = "pleQuestionJson";
-export const PLE_QUESTION_JSON_SCHEMA_VERSION = 3;
 export const PLE_QUESTION_JSON_SINGLE_CHOICE_RESPONSE_KIND = "singleChoice" as const;
 export const PLE_QUESTION_JSON_MATCHING_RESPONSE_KIND = "matching" as const;
 export const PLE_QUESTION_JSON_MULTIPLE_ANSWER_RESPONSE_KIND = "multipleAnswer" as const;
@@ -188,7 +187,6 @@ export type PleQuestionJsonResponse =
 
 export type PleQuestionJsonDocument = {
   readonly format: typeof PLE_QUESTION_JSON_FORMAT;
-  readonly version: typeof PLE_QUESTION_JSON_SCHEMA_VERSION;
   readonly questionTitle: string;
   /** Instructor-facing discovery summary, excluded from the student preview. */
   readonly questionDescription: string;

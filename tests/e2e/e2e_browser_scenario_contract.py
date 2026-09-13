@@ -4,8 +4,6 @@ import dataclasses
 import re
 from collections.abc import Iterable, Sequence
 
-BASELINE_VERSION = "base-course-v1"
-SCHEMA_VERSION = 2
 NAMESPACE_PATTERN = re.compile(r"^bs1-[0-9a-f]{12}-[a-z][a-z0-9_]{0,31}$")
 SCENARIO_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 BASELINE_ALIASES = frozenset(

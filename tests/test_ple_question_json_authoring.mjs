@@ -27,7 +27,6 @@ const draftQuestion = "D-1";
 function source() {
   return {
     format: "pleQuestionJson",
-    version: 3,
     questionTitle: "Favorite color",
     questionDescription: "Instructor-facing color-choice example.",
     prompt: "What is my favorite color?",
@@ -88,11 +87,11 @@ test("codec accepts a valid source and serializes deterministic compact JSON", (
   assert.deepEqual(parsePleQuestionJsonSource(serialized), decoded);
 });
 
-test("choice randomization accepts legacy omission and serializes an explicit declaration", () => {
-  const legacy = source();
-  delete legacy.response.randomizeChoices;
+test("choice randomization accepts omission and serializes an explicit declaration", () => {
+  const sourceWithoutRandomization = source();
+  delete sourceWithoutRandomization.response.randomizeChoices;
 
-  const decoded = decodePleQuestionJsonSource(legacy);
+  const decoded = decodePleQuestionJsonSource(sourceWithoutRandomization);
   assert.equal(decoded.response.kind, "singleChoice");
   if (decoded.response.kind !== "singleChoice") throw new Error("Expected single-choice source.");
   assert.equal(decoded.response.randomizeChoices, false);
@@ -297,7 +296,7 @@ test("matching codec refuses duplicate or incomplete pairings", () => {
   assert.throws(() => decodePleQuestionJsonSource(matching));
 });
 
-test("all remaining v3 source Question Types retain semantic IDs and publish answer-free Question Response Formats", () => {
+test("all remaining source Question Types retain semantic IDs and publish answer-free Question Response Formats", () => {
   const cases = [
     {
       kind: "multipleAnswer",
@@ -459,7 +458,7 @@ test("hotspot public preview does not disclose correct-region cardinality", () =
   assert.equal(serializePleQuestionJsonPublicPreview(twoCorrect).includes("correctRegions"), false);
 });
 
-test("remaining v3 source Question Types reject invalid private contracts", () => {
+test("remaining source Question Types reject invalid private contracts", () => {
   assert.throws(() =>
     decodePleQuestionJsonSource({
       ...source(),

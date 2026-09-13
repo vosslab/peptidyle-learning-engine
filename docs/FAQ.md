@@ -103,7 +103,7 @@ and [QUESTION_MODEL.md](QUESTION_MODEL.md).
 
 ## Is PLE Question JSON QTI?
 
-No. PLE Question JSON is the small, versioned, answer-bearing authoring format for ordinary
+No. PLE Question JSON is the small, strictly validated, answer-bearing authoring format for ordinary
 static Questions. The PLE Question Backend interprets the complete source to produce an answer-free
 Question Presentation and evaluate Student Responses on the server. QTI is a bounded import/export adapter and archival interchange
 format, so vendor XML and QTI expression trees do not become PLE's internal schema. See

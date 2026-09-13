@@ -3,9 +3,8 @@ use std::path::Path;
 
 use serde::Deserialize;
 
-const IMPORTED_PATH: &str =
-    "tests/fixtures/imported_ple_question_json_single_choice_schema_v3.json";
-const SOURCE_PATH: &str = "tests/fixtures/ple_question_json_single_choice_schema_v3.json";
+const IMPORTED_PATH: &str = "tests/fixtures/imported_ple_question_json_single_choice.json";
+const SOURCE_PATH: &str = "tests/fixtures/ple_question_json_single_choice.json";
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]

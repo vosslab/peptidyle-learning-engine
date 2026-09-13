@@ -19,11 +19,6 @@ use question_model::question_content::QuestionMetadata;
 use question_model::response::{QuestionChoice, QuestionResponseFormat, ResponseItemReference};
 use sha2::{Digest, Sha256};
 
-/// Version of the persisted H5P import record schema.
-///
-/// This is deliberately independent of the repository CalVer release version:
-/// it changes only when the durable import record needs a migration.
-pub const IMPORT_SCHEMA_VERSION: u16 = 3;
 /// The only native H5P content type currently converted by this small,
 /// explicit importer.
 pub const MULTI_CHOICE_CONTENT_TYPE: &str = "H5P.MultiChoice";
@@ -182,8 +177,6 @@ pub struct H5pImportRequest {
 /// that sandbox imports cannot masquerade as immutable published content.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImportedH5pQuestion {
-    /// Version of the internal record shape used for this import.
-    pub import_schema_version: u16,
     /// Authoritative archived H5P package reference retained for re-import.
     pub package_import: H5pPackageImportReference,
     /// Prompt ready for the browser-safe renderer.
@@ -226,7 +219,6 @@ impl H5pImporter {
         let choices = normalize_choices(request.choices)?;
         let package_import_fingerprint = package_import_fingerprint(&package_import);
         Ok(ImportedH5pQuestion {
-            import_schema_version: IMPORT_SCHEMA_VERSION,
             package_import: package_import.clone(),
             prompt: vec![QuestionContentBlock::Text {
                 markdown: request.prompt_markdown,
@@ -548,7 +540,6 @@ mod tests {
         let imported = H5pImporter
             .import(import_request)
             .expect("supported H5P imports");
-        assert_eq!(imported.import_schema_version, IMPORT_SCHEMA_VERSION);
         assert_eq!(imported.package_import, request().package_import);
         assert!(matches!(
             imported.prompt.as_slice(),

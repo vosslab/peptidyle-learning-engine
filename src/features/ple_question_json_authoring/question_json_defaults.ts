@@ -1,7 +1,6 @@
 import {
   PLE_QUESTION_JSON_FORMAT,
   PLE_QUESTION_JSON_SINGLE_CHOICE_RESPONSE_KIND,
-  PLE_QUESTION_JSON_SCHEMA_VERSION,
   type PleQuestionJsonDocument,
 } from "./question_json_source";
 
@@ -9,7 +8,6 @@ import {
 export function createDefaultPleQuestionJsonSource(): PleQuestionJsonDocument {
   return {
     format: PLE_QUESTION_JSON_FORMAT,
-    version: PLE_QUESTION_JSON_SCHEMA_VERSION,
     questionTitle: "Untitled question",
     questionDescription: "Instructor-facing summary of this Question.",
     prompt: "Write your question prompt here.",

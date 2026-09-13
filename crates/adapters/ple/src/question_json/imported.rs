@@ -2,7 +2,7 @@
 //!
 //! This module is deliberately not a QTI adapter. Its input is the already
 //! mapped, server-only PLE Question JSON shape. It fixes the PLE defaults required
-//! for an imported v3 static single-choice item, then delegates validation,
+//! for an imported static single-choice item, then delegates validation,
 //! deterministic serialization, and compilation to the PLE Question JSON compiler.
 
 use std::fmt;
@@ -108,7 +108,7 @@ pub struct ImportedPleQuestionJson {
 /// prompt, choice, correct answer, or other imported value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ImportedPleQuestionJsonError {
-    /// The supplied mapped fields violate the PLE Question JSON schema-version-3 contract.
+    /// The supplied mapped fields violate the PLE Question JSON source contract.
     InvalidQuestionJson,
 }
 
@@ -125,16 +125,16 @@ impl fmt::Display for ImportedPleQuestionJsonError {
 impl std::error::Error for ImportedPleQuestionJsonError {}
 
 impl ImportedPleQuestionJson {
-    /// Constructs canonical schema-version-3 PLE Question JSON using fixed import defaults.
+    /// Constructs canonical PLE Question JSON using fixed import defaults.
     ///
     /// # Errors
     ///
-    /// Refuses any mapped field that does not satisfy the PLE Question JSON v3 contract.
+    /// Refuses any mapped field that does not satisfy the PLE Question JSON contract.
     pub fn from_imported(
         input: ImportedSingleChoiceInput,
     ) -> Result<Self, ImportedPleQuestionJsonError> {
         let document = PleQuestionJsonDocument(
-            super::schema_v3::PleQuestionJsonDocumentBody::imported_single_choice(
+            super::source_document::PleQuestionJsonDocumentBody::imported_single_choice(
                 input.question_title,
                 input.question_description,
                 input.prompt,
