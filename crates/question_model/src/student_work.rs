@@ -25,7 +25,7 @@ pub use attempt_evidence::{
     AssignmentAttempt, AssignmentAttemptCompletion, AssignmentAttemptEvidence,
     AssignmentAttemptPolicySource, AssignmentAttemptPolicySources, AssignmentGrade,
 };
-pub use grading::{GradingResult, QuestionEvaluation, QuestionEvaluationError};
+pub use grading::{GradingResult, QuestionEvaluation, QuestionEvaluationError, RecordedCredit};
 pub use source_object_checksum::{SourceObjectChecksum, SourceObjectChecksumError};
 
 use crate::assignment::{AssignmentEntryScoringRule, AssignmentPointValue};

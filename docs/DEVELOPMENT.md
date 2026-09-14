@@ -231,8 +231,10 @@ rerun when a material change affects their declared boundary.
 
 Use the fixed owner when a work package needs the supported PostgreSQL, MinIO,
 API, gateway, private standalone WeBWorK PG renderer, and one internal worker
-Service Identity. Jobs use the implemented claim, lease, and commit boundary;
-the workers perform their own authorized grading responsibilities:
+Service Identity. The generic expiry worker shares the ordinary Attempt evaluator
+and runs a 60-second sweep. It reads immutable source only through S3 and the
+private WeBWorK renderer boundary; iMathAS keeps its separate session and receipt
+boundary. This exposes no grading lifecycle:
 
 ```bash
 source source_me.sh && python3 local_stack.py start --headless
@@ -289,6 +291,16 @@ source source_me.sh && ./launchers/all_test.sh
 ```
 
 Run it on the final material tree after the package's focused and connected gates are green.
+
+For fast iteration before that final live-stack gate, run its complete offline subset:
+
+```bash
+source source_me.sh && ./launchers/run_fast_checks.sh
+```
+
+This runs the Rust, TypeScript/Node, and Python aggregate checks. It deliberately does not replace
+the final aggregate because it starts no PostgreSQL, object-store, renderer, or browser acceptance
+environment.
 
 ## Prepare a handoff
 

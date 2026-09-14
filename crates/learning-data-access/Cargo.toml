@@ -8,6 +8,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+browser-api-contract.workspace = true
 question_model.workspace = true
 domain.workspace = true
 objects.workspace = true

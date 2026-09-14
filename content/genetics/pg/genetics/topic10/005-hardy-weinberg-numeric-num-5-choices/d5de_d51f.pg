@@ -1,0 +1,31 @@
+## DESCRIPTION
+## Imported Genetics source row d5de_d51f; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic10/bbq-hardy_weinberg_numeric-NUM-5_choices-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_D5DE_D51F';
+<table style="border-collapse: collapse; border: 2px solid black;"><tr>  <th colspan="3" align="center">frogs</th></tr><tr>  <th align="center">genotype</th>  <th align="center">phenotype</th>  <th align="center">count</th></tr><tr>  <td align="center">homozygous<br/>dominant</td>  <td align="center">red</td>  <td align="right">4,669</td></tr><tr>  <td align="center">heterozygous</td>  <td align="center">pink</td>  <td align="right">13,662</td></tr><tr>  <td align="center">homozygous<br/>recessive</td>  <td align="center">white</td>  <td align="right">6,669</td></tr><tr>  <th colspan="2" align="right">SUM</th>  <th align="right">25,000</th></tr></table>  <p>In a field there are 4,669 red frogs, 13,662 pink frogs, and 6,669 white frogs that show incomplete dominance. What is the frequency of the <b>dominant</b> allele?</p><p>Note: Do not enter a percentage on the blank. For example, if the answer is 82.7%, enter 0.827 on the blank. Your answer will be a decimal value between 0 and 1.</p>
+PROMPT_D5DE_D51F
+$tolerance = "0.0099";
+$answer = Real("0.46")->with(tolerance => $tolerance, tolType => 'absolute');
+$lower_bound = "0.4501";
+$upper_bound = "0.4699";
+$inclusive_numeric_cmp = sub {
+  my ($correct, $student, $ans_hash) = @_;
+  my $student_value = $student->value;
+  return $student_value >= $lower_bound && $student_value <= $upper_bound;
+};
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{ans_rule(20)\}
+END_TEXT
+ANS($answer->cmp(checker => $inclusive_numeric_cmp));
+
+ENDDOCUMENT();

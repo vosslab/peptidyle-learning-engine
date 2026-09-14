@@ -12,7 +12,10 @@ services:
 
   api:
     build:
-      target: live-demo
+      # ASVS 15.2.3: only this disposable-browser overlay selects the binary
+      # containing the feature-gated lease-interruption seam. Production keeps
+      # the ordinary target from containers/compose.yaml.
+      target: live-demo-fault
     environment:
       PLE_QTI_RUNTIME_ENABLED: "1"
       PLE_STORAGE_TOPOLOGY: disposable-local

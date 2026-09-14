@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 9d37_3a14; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic04/bbq-lethal_allele_survival-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_9D37_3A14';
+<p>9d37_3a14</p> <p>In cats, allele T causes tailless in heterozygotes (Tt) but is lethal in homozygotes (TT). A heterozygous individual is crossed with a normal homozygous recessive individual.</p><p>If 80 conceptions occur, how many are expected to show tailless?</p>
+PROMPT_9D37_3A14
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_9D37_3A14_CHOICE_1';
+40
+LITERAL_9D37_3A14_CHOICE_1
+$choice_2 = <<'LITERAL_9D37_3A14_CHOICE_2';
+20
+LITERAL_9D37_3A14_CHOICE_2
+$choice_3 = <<'LITERAL_9D37_3A14_CHOICE_3';
+44
+LITERAL_9D37_3A14_CHOICE_3
+$choice_4 = <<'LITERAL_9D37_3A14_CHOICE_4';
+60
+LITERAL_9D37_3A14_CHOICE_4
+$choice_5 = <<'LITERAL_9D37_3A14_CHOICE_5';
+36
+LITERAL_9D37_3A14_CHOICE_5
+$correct_1 = <<'LITERAL_9D37_3A14_CORRECT_1';
+40
+LITERAL_9D37_3A14_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

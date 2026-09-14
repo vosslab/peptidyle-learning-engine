@@ -1,0 +1,68 @@
+## DESCRIPTION
+## Imported Genetics source row 1623_7ac7; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic06/bbq-MATCH-meiosis_terms-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_1623_7AC7';
+<p>1623_7ac7</p> <p>Match each of the following Meiosis terms with their corresponding definitions.</p><p><i>Note:</i> Each choice will be used exactly once.</p>
+PROMPT_1623_7AC7
+loadMacros('PGML.pl', 'parserPopUp.pl');
+sub make_popup { return defined &DropDown ? DropDown(@_) : PopUp(@_); }
+$match_term_0 = <<'LITERAL_1623_7AC7_MATCH_TERM_0';
+<span style="color: #007139;">crossing over</span>
+LITERAL_1623_7AC7_MATCH_TERM_0
+$match_term_1 = <<'LITERAL_1623_7AC7_MATCH_TERM_1';
+<span style="color: #765900;">chiasmata</span>
+LITERAL_1623_7AC7_MATCH_TERM_1
+$match_term_2 = <<'LITERAL_1623_7AC7_MATCH_TERM_2';
+<span style="color: #006596;">sister chromatids</span>
+LITERAL_1623_7AC7_MATCH_TERM_2
+$match_term_3 = <<'LITERAL_1623_7AC7_MATCH_TERM_3';
+<span style="color: #863d83;">synapsis</span>
+LITERAL_1623_7AC7_MATCH_TERM_3
+$match_choice_0 = <<'LITERAL_1623_7AC7_MATCH_CHOICE_0';
+the actual exchange of segments between <strong><span style="color: #d40000;">homologous chromosomes</span></strong>
+LITERAL_1623_7AC7_MATCH_CHOICE_0
+$match_choice_1 = <<'LITERAL_1623_7AC7_MATCH_CHOICE_1';
+the region where <strong><span style="color: #d40000;">homologous chromosomes</span></strong> stay connected after crossing over
+LITERAL_1623_7AC7_MATCH_CHOICE_1
+$match_choice_2 = <<'LITERAL_1623_7AC7_MATCH_CHOICE_2';
+two identical copies of the same chromosome formed by DNA replication
+LITERAL_1623_7AC7_MATCH_CHOICE_2
+$match_choice_3 = <<'LITERAL_1623_7AC7_MATCH_CHOICE_3';
+process of pairing of homologous (maternal and paternal) chromosomes
+LITERAL_1623_7AC7_MATCH_CHOICE_3
+$match_dropdown_0 = make_popup(['', "A", "B", "C", "D"], 1);
+$match_dropdown_1 = make_popup(['', "A", "B", "C", "D"], 2);
+$match_dropdown_2 = make_popup(['', "A", "B", "C", "D"], 3);
+$match_dropdown_3 = make_popup(['', "A", "B", "C", "D"], 4);
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_PGML
+[@ MODES(HTML => '<div class="two-column">') @]*
+[@ MODES(HTML => '<div>') @]*
+[_]{$match_dropdown_0} *1.* [$match_term_0]*
+
+[_]{$match_dropdown_1} *2.* [$match_term_1]*
+
+[_]{$match_dropdown_2} *3.* [$match_term_2]*
+
+[_]{$match_dropdown_3} *4.* [$match_term_3]*
+[@ MODES(HTML => '</div><div>') @]*
+*A.* [$match_choice_0]*
+
+*B.* [$match_choice_1]*
+
+*C.* [$match_choice_2]*
+
+*D.* [$match_choice_3]*
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+ENDDOCUMENT();

@@ -1,0 +1,31 @@
+## DESCRIPTION
+## Imported Genetics source row e169_5856; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic07/bbq-chi_square_calculated-ACCEPT-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_E169_5856';
+<p>e169_5856</p> <table style="border: 1px solid black; border-collapse: collapse; "><colgroup width="200"></colgroup> <colgroup width="100"></colgroup> <colgroup width="100"></colgroup> <colgroup width="100"></colgroup> <colgroup width="100"></colgroup> <tr> <th align='center' colspan='5' style='background-color: silver'>Data Table</th> </tr><tr> <th align='center' style='background-color: lightgray'>Phenotype</th> <th align='center' style='background-color: lightgray'>Expected</th> <th align='center' style='background-color: lightgray'>Observed</th> <th align='center' style='background-color: lightgray'>Calculation</th> <th align='center' style='background-color: lightgray'>Statistic</th> </tr><tr> <td>&nbsp;Yellow Round (Y&ndash;R&ndash;)</td> <td align='center'>90</td> <td align='center'>95</td> <td align='center'>__</td> <td align='center'>__</td></tr><tr> <td>&nbsp;Yellow Wrinkled (Y&ndash;rr)</td> <td align='center'>30</td> <td align='center'>27</td> <td align='center'>__</td> <td align='center'>__</td></tr><tr> <td>&nbsp;Green Round (yyR&ndash;)</td> <td align='center'>30</td> <td align='center'>30</td> <td align='center'>__</td> <td align='center'>__</td></tr><tr> <td>&nbsp;Green Wrinkled (yyrr)</td> <td align='center'>10</td> <td align='center'>8</td> <td align='center'>__</td> <td align='center'>__</td></tr><tr> <td colspan='4' align='right' style='background-color: lightgray'>(sum) &chi;<sup>2</sup>&nbsp;=&nbsp;</td> <td align='center'>__</td></tr></table> <br/> <hr/> <p>Complete the table and calculate the chi-squared (&chi;<sup>2</sup>) value.</p> <p><i>Even though not part of the question, ask yourself whether you would reject or fail to reject the null hypothesis</i></p><p><i>Note: answers need to be within 3&percnt; of the correct number to be correct.</i></p> 
+PROMPT_E169_5856
+$tolerance = "0.02000000";
+$answer = Real("0.97800000")->with(tolerance => $tolerance, tolType => 'absolute');
+$lower_bound = "0.95800000";
+$upper_bound = "0.99800000";
+$inclusive_numeric_cmp = sub {
+  my ($correct, $student, $ans_hash) = @_;
+  my $student_value = $student->value;
+  return $student_value >= $lower_bound && $student_value <= $upper_bound;
+};
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{ans_rule(20)\}
+END_TEXT
+ANS($answer->cmp(checker => $inclusive_numeric_cmp));
+
+ENDDOCUMENT();

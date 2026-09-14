@@ -1,6 +1,7 @@
 //! Student-authorized Assignment Access and answer-free initial delivery.
 
 use async_trait::async_trait;
+use browser_api_contract::student_assignment_decision::StudentAssignmentDecisionSummary;
 use question_model::{
     AssignmentAttemptReference, AssignmentReference, CourseInstanceReference, CourseTheme,
     GradingResult, QuestionAssetId, QuestionAttemptId, QuestionId, QuestionRevisionReference,
@@ -11,28 +12,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::{SessionTokenHash, StoreError};
 
-/// The current server-calculated ability to start one released Assignment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum LiveAssignmentStartDecision {
-    /// The exact active Student Record may start now.
-    MayStart,
-    /// The released Assignment has not reached its availability time.
-    NotYetAvailable,
-    /// The Assignment is not available for a new Attempt.
-    Closed,
-    /// The Student has already used every allowed Attempt.
-    AttemptLimitReached,
-    /// The released late-work policy refuses a new Attempt.
-    LateWorkRefused,
-}
-
 /// Answer-free Assignment Access projection for the authenticated Student.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LiveAssignmentAccess {
-    /// The calculated decision at authoritative server time.
-    pub start_decision: LiveAssignmentStartDecision,
+    /// Complete policy and decision calculated at authoritative server time.
+    pub decision: StudentAssignmentDecisionSummary,
     /// The current authorized unfinished Assignment Attempt, if one exists.
     pub active_assignment_attempt: Option<AssignmentAttemptReference>,
     /// The effective Student-facing title for the current delivery state.
@@ -41,8 +26,6 @@ pub struct LiveAssignmentAccess {
     pub question_count: u32,
     /// Exact released or issued total points, never inferred from grading.
     pub points_possible: f64,
-    /// Whole-Assignment time limit; `None` is the explicit unbounded fact.
-    pub time_limit_seconds: Option<u32>,
     /// Complete owned Assignment Attempt history, newest first, without
     /// responses, grading details, or private identifiers.
     pub previous_attempts: Vec<LiveAssignmentPreviousAttempt>,
@@ -315,12 +298,25 @@ pub struct NativePresentationInput {
     pub backend_document: Option<String>,
 }
 
-/// One Student-authorized immutable backend document for an issued position.
-/// This remains separate from public presentation evidence because it can be
-/// backend HTML rather than an answer-free PLE presentation descriptor.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// One Student-authorized backend document read result for an issued position.
+/// The retained document remains immutable evidence. A saved backend-owned
+/// response adds only private inputs for an ephemeral backend-authored resume
+/// render; neither form crosses the public presentation boundary.
+#[derive(Clone, PartialEq)]
 pub struct StudentAssignmentAttemptBackendDocument {
     pub backend_document: String,
+    /// Private inputs for a backend-authored resume render.  This is present
+    /// only for a saved backend-owned response and never crosses the HTTP
+    /// boundary as PLE presentation data.
+    pub resume: Option<StudentAssignmentAttemptBackendDocumentResume>,
+}
+
+/// Exact immutable source and opaque response for one backend-authored resume
+/// render.  The server consumes this below the document route boundary.
+#[derive(Clone, PartialEq)]
+pub struct StudentAssignmentAttemptBackendDocumentResume {
+    pub source: NativeWebworkIssuanceSource,
+    pub saved_response: StudentResponse,
 }
 
 /// One complete native issuance operation. The Attempt identity and start
@@ -428,17 +424,88 @@ pub struct StudentAssignmentAttemptContext {
     pub course_theme: CourseTheme,
     pub assignment: AssignmentReference,
     pub assignment_title: String,
-    /// Server-evaluated nonnegative duration; no absolute deadline reaches the browser.
+    /// Authenticated Student's selected IANA display zone.
+    pub display_time_zone: question_model::AccountTimeZone,
+    /// Immutable server-owned deadline recorded when this Attempt started.
+    pub expires_at: Option<Timestamp>,
+    /// Server-evaluated nonnegative duration from the same deadline read.
     pub timer_remaining_milliseconds: Option<u64>,
 }
 
 /// Result of the single explicit Assignment Attempt submission action.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum StudentAssignmentAttemptFinalization {
     /// All saved working responses became immutable submission evidence.
-    Submitted,
+    Submitted {
+        /// Immediate backends return a score. A backend that accepted the
+        /// response but completes later has no score yet.
+        score: Option<LiveAssignmentAttemptScore>,
+    },
     /// The Attempt remains open because these one-based positions need saved responses.
     MissingResponses { positions: Vec<u32> },
+}
+
+/// Database-selected reason for finalizing one Assignment Attempt. The server
+/// never supplies this fact: PostgreSQL derives it from `expires_at` and its
+/// own clock while authorizing the snapshot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StudentAssignmentAttemptFinalizationKind {
+    Student,
+    Deadline,
+}
+
+/// One exact saved response selected for direct backend evaluation. This is
+/// private server/store evidence: response bytes and source locators never
+/// serialize to the browser.
+#[derive(Debug, Clone)]
+pub struct StudentAssignmentAttemptFinalizationSource {
+    pub question_attempt_id: uuid::Uuid,
+    pub saved_at: Timestamp,
+    pub question_id: QuestionId,
+    pub revision_number: u32,
+    pub source_object_id: String,
+    pub source_object_checksum: String,
+    pub question_seed: u64,
+    pub student_response: StudentResponse,
+    pub backend: StudentAssignmentAttemptFinalizationBackend,
+}
+
+/// The source binding selected for one saved response.
+#[derive(Debug, Clone)]
+pub enum StudentAssignmentAttemptFinalizationBackend {
+    Ple,
+    Webwork { pg_path: String },
+}
+
+/// Immutable snapshot returned before backend I/O. PostgreSQL accepts its
+/// evaluations only when every saved-response version still matches.
+#[derive(Debug, Clone)]
+pub struct StudentAssignmentAttemptFinalizationPreparation {
+    pub kind: StudentAssignmentAttemptFinalizationKind,
+    pub saved_responses: Vec<StudentAssignmentAttemptFinalizationSource>,
+}
+
+/// One backend credit bound to a saved-response version from a preparation.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StudentAssignmentAttemptFinalizationEvaluation {
+    pub question_attempt_id: uuid::Uuid,
+    pub saved_at: Timestamp,
+    /// Exact saved bytes the backend evaluated. PostgreSQL compares this with
+    /// the current saved response before accepting the returned credit.
+    pub student_response: StudentResponse,
+    pub normalized_credit: f64,
+}
+
+/// The direct-finalization preparation outcome.
+#[derive(Debug, Clone)]
+pub enum StudentAssignmentAttemptFinalizationPreparationOutcome {
+    AlreadySubmitted {
+        score: Option<LiveAssignmentAttemptScore>,
+    },
+    MissingResponses {
+        positions: Vec<u32>,
+    },
+    Ready(StudentAssignmentAttemptFinalizationPreparation),
 }
 
 /// Store boundary for Student Assignment Access and initial issue.
@@ -473,11 +540,22 @@ pub trait LiveAssignmentDeliveryStore: Send + Sync {
         position: u32,
     ) -> Result<Option<StudentResponse>, StoreError>;
 
-    /// Finalizes the entire owned Assignment Attempt in one database transition.
-    async fn finalize_student_assignment_attempt(
+    /// Captures an authorized saved-response snapshot before backend I/O. The
+    /// database chooses deadline versus Student finalization from its clock.
+    async fn prepare_student_assignment_attempt_finalization(
         &self,
         session_token_hash: SessionTokenHash,
         assignment_attempt: AssignmentAttemptReference,
+    ) -> Result<StudentAssignmentAttemptFinalizationPreparationOutcome, StoreError>;
+
+    /// Atomically accepts only the still-current prepared snapshot and stores
+    /// immutable backend credits, Question Submissions, and completion.
+    async fn commit_student_assignment_attempt_finalization(
+        &self,
+        session_token_hash: SessionTokenHash,
+        assignment_attempt: AssignmentAttemptReference,
+        preparation: StudentAssignmentAttemptFinalizationPreparation,
+        evaluations: Vec<StudentAssignmentAttemptFinalizationEvaluation>,
     ) -> Result<StudentAssignmentAttemptFinalization, StoreError>;
 
     /// Loads an answer-free, Student-owned progress projection by public Attempt reference.
@@ -495,8 +573,9 @@ pub trait LiveAssignmentDeliveryStore: Send + Sync {
         position: u32,
     ) -> Result<StudentAssignmentAttemptPresentationEvidence, StoreError>;
 
-    /// Reads the one backend-owned document for an owned WeBWorK issued
-    /// position.  Source pins, seed, response, and backend state stay private.
+    /// Reads one backend-owned document for an owned WeBWorK issued position.
+    /// Its immutable retained document is always present; source pins, seed,
+    /// and saved opaque response are private resume inputs when applicable.
     async fn student_assignment_attempt_backend_document(
         &self,
         session_token_hash: SessionTokenHash,

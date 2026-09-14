@@ -15,6 +15,8 @@ import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
 const { scope: _scope, ...publishedQuestion } = publishedQuestionFixture.publishedQuestion;
 const metadataEtag = "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d";
+const FOUR_MIB = 4 * 1_024 * 1_024;
+const SIXTEEN_MIB = 16 * 1_024 * 1_024;
 
 function contentInput() {
   return {
@@ -103,6 +105,17 @@ function blueprint(revision = "3") {
     read_access: "blueprint_course_owner",
     modules: modules(),
   };
+}
+
+function blueprintWithAssignments(assignmentCount) {
+  const blueprintModule = modules()[0];
+  const assignment = blueprintModule.assignments[0];
+  assignment.content.instructions = "x".repeat(50_000);
+  const assignments = Array.from({ length: assignmentCount }, (_, index) => ({
+    ...structuredClone(assignment),
+    blueprint_assignment_reference: `assignment-${index + 1}`,
+  }));
+  return { ...blueprint(), modules: [{ ...blueprintModule, assignments }] };
 }
 
 function creationInput() {
@@ -251,6 +264,37 @@ test("B1 client accepts a canonical Save no-op at the current Blueprint Revision
   const saved = await client.saveBlueprintCourse("BP-7", replacementInput(), '"3"', "save-no-op");
   assert.equal(saved.changed, false);
   assert.equal(saved.revisionEtag, '"3"');
+});
+
+test("B1 Blueprint aggregates have a dedicated bounded response budget", async () => {
+  const largeBlueprint = blueprintWithAssignments(85);
+  const largeBlueprintJson = JSON.stringify(largeBlueprint);
+  assert.ok(largeBlueprintJson.length > FOUR_MIB);
+  assert.ok(largeBlueprintJson.length <= SIXTEEN_MIB);
+  const blueprintClient = createHttpApiClient({
+    fetch: () => Promise.resolve(noStoreJson(largeBlueprint, '"3"')),
+  });
+  const loaded = await blueprintClient.getBlueprintCourse("BP-7");
+  assert.equal(loaded.blueprintCourse.modules[0].assignments.length, 85);
+
+  const ordinaryClient = createHttpApiClient({
+    fetch: () =>
+      Promise.resolve(
+        new Response(`"${"x".repeat(FOUR_MIB)}"`, {
+          headers: { "cache-control": "no-store", "content-type": "application/json" },
+        }),
+      ),
+  });
+  await assert.rejects(ordinaryClient.getInstructorProfile(), ApiProtocolError);
+});
+
+test("B1 Blueprint aggregates reject responses beyond their dedicated budget", async () => {
+  const oversizedBlueprint = blueprintWithAssignments(336);
+  assert.ok(JSON.stringify(oversizedBlueprint).length > SIXTEEN_MIB);
+  const client = createHttpApiClient({
+    fetch: () => Promise.resolve(noStoreJson(oversizedBlueprint, '"3"')),
+  });
+  await assert.rejects(client.getBlueprintCourse("BP-7"), ApiProtocolError);
 });
 
 test("B1 metadata decoder rejects non-opaque validators", () => {

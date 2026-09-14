@@ -1,0 +1,79 @@
+## DESCRIPTION
+## Imported Genetics source row 80ca_d042; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-MATCH-chromosome_shapes-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_80CA_D042';
+<p>80ca_d042</p> <p>Match each of the following categories of <strong><span style="color: #a719db;">chromosome</span> </strong>shape with their corresponding shape descriptions.</p><p><i>Note:</i> Each choice will be used exactly once.</p>
+PROMPT_80CA_D042
+loadMacros('PGML.pl', 'parserPopUp.pl');
+sub make_popup { return defined &DropDown ? DropDown(@_) : PopUp(@_); }
+$match_term_0 = <<'LITERAL_80CA_D042_MATCH_TERM_0';
+<strong><span style="color: #007a00;">Acrocentric</span></strong>
+LITERAL_80CA_D042_MATCH_TERM_0
+$match_term_1 = <<'LITERAL_80CA_D042_MATCH_TERM_1';
+<strong><span style="color: #d40000;">Acentric</span></strong>
+LITERAL_80CA_D042_MATCH_TERM_1
+$match_term_2 = <<'LITERAL_80CA_D042_MATCH_TERM_2';
+<strong><span style="color: #0067cc;">Metacentric</span></strong>
+LITERAL_80CA_D042_MATCH_TERM_2
+$match_term_3 = <<'LITERAL_80CA_D042_MATCH_TERM_3';
+<strong><span style="color: #076dad;">Dicentric</span></strong>
+LITERAL_80CA_D042_MATCH_TERM_3
+$match_term_4 = <<'LITERAL_80CA_D042_MATCH_TERM_4';
+<strong><span style="color: #c80085;">Submetacentric</span></strong>
+LITERAL_80CA_D042_MATCH_TERM_4
+$match_choice_0 = <<'LITERAL_80CA_D042_MATCH_CHOICE_0';
+the <strong><span style="color: #b74300;">centromere</span> </strong>is closer to the end rather than the center
+LITERAL_80CA_D042_MATCH_CHOICE_0
+$match_choice_1 = <<'LITERAL_80CA_D042_MATCH_CHOICE_1';
+spindle fibers cannot attach and the <strong><span style="color: #a719db;">chromosome</span> </strong>is lost when the cell divides
+LITERAL_80CA_D042_MATCH_CHOICE_1
+$match_choice_2 = <<'LITERAL_80CA_D042_MATCH_CHOICE_2';
+the <strong><span style="color: #b74300;">centromere</span> </strong>is located midway between the ends of the <strong><span style="color: #a719db;">chromosome</span></strong>
+LITERAL_80CA_D042_MATCH_CHOICE_2
+$match_choice_3 = <<'LITERAL_80CA_D042_MATCH_CHOICE_3';
+an abnormal <strong><span style="color: #a719db;">chromosome</span> </strong>that has two <strong><span style="color: #b74300;">centromeres</span></strong> that often appear in cancer cells
+LITERAL_80CA_D042_MATCH_CHOICE_3
+$match_choice_4 = <<'LITERAL_80CA_D042_MATCH_CHOICE_4';
+a slight asymmetry in the length of the two <strong><span style="color: #a719db;">chromosome</span> </strong>arms
+LITERAL_80CA_D042_MATCH_CHOICE_4
+$match_dropdown_0 = make_popup(['', "A", "B", "C", "D", "E"], 1);
+$match_dropdown_1 = make_popup(['', "A", "B", "C", "D", "E"], 2);
+$match_dropdown_2 = make_popup(['', "A", "B", "C", "D", "E"], 3);
+$match_dropdown_3 = make_popup(['', "A", "B", "C", "D", "E"], 4);
+$match_dropdown_4 = make_popup(['', "A", "B", "C", "D", "E"], 5);
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_PGML
+[@ MODES(HTML => '<div class="two-column">') @]*
+[@ MODES(HTML => '<div>') @]*
+[_]{$match_dropdown_0} *1.* [$match_term_0]*
+
+[_]{$match_dropdown_1} *2.* [$match_term_1]*
+
+[_]{$match_dropdown_2} *3.* [$match_term_2]*
+
+[_]{$match_dropdown_3} *4.* [$match_term_3]*
+
+[_]{$match_dropdown_4} *5.* [$match_term_4]*
+[@ MODES(HTML => '</div><div>') @]*
+*A.* [$match_choice_0]*
+
+*B.* [$match_choice_1]*
+
+*C.* [$match_choice_2]*
+
+*D.* [$match_choice_3]*
+
+*E.* [$match_choice_4]*
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+ENDDOCUMENT();

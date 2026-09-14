@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row f2fb_d803; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic06/bbq-TFMS-mitosis_and_meiosis-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_F2FB_D803';
+<p>f2fb_d803</p> <p>Which one of the following statements is<strong> <span style="color: #ba372a;"><strong>FALSE</strong></span> </strong> regarding <strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;">mitosis</span></strong></span></strong></span></strong></span></strong></span></strong> and <strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">meiosis</span></strong></span></strong></span></strong></span></strong></span></strong> cell division?</p>
+PROMPT_F2FB_D803
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_F2FB_D803_CHOICE_1';
+In diploid organisms, the final cells resulting from <strong><span style="color: MediumBlue;">meiosis</span></strong> cell division are haploid
+LITERAL_F2FB_D803_CHOICE_1
+$choice_2 = <<'LITERAL_F2FB_D803_CHOICE_2';
+During the process of <strong><span style="color: MediumBlue;">meiosis</span></strong> several processes occur that cause genetic variation among organisms
+LITERAL_F2FB_D803_CHOICE_2
+$choice_3 = <<'LITERAL_F2FB_D803_CHOICE_3';
+<strong><span style="color: MediumBlue;">Meiosis</span></strong> occurs in two phases, that is, <strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">meiosis</span></strong> I</span></strong> and <strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">meiosis</span></strong> I</span></strong>I</span></strong>
+LITERAL_F2FB_D803_CHOICE_3
+$choice_4 = <<'LITERAL_F2FB_D803_CHOICE_4';
+Both sexual and asexual organisms go through the process of <strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">meiosis</span></strong></span></strong>
+LITERAL_F2FB_D803_CHOICE_4
+$choice_5 = <<'LITERAL_F2FB_D803_CHOICE_5';
+Cross-over regularly happens in <strong><span style="color: MediumBlue;">meiosis</span></strong>, but<strong> <strong>NOT</strong> </strong>in <strong><span style="color: OrangeRed;">mitosis</span></strong>
+LITERAL_F2FB_D803_CHOICE_5
+$correct_1 = <<'LITERAL_F2FB_D803_CORRECT_1';
+Both sexual and asexual organisms go through the process of <strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">meiosis</span></strong></span></strong>
+LITERAL_F2FB_D803_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

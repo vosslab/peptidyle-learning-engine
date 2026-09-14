@@ -1,0 +1,68 @@
+## DESCRIPTION
+## Imported Genetics source row cf25_0f2f; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic06/bbq-MATCH-meiosis_prophase_1-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_CF25_0F2F';
+<p>cf25_0f2f</p> <p>Match each of the following stages of meiosis prophase I with their corresponding partial descriptions.</p><p><i>Note:</i> Each choice will be used exactly once.</p>
+PROMPT_CF25_0F2F
+loadMacros('PGML.pl', 'parserPopUp.pl');
+sub make_popup { return defined &DropDown ? DropDown(@_) : PopUp(@_); }
+$match_term_0 = <<'LITERAL_CF25_0F2F_MATCH_TERM_0';
+<strong><span style="color: #00775f;">Zygotene</span></strong>
+LITERAL_CF25_0F2F_MATCH_TERM_0
+$match_term_1 = <<'LITERAL_CF25_0F2F_MATCH_TERM_1';
+<strong><span style="color: #b74300;">Leptotene</span></strong>
+LITERAL_CF25_0F2F_MATCH_TERM_1
+$match_term_2 = <<'LITERAL_CF25_0F2F_MATCH_TERM_2';
+<strong><span style="color: #cc0066;">Diplotene or Diakinesis, combined</span></strong>
+LITERAL_CF25_0F2F_MATCH_TERM_2
+$match_term_3 = <<'LITERAL_CF25_0F2F_MATCH_TERM_3';
+<strong><span style="color: #0067cc;">Pachytene, early or late</span></strong>
+LITERAL_CF25_0F2F_MATCH_TERM_3
+$match_choice_0 = <<'LITERAL_CF25_0F2F_MATCH_CHOICE_0';
+synapsis of homologous chromosomes occurs
+LITERAL_CF25_0F2F_MATCH_CHOICE_0
+$match_choice_1 = <<'LITERAL_CF25_0F2F_MATCH_CHOICE_1';
+chromosomes begin to condense
+LITERAL_CF25_0F2F_MATCH_CHOICE_1
+$match_choice_2 = <<'LITERAL_CF25_0F2F_MATCH_CHOICE_2';
+nucleolus and nuclear envelope disappear while spindle fibers form
+LITERAL_CF25_0F2F_MATCH_CHOICE_2
+$match_choice_3 = <<'LITERAL_CF25_0F2F_MATCH_CHOICE_3';
+exchange of segments between non-sister chromatids may occur
+LITERAL_CF25_0F2F_MATCH_CHOICE_3
+$match_dropdown_0 = make_popup(['', "A", "B", "C", "D"], 1);
+$match_dropdown_1 = make_popup(['', "A", "B", "C", "D"], 2);
+$match_dropdown_2 = make_popup(['', "A", "B", "C", "D"], 3);
+$match_dropdown_3 = make_popup(['', "A", "B", "C", "D"], 4);
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_PGML
+[@ MODES(HTML => '<div class="two-column">') @]*
+[@ MODES(HTML => '<div>') @]*
+[_]{$match_dropdown_0} *1.* [$match_term_0]*
+
+[_]{$match_dropdown_1} *2.* [$match_term_1]*
+
+[_]{$match_dropdown_2} *3.* [$match_term_2]*
+
+[_]{$match_dropdown_3} *4.* [$match_term_3]*
+[@ MODES(HTML => '</div><div>') @]*
+*A.* [$match_choice_0]*
+
+*B.* [$match_choice_1]*
+
+*C.* [$match_choice_2]*
+
+*D.* [$match_choice_3]*
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+ENDDOCUMENT();

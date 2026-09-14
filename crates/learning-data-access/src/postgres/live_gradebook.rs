@@ -6,7 +6,8 @@ use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    CourseGradebook, CourseGradebookStore, CourseGradebookStudentWork, SessionTokenHash, StoreError,
+    CourseGradebook, CourseGradebookStore, CourseGradebookStudentWork, LiveAssignmentAttemptScore,
+    SessionTokenHash, StoreError,
 };
 
 #[derive(Clone)]
@@ -57,7 +58,7 @@ impl CourseGradebookStore for PostgresCourseGradebookStore {
         let mut transaction = self.begin(token).await?;
         let rows = sqlx::query(
             "SELECT course_reference_number, roster_id, assignment_reference_number, \
-             assignment_attempt_completion, graded_question_count, question_count, \
+             assignment_attempt_completion, expired_submitting, \
              points_earned, points_possible \
              FROM ple_api.read_course_gradebook($1)",
         )
@@ -114,29 +115,27 @@ fn decode_row(
         Some("completed") => Some(AssignmentAttemptCompletion::Completed),
         Some(_) => return Err(invalid("Assignment Attempt Completion")),
     };
-    let graded_question_count = u32::try_from(
-        row.try_get::<i64, _>("graded_question_count")
+    let expired_submitting: bool = row.try_get("expired_submitting").map_err(map_sqlx_error)?;
+    let score = match (
+        row.try_get::<Option<f64>, _>("points_earned")
             .map_err(map_sqlx_error)?,
-    )
-    .map_err(|_| invalid("graded Question count"))?;
-    let question_count = u32::try_from(
-        row.try_get::<i64, _>("question_count")
+        row.try_get::<Option<f64>, _>("points_possible")
             .map_err(map_sqlx_error)?,
-    )
-    .map_err(|_| invalid("Question count"))?;
-    let points_earned = finite_nonnegative(
-        row.try_get("points_earned").map_err(map_sqlx_error)?,
-        "points earned",
-    )?;
-    let points_possible = finite_nonnegative(
-        row.try_get("points_possible").map_err(map_sqlx_error)?,
-        "points possible",
-    )?;
-    if question_count == 0
-        || graded_question_count > question_count
-        || points_earned > points_possible
-        || (assignment_attempt_completion.is_none()
-            && (graded_question_count != 0 || points_earned != 0.0 || points_possible != 0.0))
+    ) {
+        (Some(points_earned), Some(points_possible)) => Some(LiveAssignmentAttemptScore {
+            points_earned: finite_nonnegative(points_earned, "points earned")?,
+            points_possible: finite_nonnegative(points_possible, "points possible")?,
+        }),
+        (None, None) => None,
+        _ => return Err(invalid("partial Gradebook score")),
+    };
+    if score
+        .as_ref()
+        .is_some_and(|value| value.points_earned > value.points_possible)
+        || (assignment_attempt_completion.is_none() && score.is_some())
+        || (expired_submitting
+            && (assignment_attempt_completion != Some(AssignmentAttemptCompletion::InProgress)
+                || score.is_some()))
     {
         return Err(invalid("Gradebook point ordering"));
     }
@@ -144,10 +143,8 @@ fn decode_row(
         roster_id,
         assignment_reference,
         assignment_attempt_completion,
-        graded_question_count,
-        question_count,
-        points_earned,
-        points_possible,
+        expired_submitting,
+        score,
     }))
 }
 

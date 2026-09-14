@@ -2,7 +2,6 @@ import type { AssignmentId } from "../../../generated/api/AssignmentId";
 import type { AssignmentAttempt } from "../../../generated/api/AssignmentAttempt";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
-import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ApiClient } from "../client";
 import type {
   AssignmentEditorDetail,
@@ -10,8 +9,6 @@ import type {
   AssignmentCreateInput,
   StudentFeedbackReleaseResponse,
   InstructorStudentView,
-  PrefetchedNextQuestion,
-  QuestionSubmissionAcknowledgement,
 } from "../contracts";
 import {
   decodeAssignmentContentInput,
@@ -19,10 +16,7 @@ import {
   decodeAssignmentAttempt,
   decodeCapabilityViolations,
   decodeStudentFeedbackReleaseResponse,
-  decodePrefetchedNextQuestion,
   decodeStudentResponseFormatCheck,
-  decodeStudentResponse,
-  decodeQuestionSubmissionAcknowledgement,
   decodeQuestionAttemptTimingDecision,
 } from "../decoders";
 import { decodeAssignmentEditorDetail } from "../decoders/assignment_workspace";
@@ -141,24 +135,6 @@ export function studentAttemptPath(
   return `${assignmentPath(courseId, assignmentId)}/attempts/${encodedId(attemptId)}`;
 }
 
-function verifyQuestionSubmissionAcknowledgement(
-  status: QuestionSubmissionAcknowledgement,
-  attemptId: QuestionAttemptId,
-): QuestionSubmissionAcknowledgement {
-  const returnedAttemptId = status.receipt.attemptId;
-  if (returnedAttemptId !== attemptId)
-    throw new ApiProtocolError("Submission status attempt does not match its request");
-  if (status.gradingState !== "graded") return status;
-  if (
-    status.receipt.nextIssued !== null &&
-    status.receipt.nextIssued.id === status.receipt.attempt.id
-  )
-    throw new ApiProtocolError("Submission receipt next attempt is not bound to its response");
-  if (status.receipt.nextPending && status.receipt.nextIssued !== null)
-    throw new ApiProtocolError("Submission receipt cannot issue and defer the same successor");
-  return status;
-}
-
 export async function requestAssignmentEditor(
   fetchImplementation: ApiFetch,
   basePath: string,
@@ -210,9 +186,6 @@ export function createRequestClient(
   | "saveAssignmentContent"
   | "getInstructorStudentView"
   | "startAssignmentAttempt"
-  | "prefetchNextQuestion"
-  | "submitResponse"
-  | "getSubmissionStatus"
   | "releaseStudentFeedback"
   | "validateResponseFormatOnServer"
   | "questionAttemptTimingDecisionOnServer"
@@ -282,67 +255,6 @@ export function createRequestClient(
           method: "POST",
         },
       ),
-    prefetchNextQuestion: async (
-      courseId,
-      assignmentId,
-      attemptId,
-      signal,
-    ): Promise<PrefetchedNextQuestion | null> => {
-      const path = `${studentAttemptPath(courseId, assignmentId, attemptId)}/prefetch-next`;
-      const response = await fetchImplementation(requestPath(basePath, path), {
-        method: "POST",
-        headers: { accept: "application/json" },
-        credentials: "same-origin",
-        cache: "no-store",
-        signal,
-      });
-      if (response.status === 204) return null;
-      if (!response.ok) throw new ApiRequestError(response.status, path);
-      const decoded = decodePrefetchedNextQuestion(
-        await boundedResponseJson(response, path),
-        "response",
-      );
-      if (decoded.predecessor !== attemptId)
-        throw new ApiProtocolError("Prefetched question predecessor does not match its request");
-      return decoded;
-    },
-    submitResponse: async (
-      courseId: CourseId,
-      assignmentId: AssignmentId,
-      attemptId: QuestionAttemptId,
-      response: StudentResponse,
-    ): ReturnType<ApiClient["submitResponse"]> => {
-      const decoded = decodeStudentResponse(response, "request.response");
-      const path =
-        decoded.kind === "imathasQuestionBackend"
-          ? `${studentAttemptPath(courseId, assignmentId, attemptId)}/imathas-question-backend/launch/submission`
-          : `${studentAttemptPath(courseId, assignmentId, attemptId)}/submissions`;
-      const status = await requestJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeQuestionSubmissionAcknowledgement,
-        {
-          method: "POST",
-          body: { response: decoded },
-        },
-      );
-      return verifyQuestionSubmissionAcknowledgement(status, attemptId);
-    },
-    getSubmissionStatus: async (
-      courseId,
-      assignmentId,
-      attemptId,
-    ): ReturnType<ApiClient["getSubmissionStatus"]> => {
-      const path = `${studentAttemptPath(courseId, assignmentId, attemptId)}/submission-status`;
-      const status = await requestJson(
-        fetchImplementation,
-        basePath,
-        path,
-        decodeQuestionSubmissionAcknowledgement,
-      );
-      return verifyQuestionSubmissionAcknowledgement(status, attemptId);
-    },
     releaseStudentFeedback: (attemptId): Promise<StudentFeedbackReleaseResponse> =>
       requestJson(
         fetchImplementation,

@@ -1,0 +1,46 @@
+## DESCRIPTION
+## Imported Genetics source row c28d_baa0; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic04/bbq-monohybrid_genotype_statements-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_C28D_BAA0';
+<p>c28d_baa0</p> What parental genotype combination produces <b>all homozygous recessive</b> in the resulting progeny?
+PROMPT_C28D_BAA0
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_C28D_BAA0_CHOICE_1';
+<strong><span style="font-family: monospace; font-size: 1.5em; color: #ba372a;">AA</span></strong> &nbsp;&times;&nbsp; <strong><span style="font-family: monospace; font-size: 1.5em; color: #ba372a;">AA</span></strong>
+LITERAL_C28D_BAA0_CHOICE_1
+$choice_2 = <<'LITERAL_C28D_BAA0_CHOICE_2';
+<strong><span style="font-family: monospace; font-size: 1.5em; color: #ba372a;">AA</span></strong> &nbsp;&times;&nbsp; <strong><span style="font-family: monospace; font-size: 1.5em; color: #843fa1;">Aa</span></strong>
+LITERAL_C28D_BAA0_CHOICE_2
+$choice_3 = <<'LITERAL_C28D_BAA0_CHOICE_3';
+<strong><span style="font-family: monospace; font-size: 1.5em; color: #ba372a;">AA</span></strong> &nbsp;&times;&nbsp; <strong><span style="font-family: monospace; font-size: 1.5em; color: #236fa1;">aa</span></strong>
+LITERAL_C28D_BAA0_CHOICE_3
+$choice_4 = <<'LITERAL_C28D_BAA0_CHOICE_4';
+<strong><span style="font-family: monospace; font-size: 1.5em; color: #843fa1;">Aa</span></strong> &nbsp;&times;&nbsp; <strong><span style="font-family: monospace; font-size: 1.5em; color: #843fa1;">Aa</span></strong>
+LITERAL_C28D_BAA0_CHOICE_4
+$choice_5 = <<'LITERAL_C28D_BAA0_CHOICE_5';
+<strong><span style="font-family: monospace; font-size: 1.5em; color: #843fa1;">Aa</span></strong> &nbsp;&times;&nbsp; <strong><span style="font-family: monospace; font-size: 1.5em; color: #236fa1;">aa</span></strong>
+LITERAL_C28D_BAA0_CHOICE_5
+$choice_6 = <<'LITERAL_C28D_BAA0_CHOICE_6';
+<strong><span style="font-family: monospace; font-size: 1.5em; color: #236fa1;">aa</span></strong> &nbsp;&times;&nbsp; <strong><span style="font-family: monospace; font-size: 1.5em; color: #236fa1;">aa</span></strong>
+LITERAL_C28D_BAA0_CHOICE_6
+$correct_1 = <<'LITERAL_C28D_BAA0_CORRECT_1';
+<strong><span style="font-family: monospace; font-size: 1.5em; color: #236fa1;">aa</span></strong> &nbsp;&times;&nbsp; <strong><span style="font-family: monospace; font-size: 1.5em; color: #236fa1;">aa</span></strong>
+LITERAL_C28D_BAA0_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5, $choice_6);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

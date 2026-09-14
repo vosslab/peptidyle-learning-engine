@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail, ensure};
 use wasm_bindgen_cli_support::Bindgen;
 
-use crate::{database, fixtures, installation_data, pilot_content, tsgen};
+use crate::{curriculum_content, database, fixtures, installation_data, pilot_content, tsgen};
 
 /// Rust roots that own generated browser contract declarations, relative to the repo root.
 const DEFAULT_CONTRACT_ROOTS: [&str; 2] = [
@@ -41,12 +41,13 @@ pub(crate) fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some(command) = args.first() else {
         bail!(
-            "usage: cargo tools <bindgen|database|fixtures|installation-data|pilot-content|tsgen> ..."
+            "usage: cargo tools <bindgen|curriculum-content|database|fixtures|installation-data|pilot-content|tsgen> ..."
         );
     };
 
     match command.as_str() {
         "bindgen" => run_bindgen(&args[1..]),
+        "curriculum-content" => curriculum_content::run(&args[1..]),
         "database" => database::run(&args[1..]),
         "fixtures" => run_fixtures(&args[1..]),
         "installation-data" => installation_data::run(&args[1..]),

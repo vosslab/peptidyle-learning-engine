@@ -1,0 +1,46 @@
+## DESCRIPTION
+## Imported Genetics source row 417b_21d0; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-polyploid-monoploid_v_haploid-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_417B_21D0';
+<p>417b_21d0</p> <p>A certain plant is found to be a tetradecaploid (14n) with 126 chromosomes in total.</p><h5>What are the monoploid (m) and haploid (h) numbers for this plant?</h5><p><i>Note: 126/14 = 9 and 126/2 = 63</i></p>
+PROMPT_417B_21D0
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_417B_21D0_CHOICE_1';
+<p>monoploid, m = 9 and haploid, h = 9</p>
+LITERAL_417B_21D0_CHOICE_1
+$choice_2 = <<'LITERAL_417B_21D0_CHOICE_2';
+<p>monoploid, m = 63 and haploid, h = 9</p>
+LITERAL_417B_21D0_CHOICE_2
+$choice_3 = <<'LITERAL_417B_21D0_CHOICE_3';
+<p>monoploid, m = 9 and haploid, h = 63</p>
+LITERAL_417B_21D0_CHOICE_3
+$choice_4 = <<'LITERAL_417B_21D0_CHOICE_4';
+<p>monoploid, m = 63 and haploid, h = 63</p>
+LITERAL_417B_21D0_CHOICE_4
+$choice_5 = <<'LITERAL_417B_21D0_CHOICE_5';
+<p>monoploid, m = 126 and haploid, h = 63</p>
+LITERAL_417B_21D0_CHOICE_5
+$choice_6 = <<'LITERAL_417B_21D0_CHOICE_6';
+<p>monoploid, m = 126 and haploid, h = 9</p>
+LITERAL_417B_21D0_CHOICE_6
+$correct_1 = <<'LITERAL_417B_21D0_CORRECT_1';
+<p>monoploid, m = 9 and haploid, h = 63</p>
+LITERAL_417B_21D0_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5, $choice_6);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

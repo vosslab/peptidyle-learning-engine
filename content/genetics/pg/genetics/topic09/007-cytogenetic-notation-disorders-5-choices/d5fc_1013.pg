@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row d5fc_1013; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-cytogenetic_notation-disorders-5_choices-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_D5FC_1013';
+<p>d5fc_1013</p> A patient has findings consistent with Klinefelter syndrome. The condition is caused by extra X chromosome in a male. The karyotype is best summarized as: male with mosaicism: a normal 46-chromosome line and a line with . Which notation matches this?
+PROMPT_D5FC_1013
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_D5FC_1013_CHOICE_1';
+<span style='font-family: monospace; font-weight: bold;'>47,XY,+18</span>
+LITERAL_D5FC_1013_CHOICE_1
+$choice_2 = <<'LITERAL_D5FC_1013_CHOICE_2';
+<span style='font-family: monospace; font-weight: bold;'>47,XX,+13</span>
+LITERAL_D5FC_1013_CHOICE_2
+$choice_3 = <<'LITERAL_D5FC_1013_CHOICE_3';
+<span style='font-family: monospace; font-weight: bold;'>47,XXY</span>
+LITERAL_D5FC_1013_CHOICE_3
+$choice_4 = <<'LITERAL_D5FC_1013_CHOICE_4';
+<span style='font-family: monospace; font-weight: bold;'>46,XY/47,XY,+13</span>
+LITERAL_D5FC_1013_CHOICE_4
+$choice_5 = <<'LITERAL_D5FC_1013_CHOICE_5';
+<span style='font-family: monospace; font-weight: bold;'>46,XY/47,XXY</span>
+LITERAL_D5FC_1013_CHOICE_5
+$correct_1 = <<'LITERAL_D5FC_1013_CORRECT_1';
+<span style='font-family: monospace; font-weight: bold;'>46,XY/47,XXY</span>
+LITERAL_D5FC_1013_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

@@ -215,7 +215,7 @@ if not re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}", value["quest
     raise SystemExit("Question Publication did not mint a Question ID")
 print(value["questionId"])
 ' "$(response_body "$published")")"
-	library="$(request '/api/questions/search?page_size=100' "$instructor_cookie")"
+	library="$(request "/api/questions/search?text=$published_question_id" "$instructor_cookie")"
 	if [ "$(response_status "$library")" != "200" ]; then
 		echo "Question Library did not expose the published Question" >&2
 		exit 1

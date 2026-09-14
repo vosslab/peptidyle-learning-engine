@@ -41,7 +41,6 @@ RESOURCE_KINDS = frozenset(
 )
 SEED_STATE_TRANSITIONS = frozenset()
 SERVICE_RECEIPTS = frozenset({"renderer_delivery"})
-FAULT_TRANSITIONS = frozenset({"native_ple_submission_recovery"})
 REQUIRED_BASELINE_AUTHORIZATION_SCENARIOS = {
 	"auth_authorization": (
 		"tests/playwright/e2e/auth_authorization.spec.ts",
@@ -67,7 +66,6 @@ class ScenarioContract:
 	visible_observation: str
 	seed_state_transitions: tuple[str, ...] = ()
 	service_receipt: str | None = None
-	fault_transition: str | None = None
 
 
 def scenario_contracts() -> tuple[ScenarioContract, ...]:
@@ -119,7 +117,6 @@ def validate_contract(contract: ScenarioContract) -> None:
 	_validate_closed_values("resource kind", contract.ui_creates, RESOURCE_KINDS, allow_empty=True)
 	_validate_visible_observation(contract.visible_observation)
 	_validate_service_receipt(contract.service_receipt)
-	_validate_fault_transition(contract.fault_transition)
 	_validate_seed_state_transitions(contract.seed_state_transitions)
 
 
@@ -204,12 +201,6 @@ def _validate_visible_observation(value: str) -> None:
 def _validate_service_receipt(value: str | None) -> None:
 	if value is not None and value not in SERVICE_RECEIPTS:
 		raise ScenarioContractError("browser scenario service receipt is invalid")
-
-
-def _validate_fault_transition(value: str | None) -> None:
-	"""Allow only a checked-in lifecycle fault transition."""
-	if value is not None and value not in FAULT_TRANSITIONS:
-		raise ScenarioContractError("browser scenario fault transition is invalid")
 
 
 def _validate_seed_state_transitions(values: tuple[str, ...]) -> None:

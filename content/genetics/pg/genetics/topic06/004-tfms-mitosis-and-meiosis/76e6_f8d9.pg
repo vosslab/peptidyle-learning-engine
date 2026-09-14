@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 76e6_f8d9; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic06/bbq-TFMS-mitosis_and_meiosis-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_76E6_F8D9';
+<p>76e6_f8d9</p> <p>Which one of the following statements is<strong> <span style="color: #127663;"><strong>TRUE</strong></span> </strong> regarding <strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;">mitosis</span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong> and <strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">meiosis</span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong> cell division?</p>
+PROMPT_76E6_F8D9
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_76E6_F8D9_CHOICE_1';
+<strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;">Mitosis</span></strong></span></strong> produces new cells to help organisms grow in size and repair damaged tissue
+LITERAL_76E6_F8D9_CHOICE_1
+$choice_2 = <<'LITERAL_76E6_F8D9_CHOICE_2';
+<strong><span style="color: MediumBlue;">Meiosis</span></strong> does<strong> <strong>NOT</strong> </strong>involve crossing over of the chromosomes
+LITERAL_76E6_F8D9_CHOICE_2
+$choice_3 = <<'LITERAL_76E6_F8D9_CHOICE_3';
+<strong><span style="color: OrangeRed;">Mitosis</span></strong> occurs only in specialized germline cells and facilitates sexual reproduction
+LITERAL_76E6_F8D9_CHOICE_3
+$choice_4 = <<'LITERAL_76E6_F8D9_CHOICE_4';
+<strong><span style="color: MediumBlue;">Meiosis</span></strong> goes through cytokinesis cell division once
+LITERAL_76E6_F8D9_CHOICE_4
+$choice_5 = <<'LITERAL_76E6_F8D9_CHOICE_5';
+<strong><span style="color: MediumBlue;">Meiosis</span></strong> starts with two cells and <strong><span style="color: OrangeRed;">mitosis</span></strong> starts with only one cell
+LITERAL_76E6_F8D9_CHOICE_5
+$correct_1 = <<'LITERAL_76E6_F8D9_CORRECT_1';
+<strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;">Mitosis</span></strong></span></strong> produces new cells to help organisms grow in size and repair damaged tissue
+LITERAL_76E6_F8D9_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

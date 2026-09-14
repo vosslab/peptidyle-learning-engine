@@ -1,10 +1,6 @@
 // Strict decoders for the bounded Student Assignment delivery surface.
 
-import type {
-  AssignmentStartDecision,
-  LiveAssignmentAccess,
-  LiveAssignmentAttempt,
-} from "../assignment_attempt_issuance";
+import type { LiveAssignmentAccess, LiveAssignmentAttempt } from "../assignment_attempt_issuance";
 import {
   DecodeError,
   decodeArray,
@@ -23,23 +19,10 @@ import {
 } from "./shared";
 import { decodeIssuedQuestionPresentation } from "./presentation_delivery";
 import { parseAssignmentAttemptReference } from "../../navigation/public_route";
+import { decodeStudentAssignmentDecision } from "./student_assignment_decision";
 
 const MAX_QUESTIONS = 25;
 const MAX_INSTRUCTIONS_UNICODE_SCALARS = 10_000;
-
-function decision(value: unknown, path: string): AssignmentStartDecision {
-  const decoded = decodeString(value, path);
-  if (
-    decoded !== "may_start" &&
-    decoded !== "not_yet_available" &&
-    decoded !== "closed" &&
-    decoded !== "attempt_limit_reached" &&
-    decoded !== "late_work_refused"
-  ) {
-    throw new DecodeError(path, "a current Assignment Start Decision");
-  }
-  return decoded;
-}
 
 function instructions(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
@@ -109,12 +92,11 @@ export function decodeLiveAssignmentAccess(
 ): LiveAssignmentAccess {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "startDecision",
+    "decision",
     "activeAssignmentAttempt",
     "title",
     "questionCount",
     "pointsPossible",
-    "timeLimitSeconds",
     "previousAttempts",
   ]);
   const activeAssignmentAttemptValue = field(record, "activeAssignmentAttempt", path);
@@ -135,7 +117,7 @@ export function decodeLiveAssignmentAccess(
     }
   }
   return {
-    startDecision: decision(field(record, "startDecision", path), `${path}.startDecision`),
+    decision: decodeStudentAssignmentDecision(field(record, "decision", path), `${path}.decision`),
     activeAssignmentAttempt,
     title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
     questionCount: decodeNonnegativeInteger(
@@ -146,10 +128,6 @@ export function decodeLiveAssignmentAccess(
       field(record, "pointsPossible", path),
       `${path}.pointsPossible`,
     ),
-    timeLimitSeconds: ((): number | null => {
-      const value = field(record, "timeLimitSeconds", path);
-      return value === null ? null : decodePositiveInteger(value, `${path}.timeLimitSeconds`);
-    })(),
     previousAttempts: decodeArray(
       field(record, "previousAttempts", path),
       `${path}.previousAttempts`,

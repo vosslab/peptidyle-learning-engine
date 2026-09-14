@@ -296,16 +296,14 @@ bytes. That checksum is never the Result Token checksum and neither
 belongs on a Grading Result. `ImathasGradingContext` remains exactly its
 three identity fields. The iMathAS Session stores authentication and Result lifecycle facts and
 binds the exact Question Attempt ID. Authenticated staging consumes the Session and
-creates the marker `StudentResponse::ImathasQuestionBackend {}` Question Submission,
-pending Question Submission Grading, and ready typed Job with ready Result Exchange
-evidence. Only a worker holding that Job's lease can atomically lock the Issued Question selected by
-that Question Attempt, resolve its point value and scoring rule, combine them with the backend
-`QuestionEvaluation`, derive the Assignment-owned Grading Result, write its Automated Grading Receipt,
-and commit the Result Exchange. Lease expiry enables a later claim; final execution
-failure is the Job/Question Submission Grading's `instructor_attention`, not a
-rewrite of the immutable evidence. No iMathAS Result DTO or raw result
-is generated or exposed to the browser. LTI remains future registered-protocol planning
-with no current schema path.
+creates the marker `StudentResponse::ImathasQuestionBackend {}` Question Submission and retains
+ready Result Exchange evidence. The backend's normalized credit fraction is the immutable outcome
+PLE records; current Assignment Entry points determine score on read. If this backend requires
+deferred completion, a narrow server-only background path may finish it without exposing a queue,
+attention state, retry-grading action, or grading status to either Student or Instructor. The
+current audit cleanup still removes legacy job/failure vocabulary from the internal boundary; that
+residue is not a product state. No iMathAS Result DTO or raw result is generated or exposed to the
+browser. LTI remains future registered-protocol planning with no current schema path.
 
 `AutomatedGradingReceiptChecksum` is LDA-owned, redacted, and non-Serde. Only
 the atomic worker commit derives it, after locked lineage and final Result
@@ -600,8 +598,8 @@ rules, answer keys, weights, and rubrics server-only.
 Assignment Attempt reads and mutations require the authenticated `AccountId` stored on the
 enrollment **and an active `Student` course membership at the Store/DB
 boundary**; they never infer authorization by equating that identity with
-`StudentRecordId`. This is repeated for Assignment Attempt, enrollment, summary, attempt,
-prefetch, `/student-feedback-release`, issuance, submission, and iMathAS Question Backend paths.
+`StudentRecordId`. This is repeated for Assignment Attempt, enrollment, summary, saved-response,
+finalization, `/student-feedback-release`, issuance, and iMathAS Question Backend paths.
 PostgreSQL checks it in the same transaction with the roster lock, and the
 in-memory Store uses the corresponding atomic lock. Course instructors retain a
 separate, explicitly authorized historical-record result after removal;
@@ -611,55 +609,34 @@ summaries, but only the Account that owns the Student Record through an active
 Student Course Membership may start or submit that Student Record's Assignment
 Attempt. Other Accounts receive not found so record existence is not disclosed.
 
-Each newly issued attempt receives an operating-system-random Question Seed. Resuming
-an unresolved attempt returns its stored Question Seed and Question Attempt Reproduction Details, and the Store
-locks the Assignment Attempt so only one unresolved question exists at a time. Server-owned
-database timestamps determine issue time, deadline, response arrival, and Assignment Attempt
-completion.
+Each issued Question receives an operating-system-random Question Seed. Starting an Assignment
+Attempt retains all issued Question identities, revisions, seeds, presentation bindings, and private
+Question Attempt Reproduction Details. Resuming the same active Attempt returns its retained state;
+server-owned database timestamps determine its start, expiry, response saves, and finalization.
 
-Next-question prefetch stores a course-scoped, server-only reservation without
-an attempt ID, timer, response, grade, or public answer. Its browser result
-is answer-free, while the reservation retains checksummed private grading
-authority for the exact issued question so first grade never reconstructs from
-Latest Question Revision or renderer state. The Store binds it to the active
-predecessor for that Student Record and its first unattempted assignment position. Only submission
-promotion creates the successor attempt and records either its immutable
-`nextIssued` descriptor or durable `nextPending` state in the predecessor's
-receipt. Replay reads that state instead of deriving a new successor from
-current Assignment Attempt state; initial recovery authorized through the
-predecessor's Student Record and active Student Course Membership alone may
-heal the sole committed-but-unlinked predecessor after a process failure.
-
-The prefetch response contains only the safe Question Presentation and an exact descriptor.
-Its rendered hash remains backend-owned because a backend such as WeBWorK may
-cover the shared Question Presentation. The route still
-requires exact Question Attempt Reproduction Details, Question Revision Reference, and Question Seed reproduction.
-The browser caches this result in memory only, aborts it on route teardown,
-warms at most 12 deduplicated same-origin logical asset routes, and advances
-from it only after an exact `nextIssued` receipt match. No prefetched Question Presentation or
-descriptor enters `localStorage` or `sessionStorage`.
+The Student browser requests one answer-free Question Presentation at a time by Assignment Attempt
+and position. It holds no answer, source, grading rule, or durable authority. Successfully saved
+responses remain attached to the active Attempt across authenticated browser sessions. Student
+finalization and server-owned expiry auto-submission use only that durable saved state; the browser
+cannot choose a later Question Revision or create a different grading target.
 
 PLE-native grading validates browser-visible Presentation Response Item References
 and response shape against the checksummed issued public snapshot, then validates
 the server-only Question Grading Input before calling the native grader. The
-immutable Question Submission retains the original Student Response. Submission
-persistence rejects malformed point values and atomically commits the Question
-Submission, grade event, Assignment Attempt and enrollment transitions, summary,
-and Question Submission Receipt. The one-Submission-per-Question-Attempt
-constraint is enforced for the application role; an exact repeat returns its
-existing Receipt, while a changed response conflicts.
+immutable Question Submission retains the response that was durably saved when the Assignment
+Attempt was finalized. Finalization rejects malformed saved data and atomically accepts one
+Question Submission per answered Question Attempt, closes unanswered Questions, and creates the
+corresponding pending grading rows and ready Jobs. Repeating finalization is idempotent; later
+response changes cannot replace accepted work.
 
-The current attempt DTO is answer-free but broader than the student needs: it
-still carries version, seed, Question Attempt Reproduction Details, implementation IDs,
-and source/asset identifiers. The Student Feedback Release Rule redacts Answer Keys, Question Feedback, and Question Grading Input,
-not that complete DTO. The payload plan's minimal student descriptor,
-Question Presentation Checksum-bound type-free response body, and compact receipt are accepted target
-work, not the current HTTP contract. Until that atomic cutover, clients must
-not treat current Question Attempt Reproduction Details or the tagged response `kind` as
-submission authority. Policy-permitted results may contain correctness and
-points, but never an answer key, expected value, private rubric, or checker
-state. Student Feedback uses an explicit sanitized disclosure DTO; it
-never serializes the server-only key as a shortcut.
+The current Student Assignment Attempt routes expose focused context, answer-free progress, one
+selected presentation and saved working response, a small save acknowledgement, whole-Attempt
+finalization, and policy-permitted completed results. Private Question Attempt Reproduction Details,
+implementation IDs, source objects, grading inputs, Job facts, and raw provider results remain on
+the server. The tagged Student Response `kind` selects a closed response shape but grants no
+authority; the server rederives the exact issued presentation from the authenticated Attempt and
+position. Policy-permitted result and feedback projections may contain correctness and points, but
+never an Answer Key, expected value, private rubric, or checker state.
 
 ## WeBWorK backend-owned document and grading boundary
 
@@ -684,8 +661,9 @@ never enter the Student document or a durable Student Response.
 
 Generic submission accepts only the `BackendOwned` response paired with an
 issued `BackendOwned` format, with a bounded 64 KiB opaque payload. Generic
-persistence does not interpret that payload. Before a WeBWorK worker makes its
-single renderer grading request, the WeBWorK adapter requires canonical JSON
+persistence does not interpret that payload. The same ordinary submission path
+and Assignment Attempt expiry worker call the WeBWorK adapter for its single
+renderer grading request. The adapter requires canonical JSON
 encoding of ordered `[name, value]` pairs, preserves duplicate pairs, and
 rejects empty, oversized, or case-insensitive server-owned and reserved names.
 It then adds the trusted source, seed, and server flags itself. This is
@@ -780,10 +758,10 @@ class of each field and record the appropriate authorization and retention
 owner before it is emitted.
 
 Security-relevant delivery authorization appends an audit event before a
-protected object URL is requested. Worker and retry diagnostics preserve only
+protected object URL is requested. Background-work diagnostics preserve only
 the evidence necessary to recover through their durable receipt or lease
 boundary. [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md) defines the required
-public outcome and retry behavior; it is not acceptable to reveal a hidden
+operator recovery boundary; it is not acceptable to reveal a hidden
 cause merely to make a support response more convenient.
 
 ## Placement rule

@@ -1,0 +1,19 @@
+bbq-gene_tree_choice_plus-MC-with_hint-TABLE_mode-LEVEL_1-questions.txt: Gene Trees from
+  Distance Matrices (Level 1)
+bbq-gene_tree_choice_plus-MC-with_hint-TABLE_mode-LEVEL_2-questions.txt: Gene Trees from
+  Distance Matrices (Level 2)
+bbq-gene_tree_choice_plus-MC-with_hint-TABLE_mode-LEVEL_3-questions.txt: Gene Trees from
+  Distance Matrices (Level 3)
+bbq-gene_tree_choice_plus-MC-with_hint-TABLE_mode-LEVEL_4-questions.txt: Gene Trees from
+  Distance Matrices (Level 4)
+bbq-gene_tree_choice_plus-MC-with_hint-TABLE_mode-LEVEL_5-questions.txt: Gene Trees from
+  Distance Matrices (Level 5)
+bbq-gene_tree_matches_plus-MC-with_hint-DIFFERENT_mode-EASY_level-questions.txt: Non-Equivalent
+  Phylogenetic Tree Structures (EASY)
+bbq-gene_tree_matches_plus-MC-with_hint-DIFFERENT_mode-MEDIUM_level-questions.txt: Non-Equivalent
+  Phylogenetic Tree Structures (MEDIUM)
+bbq-gene_tree_matches_plus-MC-with_hint-SAME_mode-EASY_level-questions.txt: Equivalent
+  Phylogenetic Tree Structures (EASY)
+bbq-gene_tree_matches_plus-MC-with_hint-SAME_mode-MEDIUM_level-questions.txt: Equivalent
+  Phylogenetic Tree Structures (MEDIUM)
+last edit: Sun Jul 12 23:11:26 2026

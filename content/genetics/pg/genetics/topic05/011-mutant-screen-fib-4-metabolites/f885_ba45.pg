@@ -1,0 +1,40 @@
+## DESCRIPTION
+## Imported Genetics source row f885_ba45; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic05/bbq-mutant_screen-fib-4_metabolites-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_F885_BA45';
+<p>f885_ba45</p> <p>A mutant screen was carried out to produce the diagram below. The diagram shows different classes&nbsp;(1-4) of mutants for metabolic precursors&nbsp;(W-Z) of a metabolic pathway to produce a product were characterized to either grow&nbsp;(+) or not grow&nbsp;(&ndash;) in minimal media.</p><table width="300px" cellpadding="2" cellspacing="2" style="text-align:center; border: 1px solid black; font-size: 14px;"><tr><td></td><td align="center" valign="middle">W</td><td align="center" valign="middle">X</td><td align="center" valign="middle">Y</td><td align="center" valign="middle">Z</td></tr><tr><td align="center" valign="middle">Class 1</td><td align="center" valign="middle">+</td><td align="center" valign="middle">&ndash;</td><td align="center" valign="middle">&ndash;</td><td align="center" valign="middle">&ndash;</td></tr><tr><td align="center" valign="middle">Class 2</td><td align="center" valign="middle">+</td><td align="center" valign="middle">+</td><td align="center" valign="middle">+</td><td align="center" valign="middle">+</td></tr><tr><td align="center" valign="middle">Class 3</td><td align="center" valign="middle">+</td><td align="center" valign="middle">&ndash;</td><td align="center" valign="middle">&ndash;</td><td align="center" valign="middle">+</td></tr><tr><td align="center" valign="middle">Class 4</td><td align="center" valign="middle">+</td><td align="center" valign="middle">+</td><td align="center" valign="middle">&ndash;</td><td align="center" valign="middle">+</td></tr></table><h6>Write the metabolic precursors&nbsp;(W-Z) in their correct order for the pathway without spaces or dashes. For example, XYZW.</h6>
+PROMPT_F885_BA45
+sub fib_any_cmp {
+  my @accepted = @_;
+  return scalar str_cmp($accepted[0]) if @accepted == 1;
+  my @checks = map { scalar str_cmp($_) } @accepted;
+  my $combined = new AnswerEvaluator;
+  $combined->ans_hash(correct_ans => join(' OR ', @accepted), type => 'fib_any_cmp', score => 0);
+  $combined->install_evaluator(sub {
+    my $rh_ans = shift;
+    my $result;
+    for my $check (@checks) {
+      my $candidate = $check->evaluate($rh_ans->{student_ans});
+      $result = defined($result) ? $result->OR($candidate) : $candidate;
+    }
+    return $result;
+  });
+  return $combined;
+}
+@accepted_fib = ("YXZW");
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{ans_rule(30)\}
+END_TEXT
+ANS(fib_any_cmp(@accepted_fib));
+
+ENDDOCUMENT();

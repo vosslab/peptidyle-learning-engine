@@ -72,7 +72,8 @@ $$;
 
 CREATE TABLE ple_private.account_time_zone (
     account_id uuid PRIMARY KEY REFERENCES ple_private.account (account_id),
-    time_zone text NOT NULL CHECK (ple_private.account_time_zone_is_exact_iana(time_zone))
+    time_zone text NOT NULL CHECK (ple_private.account_time_zone_is_exact_iana(time_zone)),
+    student_invitation_default_pending boolean NOT NULL DEFAULT false
 );
 
 CREATE FUNCTION ple_private.reject_invalid_account_time_zone()
@@ -93,8 +94,9 @@ RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_private
 AS $$
 BEGIN
-    INSERT INTO ple_private.account_time_zone (account_id, time_zone)
-    VALUES (NEW.account_id, 'America/Chicago');
+    INSERT INTO ple_private.account_time_zone (
+        account_id, time_zone, student_invitation_default_pending
+    ) VALUES (NEW.account_id, 'America/Chicago', false);
     RETURN NEW;
 END
 $$;
@@ -243,6 +245,80 @@ BEGIN
 END
 $$;
 
+CREATE FUNCTION ple_private.current_authenticated_student_time_zone()
+RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private
+AS $$
+DECLARE v_account_id uuid;
+BEGIN
+    v_account_id := ple_api.current_session_account_id();
+    RETURN (
+        SELECT preference.time_zone
+          FROM ple_private.account_time_zone AS preference
+          JOIN ple_private.account AS account ON account.account_id = preference.account_id
+          JOIN LATERAL (
+              SELECT state_event.state FROM ple_private.account_state_event AS state_event
+               WHERE state_event.account_id = account.account_id
+               ORDER BY state_event.occurred_at DESC, state_event.event_id DESC LIMIT 1
+          ) AS current_state ON current_state.state = 'active'
+         WHERE account.account_id = v_account_id AND account.product_role = 'student'
+    );
+END
+$$;
+
+CREATE FUNCTION ple_private.update_authenticated_student_time_zone(p_time_zone text)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private
+AS $$
+DECLARE v_account_id uuid;
+BEGIN
+    IF NOT ple_private.account_time_zone_is_exact_iana(p_time_zone) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Student time zone is invalid';
+    END IF;
+    v_account_id := ple_api.current_session_account_id();
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_private.account AS account
+        JOIN LATERAL (
+            SELECT state_event.state FROM ple_private.account_state_event AS state_event
+             WHERE state_event.account_id = account.account_id
+             ORDER BY state_event.occurred_at DESC, state_event.event_id DESC LIMIT 1
+        ) AS current_state ON current_state.state = 'active'
+        WHERE account.account_id = v_account_id AND account.product_role = 'student'
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Active Student Account required';
+    END IF;
+    -- ASVS 2.2.2 and 4.2.1: the installed session supplies the only subject;
+    -- no Instructor-controlled Student identity crosses this mutation boundary.
+    UPDATE ple_private.account_time_zone
+       SET time_zone = p_time_zone, student_invitation_default_pending = false
+     WHERE account_id = v_account_id
+    RETURNING time_zone INTO p_time_zone;
+    RETURN p_time_zone;
+END
+$$;
+
+CREATE FUNCTION ple_private.apply_student_invitation_time_zone_default(
+    p_student_account_id uuid, p_inviting_instructor_account_id uuid
+)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_private
+AS $$
+BEGIN
+    UPDATE ple_private.account_time_zone AS student_preference
+       SET time_zone = instructor_preference.time_zone,
+           student_invitation_default_pending = false
+      FROM ple_private.account_time_zone AS instructor_preference
+      JOIN ple_private.account AS instructor
+        ON instructor.account_id = instructor_preference.account_id
+       AND instructor.product_role = 'instructor'
+      JOIN ple_private.account AS student
+        ON student.account_id = p_student_account_id AND student.product_role = 'student'
+     WHERE student_preference.account_id = student.account_id
+       AND student_preference.student_invitation_default_pending
+       AND instructor.account_id = p_inviting_instructor_account_id;
+END
+$$;
+
 CREATE FUNCTION ple_private.resolve_or_create_student_account(
     p_normalized_email text, p_delivery_email text
 )
@@ -268,6 +344,9 @@ BEGIN
     v_account_id := pg_catalog.gen_random_uuid();
     INSERT INTO ple_private.account (account_id, product_role, created_at)
     VALUES (v_account_id, 'student', v_now);
+    UPDATE ple_private.account_time_zone
+       SET student_invitation_default_pending = true
+     WHERE account_id = v_account_id;
     INSERT INTO ple_private.account_authentication_email (
         account_id, normalized_email, delivery_email, verified_at, updated_at
     ) VALUES (v_account_id, p_normalized_email, p_delivery_email, v_now, v_now);
@@ -384,6 +463,9 @@ $$;
 
 REVOKE ALL PRIVILEGES ON FUNCTION ple_private.require_current_sysadmin_account(),
     ple_private.current_authenticated_account_time_zone(),
+    ple_private.current_authenticated_student_time_zone(),
+    ple_private.update_authenticated_student_time_zone(text),
+    ple_private.apply_student_invitation_time_zone_default(uuid, uuid),
     ple_private.resolve_or_create_student_account(text, text),
     ple_private.create_instructor_account(text, text),
     ple_private.instructor_account_summary(uuid),
@@ -395,6 +477,9 @@ GRANT EXECUTE ON FUNCTION ple_private.create_instructor_account(text, text),
     ple_private.list_instructor_accounts(),
     ple_private.change_instructor_account_state(bigint, text, text),
     ple_private.current_authenticated_account_time_zone(),
+    ple_private.current_authenticated_student_time_zone(),
+    ple_private.update_authenticated_student_time_zone(text),
+    ple_private.apply_student_invitation_time_zone_default(uuid, uuid),
     ple_private.resolve_or_create_student_account(text, text) TO ple_api_owner;
 
 RESET ROLE;
@@ -405,6 +490,16 @@ CREATE FUNCTION ple_api.current_account_time_zone()
 RETURNS text LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private
 AS $$ SELECT ple_private.current_authenticated_account_time_zone() $$;
+
+CREATE FUNCTION ple_api.read_student_time_zone()
+RETURNS text LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private
+AS $$ SELECT ple_private.current_authenticated_student_time_zone() $$;
+
+CREATE FUNCTION ple_api.update_student_time_zone(p_time_zone text)
+RETURNS text LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private
+AS $$ SELECT ple_private.update_authenticated_student_time_zone(p_time_zone) $$;
 
 CREATE FUNCTION ple_api.list_instructor_accounts()
 RETURNS TABLE (reference_number bigint, state text, last_successful_sign_in timestamp with time zone)
@@ -476,11 +571,13 @@ END
 $$;
 
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.current_account_time_zone(),
+    ple_api.read_student_time_zone(), ple_api.update_student_time_zone(text),
     ple_api.list_instructor_accounts(), ple_api.create_instructor_account(text),
     ple_api.change_instructor_account_state(bigint, text, text),
     ple_api.read_instructor_profile(), ple_api.update_instructor_profile(text) FROM PUBLIC;
 GRANT USAGE ON SCHEMA ple_api TO ple_app;
 GRANT EXECUTE ON FUNCTION ple_api.current_account_time_zone(),
+    ple_api.read_student_time_zone(), ple_api.update_student_time_zone(text),
     ple_api.list_instructor_accounts(), ple_api.create_instructor_account(text),
     ple_api.change_instructor_account_state(bigint, text, text),
     ple_api.read_instructor_profile(), ple_api.update_instructor_profile(text) TO ple_app;

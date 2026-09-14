@@ -4,7 +4,7 @@ import type {
   StudentAssignmentAttemptProgress,
   StudentAssignmentAttemptResponseSaveAcknowledgement,
   StudentAssignmentAttemptResponseState,
-  StudentAssignmentAttemptSubmissionAcknowledgement,
+  StudentAssignmentAttemptSubmissionResult,
 } from "../assignment_attempt_navigation";
 import {
   DecodeError,
@@ -25,6 +25,7 @@ import {
   parseCourseInstanceReference,
 } from "../../navigation/public_route";
 import { COURSE_THEME_VALUES } from "../../../generated/api/CourseTheme";
+import { decodeAccountTimeZone } from "./student_assignment_decision";
 import { decodeStudentQuestionPresentation } from "./presentation_delivery";
 import { decodeStudentResponse } from "./question_delivery";
 
@@ -67,6 +68,8 @@ export function decodeStudentAssignmentAttemptContext(
   requireOnlyFields(record, path, [
     "assignmentAttempt",
     "attemptNumber",
+    "displayTimeZone",
+    "expiresAt",
     "timerRemainingMilliseconds",
     "course",
     "assignment",
@@ -76,6 +79,7 @@ export function decodeStudentAssignmentAttemptContext(
   const assignment = decodeRecord(field(record, "assignment", path), `${path}.assignment`);
   requireOnlyFields(assignment, `${path}.assignment`, ["reference", "title"]);
   const remaining = field(record, "timerRemainingMilliseconds", path);
+  const expiresAt = field(record, "expiresAt", path);
   return {
     assignmentAttempt: decodeAssignmentAttemptReference(
       field(record, "assignmentAttempt", path),
@@ -85,6 +89,11 @@ export function decodeStudentAssignmentAttemptContext(
       field(record, "attemptNumber", path),
       `${path}.attemptNumber`,
     ),
+    displayTimeZone: decodeAccountTimeZone(
+      field(record, "displayTimeZone", path),
+      `${path}.displayTimeZone`,
+    ),
+    expiresAt: expiresAt === null ? null : decodeNonnegativeInteger(expiresAt, `${path}.expiresAt`),
     timerRemainingMilliseconds:
       remaining === null
         ? null
@@ -208,12 +217,40 @@ export function decodeStudentAssignmentAttemptResponseSaveAcknowledgement(
   };
 }
 
-export function decodeStudentAssignmentAttemptSubmissionAcknowledgement(
+function decodeScore(
+  value: unknown,
+  path: string,
+): {
+  readonly pointsEarned: number;
+  readonly pointsPossible: number;
+} {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["pointsEarned", "pointsPossible"]);
+  const pointsEarned = nonnegativeFinite(
+    field(record, "pointsEarned", path),
+    `${path}.pointsEarned`,
+  );
+  const pointsPossible = nonnegativeFinite(
+    field(record, "pointsPossible", path),
+    `${path}.pointsPossible`,
+  );
+  if (pointsEarned > pointsPossible)
+    throw new DecodeError(path, "a score whose earned points do not exceed possible points");
+  return { pointsEarned, pointsPossible };
+}
+
+function nonnegativeFinite(value: unknown, path: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0)
+    throw new DecodeError(path, "a non-negative finite score");
+  return value;
+}
+
+export function decodeStudentAssignmentAttemptSubmissionResult(
   value: unknown,
   path = "response",
-): StudentAssignmentAttemptSubmissionAcknowledgement {
+): StudentAssignmentAttemptSubmissionResult {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["assignmentAttempt", "submissionState"]);
+  requireOnlyFields(record, path, ["assignmentAttempt", "submissionState", "score"]);
   const submissionState = field(record, "submissionState", path);
   if (submissionState !== "submitted")
     throw new DecodeError(
@@ -226,5 +263,9 @@ export function decodeStudentAssignmentAttemptSubmissionAcknowledgement(
       `${path}.assignmentAttempt`,
     ),
     submissionState,
+    score: ((): StudentAssignmentAttemptSubmissionResult["score"] => {
+      const value = field(record, "score", path);
+      return value === null ? null : decodeScore(value, `${path}.score`);
+    })(),
   };
 }

@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row d0fa_f649; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-polyploid-gametes-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_D0FA_F649';
+<p>d0fa_f649</p> <p>A a tetradecaploid plant species is found to be 14n = 140 chromosomes.</p> <h5>How many chromosomes would present in the gametes of this species?</h5><p><i>Note: 140/2 = 70 and 140/14 = 10</i></p>
+PROMPT_D0FA_F649
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_D0FA_F649_CHOICE_1';
+7 chromosomes
+LITERAL_D0FA_F649_CHOICE_1
+$choice_2 = <<'LITERAL_D0FA_F649_CHOICE_2';
+14 chromosomes
+LITERAL_D0FA_F649_CHOICE_2
+$choice_3 = <<'LITERAL_D0FA_F649_CHOICE_3';
+20 chromosomes
+LITERAL_D0FA_F649_CHOICE_3
+$choice_4 = <<'LITERAL_D0FA_F649_CHOICE_4';
+35 chromosomes
+LITERAL_D0FA_F649_CHOICE_4
+$choice_5 = <<'LITERAL_D0FA_F649_CHOICE_5';
+70 chromosomes
+LITERAL_D0FA_F649_CHOICE_5
+$correct_1 = <<'LITERAL_D0FA_F649_CORRECT_1';
+70 chromosomes
+LITERAL_D0FA_F649_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

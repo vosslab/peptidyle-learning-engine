@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 6bf6_2da8; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-cytogenetic_notation-band_order-5_choices-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_6BF6_2DA8';
+<p>6bf6_2da8</p> On chromosome 18p, which band is most proximal (closest to the centromere)?
+PROMPT_6BF6_2DA8
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_6BF6_2DA8_CHOICE_1';
+<span style='font-family: monospace; font-weight: bold;'>18p34</span>
+LITERAL_6BF6_2DA8_CHOICE_1
+$choice_2 = <<'LITERAL_6BF6_2DA8_CHOICE_2';
+<span style='font-family: monospace; font-weight: bold;'>18p29.1</span>
+LITERAL_6BF6_2DA8_CHOICE_2
+$choice_3 = <<'LITERAL_6BF6_2DA8_CHOICE_3';
+<span style='font-family: monospace; font-weight: bold;'>18p33.1</span>
+LITERAL_6BF6_2DA8_CHOICE_3
+$choice_4 = <<'LITERAL_6BF6_2DA8_CHOICE_4';
+<span style='font-family: monospace; font-weight: bold;'>18p41.1</span>
+LITERAL_6BF6_2DA8_CHOICE_4
+$choice_5 = <<'LITERAL_6BF6_2DA8_CHOICE_5';
+<span style='font-family: monospace; font-weight: bold;'>18p33.2</span>
+LITERAL_6BF6_2DA8_CHOICE_5
+$correct_1 = <<'LITERAL_6BF6_2DA8_CORRECT_1';
+<span style='font-family: monospace; font-weight: bold;'>18p29.1</span>
+LITERAL_6BF6_2DA8_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

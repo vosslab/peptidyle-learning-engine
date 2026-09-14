@@ -2,6 +2,7 @@ import type { AssignmentAttemptReference } from "../../generated/api/AssignmentA
 import type { AssignmentReference } from "../../generated/api/AssignmentReference";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { CourseTheme } from "../../generated/api/CourseTheme";
+import type { AccountTimeZone } from "../../generated/api/AccountTimeZone";
 import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { StudentQuestionPresentation } from "./decoders/presentation_delivery";
 
@@ -22,6 +23,8 @@ export interface StudentAssignmentAttemptProgress {
 export interface StudentAssignmentAttemptContext {
   readonly assignmentAttempt: AssignmentAttemptReference;
   readonly attemptNumber: number;
+  readonly displayTimeZone: AccountTimeZone;
+  readonly expiresAt: number | null;
   readonly timerRemainingMilliseconds: number | null;
   readonly course: {
     readonly reference: CourseInstanceReference;
@@ -50,10 +53,16 @@ export interface StudentAssignmentAttemptResponseSaveAcknowledgement {
   readonly responseState: "saved";
 }
 
-/** Immutable final-submission receipt for the whole Assignment Attempt. */
-export interface StudentAssignmentAttemptSubmissionAcknowledgement {
+/** Immutable final-submission result for the whole Assignment Attempt. */
+export interface StudentAssignmentAttemptSubmissionResult {
   readonly assignmentAttempt: AssignmentAttemptReference;
   readonly submissionState: "submitted";
+  /** Current Assignment points applied to immutable stored credit fractions. */
+  /** Null only when a backend has accepted work but will report credit later. */
+  readonly score: {
+    readonly pointsEarned: number;
+    readonly pointsPossible: number;
+  } | null;
 }
 
 export interface StudentAssignmentAttemptNavigationClient {
@@ -74,5 +83,5 @@ export interface StudentAssignmentAttemptNavigationClient {
   ) => Promise<StudentAssignmentAttemptResponseSaveAcknowledgement>;
   readonly submitStudentAssignmentAttempt: (
     assignmentAttempt: AssignmentAttemptReference,
-  ) => Promise<StudentAssignmentAttemptSubmissionAcknowledgement>;
+  ) => Promise<StudentAssignmentAttemptSubmissionResult>;
 }

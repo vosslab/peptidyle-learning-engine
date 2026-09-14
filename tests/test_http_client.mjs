@@ -9,17 +9,12 @@ import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeQuestionPage,
-  decodeQuestionSubmissionAcknowledgement,
   decodeIssuedQuestionPresentation,
   decodeAssignmentAttempt,
   decodeStudentQuestionAttemptView,
 } from "../src/api/decoders.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
-import {
-  createRecordingFetch,
-  issuedQuestionWireFixture,
-  jsonResponse,
-} from "./http_client_test_support.mjs";
+import { createRecordingFetch, jsonResponse } from "./http_client_test_support.mjs";
 
 test("asset URLs require and retain the exact Question Revision identity", () => {
   const client = createHttpApiClient({ basePath: "/live" });
@@ -60,40 +55,6 @@ test("an issued iMathAS Question Backend Question Presentation accepts only its 
         response: { kind: "imathasQuestionBackend", token: "secret" },
       }),
     DecodeError,
-  );
-});
-
-test("Question Submission acknowledgement separates its answer-free receipt and grading state", () => {
-  const attempt = publishedQuestionFixture.attempts[0];
-  assert.ok(attempt);
-  const pending = {
-    receipt: { accepted: true, attemptId: attempt.id },
-    gradingState: "pending",
-    nextAction: "check_status",
-  };
-  assert.deepEqual(decodeQuestionSubmissionAcknowledgement(pending), pending);
-  assert.throws(
-    () => decodeQuestionSubmissionAcknowledgement({ ...pending, gradingState: "unknown" }),
-    DecodeError,
-  );
-  for (const forbidden of [
-    "response",
-    "feedback",
-    "result",
-    "score",
-    "nextIssued",
-    "nextPending",
-  ]) {
-    assert.throws(
-      () => decodeQuestionSubmissionAcknowledgement({ ...pending, [forbidden]: "private" }),
-      DecodeError,
-      forbidden,
-    );
-  }
-  assert.throws(
-    () => decodeQuestionSubmissionAcknowledgement({ ...pending, attempt: {} }),
-    DecodeError,
-    "pending acknowledgement cannot mix detailed receipt data at its outer boundary",
   );
 });
 
@@ -138,31 +99,6 @@ test("Question Title and Question Description remain bounded at the strict Quest
       ),
     DecodeError,
   );
-});
-
-test("prefetch is a body-free same-origin no-store request", async () => {
-  const course = publishedQuestionFixture.course;
-  const assignment = publishedQuestionFixture.assignment;
-  const attempt = publishedQuestionFixture.attempts[0];
-  assert.ok(attempt);
-  const requests = [];
-  const client = createHttpApiClient({
-    fetch: async (input, init) => {
-      const request = new Request(new URL(String(input), "https://client.example.test"), init);
-      requests.push(request);
-      return new Response(null, { status: 204 });
-    },
-  });
-  assert.equal(await client.prefetchNextQuestion(course.id, assignment.id, attempt.id), null);
-  const request = requests[0];
-  assert.ok(request);
-  assert.equal(
-    request.url,
-    `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/prefetch-next`,
-  );
-  assert.equal(request.method, "POST");
-  assert.equal(request.cache, "no-store");
-  assert.equal(await request.text(), "");
 });
 
 test("Assignment Attempt start uses the explicit nested course and assignment route without a body", async () => {
@@ -225,73 +161,6 @@ test("Student Question Attempt decoding accepts every generated issued capabilit
   );
 });
 
-test("prefetch rejects a descriptor with a mismatched issued identity", async () => {
-  const course = publishedQuestionFixture.course;
-  const assignment = publishedQuestionFixture.assignment;
-  const predecessor = publishedQuestionFixture.attempts[0];
-  assert.ok(predecessor);
-  const questionPresentation = {
-    ...issuedQuestionWireFixture(
-      predecessor,
-      publishedQuestionFixture.publishedQuestion,
-      publishedQuestionFixture.issuedQuestions[0].reference,
-    ),
-    questionRevision: {
-      questionId: "BCDEFGH",
-      revisionNumber: "99",
-    },
-  };
-  const client = createHttpApiClient({
-    fetch: async () =>
-      jsonResponse({
-        predecessor: predecessor.id,
-        issuedQuestion: {
-          ...publishedQuestionFixture.issuedQuestions[1],
-          reference: {
-            ...publishedQuestionFixture.issuedQuestions[1].reference,
-            version: "0198e000-0000-7000-8000-000000000099",
-          },
-        },
-        question_seed: predecessor.question_seed,
-        renderedQuestionSha256: "a".repeat(64),
-        questionPoolSelectionPosition: null,
-        presentation: questionPresentation,
-      }),
-  });
-  await assert.rejects(
-    client.prefetchNextQuestion(course.id, assignment.id, predecessor.id),
-    DecodeError,
-  );
-});
-
-test("prefetch preserves safe Question Pool selection for the cache-hit successor", async () => {
-  const course = publishedQuestionFixture.course;
-  const assignment = publishedQuestionFixture.assignment;
-  const predecessor = publishedQuestionFixture.attempts[0];
-  assert.ok(predecessor);
-  const questionPresentation = issuedQuestionWireFixture(
-    predecessor,
-    publishedQuestionFixture.publishedQuestion,
-    publishedQuestionFixture.issuedQuestions[0].reference,
-  );
-  const client = createHttpApiClient({
-    fetch: async () =>
-      jsonResponse({
-        predecessor: predecessor.id,
-        issuedQuestion: publishedQuestionFixture.issuedQuestions[1],
-        question_seed: questionPresentation.question_seed,
-        renderedQuestionSha256: "b".repeat(64),
-        questionPoolSelectionPosition: { selectedQuestionNumber: 1, selectedQuestionCount: 2 },
-        presentation: questionPresentation,
-      }),
-  });
-  const prefetched = await client.prefetchNextQuestion(course.id, assignment.id, predecessor.id);
-  assert.deepEqual(prefetched?.questionPoolSelectionPosition, {
-    selectedQuestionNumber: 1,
-    selectedQuestionCount: 2,
-  });
-});
-
 test("iMathAS Question Backend launch returns its strict same-origin launch route", async () => {
   const course = publishedQuestionFixture.course;
   const assignment = publishedQuestionFixture.assignment;
@@ -341,111 +210,4 @@ test("iMathAS Question Backend launch rejects absolute, foreign, and decorated r
       launchUrl,
     );
   }
-});
-
-test("ordinary submission uses the explicit nested binding and answer-only body", async () => {
-  const course = publishedQuestionFixture.course;
-  const assignment = publishedQuestionFixture.assignment;
-  const attempt = publishedQuestionFixture.attempts[0];
-  assert.ok(attempt);
-  const { questionPoolSelectionPosition: _questionPoolSelectionPosition, ...receiptAttempt } =
-    attempt;
-  const response = { kind: "numeric", value: 18 };
-  const receipt = {
-    receipt: {
-      accepted: true,
-      attempt: {
-        ...receiptAttempt,
-        submission: { ...receiptAttempt.submission, response, gradingResult: null },
-      },
-      feedback: null,
-      assignmentScoringState: "current",
-      assignmentAttemptCompletion: "inProgress",
-      nextIssued: null,
-      nextPending: false,
-    },
-    gradingState: "graded",
-  };
-  const { recordingFetch, requests } = createRecordingFetch(async () => jsonResponse(receipt));
-  const client = createHttpApiClient({ fetch: recordingFetch });
-
-  await client.submitResponse(course.id, assignment.id, attempt.id, response);
-  const request = requests[0];
-  assert.ok(request);
-  assert.equal(
-    request.url,
-    `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/submissions`,
-  );
-  assert.equal(request.method, "POST");
-  assert.equal(request.headers.get("idempotency-key"), null);
-  assert.deepEqual(await request.json(), { response });
-});
-
-test("submission status uses its route-bound same-origin no-store GET", async () => {
-  const course = publishedQuestionFixture.course;
-  const assignment = publishedQuestionFixture.assignment;
-  const attempt = publishedQuestionFixture.attempts[0];
-  assert.ok(attempt);
-  const pending = {
-    receipt: { accepted: true, attemptId: attempt.id },
-    gradingState: "pending",
-    nextAction: "check_status",
-  };
-  const { recordingFetch, requests } = createRecordingFetch(async () => jsonResponse(pending, 202));
-  const client = createHttpApiClient({ fetch: recordingFetch });
-
-  assert.deepEqual(await client.getSubmissionStatus(course.id, assignment.id, attempt.id), pending);
-  const request = requests[0];
-  assert.ok(request);
-  assert.equal(
-    request.url,
-    `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/submission-status`,
-  );
-  assert.equal(request.method, "GET");
-  assert.equal(request.credentials, "same-origin");
-  assert.equal(request.cache, "no-store");
-  assert.equal(await request.text(), "");
-});
-
-test("iMathAS Question Backend submission sends only its marker", async () => {
-  const course = publishedQuestionFixture.course;
-  const assignment = publishedQuestionFixture.assignment;
-  const attempt = publishedQuestionFixture.attempts[0];
-  assert.ok(attempt);
-  const { questionPoolSelectionPosition: _questionPoolSelectionPosition, ...receiptAttempt } =
-    attempt;
-  const receipt = {
-    receipt: {
-      accepted: true,
-      attempt: {
-        ...receiptAttempt,
-        submission: {
-          ...receiptAttempt.submission,
-          response: { kind: "imathasQuestionBackend" },
-          gradingResult: null,
-        },
-      },
-      feedback: null,
-      assignmentScoringState: "current",
-      assignmentAttemptCompletion: "inProgress",
-      nextIssued: null,
-      nextPending: false,
-    },
-    gradingState: "graded",
-  };
-  const { recordingFetch, requests } = createRecordingFetch(async () => jsonResponse(receipt));
-  const client = createHttpApiClient({ fetch: recordingFetch });
-
-  await client.submitResponse(course.id, assignment.id, attempt.id, {
-    kind: "imathasQuestionBackend",
-  });
-  const request = requests[0];
-  assert.ok(request);
-  assert.equal(
-    request.url,
-    `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/imathas-question-backend/launch/submission`,
-  );
-  assert.equal(request.method, "POST");
-  assert.equal(request.headers.get("idempotency-key"), null);
-  assert.deepEqual(await request.json(), { response: { kind: "imathasQuestionBackend" } });
 });

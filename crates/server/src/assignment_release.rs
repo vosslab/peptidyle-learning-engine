@@ -563,12 +563,13 @@ fn store_error(error_value: StoreError) -> Response {
             "Assignment Workspace is invalid",
         ),
         StoreError::AlreadyExists => error(StatusCode::CONFLICT, "Assignment Workspace conflict"),
-        StoreError::AssignmentActivity(_) | StoreError::TimedOut | StoreError::Unavailable(_) => {
-            error(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Assignment Workspace unavailable",
-            )
-        }
+        StoreError::AssignmentActivity(_)
+        | StoreError::TimedOut
+        | StoreError::LeaseLost
+        | StoreError::Unavailable(_) => error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Assignment Workspace unavailable",
+        ),
     }
 }
 fn concealed() -> Response {

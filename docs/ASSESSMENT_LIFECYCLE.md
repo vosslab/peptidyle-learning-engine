@@ -142,7 +142,15 @@ the enrollment only after current Active Student Course Membership and Assignmen
 Released Assignment Status is the sole Student-accessible G1 state; Unreleased,
 Closed, and Archived Assignments do not start Student work. It assigns server
 timestamps, one-based Assignment Attempt number, and
-the Question Variation Rule actually used. Completion is derived from attempt states;
+the Question Variation Rule actually used. A timed Attempt stores one immutable
+`expires_at` when it starts: the earlier of the retained close instant and the
+retained start-plus-time-limit instant, or no expiry when neither limit applies.
+Later Assignment or accommodation edits do not move that instant. Reconnect,
+reload, and another authenticated session for the same Student resume the same
+Attempt and its saved responses, as required by the Assignment Attempt philosophy
+in [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md).
+
+Completion is derived from attempt states;
 it is not a mutable Boolean that can disagree with the attempt history. Attempt
 limits count completed Assignment Attempts, so the final allowed active Assignment Attempt remains resumable
 instead of denying itself.
@@ -157,69 +165,76 @@ the retain-Questions-with-fresh-Seeds rule, and five Assignment disclosure field
 
 ## Issue and present
 
-### 6. Issue exactly one active Question Attempt
+### 6. Issue one retained Question set for the Assignment Attempt
 
-The Assignment Attempt service issues at most one unresolved Question Attempt at a time. The Question Attempt
-binds the authenticated Student and Course through its enrollment and Assignment Attempt, the
-Assignment position, immutable Question Revision, Question Seed, policy, timing state, Question Grader
-Version, and Question Attempt Reproduction Details. Resume returns the stored attempt and stored Question Seed; it
-does not generate a different Question Revision mid-attempt.
+Starting the Assignment Attempt selects and issues its ordered Question set in one server-owned
+operation. Each Question Attempt binds the authenticated Student and Course through the Assignment
+Attempt, its fixed position, immutable Question Revision, Question Seed, policy, timing evidence,
+Question Grader Version, and Question Attempt Reproduction Details. Resume returns that retained set
+and its stored Seeds; it never substitutes a later Question Revision.
 
-Question Attempt issuance is a transactional storage operation. PostgreSQL locks the Assignment Attempt
-and its equivalent Store contract enforces the same invariant, so concurrent
-requests cannot create two active timers. Server timestamps decide issue time,
-deadline, arrival time, completion, and timer verdict. The browser timer is a
-display and submission aid, never the timing authority.
+Assignment Attempt issuance is transactional. PostgreSQL locks the Student Work root and the Store
+contract enforces the same invariant, so concurrent start/resume requests cannot create two active
+Assignment Attempts or timers. Server timestamps decide start, expiry, response-save eligibility,
+and finalization. The browser countdown is a display aid, never timing authority.
 
 ### 7. Render an answer-free screen
 
-The student receives a public Question Presentation and the smallest state needed to
+The Student receives one position's public Question Presentation and the smallest state needed to
 use it. Rich render data includes typed prompt blocks, accessible
 asset references, Question Response Format, item order, and public constraints. It may
 also include Question Seed and Question Revision to identify the public render. It excludes correct
 answers, expected values, private rubrics, raw sources, provider credentials,
 upstream fields, storage locations, and grader state.
 
-An attempt-specific presentation binding protects against a valid but wrong
-render being submitted for the wrong attempt. Each selectable object has a
+An Attempt-specific presentation binding protects against saving a valid but wrong render for the
+wrong position. Each selectable object has a
 small Presentation Response Item Reference; the full public descriptor has a Question Presentation Checksum.
 The Question Presentation Checksum and its public Question Presentation Token are consistency checks, not authentication mechanisms or transport
 checksum. The exact wire contract, CRC16 collision rule, readiness requirement,
-and mismatch recovery are in [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
+and mismatch refusal are in [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
 
-### 8. Reserve one next question safely
+### 8. Save responses and resume the same active Attempt
 
-When policy allows it, PLE may prepare one next question while the student is
-working. A prefetch reservation is Course-, Student-, Assignment Attempt-, predecessor-, and
-position-bound. It has no Question Attempt ID, response, grade, or started timer.
+The Student moves among issued positions and saves each locally valid response while the Assignment
+Attempt remains active. A save is bound to the authenticated Student, exact Assignment Attempt, and
+fixed position. The server derives the Question Revision, Seed, backend, response format, and timing
+from retained evidence rather than accepting those facts from the browser.
 
-At the secure-payload target boundary, an untimed-practice browser may hold the
-answer-free Question Presentation in memory and warm a bounded set of same-origin assets.
-For timed or exam work, PLE may prepare privately but withholds the next
-Question Presentation until the predecessor commits. The current bodyless prefetch route has
-not yet enforced this timing-policy distinction. Only an exact graded Question
-Submission Receipt
-promotes a reservation to an issued attempt. A reload, mismatch, cancellation,
-or route exit discards the browser cache; it does not invent another Question Seed or
-advance an Assignment Attempt.
+Reload, reconnect, or another authenticated browser session resumes the same active Assignment
+Attempt and returns its successfully saved responses. Failed browser transport keeps the visible
+response available to save again while time remains. None of these operations starts a new Attempt,
+pauses or extends its clock, or accepts a grade.
 
 ## Submit, grade, and project
 
-### 9. Submit the minimal response
+### 9. Finalize the whole Assignment Attempt
 
-At the secure-payload target boundary, the route identifies the attempt once.
-The request supplies only the Question Presentation Checksum and a Question-Type-minimal answer.
-The server loads the
-authoritative attempt and therefore derives response shape, question revision,
-Question Seed, Assignment, Question Backend, deadline, and Student Record rather than
-accepting browser copies.
+The Student submits the Assignment Attempt once after saving every intended response. The request
+identifies only that Assignment Attempt; the server loads its authoritative Student, Course,
+Assignment, issued Questions, saved responses, backend facts, and timing.
 
-The server rejects a Question Presentation Checksum mismatch before grading and keeps the attempt
-unchanged. The browser reloads the same attempt, retains compatible unsent work
-in memory, and asks the student to review it. Repeating the same response for the
-Question Attempt returns the first Question Submission Receipt. A changed response for an already-submitted
-Attempt conflicts before a second grade or state
-transition occurs.
+A presentation or saved-response mismatch is refused before finalization. The browser reloads the
+same active Attempt and asks the Student to review it. Repeating finalization after success returns
+the already-submitted state and cannot create another Question Submission or result.
+
+Whole-Assignment submission and deadline finalization use one ordinary submission
+path. At or after `expires_at`, every Student operation that could change the
+Attempt first applies the expiry rule. Each saved supported response becomes one
+immutable Question Submission and receives the Question Backend's immutable
+normalized credit outcome when available; each unanswered Question becomes
+`closed_at_deadline` and is resolved as zero points. A zero-response Attempt
+completes immediately with zero points and creates no Question Submission.
+Repeating finalization is a no-op, and a response arriving after expiry is
+refused without replacing the previously saved bytes.
+
+The context returns the exact expiry instant in the Student's display time zone
+and a remaining duration computed from the same database read. The browser uses
+the duration for a monotonic countdown, refreshes authoritative state at zero,
+and retries after a lost connection. Background execution finalizes expired
+Attempts that no Student revisits. This preserves the
+wall-clock, reconnect, saved-work, and automatic-submission commitments in
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md).
 
 ### 10. Grade under server authority
 
@@ -231,41 +246,31 @@ key, or correctness assertion for ordinary grading. The current tagged
 `StudentResponse` route accepts `kind`, but derives and validates the
 expected Question Type from the issued attempt; it is not submission authority.
 
-Acceptance first commits the validated Question Submission and its Question
-Submission Receipt, pending evaluation, execution record, and ready grading job
-as one transaction. The submission remains bound through its Question Attempt
-to the immutable Issued Question and private Question Attempt Reproduction
-Details. The student receives `202 Accepted` and may read the route-bound
-submission status while the sealed worker owns grading. A successful worker
-transaction then commits the grading result, score event, Question Attempt
-transition, Assignment Attempt completion, enrollment pointers, Assignment
-Attempt Summary, successor binding, and immutable Question Submission evidence together.
-The graded Question Submission Receipt copies the issued, answer-free `QuestionPresentation` and
-exact public Presented Question Asset snapshot.
-Replay and status reads therefore use durable accepted or completed evidence,
-never a newer published Question/backend render, and never re-grade an answer.
+Whole-Attempt Student finalization or expiry auto-submission commits validated saved responses as
+immutable Question Submissions. Each submission remains bound through its Question Attempt to the
+immutable Issued Question and private Question Attempt Reproduction Details. A Question Backend
+that completes immediately produces its immutable normalized credit result and receipt in that
+ordinary submission operation. A backend-specific internal completion path may finish a backend
+that requires polling; it exposes no grading lifecycle to Students or Instructors.
+Finalization replay and status reads use durable accepted or completed evidence, never a newer
+published Question or backend render, and never regrade an answer.
+An internal completion commit requires its exact current lease token when a backend requires
+polling. A completed immutable outcome is terminal; no user can grade, retry, or replace accepted
+work.
 
-### 11. Return a policy-projected receipt
+### 11. Return policy-projected Attempt status
 
-While grading is pending, the student receives only accepted status and the
-committed attempt identity, with an accessible action to check grading status.
-After completion, the student receives policy-permitted correctness and points,
-sanitized feedback, and either an immutable `nextIssued` descriptor or
-`nextPending`. The Store evaluates student
-Student Feedback disclosure only after Active Student Course Membership and Assignment Access, from the current
-S3-resolved effective-policy verdict, assignment-owned policy, authoritative
-time, and the submitted fact; the request cannot choose it. The historical S3
-receipt remains immutable attempt evidence, not a disclosure input.
-`nextPending` means the graded Question Submission Receipt succeeded but successor
-delivery has not; recovery may finish that single pending delivery, while a
-replay never resubmits or consults changed published Question/backend state. Withheld
-feedback remains withheld even though the result is persisted. An instructor or
-Gradebook reads the Assignment Attempt Summary and lazily paged history rather
-than recomputing a grade by scanning all attempts. A separate scoring freshness
-state can mark the maintained summary Recalculating or Failed; student routes
-then omit aggregate and Assignment Attempt scores, Grading Results, and disclosed point values
-until it is Current, without changing the student's semantic
-activity/disclosure state.
+After submission, separately authorized Student history may expose policy-permitted correctness,
+points, and sanitized feedback. Backend-specific completion remains internal where a backend does
+not return immediately; it is not a public grading status. The Store
+evaluates Student Feedback disclosure only after Active Student Course Membership and Assignment
+Access, from the current S3-resolved effective-policy verdict, Assignment-owned policy,
+authoritative time, and the submitted fact; the request cannot choose it. The historical S3 receipt
+remains immutable Attempt evidence, not a disclosure input. Withheld feedback remains withheld even
+though the result is persisted. An Instructor or Gradebook reads the Assignment
+Attempt Summary and lazily paged history. Scores are calculated on read from
+stored normalized credit fractions and current Assignment Entry point values;
+there is no maintained Assignment total or scoring-freshness lifecycle.
 
 The attempt state machine, feedback policy, timer rule, and Assignment Attempt Summary
 are detailed in [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md). The narrow current and
@@ -280,7 +285,7 @@ submission, evaluation recording, feedback release, and Gradebook effects.
 Each adapter owns only validation, presentation, and evaluation behavior for
 its complete format-specific Question Source.
 
-| Source or import pathway | Format-specific authority                                                                              | Presentation and evaluation authority                                  | Important recovery rule                                                                                  |
+| Source or import pathway | Format-specific authority                                                                              | Presentation and evaluation authority                                  | Important retained-evidence rule                                                                         |
 | ------------------------ | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | PLE Question JSON        | Validate one complete static PLE Question JSON source                                                  | PLE Question Backend                                                   | Use the immutable issued Question Source and exact Question Attempt Reproduction Details                 |
 | QTI Import               | Validate the archive and map each supported flat item into a complete PLE Question JSON Draft Question | PLE Question Backend after conversion                                  | Retain the checksum-pinned archive and mapping as Workspace Import evidence                              |
@@ -311,23 +316,23 @@ backend is not allowed to widen an ordinary student response into a token or
 raw payload. iMathAS Question Backend Sessions and transcripts are course-owned student records
 with their own authorization and retention handling.
 
-## Failure and recovery semantics
+## Failure semantics
 
-| Boundary                                     | Safe outcome                                                                                                                        |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Draft validation or publication fails        | Keep the private draft; do not mint public identity or create a partial immutable version.                                          |
-| Capability check fails                       | Return the complete missing-capability report before publication or assignment persistence.                                         |
-| Concurrent issue/resume                      | Lock and return the sole unresolved Question Attempt.                                                                               |
-| Public render or asset fails                 | Keep the Assignment Attempt resumable; offer retry without changing Question Seed or Question Attempt.                              |
-| Presentation mismatch                        | Return stable conflict, persist bounded diagnostic evidence, reload the same attempt, and never grade stale state.                  |
-| Network loss after submit                    | Retry the same response against the same Question Attempt to receive its existing Question Submission Receipt.                      |
-| Changed submission replay                    | Conflict before grading or state mutation.                                                                                          |
-| Renderer/backend outage                      | Preserve the active attempt; expose a bounded degraded state only for the affected question.                                        |
-| Commit interruption after prefetch promotion | Heal only the sole owned, committed-but-unlinked successor; never derive a different successor from later Assignment Attempt state. |
-| Retention object failure                     | Keep the course archived and retry the frozen typed-object manifest; never report deletion early.                                   |
+| Boundary                              | Safe outcome                                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Draft validation or publication fails | Keep the private draft; do not mint public identity or create a partial immutable version.                         |
+| Capability check fails                | Return the complete missing-capability report before publication or assignment persistence.                        |
+| Concurrent issue/resume               | Lock and return the sole unresolved Question Attempt.                                                              |
+| Public render or asset fails          | Keep the Assignment Attempt resumable; offer retry without changing Question Seed or Question Attempt.             |
+| Presentation mismatch                 | Return stable conflict, persist bounded diagnostic evidence, reload the same attempt, and never grade stale state. |
+| Network loss while saving             | Keep the response visible; while the Attempt remains active, repeat the same position save after reconnecting.     |
+| Assignment Attempt expires            | Auto-submit successfully saved responses and close unsaved Questions unanswered.                                   |
+| Finalization replay                   | Return the existing submitted state without creating another Question Submission or result.                        |
+| Renderer/backend outage               | Preserve the active attempt; expose a bounded degraded state only for the affected question.                       |
+| Retention object failure              | Keep the course archived and retry the frozen typed-object manifest; never report deletion early.                  |
 
-These rules make failures visible and recoverable without turning a browser
-cache, a renderer response, or a retry into new authority. The more detailed
+These rules keep failures visible without turning a browser cache, renderer response, or repeated
+request into new authority. Assignment Attempt recovery is expiry auto-submission. The more detailed
 route, storage, and RLS guarantees are in [SECURITY_MODEL.md](SECURITY_MODEL.md)
 and [CONTRACTS.md](CONTRACTS.md).
 
@@ -356,8 +361,8 @@ Use this lifecycle document to find the right detailed contract:
   response shapes, generation, and browser-safe type boundary.
 - [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md): policy composition, attempt states,
   timing, Question Submission and Receipt outcomes, completion, and Assignment Attempt Summary.
-- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md): student render,
-  Presentation Response Item References, Question Presentation Checksum, minimal response, receipt, and prefetch.
+- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md): Student render, Presentation
+  Response Item References, Question Presentation Checksum, and minimal response payloads.
 - [SECURITY_MODEL.md](SECURITY_MODEL.md): authorization, grading secrecy,
   publication, Assignment Attempt, asset, and retention security boundaries.
 - [OBJECT_STORAGE.md](OBJECT_STORAGE.md): typed Object Addresses, bucket roles,

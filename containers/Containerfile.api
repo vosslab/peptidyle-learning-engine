@@ -24,6 +24,7 @@ COPY crates crates
 COPY schemas/base_schema schemas/base_schema
 COPY schemas/installation_data schemas/installation_data
 COPY schemas/migrations schemas/migrations
+COPY content/genetics content/genetics
 COPY content/pilot content/pilot
 
 # --locked fails the build if Cargo.lock would need to change, which is what
@@ -40,12 +41,6 @@ RUN cargo build --release --locked --bin server_core --features local-disposable
 # connection. It is not included in the API runtime image.
 FROM builder AS database-migrator-builder
 RUN cargo build --release --locked -p project-tools
-
-# This acceptance-only target carries the feature-gated deterministic grader
-# exception process.  Neither the ordinary live-demo nor production targets
-# include the process mode or its backend.
-FROM builder AS live-demo-fault-builder
-RUN cargo build --release --locked --bin server_core --features local-disposable-storage,e2e-grader-fault
 
 FROM builder AS production-builder
 RUN cargo build --release --locked --bin server_core
@@ -99,13 +94,14 @@ COPY --from=database-migrator-builder /build/target/release/project-tools /usr/l
 COPY --chown=peptidyle:peptidyle --from=database-migrator-builder /build/schemas/base_schema /opt/ple/schemas/base_schema
 COPY --chown=peptidyle:peptidyle --from=database-migrator-builder /build/schemas/installation_data /opt/ple/schemas/installation_data
 COPY --chown=peptidyle:peptidyle --from=database-migrator-builder /build/schemas/migrations /opt/ple/schemas/migrations
+COPY --chown=peptidyle:peptidyle --from=database-migrator-builder /build/content/genetics /opt/ple/content/genetics
 COPY --chown=peptidyle:peptidyle --from=database-migrator-builder /build/content/pilot /opt/ple/content/pilot
 HEALTHCHECK NONE
 ENTRYPOINT ["/usr/local/bin/ple-database-tools"]
 
-FROM runtime-base AS live-demo-fault
-COPY --from=live-demo-fault-builder /build/target/release/server_core /usr/local/bin/peptidyle-api
-ENTRYPOINT ["/usr/local/bin/peptidyle-api"]
+# Keep the named browser-overlay target while it shares the ordinary Live Demo
+# binary after retirement of the grading-worker fault build.
+FROM live-demo AS live-demo-fault
 
 # Keep this final target production-safe for direct `podman build` use. The
 # replica E2E Compose override selects the named target above explicitly.

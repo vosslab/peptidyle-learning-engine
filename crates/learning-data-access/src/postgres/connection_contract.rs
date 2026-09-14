@@ -54,14 +54,8 @@ impl LoginContract {
     pub(super) fn expected_login(self) -> &'static str {
         match self {
             Self::Production(ProductionLoginProfile::Api) => "ple_api_login",
-            Self::Production(ProductionLoginProfile::ImathasQuestionBackendGradingWorker) => {
+            Self::Production(ProductionLoginProfile::AssignmentAttemptExpiryWorker) => {
                 "ple_worker_login"
-            }
-            Self::Production(ProductionLoginProfile::NativePleGradingWorker) => {
-                "ple_native_ple_worker_login"
-            }
-            Self::Production(ProductionLoginProfile::WebworkGradingWorker) => {
-                "ple_webwork_worker_login"
             }
             Self::Production(ProductionLoginProfile::PublicAssetPublisher) => "ple_publisher_login",
         }
@@ -79,21 +73,9 @@ impl LoginContract {
                     set_option: true,
                 },
             ],
-            Self::Production(ProductionLoginProfile::ImathasQuestionBackendGradingWorker) => {
+            Self::Production(ProductionLoginProfile::AssignmentAttemptExpiryWorker) => {
                 &[ExpectedMembership {
-                    role_name: "ple_imathas_question_backend_grading_worker",
-                    set_option: true,
-                }]
-            }
-            Self::Production(ProductionLoginProfile::NativePleGradingWorker) => {
-                &[ExpectedMembership {
-                    role_name: "ple_native_ple_grading_worker",
-                    set_option: true,
-                }]
-            }
-            Self::Production(ProductionLoginProfile::WebworkGradingWorker) => {
-                &[ExpectedMembership {
-                    role_name: "ple_webwork_grading_worker",
+                    role_name: "ple_assignment_attempt_expiry_worker",
                     set_option: true,
                 }]
             }
@@ -136,14 +118,14 @@ mod tests {
     }
 
     #[test]
-    fn imathas_question_backend_grading_worker_login_has_one_exact_capability() {
+    fn assignment_attempt_expiry_worker_login_has_one_exact_capability() {
         let worker =
-            LoginContract::Production(ProductionLoginProfile::ImathasQuestionBackendGradingWorker);
+            LoginContract::Production(ProductionLoginProfile::AssignmentAttemptExpiryWorker);
 
         assert_eq!(
             worker.expected_memberships(),
             [ExpectedMembership {
-                role_name: "ple_imathas_question_backend_grading_worker",
+                role_name: "ple_assignment_attempt_expiry_worker",
                 set_option: true,
             }]
         );

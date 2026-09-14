@@ -16,7 +16,8 @@ use serde_json::{Map, Value};
 
 use super::response_shape::RESPONSE_KEYS;
 use crate::renderer_contract::{
-    GradeRequest, RenderRequest, RenderedWebworkQuestion, RendererFailure, WebworkRenderer,
+    GradeRequest, RenderRequest, RenderedWebworkQuestion, RendererFailure, ResumeRenderRequest,
+    WebworkRenderer,
 };
 
 const JSON_MEDIA_TYPE: &str = "application/json";
@@ -186,6 +187,30 @@ impl WebworkRenderer for HttpWebworkRenderer {
             ))
             .await?;
         let document = validate_render_rpc(value)?;
+        Ok(RenderedWebworkQuestion::from_document(
+            document,
+            self.settings.expected_renderer.clone(),
+        ))
+    }
+
+    async fn render_saved_response(
+        &self,
+        request: ResumeRenderRequest<'_>,
+    ) -> Result<RenderedWebworkQuestion, RendererFailure> {
+        let render_request = RenderRequest {
+            pg_source: request.pg_source,
+            pg_path: request.pg_path,
+            question_revision: request.question_revision,
+            seed: request.seed,
+        };
+        validate_render_request(render_request)?;
+        let mut fields = super::protocol::render_fields(
+            render_request,
+            &self.settings.ple_origin,
+            &self.settings.ple_asset_base,
+        );
+        fields.extend(decode_response_pairs(request.response_payload)?);
+        let document = validate_render_rpc(self.rpc(fields).await?)?;
         Ok(RenderedWebworkQuestion::from_document(
             document,
             self.settings.expected_renderer.clone(),
@@ -435,6 +460,10 @@ fn reserved_field(name: &str) -> bool {
             "sourcefilepath",
             "problemseed",
             "submitanswers",
+            "answerssubmitted",
+            "previewanswers",
+            "processanswers",
+            "problemsourceurl",
             "displaymode",
             "isinstructor",
             "showsummary",

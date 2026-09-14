@@ -3,9 +3,8 @@ import { createEffect, createSignal, on, onCleanup, onMount, Show, type JSX } fr
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ImathasQuestionBackendLaunch } from "../../api/contracts";
 import type { StudentResponseFormatCheck } from "../../api/decoders/student_response_format_check";
-import type { SubmissionOutcome } from "../../features/question_attempt/question_attempt_state";
 import { isExpectedImathasQuestionBackendLaunchPath } from "../../api/imathas_question_backend_launch";
-import type { StudentWorkRouteScope } from "../question_response_controls/common";
+import type { StudentWorkRouteScope, SubmissionOutcome } from "./common";
 
 import { handleQuestionResponseControlKeyDown } from "./keyboard";
 
@@ -16,7 +15,6 @@ type ImathasQuestionBackendPhase =
   | { readonly kind: "ready" }
   | { readonly kind: "failed"; readonly message: string }
   | { readonly kind: "submitting" }
-  | { readonly kind: "recoveryPending"; readonly message: string }
   | { readonly kind: "submitted" };
 
 interface ImathasQuestionBackendReadyMessage {
@@ -124,8 +122,6 @@ function imathasQuestionBackendStatus(phase: ImathasQuestionBackendPhase): strin
       return phase.message;
     case "submitting":
       return "Recording your iMathAS Question Backend response. Please wait.";
-    case "recoveryPending":
-      return phase.message;
     case "submitted":
       return "Response recorded. Student Feedback will appear when it is released.";
   }
@@ -230,9 +226,6 @@ export function ImathasQuestionBackendResponse(
       switch (outcome.kind) {
         case "accepted":
           setPhase({ kind: "submitted" });
-          return;
-        case "recoveryPending":
-          setPhase({ kind: "recoveryPending", message: outcome.message });
           return;
         case "rejected":
           setPhase({ kind: "failed", message: outcome.message });

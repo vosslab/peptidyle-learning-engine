@@ -4,7 +4,7 @@ PLE has intentionally small, stateless API replicas, but its correctness does no
 request reaching the same process twice. This document tells a student, browser,
 or operator whether to retry, reload, stop, or require repair after an outcome
 is known or becomes uncertain. It deliberately does not repeat the transaction,
-compare-and-swap, lease, generation, object, or prefetch mechanics that make an
+compare-and-swap, lease, generation, object, or cache mechanics that make an
 outcome safe; those belong to [CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md)
 and [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md).
 
@@ -19,8 +19,8 @@ second recovery or product path.
 
 ## Authority status
 
-**Current authority.** Route-safe error result, attempt-scoped Question
-Submission Receipts, no-store responses, and bounded private-backend failures determine
+**Current authority.** Route-safe errors, Assignment Attempt save/finalization receipts,
+policy-permitted completed results, no-store responses, and bounded private-backend failures determine
 the current caller-visible outcomes described below.
 
 **Required for new work.** Each capability must classify failures as committed,
@@ -84,6 +84,7 @@ attached diagnostic text.
 | `TimedOut`                                   | The database-authoritative attempt deadline already passed.                                                                    | Stop the submission path and reload the current attempt or summary.                                                              |
 | `InvalidRecord` or Assignment Activity Rules | Trusted code or accepted wire data violated an Assignment policy rule.                                                         | Do not retry unchanged; return the bounded, route-approved validation message.                                                   |
 | `Unavailable`                                | A bounded dependency is unavailable.                                                                                           | Preserve input and retry the same logical operation after recovery.                                                              |
+| `LeaseLost`                                  | A background worker no longer owns the exact lease token it claimed.                                                           | Write nothing, log the bounded category, and continue; lease expiry may make the unfinished internal operation eligible again.   |
 
 HTTP routes project this classification narrowly. For example,
 The deferred Assignment Attempt route maps a missing attempt record to `404`, an Assignment Attempt conflict
@@ -98,44 +99,43 @@ Browser errors contain a stable short message only. They never contain SQL, Obje
 names, signed URLs, checksums not already public, Account or course identities, leases, renderer/provider
 state, source archives, answer keys, or raw backend errors.
 
-## Submission and attempt recovery
+## Assignment Attempt auto-submission and request replay
 
 The durable attempt is the authority for student, course, assignment, question revision, seed,
-timing, and grading backend. A replica reconstructs that state from PostgreSQL; the browser cannot
-recover an uncertain submission by issuing a different attempt.
+timing, and grading backend. Autosave preserves responses and reconnecting resumes the same active
+Attempt. Recovery is the server automatically submitting the saved responses at expiry and closing
+Questions without a saved response as unanswered. A replica reconstructs that state from
+PostgreSQL; the browser cannot resolve an uncertain submission by issuing a different attempt.
 
-- The exact Question Attempt is the submission identity. The deferred Store records one accepted
-  submission and receipt for it.
-- The Store first atomically persists the accepted Question Submission and its Question Submission
-  Receipt, pending evaluation, execution, and ready job. The submission remains bound through its
-  Question Attempt to the immutable Issued Question and private Question Attempt Reproduction
-  Details. An exact retry returns the same durable acceptance rather than creating another grading
-  operation. A changed response or incompatible replay conflicts.
-- After `202 Accepted`, the browser uses the route-bound submission-status read. The sealed worker
-  commits the Grading Result, Question Attempt/Assignment Attempt/enrollment transitions, Assignment Attempt Summary, and Automated Grading Receipt in one
-  transaction; an authorized status reader derives policy-redacted Student Feedback without re-grading.
-- If the browser loses the response, it preserves the same request body and retries that exact
-  Question Attempt after connectivity returns. It must not create a new attempt merely because the
-  outcome was unknown.
-- If a deadline has elapsed, the Store refuses the response. The browser reloads the attempt or
-  summary; client clocks never extend a deadline.
+- The exact Question Attempt is the response identity. Whole-Attempt Student submission and
+  deadline finalization converge on one accepted response per answered Question.
+- While the Attempt is active, saving a position persists its latest valid response. If a save loses
+  connectivity, the browser keeps the visible response and may repeat that position save after
+  reconnecting while server-owned time remains.
+- Whole-Attempt Student submission and deadline auto-submission create immutable Question
+  Submissions for successfully saved responses. Questions without a saved response close unanswered.
+  Replaying finalization returns the same submitted state and never creates another result.
+- A Question Backend that completes immediately returns its immutable normalized credit fraction and
+  receipt in the ordinary submission operation. A backend-specific internal completion path may
+  poll when the backend requires it; authorized readers derive policy-redacted Student Feedback from
+  immutable evidence without contacting the backend again.
+- If the deadline has elapsed, the Store refuses later response changes. The background expiry path
+  finalizes the durable saved state when no Student request exists; client clocks never extend a
+  deadline.
 - A returned conflict means the student must reload the durable state. This is particularly
   important after another tab, a timed auto-submit, or an instructor policy change changes the
   attempt lifecycle.
 
-The accepted payload redesign in
-[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) adds an attempt-bound Question Presentation
-Checksum and Presentation Response Item References. Its planned mismatch response is a fail-closed `409`: PLE does not
-grade or mutate the attempt, preserves the editable draft only in memory, reloads the same
-presentation, and restores the draft only when its schema and Presentation Response Item References still match. Until that
-work item lands, no current browser client exposes a Question Attempt or Question Submission route. The retained
-contract must not treat Question Attempt Reproduction Details as client authority.
+The Assignment Attempt contract in [API_CONTRACTS.md](API_CONTRACTS.md) keeps the response body
+browser-safe while the server resolves the retained Question Attempt evidence. PLE does not treat
+Question Attempt Reproduction Details as client authority.
 
-## Replica and cache recovery
+## Replica and cache continuity
 
 API replicas have no correctness-bearing process memory. The shared PostgreSQL session store,
-authenticated Account context, attempts, Question Submissions, Question Submission Receipts, and shared S3-compatible object store
-allow a surviving replica to resume an authorized attempt. The exact topology and evidence are in
+authenticated Account context, Assignment Attempts, saved responses, Question Submissions, and
+shared S3-compatible object store allow a surviving replica to resume an authorized active Attempt
+or read its accepted state. The exact topology and evidence are in
 [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md).
 
 - A gateway removes an unready API replica from rotation. A replica's readiness checks database
@@ -143,35 +143,21 @@ allow a surviving replica to resume an authorized attempt. The exact topology an
 - A PLE Question, course read, or authentication request can continue when an optional private
   renderer is down. The renderer-backed question itself returns a bounded `503`; PLE does not
   pretend it graded or substitute another question.
-- A process crash after an attempt or submission commit is recovered by reading durable state. A
-  process crash before commit leaves no receipt and can be retried through the normal owner path.
+- A process crash after an Attempt save or finalization is handled by reading durable state. A
+  process crash before commit leaves no accepted write and the normal owner may repeat the request.
 - Immutable render and asset caches accelerate delivery but are never correctness authority. Cache
   keys bind immutable version and seed; entries contain only safe public render data. A miss may
   rerender privately. A reproduction, Question Attempt Reproduction Details, or checksum disagreement fails closed rather
   than serving a near match.
 
-## Prefetch and cache recovery
+## Background completion
 
-Prefetch is optional acceleration, never a student attempt or an offline queue.
-On a prefetch failure, mismatch, or browser teardown, discard the in-memory
-candidate and reload the current server-issued attempt. A submitted answer is
-never recovered by promoting a browser cache entry. The atomic reservation and
-promotion rules are in [CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md);
-cache scope and withholding rules are in
-[CACHING_AND_PREFETCH.md](CACHING_AND_PREFETCH.md).
-
-## Worker outcomes
-
-Workers may scale without producing duplicate visible effects because their
-lease and generation rules are owned by
-[CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md). From a recovery
-perspective, a transient or timed-out job receives its bounded retry/backoff;
-a permanent or exhausted job becomes `Dead`; and an unavailable or unknown
-finalization remains recoverable rather than being immediately repeated.
-Account-visible inspection exposes only coarse state and count, not lease tokens
-or failure text. Operators use the authorized job boundary to investigate a
-dead job and choose a documented repair; they do not make a stale worker's
-output current.
+Background execution is limited to automatic submission of expired Attempts and
+backend-specific completion polling. It has no public grading state, attention count,
+or user retry control. A stale worker writes no result. Dependency failure preserves
+saved work while an Attempt remains active; an expired Attempt remains closed to edits
+until ordinary submission can complete. Internal diagnostics expose only bounded error
+categories to the Sysadmin who can repair the dependency.
 
 Workers log only `StoreError` categories and aggregate pass counts. Diagnostics
 must not serialize a raw error object because it may contain identifiers or
@@ -287,7 +273,7 @@ before implementation:
    internal errors.
 3. State how an indeterminate request finds its existing durable outcome; link the atomicity
    mechanism to [CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md).
-4. State when a cache, prefetch, or provider result must be discarded and reloaded from the
+4. State when a cache or provider result must be discarded and reloaded from the
    durable authority.
 5. Define the operator escalation boundary for missing, mismatched, or unavailable dependencies.
 6. Add behavior-focused tests for the recovery path only when it is stable, deterministic, and

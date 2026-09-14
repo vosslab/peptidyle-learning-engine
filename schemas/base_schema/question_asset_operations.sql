@@ -22,7 +22,6 @@ BEGIN
     IF NEW.job_kind <> 'publish_public_assets'
        OR NEW.job_target_kind <> 'public_asset_publication'
        OR NEW.worker_kind <> 'public_asset_publisher'
-       OR NEW.question_submission_id IS NOT NULL
        OR NEW.question_id <> publication.question_id
        OR NEW.revision_number <> publication.revision_number THEN
         RAISE EXCEPTION USING ERRCODE = '23514',

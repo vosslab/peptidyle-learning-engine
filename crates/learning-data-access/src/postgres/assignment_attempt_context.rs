@@ -3,7 +3,8 @@
 use std::str::FromStr;
 
 use question_model::{
-    AssignmentAttemptReference, AssignmentReference, CourseInstanceReference, CourseTheme,
+    AccountTimeZone, AssignmentAttemptReference, AssignmentReference, CourseInstanceReference,
+    CourseTheme, Timestamp,
 };
 use sqlx::Row;
 
@@ -21,7 +22,7 @@ impl PostgresLiveAssignmentDeliveryStore {
             "SELECT assignment_attempt_reference_number, attempt_number, \
                     course_reference_number, course_short_name, course_long_name, course_theme, \
                     assignment_reference_number, assignment_title, \
-                    timer_remaining_milliseconds \
+                    display_time_zone, expires_at_millis, timer_remaining_milliseconds \
                FROM ple_api.read_student_assignment_attempt_context($1)",
         )
         .bind(i64::from(assignment_attempt.number()))
@@ -75,6 +76,17 @@ impl PostgresLiveAssignmentDeliveryStore {
                 row.try_get("assignment_title").map_err(map_sqlx_error)?,
                 "Assignment title",
             )?,
+            display_time_zone: AccountTimeZone::parse(
+                &row.try_get::<String, _>("display_time_zone")
+                    .map_err(map_sqlx_error)?,
+            )
+            .map_err(|_| {
+                StoreError::InvalidRecord("Student Account time zone is invalid".to_string())
+            })?,
+            expires_at: row
+                .try_get::<Option<i64>, _>("expires_at_millis")
+                .map_err(map_sqlx_error)?
+                .map(Timestamp::from_unix_millis),
             timer_remaining_milliseconds: row
                 .try_get::<Option<i64>, _>("timer_remaining_milliseconds")
                 .map_err(map_sqlx_error)?

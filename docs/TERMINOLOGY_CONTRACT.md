@@ -738,19 +738,19 @@ Significant-Figure comparison rule declared by a numeric Question Response
 Format. Both rules describe accepted-response behavior only; the Answer Key
 retains the correct text or numeric value on the server.
 
-**Question Submission** is the immutable acceptance event for one Student
-Response on one Question Attempt. It owns that accepted response, including the
+**Question Submission** is immutable internal evidence created for one saved Student
+Response when the whole Assignment Attempt is finalized. It owns that accepted response, including the
 exact `ImathasQuestionBackend` marker when the accepted iMathAS Result Exchange flow supplies it.
-A **Grading Result** is a distinct immutable evaluation of one Question Submission and is
-bound through the containing Question Attempt to its exact Question Attempt
-Reproduction Details.
+A **Grading Result** is the immutable normalized credit fraction produced once by the Question
+Backend for one Question Submission. It is bound through the containing Question Attempt to its
+exact Question Attempt Reproduction Details. PLE stores that outcome; it does not own a general
+regrading operation.
 **Answer Key** and **Question Grading Input** name server-held correctness
 facts. A policy-released Question Answer is a separate display-ready derivative,
-not a browser View of either private record. **Assignment Submission** is
-the finalization of one whole Assignment Attempt. It atomically follows the
-creation of immutable Question Submissions and one typed grading Job with its
-pending grading row for each supported Question, then references those
-Submissions instead of repeating their Student Responses.
+not a browser View of either private record. **Assignment Submission** is the
+single finalization record for one whole Assignment Attempt. Explicit Student finalization or
+server-owned expiry auto-submission creates it with immutable Question Submissions for accepted
+saved responses. It references those Submissions instead of repeating their Student Responses.
 
 **Question Library** is the single shared, authoritative set of Published
 Questions available to every Active Instructor Account. **My Questions** is the
@@ -1197,23 +1197,19 @@ Question Seed, point and scoring values, statistics eligibility, pool-selection
 source, limits, and presentation evidence. A **Question Attempt** is one
 Student's work on an Issued Question.
 **Question Attempt State** is Open, Submission Accepted, or Closed at Deadline.
-Open permits a Student Response. Submission Accepted means the attempt owns one
-accepted Question Submission. Closed at Deadline means the server ended the
-attempt without inventing a Question Submission or Student Response. A
-**Question Submission Receipt** records accepted response submission. A
-**Grading Result** records the later evaluation, and an **Automated Grading
-Receipt** binds that result to its exact automated operation. This record path keeps
+Open permits a saved Student Response. Submission Accepted means whole-Attempt finalization created
+one accepted Question Submission from that saved response. Closed at Deadline means the server
+ended the Question without inventing a Question Submission or Student Response. A **Grading
+Result** records the Question Backend's immutable normalized credit outcome, and an **Automated
+Grading Receipt** binds that result to its exact automated operation. This record path keeps
 server-only Answer Keys, Question Grading Input, and FERPA records out of
 Student-visible data.
 
-**Question Submission Grading State** is the authoritative grading-progress
-fact for one accepted Question Submission: Pending, Graded, Instructor
-Attention, or Exempt. **Student Question Submission Grading State** is its
-Student-visible View and contains only Pending, Graded, or Instructor
-Attention. Question Submission Grading State remains the grading lifecycle.
-**Assignment Scoring State** is the separate Current, Recalculating, or Failed
-state for one Assignment's score calculation. A Grading Result remains the
-immutable evaluation.
+An **Assignment Score** is a read-time calculation: the sum of each stored normalized credit
+fraction times its Question's current Assignment Entry point value. It is not a stored Assignment
+total, a recalculation lifecycle, or another interaction with a Question Backend. A score may be
+unavailable while an Attempt has not produced all required immutable outcomes; that internal
+completion detail is not a Student or Instructor grading state.
 
 **Student Work Records** collectively names Assignment Attempts, Issued
 Questions, Question Attempts, Question Submissions, Grading Results, Events,

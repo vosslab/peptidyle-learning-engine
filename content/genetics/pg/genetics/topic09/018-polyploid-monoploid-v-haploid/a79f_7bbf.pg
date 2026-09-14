@@ -1,0 +1,46 @@
+## DESCRIPTION
+## Imported Genetics source row a79f_7bbf; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-polyploid-monoploid_v_haploid-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_A79F_7BBF';
+<p>a79f_7bbf</p> <p>A certain plant is found to be a decaploid (10n) with 110 chromosomes in total.</p><h5>What are the monoploid (m) and haploid (h) numbers for this plant?</h5><p><i>Note: 110/2 = 55 and 110/10 = 11</i></p>
+PROMPT_A79F_7BBF
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_A79F_7BBF_CHOICE_1';
+<p>monoploid, m = 110 and haploid, h = 55</p>
+LITERAL_A79F_7BBF_CHOICE_1
+$choice_2 = <<'LITERAL_A79F_7BBF_CHOICE_2';
+<p>monoploid, m = 55 and haploid, h = 55</p>
+LITERAL_A79F_7BBF_CHOICE_2
+$choice_3 = <<'LITERAL_A79F_7BBF_CHOICE_3';
+<p>monoploid, m = 110 and haploid, h = 11</p>
+LITERAL_A79F_7BBF_CHOICE_3
+$choice_4 = <<'LITERAL_A79F_7BBF_CHOICE_4';
+<p>monoploid, m = 11 and haploid, h = 55</p>
+LITERAL_A79F_7BBF_CHOICE_4
+$choice_5 = <<'LITERAL_A79F_7BBF_CHOICE_5';
+<p>monoploid, m = 11 and haploid, h = 11</p>
+LITERAL_A79F_7BBF_CHOICE_5
+$choice_6 = <<'LITERAL_A79F_7BBF_CHOICE_6';
+<p>monoploid, m = 55 and haploid, h = 11</p>
+LITERAL_A79F_7BBF_CHOICE_6
+$correct_1 = <<'LITERAL_A79F_7BBF_CORRECT_1';
+<p>monoploid, m = 11 and haploid, h = 55</p>
+LITERAL_A79F_7BBF_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5, $choice_6);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

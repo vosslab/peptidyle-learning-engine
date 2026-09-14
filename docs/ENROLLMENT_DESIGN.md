@@ -95,8 +95,8 @@ archive and deletion continue through the explicit retention workflow in
 Student-scoped Store operations re-evaluate active `Student` membership and the
 exact Student Record's Assignment Access, then bind the result's stable
 `StudentRecordId` to any retained receipt at the database/Store boundary. Thus a
-revoked student cannot continue to read an Assignment Attempt, Question Attempt, summary, feedback
-release, or prefetch that was issued before removal. Direct course instructors
+revoked Student cannot continue to read an Assignment Attempt, Question Attempt, saved response,
+summary, or feedback release that was issued before removal. Direct Course Instructors
 use distinct Instructor-history operations for records retained for grade, audit, and
 retention work; membership removal does not accidentally erase that explicit
 Instructor authority. Sysadmin status grants no general access to those
@@ -174,15 +174,15 @@ Surface, setup credential, ceremony/store implementation, or session issuance.
 
 The minimum identity contract distinguishes role-qualified authentication email:
 
-| Value                           | Owner                        | Rule                                                                                                                                |
-| ------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `AccountId`                     | PLE identity system          | Stable opaque PLE Account identity across Course Instances                                                                          |
-| Student Authentication Email    | PLE identity system          | Immutable normalized institutional email for a Student Account; never the primary key                                               |
+| Value                           | Owner                        | Rule                                                                                                                                             |
+| ------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `AccountId`                     | PLE identity system          | Stable opaque PLE Account identity across Course Instances                                                                                       |
+| Student Authentication Email    | PLE identity system          | Immutable normalized institutional email for a Student Account; never the primary key                                                            |
 | Instructor Authentication Email | PLE identity system          | Private normalized and delivery values for an Instructor Account; a later verified replacement design must preserve that Account's relationships |
-| Passkey credentials             | PLE identity system          | Deferred future convenience-credential design; no active credential exists or may be used today                                      |
-| Display name or handle          | User account profile         | User-controlled safe label; no legal-name requirement                                                                               |
-| `StudentRecordId`               | PLE educational-record store | Stable protected educational record for one Student Account inside one exact Course Instance                                        |
-| Optional SSO binding            | PLE identity system          | Verified external issuer/subject linked to an existing `AccountId`; server-only and never roster authority                          |
+| Passkey credentials             | PLE identity system          | Deferred future convenience-credential design; no active credential exists or may be used today                                                  |
+| Display name or handle          | User account profile         | User-controlled safe label; no legal-name requirement                                                                                            |
+| `StudentRecordId`               | PLE educational-record store | Stable protected educational record for one Student Account inside one exact Course Instance                                                     |
+| Optional SSO binding            | PLE identity system          | Verified external issuer/subject linked to an existing `AccountId`; server-only and never roster authority                                       |
 
 The Account-to-Student Record mapping remains course-scoped because `StudentRecordId` belongs
 to the educational-record and retention boundary, not because the PLE account
@@ -205,8 +205,8 @@ or course fields.
 
 The local browser and deployed product use the same PLE-owned account contract:
 
-| Session              | Issuer and purpose                                            | What it establishes                                                                            |
-| -------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Session              | Issuer and purpose                                                                               | What it establishes                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
 | `__Host-ple_session` | Deployment-gated seeded-persona entry today; future email or passkey ceremony only when accepted | One Authenticated Session used with exact Course, Assignment Attempt, and roster relationships |
 
 M9 uses that same ordinary Authenticated Session for its constrained Live Demo
@@ -413,14 +413,14 @@ The Store boundary owns three connected but intentionally separate invariants:
 
 The following describes the intended operations:
 
-| Operation                                                           | Atomic effect                                                                                                                        |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Claim pending Course Invitation (M9)                                 | Consume the target-bound invitation and create or reuse the Student Record plus active Student Course Membership; no Assignment state |
-| Create assignment                                                   | Store the assignment; create no student activity rows                                                                                |
-| Read pre-activity summary authorized by Assignment Access           | Return a key-free `no_activity` result without creating an enrollment or summary                                                     |
-| Start Assignment Attempt, grade-bearing action, or instructor issue | Re-evaluate Assignment Access and, at the planned creation boundary, atomically create or reuse the enrollment and summary receipt   |
-| Remove student access                                               | Remove current membership; retain existing educational records for authorized grade, audit, and retention workflows                  |
-| Re-add former student                                               | Reuse the stable Student Record and existing activity while deriving current access from the new membership episode                  |
+| Operation                                                           | Atomic effect                                                                                                                         |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Claim pending Course Invitation (M9)                                | Consume the target-bound invitation and create or reuse the Student Record plus active Student Course Membership; no Assignment state |
+| Create assignment                                                   | Store the assignment; create no student activity rows                                                                                 |
+| Read pre-activity summary authorized by Assignment Access           | Return a key-free `no_activity` result without creating an enrollment or summary                                                      |
+| Start Assignment Attempt, grade-bearing action, or instructor issue | Re-evaluate Assignment Access and, at the planned creation boundary, atomically create or reuse the enrollment and summary receipt    |
+| Remove student access                                               | Remove current membership; retain existing educational records for authorized grade, audit, and retention workflows                   |
+| Re-add former student                                               | Reuse the stable Student Record and existing activity while deriving current access from the new membership episode                   |
 
 The planned Memory implementation will use one write lock and rollback snapshot
 for this compound transition. The planned PostgreSQL implementation will use one
@@ -638,16 +638,16 @@ narrow, exclude it from general logs and analytics, and remove copies that no
 longer serve that operation. That principle must not force an instructor to
 hand-match 50 scores.
 
-| Data                            | Instructor convenience                                                          | Minimization control                                                                                                                                                                                                            |
-| ------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Student Authentication Email    | Future sign-in to the Student Account                                           | Immutable global Student Account credential; never the account key; not exposed as cross-course instructor data                                                                                                                 |
-| Instructor Authentication Email | Future sign-in to the Instructor Account                                        | Private global Instructor Account credential; a future verified replacement preserves that Account's relationships                                                                                                              |
-| Course roster email             | Future invite/correction/domain-policy work and institutional-export matching  | Course-scoped protected snapshot; direct course Instructors plus audited Sysadmin roster support; follows course student-record retention                                                                                       |
-| Institutional roster ID         | Match PLE results to an LMS/gradebook row                                       | Course-scoped protected record; no global lookup or authentication use                                                                                                                                                          |
-| Display name or handle          | Let the instructor distinguish roster members                                   | Student-controlled account data copied only where the course workflow needs it; no legal-name requirement                                                                                                                       |
-| Raw roster CSV                  | Import 50 students at once                                                      | Parse in memory or controlled temporary storage, then delete raw bytes after normalized preview creation                                                                                                                        |
-| Normalized import preview       | Review errors before sending invitations                                        | Expires after one hour; current Instructor Course Membership access; no account-existence signal                                                                                                                                |
-| Grade export                    | Upload results to the institutional system                                      | Contains only the destination profile's required roster ID, course roster email, display label, and selected result fields; never global `AccountId`, passkey state, or unrelated activity; protected, audited, and short-lived |
+| Data                            | Instructor convenience                                                        | Minimization control                                                                                                                                                                                                            |
+| ------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Student Authentication Email    | Future sign-in to the Student Account                                         | Immutable global Student Account credential; never the account key; not exposed as cross-course instructor data                                                                                                                 |
+| Instructor Authentication Email | Future sign-in to the Instructor Account                                      | Private global Instructor Account credential; a future verified replacement preserves that Account's relationships                                                                                                              |
+| Course roster email             | Future invite/correction/domain-policy work and institutional-export matching | Course-scoped protected snapshot; direct course Instructors plus audited Sysadmin roster support; follows course student-record retention                                                                                       |
+| Institutional roster ID         | Match PLE results to an LMS/gradebook row                                     | Course-scoped protected record; no global lookup or authentication use                                                                                                                                                          |
+| Display name or handle          | Let the instructor distinguish roster members                                 | Student-controlled account data copied only where the course workflow needs it; no legal-name requirement                                                                                                                       |
+| Raw roster CSV                  | Import 50 students at once                                                    | Parse in memory or controlled temporary storage, then delete raw bytes after normalized preview creation                                                                                                                        |
+| Normalized import preview       | Review errors before sending invitations                                      | Expires after one hour; current Instructor Course Membership access; no account-existence signal                                                                                                                                |
+| Grade export                    | Upload results to the institutional system                                    | Contains only the destination profile's required roster ID, course roster email, display label, and selected result fields; never global `AccountId`, passkey state, or unrelated activity; protected, audited, and short-lived |
 
 The planned Course Roster delivery will expire a Course Invitation after
 seven days and an email-authentication challenge after ten minutes. Resending

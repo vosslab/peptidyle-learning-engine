@@ -398,6 +398,7 @@ class RecordingRunner(local_stack_control.process.CommandRunner):
 	def __init__(self) -> None:
 		"""Start with no command records."""
 		self.streamed: list[tuple[str, ...]] = []
+		self.environments: list[dict[str, str]] = []
 
 	#============================================
 	def run(
@@ -419,6 +420,7 @@ class RecordingRunner(local_stack_control.process.CommandRunner):
 	) -> int:
 		"""Record the only allowed mutation as successful."""
 		self.streamed.append(tuple(argv))
+		self.environments.append(dict(environment or {}))
 		return 0
 
 

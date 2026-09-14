@@ -1,0 +1,40 @@
+## DESCRIPTION
+## Imported Genetics source row aff5_15e4; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic01/bbq-WOMC-genetic_disorders-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_AFF5_15E4';
+<p>aff5_15e4</p> <p>Which one of the following <strong><span style="color: #b74300;">genetic</span></strong> <strong><span style="color: #d40000;">disorder</span></strong>s correspond to the description <span style='font-size: 1em;'><strong>'individuals with the condition tend to be tall and thin, with long arms, legs, fingers, and toes'</strong></span>.</p>
+PROMPT_AFF5_15E4
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_AFF5_15E4_CHOICE_1';
+Marfan syndrome
+LITERAL_AFF5_15E4_CHOICE_1
+$choice_2 = <<'LITERAL_AFF5_15E4_CHOICE_2';
+Sickle-cell anemia
+LITERAL_AFF5_15E4_CHOICE_2
+$choice_3 = <<'LITERAL_AFF5_15E4_CHOICE_3';
+Tay-Sachs disease
+LITERAL_AFF5_15E4_CHOICE_3
+$choice_4 = <<'LITERAL_AFF5_15E4_CHOICE_4';
+WAGR syndrome
+LITERAL_AFF5_15E4_CHOICE_4
+$correct_1 = <<'LITERAL_AFF5_15E4_CORRECT_1';
+Marfan syndrome
+LITERAL_AFF5_15E4_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

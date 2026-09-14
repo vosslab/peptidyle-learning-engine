@@ -1,0 +1,37 @@
+bbq-tetrad_ordered-centromere_distance-MC-questions.txt: Gene-to-Centromere Distance
+  from Ordered Tetrads (Multiple Choice)
+bbq-tetrad_unordered_three_gene-distances_plus-questions.txt: Gene Order and Map Distances
+  from Unordered Tetrads
+bbq-tetrad_unordered_three_gene-find_one_distance-MC-5_choices-questions.txt: Single
+  Genetic Distance from Unordered Three-Gene Tetrads (5 Choices)
+bbq-tetrad_unordered_two_gene-find_distance-MC-6_choices-questions.txt: Genetic Distance
+  from Unordered Two-Gene Tetrads (6 Choices)
+bbq-tetrad_unordered_two_gene-test_linkage-questions.txt: Linkage Tests from Unordered
+  Two-Gene Tetrads
+bbq-three-point_test_cross-distances_plus-questions.txt: Gene Order and Map Distances
+  from Three-Point Test Crosses
+bbq-three-point_test_cross-find_interence-MC-6_choices-questions.txt: Interference in
+  Three-Point Test Crosses (Multiple Choice, 6 Choices)
+bbq-three-point_test_cross-find_interence-NUM-questions.txt: Interference in Three-Point
+  Test Crosses (Numeric)
+bbq-three-point_test_cross-one_gene_distance-MC-questions.txt: Single-Gene Distance
+  from Three-Point Test Crosses (Multiple Choice)
+bbq-three-point_test_cross-one_gene_distance-NUM-questions.txt: Single-Gene Distance
+  from Three-Point Test Crosses (Numeric)
+bbq-three-point_test_cross-which_genotypes-DOUBLE-questions.txt: Double-Crossover Genotypes
+  in Three-Point Test Crosses
+bbq-three-point_test_cross-which_genotypes-GENES-questions.txt: Recombinant Genotypes
+  for a Specified Gene Pair in Three-Point Test Crosses
+bbq-three-point_test_cross-which_genotypes-PARENTAL-questions.txt: Parental Genotype
+  Combinations in a Three-Point Test Cross
+bbq-two-point_test_cross-cis-trans-MC-with_hint-questions.txt: Gene Configuration (Cis
+  vs. Trans) in Two-Point Test Crosses
+bbq-two-point_test_cross-distance-MC-with_hint-6_choices-questions.txt: Genetic Distance
+  in Two-Point Test Crosses (Multiple Choice, 6 Choices)
+bbq-two-point_test_cross-distance-NUM-with_hint-questions.txt: Genetic Distance in
+  Two-Point Test Crosses (Numeric)
+bbq-two-point_test_cross-which_genotypes-MA-with_hint-PARENTAL-questions.txt: Parental
+  Genotype Combinations in a Two-Point Test Cross
+bbq-two-point_test_cross-which_genotypes-MA-with_hint-RECOMBINANT-questions.txt: Recombinant
+  Genotype Combinations in a Two-Point Test Cross
+last edit: Sun Jul 12 23:11:26 2026

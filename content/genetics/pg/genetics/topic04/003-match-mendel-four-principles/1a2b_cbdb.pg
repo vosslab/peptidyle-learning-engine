@@ -1,0 +1,68 @@
+## DESCRIPTION
+## Imported Genetics source row 1a2b_cbdb; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic04/bbq-MATCH-mendel_four_principles-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_1A2B_CBDB';
+<p>1a2b_cbdb</p> <p>Match each of the following Mendel's Foundational Principles of Genetics with their corresponding descriptions.</p><p><i>Note:</i> Each choice will be used exactly once.</p>
+PROMPT_1A2B_CBDB
+loadMacros('PGML.pl', 'parserPopUp.pl');
+sub make_popup { return defined &DropDown ? DropDown(@_) : PopUp(@_); }
+$match_term_0 = <<'LITERAL_1A2B_CBDB_MATCH_TERM_0';
+<strong><span style="color: #cc0066;">Principle of Paired&nbsp;Factors</span></strong>
+LITERAL_1A2B_CBDB_MATCH_TERM_0
+$match_term_1 = <<'LITERAL_1A2B_CBDB_MATCH_TERM_1';
+<strong><span style="color: #003fff;">Law of Segregation</span></strong>
+LITERAL_1A2B_CBDB_MATCH_TERM_1
+$match_term_2 = <<'LITERAL_1A2B_CBDB_MATCH_TERM_2';
+<strong><span style="color: #3b7600;">Law of Independent&nbsp;Assortment</span></strong>
+LITERAL_1A2B_CBDB_MATCH_TERM_2
+$match_term_3 = <<'LITERAL_1A2B_CBDB_MATCH_TERM_3';
+<strong><span style="color: #b74300;">Principle of Dominance</span></strong>
+LITERAL_1A2B_CBDB_MATCH_TERM_3
+$match_choice_0 = <<'LITERAL_1A2B_CBDB_MATCH_CHOICE_0';
+Each trait in an organism is determined by two <strong><span style="color: #d40000;"><strong><span style="color: #d40000;">allele</span></strong>s</span></strong>.
+LITERAL_1A2B_CBDB_MATCH_CHOICE_0
+$match_choice_1 = <<'LITERAL_1A2B_CBDB_MATCH_CHOICE_1';
+Two <strong><span style="color: #a719db;">factors</span></strong> of a character get randomly distributed to <strong><span style="color: #c80085;">different</span></strong> <strong><span style="color: #007a00;"><strong><span style="color: #007a00;">gamete</span></strong>s</span></strong>.
+LITERAL_1A2B_CBDB_MATCH_CHOICE_1
+$match_choice_2 = <<'LITERAL_1A2B_CBDB_MATCH_CHOICE_2';
+Each pair of traits is passed down without any impact on the passage of other pairs during the creation of <strong><span style="color: #007a00;"><strong><span style="color: #007a00;">gamete</span></strong>s</span></strong>.
+LITERAL_1A2B_CBDB_MATCH_CHOICE_2
+$match_choice_3 = <<'LITERAL_1A2B_CBDB_MATCH_CHOICE_3';
+In cases where contrasting <strong><span style="color: #d40000;"><strong><span style="color: #d40000;">allele</span></strong>s</span></strong> are present, the <strong><span style="color: #6c6c00;">dominant</span></strong> <strong><span style="color: #d40000;">allele</span></strong> determines the <strong><span style="color: #007576;">phenotype</span></strong>.
+LITERAL_1A2B_CBDB_MATCH_CHOICE_3
+$match_dropdown_0 = make_popup(['', "A", "B", "C", "D"], 1);
+$match_dropdown_1 = make_popup(['', "A", "B", "C", "D"], 2);
+$match_dropdown_2 = make_popup(['', "A", "B", "C", "D"], 3);
+$match_dropdown_3 = make_popup(['', "A", "B", "C", "D"], 4);
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_PGML
+[@ MODES(HTML => '<div class="two-column">') @]*
+[@ MODES(HTML => '<div>') @]*
+[_]{$match_dropdown_0} *1.* [$match_term_0]*
+
+[_]{$match_dropdown_1} *2.* [$match_term_1]*
+
+[_]{$match_dropdown_2} *3.* [$match_term_2]*
+
+[_]{$match_dropdown_3} *4.* [$match_term_3]*
+[@ MODES(HTML => '</div><div>') @]*
+*A.* [$match_choice_0]*
+
+*B.* [$match_choice_1]*
+
+*C.* [$match_choice_2]*
+
+*D.* [$match_choice_3]*
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+ENDDOCUMENT();

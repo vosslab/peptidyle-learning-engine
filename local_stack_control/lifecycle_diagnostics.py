@@ -6,6 +6,7 @@ import local_stack_control.models
 
 
 MAXIMUM_DIAGNOSTIC_CHARACTERS = 320
+MAXIMUM_COMMAND_EXCERPT_CHARACTERS = 2_048
 SQL_OR_SEED_LOG_LINE = re.compile(
 	r"\b(?:alter|create|delete|drop|insert|select|seed|update)\b", re.IGNORECASE,
 )
@@ -16,18 +17,24 @@ def redacted_failure_detail(
 	result: local_stack_control.models.CommandResult,
 	private_values: tuple[str, ...] = (),
 ) -> str:
-	"""Return a bounded child failure summary with supplied private material removed."""
-	text = "child reported a failure"
-	if private_values:
-		text = "\n".join((result.stdout, result.stderr)).strip()
-		for value in sorted(set(private_values), key=len, reverse=True):
+	"""Return bounded redacted excerpts from both child output streams."""
+	if not private_values:
+		return "child reported a failure"
+	private_markers = tuple(sorted(set(private_values), key=len, reverse=True))
+	excerpts = []
+	# ASVS 13.3.2, 16.2.5, and 16.5.1: redact each stream before retaining
+	# its bounded diagnostic excerpt for the local operator.
+	for stream_text in (result.stdout, result.stderr):
+		redacted = stream_text
+		for value in private_markers:
 			if value != "":
-				text = text.replace(value, "[private]")
-		text = re.sub(r"(?:postgres|postgresql)://[^@\s]+@", "postgres://[private]@", text)
-		if text == "":
-			text = "child reported a failure"
-	text = text[-MAXIMUM_DIAGNOSTIC_CHARACTERS:]
-	return text
+				redacted = redacted.replace(value, "[private]")
+		redacted = re.sub(r"(?:postgres|postgresql)://[^@\s]+@", "postgres://[private]@", redacted)
+		if redacted.strip() != "":
+			excerpts.append(redacted.strip()[-MAXIMUM_COMMAND_EXCERPT_CHARACTERS:])
+	if len(excerpts) == 0:
+		return "child reported a failure"
+	return "\n".join(excerpts)
 
 
 #============================================

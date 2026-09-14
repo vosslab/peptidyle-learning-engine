@@ -40,6 +40,76 @@
   margin-top: 0;
 }
 
+.student-assignment-decision__status,
+.student-assignment-decision__zone {
+  margin-block: var(--ple-space-2);
+}
+
+.student-assignment-decision__zone {
+  color: var(--ple-muted);
+}
+
+.student-time-zone-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(14rem, auto);
+  gap: var(--ple-space-3) var(--ple-space-5);
+  align-items: end;
+  margin-block: var(--ple-space-5);
+  padding: var(--ple-space-4);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-inset);
+  background: var(--ple-surface-soft);
+}
+
+.student-time-zone-control h2,
+.student-time-zone-control p {
+  margin-block: 0 var(--ple-space-2);
+}
+
+.student-time-zone-control form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--ple-space-2);
+  align-items: end;
+}
+
+.student-time-zone-control label {
+  display: grid;
+  gap: var(--ple-space-1);
+}
+
+.student-assignment-card {
+  grid-template-areas:
+    "title action"
+    "progress action"
+    "grade action"
+    "decision action";
+  align-items: start;
+}
+
+.student-assignment-card__progress {
+  grid-area: progress;
+  margin-block: var(--ple-space-2) 0;
+}
+
+.student-assignment-card__grade {
+  grid-area: grade;
+  margin-block: var(--ple-space-2) 0;
+}
+
+.student-assignment-card__decision {
+  grid-area: decision;
+  margin-top: var(--ple-space-3);
+}
+
+.student-assignment-card__decision h3 {
+  margin-block: 0 var(--ple-space-2);
+}
+
+.student-assignment-card__decision .assignment-facts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .assignment-history {
   margin-block: var(--ple-space-5);
 }
@@ -70,6 +140,24 @@
 }
 
 @media (max-width: 56rem) {
+  .student-time-zone-control,
+  .student-time-zone-control form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .student-assignment-card {
+    grid-template-areas:
+      "title"
+      "progress"
+      "grade"
+      "decision"
+      "action";
+  }
+
+  .student-assignment-card__decision .assignment-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .assignment-history__list li {
     grid-template-columns: minmax(0, 1fr);
   }

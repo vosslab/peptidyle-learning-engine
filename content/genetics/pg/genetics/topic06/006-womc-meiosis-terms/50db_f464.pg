@@ -1,0 +1,40 @@
+## DESCRIPTION
+## Imported Genetics source row 50db_f464; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic06/bbq-WOMC-meiosis_terms-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_50DB_F464';
+<p>50db_f464</p> <p>Which one of the following Meiosis terms correspond to the definition <span style='font-size: 1em;'><strong>'the physical link between non-sister chromatids of <strong><span style="color: #d40000;">homologous chromosomes</span></strong> that remain after crossing over'</strong></span>.</p>
+PROMPT_50DB_F464
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_50DB_F464_CHOICE_1';
+chiasmata
+LITERAL_50DB_F464_CHOICE_1
+$choice_2 = <<'LITERAL_50DB_F464_CHOICE_2';
+crossing over
+LITERAL_50DB_F464_CHOICE_2
+$choice_3 = <<'LITERAL_50DB_F464_CHOICE_3';
+sister chromatids
+LITERAL_50DB_F464_CHOICE_3
+$choice_4 = <<'LITERAL_50DB_F464_CHOICE_4';
+synapsis
+LITERAL_50DB_F464_CHOICE_4
+$correct_1 = <<'LITERAL_50DB_F464_CORRECT_1';
+chiasmata
+LITERAL_50DB_F464_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

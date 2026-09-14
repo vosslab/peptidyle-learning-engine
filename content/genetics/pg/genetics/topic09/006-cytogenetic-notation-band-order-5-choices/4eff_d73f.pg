@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 4eff_d73f; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-cytogenetic_notation-band_order-5_choices-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_4EFF_D73F';
+<p>4eff_d73f</p> For chromosome 13q, which band lies most proximal (closest to the centromere)?
+PROMPT_4EFF_D73F
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_4EFF_D73F_CHOICE_1';
+<span style='font-family: monospace; font-weight: bold;'>13q25</span>
+LITERAL_4EFF_D73F_CHOICE_1
+$choice_2 = <<'LITERAL_4EFF_D73F_CHOICE_2';
+<span style='font-family: monospace; font-weight: bold;'>13q15.3</span>
+LITERAL_4EFF_D73F_CHOICE_2
+$choice_3 = <<'LITERAL_4EFF_D73F_CHOICE_3';
+<span style='font-family: monospace; font-weight: bold;'>13q11.3</span>
+LITERAL_4EFF_D73F_CHOICE_3
+$choice_4 = <<'LITERAL_4EFF_D73F_CHOICE_4';
+<span style='font-family: monospace; font-weight: bold;'>13q32.2</span>
+LITERAL_4EFF_D73F_CHOICE_4
+$choice_5 = <<'LITERAL_4EFF_D73F_CHOICE_5';
+<span style='font-family: monospace; font-weight: bold;'>13q49</span>
+LITERAL_4EFF_D73F_CHOICE_5
+$correct_1 = <<'LITERAL_4EFF_D73F_CORRECT_1';
+<span style='font-family: monospace; font-weight: bold;'>13q11.3</span>
+LITERAL_4EFF_D73F_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

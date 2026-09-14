@@ -5,14 +5,17 @@ use crate::{
     IssuedQuestionPresentation, LiveAssignmentAccess, LiveAssignmentAttempt,
     LiveAssignmentDeliveryStore, NativeAssignmentIssuanceBatch, NativePleIssuanceSource,
     NativePresentationInput, NativeWebworkIssuanceSource, SessionTokenHash, StoreError,
-    StudentAssignmentAttemptBackendDocument, StudentAssignmentAttemptFinalization,
+    StudentAssignmentAttemptBackendDocument, StudentAssignmentAttemptBackendDocumentResume,
+    StudentAssignmentAttemptFinalization, StudentAssignmentAttemptFinalizationEvaluation,
+    StudentAssignmentAttemptFinalizationPreparation,
+    StudentAssignmentAttemptFinalizationPreparationOutcome,
     StudentAssignmentAttemptHistoryEvidence, StudentAssignmentAttemptHistoryResponseSource,
     StudentAssignmentAttemptPresentationEvidence, StudentAssignmentAttemptSavedResponse,
 };
 use async_trait::async_trait;
 use question_model::{
     AssignmentAttemptReference, AssignmentReference, CourseInstanceReference,
-    StudentAssignmentAttemptPosition, StudentAssignmentAttemptProgress,
+    QuestionRevisionNumber, StudentAssignmentAttemptPosition, StudentAssignmentAttemptProgress,
     StudentAssignmentAttemptResponseState, StudentResponse,
 };
 use sqlx::{Postgres, Row, Transaction};
@@ -325,13 +328,23 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
         .await
         .map_err(map_sqlx_error)?;
         let returned_attempt = assignment_attempt_reference(&row)?;
+        let response_state = row
+            .try_get::<String, _>("response_state")
+            .map_err(map_sqlx_error)?;
         if returned_attempt != assignment_attempt
             || positive_i32(&row, "issued_position", "Issued position")? != position_u32
-            || row
-                .try_get::<String, _>("response_state")
-                .map_err(map_sqlx_error)?
-                != "saved"
         {
+            return Err(StoreError::InvalidRecord(
+                "Student response save result is invalid".to_string(),
+            ));
+        }
+        if response_state == "expired" {
+            // The expiry transition must commit even though this late payload
+            // is refused at the API boundary.
+            tx.commit().await.map_err(map_sqlx_error)?;
+            return Err(StoreError::Forbidden);
+        }
+        if response_state != "saved" {
             return Err(StoreError::InvalidRecord(
                 "Student response save result is invalid".to_string(),
             ));
@@ -382,53 +395,29 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
         Ok(response)
     }
 
-    async fn finalize_student_assignment_attempt(
+    async fn prepare_student_assignment_attempt_finalization(
         &self,
         token: SessionTokenHash,
         assignment_attempt: AssignmentAttemptReference,
+    ) -> Result<StudentAssignmentAttemptFinalizationPreparationOutcome, StoreError> {
+        super::assignment_delivery_finalization::prepare(self, token, assignment_attempt).await
+    }
+
+    async fn commit_student_assignment_attempt_finalization(
+        &self,
+        token: SessionTokenHash,
+        assignment_attempt: AssignmentAttemptReference,
+        preparation: StudentAssignmentAttemptFinalizationPreparation,
+        evaluations: Vec<StudentAssignmentAttemptFinalizationEvaluation>,
     ) -> Result<StudentAssignmentAttemptFinalization, StoreError> {
-        let mut tx = self.begin(token).await?;
-        let row = sqlx::query(
-            "SELECT submission_state, missing_positions \
-             FROM ple_api.finalize_student_assignment_attempt($1)",
+        super::assignment_delivery_finalization::commit(
+            self,
+            token,
+            assignment_attempt,
+            preparation,
+            evaluations,
         )
-        .bind(i64::from(assignment_attempt.number()))
-        .fetch_one(&mut *tx)
         .await
-        .map_err(map_sqlx_error)?;
-        let state: String = row.try_get("submission_state").map_err(map_sqlx_error)?;
-        let missing_positions = row
-            .try_get::<Vec<i32>, _>("missing_positions")
-            .map_err(map_sqlx_error)?
-            .into_iter()
-            .map(|position| {
-                u32::try_from(position)
-                    .ok()
-                    .filter(|position| *position > 0)
-                    .ok_or_else(|| {
-                        StoreError::InvalidRecord(
-                            "Missing Student response position is invalid".to_string(),
-                        )
-                    })
-            })
-            .collect::<Result<Vec<_>, StoreError>>()?;
-        let finalization = match state.as_str() {
-            "submitted" if missing_positions.is_empty() => {
-                StudentAssignmentAttemptFinalization::Submitted
-            }
-            "missing_responses" if !missing_positions.is_empty() => {
-                StudentAssignmentAttemptFinalization::MissingResponses {
-                    positions: missing_positions,
-                }
-            }
-            _ => {
-                return Err(StoreError::InvalidRecord(
-                    "Assignment Attempt submission result is invalid".to_string(),
-                ));
-            }
-        };
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(finalization)
     }
 
     async fn student_assignment_attempt_progress(
@@ -520,7 +509,9 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
         }
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
-            "SELECT backend_document \
+            "SELECT backend_document, issued_question_id, assignment_entry_id, issued_position, \
+                    question_id, revision_number, question_seed::text, source_object_id, \
+                    source_object_checksum, webwork_pg_path, student_response \
              FROM ple_api.read_student_assignment_attempt_backend_document($1, $2)",
         )
         .bind(i64::from(assignment_attempt.number()))
@@ -530,8 +521,88 @@ impl LiveAssignmentDeliveryStore for PostgresLiveAssignmentDeliveryStore {
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::NotFound)?;
         let backend_document = row.try_get("backend_document").map_err(map_sqlx_error)?;
+        let saved_response = row
+            .try_get::<Option<serde_json::Value>, _>("student_response")
+            .map_err(map_sqlx_error)?
+            .map(|value| {
+                serde_json::from_value(value).map_err(|_| {
+                    StoreError::InvalidRecord("Saved Student response is invalid".to_string())
+                })
+            })
+            .transpose()?;
+        let resume = match saved_response {
+            None => None,
+            // ASVS 2.2.1: only the opaque backend-owned shape may be sent
+            // back to this backend's resume renderer.
+            Some(saved_response @ StudentResponse::BackendOwned { .. }) => {
+                let position = positive_i32(&row, "issued_position", "Issued position")?;
+                let revision_number = u32::try_from(
+                    row.try_get::<i32, _>("revision_number")
+                        .map_err(map_sqlx_error)?,
+                )
+                .map_err(|_| {
+                    StoreError::InvalidRecord("Question Revision number is invalid".to_string())
+                })?;
+                QuestionRevisionNumber::new(revision_number).map_err(|_| {
+                    StoreError::InvalidRecord("Question Revision number is invalid".to_string())
+                })?;
+                let question_id = row
+                    .try_get::<String, _>("question_id")
+                    .map_err(map_sqlx_error)?
+                    .parse()
+                    .map_err(|_| {
+                        StoreError::InvalidRecord("Issued Question ID is invalid".to_string())
+                    })?;
+                let question_seed = row
+                    .try_get::<String, _>("question_seed")
+                    .map_err(map_sqlx_error)?
+                    .parse()
+                    .map_err(|_| {
+                        StoreError::InvalidRecord("Question Seed is invalid".to_string())
+                    })?;
+                let source_object_id = row
+                    .try_get::<Uuid, _>("source_object_id")
+                    .map_err(map_sqlx_error)?;
+                let source_object_checksum = row
+                    .try_get::<String, _>("source_object_checksum")
+                    .map_err(map_sqlx_error)?;
+                let webwork_pg_path = row
+                    .try_get::<String, _>("webwork_pg_path")
+                    .map_err(map_sqlx_error)?;
+                let issued_question_id = row
+                    .try_get::<Uuid, _>("issued_question_id")
+                    .map_err(map_sqlx_error)?;
+                let assignment_entry_id = row
+                    .try_get::<Uuid, _>("assignment_entry_id")
+                    .map_err(map_sqlx_error)?;
+                Some(StudentAssignmentAttemptBackendDocumentResume {
+                    source: NativeWebworkIssuanceSource {
+                        issued_question_id: Some(issued_question_id),
+                        assignment_entry_id: assignment_entry_id.to_string(),
+                        position,
+                        question_id,
+                        revision_number,
+                        source_object_id: source_object_id.to_string(),
+                        source_object_checksum,
+                        webwork_pg_path,
+                        question_seed,
+                        retained_presentation: None,
+                        question_asset_renditions: Vec::new(),
+                    },
+                    saved_response,
+                })
+            }
+            Some(_) => {
+                return Err(StoreError::InvalidRecord(
+                    "Saved Student response is invalid".to_string(),
+                ));
+            }
+        };
         tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(StudentAssignmentAttemptBackendDocument { backend_document })
+        Ok(StudentAssignmentAttemptBackendDocument {
+            backend_document,
+            resume,
+        })
     }
     async fn prepare_native_assignment_issuance(
         &self,
@@ -798,6 +869,8 @@ fn assignment_attempt_reference(
         StoreError::InvalidRecord("Assignment Attempt reference is invalid".to_string())
     })
 }
+
+pub(super) use super::assignment_delivery_finalization::finalization_source_from_row;
 
 pub(super) fn optional_positive_i32(
     row: &sqlx::postgres::PgRow,

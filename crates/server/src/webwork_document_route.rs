@@ -8,15 +8,17 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use learning_data_access::LiveAssignmentDeliveryStore;
-use question_model::AssignmentAttemptReference;
+use question_model::{AssignmentAttemptReference, generation::QuestionSeed};
 
 use crate::assignment_delivery::{StateData, concealed, student};
 
 const DOCUMENT_CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'none'";
 
-/// Serves the exact immutable renderer document for one Student-owned issued
-/// WeBWorK position. The data-access boundary conceals every unavailable,
-/// foreign, native, or incomplete position before document bytes are returned.
+/// Serves the immutable retained renderer document, or an ephemeral
+/// backend-authored resume render for its saved opaque response, for one
+/// Student-owned issued WeBWorK position. The data-access boundary conceals
+/// every unavailable, foreign, native, or incomplete position before document
+/// bytes are returned.
 pub(crate) async fn document(
     State(state): State<StateData>,
     headers: HeaderMap,
@@ -35,7 +37,37 @@ pub(crate) async fn document(
         .student_assignment_attempt_backend_document(token, assignment_attempt, position)
         .await
     {
-        Ok(value) => value.backend_document,
+        Ok(value) => match value.resume {
+            None => value.backend_document,
+            Some(resume) => {
+                let source = match crate::assignment_delivery::resolve_webwork_source(
+                    &state.objects,
+                    &resume.source,
+                )
+                .await
+                {
+                    Ok(value) => value,
+                    // ASVS 16.5.1: renderer/source failures stay concealed.
+                    Err(_) => return concealed(),
+                };
+                let document = match state
+                    .webwork
+                    .resume_document(
+                        QuestionSeed::new(resume.source.question_seed),
+                        &source,
+                        &resume.saved_response,
+                    )
+                    .await
+                {
+                    Ok(value) => value,
+                    Err(_) => return concealed(),
+                };
+                match String::from_utf8(document) {
+                    Ok(value) => value,
+                    Err(_) => return concealed(),
+                }
+            }
+        },
         Err(_) => return concealed(),
     };
 

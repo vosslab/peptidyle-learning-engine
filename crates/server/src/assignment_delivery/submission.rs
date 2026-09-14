@@ -2,19 +2,18 @@
 
 use axum::{
     Json,
-    extract::{FromRef, Path, State},
+    extract::{Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    routing::{MethodRouter, get},
 };
 use learning_data_access::{
-    LiveAssignmentDeliveryStore, NativePleSubmissionStatus, NativePleSubmissionStore,
-    StudentAssignmentAttemptFinalization,
+    LiveAssignmentAttemptScore, LiveAssignmentDeliveryStore, StudentAssignmentAttemptFinalization,
+    StudentAssignmentAttemptFinalizationPreparationOutcome,
 };
 use question_model::{
     AssignmentAttemptReference, StudentResponse,
     presentation::{
-        IssuedQuestionPresentation, QuestionPresentationNonce, StudentResponseInspection,
+        IssuedQuestionPresentation, StudentResponseInspection,
         project_durable_response_to_presentation_response_item_references,
         translate_presentation_response_item_references,
     },
@@ -22,8 +21,8 @@ use question_model::{
 use serde::{Deserialize, Serialize};
 
 use super::{
-    NativePleSubmissionStatusState, StartError, StateData, concealed, error, refs,
-    reproduce_selected_issued_presentation, student, student_with_sessions, submission_store_error,
+    StartError, StateData, concealed, direct_finalization, error,
+    reproduce_selected_issued_presentation, student, submission_store_error,
 };
 use question_model::response::{
     ResponseItemReference, StudentHotspotSelection, StudentMatch, StudentTextEntry,
@@ -31,7 +30,7 @@ use question_model::response::{
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct NativePleSubmissionRequest {
+pub(super) struct SavedResponseRequest {
     response: StudentResponse,
 }
 
@@ -42,7 +41,7 @@ pub(super) async fn save_selected_response(
     State(state): State<StateData>,
     headers: HeaderMap,
     Path((assignment_attempt, position)): Path<(String, u32)>,
-    Json(request): Json<NativePleSubmissionRequest>,
+    Json(request): Json<SavedResponseRequest>,
 ) -> Response {
     let assignment_attempt = match assignment_attempt.parse::<AssignmentAttemptReference>() {
         Ok(value) if position > 0 => value,
@@ -121,6 +120,7 @@ struct SavedResponseAcknowledgement {
 struct AssignmentAttemptSubmissionAcknowledgement {
     assignment_attempt: AssignmentAttemptReference,
     submission_state: &'static str,
+    score: Option<LiveAssignmentAttemptScore>,
 }
 
 /// Finalizes the whole Assignment Attempt only after the store verifies every
@@ -138,23 +138,63 @@ pub(super) async fn finalize_assignment_attempt(
         Ok(value) => value,
         Err(value) => return *value,
     };
-    match state
+    let preparation = match state
         .delivery
-        .finalize_student_assignment_attempt(token, assignment_attempt)
+        .prepare_student_assignment_attempt_finalization(token, assignment_attempt)
         .await
     {
-        Ok(StudentAssignmentAttemptFinalization::Submitted) => crate::auth::no_store(
+        Ok(value) => value,
+        Err(value) => return submission_store_error(value),
+    };
+    let finalization = match preparation {
+        StudentAssignmentAttemptFinalizationPreparationOutcome::AlreadySubmitted { score } => {
+            StudentAssignmentAttemptFinalization::Submitted { score }
+        }
+        StudentAssignmentAttemptFinalizationPreparationOutcome::MissingResponses { .. } => {
+            return error(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Save a response for every Question before submitting",
+            );
+        }
+        StudentAssignmentAttemptFinalizationPreparationOutcome::Ready(preparation) => {
+            let evaluations = match direct_finalization::evaluate_saved_responses(
+                &state.objects,
+                state.webwork.as_ref(),
+                &preparation.saved_responses,
+            )
+            .await
+            {
+                Ok(value) => value,
+                Err(value) => return submission_store_error(value),
+            };
+            match state
+                .delivery
+                .commit_student_assignment_attempt_finalization(
+                    token,
+                    assignment_attempt,
+                    preparation,
+                    evaluations,
+                )
+                .await
+            {
+                Ok(value) => value,
+                Err(value) => return submission_store_error(value),
+            }
+        }
+    };
+    match finalization {
+        StudentAssignmentAttemptFinalization::Submitted { score } => crate::auth::no_store(
             Json(AssignmentAttemptSubmissionAcknowledgement {
                 assignment_attempt,
                 submission_state: "submitted",
+                score,
             })
             .into_response(),
         ),
-        Ok(StudentAssignmentAttemptFinalization::MissingResponses { .. }) => error(
+        StudentAssignmentAttemptFinalization::MissingResponses { .. } => error(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Save a response for every Question before submitting",
         ),
-        Err(value) => submission_store_error(value),
     }
 }
 
@@ -217,17 +257,16 @@ fn presentation_reference(
     ResponseItemReference::new(value.as_str())
 }
 
+fn invalid_response() -> Response {
+    error(
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "Student Response is invalid",
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{
-        Router,
-        body::Body,
-        http::{Request, StatusCode},
-    };
-    use learning_data_access::postgres::{
-        PostgresNativePleSubmissionStore, PostgresSessionStore, lazy_pool,
-    };
     use question_model::answer::ResponseSelectionRule;
     use question_model::{
         NativeChoiceOrder, QuestionContentBlock, QuestionRevisionNumber, QuestionRevisionReference,
@@ -236,8 +275,6 @@ mod tests {
         presentation::build_question_presentation,
         response::{QuestionChoice, QuestionResponseFormat},
     };
-    use std::sync::Arc;
-    use tower::ServiceExt;
 
     fn issued_multiple_choice() -> IssuedQuestionPresentation {
         let presentation = QuestionVariationPresentation {
@@ -310,100 +347,22 @@ mod tests {
         assert_eq!(restored, response);
     }
 
-    #[tokio::test]
-    async fn status_route_rejects_legacy_per_question_post() {
-        let pool = lazy_pool("postgres://ple_api:unused@localhost/ple_test")
-            .expect("test pool configuration");
-        let state = NativePleSubmissionStatusState {
-            sessions: Arc::new(PostgresSessionStore::new(pool.clone())),
-            submissions: PostgresNativePleSubmissionStore::new(pool),
-        };
-        let response = Router::new()
-            .route(
-                "/api/course-instances/C-1/assignments/A-1/presentations/abcd/submissions",
-                native_ple_submission_status_route::<NativePleSubmissionStatusState>(),
-            )
-            .with_state(state)
-            .oneshot(
-                Request::post(
-                    "/api/course-instances/C-1/assignments/A-1/presentations/abcd/submissions",
-                )
-                .body(Body::empty())
-                .expect("request"),
-            )
-            .await
-            .expect("response");
+    #[test]
+    fn submission_acknowledgement_retains_an_explicit_deferred_score() {
+        let wire = serde_json::to_value(AssignmentAttemptSubmissionAcknowledgement {
+            assignment_attempt: "R-1".parse().expect("Assignment Attempt reference"),
+            submission_state: "submitted",
+            score: None,
+        })
+        .expect("submission acknowledgement serializes");
 
-        assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
-        assert_eq!(response.headers().get("allow").expect("allow"), "GET,HEAD");
+        assert_eq!(
+            wire,
+            serde_json::json!({
+                "assignmentAttempt": "R-1",
+                "submissionState": "submitted",
+                "score": null,
+            })
+        );
     }
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct NativePleSubmissionStatusResponse {
-    presentation_nonce: String,
-    grading_state: &'static str,
-}
-
-/// ASVS 2.3.1 and 4.1.4: the retained status route exposes only GET; whole-
-/// Attempt finalization owns immutable submission state.
-pub(super) fn native_ple_submission_status_route<S>() -> MethodRouter<S>
-where
-    S: Clone + Send + Sync + 'static,
-    NativePleSubmissionStatusState: FromRef<S>,
-{
-    get(native_ple_submission_status)
-}
-
-async fn native_ple_submission_status(
-    State(state): State<NativePleSubmissionStatusState>,
-    headers: HeaderMap,
-    Path((course, assignment, presentation_nonce)): Path<(String, String, String)>,
-) -> Response {
-    let (course, assignment) = match refs(&course, &assignment) {
-        Ok(value) => value,
-        Err(value) => return value,
-    };
-    let nonce = match QuestionPresentationNonce::parse(&presentation_nonce) {
-        Ok(value) => value,
-        Err(_) => return concealed(),
-    };
-    let token = match student_with_sessions(state.sessions.as_ref(), &headers).await {
-        Ok(value) => value,
-        Err(value) => return *value,
-    };
-    let response = match state
-        .submissions
-        .native_ple_submission_status(
-            token,
-            u64::from(course.number()),
-            u64::from(assignment.number()),
-            &nonce.to_hex(),
-        )
-        .await
-    {
-        Ok(NativePleSubmissionStatus {
-            presentation_nonce,
-            grading_state,
-        }) => NativePleSubmissionStatusResponse {
-            presentation_nonce,
-            grading_state: match grading_state {
-                learning_data_access::StudentQuestionSubmissionGradingState::Pending => "pending",
-                learning_data_access::StudentQuestionSubmissionGradingState::Graded => "graded",
-                learning_data_access::StudentQuestionSubmissionGradingState::InstructorAttention => {
-                    "instructorAttention"
-                }
-            },
-        },
-        Err(value) => return submission_store_error(value),
-    };
-    crate::auth::no_store(Json(response).into_response())
-}
-
-fn invalid_response() -> Response {
-    error(
-        StatusCode::UNPROCESSABLE_ENTITY,
-        "Student Response is invalid",
-    )
 }

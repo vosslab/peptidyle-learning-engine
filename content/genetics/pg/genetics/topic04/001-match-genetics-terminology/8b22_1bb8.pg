@@ -1,0 +1,79 @@
+## DESCRIPTION
+## Imported Genetics source row 8b22_1bb8; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic04/bbq-MATCH-genetics_terminology-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_8B22_1BB8';
+<p>8b22_1bb8</p> <p>Match each of the following <strong><span style="color: #a719db;">genetic terms</span></strong> with their corresponding definitions.</p><p><i>Note:</i> Each choice will be used exactly once.</p>
+PROMPT_8B22_1BB8
+loadMacros('PGML.pl', 'parserPopUp.pl');
+sub make_popup { return defined &DropDown ? DropDown(@_) : PopUp(@_); }
+$match_term_0 = <<'LITERAL_8B22_1BB8_MATCH_TERM_0';
+<strong><span style="color: #3b7600;">single nucleotide polymorphism (SNP)</span></strong>
+LITERAL_8B22_1BB8_MATCH_TERM_0
+$match_term_1 = <<'LITERAL_8B22_1BB8_MATCH_TERM_1';
+<strong><span style="color: #d40000;">haploid</span></strong>
+LITERAL_8B22_1BB8_MATCH_TERM_1
+$match_term_2 = <<'LITERAL_8B22_1BB8_MATCH_TERM_2';
+<strong><span style="color: #6c6c00;">genome</span> </strong>
+LITERAL_8B22_1BB8_MATCH_TERM_2
+$match_term_3 = <<'LITERAL_8B22_1BB8_MATCH_TERM_3';
+<strong><span style="color: #935d00;">locus</span></strong>
+LITERAL_8B22_1BB8_MATCH_TERM_3
+$match_term_4 = <<'LITERAL_8B22_1BB8_MATCH_TERM_4';
+<strong><span style="color: #00775f;">homologous chromosomes</span></strong>
+LITERAL_8B22_1BB8_MATCH_TERM_4
+$match_choice_0 = <<'LITERAL_8B22_1BB8_MATCH_CHOICE_0';
+a genomic variant at a single base position in the DNA
+LITERAL_8B22_1BB8_MATCH_CHOICE_0
+$match_choice_1 = <<'LITERAL_8B22_1BB8_MATCH_CHOICE_1';
+a cell or organism that a single set of chromosomes
+LITERAL_8B22_1BB8_MATCH_CHOICE_1
+$match_choice_2 = <<'LITERAL_8B22_1BB8_MATCH_CHOICE_2';
+an organism's complete set of DNA
+LITERAL_8B22_1BB8_MATCH_CHOICE_2
+$match_choice_3 = <<'LITERAL_8B22_1BB8_MATCH_CHOICE_3';
+the physical position of a <strong><span style="color: #b74300;">gene</span> </strong>within a chromosome
+LITERAL_8B22_1BB8_MATCH_CHOICE_3
+$match_choice_4 = <<'LITERAL_8B22_1BB8_MATCH_CHOICE_4';
+two chromosomes which carry the same genes, one from each parental source
+LITERAL_8B22_1BB8_MATCH_CHOICE_4
+$match_dropdown_0 = make_popup(['', "A", "B", "C", "D", "E"], 1);
+$match_dropdown_1 = make_popup(['', "A", "B", "C", "D", "E"], 2);
+$match_dropdown_2 = make_popup(['', "A", "B", "C", "D", "E"], 3);
+$match_dropdown_3 = make_popup(['', "A", "B", "C", "D", "E"], 4);
+$match_dropdown_4 = make_popup(['', "A", "B", "C", "D", "E"], 5);
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_PGML
+[@ MODES(HTML => '<div class="two-column">') @]*
+[@ MODES(HTML => '<div>') @]*
+[_]{$match_dropdown_0} *1.* [$match_term_0]*
+
+[_]{$match_dropdown_1} *2.* [$match_term_1]*
+
+[_]{$match_dropdown_2} *3.* [$match_term_2]*
+
+[_]{$match_dropdown_3} *4.* [$match_term_3]*
+
+[_]{$match_dropdown_4} *5.* [$match_term_4]*
+[@ MODES(HTML => '</div><div>') @]*
+*A.* [$match_choice_0]*
+
+*B.* [$match_choice_1]*
+
+*C.* [$match_choice_2]*
+
+*D.* [$match_choice_3]*
+
+*E.* [$match_choice_4]*
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+ENDDOCUMENT();

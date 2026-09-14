@@ -1,0 +1,46 @@
+## DESCRIPTION
+## Imported Genetics source row 7eaa_788e; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-polyploid-monoploid_v_haploid-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_7EAA_788E';
+<p>7eaa_788e</p> <p>A certain plant is found to be a tetraploid (4n) with 20 chromosomes in total.</p><h5>What are the monoploid (m) and haploid (h) numbers for this plant?</h5><p><i>Note: 20/4 = 5 and 20/2 = 10</i></p>
+PROMPT_7EAA_788E
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_7EAA_788E_CHOICE_1';
+<p>monoploid, m = 20 and haploid, h = 5</p>
+LITERAL_7EAA_788E_CHOICE_1
+$choice_2 = <<'LITERAL_7EAA_788E_CHOICE_2';
+<p>monoploid, m = 5 and haploid, h = 5</p>
+LITERAL_7EAA_788E_CHOICE_2
+$choice_3 = <<'LITERAL_7EAA_788E_CHOICE_3';
+<p>monoploid, m = 5 and haploid, h = 10</p>
+LITERAL_7EAA_788E_CHOICE_3
+$choice_4 = <<'LITERAL_7EAA_788E_CHOICE_4';
+<p>monoploid, m = 10 and haploid, h = 10</p>
+LITERAL_7EAA_788E_CHOICE_4
+$choice_5 = <<'LITERAL_7EAA_788E_CHOICE_5';
+<p>monoploid, m = 10 and haploid, h = 5</p>
+LITERAL_7EAA_788E_CHOICE_5
+$choice_6 = <<'LITERAL_7EAA_788E_CHOICE_6';
+<p>monoploid, m = 20 and haploid, h = 10</p>
+LITERAL_7EAA_788E_CHOICE_6
+$correct_1 = <<'LITERAL_7EAA_788E_CORRECT_1';
+<p>monoploid, m = 5 and haploid, h = 10</p>
+LITERAL_7EAA_788E_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5, $choice_6);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

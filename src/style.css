@@ -601,6 +601,14 @@ textarea:hover {
   font-size: clamp(1.35rem, 2.2vw, 1.8rem);
 }
 
+.assignment-attempt-expiry {
+  max-width: 24rem;
+  margin: 0.35rem 0 0;
+  color: var(--ple-muted);
+  font-size: 0.82rem;
+  text-align: end;
+}
+
 .assignment-attempt-question-pool-selection {
   width: fit-content;
   margin: 0 0 0.65rem;
@@ -654,7 +662,7 @@ textarea:hover {
 }
 
 .attempt-pending,
-.attempt-recovery,
+.attempt-error,
 .attempt-summary,
 .saved-notice,
 .visual-note {
@@ -664,7 +672,7 @@ textarea:hover {
   background: color-mix(in srgb, var(--ple-success) 7%, white);
 }
 
-.attempt-recovery {
+.attempt-error {
   margin-bottom: var(--ple-space-3);
   border-color: var(--ple-focus);
   background: color-mix(in srgb, var(--ple-focus) 8%, white);
@@ -853,31 +861,6 @@ textarea:hover {
   text-align: center;
 }
 
-/* Optional account preference: stronger structure while retaining theme anchors and canvas. */
-html[data-contrast="increased"] {
-  --ple-ink: #111827;
-  --ple-muted: #354052;
-  --ple-accent: #0f4d70;
-  --ple-accent-strong: #0b3d5a;
-  --ple-action-hover: #082f49;
-  --ple-focus: #111827;
-  --ple-border: #718096;
-  --ple-border-strong: #354052;
-}
-
-html[data-contrast="increased"] :focus-visible {
-  outline-width: 3px;
-  outline-offset: 2px;
-}
-
-html[data-contrast="increased"] .course-theme-scope {
-  --ple-ink: #111827 !important;
-  --ple-muted: #354052 !important;
-  --ple-focus: #111827 !important;
-  --ple-border: #718096 !important;
-  --ple-border-strong: #354052 !important;
-}
-
 @keyframes spin {
   to {
     transform: rotate(1turn);
@@ -995,5 +978,9 @@ html[data-contrast="increased"] .course-theme-scope {
   .assignment-attempt-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .assignment-attempt-expiry {
+    text-align: start;
   }
 }

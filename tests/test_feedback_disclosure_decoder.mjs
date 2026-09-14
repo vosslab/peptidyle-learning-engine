@@ -8,7 +8,6 @@ import {
   decodeStudentFeedback,
   decodeStudentQuestionAttempt,
   decodeStudentIssuedQuestion,
-  decodeGradedQuestionSubmissionReceipt,
 } from "../src/api/decoders.ts";
 import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
@@ -123,127 +122,6 @@ test("Student Issued Question excludes durable Question Pool Selection evidence"
   );
   assert.throws(
     () => decodeStudentIssuedQuestion({ ...issuedQuestion, issuedPosition: 0 }),
-    DecodeError,
-  );
-});
-
-test("submission receipts reject hostile private grading data", () => {
-  const { questionPoolSelectionPosition: _questionPoolSelectionPosition, ...attempt } =
-    publishedQuestionFixture.attempts[0];
-  const receipt = {
-    accepted: true,
-    attempt,
-    feedback: { correctness: true },
-    assignmentScoringState: "current",
-    assignmentAttemptCompletion: "inProgress",
-    nextIssued: null,
-    nextPending: false,
-  };
-  assert.deepEqual(decodeGradedQuestionSubmissionReceipt(receipt), {
-    ...receipt,
-    attemptId: receipt.attempt.id,
-  });
-  assert.throws(
-    () =>
-      decodeGradedQuestionSubmissionReceipt({
-        ...receipt,
-        feedback: { correctness: true, token: "no" },
-      }),
-    DecodeError,
-  );
-
-  for (const assignmentScoringState of ["recalculating", "failed"]) {
-    const redacted = structuredClone(receipt);
-    redacted.assignmentScoringState = assignmentScoringState;
-    redacted.attempt.submission.gradingResult = null;
-    redacted.feedback = { correctness: true };
-    assert.deepEqual(decodeGradedQuestionSubmissionReceipt(redacted), {
-      ...redacted,
-      attemptId: redacted.attempt.id,
-    });
-
-    const resultLeak = structuredClone(redacted);
-    resultLeak.attempt.submission.gradingResult = receipt.attempt.submission.gradingResult;
-    assert.throws(() => decodeGradedQuestionSubmissionReceipt(resultLeak), DecodeError);
-
-    const pointLeak = structuredClone(redacted);
-    pointLeak.feedback = { correctness: true, pointsEarned: 1, pointsPossible: 1 };
-    assert.throws(() => decodeGradedQuestionSubmissionReceipt(pointLeak), DecodeError);
-  }
-  const { assignmentScoringState: _assignmentScoringState, ...withoutAssignmentScoringState } =
-    receipt;
-  assert.throws(
-    () => decodeGradedQuestionSubmissionReceipt(withoutAssignmentScoringState),
-    DecodeError,
-  );
-  const {
-    assignmentAttemptCompletion: _assignmentAttemptCompletion,
-    ...withoutAssignmentAttemptCompletion
-  } = receipt;
-  assert.throws(
-    () => decodeGradedQuestionSubmissionReceipt(withoutAssignmentAttemptCompletion),
-    DecodeError,
-  );
-  for (const [path, forbidden] of [
-    ["answerKey", "answerKey"],
-    ["timing.key", "key"],
-    ["reproductionDetails", { backend: { id: "private", version: "1" } }],
-    ["submission.gradingResult.checker", "checker"],
-  ]) {
-    const hostile = structuredClone(receipt);
-    const fields = path.split(".");
-    let target = hostile.attempt;
-    for (const field of fields.slice(0, -1)) {
-      if (field === "answerKey") break;
-      if (target[field] === null) target[field] = {};
-      target = target[field];
-    }
-    target[fields.at(-1)] = forbidden;
-    assert.throws(
-      () => decodeGradedQuestionSubmissionReceipt(hostile),
-      DecodeError,
-      `rejects ${path}`,
-    );
-  }
-  const { feedback: _feedback, ...withoutFeedback } = receipt;
-  assert.throws(() => decodeGradedQuestionSubmissionReceipt(withoutFeedback), DecodeError);
-  assert.throws(
-    () =>
-      decodeGradedQuestionSubmissionReceipt({
-        ...receipt,
-        nextIssued: {
-          id: "0198e000-0000-7000-8000-000000000035",
-          issuedQuestion: publishedQuestionFixture.issuedQuestions[1],
-          question_seed: receipt.attempt.question_seed,
-          deadline: null,
-          renderedQuestionSha256: "b".repeat(64),
-        },
-        nextPending: true,
-      }),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeGradedQuestionSubmissionReceipt({
-        ...receipt,
-        assignmentAttemptCompletion: "completed",
-        nextIssued: {
-          id: "0198e000-0000-7000-8000-000000000035",
-          issuedQuestion: publishedQuestionFixture.issuedQuestions[1],
-          question_seed: receipt.attempt.question_seed,
-          deadline: null,
-          renderedQuestionSha256: "b".repeat(64),
-        },
-      }),
-    DecodeError,
-  );
-  assert.throws(
-    () =>
-      decodeGradedQuestionSubmissionReceipt({
-        ...receipt,
-        assignmentAttemptCompletion: "completed",
-        nextPending: true,
-      }),
     DecodeError,
   );
 });

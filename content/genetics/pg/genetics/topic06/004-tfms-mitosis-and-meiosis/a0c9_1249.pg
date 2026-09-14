@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row a0c9_1249; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic06/bbq-TFMS-mitosis_and_meiosis-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_A0C9_1249';
+<p>a0c9_1249</p> <p>Which one of the following statements is<strong> <span style="color: #ba372a;"><strong>FALSE</strong></span> </strong> regarding <strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;">mitosis</span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong> and <strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">meiosis</span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong></span></strong> cell division?</p>
+PROMPT_A0C9_1249
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_A0C9_1249_CHOICE_1';
+<strong><span style="color: OrangeRed;">Mitosis</span></strong> is cell division that produces two (2) daughter cells
+LITERAL_A0C9_1249_CHOICE_1
+$choice_2 = <<'LITERAL_A0C9_1249_CHOICE_2';
+The daughter cells produced at the end of <strong><span style="color: MediumBlue;">meiosis</span></strong> are genetically different from the original parent cell
+LITERAL_A0C9_1249_CHOICE_2
+$choice_3 = <<'LITERAL_A0C9_1249_CHOICE_3';
+<strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">Meiosis</span></strong></span></strong> I</span></strong> is the only stage where sister chromatids pair up and exchange genetic material
+LITERAL_A0C9_1249_CHOICE_3
+$choice_4 = <<'LITERAL_A0C9_1249_CHOICE_4';
+Only sexually reproductive organisms utilize <strong><span style="color: MediumBlue;">meiosis</span></strong>
+LITERAL_A0C9_1249_CHOICE_4
+$choice_5 = <<'LITERAL_A0C9_1249_CHOICE_5';
+<strong><span style="color: MediumBlue;">Meiosis</span></strong> produces new gamete cells, such as sperm and egg
+LITERAL_A0C9_1249_CHOICE_5
+$correct_1 = <<'LITERAL_A0C9_1249_CORRECT_1';
+<strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">Meiosis</span></strong></span></strong> I</span></strong> is the only stage where sister chromatids pair up and exchange genetic material
+LITERAL_A0C9_1249_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

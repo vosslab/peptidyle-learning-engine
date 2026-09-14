@@ -28,12 +28,15 @@
 \ir attempt_interaction.sql
 \ir attempt_presentation.sql
 \ir attempt_operations.sql
+\ir attempt_finalization.sql
+\ir attempt_operations_api.sql
 \ir attempt_access.sql
 \ir delivery_backends.sql
 \ir delivery.sql
 \ir jobs.sql
 \ir question_asset_operations.sql
 \ir grading.sql
+\ir grading_access.sql
 \ir student_assignment_landing.sql
 \ir attempt_history.sql
 \ir statistics.sql

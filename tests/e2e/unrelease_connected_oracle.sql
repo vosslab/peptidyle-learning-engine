@@ -82,7 +82,7 @@ INSERT INTO ple_data.course_membership (
 -- counter.
 SET LOCAL ROLE ple_data_owner;
 INSERT INTO ple_data.assignment (
-    assignment_id, reference_number, course_id,
+    assignment_id, course_id,
     source_blueprint_course_reference_number, source_blueprint_revision_number,
     source_blueprint_assignment_reference, created_at, updated_at,
     assignment_title, assignment_instructions, late_work_rule,
@@ -93,22 +93,22 @@ INSERT INTO ple_data.assignment (
     assignment_question_order_rule, feedback_score, feedback_per_item_correctness,
     feedback_submitted_response, feedback_question_feedback, feedback_question_answer,
     feedback_question_answer_explanation, feedback_class_statistics, assignment_status
-) OVERRIDING SYSTEM VALUE VALUES
-    ('40000000-0000-0000-0000-000000000001', 1,
+) VALUES
+    ('40000000-0000-0000-0000-000000000001',
      '30000000-0000-0000-0000-000000000001', 1, 1,
      '20000000-0000-0000-0000-000000000003', clock_timestamp(), clock_timestamp(),
      'Unrelease target', '', 'accept', 'answer_all', 'latest', 'unlimited',
      'reuse_selection', 'reuse_variation', 'resumable', 'all_questions',
      'free_navigation', 'authored_order', 'after_submit', 'after_submit',
      'after_submit', 'after_submit', 'after_submit', 'after_submit', 'never', 'released'),
-    ('40000000-0000-0000-0000-000000000002', 2,
+    ('40000000-0000-0000-0000-000000000002',
      '30000000-0000-0000-0000-000000000001', 1, 1,
      '20000000-0000-0000-0000-000000000003', clock_timestamp(), clock_timestamp(),
      'Statistics survivor', '', 'accept', 'answer_all', 'latest', 'unlimited',
      'reuse_selection', 'reuse_variation', 'resumable', 'all_questions',
      'free_navigation', 'authored_order', 'after_submit', 'after_submit',
      'after_submit', 'after_submit', 'after_submit', 'after_submit', 'never', 'released'),
-    ('40000000-0000-0000-0000-000000000003', 3,
+    ('40000000-0000-0000-0000-000000000003',
      '30000000-0000-0000-0000-000000000001', 1, 1,
      '20000000-0000-0000-0000-000000000003', clock_timestamp(), clock_timestamp(),
      'Unrelease lock race', '', 'accept', 'answer_all', 'latest', 'unlimited',
@@ -164,18 +164,17 @@ VALUES ('50000000-0000-0000-0000-000000000021', '{}'::jsonb, clock_timestamp()),
 INSERT INTO ple_private.question_submission (submission_id, question_attempt_id, submitted_at, student_response)
 VALUES ('50000000-0000-0000-0000-000000000031', '50000000-0000-0000-0000-000000000021', transaction_timestamp(), '{}'::jsonb),
        ('50000000-0000-0000-0000-000000000032', '50000000-0000-0000-0000-000000000022', transaction_timestamp(), '{}'::jsonb);
-INSERT INTO ple_private.assignment_submission (assignment_submission_id, assignment_attempt_id, submitted_at, authorized_by_account_id, receipt)
-VALUES ('50000000-0000-0000-0000-000000000041', '50000000-0000-0000-0000-000000000001', clock_timestamp(), '10000000-0000-0000-0000-000000000002', '{}'::jsonb),
-       ('50000000-0000-0000-0000-000000000042', '50000000-0000-0000-0000-000000000002', clock_timestamp(), '10000000-0000-0000-0000-000000000002', '{}'::jsonb);
-INSERT INTO ple_private.job (job_id, job_kind, job_target_kind, question_submission_id, worker_kind, payload, state, available_at, max_attempts, created_at)
-VALUES ('50000000-0000-0000-0000-000000000051', 'grade_accepted_submission', 'question_submission', '50000000-0000-0000-0000-000000000031', 'native_ple_grading', '{}'::jsonb, 'ready', clock_timestamp(), 1, clock_timestamp()),
-       ('50000000-0000-0000-0000-000000000052', 'grade_accepted_submission', 'question_submission', '50000000-0000-0000-0000-000000000032', 'native_ple_grading', '{}'::jsonb, 'ready', clock_timestamp(), 1, clock_timestamp());
-INSERT INTO ple_private.question_submission_grading (question_submission_grading_id, submission_id, job_id, grading_state, created_at)
-VALUES ('50000000-0000-0000-0000-000000000061', '50000000-0000-0000-0000-000000000031', '50000000-0000-0000-0000-000000000051', 'pending', clock_timestamp()),
-       ('50000000-0000-0000-0000-000000000062', '50000000-0000-0000-0000-000000000032', '50000000-0000-0000-0000-000000000052', 'pending', clock_timestamp());
-INSERT INTO ple_private.grading_result (grading_result_id, submission_id, question_submission_grading_id, question_attempt_id, correct, points_earned, points_possible, recorded_at)
-VALUES ('50000000-0000-0000-0000-000000000071', '50000000-0000-0000-0000-000000000031', '50000000-0000-0000-0000-000000000061', '50000000-0000-0000-0000-000000000021', true, 1, 1, clock_timestamp()),
-       ('50000000-0000-0000-0000-000000000072', '50000000-0000-0000-0000-000000000032', '50000000-0000-0000-0000-000000000062', '50000000-0000-0000-0000-000000000022', true, 1, 1, clock_timestamp());
+INSERT INTO ple_private.assignment_submission (assignment_submission_id, assignment_attempt_id, submitted_at, finalization_kind, authorized_by_account_id, receipt)
+VALUES ('50000000-0000-0000-0000-000000000041', '50000000-0000-0000-0000-000000000001', clock_timestamp(), 'student', '10000000-0000-0000-0000-000000000002', '{}'::jsonb),
+       ('50000000-0000-0000-0000-000000000042', '50000000-0000-0000-0000-000000000002', clock_timestamp(), 'student', '10000000-0000-0000-0000-000000000002', '{}'::jsonb);
+INSERT INTO ple_private.question_submission_grading (
+    question_submission_grading_id, submission_id, grading_state, created_at, completed_at
+) VALUES
+    ('50000000-0000-0000-0000-000000000061', '50000000-0000-0000-0000-000000000031', 'graded', clock_timestamp(), clock_timestamp()),
+    ('50000000-0000-0000-0000-000000000062', '50000000-0000-0000-0000-000000000032', 'graded', clock_timestamp(), clock_timestamp());
+INSERT INTO ple_private.grading_result (grading_result_id, submission_id, question_submission_grading_id, question_attempt_id, normalized_credit, recorded_at)
+VALUES ('50000000-0000-0000-0000-000000000071', '50000000-0000-0000-0000-000000000031', '50000000-0000-0000-0000-000000000061', '50000000-0000-0000-0000-000000000021', 1, clock_timestamp()),
+       ('50000000-0000-0000-0000-000000000072', '50000000-0000-0000-0000-000000000032', '50000000-0000-0000-0000-000000000062', '50000000-0000-0000-0000-000000000022', 1, clock_timestamp());
 
 SET LOCAL ROLE ple_audit_owner;
 INSERT INTO ple_audit.automated_grading_receipt (automated_grading_receipt_id, question_submission_grading_id, grading_result_id, committed_at, automated_grading_receipt_checksum)
@@ -192,24 +191,40 @@ COMMIT;
 -- Error cases are real public calls.  Each verifies the rejected transaction
 -- leaves current state, retained evidence, statistics, and audit unchanged.
 BEGIN;
+SET LOCAL ROLE ple_data_owner;
+SELECT set_config(
+    'ple.test_unrelease_target_reference', reference_number::text, true
+) FROM ple_data.assignment
+ WHERE assignment_id = '40000000-0000-0000-0000-000000000001';
 SET LOCAL ROLE ple_app;
 SELECT set_config('ple.session_account_id', '10000000-0000-0000-0000-000000000002', true);
 DO $$
 BEGIN
-    PERFORM * FROM ple_api.read_assignment_unrelease_impact(1, 1);
+    PERFORM * FROM ple_api.read_assignment_unrelease_impact(
+        1,
+        current_setting('ple.test_unrelease_target_reference')::bigint
+    );
     RAISE EXCEPTION 'foreign unrelease impact was enumerated';
 EXCEPTION WHEN insufficient_privilege THEN NULL;
 END $$;
 SELECT set_config('ple.session_account_id', '10000000-0000-0000-0000-000000000001', true);
 DO $$
 BEGIN
-    PERFORM * FROM ple_api.unrelease_assignment(1, 1, 2, 'Unrelease target');
+    PERFORM * FROM ple_api.unrelease_assignment(
+        1,
+        current_setting('ple.test_unrelease_target_reference')::bigint,
+        2, 'Unrelease target'
+    );
     RAISE EXCEPTION 'stale Unrelease Edit Number was accepted';
 EXCEPTION WHEN serialization_failure THEN NULL;
 END $$;
 DO $$
 BEGIN
-    PERFORM * FROM ple_api.unrelease_assignment(1, 1, 1, 'wrong title');
+    PERFORM * FROM ple_api.unrelease_assignment(
+        1,
+        current_setting('ple.test_unrelease_target_reference')::bigint,
+        1, 'wrong title'
+    );
     RAISE EXCEPTION 'wrong Unrelease confirmation title was accepted';
 EXCEPTION WHEN invalid_parameter_value THEN NULL;
 END $$;
@@ -217,8 +232,10 @@ RESET ROLE;
 SET LOCAL ROLE ple_data_owner;
 DO $$
 BEGIN
-    IF (SELECT assignment_status FROM ple_data.assignment WHERE reference_number = 1) <> 'released'
-       OR (SELECT assignment_edit_number FROM ple_data.assignment WHERE reference_number = 1) <> 1 THEN
+    IF (SELECT assignment_status FROM ple_data.assignment
+         WHERE assignment_id = '40000000-0000-0000-0000-000000000001') <> 'released'
+       OR (SELECT assignment_edit_number FROM ple_data.assignment
+           WHERE assignment_id = '40000000-0000-0000-0000-000000000001') <> 1 THEN
         RAISE EXCEPTION 'a rejected Unrelease changed current Assignment state';
     END IF;
 END $$;
@@ -243,12 +260,21 @@ COMMIT;
 -- rebuilds the shared Revision statistics from the survivor, and records a
 -- redacted aggregate audit receipt.
 BEGIN;
+SET LOCAL ROLE ple_data_owner;
+SELECT set_config(
+    'ple.test_unrelease_target_reference', reference_number::text, true
+) FROM ple_data.assignment
+ WHERE assignment_id = '40000000-0000-0000-0000-000000000001';
 SET LOCAL ROLE ple_app;
 SELECT set_config('ple.session_account_id', '10000000-0000-0000-0000-000000000001', true);
 DO $$
 DECLARE result record;
 BEGIN
-    SELECT * INTO result FROM ple_api.unrelease_assignment(1, 1, 1, 'Unrelease target');
+    SELECT * INTO result FROM ple_api.unrelease_assignment(
+        1,
+        current_setting('ple.test_unrelease_target_reference')::bigint,
+        1, 'Unrelease target'
+    );
     IF result.assignment_status <> 'unreleased' OR result.assignment_edit_number <> 2
        OR result.assignment_attempt_count <> 1 OR result.question_submission_count <> 1
        OR result.assignment_submission_count <> 1 OR result.grading_result_count <> 1 THEN
@@ -259,7 +285,10 @@ RESET ROLE;
 SET LOCAL ROLE ple_data_owner;
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM ple_data.assignment WHERE reference_number = 1 AND assignment_status = 'unreleased' AND assignment_edit_number = 2)
+    IF NOT EXISTS (SELECT 1 FROM ple_data.assignment
+                   WHERE assignment_id = '40000000-0000-0000-0000-000000000001'
+                     AND assignment_status = 'unreleased'
+                     AND assignment_edit_number = 2)
        OR NOT EXISTS (SELECT 1 FROM ple_data.assignment_entry WHERE assignment_id = '40000000-0000-0000-0000-000000000001')
        OR NOT EXISTS (SELECT 1 FROM ple_data.question_revision WHERE question_id = 'ABCDEF0' AND revision_number = 1) THEN
         RAISE EXCEPTION 'Unrelease did not preserve current Assignment or shared Question state';
@@ -272,7 +301,6 @@ BEGIN
        OR EXISTS (SELECT 1 FROM ple_private.question_submission WHERE submission_id = '50000000-0000-0000-0000-000000000031')
        OR EXISTS (SELECT 1 FROM ple_private.assignment_submission WHERE assignment_submission_id = '50000000-0000-0000-0000-000000000041')
        OR EXISTS (SELECT 1 FROM ple_private.grading_result WHERE grading_result_id = '50000000-0000-0000-0000-000000000071')
-       OR EXISTS (SELECT 1 FROM ple_private.job WHERE job_id = '50000000-0000-0000-0000-000000000051')
        OR EXISTS (SELECT 1 FROM ple_private.question_statistics_observation_receipt WHERE automated_grading_receipt_id = '50000000-0000-0000-0000-000000000081')
        OR NOT EXISTS (SELECT 1 FROM ple_private.assignment_attempt WHERE assignment_id = '40000000-0000-0000-0000-000000000002') THEN
         RAISE EXCEPTION 'Unrelease did not preserve and delete the expected roots';
@@ -303,11 +331,20 @@ COMMIT;
 -- A repeated lifecycle action remains a conflict and cannot create a second
 -- audit record or alter the surviving statistics.
 BEGIN;
+SET LOCAL ROLE ple_data_owner;
+SELECT set_config(
+    'ple.test_unrelease_target_reference', reference_number::text, true
+) FROM ple_data.assignment
+ WHERE assignment_id = '40000000-0000-0000-0000-000000000001';
 SET LOCAL ROLE ple_app;
 SELECT set_config('ple.session_account_id', '10000000-0000-0000-0000-000000000001', true);
 DO $$
 BEGIN
-    PERFORM * FROM ple_api.unrelease_assignment(1, 1, 2, 'Unrelease target');
+    PERFORM * FROM ple_api.unrelease_assignment(
+        1,
+        current_setting('ple.test_unrelease_target_reference')::bigint,
+        2, 'Unrelease target'
+    );
     RAISE EXCEPTION 'Unreleased Assignment accepted a second Unrelease';
 EXCEPTION WHEN object_not_in_prerequisite_state THEN NULL;
 END $$;

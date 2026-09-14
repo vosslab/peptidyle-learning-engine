@@ -3,13 +3,12 @@
 export type BackendOwnedCapture = () => Promise<boolean>;
 
 /** Runs the active backend-document capture before the ordinary save/finalize lifecycle. */
-export async function saveCapturedBackendOwnedResponse(
+export async function saveCapturedBackendOwnedResponse<T>(
   capture: BackendOwnedCapture | undefined,
   save: () => Promise<boolean>,
-  finalize: () => Promise<unknown>,
-): Promise<boolean> {
+  finalize: () => Promise<T>,
+): Promise<T | false> {
   if (capture !== undefined && !(await capture())) return false;
   if (!(await save())) return false;
-  await finalize();
-  return true;
+  return finalize();
 }

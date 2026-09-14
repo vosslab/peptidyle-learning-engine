@@ -13,23 +13,6 @@ import {
   type CourseInstanceRouteReference,
 } from "../navigation/public_route";
 
-function startDecisionMessage(decision: string): string {
-  switch (decision) {
-    case "may_start":
-      return "This Assignment is available to start.";
-    case "not_yet_available":
-      return "This Assignment is not yet available.";
-    case "closed":
-      return "This Assignment is closed for new work.";
-    case "attempt_limit_reached":
-      return "The allowed number of Assignment Attempts has been reached.";
-    case "late_work_refused":
-      return "New work is not available under the late-work policy.";
-    default:
-      return "This Assignment is unavailable.";
-  }
-}
-
 /** Public Course and Assignment References locate the view; the server re-authorizes each response. */
 export function AssignmentOverviewPage(): JSX.Element {
   const runtime = useApplicationApi();
@@ -92,7 +75,8 @@ export function AssignmentOverviewPage(): JSX.Element {
             <StudentAssignmentStartFacts
               questionCount={current().questionCount}
               pointsPossible={current().pointsPossible}
-              timeLimitSeconds={current().timeLimitSeconds}
+              timeLimitSeconds={current().decision.timeLimitSeconds}
+              decision={current().decision}
             />
             <Show
               when={current().activeAssignmentAttempt === null}
@@ -104,9 +88,8 @@ export function AssignmentOverviewPage(): JSX.Element {
             >
               <section class="student-assignment-action-region" aria-label="Assignment access">
                 <div class="student-assignment-primary-action">
-                  <p role="status">{startDecisionMessage(current().startDecision)}</p>
                   <Switch>
-                    <Match when={current().startDecision === "may_start"}>
+                    <Match when={current().decision.startDecision === "may_start"}>
                       <button
                         class="primary-action wide-action"
                         type="button"

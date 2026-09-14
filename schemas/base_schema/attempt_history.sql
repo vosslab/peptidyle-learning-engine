@@ -71,28 +71,34 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
       ) AS questions
       CROSS JOIN LATERAL (
           SELECT count(*) > 0
-                     AND count(result.grading_result_id) = count(*)
-                     AND bool_and(grading_state.grading_state = 'graded')
-                     AND count(*) FILTER (
-                         WHERE ple_api.has_automated_grading_receipt(
-                             grading_state.question_submission_grading_id,
-                             result.grading_result_id
+                     AND bool_and(
+                         question_attempt.question_attempt_state = 'closed_at_deadline'
+                         OR (
+                             result.grading_result_id IS NOT NULL
+                             AND grading_state.grading_state = 'graded'
+                             AND ple_api.has_automated_grading_receipt(
+                                 grading_state.question_submission_grading_id,
+                                 result.grading_result_id
+                             )
                          )
-                     ) = count(*) AS grading_is_current,
+                     ) AS grading_is_current,
                  CASE WHEN count(*) > 0
-                           AND count(result.grading_result_id) = count(*)
-                           AND bool_and(grading_state.grading_state = 'graded')
-                           AND count(*) FILTER (
-                               WHERE ple_api.has_automated_grading_receipt(
-                                   grading_state.question_submission_grading_id,
-                                   result.grading_result_id
+                           AND bool_and(
+                               question_attempt.question_attempt_state = 'closed_at_deadline'
+                               OR (
+                                   result.grading_result_id IS NOT NULL
+                                   AND grading_state.grading_state = 'graded'
+                                   AND ple_api.has_automated_grading_receipt(
+                                       grading_state.question_submission_grading_id,
+                                       result.grading_result_id
+                                   )
                                )
-                           ) = count(*)
+                           )
                       THEN jsonb_agg(jsonb_build_object(
                           'position', issued.issued_position + 1,
-                          'correct', result.correct,
-                          'pointsEarned', result.points_earned,
-                          'pointsPossible', result.points_possible
+                          'correct', coalesce(result.normalized_credit = 1, false),
+                          'pointsEarned', score.points_earned,
+                          'pointsPossible', score.points_possible
                       ) ORDER BY issued.issued_position)
                       ELSE '[]'::jsonb END AS grading_results
             FROM ple_private.issued_question AS issued
@@ -106,6 +112,15 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
               ON result.question_submission_grading_id = grading_state.question_submission_grading_id
              AND result.submission_id = submission.submission_id
              AND result.question_attempt_id = question_attempt.question_attempt_id
+            JOIN ple_data.assignment_entry AS entry
+              ON entry.assignment_entry_id = issued.assignment_entry_id
+            CROSS JOIN LATERAL ple_private.score_recorded_credit(
+                coalesce(result.normalized_credit, 0), issued.scoring_rule,
+                CASE entry.entry_kind
+                    WHEN 'fixed_question' THEN entry.points_possible
+                    ELSE entry.points_per_item
+                END
+            ) AS score
            WHERE issued.assignment_attempt_id = owned.assignment_attempt_id
       ) AS grading
 $$;

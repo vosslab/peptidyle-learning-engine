@@ -1,0 +1,56 @@
+## DESCRIPTION
+## Imported Genetics source row 50c4_9148; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic08/bbq-three-point_test_cross-which_genotypes-PARENTAL-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_50C4_9148';
+<p>50c4_9148</p> <h4>Three-Point Test Cross Problem</h4><p>A test cross is a way to explore the relationship between genes and their respective alleles. It is a useful tool for genetic mapping and deciphering the inheritance of traits. Specifically, a three-point test cross examines three (3) genes at the same time to learn about their assortment in gamete formation.</p><p>A standard three-point test cross involves crossing a heterozygous organism for all three genes with an organism that is homozygous recessive for all three genes</p> <p>For this problem, a test cross using a fruit fly (<i>Drosophila melanogaster</i>) heterozygous for three genes was conducted to understand their genetic interactions.</p><h6>Characteristics of Recessive Phenotypes</h6><p><ul><li><strong><span style="color: #7f5400;">Gene E</span></strong> is analogous to the '<span style="color: #7f5400;"><i>eery</i></span>' phenotype. A fruit fly that is homozygous recessive for <span style="color: #7f5400;">Gene E</span> appears to have something off, crooked limbs and other twisted appendages.</li> <li><strong><span style="color: #006789;">Gene X</span></strong> is analogous to the '<span style="color: #006789;"><i>xanthic</i></span>' phenotype. A fruit fly that is homozygous recessive for <span style="color: #006789;">Gene X</span> has a fluorescent bright yellow coloring.</li> <li><strong><span style="color: #8c3c73;">Gene Y</span></strong> is analogous to the '<span style="color: #8c3c73;"><i>yucky</i></span>' phenotype. A fruit fly that is homozygous recessive for <span style="color: #8c3c73;">Gene Y</span> gives off an unpleasant odor and has a generally unappealing look.</li> </ul></p><table style="border-collapse: collapse; border: 2px solid black;"><tr><th align="center" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">Phenotype</span></th><th colspan="3" align="center" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">Genotypes</span></th><th align="center" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">Progeny<br/>Count</span></th></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">eery, xanthic, yucky</span></td><td align="center" style="border: 1px solid black; background-color: #ffe6c5; padding: 5px;"><span style="font-size: large; color: #000000;">e</span></td><td align="center" style="border: 1px solid black; background-color: #d5efff; padding: 5px;"><span style="font-size: large; color: #000000;">x</span></td><td align="center" style="border: 1px solid black; background-color: #ffe0f0; padding: 5px;"><span style="font-size: large; color: #000000;">y</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">2,748</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">eery, xanthic</span></td><td align="center" style="border: 1px solid black; background-color: #ffe6c5; padding: 5px;"><span style="font-size: large; color: #000000;">e</span></td><td align="center" style="border: 1px solid black; background-color: #d5efff; padding: 5px;"><span style="font-size: large; color: #000000;">x</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #8c3c73;">+</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">34</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">eery, yucky</span></td><td align="center" style="border: 1px solid black; background-color: #ffe6c5; padding: 5px;"><span style="font-size: large; color: #000000;">e</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #006789;">+</span></td><td align="center" style="border: 1px solid black; background-color: #ffe0f0; padding: 5px;"><span style="font-size: large; color: #000000;">y</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">722</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">eery</span></td><td align="center" style="border: 1px solid black; background-color: #ffe6c5; padding: 5px;"><span style="font-size: large; color: #000000;">e</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #006789;">+</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #8c3c73;">+</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">186</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">xanthic, yucky</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #7f5400;">+</span></td><td align="center" style="border: 1px solid black; background-color: #d5efff; padding: 5px;"><span style="font-size: large; color: #000000;">x</span></td><td align="center" style="border: 1px solid black; background-color: #ffe0f0; padding: 5px;"><span style="font-size: large; color: #000000;">y</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">189</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">xanthic</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #7f5400;">+</span></td><td align="center" style="border: 1px solid black; background-color: #d5efff; padding: 5px;"><span style="font-size: large; color: #000000;">x</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #8c3c73;">+</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">703</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">yucky</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #7f5400;">+</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #006789;">+</span></td><td align="center" style="border: 1px solid black; background-color: #ffe0f0; padding: 5px;"><span style="font-size: large; color: #000000;">y</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">41</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;"><i>wildtype</i></span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #7f5400;">+</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #006789;">+</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #8c3c73;">+</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">2,877</span></td></tr><tr><th colspan="4" align="right" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">TOTAL =</span></th><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">7,500</span></td></tr></table><p>The resulting phenotypes are summarized in the table above.</p> <h6>Question</h6> <p>Based on the traits expressed in the offspring, identify the <span style="color: DarkRed;"><strong>parental genotype combinations</strong></span>. These are the allele combinations that the parent fruit flies originally carried.</p> <p>More than one genotype will be correct. Select all that apply.</p>
+PROMPT_50C4_9148
+loadMacros('parserCheckboxList.pl');
+$choice_1 = <<'LITERAL_50C4_9148_CHOICE_1';
+exy
+LITERAL_50C4_9148_CHOICE_1
+$choice_2 = <<'LITERAL_50C4_9148_CHOICE_2';
+ex+
+LITERAL_50C4_9148_CHOICE_2
+$choice_3 = <<'LITERAL_50C4_9148_CHOICE_3';
+e+y
+LITERAL_50C4_9148_CHOICE_3
+$choice_4 = <<'LITERAL_50C4_9148_CHOICE_4';
+e++
+LITERAL_50C4_9148_CHOICE_4
+$choice_5 = <<'LITERAL_50C4_9148_CHOICE_5';
++xy
+LITERAL_50C4_9148_CHOICE_5
+$choice_6 = <<'LITERAL_50C4_9148_CHOICE_6';
++x+
+LITERAL_50C4_9148_CHOICE_6
+$choice_7 = <<'LITERAL_50C4_9148_CHOICE_7';
+++y
+LITERAL_50C4_9148_CHOICE_7
+$choice_8 = <<'LITERAL_50C4_9148_CHOICE_8';
++++
+LITERAL_50C4_9148_CHOICE_8
+$correct_1 = <<'LITERAL_50C4_9148_CORRECT_1';
+exy
+LITERAL_50C4_9148_CORRECT_1
+$correct_2 = <<'LITERAL_50C4_9148_CORRECT_2';
++++
+LITERAL_50C4_9148_CORRECT_2
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5, $choice_6, $choice_7, $choice_8);
+@correct = ($correct_1, $correct_2);
+$answer = CheckboxList([@choices], [@correct], labels => 'ABC', displayLabels => 1, randomize => 0, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->checks\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

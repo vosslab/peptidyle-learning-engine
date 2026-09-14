@@ -293,6 +293,34 @@ def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, port: in
 		"authoring Draft Question source-binding acceptance",
 		private_values + (admin_password, migrator_password, service_urls[0]),
 	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "account_time_zone_postgres",
+			"invitation_acceptance_defaults_only_a_new_student_account_to_the_inviting_instructor_zone",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"Student Account time-zone PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "assignment_access_postgres",
+			"access_reader_projects_one_authoritative_decision_and_effective_policy",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"Student Assignment Access PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
 	verification_environment = dict(application_environment)
 	tool_argv = [
 		"cargo", "run", "--manifest-path", str(repository_root / "Cargo.toml"), "--quiet",
@@ -312,6 +340,31 @@ def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, port: in
 	_require_command(
 		runner, security_argv, migrator_environment, repository_root, "database baseline security catalog",
 		private_values + (admin_password, migrator_password, service_urls[0]), security_sql,
+	)
+	expiry_sql = (repository_root / "tests/e2e/attempt_expiry_connected_oracle.sql").read_text(
+		encoding="utf-8"
+	)
+	_require_command(
+		runner,
+		security_argv,
+		migrator_environment,
+		repository_root,
+		"Assignment Attempt expiry PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+		expiry_sql,
+	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "grading_lifecycle_postgres",
+			"--", "--ignored", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"direct Assignment Attempt finalization PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
 	)
 	owned_snapshot = local_stack_control.disposable_stack_adapter.require_current_resource_capability(
 		runner, disposable

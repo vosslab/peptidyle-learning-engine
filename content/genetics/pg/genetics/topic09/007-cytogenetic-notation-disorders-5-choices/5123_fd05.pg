@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 5123_fd05; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-cytogenetic_notation-disorders-5_choices-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_5123_FD05';
+<p>5123_fd05</p> A patient has findings consistent with Patau syndrome. The condition is caused by trisomy 13. The karyotype is best summarized as: female with mosaicism: a normal 46-chromosome line and a line with trisomy 13. Which notation matches this?
+PROMPT_5123_FD05
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_5123_FD05_CHOICE_1';
+<span style='font-family: monospace; font-weight: bold;'>46,XX/47,XXX</span>
+LITERAL_5123_FD05_CHOICE_1
+$choice_2 = <<'LITERAL_5123_FD05_CHOICE_2';
+<span style='font-family: monospace; font-weight: bold;'>46,XX,t(9;22)(q34;q11.2)</span>
+LITERAL_5123_FD05_CHOICE_2
+$choice_3 = <<'LITERAL_5123_FD05_CHOICE_3';
+<span style='font-family: monospace; font-weight: bold;'>46,XY,rob(14;21)(q10;q10),+21</span>
+LITERAL_5123_FD05_CHOICE_3
+$choice_4 = <<'LITERAL_5123_FD05_CHOICE_4';
+<span style='font-family: monospace; font-weight: bold;'>46,XX/47,XX,+13</span>
+LITERAL_5123_FD05_CHOICE_4
+$choice_5 = <<'LITERAL_5123_FD05_CHOICE_5';
+<span style='font-family: monospace; font-weight: bold;'>46,XX,del(4)(p16.3)</span>
+LITERAL_5123_FD05_CHOICE_5
+$correct_1 = <<'LITERAL_5123_FD05_CORRECT_1';
+<span style='font-family: monospace; font-weight: bold;'>46,XX/47,XX,+13</span>
+LITERAL_5123_FD05_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

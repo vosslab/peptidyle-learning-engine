@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 2bdc_dbfe; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-polyploid-gametes-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_2BDC_DBFE';
+<p>2bdc_dbfe</p> <p>A a tetraploid plant species is found to be 4n = 24 chromosomes.</p> <h5>How many chromosomes would present in the gametes of this species?</h5><p><i>Note: 24/4 = 6 and 24/2 = 12</i></p>
+PROMPT_2BDC_DBFE
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_2BDC_DBFE_CHOICE_1';
+2 chromosomes
+LITERAL_2BDC_DBFE_CHOICE_1
+$choice_2 = <<'LITERAL_2BDC_DBFE_CHOICE_2';
+6 chromosomes
+LITERAL_2BDC_DBFE_CHOICE_2
+$choice_3 = <<'LITERAL_2BDC_DBFE_CHOICE_3';
+12 chromosomes
+LITERAL_2BDC_DBFE_CHOICE_3
+$choice_4 = <<'LITERAL_2BDC_DBFE_CHOICE_4';
+24 chromosomes
+LITERAL_2BDC_DBFE_CHOICE_4
+$choice_5 = <<'LITERAL_2BDC_DBFE_CHOICE_5';
+48 chromosomes
+LITERAL_2BDC_DBFE_CHOICE_5
+$correct_1 = <<'LITERAL_2BDC_DBFE_CORRECT_1';
+12 chromosomes
+LITERAL_2BDC_DBFE_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

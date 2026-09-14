@@ -797,9 +797,10 @@ fn store_error_response(error: StoreError) -> Response {
             "Blueprint Course is invalid",
         ),
         StoreError::AlreadyExists => route_error(StatusCode::CONFLICT, "Blueprint Course conflict"),
-        StoreError::AssignmentActivity(_) | StoreError::TimedOut | StoreError::Unavailable(_) => {
-            unavailable()
-        }
+        StoreError::AssignmentActivity(_)
+        | StoreError::TimedOut
+        | StoreError::LeaseLost
+        | StoreError::Unavailable(_) => unavailable(),
     }
 }
 fn concealed() -> Response {

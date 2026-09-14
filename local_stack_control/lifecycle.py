@@ -40,6 +40,7 @@ LIVE_DEMO_PERSONA_SETTINGS = tuple(
 	account.setting for account in local_stack_control.live_demo_seed.SEEDED_ACCOUNTS
 )
 LIVE_DEMO_COURSE_ID = "00000000-0000-0000-0000-000000000220"
+BUNDLED_GENETICS_PUBLISHER_ACCOUNT_ID = "00000000-0000-0000-0000-000000000106"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -132,7 +133,6 @@ def configure_default_environment(
 	defaults = {
 		"POSTGRES_PASSWORD": os.urandom(24).hex(),
 		"MINIO_ROOT_PASSWORD": os.urandom(24).hex(),
-		"PLE_LOCAL_AUTOMATED_GRADING_PASSWORD": os.urandom(24).hex(),
 		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE": str(secret_directory / "invitation_token_secret"),
 		"PLE_QUESTION_ID_SECRET_HOST_FILE": str(secret_directory / "question_id_secret"),
 		"PLE_WEBWORK_RENDERER_VERSION_FILE": str(secret_directory / "question-renderer-version"),
@@ -146,10 +146,6 @@ def configure_default_environment(
 		"PLE_WEBWORK_RENDERER_ID": "vosslab-webwork-pg-renderer",
 		"PLE_PUBLISHER_S3_ACCESS_KEY_ID": secrets.token_hex(16),
 		"PLE_PUBLISHER_S3_SECRET_ACCESS_KEY": secrets.token_hex(32),
-		"PLE_NATIVE_PLE_WORKER_S3_ACCESS_KEY_ID": secrets.token_hex(16),
-		"PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY": secrets.token_hex(32),
-		"PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID": secrets.token_hex(16),
-		"PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY": secrets.token_hex(32),
 	}
 	defaults.update({
 		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID": LOCAL_INSTRUCTOR_ACCOUNT_ID,
@@ -247,7 +243,7 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 	values = local_stack_control.lifecycle_validation.validate_request(request)
 	required = (
 		"POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB", "MINIO_ROOT_USER",
-		"MINIO_ROOT_PASSWORD", "PLE_LOCAL_AUTOMATED_GRADING_PASSWORD",
+		"MINIO_ROOT_PASSWORD",
 		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE", "PLE_QUESTION_ID_SECRET_HOST_FILE",
 		"PLE_WEBWORK_RENDERER_ID", "PLE_WEBWORK_PROBLEM_JWT_SECRET",
 		"PLE_WEBWORK_SESSION_JWT_SECRET",
@@ -369,15 +365,15 @@ def start_lifecycle(
 	wait_for_renderer_ready(selected, runner, options, oci_id)
 	attest_renderer(selected, runner, repo_root, values, oci_id)
 	run_api_initializers(selected, runner, options)
-	provision_live_demo = should_provision_live_demo(
-		target, options, initial_database_install
+	provision_installation_data = should_provision_installation_data(
+		target, initial_database_install
 	)
 	if not retains_live_demo_persona_configuration(
 		target, options
 	):
 		remove_live_demo_persona_configuration(selected)
 	compose_run(selected, runner, ["build", "gateway"])
-	application_services = ["api", "worker", "native-ple-worker", "webwork-worker", "gateway"]
+	application_services = ["api", "worker", "gateway"]
 	application_scale_arguments = local_stack_control.lifecycle_profiles.application_scale_arguments(
 		target, tuple(application_services)
 	)
@@ -391,8 +387,10 @@ def start_lifecycle(
 		],
 	)
 	gateway_url = wait_for_complete_ready(target, runner, options)
-	if provision_live_demo:
-		provision_ready_live_demo(target, runner)
+	if provision_installation_data:
+		provision_ready_installation_data(
+			target, runner, without_live_demo=options.without_live_demo
+		)
 	if local_stack_control.lifecycle_profiles.is_default_target(selected):
 		local_stack_control.image_cleanup.prune_superseded_images(runner, repo_root)
 	if options.open_browser:
@@ -725,15 +723,13 @@ def run_api_initializers(target: local_stack_control.models.ComposeTarget, runne
 
 
 #============================================
-def should_provision_live_demo(
+def should_provision_installation_data(
 	target: LifecycleTarget,
-	options: LifecycleOptions,
 	initial_database_install: bool,
 ) -> bool:
-	"""Decide whether this initial local teaching install needs Demo provisioning."""
+	"""Decide whether this initial local teaching install needs bundled content."""
 	return (
-		not options.without_live_demo
-		and initial_database_install
+		initial_database_install
 		and local_stack_control.lifecycle_profiles.uses_local_teaching_state(target)
 	)
 
@@ -757,19 +753,23 @@ def retains_live_demo_persona_configuration(
 
 
 #============================================
-def provision_ready_live_demo(
+def provision_ready_installation_data(
 	target: LifecycleTarget,
 	runner: local_stack_control.process.CommandRunner,
+	*,
+	without_live_demo: bool,
 ) -> None:
-	"""Run the one canonical cross-system Demo provisioning command after readiness."""
+	"""Run canonical bundled-content provisioning after application readiness."""
 	selected = target_of(target)
+	command = [
+		"--profile", "migration", "run", "--rm", "--no-deps",
+		"database-migrator", "installation-data", "provision",
+	]
+	if without_live_demo:
+		command.append("--without-live-demo")
 	result = runner.run(
 		local_stack_control.compose.compose_argv(
-			selected,
-			[
-				"--profile", "migration", "run", "--rm", "--no-deps",
-				"database-migrator", "installation-data", "provision",
-			],
+			selected, command,
 		),
 		child_environment(selected),
 		selected.repo_root,
@@ -777,29 +777,53 @@ def provision_ready_live_demo(
 	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
 		selected.env_file
 	)
-	require_command(result, "Live Demo provisioning", private_values)
+	require_command(result, "Installation content provisioning", private_values)
 
 
 #============================================
-def require_installation_data_absent(
+def require_bundled_genetics_without_live_demo(
 	target: LifecycleTarget,
 	runner: local_stack_control.process.CommandRunner,
 ) -> None:
-	"""Prove the Pilot publication and Live Demo roots are absent through ple_app."""
+	"""Prove the shipped Blueprint remains while the optional Demo root is absent."""
 	selected = target_of(target)
-	# The migrator image alone carries psql, but its DATABASE_URL is the same
-	# private API login used by the running service.  The fixed query switches to
-	# ple_app and reads only existing API projections for the two top-level
-	# installation-data products.  It grants neither a generic SQL interface nor
-	# a broader database role to this acceptance path.
+	# The migrator image alone carries psql. Two fixed read-only queries use its
+	# existing capabilities: the migration role proves the Demo-only private
+	# roots are absent, and the API role proves the public reusable Blueprint is
+	# available while the fixed Demo Course is absent. Neither exposes a general
+	# SQL interface or broadens an application role.
 	script = (
-		"exec psql \"$DATABASE_URL\" --no-psqlrc --set=ON_ERROR_STOP=1 "
+		"private_result=$(psql \"$PLE_MIGRATION_DATABASE_URL\" --no-psqlrc "
+		"--set=ON_ERROR_STOP=1 --quiet --tuples-only --no-align --command \""
+		"BEGIN; SET LOCAL ROLE ple_private_owner; "
+		"SELECT CASE WHEN "
+		"NOT EXISTS (SELECT 1 FROM ple_private.account WHERE account_id IN "
+		"('00000000-0000-0000-0000-000000000101'::uuid, "
+		"'00000000-0000-0000-0000-000000000102'::uuid, "
+		"'00000000-0000-0000-0000-000000000103'::uuid, "
+		"'00000000-0000-0000-0000-000000000104'::uuid, "
+		"'00000000-0000-0000-0000-000000000105'::uuid)) "
+		"AND NOT EXISTS (SELECT 1 FROM ple_private.account_authentication_email "
+		"WHERE account_id IN ('00000000-0000-0000-0000-000000000101'::uuid, "
+		"'00000000-0000-0000-0000-000000000102'::uuid, "
+		"'00000000-0000-0000-0000-000000000103'::uuid, "
+		"'00000000-0000-0000-0000-000000000104'::uuid)) "
+		"AND NOT EXISTS (SELECT 1 FROM ple_private.authoring_workspace "
+		"WHERE workspace_id = '00000000-0000-0000-0000-000000000201'::uuid) "
+		"THEN 'demo_roots_absent' ELSE 'invalid' END; COMMIT;\")\n"
+		"api_result=$(psql \"$DATABASE_URL\" --no-psqlrc --set=ON_ERROR_STOP=1 "
 		"--quiet --tuples-only --no-align --command \""
 		"BEGIN; SET LOCAL ROLE ple_app; "
-		f"SET LOCAL ple.session_account_id = '{LOCAL_INSTRUCTOR_ACCOUNT_ID}'; "
-		f"SELECT CASE WHEN EXISTS (SELECT 1 FROM ple_api.read_course_theme('{LIVE_DEMO_COURSE_ID}'::uuid)) "
-		"OR EXISTS (SELECT 1 FROM ple_api.published_question_summary) "
-		"THEN 'present' ELSE 'absent' END; COMMIT;\""
+		f"SET LOCAL ple.session_account_id = '{BUNDLED_GENETICS_PUBLISHER_ACCOUNT_ID}'; "
+		"SELECT CASE WHEN "
+		"EXISTS (SELECT 1 FROM ple_api.list_blueprint_courses() "
+		"WHERE short_name = 'Genetics' AND long_name = 'Fall Genetics' "
+		"AND availability = 'available') "
+		f"AND NOT EXISTS (SELECT 1 FROM ple_api.read_course_theme('{LIVE_DEMO_COURSE_ID}'::uuid)) "
+		"THEN 'bundled_without_demo' ELSE 'invalid' END; COMMIT;\")\n"
+		"[ \"$private_result\" = demo_roots_absent ] && "
+		"[ \"$api_result\" = bundled_without_demo ] && "
+		"printf '%s\\n' \"$private_result/$api_result\""
 	)
 	result = runner.run(
 		local_stack_control.compose.compose_argv(
@@ -815,10 +839,10 @@ def require_installation_data_absent(
 	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
 		selected.env_file
 	)
-	require_command(result, "Live Demo absence oracle", private_values)
-	if result.stdout.strip() != "absent":
+	require_command(result, "Bundled Genetics without Live Demo oracle", private_values)
+	if result.stdout.strip() != "demo_roots_absent/bundled_without_demo":
 		raise local_stack_control.models.ControllerError(
-			"installation-data absence oracle found a Pilot Question or Live Demo Course root"
+			"installation-data oracle did not find bundled Genetics without the Live Demo Course"
 		)
 
 

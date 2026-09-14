@@ -108,6 +108,14 @@ pub trait WebworkRenderer: Send + Sync {
         request: RenderRequest<'_>,
     ) -> Result<RenderedWebworkQuestion, RendererFailure>;
 
+    /// Re-renders a Question Backend document with its previously saved opaque
+    /// response. This is presentation-only: it does not submit or create a
+    /// durable grading outcome.
+    async fn render_saved_response(
+        &self,
+        request: ResumeRenderRequest<'_>,
+    ) -> Result<RenderedWebworkQuestion, RendererFailure>;
+
     /// Grades a structurally valid student response without returning a key.
     async fn grade(
         &self,
@@ -126,6 +134,25 @@ pub struct RenderRequest<'a> {
     pub question_revision: &'a question_model::QuestionRevisionReference,
     /// Deterministic attempt seed.
     pub seed: u64,
+}
+
+/// Trusted render request for reopening an in-progress backend-owned response.
+///
+/// The response remains canonical opaque `[name, value]` pairs. Only the
+/// backend adapter validates and forwards those pairs; PLE does not project
+/// them into control-specific state.
+#[derive(Clone, Copy)]
+pub struct ResumeRenderRequest<'a> {
+    /// Immutable PG source bytes, resolved by the server from object storage.
+    pub pg_source: &'a [u8],
+    /// OPL-style PG location retained for renderer diagnostics.
+    pub pg_path: &'a str,
+    /// Exact immutable Question Revision selected by the server.
+    pub question_revision: &'a question_model::QuestionRevisionReference,
+    /// Deterministic attempt seed.
+    pub seed: u64,
+    /// Canonical bounded JSON `[name, value]` pairs captured from the backend document.
+    pub response_payload: &'a [u8],
 }
 
 /// Trusted server-only grading request.

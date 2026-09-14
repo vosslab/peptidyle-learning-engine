@@ -41,6 +41,7 @@ incremental = false
 anyhow = "*"
 async-trait = "*"
 axum = { version = "*", features = ["macros"] }
+axum-extra = { version = "*", features = ["query"] }
 base64 = { version = "*", default-features = false, features = ["std"] }
 cookie = "*"
 getrandom = "*"

@@ -138,7 +138,7 @@ CREATE TABLE ple_data.assignment_entry (
         (entry_kind = 'fixed_question'
             AND question_id IS NOT NULL
             AND question_revision_number IS NOT NULL
-            AND points_possible > 0
+            AND points_possible >= 0
             AND selection_count IS NULL
             AND points_per_item IS NULL
             AND selected_question_order IS NULL)
@@ -147,7 +147,7 @@ CREATE TABLE ple_data.assignment_entry (
             AND question_revision_number IS NULL
             AND points_possible IS NULL
             AND selection_count > 0
-            AND points_per_item > 0
+            AND points_per_item >= 0
             AND selected_question_order IN ('question_pool_order', 'random_order'))
     ),
     CHECK (question_attempt_limit IS NULL OR question_attempt_limit > 0),
@@ -923,6 +923,11 @@ CREATE POLICY question_pool_item_data_owner_access ON ple_data.question_pool_ite
     FOR ALL TO ple_data_owner USING (true) WITH CHECK (true);
 CREATE POLICY assignment_private_owner_lookup ON ple_data.assignment
     FOR SELECT TO ple_private_owner USING (true);
+-- Student Work starts, saves, and finalizes lock their Assignment root first.
+-- PostgreSQL requires UPDATE on one selected column for SELECT FOR UPDATE;
+-- this grants no general Assignment mutation capability.
+CREATE POLICY assignment_private_owner_student_work_root_lock ON ple_data.assignment
+    FOR UPDATE TO ple_private_owner USING (true) WITH CHECK (true);
 CREATE POLICY assignment_entry_private_owner_lookup ON ple_data.assignment_entry
     FOR SELECT TO ple_private_owner USING (true);
 CREATE POLICY question_pool_item_private_owner_lookup ON ple_data.question_pool_item
@@ -958,6 +963,7 @@ REVOKE ALL ON FUNCTION ple_data.enforce_assignment_edit(),
     FROM PUBLIC;
 GRANT SELECT ON ple_data.assignment, ple_data.assignment_entry, ple_data.question_pool_item
     TO ple_private_owner;
+GRANT UPDATE (assignment_id) ON TABLE ple_data.assignment TO ple_private_owner;
 GRANT SELECT ON ple_data.assignment, ple_data.assignment_entry, ple_data.question_pool_item
     TO ple_api_owner;
 GRANT EXECUTE ON FUNCTION ple_data.create_assignment(uuid, bigint, uuid, text, text),

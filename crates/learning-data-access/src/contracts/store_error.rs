@@ -15,6 +15,8 @@ pub enum StoreError {
     LifecycleConflict,
     /// PostgreSQL aborted the whole transaction due to a serialization or deadlock conflict.
     RetryableTransaction,
+    /// The caller no longer owns the exact grading lease token it supplied.
+    LeaseLost,
     /// Authenticated identity lacks ownership or role for the operation.
     Forbidden,
     /// Record shape violates a model invariant.
@@ -41,6 +43,7 @@ impl std::fmt::Display for StoreError {
                 )
             }
             Self::RetryableTransaction => write!(formatter, "transaction must be retried"),
+            Self::LeaseLost => write!(formatter, "grading lease was lost"),
             Self::Forbidden => write!(formatter, "operation is not authorized"),
             Self::InvalidRecord(message) => write!(formatter, "invalid record: {message}"),
             Self::AssignmentActivity(error) => {

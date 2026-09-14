@@ -1,0 +1,90 @@
+## DESCRIPTION
+## Imported Genetics source row 62d1_7b18; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic04/bbq-MATCH-monohybrid_cross_genotype-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_62D1_7B18';
+<p>62d1_7b18</p> <p>Match each of the following parental genotypes in monohybrid crosses with their corresponding descriptions of the progeny.</p><p><i>Note:</i> Each choice will be used exactly once.</p>
+PROMPT_62D1_7B18
+loadMacros('PGML.pl', 'parserPopUp.pl');
+sub make_popup { return defined &DropDown ? DropDown(@_) : PopUp(@_); }
+$match_term_0 = <<'LITERAL_62D1_7B18_MATCH_TERM_0';
+<strong><span style="color: #ba372a;">AA</span></strong><strong>&nbsp;&times;&nbsp;</strong><strong><span style="color: #843fa1;">Aa</span></strong>
+LITERAL_62D1_7B18_MATCH_TERM_0
+$match_term_1 = <<'LITERAL_62D1_7B18_MATCH_TERM_1';
+<strong><span style="color: #843fa1;">Aa</span></strong><strong>&nbsp;&times;&nbsp;</strong><strong><span style="color: #236fa1;">aa</span></strong>
+LITERAL_62D1_7B18_MATCH_TERM_1
+$match_term_2 = <<'LITERAL_62D1_7B18_MATCH_TERM_2';
+<strong><span style="color: #236fa1;">aa</span></strong><strong>&nbsp;&times;&nbsp;</strong><strong><span style="color: #236fa1;">aa</span></strong>
+LITERAL_62D1_7B18_MATCH_TERM_2
+$match_term_3 = <<'LITERAL_62D1_7B18_MATCH_TERM_3';
+<strong><span style="color: #843fa1;">Aa</span></strong><strong>&nbsp;&times;&nbsp;</strong><strong><span style="color: #843fa1;">Aa</span></strong>
+LITERAL_62D1_7B18_MATCH_TERM_3
+$match_term_4 = <<'LITERAL_62D1_7B18_MATCH_TERM_4';
+<strong><span style="color: #ba372a;">AA</span></strong><strong>&nbsp;&times;&nbsp;</strong><strong><span style="color: #236fa1;">aa</span></strong>
+LITERAL_62D1_7B18_MATCH_TERM_4
+$match_term_5 = <<'LITERAL_62D1_7B18_MATCH_TERM_5';
+<strong><span style="color: #ba372a;">AA</span></strong><strong>&nbsp;&times;&nbsp;</strong><strong><span style="color: #ba372a;">AA</span></strong>
+LITERAL_62D1_7B18_MATCH_TERM_5
+$match_choice_0 = <<'LITERAL_62D1_7B18_MATCH_CHOICE_0';
+Yields offspring with 50% homozygous dominant and 50% heterozygous genotypes
+LITERAL_62D1_7B18_MATCH_CHOICE_0
+$match_choice_1 = <<'LITERAL_62D1_7B18_MATCH_CHOICE_1';
+Half of the offspring display the recessive phenotype
+LITERAL_62D1_7B18_MATCH_CHOICE_1
+$match_choice_2 = <<'LITERAL_62D1_7B18_MATCH_CHOICE_2';
+All offspring have the same recessive genotype and phenotype
+LITERAL_62D1_7B18_MATCH_CHOICE_2
+$match_choice_3 = <<'LITERAL_62D1_7B18_MATCH_CHOICE_3';
+Produces a 3:1 phenotype ratio in progeny
+LITERAL_62D1_7B18_MATCH_CHOICE_3
+$match_choice_4 = <<'LITERAL_62D1_7B18_MATCH_CHOICE_4';
+Produces only heterozygotes in progeny
+LITERAL_62D1_7B18_MATCH_CHOICE_4
+$match_choice_5 = <<'LITERAL_62D1_7B18_MATCH_CHOICE_5';
+Results in all homozygous dominant offspring
+LITERAL_62D1_7B18_MATCH_CHOICE_5
+$match_dropdown_0 = make_popup(['', "A", "B", "C", "D", "E", "F"], 1);
+$match_dropdown_1 = make_popup(['', "A", "B", "C", "D", "E", "F"], 2);
+$match_dropdown_2 = make_popup(['', "A", "B", "C", "D", "E", "F"], 3);
+$match_dropdown_3 = make_popup(['', "A", "B", "C", "D", "E", "F"], 4);
+$match_dropdown_4 = make_popup(['', "A", "B", "C", "D", "E", "F"], 5);
+$match_dropdown_5 = make_popup(['', "A", "B", "C", "D", "E", "F"], 6);
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_PGML
+[@ MODES(HTML => '<div class="two-column">') @]*
+[@ MODES(HTML => '<div>') @]*
+[_]{$match_dropdown_0} *1.* [$match_term_0]*
+
+[_]{$match_dropdown_1} *2.* [$match_term_1]*
+
+[_]{$match_dropdown_2} *3.* [$match_term_2]*
+
+[_]{$match_dropdown_3} *4.* [$match_term_3]*
+
+[_]{$match_dropdown_4} *5.* [$match_term_4]*
+
+[_]{$match_dropdown_5} *6.* [$match_term_5]*
+[@ MODES(HTML => '</div><div>') @]*
+*A.* [$match_choice_0]*
+
+*B.* [$match_choice_1]*
+
+*C.* [$match_choice_2]*
+
+*D.* [$match_choice_3]*
+
+*E.* [$match_choice_4]*
+
+*F.* [$match_choice_5]*
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+ENDDOCUMENT();

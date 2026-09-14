@@ -1,14 +1,319 @@
 # Changelog
 
+## 2026-09-14
+
+### Additions and New Features
+
+- Every installation now publishes the complete free and open-source Biology Problems Website
+  Genetics Blueprint as its example course. The default installation also creates the optional
+  Live Demo. `--without-live-demo` still publishes Genetics and omits the Live Demo Accounts,
+  Course, and activity. Repeating provision does not duplicate the Blueprint. The exact portable
+  content validation and fresh default, replay, and opt-out installation checks passed. The full
+  `source source_me.sh && ./launchers/all_test.sh` gate passed in session 62894.
+
+- Question Library now returns additional pages through its existing cursor API, so bundled
+  Questions no longer cause searches to fail above one page. Server and frontend checks passed.
+
+### Fixes and Maintenance
+
+- M4 and Phase 2 are complete as of 2026-09-14. The fresh canonical runtime at
+  `https://localhost:55390` published `BP-2`, Revision 1, in session 53170 with the r11 hashes:
+  11 topics, 119 banks, and 20,579 rows. The reviewed r5 browser proof reloaded that exact
+  Blueprint, created throwaway Course/Assignment records, visibly restored a saved radio selection
+  after reload and a new authenticated Mary session, navigated directly to the same Attempt, and
+  used the UI to submit wrong then correct responses with Student-history/Gradebook agreement.
+  Root inspected the fresh Topic 11 screenshot as legible. The r4 outage proof recorded an actual
+  submission `503` and plain copy, restoration before and after renderer recovery, accepted UI
+  submission, and a healthy renderer. GET receipt R6 recorded only public API observations and
+  reviewed SQL evidence of no Student Work/outcome writes; it does not claim a private database
+  snapshot. This remains intentionally disposable, makes no production-deployment claim, and adds
+  no target/deployment gate. The earlier r3/r4 installation was canonically removed before the
+  aggregate; this is the current fresh publication receipt. Authorized closeout then deleted only
+  `tests/_temp/genetics_bank_port` (208,331 files in 1,490 directories, about 3.59 GiB), with no
+  archive or permanent fixture. The original 11-topic Biology Problems Website Genetics source,
+  runtime/volumes/`BP-2`, and Git index were untouched.
+
+- Corrected the vendored naming gate after aggregate session 68687 stopped following 6,003 passing
+  pytest tests. It had applied the permanent Playwright-placement rule to `tests/_temp`, despite
+  `PYTEST_STYLE.md` requiring temporary probes there. The narrow generic correction excludes only
+  the `tests/_temp` subtree and keeps permanent checks unchanged; it adds no framework, fixture,
+  or import workaround. Full pytest passed 6,004 tests and the final-path boundary gate passed
+  five checks; independent review approved. The exact rerun
+  `source source_me.sh && ./launchers/all_test.sh` passed in session 78713. Vendored propagation
+  may overwrite this local correction; upstream modification is out of scope.
+
+- Corrected the backend-owned Question iframe sizing demonstrated by the Genetics screenshot: its
+  304 by 154 frame clipped rendered content. The existing iMathAS width/minimum-height rule now
+  also applies to `backend-owned-document__frame`. This is CSS-only; it adds no Question Backend
+  protocol, parser, or permanent test. Independent review, Prettier, TypeScript, and diff checks
+  passed. Fresh desktop and narrow browser captures after the frontend rebuild verify full-width
+  desktop rendering and reachable narrow-layout document scrolling. The later exact aggregate
+  passed in session 78713, and the fresh r5 integration proof completed the normal saved/graded
+  delivery evidence.
+
+- The Phase 2 audit corrected durable guidance that still described public grading status,
+  Instructor attention, retry/requeue behavior, and grading Jobs. Current guidance records one
+  immutable backend credit fraction, read-time current-point scoring, ordinary expiry
+  finalization, and only hidden backend-specific completion. It keeps public-asset Jobs separate.
+  The aggregate `source source_me.sh && ./launchers/all_test.sh` exited 0 in session 36718, but
+  the audit found a focused expiry Cargo filter that matched zero tests and obsolete
+  grading-job/failure residue. Follow-up removed the stale private-table inventory catalog check;
+  restored the Assignment-root update authority required by the expiry lock; and found that the
+  corrected expiry test executed once, while its stale global-empty assertion conflicted with two
+  intentionally retained expired Attempts from the preceding race oracle. The redundant
+  `attempt_expiry_store_postgres` test and runner were removed under the test policy, with no
+  replacement. Existing security-catalog, expiry-SQL, race, and no-browser journey evidence
+  remain. The fresh exact aggregate `source source_me.sh && ./launchers/all_test.sh` passed in
+  session 38324: 6,004 pytest tests, database-baseline E2E, installation-data provision and
+  opt-out, Course Appearance PostgreSQL/MinIO, and complete live acceptance. Canonical cleanup
+  was empty. Approved audit reviews cover the native/iMathAS unused-job cleanup, permissions and
+  identity boundary, documentation, and stale-test removal. M2.5 is complete. M4 behavior and
+  authorized temporary-corpus closeout are complete by the later fresh-runtime receipt.
+
+- The Genetics preparation receipt now records the verified r11 conversion path: all six observed
+  BBQ response shapes compile to opaque static PG, and private renderer proof passed all 20,579
+  generated documents. Ordinary r11 publication then succeeded on the disposable runtime as
+  Blueprint `BP-2`, Revision 1, with 11 topics, 119 banks, and 20,579 rows; its retained receipt
+  was regenerated. The current fresh-runtime r5 proof established visible saved-control restoration
+  after reload and a new Mary session, direct same-Attempt navigation, UI wrong/correct submission,
+  and Student-history/Gradebook agreement. Fresh outage and GET receipts separately establish
+  recovery and read-only document behavior. Session 78713's exact aggregate passed before fresh
+  M4 startup with corrected PG baseline, installation provision/opt-out, Course Appearance
+  PostgreSQL/MinIO, complete live acceptance, and empty owned inventory. Authorized closeout
+  removed the temporary corpus/probe tree without creating a fixture or recurring inventory gate.
+
+- Corrected the backend-owned resume boundary that the r4 evidence exposed. The existing
+  authorized WeBWorK document read now carries the private saved opaque input and exact
+  Question Attempt source pins to create an ephemeral resumed document; the original issued HTML
+  remains immutable. It adds no API/table, expiry policy, GET write, outcome persistence, control
+  parser, queue, or submission/grade action. The renderer transport still rejects answer/preview,
+  process, and source-URL overrides. Independent review and focused gates pass, including
+  temporary backend-only rendering of real r11 MC, MA, FIB, NUM, and duplicate-MA cases with
+  restored visible controls and no feedback. The later fresh r5 PLE proof completed reload through
+  a new Mary session and UI Submit. Session 78713's exact aggregate remains a separate receipt
+  that predates fresh M4 startup.
+
+- Corrected the Genetics walkthrough's retired automatic-grading Job wording. Its Attempt authority
+  section now preserves saved responses across backend failure, permits Student submission within
+  the existing time limit, and keeps expired Attempts closed to edits until ordinary finalization.
+
+- M2.5 implementation and connected/live acceptance passed. The full registered Live Demo Attempt
+  journey passed in session 26042 on the owned rebuilt stack: start authorization, exact released
+  revision boundary, native immediate submission with immutable credit/current-point scoring,
+  no-browser expiry, opaque WeBWorK capture/save/reload, outage preservation and recovery,
+  immediate score, and Gradebook agreement. The database baseline passed earlier; latest Rust and
+  pytest checks also passed. The exact aggregate `source source_me.sh && ./launchers/all_test.sh`
+  passed in session 98225, including Rust, frontend, 6,039 Python tests, database baseline,
+  installation-data provision and opt-out, Course Appearance/MinIO, and banner/thumbnail saga
+  lanes. Genetics/M4 corpus and publication acceptance remain pending, so Phase 2 is not complete.
+
+- Question Library search now decodes the browser's repeated query filter keys, including a
+  one-value `backends=ple` filter, through the maintained multi-value Axum query extractor.
+  Typed enum validation, unknown-field refusal, scalar duplicate-key refusal, normalization,
+  and page bounds remain unchanged.
+
+- The connected database baseline E2E passed in session 51122, including the direct-finalization
+  late-save and commit/expiry races, immutable-credit/current-point/expiry-Gradebook SQL proofs,
+  and the Unrelease fixture path. The canonical owned-runtime inventory was empty after cleanup.
+  An independent final `./check_rust.sh` passed full all-feature Clippy, tests, and Wasm; the full
+  `./check_codebase.sh` passed both TypeScript checks, lint, format, and 374 Node tests. Full
+  aggregate, live-browser, and M4 acceptance remain pending.
+
+- Corrected current Phase 2 fixtures and improved redacted diagnostics while preserving their
+  bounded evidence boundaries. The refreshed offline gate `source source_me.sh &&
+./launchers/run_fast_checks.sh` passed in session 37638: 6,039 pytest tests in 10.84 seconds,
+  372 Node tests, and the Rust, TypeScript, lint, and formatting checks. `git diff --check` is
+  clean. Connected and live acceptance remain pending; M4 acceptance is not yet approved.
+
+- Raised only the Blueprint client response budget to 16 Mi characters through an optional internal
+  constant after the real R8 response-shape estimate measured 15,526,628 ASCII characters. All
+  other API clients retain the shared 4 Mi character default. This is a capacity correction, not
+  paging or projection work, and adds no Genetics fixture. Seven generic protocol tests plus
+  TypeScript, lint, format, and diff checks pass; real-browser 15 Mi character evidence remains
+  pending. The two-connection harness uses a test-local pool of two with `CONNECTION LIMIT 2` for
+  its holder observation, without a production-role change.
+
 ## 2026-09-13
 
+### Decisions and Failures
+
+- Corrected the M2.5 background-execution boundary in the active plans. The existing worker stays
+  for abandoned Attempt expiry and hidden deferred-backend completion; public grading states,
+  attention, polling, retry-grading, and score queues remain out of scope. Canvas and Blackboard
+  sources now document the bounded background precedent. This is a plan correction only.
+
+- Clarified the M2.5 plan boundary: the Retry reset removed manual retry behavior, while M2.5
+  completes the grading-lifecycle correction. Before-expiry backend failure preserves saved work
+  for another submit within the existing time limit; expired Attempts remain closed until their
+  saved work finalizes. Canvas is architectural precedent for lazy reconciliation, and Blackboard
+  is behavioral corroboration only. This is a documentation correction; no runtime code changed.
+
+- Replaced the superseded Phase 2 grading-lifecycle plan with the approved M2.5 boundary: a
+  Question Backend produces one immutable normalized credit fraction for a submitted response;
+  PLE calculates current Assignment scores from that credit, the issued scoring rule, and current
+  Entry point values without another backend interaction. The plan removes public grading states,
+  polling, attention counts, and generic regrading/retry-grading from scope. It preserves the
+  existing worker for abandoned expiry finalization and hidden deferred-backend completion. The
+  completed M1 Attempt behavior and retained eleven-topic Genetics Blueprint scope remain intact.
+  This is a planning correction; no runtime code or tests changed.
+
+- Corrected Phase 2 M4 from a temporary representative-content walkthrough to its requested
+  deliverable: one reusable Genetics Blueprint Course with one Assignment for each ordered Biology
+  Problems Website Genetics topic. The plan now treats current `bbq-*-questions.txt` banks as
+  membership authority, preserves curriculum/provenance as product data, maps bank variation
+  through existing Question Pools, and requires retained-Blueprint reload plus a disposable Course
+  Instance behavior check. It records the verified rich-table presentation gap as an evidence-led
+  source/render decision; no content has been provisioned by this documentation correction.
+
+- A temporary, ignored feasibility probe converted one real Genetics monohybrid-degrees-of-
+  dominance source row to supported legacy PG `RadioButtons` plus `BEGIN_TEXT`/`MODES` HTML.
+  Renderer review preserved its colored Punnett table and choices without warnings; correct and
+  incorrect grading returned `1` and `0`, and repeated rendering at one seed was deterministic.
+  This establishes a single-row renderer/grader path only, not full-bank population, PLE
+  publication, Blueprint provisioning, or a permanent test. No production runtime or upstream
+  source changed. The probe and its raw answer-bearing evidence are removed; no containers were
+  touched. Documentation verification passed: 245 Markdown-link/guidance checks, scoped Prettier,
+  and `git diff --check`.
+
 ### Behavior or Interface Changes
+
+- Added `cargo tools curriculum-content validate|publish <manifest>` as the retained curriculum
+  import boundary. It validates the whole ordered source hierarchy, contained relative paths,
+  checksums, unique identities, source attribution, supported WeBWorK metadata, and Pool bounds
+  before writing. The caller supplies an explicit canonical curriculum-content root rather than
+  relying on a build-path fallback. Publication reuses exact compatible provenance or follows the ordinary Draft,
+  source-object binding, Question publication, and Blueprint stores; it emits only an opaque
+  Blueprint receipt and source revision summary. It does not add a PLE runtime parser, account,
+  deployment, enrollment, deadline, or test-fixture path.
+
+- Corrected the remaining grading-worker test vocabulary after the Retry reset. Student recovery
+  now refers only to saved-response auto-submission at Assignment Attempt expiry; the former
+  `learner_native_ple_recovery` scenario and submission-recovery shell fixture are named for their
+  actual worker interruption. A non-default `e2e-grader-fault` build provides one bounded native
+  PLE lease hold plus closed WeBWorK transient, final, and expired-lease sequences. The stack
+  controller can recreate only the corresponding worker with one fixed mode; no browser or product
+  route selects a fault. The ordinary Live Demo and production binaries contain no fault path. The
+  Gradebook fixture now checks its complete progress-count field
+  set and the Course-authorized, answer-free, read-only Instructor detail route. Rust feature tests,
+  shell syntax, focused browser-contract tests, and 1,253 focused Python policy tests pass. The
+  Store boundary is named `InstructorGradingStatusStore` so it cannot be mistaken for an Instructor
+  grading capability. After removing the retired browser contracts and tests, the exact offline
+  aggregate generated 337 TypeScript declarations and passed 374 Node tests and 6,126 Python
+  tests. Fresh PostgreSQL/database-baseline evidence, Chromium expiry auto-submission, native
+  worker replacement, and the fixed WeBWorK transient, final, and expired-lease scenarios pass in
+  the disposable stack. The exact full aggregate ends with complete live acceptance green.
+
+- Student Assignment Attempt and summary pages now read an answer-free automatic-grading status,
+  poll only while accepted work remains queued or grading, and stop at terminal results. Course
+  Instructors receive the same Course-scoped status as read-only Gradebook metadata; neither role
+  receives a grading, regrading, or retry action.
+
+- Grading and public-asset Jobs now enforce a closed database transition graph. A transient
+  infrastructure failure may move a leased, unfinished Job back to ready with bounded backoff;
+  failed and completed Jobs remain terminal, and graded or exempt results cannot reopen. Each
+  transaction that reaches ready emits one worker-kind-only PostgreSQL notification after commit.
+
+- An expired final grading lease moves both its Job and accepted-response grading row to Instructor
+  attention atomically. Transient pre-result infrastructure failures requeue the same unfinished Job with
+  caller-supplied backoff until the claim budget is exhausted; final failures retain only a bounded
+  private reason class and converge idempotently. Commit and failure operations reject a stale
+  lease token with no write, and the three grading workers receive only their fixed-backend failure
+  procedures.
+
+- PostgreSQL now projects accepted-response grading as the closed public states `queued`,
+  `grading`, `graded`, and `needsInstructorAttention`. A Student can read only positions and
+  states for their own Assignment Attempt; a Course Instructor receives the same read-only state
+  within Course authority. Gradebook evidence distinguishes attention and in-flight Question
+  counts without exposing responses, worker capabilities, or private failure reasons. No public
+  grading or regrading mutation exists.
+
+- Native and WeBWorK grading Stores now share provider-neutral failure and outcome contracts,
+  require the exact current lease token, and map a rejected lease to `LeaseLost`. Separate
+  Student and Instructor Store boundaries expose only their role-appropriate grading projection;
+  fake-contract and connected PostgreSQL adapter tests prove transient pre-result requeue, final attention,
+  stale failure refusal, and exact answer-free Gradebook counts.
+
+- Native PLE and WeBWorK grading now run through one typed worker loop. Missing sources and
+  renderer outages requeue with bounded backoff; malformed stored responses, native evaluation
+  failures, ungraded renderer results, and invalid renderer output converge on Instructor
+  attention. A stale lease is logged and skipped without ending the process. Idle workers use a
+  dedicated, attested PostgreSQL listener connection for the worker-kind-only `ple_job_ready`
+  notification with a five-second fallback claim, while shutdown interrupts idle waiting and
+  bounds in-flight Store draining.
+
+- Timed Assignment Attempts now retain one immutable server expiry from their start-time limit
+  and close instant. Reload or another authenticated session resumes the same saved work; at
+  expiry, saved responses become immutable submissions and grading jobs while unanswered
+  Questions close at zero. The Attempt page shows the exact instant in the Student's chosen time
+  zone, refreshes authoritative state when its monotonic countdown reaches zero, preserves edits
+  through connection failures, and resumes the same active Attempt after reconnect. A bounded generic-worker sweep finalizes abandoned
+  Attempts, while idempotent finalization and late-save refusal prevent duplicate or replacement
+  evidence.
+
+- Assignment Start Decisions now use one PostgreSQL rule and precedence order at exact
+  boundaries: close, availability, completed-Attempt limit, then late-work policy. The live
+  access read evaluates once and returns the effective available, due, close, Attempt-limit,
+  late-work, server-evaluation, and Student-time-zone values; start and save mutations use the
+  authoritative database clock. An already-active resumable Attempt remains usable after its
+  due instant, while close and time-limit expiry reject further saves.
+
+- Assignment Access and every Student Course landing card now embed one Rust-owned, generated
+  `StudentAssignmentDecisionSummary`. It carries UTC-millisecond schedule and evaluation
+  instants, effective limits and late-work rule, the Student's IANA display zone, one closed
+  Start Decision, and matching public reason. Future-scheduled released Assignments remain
+  visible; accommodation identity and other Students' effective values remain private.
+
+- Student Assignment landing and pre-start pages now share one direct decision presentation.
+  It answers whether the Student can start, distinguishes availability, due, and close instants
+  in the supplied Student time zone, and explains the Attempt limit, time limit, and late-work
+  rule before Start. The browser displays the server's decision and public reason without using
+  its own clock to infer permission.
+
+- Students can now read and save their own IANA display time zone from the Course landing.
+  A confirmed change immediately re-renders the same stored Assignment instants without moving
+  their deadlines. A newly roster-created Student Account receives the inviting Instructor's
+  zone once when its invitation is accepted; existing Accounts and an earlier Student choice keep
+  their zone. The Student route accepts no Account identity, and Instructor sessions cannot use it.
 
 - PLE Question JSON is unversioned and uses one current source shape without a `version` member.
   `format: "pleQuestionJson"` identifies the document across Rust compilation, browser authoring,
   QTI mapping, fixtures, and connected authoring scenarios.
 
+### Development Workflow
+
+- Added `launchers/run_fast_checks.sh` as the exact offline subset of the aggregate gate. It runs
+  Rust, TypeScript/Node, and Python validation without starting the disposable live stack; the
+  authoritative final gate remains `source source_me.sh && ./launchers/all_test.sh`.
+
 ### Fixes and Maintenance
+
+- M2.5 checkpoint: PLE now persists immutable normalized backend credit and calculates Assignment
+  scores on read from current Entry point values. Native PLE and WeBWorK saved-response finalization
+  use the ordinary direct submission path; the existing expiry path is being reused, and public
+  grading-status/detail surfaces are removed. The exact offline gate `source source_me.sh &&
+./launchers/run_fast_checks.sh` passed in session 66981: Rust checks, tests, doctests, Wasm,
+  all-strict Clippy; both frontend TypeScript checks, ESLint, Prettier, and 372 Node tests; and
+  6,039 pytest tests. Removing the obsolete grader-fault feature, source, and tests reduces counts;
+  it is not a coverage claim. Connected database acceptance is still running (session 23522), and
+  live journey and Genetics renderer/publication evidence remain pending.
+
+- Aligned the live Phase 2 contracts with the approved grading and expiry model: Question Backends
+  produce immutable normalized credit, scores are calculated on read from current point values,
+  reads do not finalize Student Work, and internal background execution is limited to expiry
+  submission and backend-specific completion polling. Removed stale public grading-state, polling,
+  attention, retry, and score-recalculation wording. Repaired only relocated archive-link targets;
+  this documentation update does not claim the in-progress finalization implementation is verified.
+
+- Replaced the stale payload, determinism, concurrency, enrollment, Instructor, and accessibility
+  documentation that still described per-Question submission receipts, browser prefetch,
+  successor promotion, or Instructor grading recovery. The current contract saves responses by
+  position, finalizes one whole Assignment Attempt, defines recovery solely as expiry
+  auto-submission, and exposes automatic grading as read-only status.
+
+- Strengthened grading evidence with a connected successful-commit case that proves a terminal
+  immutable result cannot be replaced or requeued and a two-connection claim case that proves only
+  one worker leases a Job. The focused Chromium expiry journey now proves a failed autosave keeps
+  the edit, the next save succeeds, expiry auto-submits, and polling stops after terminal grading.
 
 - Audited the Blueprint Revision-only cutover, removed unused command and event
   contracts plus stale Draft/publish wording, corrected current-Revision
@@ -24,12 +329,26 @@
 
 ### Removals and Deprecations
 
+- Removed the unmounted browser recovery state machine, completion/recovery helpers, prefetch
+  binding, and their isolated tests. Removed the dead per-Question submission, status, and prefetch
+  browser methods and the nonce-scoped native PLE submission Store, SQL functions, route, generated
+  contracts, and tests. The mounted Assignment Attempt page now owns save, whole-Attempt
+  finalization, expiry auto-submission, and read-only grading status directly.
+
 - Removed the derived private-grading schema counter, the transient H5P importer-iteration counter,
   the two repository-owned fixture counters, and the browser-scenario module's two unread constants.
   Private grading is recomputed from source, raw H5P packages remain available for re-import, and
   repository fixtures change together with their consumers.
 
 ### Decisions and Failures
+
+- A human review found that the initial M2 plan and implementation had converted Student
+  connectivity recovery into an unapproved Instructor grading Retry. The reset removes that
+  mutation from current plans, schema, browser and Store contracts, tests, and durable docs.
+  Autosave preserves working responses, and reconnect or reload resumes the same active Assignment
+  Attempt. Recovery is only the server-owned auto-submission of saved responses at expiry.
+  Automatic worker requeue remains limited to an unfinished Job for which no Grading Result exists
+  and is not recovery or regrading.
 
 - Native PLE Question JSON remains unversioned across every shape change. All stored native JSON
   Questions and readers are upgraded together.
@@ -227,6 +546,43 @@
   lifecycle and retention rules.
 
 ### Developer Tests and Notes
+
+- WP-G1 passed 88 server tests, 88 learning-data-access unit tests, strict all-target/all-feature
+  Clippy, and the canonical fresh PostgreSQL 17 baseline. The connected listener oracle used the
+  native worker Service Identity, ignored a WeBWorK notification, and accepted the matching
+  native notification. With Tokio time paused, two trivial ready Jobs committed back-to-back with
+  zero elapsed task time, proving removal of the former deliberate three-second floor. Fake Store
+  tests also prove evaluation-failure and `LeaseLost` continuation, immediate idle shutdown,
+  prompt commit draining, and bounded recovery from a hung Store call.
+
+- The corrected WP-F4 oracle proves Student and Course isolation, read-only Instructor status,
+  terminal-failure refusal, absence of public and private grading-mutation functions, and unchanged
+  `md5(student_response::text)`. Worker lifecycle evidence separately proves automatic
+  unfinished-Job requeue, stale-token refusal, and terminal results.
+
+- WP-E0 exact-boundary domain tests, focused Rust and PostgreSQL compile/lint gates, and the
+  canonical fresh PostgreSQL 17 database baseline passed. The connected access oracle verifies
+  the full restricted Student projection, completed-Attempt counting, effective Student IANA
+  time zone, and close/available/limit/late precedence.
+
+- WP-E1 generated 332 browser contract types and passed the strict TypeScript no-emit check,
+  12 focused Node decoder/HTTP tests, Rust contract and server checks, warning-denying Clippy,
+  the 407-test `./check_codebase.sh` front door, and the canonical fresh PostgreSQL 17 baseline.
+  The connected oracle proves scheduled visibility, access/landing decision agreement, and
+  cross-Student accommodation isolation.
+
+- WP-E2 passed 17 focused Node tests, including server-side rendering of one instant in two
+  Student zones and exact public-reason copy, plus the 408-test `./check_codebase.sh` front door.
+  The headless Chromium gate proved identical due copy on landing and pre-start pages, placed the
+  time-limit explanation before Start in document order, and reported no serious or critical
+  axe accessibility violations on either surface.
+
+- WP-E4 passed the Student-only Rust route test, warning-denying Rust checks, three focused Node
+  profile/model tests, and headless Chromium save/re-render evidence with no serious or critical
+  axe violations. The canonical fresh PostgreSQL 17 baseline passed with a connected oracle for
+  the inviting-Instructor default, existing-Account preservation, Student self-update, and
+  Instructor refusal. One initial aggregate run exposed a fixed test-only session-token collision;
+  distinct fixture tokens resolved it before the passing clean rerun.
 
 - Connected Assignment browser and service evidence, the Course Appearance
   browser scenario, focused Rust/Node/type/ledger gates, `./check_codebase.sh`,

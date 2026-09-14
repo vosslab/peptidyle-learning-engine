@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 9e7d_e1dd; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-WOMC-chromosome_alterations-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_9E7D_E1DD';
+<p>9e7d_e1dd</p> <p>Which one of the following alterations to <strong><span style="color: #008672;">chromosome</span></strong> structure correspond to the description <span style='font-size: 1em;'><strong>'<strong><span style="color: #008672;">chromosome</span></strong> in which is missing a group of <strong><span style="color: #43861a;">genes</span></strong>'</strong></span>.</p>
+PROMPT_9E7D_E1DD
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_9E7D_E1DD_CHOICE_1';
+Robertsonian translocation
+LITERAL_9E7D_E1DD_CHOICE_1
+$choice_2 = <<'LITERAL_9E7D_E1DD_CHOICE_2';
+deletion
+LITERAL_9E7D_E1DD_CHOICE_2
+$choice_3 = <<'LITERAL_9E7D_E1DD_CHOICE_3';
+paracentric inversion
+LITERAL_9E7D_E1DD_CHOICE_3
+$choice_4 = <<'LITERAL_9E7D_E1DD_CHOICE_4';
+pericentric inversion
+LITERAL_9E7D_E1DD_CHOICE_4
+$choice_5 = <<'LITERAL_9E7D_E1DD_CHOICE_5';
+reciprocal translocation
+LITERAL_9E7D_E1DD_CHOICE_5
+$correct_1 = <<'LITERAL_9E7D_E1DD_CORRECT_1';
+deletion
+LITERAL_9E7D_E1DD_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

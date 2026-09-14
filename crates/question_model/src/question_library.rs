@@ -14,13 +14,13 @@ use crate::{
 
 pub use crate::question_search::{
     MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS, MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS,
-    MAX_QUESTION_SEARCH_BACKEND_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
-    MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS, MAX_QUESTION_SEARCH_TAG_FACETS,
-    MAX_QUESTION_SEARCH_TAG_FILTERS, QuestionSearchAuthorFacet, QuestionSearchAuthorship,
-    QuestionSearchBackendFacet, QuestionSearchCapabilityFacet, QuestionSearchCourseUse,
-    QuestionSearchCourseUseFacet, QuestionSearchFacets, QuestionSearchFilter,
-    QuestionSearchQuestionLicenseFacet, QuestionSearchRequest, QuestionSearchRequestError,
-    QuestionSearchTagFacet, QuestionTypeFacet,
+    MAX_QUESTION_SEARCH_BACKEND_FACETS, MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES,
+    MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS,
+    MAX_QUESTION_SEARCH_TAG_FACETS, MAX_QUESTION_SEARCH_TAG_FILTERS, QuestionSearchAuthorFacet,
+    QuestionSearchAuthorship, QuestionSearchBackendFacet, QuestionSearchCapabilityFacet,
+    QuestionSearchCourseUse, QuestionSearchCourseUseFacet, QuestionSearchFacets,
+    QuestionSearchFilter, QuestionSearchQuestionLicenseFacet, QuestionSearchRequest,
+    QuestionSearchRequestError, QuestionSearchTagFacet, QuestionTypeFacet,
 };
 pub use crate::response::QuestionType;
 

@@ -44,6 +44,78 @@ BEGIN
 		) THEN
 		RAISE EXCEPTION 'application capability retains DDL authority';
 	END IF;
+	IF to_regprocedure('ple_api.sweep_expired_student_assignment_attempts(integer)') IS NOT NULL
+		OR NOT has_function_privilege(
+			'ple_assignment_attempt_expiry_worker',
+			'ple_api.prepare_expired_student_assignment_attempt_finalizations(integer)',
+			'EXECUTE'
+		)
+		OR NOT has_function_privilege(
+			'ple_assignment_attempt_expiry_worker',
+			'ple_api.commit_expired_student_assignment_attempt_finalization(uuid,jsonb)',
+			'EXECUTE'
+		)
+		OR has_function_privilege(
+			'ple_app',
+			'ple_api.prepare_expired_student_assignment_attempt_finalizations(integer)',
+			'EXECUTE'
+		)
+		OR has_function_privilege(
+			'ple_app',
+			'ple_api.commit_expired_student_assignment_attempt_finalization(uuid,jsonb)',
+			'EXECUTE'
+		) THEN
+		RAISE EXCEPTION 'Assignment Attempt expiry finalization capability is not isolated';
+	END IF;
+	IF to_regrole('ple_imathas_question_backend_grading_worker') IS NOT NULL
+		OR to_regrole('ple_native_ple_grading_worker') IS NOT NULL
+		OR to_regrole('ple_webwork_grading_worker') IS NOT NULL
+		OR to_regprocedure('ple_api.stage_verified_imathas_result(uuid,uuid,uuid,uuid,text,text,text,integer,uuid,bytea,text,numeric,text,bytea,bytea,double precision,bytea,uuid,uuid,uuid,timestamptz)') IS NOT NULL
+		OR to_regprocedure('ple_api.claim_imathas_result_grading_job(uuid,uuid,timestamptz)') IS NOT NULL
+		OR to_regprocedure('ple_api.commit_imathas_result_grading(uuid,uuid,timestamptz)') IS NOT NULL
+		OR to_regprocedure('ple_api.fail_imathas_question_backend_grading_retryable(uuid,uuid,timestamptz,text)') IS NOT NULL
+		OR to_regprocedure('ple_api.fail_imathas_question_backend_grading_final(uuid,uuid,text)') IS NOT NULL
+		OR to_regprocedure('ple_api.claim_native_ple_grading_job(uuid,timestamptz)') IS NOT NULL
+		OR to_regprocedure('ple_api.commit_native_ple_grading(uuid,uuid,boolean,double precision,timestamptz)') IS NOT NULL
+		OR to_regprocedure('ple_api.fail_native_ple_grading_retryable(uuid,uuid,timestamptz,text)') IS NOT NULL
+		OR to_regprocedure('ple_api.fail_native_ple_grading_final(uuid,uuid,text)') IS NOT NULL
+		OR to_regprocedure('ple_api.claim_webwork_grading_job(uuid,timestamptz)') IS NOT NULL
+		OR to_regprocedure('ple_api.commit_webwork_grading(uuid,uuid,boolean,double precision,timestamptz)') IS NOT NULL
+		OR to_regprocedure('ple_api.fail_webwork_grading_retryable(uuid,uuid,timestamptz,text)') IS NOT NULL
+		OR to_regprocedure('ple_api.fail_webwork_grading_final(uuid,uuid,text)') IS NOT NULL THEN
+		RAISE EXCEPTION 'retired grading Job capability remains';
+	END IF;
+	IF to_regprocedure('ple_api.read_attempt_grading_status(bigint)') IS NOT NULL
+		OR to_regprocedure('ple_api.read_attempt_grading_detail(bigint,bigint)') IS NOT NULL
+		OR to_regprocedure('ple_api.finalize_student_assignment_attempt(bigint)') IS NOT NULL
+		OR to_regprocedure(
+				'ple_api.retry_grading_for_question_attempt(bigint,bigint,bigint,integer,bigint)'
+			) IS NOT NULL
+			OR EXISTS (
+				SELECT 1
+				  FROM pg_proc AS routine
+				  JOIN pg_namespace AS namespace ON namespace.oid = routine.pronamespace
+				 WHERE namespace.nspname = 'ple_private'
+				   AND routine.proname IN (
+					   'retry_grade_accepted_submission',
+					   'resolve_instructor_question_attempt_for_grading'
+				   )
+			)
+		OR EXISTS (
+			SELECT 1
+			  FROM pg_proc AS routine
+			  JOIN pg_namespace AS namespace ON namespace.oid = routine.pronamespace
+			 WHERE namespace.nspname = 'ple_private'
+			   AND routine.proname IN (
+				   'read_student_attempt_grading_status',
+				   'read_instructor_attempt_grading_detail',
+				   'public_grading_operation_state',
+				   'finalize_student_assignment_attempt',
+				   'finalize_assignment_attempt_saved_responses'
+			   )
+		) THEN
+			RAISE EXCEPTION 'retired public grading readers or mutation capability remains';
+	END IF;
 	IF NOT COALESCE((
 		SELECT has_table_privilege('ple_private_owner', relation.oid, 'SELECT')
 		  FROM pg_class AS relation

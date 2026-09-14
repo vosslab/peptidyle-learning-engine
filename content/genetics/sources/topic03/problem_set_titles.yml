@@ -1,0 +1,33 @@
+bbq-TFMS-english_palindromes-questions.txt: True/False Statements About English Palindromes
+bbq-blood_type_agglutination_test-questions.txt: Blood Types from Agglutination Test
+  Results
+bbq-hla_genotype-2_markers-black-questions.txt: Offspring HLA Genotypes (2 Markers,
+  Black)
+bbq-hla_genotype-2_markers-color-questions.txt: Offspring HLA Genotypes (2 Markers,
+  Color)
+bbq-hla_genotype-3_markers-color-questions.txt: Offspring HLA Genotypes (3 Markers,
+  Color)
+bbq-linear_digest-length_10-sites_3-strand-questions.txt: Restriction Enzyme DNA Strand
+  Products (10 Length, 3 Sites)
+bbq-linear_digest-length_13-sites_3-fragment-questions.txt: Restriction Enzyme DNA
+  Fragment Products (13 Length, 3 Sites)
+bbq-linear_digest-length_16-sites_4-strand-questions.txt: Restriction Enzyme DNA Strand
+  Products (16 Length, 4 Sites)
+bbq-linear_digest-length_8-sites_2-fragment-questions.txt: Restriction Enzyme DNA
+  Fragment Products (8 Length, 2 Sites)
+bbq-overhang_sequence-mc-questions.txt: Restriction Enzyme Overhang Sequences
+bbq-overhang_type-5_3_blunt-questions.txt: Restriction Enzyme Cut Types (5', 3', or
+  Blunt)
+bbq-overhang_type-blunt_v_sticky-questions.txt: Restriction Enzyme Overhang Type from
+  Cleavage Patterns
+bbq-who_father_html-EASY-3_males-questions.txt: RFLP Paternity Testing (EASY, 3 Males)
+bbq-who_father_html-HARD-9_males-questions.txt: RFLP Paternity Testing (HARD, 9 Males)
+bbq-who_father_html-MEDIUM-5_males-questions.txt: RFLP Paternity Testing (MEDIUM,
+  5 Males)
+bbq-who_killer_html-EASY-4_suspects-questions.txt: RFLP Forensic DNA Analysis (EASY,
+  4 Suspects)
+bbq-who_killer_html-HARD-9_suspects-questions.txt: RFLP Forensic DNA Analysis (HARD,
+  9 Suspects)
+bbq-who_killer_html-MEDIUM-5_suspects-questions.txt: RFLP Forensic DNA Analysis (MEDIUM,
+  5 Suspects)
+last edit: Sun Jul 12 23:11:26 2026

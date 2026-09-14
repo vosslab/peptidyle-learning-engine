@@ -13,6 +13,8 @@ mod assignment_delivery;
 #[cfg(feature = "postgres")]
 mod assignment_delivery_access;
 #[cfg(feature = "postgres")]
+mod assignment_delivery_finalization;
+#[cfg(feature = "postgres")]
 mod assignment_delivery_history;
 #[cfg(feature = "postgres")]
 mod assignment_delivery_history_response;
@@ -26,6 +28,8 @@ mod assignment_release;
 mod assignment_workspace_policy;
 #[cfg(feature = "postgres")]
 mod assignment_workspace_save;
+#[cfg(feature = "postgres")]
+mod attempt_expiry;
 #[cfg(feature = "postgres")]
 mod authoring;
 #[cfg(feature = "postgres")]
@@ -41,9 +45,11 @@ mod course_roster;
 #[cfg(feature = "postgres")]
 mod course_theme;
 #[cfg(feature = "postgres")]
+#[cfg(feature = "postgres")]
 mod imathas_question_backend_session;
 #[cfg(feature = "postgres")]
 mod instructor_account;
+#[cfg(feature = "postgres")]
 #[cfg(feature = "postgres")]
 mod instructor_profile;
 #[cfg(feature = "postgres")]
@@ -55,9 +61,7 @@ mod live_student_course_landing;
 #[cfg(feature = "postgres")]
 mod migrations;
 #[cfg(feature = "postgres")]
-mod native_ple_grading;
 #[cfg(feature = "postgres")]
-mod native_ple_submission;
 #[cfg(feature = "postgres")]
 mod object_record;
 #[cfg(feature = "postgres")]
@@ -73,9 +77,10 @@ mod question_source;
 #[cfg(feature = "postgres")]
 mod sessions;
 #[cfg(feature = "postgres")]
-mod support_capability;
+mod student_assignment_decision;
 #[cfg(feature = "postgres")]
-mod webwork_grading;
+#[cfg(feature = "postgres")]
+mod support_capability;
 
 #[cfg(feature = "postgres")]
 pub use account_time_zone::PostgresAccountTimeZoneStore;
@@ -85,6 +90,8 @@ pub use assignment_attempt::PostgresAssignmentAttemptStore;
 pub use assignment_delivery::PostgresLiveAssignmentDeliveryStore;
 #[cfg(feature = "postgres")]
 pub use assignment_release::PostgresLiveAssignmentStore;
+#[cfg(feature = "postgres")]
+pub use attempt_expiry::PostgresAssignmentAttemptExpirySweepStore;
 #[cfg(feature = "postgres")]
 pub use authoring::PostgresAuthoringDraftStore;
 #[cfg(feature = "postgres")]
@@ -100,9 +107,11 @@ pub use course_roster::PostgresCourseRosterStore;
 #[cfg(feature = "postgres")]
 pub use course_theme::PostgresCourseThemeStore;
 #[cfg(feature = "postgres")]
+#[cfg(feature = "postgres")]
 pub use imathas_question_backend_session::PostgresImathasQuestionBackendSessionStore;
 #[cfg(feature = "postgres")]
 pub use instructor_account::PostgresInstructorAccountStore;
+#[cfg(feature = "postgres")]
 #[cfg(feature = "postgres")]
 pub use instructor_profile::PostgresInstructorProfileStore;
 #[cfg(feature = "postgres")]
@@ -117,9 +126,7 @@ pub use migrations::{
     acquire_schema_lifecycle, verify_application_schema,
 };
 #[cfg(feature = "postgres")]
-pub use native_ple_grading::PostgresNativePleGradingStore;
 #[cfg(feature = "postgres")]
-pub use native_ple_submission::PostgresNativePleSubmissionStore;
 #[cfg(feature = "postgres")]
 pub use object_record::PostgresWorkspaceQuestionSourceObjectRecordStore;
 #[cfg(feature = "postgres")]
@@ -135,9 +142,8 @@ pub use question_source::PostgresDraftQuestionSourceBindingStore;
 #[cfg(feature = "postgres")]
 pub use sessions::PostgresSessionStore;
 #[cfg(feature = "postgres")]
-pub use support_capability::PostgresSupportCapabilityStore;
 #[cfg(feature = "postgres")]
-pub use webwork_grading::PostgresWebworkGradingStore;
+pub use support_capability::PostgresSupportCapabilityStore;
 
 #[cfg(feature = "postgres")]
 pub type Pool = sqlx::postgres::PgPool;

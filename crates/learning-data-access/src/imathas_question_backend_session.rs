@@ -1,11 +1,8 @@
 //! Server-only iMathAS Question Backend Session persistence boundary.
 
-use async_trait::async_trait;
-use question_model::Timestamp;
-
 use crate::{SessionTokenHash, StoreError};
+use async_trait::async_trait;
 
-mod grading;
 mod identifiers;
 mod memory;
 mod preparation;
@@ -13,19 +10,11 @@ mod protected_state;
 mod session;
 mod storage_parts;
 
-pub(crate) use grading::automated_grading_receipt_checksum_v1;
-pub use grading::{
-    AutomatedGradingReceipt, AutomatedGradingReceiptId, CommitStagedImathasResultGrading,
-    GradingResultId, ImathasGradingJobLease, JobId, LoadedImathasQuestionBackendSession,
-    MAX_IMATHAS_GRADING_JOB_LEASE_MILLIS, QuestionSubmissionGradingId, StageVerifiedImathasResult,
-    StagedImathasResultReceipt,
-};
 pub use identifiers::{
-    AutomatedGradingReceiptChecksum, ImathasGradingContext, ImathasLaunchBindingChecksum,
-    ImathasNormalizedScore, ImathasQuestionBackendSessionAuthentication,
-    ImathasQuestionBackendSessionChallenge, ImathasQuestionBackendSessionReference,
-    ImathasResponseChecksum, ImathasResult, ImathasResultChecksum, ImathasResultToken,
-    ImathasResultTokenChecksum, derive_imathas_question_backend_evaluation,
+    ImathasGradingContext, ImathasLaunchBindingChecksum, ImathasNormalizedScore,
+    ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
+    ImathasQuestionBackendSessionReference, ImathasResponseChecksum, ImathasResult,
+    ImathasResultToken, ImathasResultTokenChecksum, derive_imathas_question_backend_evaluation,
 };
 pub use memory::MemoryImathasQuestionBackendSessionStore;
 pub use preparation::{
@@ -43,16 +32,14 @@ pub use protected_state::{
     MAX_IMATHAS_QUESTION_BACKEND_STATE_CIPHERTEXT_BYTES,
     MAX_IMATHAS_QUESTION_BACKEND_STATE_PLAINTEXT_BYTES,
 };
-pub(crate) use session::ImathasQuestionBackendSessionStorePredicate;
 pub use session::{
     ImathasQuestionBackendSession, ImathasQuestionBackendSessionCreate,
-    ImathasQuestionBackendSessionLease, ImathasQuestionBackendSessionRestoreExpectation,
-    ImathasQuestionBackendSessionValidation,
+    ImathasQuestionBackendSessionRestoreExpectation, ImathasQuestionBackendSessionValidation,
+    LoadedImathasQuestionBackendSession,
 };
 pub(crate) use storage_parts::{
-    ImathasGradingJobLeaseParts, ImathasQuestionBackendSessionCreateParts,
-    ImathasQuestionBackendSessionLeaseParts, ImathasQuestionBackendSessionRestoreParts,
-    ImathasQuestionBackendSessionStorageParts, StageVerifiedImathasResultParts,
+    ImathasQuestionBackendSessionCreateParts, ImathasQuestionBackendSessionRestoreParts,
+    ImathasQuestionBackendSessionStorageParts,
 };
 
 #[async_trait]
@@ -68,27 +55,6 @@ pub trait ImathasQuestionBackendSessionStore: Send + Sync {
         reference: ImathasQuestionBackendSessionReference,
         expectation: ImathasQuestionBackendSessionRestoreExpectation,
     ) -> Result<LoadedImathasQuestionBackendSession, StoreError>;
-    async fn lease_imathas_question_backend_session(
-        &self,
-        session_token_hash: SessionTokenHash,
-        reference: ImathasQuestionBackendSessionReference,
-        expectation: ImathasQuestionBackendSessionRestoreExpectation,
-        lease_expires_at: Timestamp,
-    ) -> Result<ImathasQuestionBackendSessionLease, StoreError>;
-    async fn stage_verified_imathas_result(
-        &self,
-        session_token_hash: SessionTokenHash,
-        stage: StageVerifiedImathasResult,
-    ) -> Result<StagedImathasResultReceipt, StoreError>;
-    async fn claim_imathas_result_grading_job(
-        &self,
-        grading_job_id: JobId,
-        lease_expires_at: Timestamp,
-    ) -> Result<ImathasGradingJobLease, StoreError>;
-    async fn commit_staged_imathas_result_grading(
-        &self,
-        command: CommitStagedImathasResultGrading,
-    ) -> Result<AutomatedGradingReceipt, StoreError>;
 }
 
 #[cfg(test)]

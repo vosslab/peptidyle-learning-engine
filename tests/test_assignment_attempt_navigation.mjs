@@ -3,8 +3,10 @@ import test from "node:test";
 
 import { decodeLiveAssignmentAccess } from "../src/api/decoders/assignment_attempt_issuance.ts";
 import {
+  decodeStudentAssignmentAttemptContext,
   decodeStudentAssignmentAttemptPresentation,
   decodeStudentAssignmentAttemptProgress,
+  decodeStudentAssignmentAttemptSubmissionResult,
 } from "../src/api/decoders/assignment_attempt_navigation.ts";
 import { ApiProtocolError, createHttpApiClient } from "../src/api/http_client.ts";
 import { ROUTE_CONTRACT } from "../src/route_contract.ts";
@@ -15,6 +17,28 @@ function noStoreJson(value, status = 200) {
     headers: { "cache-control": "no-store", "content-type": "application/json" },
   });
 }
+
+test("Assignment Attempt context retains one strict server expiry and display zone", () => {
+  const context = {
+    assignmentAttempt: "R-12",
+    attemptNumber: 2,
+    displayTimeZone: "America/Chicago",
+    expiresAt: 1_768_507_200_000,
+    timerRemainingMilliseconds: 15_000,
+    course: {
+      reference: "C-1",
+      shortName: "BCHM 301",
+      longName: "Biochemistry 301: Proteins and Peptides",
+      theme: "grass",
+    },
+    assignment: { reference: "A-1", title: "Peptide structure practice" },
+  };
+  assert.deepEqual(decodeStudentAssignmentAttemptContext(context), context);
+  assert.throws(() => decodeStudentAssignmentAttemptContext({ ...context, expiresAt: -1 }));
+  assert.throws(() =>
+    decodeStudentAssignmentAttemptContext({ ...context, displayTimeZone: "not/a-zone" }),
+  );
+});
 
 test("Student Assignment Attempt progress rejects answer-bearing and extra fields", () => {
   const projection = {
@@ -42,11 +66,23 @@ test("Student Assignment Attempt progress rejects answer-bearing and extra field
 });
 
 test("Assignment Access carries only its authorized answer-free facts and Attempt history", () => {
+  const decision = {
+    availableAt: 1_000,
+    dueAt: 2_000,
+    closesAt: 3_000,
+    timeLimitSeconds: 900,
+    attemptLimit: 2,
+    lateWorkRule: "reject",
+    displayTimeZone: "America/Chicago",
+    evaluatedAt: 1_500,
+    startDecision: "may_start",
+    publicReason: null,
+  };
   const facts = {
+    decision,
     title: "Peptide structure practice",
     questionCount: 4,
     pointsPossible: 8,
-    timeLimitSeconds: 900,
     previousAttempts: [
       {
         assignmentAttempt: "R-11",
@@ -56,11 +92,19 @@ test("Assignment Access carries only its authorized answer-free facts and Attemp
       },
     ],
   };
-  const resumable = { startDecision: "may_start", activeAssignmentAttempt: "R-12", ...facts };
-  const startable = { ...resumable, activeAssignmentAttempt: null, timeLimitSeconds: null };
+  const resumable = { activeAssignmentAttempt: "R-12", ...facts };
+  const startable = {
+    ...resumable,
+    activeAssignmentAttempt: null,
+    decision: { ...decision, timeLimitSeconds: null },
+  };
   const closedWithoutReleasedQuestions = {
     ...startable,
-    startDecision: "closed",
+    decision: {
+      ...startable.decision,
+      startDecision: "closed",
+      publicReason: "This Assignment is closed for new work.",
+    },
     questionCount: 0,
     pointsPossible: 0,
   };
@@ -70,7 +114,7 @@ test("Assignment Access carries only its authorized answer-free facts and Attemp
     decodeLiveAssignmentAccess(closedWithoutReleasedQuestions),
     closedWithoutReleasedQuestions,
   );
-  assert.throws(() => decodeLiveAssignmentAccess({ startDecision: "may_start" }));
+  assert.throws(() => decodeLiveAssignmentAccess({ decision }));
   assert.throws(() => decodeLiveAssignmentAccess({ ...resumable, activeAssignmentAttempt: "12" }));
   assert.throws(() => decodeLiveAssignmentAccess({ ...resumable, attemptId: "private" }));
   assert.throws(() =>
@@ -86,6 +130,24 @@ test("Assignment Access carries only its authorized answer-free facts and Attemp
     }),
   );
   assert.throws(() => decodeLiveAssignmentAccess({ ...resumable, answer: "secret" }));
+  assert.throws(() =>
+    decodeLiveAssignmentAccess({
+      ...resumable,
+      decision: { ...decision, accommodationId: "private" },
+    }),
+  );
+  assert.throws(() =>
+    decodeLiveAssignmentAccess({
+      ...resumable,
+      decision: { ...decision, publicReason: "Different browser-owned wording" },
+    }),
+  );
+  assert.throws(() =>
+    decodeLiveAssignmentAccess({
+      ...resumable,
+      decision: { ...decision, availableAt: 2_500 },
+    }),
+  );
 });
 
 test("selected presentation accepts only the exact existing public presentation contract", () => {
@@ -126,7 +188,11 @@ test("Student Assignment Attempt save and final submission use closed no-store c
       requests.push({ request, body });
       const path = new URL(request.url).pathname;
       if (path.endsWith("/submission")) {
-        return noStoreJson({ assignmentAttempt: "R-12", submissionState: "submitted" });
+        return noStoreJson({
+          assignmentAttempt: "R-12",
+          submissionState: "submitted",
+          score: { pointsEarned: 1.34, pointsPossible: 2 },
+        });
       }
       return noStoreJson({ assignmentAttempt: "R-12", position: 2, responseState: "saved" });
     },
@@ -136,7 +202,11 @@ test("Student Assignment Attempt save and final submission use closed no-store c
     kind: "shortText",
     text: "student working answer",
   });
-  await client.submitStudentAssignmentAttempt("R-12");
+  assert.deepEqual(await client.submitStudentAssignmentAttempt("R-12"), {
+    assignmentAttempt: "R-12",
+    submissionState: "submitted",
+    score: { pointsEarned: 1.34, pointsPossible: 2 },
+  });
 
   assert.equal(requests[0].request.method, "PUT");
   assert.equal(
@@ -154,6 +224,24 @@ test("Student Assignment Attempt save and final submission use closed no-store c
   );
   assert.equal(requests[1].request.cache, "no-store");
   assert.equal(requests[1].body, null);
+});
+
+test("final submission exposes either a current score or an explicit deferred score", () => {
+  assert.deepEqual(
+    decodeStudentAssignmentAttemptSubmissionResult({
+      assignmentAttempt: "R-12",
+      submissionState: "submitted",
+      score: null,
+    }),
+    { assignmentAttempt: "R-12", submissionState: "submitted", score: null },
+  );
+  assert.throws(() =>
+    decodeStudentAssignmentAttemptSubmissionResult({
+      assignmentAttempt: "R-12",
+      submissionState: "submitted",
+      score: { pointsEarned: 3, pointsPossible: 2 },
+    }),
+  );
 });
 
 test("Student Assignment Attempt mutations reject invalid requests and acknowledgements", async () => {

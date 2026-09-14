@@ -205,9 +205,10 @@ test("Finish Assignment captures the active backend document, saves it, then fin
     },
     async () => {
       events.push("finalize");
+      return { submitted: true };
     },
   );
 
-  assert.equal(result, true);
+  assert.deepEqual(result, { submitted: true });
   assert.deepEqual(events, ["capture", "save", "finalize"]);
 });

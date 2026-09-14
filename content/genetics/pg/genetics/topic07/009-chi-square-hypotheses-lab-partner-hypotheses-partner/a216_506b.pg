@@ -1,0 +1,40 @@
+## DESCRIPTION
+## Imported Genetics source row a216_506b; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic07/bbq-chi_square_hypotheses_lab_partner-hypotheses_partner-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_A216_506B';
+<p>a216_506b</p> <p>Your lab partner is trying again (eye roll).</p><p>In a plant species with incomplete dominance, you cross two pink individuals (Rr &times; Rr) and score flower color.</p><p>Total offspring scored: <span style='font-family: monospace;'>192</span></p><table style="border: 1px solid black; border-collapse: collapse;"><colgroup width="220"></colgroup><colgroup width="80"></colgroup><colgroup width="90"></colgroup><colgroup width="90"></colgroup><tr> <th align='center' colspan='4' style='background-color: silver'>Observed data</th> </tr><tr> <th align='center' style='background-color: lightgray'>Category</th> <th align='center' style='background-color: lightgray'>Ratio</th> <th align='center' style='background-color: lightgray'>Expected</th> <th align='center' style='background-color: lightgray'>Observed</th> </tr><tr> <td>&nbsp;Red flowers (RR)</td> <td align='center'>1</td> <td align='center'>48</td> <td align='center'>41</td></tr><tr> <td>&nbsp;Pink flowers (Rr)</td> <td align='center'>2</td> <td align='center'>96</td> <td align='center'>89</td></tr><tr> <td>&nbsp;White flowers (rr)</td> <td align='center'>1</td> <td align='center'>48</td> <td align='center'>62</td></tr></table><hr/> <p>They are setting up a chi-squared (&chi;<sup>2</sup>) goodness-of-fit test, but they wrote the hypotheses below:</p><p><b>H<sub>0</sub></b>: The offspring proportions are consistent with the expected 1:2:1 ratio (any differences from the expected ratio are due to chance).<br/><b>H<sub>A</sub></b>: The offspring proportions are not consistent with the expected 1:2:1 ratio (the differences are too large to explain by chance alone).</p><p><b>What is the main problem with their hypotheses?</b></p>
+PROMPT_A216_506B
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_A216_506B_CHOICE_1';
+They incorrectly wrote the null hypothesis as an exact match (no random variation).
+LITERAL_A216_506B_CHOICE_1
+$choice_2 = <<'LITERAL_A216_506B_CHOICE_2';
+Nothing is wrong; the hypotheses are stated correctly.
+LITERAL_A216_506B_CHOICE_2
+$choice_3 = <<'LITERAL_A216_506B_CHOICE_3';
+They used the wrong expected ratio in the hypotheses.
+LITERAL_A216_506B_CHOICE_3
+$choice_4 = <<'LITERAL_A216_506B_CHOICE_4';
+They swapped the null and alternative hypotheses.
+LITERAL_A216_506B_CHOICE_4
+$correct_1 = <<'LITERAL_A216_506B_CORRECT_1';
+Nothing is wrong; the hypotheses are stated correctly.
+LITERAL_A216_506B_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

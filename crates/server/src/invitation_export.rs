@@ -119,12 +119,13 @@ fn store_error(error_value: StoreError) -> Response {
             StatusCode::UNPROCESSABLE_ENTITY,
             "Invitation export is invalid",
         ),
-        StoreError::AssignmentActivity(_) | StoreError::TimedOut | StoreError::Unavailable(_) => {
-            error(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Invitation export unavailable",
-            )
-        }
+        StoreError::AssignmentActivity(_)
+        | StoreError::TimedOut
+        | StoreError::LeaseLost
+        | StoreError::Unavailable(_) => error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Invitation export unavailable",
+        ),
     }
 }
 

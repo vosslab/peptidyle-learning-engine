@@ -142,6 +142,14 @@ The server resolves authenticated sessions and Teaching Team or Student relation
 operations. Browser contracts are closed and decoded strictly. The browser does not receive Answer
 Keys, grading inputs, private Question Sources, backend credentials, or broad database authority.
 
+One server-owned expiry worker runs the generic Attempt evaluator and a
+60-second expiry sweep. It invokes the ordinary finalization boundary for an
+expired Attempt, reads immutable source only through S3 and the private
+WeBWorK renderer boundary, and has no public grading state or UI contract.
+iMathAS retains its separate session and receipt boundary. PostgreSQL access
+remains inside `learning-data-access`, so the server crate does not own a
+database driver.
+
 ## Browser and service flow
 
 ```text

@@ -6,9 +6,15 @@ CREATE TABLE ple_private.course_invitation (
     course_id uuid NOT NULL REFERENCES ple_data.course_instance (course_id),
     target_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     membership_role text NOT NULL CHECK (membership_role IN ('student','instructor')),
+    inviting_instructor_account_id uuid NOT NULL,
+    inviting_instructor_role text NOT NULL DEFAULT 'instructor'
+        CHECK (inviting_instructor_role = 'instructor'),
     issued_at timestamp with time zone NOT NULL,
     expires_at timestamp with time zone NOT NULL CHECK (expires_at > issued_at),
-    FOREIGN KEY (target_account_id,membership_role) REFERENCES ple_private.account(account_id,product_role)
+    FOREIGN KEY (target_account_id,membership_role)
+        REFERENCES ple_private.account(account_id,product_role),
+    FOREIGN KEY (inviting_instructor_account_id,inviting_instructor_role)
+        REFERENCES ple_private.account(account_id,product_role)
 );
 CREATE TABLE ple_private.course_invitation_event (
     course_invitation_event_id uuid PRIMARY KEY,

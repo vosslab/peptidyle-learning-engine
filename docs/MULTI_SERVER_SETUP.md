@@ -130,8 +130,8 @@ API replicas share all correctness state:
 
 - Session tokens are opaque, HttpOnly values. PostgreSQL stores their hashes,
   expiry, and revocation, so a session and its revocation work on every replica.
-- Attempts, timing, immutable Question Revision References, Question Submissions,
-  Question Submission Receipts, grades, and audit evidence are PostgreSQL records.
+- Attempts, timing, immutable Question Revision References, saved responses, Assignment
+  Submissions, internal Question Submissions, grades, and audit evidence are PostgreSQL records.
 - Object identity, checksum, bucket policy, and signed delivery remain
   server-owned in the shared object store and database metadata.
 - Grading and provider credentials stay server-side. The browser receives no
@@ -146,7 +146,7 @@ configuration is required for the supported topology. Provider and institutional
 fields remain metadata; they do not replace PLE account/session or course
 relationships.
 
-## Typed worker recovery
+## Typed worker continuity
 
 The worker claims one PostgreSQL job row under a fresh opaque `JobLeaseToken`.
 The locked lease and immutable job manifest determine the typed target:

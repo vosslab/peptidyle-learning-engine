@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 558e_bb94; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic03/bbq-hla_genotype-2_markers-color-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_558E_BB94';
+<p>558e_bb94</p> <p>HLA genotyping serves as a key component in the field of immunogenetics. It is used for understanding individual variations in immune responses. This molecular technique identifies unique alleles on paired chromosomes. It's particularly vital in organ transplantation for matching donors and recipients. Finding a correct match reduces the chance for graft rejection. </p><p>A mother has a HLA genotype of <strong><span style="color: #974015;">A4</span>,<span style="color: #974015;">B3</span></strong> on one chromosome and <strong><span style="color: #436b06;">A8</span>,<span style="color: #436b06;">B6</span></strong> on the other chromosome. </p><p>The father has a HLA genotype of <strong><span style="color: #006b6d;">A9</span>,<span style="color: #006b6d;">B8</span></strong> on one chromosome and <strong><span style="color: #7342a3;">A5</span>,<span style="color: #7342a3;">B1</span></strong> on the other chromosome. </p><p>Which one of the following combinations is a possible genotype for their offspring?</p>
+PROMPT_558E_BB94
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_558E_BB94_CHOICE_1';
+<span style="color: #436b06;">A8</span>,<span style="color: #436b06;">B6</span>,<span style="color: #974015;">A4</span>,<span style="color: #974015;">B3</span>
+LITERAL_558E_BB94_CHOICE_1
+$choice_2 = <<'LITERAL_558E_BB94_CHOICE_2';
+<span style="color: #006b6d;">A9</span>,<span style="color: #006b6d;">B8</span>,<span style="color: #7342a3;">A5</span>,<span style="color: #7342a3;">B1</span>
+LITERAL_558E_BB94_CHOICE_2
+$choice_3 = <<'LITERAL_558E_BB94_CHOICE_3';
+<span style="color: #006b6d;">A9</span>,<span style="color: #006b6d;">B8</span>,<span style="color: #436b06;">A8</span>,<span style="color: #436b06;">B6</span>
+LITERAL_558E_BB94_CHOICE_3
+$choice_4 = <<'LITERAL_558E_BB94_CHOICE_4';
+<span style="color: #006b6d;">A9</span>,<span style="color: #436b06;">B6</span>,<span style="color: #7342a3;">B1</span>,<span style="color: #974015;">A4</span>
+LITERAL_558E_BB94_CHOICE_4
+$choice_5 = <<'LITERAL_558E_BB94_CHOICE_5';
+<span style="color: #006b6d;">A9</span>,<span style="color: #436b06;">A8</span>,<span style="color: #7342a3;">B1</span>,<span style="color: #974015;">B3</span>
+LITERAL_558E_BB94_CHOICE_5
+$correct_1 = <<'LITERAL_558E_BB94_CORRECT_1';
+<span style="color: #006b6d;">A9</span>,<span style="color: #006b6d;">B8</span>,<span style="color: #436b06;">A8</span>,<span style="color: #436b06;">B6</span>
+LITERAL_558E_BB94_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

@@ -2,6 +2,7 @@
 
 import { normalizeQuestionIdSyntax } from "../question_id";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
+import { MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES } from "../../generated/api/MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES";
 
 /** A browser-safe current Question Library record. */
 export interface QuestionLibraryBrowseRow {
@@ -91,7 +92,6 @@ export type QuestionLibraryBrowseState =
       readonly nextCursor: string | null;
     };
 
-const MAX_CURSOR_LENGTH = 512;
 const MAX_TEXT_LENGTH = 512;
 const MAX_SUMMARY_LENGTH = 4_000;
 export const MAX_QUESTION_LIBRARY_BROWSE_PAGE_ITEMS = 100;
@@ -221,7 +221,7 @@ export function decodeQuestionLibraryBrowsePage(value: unknown): QuestionLibrary
     nextCursor !== null &&
     (typeof nextCursor !== "string" ||
       nextCursor.length === 0 ||
-      nextCursor.length > MAX_CURSOR_LENGTH)
+      nextCursor.length > MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES)
   ) {
     throw new Error("Question Library response cursor is invalid");
   }

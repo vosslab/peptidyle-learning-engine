@@ -50,7 +50,7 @@ export function issuedQuestionWireFixture(attempt, questionSummary, questionRevi
   };
 }
 
-/** Tests attempt recovery without importing the retired application validator. */
+/** Tests saved-response validation without importing the retired application validator. */
 export async function validateSavedResponse(responseFormat, response) {
   if (responseFormat.kind === "multipleChoice" && response.kind === "multipleChoice") {
     const validIds = new Set(responseFormat.choices.map((choice) => choice.id));

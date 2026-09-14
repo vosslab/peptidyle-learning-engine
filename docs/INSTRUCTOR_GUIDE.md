@@ -31,7 +31,7 @@ The current Instructor workflow is:
    and Course-owned delivery rules.
 3. Invite or otherwise establish exact Student Course Memberships.
 4. Inspect answer-free Student delivery and authorized Gradebook evidence.
-5. Use bounded, receipt-backed recovery for an eligible grading operation.
+5. Inspect answer-free Gradebook results. Instructors do not grade, regrade, or retry Student work.
 
 These Store-backed workflows preserve server-held Answer Keys, exact
 relationship-derived authorization, immutable issued evidence, and separate
@@ -52,7 +52,7 @@ edit governs later Attempts. Existing Attempts continue to use their retained
 Assignment and Issued Question evidence, including their exact Question
 Revision and issued seed.
 
-**Unrelease** is the deliberate destructive recovery operation for a Released
+**Unrelease** is the deliberate destructive reset operation for a Released
 Assignment. The Instructor confirms the exact current title and Edit Number.
 The system presents only aggregate impact counts, returns the Assignment to
 Unreleased, and atomically removes the Assignment's Student Work. It retains

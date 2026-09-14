@@ -1,0 +1,50 @@
+## DESCRIPTION
+## Imported Genetics source row e423_4463; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic05/bbq-blood_type_mother-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_E423_4463';
+<p>e423_4463</p> <p>For the ABO blood group in humans, the i<sup>A</sup> and i<sup>B</sup> alleles are codominant and the i allele is recessive.</p><p>A father &male; with <u>blood type B</u> has a son &male; with <u>blood type O</u>.</p><p>Which of the following blood types could the mother &female; possibly have? Check all that apply.</p>
+PROMPT_E423_4463
+loadMacros('parserCheckboxList.pl');
+$choice_1 = <<'LITERAL_E423_4463_CHOICE_1';
+Type O blood
+LITERAL_E423_4463_CHOICE_1
+$choice_2 = <<'LITERAL_E423_4463_CHOICE_2';
+Type A blood
+LITERAL_E423_4463_CHOICE_2
+$choice_3 = <<'LITERAL_E423_4463_CHOICE_3';
+Type B blood
+LITERAL_E423_4463_CHOICE_3
+$choice_4 = <<'LITERAL_E423_4463_CHOICE_4';
+Type AB blood
+LITERAL_E423_4463_CHOICE_4
+$choice_5 = <<'LITERAL_E423_4463_CHOICE_5';
+None of the above are possible; the father &male; is not related to his son &male;
+LITERAL_E423_4463_CHOICE_5
+$correct_1 = <<'LITERAL_E423_4463_CORRECT_1';
+Type O blood
+LITERAL_E423_4463_CORRECT_1
+$correct_2 = <<'LITERAL_E423_4463_CORRECT_2';
+Type A blood
+LITERAL_E423_4463_CORRECT_2
+$correct_3 = <<'LITERAL_E423_4463_CORRECT_3';
+Type B blood
+LITERAL_E423_4463_CORRECT_3
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+@correct = ($correct_1, $correct_2, $correct_3);
+$answer = CheckboxList([@choices], [@correct], labels => 'ABC', displayLabels => 1, randomize => 0, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->checks\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

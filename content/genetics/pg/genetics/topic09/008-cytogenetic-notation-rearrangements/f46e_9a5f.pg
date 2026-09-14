@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row f46e_9a5f; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-cytogenetic_notation-rearrangements-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_F46E_9A5F';
+<p>f46e_9a5f</p> What does "46,XX,t(14;10)(p2;p4)" imply in terms of human chromosome structure?
+PROMPT_F46E_9A5F
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_F46E_9A5F_CHOICE_1';
+<span style='color: #e60000;'>A translocation</span> involving the <span style='color: #0039e6;'>long arm</span> of <span style='color: #004d99;'>chromosome 10</span> at <span style='color: #e69100;'>band 2</span> and the <span style='color: #59b300;'>short arm</span> of <span style='color: #0a9bf5;'>chromosome 14</span> at <span style='color: #b3b300;'>band 4</span>
+LITERAL_F46E_9A5F_CHOICE_1
+$choice_2 = <<'LITERAL_F46E_9A5F_CHOICE_2';
+<span style='color: #e60000;'>A translocation</span> involving the <span style='color: #59b300;'>short arm</span> of <span style='color: #004d99;'>chromosome 14</span> at <span style='color: #e69100;'>band 2</span> and the <span style='color: #59b300;'>short arm</span> of <span style='color: #0a9bf5;'>chromosome 10</span> at <span style='color: #b3b300;'>band 4</span>
+LITERAL_F46E_9A5F_CHOICE_2
+$choice_3 = <<'LITERAL_F46E_9A5F_CHOICE_3';
+<span style='color: #e60000;'>A translocation</span> involving the <span style='color: #59b300;'>short arm</span> of <span style='color: #004d99;'>chromosome 2</span> at <span style='color: #e69100;'>band 14</span> and the <span style='color: #0039e6;'>long arm</span> of <span style='color: #0a9bf5;'>chromosome 10</span> at <span style='color: #b3b300;'>band 4</span>
+LITERAL_F46E_9A5F_CHOICE_3
+$choice_4 = <<'LITERAL_F46E_9A5F_CHOICE_4';
+<span style='color: #e65400;'>A duplication</span> involving the <span style='color: #0039e6;'>long arm</span> of <span style='color: #004d99;'>chromosome 10</span> at <span style='color: #e69100;'>band 2</span> and the <span style='color: #0039e6;'>long arm</span> of <span style='color: #0a9bf5;'>chromosome 4</span> at <span style='color: #b3b300;'>band 14</span>
+LITERAL_F46E_9A5F_CHOICE_4
+$choice_5 = <<'LITERAL_F46E_9A5F_CHOICE_5';
+<span style='color: #e65400;'>A duplication</span> involving the <span style='color: #59b300;'>short arm</span> of <span style='color: #004d99;'>chromosome 10</span> at <span style='color: #e69100;'>band 2</span> and the <span style='color: #59b300;'>short arm</span> of <span style='color: #0a9bf5;'>chromosome 4</span> at <span style='color: #b3b300;'>band 14</span>
+LITERAL_F46E_9A5F_CHOICE_5
+$correct_1 = <<'LITERAL_F46E_9A5F_CORRECT_1';
+<span style='color: #e60000;'>A translocation</span> involving the <span style='color: #59b300;'>short arm</span> of <span style='color: #004d99;'>chromosome 14</span> at <span style='color: #e69100;'>band 2</span> and the <span style='color: #59b300;'>short arm</span> of <span style='color: #0a9bf5;'>chromosome 10</span> at <span style='color: #b3b300;'>band 4</span>
+LITERAL_F46E_9A5F_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

@@ -4,6 +4,8 @@ import type {
   LiveStudentAssignmentLandingSummary,
   LiveStudentCourseInvitationSummary,
   LiveStudentCourseLandingSummary,
+  StudentTimeZoneProfile,
+  UpdateStudentTimeZoneInput,
 } from "../live_student_course_landing";
 import type { AssignmentAttemptCompletion } from "../../../generated/api/AssignmentAttemptCompletion";
 import {
@@ -24,6 +26,10 @@ import {
   field,
   requireOnlyFields,
 } from "./shared";
+import {
+  decodeAccountTimeZone,
+  decodeStudentAssignmentDecision,
+} from "./student_assignment_decision";
 
 const ASSIGNMENT_ATTEMPT_COMPLETIONS = [
   "inProgress",
@@ -58,6 +64,7 @@ function decodeAssignmentSummary(
   requireOnlyFields(record, path, [
     "reference",
     "title",
+    "decision",
     "assignmentAttemptNumber",
     "assignmentAttemptCompletion",
     "gradedQuestionCount",
@@ -113,6 +120,7 @@ function decodeAssignmentSummary(
   return {
     reference: decodeAssignmentReference(field(record, "reference", path), `${path}.reference`),
     title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
+    decision: decodeStudentAssignmentDecision(field(record, "decision", path), `${path}.decision`),
     assignmentAttemptNumber,
     assignmentAttemptCompletion,
     gradedQuestionCount,
@@ -157,4 +165,26 @@ export function decodeLiveStudentAssignmentLandings(
     `${path}.assignments`,
     decodeAssignmentSummary,
   );
+}
+
+export function decodeStudentTimeZoneProfile(
+  value: unknown,
+  path = "response",
+): StudentTimeZoneProfile {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["timeZone"]);
+  return {
+    timeZone: decodeAccountTimeZone(field(record, "timeZone", path), `${path}.timeZone`),
+  };
+}
+
+export function decodeUpdateStudentTimeZoneInput(
+  value: unknown,
+  path = "request",
+): UpdateStudentTimeZoneInput {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["timeZone"]);
+  return {
+    timeZone: decodeAccountTimeZone(field(record, "timeZone", path), `${path}.timeZone`),
+  };
 }

@@ -18,6 +18,18 @@ function assignment(overrides = {}) {
   return {
     reference: "A-7",
     title: "Peptide practice",
+    decision: {
+      availableAt: 1_000,
+      dueAt: 2_000,
+      closesAt: 3_000,
+      timeLimitSeconds: 900,
+      attemptLimit: 2,
+      lateWorkRule: "reject",
+      displayTimeZone: "America/Chicago",
+      evaluatedAt: 1_500,
+      startDecision: "may_start",
+      publicReason: null,
+    },
     assignmentAttemptNumber: 1,
     assignmentAttemptCompletion: "inProgress",
     gradedQuestionCount: 1,
@@ -53,4 +65,23 @@ test("Student Course landing rejects a partial, nullable, or stale score project
       DecodeError,
     );
   }
+});
+
+test("Student Course landing requires the closed server decision summary", () => {
+  assert.throws(
+    () =>
+      decodeLiveStudentAssignmentLandings({
+        assignments: [
+          assignment({
+            decision: {
+              ...assignment().decision,
+              startDecision: "closed",
+              publicReason: "This Assignment is closed for new work.",
+              accommodationId: "private",
+            },
+          }),
+        ],
+      }),
+    DecodeError,
+  );
 });

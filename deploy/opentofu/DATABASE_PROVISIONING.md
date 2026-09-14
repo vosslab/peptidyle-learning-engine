@@ -23,13 +23,12 @@ installation workflow owns the final product-data step.
    timestamped SQLx forward migrations.
 2. Create exactly
    `ple_api_login`, `ple_worker_login`, `ple_accepted_submission_recovery_login`,
-   `ple_accepted_submission_fast_path_login`, `ple_publisher_login`, and
-   `ple_grading_reader` with the
+   `ple_accepted_submission_fast_path_login`, and `ple_publisher_login` with the
    memberships and attributes the production pool verifier attests. `ple_api_login` has direct
    `SET`-only membership in `ple_app` and `ple_auth`. `ple_worker_login` has direct `SET`-only
-   membership in `ple_imathas_question_backend_grading_worker` for iMathAS Question Backend
-   grading claim and commit work. That capability has only `ple_api` usage plus execution of
-   those two procedures, with no direct protected-table access. `ple_accepted_submission_recovery_login`
+   membership in `ple_assignment_attempt_expiry_worker` for Assignment Attempt expiry preparation
+   and commit work. That capability has only `ple_api` usage plus execution of those two
+   procedures, with no direct protected-table access. `ple_accepted_submission_recovery_login`
    has only direct `SET`-only membership in `ple_accepted_submission_execution`; the execution
    capability is worker-only and grants the sealed accepted-submission loader without direct
    private-table access. `ple_publisher_login` has only `SET` membership in
@@ -48,8 +47,7 @@ installation workflow owns the final product-data step.
    10001 with mode 0600 before the API starts. When SMTP is enabled, the
    sidecar also receives and writes `smtp-password` and `invitation-token`;
    they do not exist in the sidecar environment when SMTP is disabled. The
-   worker value holds only `PLE_WORKER_DATABASE_URL` and
-   `PLE_AUTOMATED_GRADING_DATABASE_URL`.
+   worker value holds only `PLE_WORKER_DATABASE_URL`.
    The recovery value holds only `PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL` for
    `ple_accepted_submission_recovery_login`. The fast-path value holds only
    `PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL` for
@@ -67,12 +65,14 @@ installation workflow owns the final product-data step.
    independently of every application secret.
 5. After the API, worker, publisher, object storage, and browser origin are
    ready, run `cargo tools installation-data provision` from that same
-   controlled installation environment. It creates the complete ordinary Live
-   Demo through the canonical schema and the owning paths for cross-system
-   effects. An operator who does not want the demo runs
+   controlled installation environment. It publishes the bundled free and
+   open-source Genetics example Blueprint and creates the complete ordinary
+   Live Demo through the canonical schema and the owning paths for
+   cross-system effects. An operator who does not want the demo runs
    `cargo tools installation-data provision --without-live-demo` before data
-   exists. `apply` is the narrower Pilot and database-owned phase. The demo
-   then follows ordinary product-data rules.
+   exists; that still publishes the Genetics Blueprint. `apply` is the
+   narrower convergent installation operation. The demo then follows ordinary
+   product-data rules.
 6. Establish human authority only from the same short-lived audited
    administration environment. After real-person validation and account-email
    verification, an operator may set one exact account's `platform_roles` to

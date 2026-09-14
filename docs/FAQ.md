@@ -149,8 +149,10 @@ configuration, setup credential, command, or Browser Surface. See
 ## Is PLE ready for production?
 
 Not yet. PLE is still pre-production. The live demo is a functional, disposable installation, but
-it is not release acceptance. The automated-grading operation boundary is accepted; student-work inspection and grade-scheme-aware Gradebook work remain acceptance-open behind
-the current naming and visual/documentation close-out. Provider, mailbox, passkey, multi-replica, security, HCI, and release gates also remain open. See
+it is not release acceptance. Phase 2 audit cleanup of obsolete grading-job/failure residue and
+its focused verification remain open, as does the Genetics Blueprint publication and delivery
+evidence. Provider, mailbox, passkey, multi-replica, security, HCI, and release gates also remain
+open. See
 [ROADMAP.md](ROADMAP.md) and [TODO.md](TODO.md).
 
 ## Is the live demo read-only?
@@ -192,14 +194,15 @@ Existing issued Assignment Attempts keep their immutable question snapshot. See
 
 ## What happens if automated grading stalls?
 
-The student submits once and receives **Response received** while the server keeps the accepted
-response private. **Check grading status** is an answer-free read, and the normal path proceeds to
-feedback and **View completed Assignment Attempt** without Instructor intervention. If the status says **Your
-response needs instructor attention**, an authorized Instructor reviews **Grading operations** and
-chooses the currently enabled retry action when the operation is eligible. After **Your completed Assignment Attempt
-is recorded.**, confirm the current result in **Gradebook**. The browser never receives an answer,
-grading internals, or a hidden key. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md),
-[FAILURE_RECOVERY.md](FAILURE_RECOVERY.md), and [CHANGELOG.md](CHANGELOG.md).
+Submission uses the Question Backend to produce the response's credit fraction, then PLE records
+that immutable outcome. The Student sees the completed result and permitted feedback; the
+Gradebook reads scores from stored fractions and current Assignment Entry points. There is no
+Student or Instructor grading-status, attention, regrade, or retry-grading workflow. If a backend
+is unavailable before submission completes, saved responses remain and the Student can submit
+again while the Attempt remains open. Expired abandoned Attempts are finalized through the same
+ordinary path by the narrow background process. The browser never receives an answer, grading
+internals, or a hidden key. See [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) and
+[CHANGELOG.md](CHANGELOG.md).
 
 ## Can the browser or another Student see answer keys?
 

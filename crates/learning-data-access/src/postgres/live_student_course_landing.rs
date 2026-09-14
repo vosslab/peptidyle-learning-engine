@@ -100,7 +100,16 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
     ) -> Result<Vec<LiveStudentAssignmentLandingSummary>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query(
-            "SELECT assignment_reference_number, assignment_title, assignment_attempt_number, \
+            "SELECT assignment_reference_number, assignment_title, start_decision, \
+             time_limit_seconds, attempt_limit, late_work_rule, display_time_zone, \
+             CASE WHEN available_at IS NULL THEN NULL ELSE \
+                 floor(extract(epoch FROM available_at) * 1000)::bigint END AS available_at_millis, \
+             CASE WHEN due_at IS NULL THEN NULL ELSE \
+                 floor(extract(epoch FROM due_at) * 1000)::bigint END AS due_at_millis, \
+             CASE WHEN closes_at IS NULL THEN NULL ELSE \
+                 floor(extract(epoch FROM closes_at) * 1000)::bigint END AS closes_at_millis, \
+             floor(extract(epoch FROM evaluated_at) * 1000)::bigint AS evaluated_at_millis, \
+             assignment_attempt_number, \
              assignment_attempt_completion, graded_question_count, question_count, \
              points_earned, points_possible \
              FROM ple_api.list_released_live_student_assignments($1)",
@@ -142,6 +151,7 @@ fn decode_course(
 fn decode_assignment(
     row: &sqlx::postgres::PgRow,
 ) -> Result<LiveStudentAssignmentLandingSummary, StoreError> {
+    let decision = super::student_assignment_decision::decode(row)?;
     let assignment_attempt_number = row
         .try_get::<Option<i32>, _>("assignment_attempt_number")
         .map_err(map_sqlx_error)?
@@ -191,6 +201,7 @@ fn decode_assignment(
             "Assignment reference",
         )?,
         title: row.try_get("assignment_title").map_err(map_sqlx_error)?,
+        decision,
         assignment_attempt_number,
         assignment_attempt_completion,
         graded_question_count,

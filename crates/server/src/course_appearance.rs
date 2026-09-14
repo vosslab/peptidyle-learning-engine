@@ -910,6 +910,7 @@ fn store_error_response(error: StoreError) -> Response {
         | StoreError::AlreadyExists
         | StoreError::AssignmentActivity(_)
         | StoreError::TimedOut
+        | StoreError::LeaseLost
         | StoreError::Unavailable(_) => route_error(
             StatusCode::SERVICE_UNAVAILABLE,
             "Course Appearance unavailable",

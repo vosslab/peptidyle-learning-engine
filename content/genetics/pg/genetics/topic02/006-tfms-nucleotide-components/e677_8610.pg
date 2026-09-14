@@ -1,0 +1,40 @@
+## DESCRIPTION
+## Imported Genetics source row e677_8610; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic02/bbq-TFMS-nucleotide_components-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_E677_8610';
+<p>e677_8610</p> Which one of the following is<strong> <strong>NOT</strong> </strong>one of the three (3) major components of a DNA or RNA nucleotide?
+PROMPT_E677_8610
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_E677_8610_CHOICE_1';
+glycerol backbone
+LITERAL_E677_8610_CHOICE_1
+$choice_2 = <<'LITERAL_E677_8610_CHOICE_2';
+phosphate group
+LITERAL_E677_8610_CHOICE_2
+$choice_3 = <<'LITERAL_E677_8610_CHOICE_3';
+ribose
+LITERAL_E677_8610_CHOICE_3
+$choice_4 = <<'LITERAL_E677_8610_CHOICE_4';
+nitrogenous base
+LITERAL_E677_8610_CHOICE_4
+$correct_1 = <<'LITERAL_E677_8610_CORRECT_1';
+glycerol backbone
+LITERAL_E677_8610_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

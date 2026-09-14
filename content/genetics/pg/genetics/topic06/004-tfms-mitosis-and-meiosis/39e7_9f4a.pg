@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 39e7_9f4a; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic06/bbq-TFMS-mitosis_and_meiosis-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_39E7_9F4A';
+<p>39e7_9f4a</p> <p>Which one of the following statements is<strong> <span style="color: #127663;"><strong>TRUE</strong></span> </strong> regarding <strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;">mitosis</span></strong></span></strong> and <strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">meiosis</span></strong></span></strong> cell division?</p>
+PROMPT_39E7_9F4A
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_39E7_9F4A_CHOICE_1';
+<strong><span style="color: OrangeRed;">Mitosis</span></strong> occurs in two phases, that is, <strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;">mitosis</span></strong> I</span></strong> and <strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;">mitosis</span></strong> I</span></strong>I</span></strong>
+LITERAL_39E7_9F4A_CHOICE_1
+$choice_2 = <<'LITERAL_39E7_9F4A_CHOICE_2';
+<strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">Meiosis</span></strong></span></strong> is cell division that produces four (4) daughter cells
+LITERAL_39E7_9F4A_CHOICE_2
+$choice_3 = <<'LITERAL_39E7_9F4A_CHOICE_3';
+Cross-over regularly happens in <strong><span style="color: OrangeRed;">mitosis</span></strong>, but<strong> <strong>NOT</strong> </strong>in <strong><span style="color: MediumBlue;">meiosis</span></strong>
+LITERAL_39E7_9F4A_CHOICE_3
+$choice_4 = <<'LITERAL_39E7_9F4A_CHOICE_4';
+<strong><span style="color: MediumBlue;">Meiosis</span></strong> goes through cytokinesis cell division once
+LITERAL_39E7_9F4A_CHOICE_4
+$choice_5 = <<'LITERAL_39E7_9F4A_CHOICE_5';
+During the process of <strong><span style="color: OrangeRed;">mitosis</span></strong> several processes occur that cause genetic variation among organisms
+LITERAL_39E7_9F4A_CHOICE_5
+$correct_1 = <<'LITERAL_39E7_9F4A_CORRECT_1';
+<strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">Meiosis</span></strong></span></strong> is cell division that produces four (4) daughter cells
+LITERAL_39E7_9F4A_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

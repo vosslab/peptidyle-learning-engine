@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 4bdd_b2bd; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic08/bbq-two-point_test_cross-cis-trans-MC-with_hint-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_4BDD_B2BD';
+<p>4bdd_b2bd</p> <h4>Two-Point Test Cross Problem</h4><p>A test cross is a way to explore the relationship between genes and their respective alleles. It is a useful tool for genetic mapping and deciphering the inheritance of traits. Specifically, a two-point test cross examines two (2) genes at the same time to learn about their assortment in gamete formation.</p><p>A standard two-point test cross involves crossing a heterozygous organism for both genes with an organism that is homozygous recessive for both genes</p> <p>For this problem, a test cross using a fruit fly (<i>Drosophila melanogaster</i>) heterozygous for two genes was conducted to understand their genetic interactions.</p><h6>Characteristics of Recessive Phenotypes</h6><p><ul><li><strong><span style="color: #157037;">Gene E</span></strong> is connected with the '<span style="color: #157037;"><i>eery</i></span>' phenotype. A fruit fly that is homozygous recessive for <span style="color: #157037;">Gene E</span> appears to have something off, crooked limbs and other twisted appendages.</li> <li><strong><span style="color: #7242a5;">Gene K</span></strong> is analogous to the '<span style="color: #7242a5;"><i>kidney</i></span>' phenotype. A fruit fly that is homozygous recessive for <span style="color: #7242a5;">Gene K</span> has a body shape that is curved, similar to a kidney bean.</li> </ul></p><table style="border-collapse: collapse; border: 2px solid black;"><tr><th align="center" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">Phenotype</span></th><th colspan="2" align="center" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">Genotypes</span></th><th align="center" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">Progeny<br/>Count</span></th></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">eery, kidney</span></td><td align="center" style="border: 1px solid black; background-color: #d0f5dd; padding: 5px;"><span style="font-size: large; color: #000000;">e</span></td><td align="center" style="border: 1px solid black; background-color: #f9e1ff; padding: 5px;"><span style="font-size: large; color: #000000;">k</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">657</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">eery</span></td><td align="center" style="border: 1px solid black; background-color: #d0f5dd; padding: 5px;"><span style="font-size: large; color: #000000;">e</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #7242a5;">+</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">1,393</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">kidney</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #157037;">+</span></td><td align="center" style="border: 1px solid black; background-color: #f9e1ff; padding: 5px;"><span style="font-size: large; color: #000000;">k</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">1,421</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;"><i>wildtype</i></span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #157037;">+</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #7242a5;">+</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">729</span></td></tr><tr><th colspan="3" align="right" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">TOTAL =</span></th><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">4,200</span></td></tr></table><p>The phenotype counts resulting from the cross are summarized in the table above.</p> <h6>Question</h6> <p>Using the data presented in the table to determine the configuration of the alleles on the parental chromosomes. Determine whether the alleles for the two genes are in a <strong><i>cis</i></strong> (on the same chromosome) or <strong><i>trans</i></strong> (on different chromosomes) configuration.</p>
+PROMPT_4BDD_B2BD
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_4BDD_B2BD_CHOICE_1';
+cis
+LITERAL_4BDD_B2BD_CHOICE_1
+$choice_2 = <<'LITERAL_4BDD_B2BD_CHOICE_2';
+trans
+LITERAL_4BDD_B2BD_CHOICE_2
+$choice_3 = <<'LITERAL_4BDD_B2BD_CHOICE_3';
+both
+LITERAL_4BDD_B2BD_CHOICE_3
+$choice_4 = <<'LITERAL_4BDD_B2BD_CHOICE_4';
+neither
+LITERAL_4BDD_B2BD_CHOICE_4
+$choice_5 = <<'LITERAL_4BDD_B2BD_CHOICE_5';
+cannot be determined
+LITERAL_4BDD_B2BD_CHOICE_5
+$correct_1 = <<'LITERAL_4BDD_B2BD_CORRECT_1';
+trans
+LITERAL_4BDD_B2BD_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

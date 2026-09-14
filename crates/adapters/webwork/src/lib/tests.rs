@@ -15,7 +15,9 @@ use uuid::Uuid;
 
 use super::*;
 use crate::WebworkQuestionSourceBinding;
-use crate::renderer_contract::{GradeRequest, RenderRequest, RenderedWebworkQuestion};
+use crate::renderer_contract::{
+    GradeRequest, RenderRequest, RenderedWebworkQuestion, ResumeRenderRequest,
+};
 
 const SOURCE: &[u8] =
     b"DOCUMENT();\nBEGIN_TEXT\nOpaque backend question\nEND_TEXT\nENDDOCUMENT();\n";
@@ -51,6 +53,25 @@ impl WebworkRenderer for RecordedRenderer {
         if request.pg_source != SOURCE || request.pg_path != "Library/opaque.pg" {
             return Err(RendererFailure::InvalidOutput(
                 "recorded source did not match issuance".to_string(),
+            ));
+        }
+        let mut rendered =
+            RenderedWebworkQuestion::from_document(DOCUMENT.to_vec(), self.identity.clone());
+        rendered.lifecycle_state = self.lifecycle_state.clone();
+        Ok(rendered)
+    }
+
+    async fn render_saved_response(
+        &self,
+        request: ResumeRenderRequest<'_>,
+    ) -> Result<RenderedWebworkQuestion, RendererFailure> {
+        self.render_calls.fetch_add(1, Ordering::SeqCst);
+        if request.pg_source != SOURCE
+            || request.pg_path != "Library/opaque.pg"
+            || request.response_payload != PAYLOAD
+        {
+            return Err(RendererFailure::InvalidOutput(
+                "recorded source or response did not match resume".to_string(),
             ));
         }
         let mut rendered =

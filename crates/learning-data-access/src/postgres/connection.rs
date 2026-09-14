@@ -26,12 +26,8 @@ const STANDARD_POOL_MAX_CONNECTIONS: u32 = 8;
 pub enum ProductionLoginProfile {
     /// Browser/API process: course data plus passwordless account sessions.
     Api,
-    /// iMathAS Question Backend grading worker: claim and commit procedures only.
-    ImathasQuestionBackendGradingWorker,
-    /// Native PLE grading worker: claim and commit procedures only.
-    NativePleGradingWorker,
-    /// WeBWorK grading worker: lease/commit procedures plus private renderer access.
-    WebworkGradingWorker,
+    /// Assignment Attempt expiry worker: preparation and commit procedures only.
+    AssignmentAttemptExpiryWorker,
     /// Dedicated immutable public Question Asset publisher: its exact private
     /// source-to-public rendition claim and activation procedures only.
     PublicAssetPublisher,

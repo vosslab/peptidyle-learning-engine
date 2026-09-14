@@ -596,49 +596,49 @@ Question Presentation is accepted.
 
 ### The attempt is the grading authority
 
-**Decision.** Question Attempt identity and Authenticated Session bind a Question Submission;
-the server loads the complete attempt relationship and durably accepts one immutable private
-response before grading.
+**Decision.** Assignment Attempt identity and Authenticated Session bind each position save and the
+one whole-Attempt finalization. The server loads the complete Attempt relationship and turns each
+successfully saved response into one immutable private Question Submission before grading.
 
 **Why.** An issued Question Attempt already binds Student Record, Course Instance, Assignment,
 Assignment Attempt, Issued Question, immutable Question Revision, seed, timing, policy,
 Question Response Format, and grading backend. Repeating those values expands traffic and creates conflicting
 sources of truth.
 
-**Consequence.** Server code loads and validates the issued attempt before accepting a response.
-The acceptance transaction creates the immutable submission, pending evaluation, execution job,
-and receipt; the sealed worker later reloads that private response and grades it. Exact replay and
-status reads return the answer-free current `StudentQuestionAttemptView` rather than resubmitting the answer.
+**Consequence.** Server code loads and validates the issued position before saving a response.
+Student finalization and expiry auto-submission use the same ordinary finalization path. The
+Question Backend produces one immutable credit fraction, which PLE records with the accepted
+response; score readers apply current Assignment Entry points. Finalization replay returns the
+same submitted result. Reads remain reads and never call a Question Backend or mutate Student
+Work.
 **Owner.** [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md#attempt-authority),
 [Question Model Student Work Records](../crates/question_model/src/lib.rs), and the
 Assignment Attempt API contract in [CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
 
-**Current boundary.** The student submission and submission-status routes return a flattened,
-answer-free tagged union with `no-store`. A `202 Accepted` response clears the browser response
-buffer and exposes **Check grading status**; the worker owns later progress.
+**Current boundary.** The Student saves responses by Assignment Attempt and position, then submits
+the Assignment Attempt once. At expiry, the server performs that finalization automatically. The
+browser sees the completed result, not an automatic-grading status or a grading lifecycle. A
+narrow background pass completes abandoned expiry finalization and any backend-specific deferred
+completion without becoming a product state.
 
-### Accepted grading has one recovery owner
+### Submission owns the stored grading outcome
 
-**Decision.** Accepted automated grading uses one private execution handler shared by the
-synchronous exact-claim path and the background recovery worker. `AcceptedSubmissionExecutionWorker`
-owns the worker-only claim, private load, grading call, and tuple-fenced completion or failure.
-The ordinary worker retains the existing Job Kinds; automated execution uses a dedicated
-store capability and service login, while Instructor operations receive metadata-only recovery
-commands.
+**Decision.** A Question Backend evaluates the accepted response during ordinary Attempt
+finalization and returns a normalized credit fraction. PLE stores that fraction immutably and
+computes Assignment scores on read from the current Assignment Entry points. PLE has no Instructor
+grading, regrading, retry-grading, or public grading-status workflow.
 
-**Why.** A student acknowledgement must remain recoverable when the request ends before grading,
-and a second scheduler or a browser-held answer would create competing authority.
+**Why.** The backend owns response interpretation and grading semantics. Stored credit preserves
+the evidence PLE needs to score later without inventing a backend-agnostic regrade operation or a
+second lifecycle.
 
-**Consequence.** A deterministic exception produces one assignment-local operation. The visible
-journey is Student exception -> Instructor Retry -> ordinary worker -> current Gradebook. Retry
-reuses the accepted private response, advances the execution generation, and leaves the existing
-`1830` enqueue and `1831` current-score publication path as the sole score authority.
-Host-only installation that requires immediate convergence claims the exact typed recalculation
-job returned by accepted completion and executes it through that same scoring worker handler. It
-does not calculate or publish a score through a second path.
-**Owner.** `crates/server/src/accepted_submission_worker.rs`,
-`crates/learning-data-access/src/contracts/grading_operations.rs`, and the
-`GradingOperationStore` route in [CONTRACTS.md](CONTRACTS.md).
+**Consequence.** A narrow background pass is justified only to submit an expired abandoned Attempt
+through the same finalization path, or to finish a backend that explicitly requires deferred
+completion. It exposes neither a queue nor a Student or Instructor action. The Phase 2 audit
+cleanup removes remaining obsolete grading-job residue; it is not evidence for a product lifecycle.
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
+[ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md), and the Assignment Attempt API contract in
+[CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
 
 ### Render once, answer compactly
 
@@ -854,8 +854,8 @@ object storage, and the queue; a browser copy or a replica's memory never establ
 **Why.** Scale should come from adding replicas and surviving process restarts, not sticky sessions
 or a privileged in-memory coordinator.
 
-**Consequence.** Sessions, attempts, idempotency receipts, leases, and prefetch ownership are
-durable. Replica recovery has explicit fencing rules, and workers use lease/generation boundaries.
+**Consequence.** Sessions, Assignment Attempts, saved responses, finalization receipts, and leases
+are durable. Replica replacement reads the same fenced state, and workers use exact lease ownership.
 
 **Owner.** [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md),
 [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md#current-and-target-topology), and Background Job Execution in
@@ -1431,33 +1431,25 @@ PostgreSQL persistence, fixture, and browser feature do not exist yet.
 `crates/domain/src/preview_plane.rs` owns branch evaluation; and
 [CONTRACTS.md](CONTRACTS.md) owns the browser contract and Browser Surface availability status.
 
-### Locked job targets carry authorization ownership
+### Locked public-asset job targets carry authorization ownership
 
-**Decision.** Every durable job has one server-resolved immutable typed target
-in addition to its closed handler kind, generation fence, and opaque current
-lease. Course work records its exact Course Instance UUID and Assignment or
-Assignment Attempt UUID;
-workspace work records its Authoring Workspace UUID and import when applicable;
-Question Library work records its exact immutable Question Revision Reference. A future approved
-Assignment Export service records its own exact Course Instance, current Assignment evidence,
-frozen Manifest, and Artifact identities before it creates work. A worker
-Job claim-and-lease operation compares handler kind, typed target, generation, unexpired lease, and
-the requested transition before preparation, reads, writes, retry, cancellation,
-or finalization.
+**Decision.** Every implemented durable public-asset Job has one immutable server-resolved target,
+a closed worker kind, and at most one opaque current lease. A public-asset Job targets one immutable
+Question Revision. Other future Job kinds must define an equally exact typed target before they are
+added; grading Jobs are not part of the current product model.
 
 **Why.** An object identifier alone cannot establish the authorization parent
 for export or import work. Persisting the resolved target at enqueue time
 makes a claim self-contained, prevents work from following mutable surrounding
-state, and gives each retry and revocation path one exact boundary to verify.
+state, and gives each recovery and revocation path one exact boundary to verify.
 
-**Consequence.** The baseline schema adds the locked target to each job row.
-The enqueue transaction resolves it from currently authorized records; a new
-generation creates new work rather than changing a claim's target. The
-acceptance suite proves rejection for foreign targets, stale generations,
-mismatched Job Kind Registrations, expired leases, and client-supplied scope values.
+**Consequence.** Enqueue resolves the target from authorized records and writes it atomically.
+Target and worker kind never change. Claim, commit, and fail reject a stale lease token; only the
+fixed worker role can invoke its matching procedures. This decision does not create a generic
+background-job framework or a grading lifecycle.
 **Owner.** [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md),
 [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
-`crates/learning-data-access/src/jobs.rs`, and the baseline Job claim-and-lease operation.
+[jobs.sql](../schemas/base_schema/jobs.sql).
 
 ### Assignment Export enters only as a complete typed service
 
@@ -1544,17 +1536,22 @@ browser launch shell accepts only validated `{ launchUrl }`; its LDA-backed Rust
 route, cookie/env backend composition, and live-backend acceptance remain
 separate work.
 
-### iMathAS Result uses Ready-to-Commit then worker commit
+### iMathAS Ready-to-Commit job model is superseded
 
-**Decision.** The approved durable model is Ready-to-Commit plus worker-leased idempotent grading commit. A Question is never Remote or External; `ImathasQuestionBackend`/`imathasQuestionBackend` is the exact renamed response/control/Student Response marker. After iMathAS verification outside PostgreSQL, authenticated staging consumes the exact active iMathAS Session and atomically writes the iMathAS Result Exchange's finite `[0,1]` nonnegative-zero normalized-score-only iMathAS Result, its LDA checksum `SHA-256("ple:imathas-result:v1\\0" || IEEE-754-binary64(score))`, separate iMathAS Result Token checksum, the marker Question Submission, pending Question Submission Grading, and ready typed `grade_accepted_submission` Job. A worker holding that exact Job lease rechecks the lineage and atomically derives the PLE Grading Result plus LDA-owned redacted/non-Serde Automated Grading Receipt Checksum from the fixed v1 prefix, lineage UUID bytes, two Result Exchange checksums, correct byte, canonical big-endian binary64 points, and signed big-endian commit milliseconds; the same transaction writes the Receipt, completes the Job, marks grading graded, and advances the iMathAS Result Exchange to committed.
+**Decision.** The former Ready-to-Commit, worker-leased grading-Job model is superseded by the
+Phase 2 v2 submission boundary. The disconnected iMathAS delivery path is being removed; it does
+not establish a current queue, pending grading state, attention state, retry policy, or public
+operation.
 
-**Why.** Ready-to-Commit survives interruption without another backend request; an expired Job lease permits a later claim. Final execution failure belongs to the Job and Question Submission Grading (`instructor_attention`), retaining immutable ready evidence for a separately authorized recovery Job. Exact matching staging/commit replays are idempotent; committed replay returns the stored Receipt, Result, and checksum rather than accepting a candidate checksum. The checksum is never command/API/browser/adapter input. The iMathAS Result belongs to its iMathAS Result Exchange and is distinct from raw-token evidence and PLE Grading Result. LTI remains future registered-protocol planning with no current record or schema.
+**Why.** That model joined backend-result persistence to the rejected public grading lifecycle.
+PLE's current authority is smaller: a Question Backend owns evaluation, PLE stores its immutable
+credit fraction, and score readers apply current point values.
 
-**Consequence.** The delivery-backend base modules directly own the accepted
-submission, lifecycle, relationship, procedure, browser-launch, security, and
-test boundaries. **Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md),
-`schemas/base_schema/delivery_backends.sql`, and
-`schemas/base_schema/delivery.sql`.
+**Consequence.** No replacement iMathAS workflow is designed here. If an approved backend later
+requires deferred completion, it must remain internal and use the ordinary Attempt submission
+boundary without exposing a grading lifecycle. Existing private Result evidence remains private.
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) and
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
 
 ### PLE Question JSON is the static-Question authority
 

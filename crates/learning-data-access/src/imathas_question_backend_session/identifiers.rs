@@ -33,8 +33,8 @@ pub struct ImathasResponseChecksum(Sha256Checksum);
 /// Opaque iMathAS-signed bytes received only at the server/adapter boundary.
 ///
 /// The token remains in memory only while the iMathAS adapter verifies it. It
-/// has no serialization or durable representation; the verified Exchange
-/// stores only its checksum.
+/// has no serialization or durable representation; verification may retain its
+/// checksum only within the server-owned submission operation.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ImathasResultToken(Vec<u8>);
 
@@ -70,10 +70,6 @@ impl std::fmt::Debug for ImathasResultToken {
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ImathasResultTokenChecksum(Sha256Checksum);
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ImathasResultChecksum(Sha256Checksum);
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct AutomatedGradingReceiptChecksum(Sha256Checksum);
 
 macro_rules! secret_checksum {
     ($type:ident, $label:literal) => {
@@ -96,11 +92,6 @@ macro_rules! secret_checksum {
 }
 
 secret_checksum!(ImathasResponseChecksum, "ImathasResponseChecksum");
-secret_checksum!(ImathasResultChecksum, "ImathasResultChecksum");
-secret_checksum!(
-    AutomatedGradingReceiptChecksum,
-    "AutomatedGradingReceiptChecksum"
-);
 
 /// One finite score produced by the contracted iMathAS profile.
 ///
@@ -148,12 +139,6 @@ impl ImathasResult {
     pub const fn normalized_score(&self) -> ImathasNormalizedScore {
         self.normalized_score
     }
-
-    pub fn checksum(&self) -> ImathasResultChecksum {
-        let mut bytes = b"ple:imathas-result:v1\0".to_vec();
-        bytes.extend_from_slice(&self.normalized_score.value().to_bits().to_be_bytes());
-        ImathasResultChecksum(Sha256Checksum::compute(&bytes))
-    }
 }
 
 impl std::fmt::Debug for ImathasResult {
@@ -163,18 +148,12 @@ impl std::fmt::Debug for ImathasResult {
 }
 
 impl ImathasResultTokenChecksum {
-    /// Derives the receipt checksum after the adapter has accepted every
-    /// imathas_question_backend protocol claim for this exact token.
-    // ASVS 2.3.1: the verified Exchange transition accepts evidence only after
-    // the imathas_question_backend-verification step completes.
+    /// Derives a checksum after the adapter has accepted every iMathAS protocol
+    /// claim for this exact token.
+    // ASVS 2.3.1: the server accepts outcome evidence only after protocol
+    // verification completes.
     pub fn from_verified_token(token: &ImathasResultToken) -> Self {
         Self(Sha256Checksum::compute(token.as_server_adapter_bytes()))
-    }
-
-    /// Reconstitutes the durable Exchange receipt from trusted private storage.
-    #[allow(dead_code)] // Used when a Store reads verified Exchange receipts.
-    pub(crate) fn from_storage_bytes(value: [u8; 32]) -> Self {
-        Self(Sha256Checksum::from_bytes(value))
     }
 
     pub fn as_bytes(&self) -> &[u8; 32] {

@@ -30,21 +30,21 @@ Cross-system work in the complete demo stays with its owning application paths.
 
 ## Long-running services
 
-The current local stack has the Services listed below. Its workers claim,
-lease, and commit durable background jobs with PostgreSQL-owned job state.
-Workers process their own authorized grading responsibilities and remain
-separate from the browser-facing API.
+The current local stack has the Services listed below. Its one long-running worker is the
+Assignment Attempt expiry worker: it finalizes abandoned expired Attempts through the ordinary
+submission path and reaches the private renderer adapter only when that finalization is WeBWorK.
+It exposes no grading lifecycle. Public-asset publication is a separate one-shot profile, not
+generic worker work. Both remain separate from the browser-facing API.
 
-| Service            | Necessary role                                                                                                                                                         | Durable state                                                              | Network boundary                                                                 |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `gateway`          | Serves the built browser client and forwards same-origin `/api` and `/health` requests to the API. It is the only PLE browser entry point.                             | None. The built `dist/` directory is mounted read-only.                    | Publishes one loopback port; joins only `gateway_api`.                           |
-| `api`              | Authenticates sessions, authorizes course actions, coordinates attempts, and delivers either PLE-native presentations or exact backend-owned documents.               | None in the container. Authoritative records live in PostgreSQL and MinIO. | Joins the data network, `gateway_api`, and `renderer_private`.                   |
-| `worker`           | Runs general authorized background work.                                                                                                                               | None in the container. Job state is in PostgreSQL.                          | Joins the data network.                                                          |
-| `native-ple-worker` | Claims and grades native PLE work with its dedicated capability.                                                                                                      | None in the container. Job state is in PostgreSQL.                          | Joins the data network.                                                          |
-| `webwork-worker`   | Claims and grades WeBWorK-backed work with its dedicated capability.                                                                                                  | None in the container. Job state is in PostgreSQL.                          | Joins the data network and `renderer_private`.                                   |
-| `postgres`         | Stores relational platform authority: identities, courses, memberships, assignments, attempts, submissions, scores, jobs, and audit records.                           | `ple_pgdata`, a named volume mounted at PostgreSQL's data directory.       | Publishes a loopback development port and joins the data network.                |
-| `minio`            | Stores typed objects too large or inappropriate for relational rows: content packages, Student-specific exports and annotated exams, and temporary processing objects. | `ple_miniodata`, a named volume mounted at `/data`.                        | Publishes loopback development API and console ports and joins the data network. |
-| `webwork-renderer` | Runs the external `webwork-pg-renderer` image to execute PG/PGML render and grade requests. It is an engine, not a second assignment platform.                         | None. It has no volume and no SQL database.                                | Joins only `renderer_private`; it has no host-published port.                    |
+| Service                  | Necessary role                                                                                                                                                         | Durable state                                                                          | Network boundary                                                                                |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `gateway`                | Serves the built browser client and forwards same-origin `/api` and `/health` requests to the API. It is the only PLE browser entry point.                             | None. The built `dist/` directory is mounted read-only.                                | Publishes one loopback port; joins only `gateway_api`.                                          |
+| `api`                    | Authenticates sessions, authorizes course actions, coordinates attempts, and delivers either PLE-native presentations or exact backend-owned documents.                | None in the container. Authoritative records live in PostgreSQL and MinIO.             | Joins the data network, `gateway_api`, and `renderer_private`.                                  |
+| `worker`                 | Runs Assignment Attempt expiry finalization through the ordinary submission path; it has read-only Question Source access and private renderer access for WeBWorK.     | None in the container. Attempt records are in PostgreSQL; source objects are in MinIO. | Joins the data network and `renderer_private`; no browser, gateway, or public outbound network. |
+| `public-asset-publisher` | One-shot, profile-selected public-asset publication after its own pending registry record exists; it is not a generic background worker.                               | None in the container. Its own Job state is in PostgreSQL.                             | Joins the data network only.                                                                    |
+| `postgres`               | Stores relational platform authority: identities, courses, memberships, assignments, attempts, submissions, scores, jobs, and audit records.                           | `ple_pgdata`, a named volume mounted at PostgreSQL's data directory.                   | Publishes a loopback development port and joins the data network.                               |
+| `minio`                  | Stores typed objects too large or inappropriate for relational rows: content packages, Student-specific exports and annotated exams, and temporary processing objects. | `ple_miniodata`, a named volume mounted at `/data`.                                    | Publishes loopback development API and console ports and joins the data network.                |
+| `webwork-renderer`       | Runs the external `webwork-pg-renderer` image to execute PG/PGML render and grade requests. It is an engine, not a second assignment platform.                         | None. It has no volume and no SQL database.                                            | Joins only `renderer_private`; it has no host-published port.                                   |
 
 PostgreSQL is replaceable as a container, but the database service is not
 semantically stateless. Its data is correctly outside the writable container
@@ -78,7 +78,7 @@ permissions.
 | `postgres-major-guard`          | Reads an existing `PG_VERSION` before PostgreSQL starts.                                                                                   | Read-only volume, no network, and refusal when the retained volume is not PostgreSQL 17. It never migrates or deletes data.            |
 | `createbuckets`                 | Creates the four required MinIO buckets idempotently.                                                                                      | It exits after setup; the API does not need bucket-administration behavior.                                                            |
 | `identity-secret-init`          | Copies the host-owned invitation issuer and Question ID capabilities into an API-only runtime volume with the fixed API UID and mode 0600. | Networkless with a minimal capability set; raw host paths are not mounted into the API.                                                |
-| `database-migrator`             | Initializes the modular base or applies recognized forward migrations, then verifies schema compatibility before application startup.    | Profile-only, no host port, and receives one controller-written private migration URL.                                                |
+| `database-migrator`             | Initializes the modular base or applies recognized forward migrations, then verifies schema compatibility before application startup.      | Profile-only, no host port, and receives one controller-written private migration URL.                                                 |
 
 Stopped successful one-shot containers may appear in `podman ps -a`. They are
 not failed daemons and consume no running CPU after completion.
@@ -116,11 +116,11 @@ projects or volumes with global Podman commands.
 
 ## Networks
 
-| Network              | Members                                | Purpose                                                                                      |
-| -------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------- |
-| default data network | `postgres`, `minio`, `api`, setup jobs, `database-migrator` | Relational and object-storage communication.                                                 |
-| `gateway_api`        | `gateway`, `api`                       | Same-origin browser delivery without publishing the API directly.                            |
-| `renderer_private`   | `api`, `webwork-worker`, `webwork-renderer` | Private PG render/grade traffic. The browser, gateway, PostgreSQL, and MinIO do not join it. |
+| Network              | Members                                                     | Purpose                                                                                                                                             |
+| -------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| default data network | `postgres`, `minio`, `api`, setup jobs, `database-migrator` | Relational and object-storage communication.                                                                                                        |
+| `gateway_api`        | `gateway`, `api`                                            | Same-origin browser delivery without publishing the API directly.                                                                                   |
+| `renderer_private`   | `api`, `worker`, `webwork-renderer`                         | Private PG render/grade traffic for the API and Assignment Attempt expiry finalization. The browser, gateway, PostgreSQL, and MinIO do not join it. |
 
 There is no `webwork_db_private` network because PLE does not run WeBWorK2 or
 MariaDB. WebWork2 remains reference material for application behavior; the

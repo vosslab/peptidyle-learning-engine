@@ -191,7 +191,7 @@ BEGIN
     END IF;
 
     SELECT attempt.question_attempt_id, issued.question_id, issued.revision_number,
-           result.correct, receipt.committed_at
+           result.normalized_credit = 1, receipt.committed_at
       INTO v_question_attempt_id, v_question_id, v_revision_number, v_correct, v_observed_at
       FROM ple_audit.automated_grading_receipt AS receipt
       JOIN ple_private.grading_result AS result

@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 2cff_0fd2; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic04/bbq-lethal_allele_survival-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_2CFF_0FD2';
+<p>2cff_0fd2</p> <p>In fruit flies, allele C causes curly wings in heterozygotes (Cc) but is lethal in homozygotes (CC). The parental cross is Cc x Cc.</p><p>Among surviving offspring, what fraction are expected to have the normal phenotype?</p>
+PROMPT_2CFF_0FD2
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_2CFF_0FD2_CHOICE_1';
+1/3, 33.3%
+LITERAL_2CFF_0FD2_CHOICE_1
+$choice_2 = <<'LITERAL_2CFF_0FD2_CHOICE_2';
+1/4, 25%
+LITERAL_2CFF_0FD2_CHOICE_2
+$choice_3 = <<'LITERAL_2CFF_0FD2_CHOICE_3';
+1/2, 50%
+LITERAL_2CFF_0FD2_CHOICE_3
+$choice_4 = <<'LITERAL_2CFF_0FD2_CHOICE_4';
+All, 100%
+LITERAL_2CFF_0FD2_CHOICE_4
+$choice_5 = <<'LITERAL_2CFF_0FD2_CHOICE_5';
+2/3, 66.7%
+LITERAL_2CFF_0FD2_CHOICE_5
+$correct_1 = <<'LITERAL_2CFF_0FD2_CORRECT_1';
+1/3, 33.3%
+LITERAL_2CFF_0FD2_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

@@ -24,6 +24,8 @@ export function assignmentAttemptContext(reference: string): StudentAssignmentAt
   return {
     assignmentAttempt: "R-1",
     attemptNumber: 1,
+    displayTimeZone: "America/Chicago",
+    expiresAt: 1_768_507_200_000,
     timerRemainingMilliseconds: 1_800_000,
     course: {
       reference,

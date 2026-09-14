@@ -223,12 +223,12 @@ def test_teaching_stack_verifies_application_schema_before_application_start(
 	monkeypatch.setattr(local_stack_control.lifecycle, "run_api_initializers", lambda *args: None)
 	monkeypatch.setattr(
 		local_stack_control.lifecycle,
-		"should_provision_live_demo",
+		"should_provision_installation_data",
 		lambda *args: True,
 	)
 	monkeypatch.setattr(local_stack_control.lifecycle, "remove_live_demo_persona_configuration", lambda *args: None)
 	monkeypatch.setattr(local_stack_control.lifecycle, "wait_for_complete_ready", lambda *args: "http://127.0.0.1:8080/")
-	monkeypatch.setattr(local_stack_control.lifecycle, "provision_ready_live_demo", lambda *args: events.append("provision"))
+	monkeypatch.setattr(local_stack_control.lifecycle, "provision_ready_installation_data", lambda *args, **kwargs: events.append("provision"))
 	monkeypatch.setattr(local_stack_control.live_demo_gateway, "is_tls_target", lambda *args: False)
 
 	def record_compose(
@@ -840,14 +840,18 @@ def test_compose_failures_retain_redacted_bounded_child_diagnostics(tmp_path: pa
 	target.env_file.parent.mkdir()
 	target.env_file.write_text("PLE_TEST_SECRET=private-value\n", encoding="ascii")
 	target.env_file.chmod(0o600)
+	test_footer = "test result: FAILED. rerun with cargo test --test grading\n" * 12
 	result = local_stack_control.models.CommandResult(
-		("podman", "compose"), 1, "x" * 400 + "stdout useful private-value", "stderr useful private-value",
+		("podman", "compose"),
+		1,
+		"thread 'grading' panicked: Rust failure section private-value\n" + test_footer,
+		"SQL ERROR private-value\n" + test_footer,
 	)
 	detail = local_stack_control.lifecycle_diagnostics.redacted_failure_detail(
 		result, ("private-value",)
 	)
-	assert len(detail) <= local_stack_control.lifecycle_diagnostics.MAXIMUM_DIAGNOSTIC_CHARACTERS
-	assert "stdout useful [private]" in detail
+	assert "Rust failure section [private]" in detail
+	assert "SQL ERROR [private]" in detail
 	class FailureRunner(UnexpectedRunner):
 		def run(self, argv: list[str], environment: dict[str, str] | None = None, cwd: pathlib.Path | None = None, stdin: str | None = None) -> local_stack_control.models.CommandResult:
 			return result
@@ -856,8 +860,9 @@ def test_compose_failures_retain_redacted_bounded_child_diagnostics(tmp_path: pa
 	with pytest.raises(local_stack_control.models.ControllerError) as validation_error:
 		local_stack_control.lifecycle.validate_compose(target, FailureRunner(), tmp_path)
 	messages = (str(compose_error.value), str(validation_error.value))
-	assert all("stderr useful [private]" in message for message in messages)
-	assert all("private-value" not in message and len(message) <= 512 for message in messages)
+	assert all("Rust failure section [private]" in message for message in messages)
+	assert all("SQL ERROR [private]" in message for message in messages)
+	assert all("private-value" not in message for message in messages)
 
 
 #============================================

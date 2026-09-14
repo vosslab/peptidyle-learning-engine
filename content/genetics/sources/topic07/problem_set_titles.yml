@@ -1,0 +1,13 @@
+bbq-MATCH-chi-square_terms-questions.txt: Matching Chi-Square Terms to Definitions
+bbq-TFMS-chi-square-questions.txt: True/False Statements About Chi-Square Tests
+bbq-WOMC-chi-square_terms-questions.txt: Chi-Square Terms from Definitions
+bbq-chi_square_calculated-ACCEPT-questions.txt: Chi-Square Values for Phenotypic Ratios
+bbq-chi_square_choices-questions.txt: Hypothesis Decisions from Chi-Square Tests
+bbq-chi_square_errors-questions.txt: Errors in Chi-Square Calculations and Hypothesis
+  Decisions
+bbq-chi_square_hardy_weinberg-questions.txt: Chi-Square Tests for Hardy-Weinberg Equilibrium
+bbq-chi_square_hypotheses-pair-questions.txt: Null and Alternative Hypotheses for
+  Genetic Crosses
+bbq-chi_square_hypotheses_lab_partner-hypotheses_partner-questions.txt: Misstated Null
+  Hypotheses for Genetic Ratios
+last edit: Sun Jul 12 23:11:26 2026

@@ -106,9 +106,7 @@ def migration_principal_bootstrap_sql(database_name: str, migrator_password: str
 		_create_or_validate_role_sql(role, ordinary_attributes, ordinary_predicate)
 		for role in (
 			"ple_public_asset_publisher",
-			"ple_native_ple_grading_worker",
-			"ple_webwork_grading_worker",
-			"ple_imathas_question_backend_grading_worker",
+			"ple_assignment_attempt_expiry_worker",
 			"ple_unrelease_executor",
 		)
 	)

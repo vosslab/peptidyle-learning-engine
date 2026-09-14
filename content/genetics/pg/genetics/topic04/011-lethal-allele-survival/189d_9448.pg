@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 189d_9448; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic04/bbq-lethal_allele_survival-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_189D_9448';
+<p>189d_9448</p> <p>In mice, allele Y causes yellow coat in heterozygotes (Yy) but is lethal in homozygotes (YY). The parental cross is Yy x yy.</p><p>If 120 conceptions occur, how many are expected to have the normal phenotype?</p>
+PROMPT_189D_9448
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_189D_9448_CHOICE_1';
+60
+LITERAL_189D_9448_CHOICE_1
+$choice_2 = <<'LITERAL_189D_9448_CHOICE_2';
+56
+LITERAL_189D_9448_CHOICE_2
+$choice_3 = <<'LITERAL_189D_9448_CHOICE_3';
+30
+LITERAL_189D_9448_CHOICE_3
+$choice_4 = <<'LITERAL_189D_9448_CHOICE_4';
+64
+LITERAL_189D_9448_CHOICE_4
+$choice_5 = <<'LITERAL_189D_9448_CHOICE_5';
+120
+LITERAL_189D_9448_CHOICE_5
+$correct_1 = <<'LITERAL_189D_9448_CORRECT_1';
+60
+LITERAL_189D_9448_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

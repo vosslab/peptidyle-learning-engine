@@ -1,0 +1,79 @@
+## DESCRIPTION
+## Imported Genetics source row b33d_f0a9; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic07/bbq-MATCH-chi-square_terms-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_B33D_F0A9';
+<p>b33d_f0a9</p> <p>Match each of the following <strong><span style="color: #aa6701;">chi-square (&chi;&sup2;)</span></strong> terms with their corresponding definitions.</p><p><i>Note:</i> Each choice will be used exactly once.</p>
+PROMPT_B33D_F0A9
+loadMacros('PGML.pl', 'parserPopUp.pl');
+sub make_popup { return defined &DropDown ? DropDown(@_) : PopUp(@_); }
+$match_term_0 = <<'LITERAL_B33D_F0A9_MATCH_TERM_0';
+<strong><span style="color: #4424D6;">critical value</span></strong>
+LITERAL_B33D_F0A9_MATCH_TERM_0
+$match_term_1 = <<'LITERAL_B33D_F0A9_MATCH_TERM_1';
+<strong><span style="color: #cf4b03;">alternative hypothesis, H<sub>a</sub></span></strong>
+LITERAL_B33D_F0A9_MATCH_TERM_1
+$match_term_2 = <<'LITERAL_B33D_F0A9_MATCH_TERM_2';
+<strong><span style="color: #C21460;">p-value</span></strong>
+LITERAL_B33D_F0A9_MATCH_TERM_2
+$match_term_3 = <<'LITERAL_B33D_F0A9_MATCH_TERM_3';
+<strong><span style="color: #aa6701;">chi-square (&chi;&sup2;)</span></strong> test statistic
+LITERAL_B33D_F0A9_MATCH_TERM_3
+$match_term_4 = <<'LITERAL_B33D_F0A9_MATCH_TERM_4';
+<strong><span style="color: #687f19;">degrees of freedom</span></strong>
+LITERAL_B33D_F0A9_MATCH_TERM_4
+$match_choice_0 = <<'LITERAL_B33D_F0A9_MATCH_CHOICE_0';
+the cutoff used to compare against the observed <strong><span style="color: #aa6701;">chi-square (&chi;&sup2;)</span></strong> test statistic
+LITERAL_B33D_F0A9_MATCH_CHOICE_0
+$match_choice_1 = <<'LITERAL_B33D_F0A9_MATCH_CHOICE_1';
+if the <strong><span style="color: #0247FE;">null hypothesis, H<sub>0</sub></span></strong> cannot be <strong><span style="color: #4d8426;">supported</span></strong> , then this opposing hypothesis is <strong><span style="color: #4d8426;">supported</span></strong>
+LITERAL_B33D_F0A9_MATCH_CHOICE_1
+$match_choice_2 = <<'LITERAL_B33D_F0A9_MATCH_CHOICE_2';
+a small value suggests the observed data are<strong> <strong>NOT</strong> </strong>consistent with the <strong><span style="color: #0247FE;">null hypothesis, H<sub>0</sub></span></strong>
+LITERAL_B33D_F0A9_MATCH_CHOICE_2
+$match_choice_3 = <<'LITERAL_B33D_F0A9_MATCH_CHOICE_3';
+if this value is large, then there is stronger evidence to <strong><span style="color: #4d8426;">support</span> </strong>the <strong><span style="color: #cf4b03;">alternative hypothesis, H<sub>a</sub></span></strong>
+LITERAL_B33D_F0A9_MATCH_CHOICE_3
+$match_choice_4 = <<'LITERAL_B33D_F0A9_MATCH_CHOICE_4';
+in most <strong><span style="color: #aa6701;">chi-square (&chi;&sup2;)</span></strong> tests, it is the number of observed categories (rows in the table) minus one
+LITERAL_B33D_F0A9_MATCH_CHOICE_4
+$match_dropdown_0 = make_popup(['', "A", "B", "C", "D", "E"], 1);
+$match_dropdown_1 = make_popup(['', "A", "B", "C", "D", "E"], 2);
+$match_dropdown_2 = make_popup(['', "A", "B", "C", "D", "E"], 3);
+$match_dropdown_3 = make_popup(['', "A", "B", "C", "D", "E"], 4);
+$match_dropdown_4 = make_popup(['', "A", "B", "C", "D", "E"], 5);
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_PGML
+[@ MODES(HTML => '<div class="two-column">') @]*
+[@ MODES(HTML => '<div>') @]*
+[_]{$match_dropdown_0} *1.* [$match_term_0]*
+
+[_]{$match_dropdown_1} *2.* [$match_term_1]*
+
+[_]{$match_dropdown_2} *3.* [$match_term_2]*
+
+[_]{$match_dropdown_3} *4.* [$match_term_3]*
+
+[_]{$match_dropdown_4} *5.* [$match_term_4]*
+[@ MODES(HTML => '</div><div>') @]*
+*A.* [$match_choice_0]*
+
+*B.* [$match_choice_1]*
+
+*C.* [$match_choice_2]*
+
+*D.* [$match_choice_3]*
+
+*E.* [$match_choice_4]*
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+ENDDOCUMENT();

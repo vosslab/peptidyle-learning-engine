@@ -36,7 +36,6 @@ import type {
   CursorPage,
   StudentFeedbackReleaseResponse,
   StudentQuestionAttempt,
-  PrefetchedNextQuestion,
   QuestionPoolSelectionPosition,
   StudentIssuedQuestion,
   SignedOutResponse,
@@ -61,7 +60,6 @@ import {
   decodeIdentifier,
   decodeAssignmentTitle,
   decodeQuestionRevisionReference,
-  decodeSha256,
   decodeTimestamp,
   field,
   requireOnlyFields,
@@ -70,7 +68,6 @@ import { decodeStudentAssignmentLandingSummary } from "./question_library";
 import { decodeStudentFeedbackReleaseRule } from "./assignment_policy";
 import { decodeAssignmentActivityRules, decodeAssignmentInstructions } from "./assignment_release";
 import { decodeGradingResult, decodeStudentResponse } from "./question_delivery";
-import { decodeIssuedQuestionPresentation } from "./presentation_delivery";
 import { decodeQuestionSummary, decodeCourseSummary } from "./question_library";
 
 const ISSUED_ATTEMPT_CAPABILITIES = [
@@ -699,55 +696,6 @@ export function decodeSignedOutResponse(value: unknown, path = "response"): Sign
     throw new DecodeError(`${path}.authenticated`, "false");
   }
   return { authenticated: false };
-}
-
-export function decodePrefetchedNextQuestion(
-  value: unknown,
-  path = "response",
-): PrefetchedNextQuestion {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "predecessor",
-    "issuedQuestion",
-    "question_seed",
-    "renderedQuestionSha256",
-    "questionPoolSelectionPosition",
-    "presentation",
-  ]);
-  const prefetchedQuestionPresentation = decodeIssuedQuestionPresentation(
-    field(record, "presentation", path),
-    `${path}.presentation`,
-  );
-  const decoded = {
-    predecessor: decodeIdentifier(field(record, "predecessor", path), `${path}.predecessor`),
-    issuedQuestion: decodeStudentIssuedQuestion(
-      field(record, "issuedQuestion", path),
-      `${path}.issuedQuestion`,
-    ),
-    question_seed: decodeNonnegativeInteger(
-      field(record, "question_seed", path),
-      `${path}.question_seed`,
-    ),
-    renderedQuestionSha256: decodeSha256(
-      field(record, "renderedQuestionSha256", path),
-      `${path}.renderedQuestionSha256`,
-    ),
-    questionPoolSelectionPosition: decodeQuestionPoolSelectionPosition(
-      field(record, "questionPoolSelectionPosition", path),
-      `${path}.questionPoolSelectionPosition`,
-    ),
-    presentation: prefetchedQuestionPresentation,
-  } satisfies PrefetchedNextQuestion;
-  if (
-    prefetchedQuestionPresentation.questionRevision.revisionNumber !==
-      decoded.issuedQuestion.reference.revisionNumber ||
-    prefetchedQuestionPresentation.questionRevision.questionId !==
-      decoded.issuedQuestion.reference.questionId ||
-    prefetchedQuestionPresentation.question_seed !== decoded.question_seed
-  ) {
-    throw new DecodeError(path, "a Question Presentation bound to its descriptor");
-  }
-  return decoded;
 }
 
 export function decodeQuestionPage(value: unknown, path = "response"): CursorPage<QuestionSummary> {

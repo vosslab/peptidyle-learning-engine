@@ -300,7 +300,7 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
       .getByRole("button", { name: "Submit Assignment", exact: true })
       .click();
     await submittedSession.page
-      .getByRole("heading", { name: "Assignment submitted", exact: true })
+      .getByRole("heading", { name: "Your answers were accepted", exact: true })
       .waitFor();
     await captureCheckpoint(runtime, scenario, "submitted", submittedSession);
   } finally {

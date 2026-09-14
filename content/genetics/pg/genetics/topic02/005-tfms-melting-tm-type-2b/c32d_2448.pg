@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row c32d_2448; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic02/bbq-TFMS-melting_Tm_type_2b-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_C32D_2448';
+<p>c32d_2448</p> Which one of the following will <strong><strong><span style="color: #a719db;"><strong><span style="color: #a719db;"><strong><span style="color: #a719db;"><strong><span style="color: #a719db;">DECREASE</span></strong></span></strong></span></strong></span></strong></strong> the melting temperature (T<sub>m</sub>) of a DNA strand?
+PROMPT_C32D_2448
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_C32D_2448_CHOICE_1';
+<strong><span style="color: #b74300;">increase</span></strong> the amount of nucleobases with amino groups <strong><span style="color: #007a00;">adenine (A)</span></strong> + <strong><span style="color: #003fff;">cytosine (C)</span></strong>
+LITERAL_C32D_2448_CHOICE_1
+$choice_2 = <<'LITERAL_C32D_2448_CHOICE_2';
+<strong><span style="color: #b74300;"><strong><span style="color: #b74300;">increase</span></strong></span></strong> the amount of <strong><span style="color: #007a00;"><strong><span style="color: #007a00;">adenine (A)</span></strong> (A)</span></strong> + <strong><span style="color: #d40000;"><strong><span style="color: #d40000;">thymine (T)</span></strong> (T)</span></strong> base pairing
+LITERAL_C32D_2448_CHOICE_2
+$choice_3 = <<'LITERAL_C32D_2448_CHOICE_3';
+<strong><span style="color: #b74300;">increase</span></strong> the amount of pyrimidine nucleobases, <strong><span style="color: #003fff;">cytosine (C)</span></strong> + <strong><span style="color: #d40000;">thymine (T)</span></strong>
+LITERAL_C32D_2448_CHOICE_3
+$choice_4 = <<'LITERAL_C32D_2448_CHOICE_4';
+<strong><span style="color: #b74300;">increase</span></strong> the amount of <strong><span style="color: #003fff;">cytosine (C)</span></strong> + <strong><span style="color: #000000;">guanine (G)</span></strong> base pairing
+LITERAL_C32D_2448_CHOICE_4
+$choice_5 = <<'LITERAL_C32D_2448_CHOICE_5';
+<strong><span style="color: #a719db;">decrease</span></strong> the amount of nucleobases with ketone groups, <strong><span style="color: #000000;">guanine (G)</span></strong> + <strong><span style="color: #d40000;">thymine (T)</span></strong>
+LITERAL_C32D_2448_CHOICE_5
+$correct_1 = <<'LITERAL_C32D_2448_CORRECT_1';
+<strong><span style="color: #b74300;"><strong><span style="color: #b74300;">increase</span></strong></span></strong> the amount of <strong><span style="color: #007a00;"><strong><span style="color: #007a00;">adenine (A)</span></strong> (A)</span></strong> + <strong><span style="color: #d40000;"><strong><span style="color: #d40000;">thymine (T)</span></strong> (T)</span></strong> base pairing
+LITERAL_C32D_2448_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

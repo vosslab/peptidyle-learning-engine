@@ -4,9 +4,7 @@ import type { AssignmentReference } from "../../generated/api/AssignmentReferenc
 import type { AssignmentAttemptReference } from "../../generated/api/AssignmentAttemptReference";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
-
-export type AssignmentStartDecision =
-  "may_start" | "not_yet_available" | "closed" | "attempt_limit_reached" | "late_work_refused";
+import type { StudentAssignmentDecisionSummary } from "../../generated/api/StudentAssignmentDecisionSummary";
 
 export interface LiveAssignmentAttemptScore {
   readonly pointsEarned: number;
@@ -23,14 +21,12 @@ export interface LiveAssignmentPreviousAttempt {
 
 /** Server-calculated access for the signed-in Student only. */
 export interface LiveAssignmentAccess {
-  readonly startDecision: AssignmentStartDecision;
+  readonly decision: StudentAssignmentDecisionSummary;
   /** Authorized unfinished Assignment Attempt, if the Student can resume one. */
   readonly activeAssignmentAttempt: AssignmentAttemptReference | null;
   readonly title: string;
   readonly questionCount: number;
   readonly pointsPossible: number;
-  /** `null` represents an unbounded Assignment Attempt duration. */
-  readonly timeLimitSeconds: number | null;
   /** Complete, newest-first, answer-free owned Attempt history. */
   readonly previousAttempts: ReadonlyArray<LiveAssignmentPreviousAttempt>;
 }

@@ -110,7 +110,7 @@ therefore remain interpretable without consulting later current composition.
 including server timing and its operational state. A saved response remains
 associated with that Question Attempt. An accepted Question Submission is
 immutable Student evidence. Forward-only grading records connect the accepted
-submission to its job, grading result, receipt, and eligible anonymous
+submission to its immutable credit result, receipt, and eligible anonymous
 statistics observations.
 
 Completion and grade selection use retained Attempt policy and Issued Question
@@ -130,7 +130,7 @@ Student Record. A Teaching Team Member acts only through a current Instructor
 Course Membership. Each protected operation verifies the relationship at the
 trusted boundary and applies the same scope inside PostgreSQL.
 
-Attempt start, response save, submission, grading commit, and Unrelease take
+Attempt start, response save, submission, internal completion commit, and Unrelease take
 the Assignment root lock before changing Attempt-rooted Student Work. The lock
 order gives exactly one operation the next state: an in-flight worker either
 commits before Unrelease or finds no remaining target after it.
@@ -162,7 +162,7 @@ One transaction then:
 
 The closure includes Attempt-rooted issued questions, pool selections, question
 attempts, saved responses, submissions, delivery and presentation bindings,
-grading jobs and results, receipts, correction links, and statistics
+grading results, receipts, correction links, and statistics
 observations. It preserves the Assignment's current entries, shared Question
 Revisions, shared assets, Course relationships, and the redacted Unrelease
 event. The dedicated no-login database executor owns the guarded destructive

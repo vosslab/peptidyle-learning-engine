@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row cc49_a1ca; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic04/bbq-monohybrid_degrees_of_dominance-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_CC49_A1CA';
+<p>cc49_a1ca</p> <table style="border: 1px solid black; border-collapse: collapse; "><colgroup width="60"></colgroup> <colgroup width="60"></colgroup> <colgroup width="80"></colgroup> <colgroup width="80"></colgroup> <tr> <th align='center' colspan='2' rowspan='2' style='background-color: lightgray'>Gene 1</th> <th align='center' colspan='2'>Female &female;</th> </tr><tr> <td align='center' style='background-color: lightgray'>R</td> <td align='center' style='background-color: lightgray'>r</td></tr><tr> <th align='center' rowspan='2'><br/>Male<br/>&male;<br/><br/></th> <td align='center' style='background-color: lightgray;'>R</td> <td align='center' style='background-color: cornflowerblue;'>RR</td> <td align='center' style='background-color: lightskyblue;'>Rr</td></tr><tr> <td align='center' style='background-color: lightgray'>r</td> <td align='center' style='background-color: lightskyblue;'>Rr</td> <td align='center' style='background-color: azure;'>rr</td></tr></table> <br/> <p>Two organisms were crossed in a monohybrid experiment. The offspring phenotypes included <strong>blue (<span style="color: cornflowerblue; font-size: 1.8em;">&#x25A0;</span>)</strong> and <strong>white (<span style="color: azure; font-size: 1.8em;">&#x25A0;</span>)</strong>, along with an intermediate <strong>light blue (<span style="color: lightskyblue; font-size: 1.8em;">&#x25A0;</span>)</strong> phenotype.</p><p><strong>What type of dominance best explains these results?</strong></p>
+PROMPT_CC49_A1CA
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_CC49_A1CA_CHOICE_1';
+The gene shows X-linked recessive
+LITERAL_CC49_A1CA_CHOICE_1
+$choice_2 = <<'LITERAL_CC49_A1CA_CHOICE_2';
+The gene shows incomplete dominance
+LITERAL_CC49_A1CA_CHOICE_2
+$choice_3 = <<'LITERAL_CC49_A1CA_CHOICE_3';
+The gene shows complete dominance
+LITERAL_CC49_A1CA_CHOICE_3
+$choice_4 = <<'LITERAL_CC49_A1CA_CHOICE_4';
+The gene shows epistasis
+LITERAL_CC49_A1CA_CHOICE_4
+$choice_5 = <<'LITERAL_CC49_A1CA_CHOICE_5';
+The gene shows codominance
+LITERAL_CC49_A1CA_CHOICE_5
+$correct_1 = <<'LITERAL_CC49_A1CA_CORRECT_1';
+The gene shows incomplete dominance
+LITERAL_CC49_A1CA_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

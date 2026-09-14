@@ -14,7 +14,6 @@ import type {
   StudentResponseFormatCheck,
   StudentResponseFormatIssue,
 } from "../../api/decoders/student_response_format_check";
-import type { SubmissionOutcome } from "../../features/question_attempt/question_attempt_state";
 import type { ResponseFormatValidator } from "../../wasm/index";
 
 export type ResponseFormat = QuestionResponseFormat | QuestionPresentationResponseFormat;
@@ -24,6 +23,9 @@ export type ResponseFormat = QuestionResponseFormat | QuestionPresentationRespon
  * shared controller boundary so each response-format component stays native.
  */
 export type ResponseControlMode = "submission" | "save" | "formatOnly";
+/** Current response persistence has one success and one failure outcome. */
+export type SubmissionOutcome =
+  { readonly kind: "accepted" } | { readonly kind: "rejected"; readonly message: string };
 const ResponseControlModeContext = createContext<ResponseControlMode>("submission");
 
 export function ResponseControlModeProvider(props: {
@@ -59,7 +61,6 @@ type QuestionResponseControlPhase =
   | { readonly kind: "restored" }
   | { readonly kind: "invalid"; readonly message: string }
   | { readonly kind: "submitting" }
-  | { readonly kind: "recoveryPending"; readonly message: string }
   | { readonly kind: "submitted" }
   | { readonly kind: "failed"; readonly message: string };
 
@@ -216,8 +217,6 @@ function phaseMessage(phase: QuestionResponseControlPhase): string {
       return phase.message;
     case "submitting":
       return "Submitting your response. Please wait.";
-    case "recoveryPending":
-      return phase.message;
     case "submitted":
       return "Answer submitted. Student Feedback will appear when it is released.";
   }
@@ -238,7 +237,6 @@ function formatOnlyPhaseMessage(phase: QuestionResponseControlPhase): string {
     // Format-only controls never enter submission states, but preserve a safe
     // status if a future caller supplies one.
     case "submitting":
-    case "recoveryPending":
     case "submitted":
       return "Response format is ready.";
   }
@@ -275,11 +273,7 @@ export function createSubmissionController(
 
   async function validate(response: StudentResponse, editRevision?: number): Promise<void> {
     if (disposed) return;
-    if (
-      phase().kind === "submitting" ||
-      phase().kind === "recoveryPending" ||
-      phase().kind === "submitted"
-    ) {
+    if (phase().kind === "submitting" || phase().kind === "submitted") {
       return;
     }
     validationRequest += 1;
@@ -313,11 +307,7 @@ export function createSubmissionController(
 
   async function submit(response: StudentResponse): Promise<void> {
     if (disposed || props.mode === "formatOnly") return;
-    if (
-      phase().kind === "submitting" ||
-      phase().kind === "recoveryPending" ||
-      phase().kind === "submitted"
-    ) {
+    if (phase().kind === "submitting" || phase().kind === "submitted") {
       return;
     }
     const retryingSavedResponse =
@@ -343,9 +333,6 @@ export function createSubmissionController(
         case "accepted":
           setPhase(props.mode === "save" ? { kind: "restored" } : { kind: "submitted" });
           return;
-        case "recoveryPending":
-          setPhase({ kind: "recoveryPending", message: outcome.message });
-          return;
         case "rejected":
           setPhase({ kind: "failed", message: outcome.message });
           return;
@@ -362,11 +349,7 @@ export function createSubmissionController(
 
   async function reset(response: StudentResponse): Promise<void> {
     if (disposed) return;
-    if (
-      phase().kind === "submitting" ||
-      phase().kind === "recoveryPending" ||
-      phase().kind === "submitted"
-    ) {
+    if (phase().kind === "submitting" || phase().kind === "submitted") {
       return;
     }
     // A restored response supersedes every earlier asynchronous format check.
@@ -402,20 +385,14 @@ export function createSubmissionController(
   return {
     phase,
     invalid: () => phase().kind === "invalid" || phase().kind === "failed",
-    pending: () => phase().kind === "submitting" || phase().kind === "recoveryPending",
-    locked: () =>
-      phase().kind === "submitting" ||
-      phase().kind === "recoveryPending" ||
-      phase().kind === "submitted",
+    pending: () => phase().kind === "submitting",
+    locked: () => phase().kind === "submitting" || phase().kind === "submitted",
     canSubmit: () =>
       props.mode !== "formatOnly" &&
       (phase().kind === "ready" ||
         phase().kind === "restored" ||
         (props.mode === "save" && phase().kind === "failed")),
-    canReset: () =>
-      phase().kind !== "submitting" &&
-      phase().kind !== "recoveryPending" &&
-      phase().kind !== "submitted",
+    canReset: () => phase().kind !== "submitting" && phase().kind !== "submitted",
     edit,
     validate,
     reset,

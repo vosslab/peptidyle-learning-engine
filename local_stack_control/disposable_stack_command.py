@@ -45,10 +45,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 	stop_worker.add_argument("--manifest", required=True, type=pathlib.Path)
 	replace_worker = actions.add_parser("replace-worker")
 	replace_worker.add_argument("--manifest", required=True, type=pathlib.Path)
-	stop_native_ple_worker = actions.add_parser("stop-native-ple-worker")
-	stop_native_ple_worker.add_argument("--manifest", required=True, type=pathlib.Path)
-	replace_native_ple_worker = actions.add_parser("replace-native-ple-worker")
-	replace_native_ple_worker.add_argument("--manifest", required=True, type=pathlib.Path)
 	stop_webwork_renderer = actions.add_parser("stop-webwork-renderer")
 	stop_webwork_renderer.add_argument("--manifest", required=True, type=pathlib.Path)
 	replace_webwork_renderer = actions.add_parser("replace-webwork-renderer")
@@ -387,14 +383,16 @@ def main() -> None:
 		if args.action == "replay-installation-data":
 			local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, disposable)
 			local_stack_control.disposable_stack_adapter.require_browser_profile(disposable)
-			local_stack_control.lifecycle.provision_ready_live_demo(disposable, runner)
+			local_stack_control.lifecycle.provision_ready_installation_data(
+				disposable, runner, without_live_demo=False
+			)
 			print("Disposable installation data: provisioned")
 			raise SystemExit(0)
 		if args.action == "assert-live-demo-absent":
 			local_stack_control.disposable_stack_adapter.require_current_resource_capability(runner, disposable)
 			local_stack_control.disposable_stack_adapter.require_browser_profile(disposable)
-			local_stack_control.lifecycle.require_installation_data_absent(disposable, runner)
-			print("Disposable installation data: Pilot Questions and Live Demo Course are absent")
+			local_stack_control.lifecycle.require_bundled_genetics_without_live_demo(disposable, runner)
+			print("Disposable installation data: bundled Genetics is present without the Live Demo Course")
 			raise SystemExit(0)
 		if args.action == "restart":
 			local_stack_control.disposable_stack_adapter.require_mutating_capability(runner, disposable)
@@ -424,14 +422,6 @@ def main() -> None:
 		if args.action == "replace-worker":
 			completed = local_stack_control.disposable_stack_adapter.replace_worker_service(runner, disposable)
 			print(f"Disposable worker replaced: {completed.service}")
-			raise SystemExit(0)
-		if args.action == "stop-native-ple-worker":
-			completed = local_stack_control.disposable_stack_adapter.stop_native_ple_worker_service(runner, disposable)
-			print(f"Disposable native PLE worker stopped: {completed.service}")
-			raise SystemExit(0)
-		if args.action == "replace-native-ple-worker":
-			completed = local_stack_control.disposable_stack_adapter.replace_native_ple_worker_service(runner, disposable)
-			print(f"Disposable native PLE worker replaced: {completed.service}")
 			raise SystemExit(0)
 		if args.action == "stop-webwork-renderer":
 			print(f"Disposable WeBWorK renderer stopped: {change_webwork_renderer(runner, disposable, False)}")

@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 8741_612f; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic03/bbq-TFMS-english_palindromes-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_8741_612F';
+<p>8741_612f</p> Which one of the following English words is a palindrome?
+PROMPT_8741_612F
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_8741_612F_CHOICE_1';
+Civic
+LITERAL_8741_612F_CHOICE_1
+$choice_2 = <<'LITERAL_8741_612F_CHOICE_2';
+roto
+LITERAL_8741_612F_CHOICE_2
+$choice_3 = <<'LITERAL_8741_612F_CHOICE_3';
+joy
+LITERAL_8741_612F_CHOICE_3
+$choice_4 = <<'LITERAL_8741_612F_CHOICE_4';
+suns
+LITERAL_8741_612F_CHOICE_4
+$choice_5 = <<'LITERAL_8741_612F_CHOICE_5';
+Stat
+LITERAL_8741_612F_CHOICE_5
+$correct_1 = <<'LITERAL_8741_612F_CORRECT_1';
+Civic
+LITERAL_8741_612F_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

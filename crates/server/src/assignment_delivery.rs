@@ -9,7 +9,7 @@ use adapter_webwork::{
 };
 use axum::{
     Json, Router,
-    extract::{FromRef, Path, Query, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode, header::COOKIE},
     response::{IntoResponse, Response},
     routing::{get, post, put},
@@ -19,9 +19,7 @@ use learning_data_access::{
     LiveAssignmentAttempt, LiveAssignmentDeliveryStore, NativeAssignmentIssuanceBatch,
     NativePleIssuanceSource, NativePresentationInput, NativeWebworkIssuanceSource,
     SessionTokenHash, StoreError,
-    postgres::{
-        PostgresLiveAssignmentDeliveryStore, PostgresNativePleSubmissionStore, PostgresSessionStore,
-    },
+    postgres::{PostgresLiveAssignmentDeliveryStore, PostgresSessionStore},
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
@@ -35,6 +33,7 @@ use serde::Serialize;
 use crate::auth::{AuthError, resolve_session};
 
 mod context;
+pub(crate) mod direct_finalization;
 mod history;
 mod history_response;
 mod presentation_assets;
@@ -53,33 +52,14 @@ struct PositionQuery {
 pub(crate) struct StateData {
     pub(crate) sessions: Arc<PostgresSessionStore>,
     pub(crate) delivery: PostgresLiveAssignmentDeliveryStore,
-    pub(crate) submissions: PostgresNativePleSubmissionStore,
     pub(crate) objects: S3ObjectStore,
     pub(crate) webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
-}
-
-/// The retained status read needs only authentication and its dedicated
-/// question-submission projection, not the mutable Assignment delivery state.
-#[derive(Clone)]
-pub(super) struct NativePleSubmissionStatusState {
-    pub(super) sessions: Arc<PostgresSessionStore>,
-    pub(super) submissions: PostgresNativePleSubmissionStore,
-}
-
-impl FromRef<StateData> for NativePleSubmissionStatusState {
-    fn from_ref(state: &StateData) -> Self {
-        Self {
-            sessions: Arc::clone(&state.sessions),
-            submissions: state.submissions.clone(),
-        }
-    }
 }
 
 /// Registers Student-only Assignment Access and initial start routes.
 pub fn assignment_delivery_router(
     sessions: Arc<PostgresSessionStore>,
     delivery: PostgresLiveAssignmentDeliveryStore,
-    submissions: PostgresNativePleSubmissionStore,
     objects: S3ObjectStore,
     webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
 ) -> Router {
@@ -91,10 +71,6 @@ pub fn assignment_delivery_router(
         .route(
             "/api/course-instances/{course}/assignments/{assignment}/start",
             post(start),
-        )
-        .route(
-            "/api/course-instances/{course}/assignments/{assignment}/presentations/{presentation_nonce}/submissions",
-            submission::native_ple_submission_status_route::<StateData>(),
         )
         .route(
             "/api/assignment-attempts/{assignment_attempt}/student-progress",
@@ -127,7 +103,6 @@ pub fn assignment_delivery_router(
         .with_state(StateData {
             sessions,
             delivery,
-            submissions,
             objects,
             webwork,
         })
@@ -276,6 +251,8 @@ async fn access(
         .live_assignment_access(token, course, assignment)
         .await
     {
+        // ASVS 4.1.1 and 14.2.6: the Store value is the closed, answer-free
+        // current-Student projection; Json supplies its matching media type.
         Ok(value) => crate::auth::no_store(Json(value).into_response()),
         Err(value) => store_error(value),
     }
@@ -326,7 +303,7 @@ struct LiveAssignmentAttemptResponse {
     questions: Vec<QuestionPresentation>,
 }
 
-pub(super) enum StartError {
+pub(crate) enum StartError {
     Store(StoreError),
     Invalid,
     Unavailable,
@@ -530,7 +507,7 @@ async fn issue_new_webwork_presentations(
     Ok(inputs)
 }
 
-async fn resolve_webwork_source(
+pub(crate) async fn resolve_webwork_source(
     objects: &S3ObjectStore,
     source: &NativeWebworkIssuanceSource,
 ) -> Result<ResolvedWebworkQuestionSource, StartError> {
@@ -640,12 +617,13 @@ pub(super) fn store_error(value: StoreError) -> Response {
             "Assignment start is invalid",
         ),
         StoreError::AlreadyExists => error(StatusCode::CONFLICT, "Assignment start conflict"),
-        StoreError::AssignmentActivity(_) | StoreError::TimedOut | StoreError::Unavailable(_) => {
-            error(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Student Assignment delivery unavailable",
-            )
-        }
+        StoreError::AssignmentActivity(_)
+        | StoreError::TimedOut
+        | StoreError::LeaseLost
+        | StoreError::Unavailable(_) => error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Student Assignment delivery unavailable",
+        ),
     }
 }
 
@@ -666,12 +644,13 @@ pub(super) fn submission_store_error(value: StoreError) -> Response {
             StatusCode::UNPROCESSABLE_ENTITY,
             "Student Response is invalid",
         ),
-        StoreError::AssignmentActivity(_) | StoreError::TimedOut | StoreError::Unavailable(_) => {
-            error(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Question Submission unavailable",
-            )
-        }
+        StoreError::AssignmentActivity(_)
+        | StoreError::TimedOut
+        | StoreError::LeaseLost
+        | StoreError::Unavailable(_) => error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Question Submission unavailable",
+        ),
     }
 }
 

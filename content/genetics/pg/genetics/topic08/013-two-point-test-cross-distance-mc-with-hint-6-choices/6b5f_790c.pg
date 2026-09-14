@@ -1,0 +1,46 @@
+## DESCRIPTION
+## Imported Genetics source row 6b5f_790c; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic08/bbq-two-point_test_cross-distance-MC-with_hint-6_choices-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_6B5F_790C';
+<p>6b5f_790c</p> <h4>Two-Point Test Cross Problem</h4><p>A test cross is a way to explore the relationship between genes and their respective alleles. It is a useful tool for genetic mapping and deciphering the inheritance of traits. Specifically, a two-point test cross examines two (2) genes at the same time to learn about their assortment in gamete formation.</p><p>A standard two-point test cross involves crossing a heterozygous organism for both genes with an organism that is homozygous recessive for both genes</p> <p>For this problem, a test cross using a fruit fly (<i>Drosophila melanogaster</i>) heterozygous for two genes was conducted to understand their genetic interactions.</p><h6>Characteristics of Recessive Phenotypes</h6><p><ul><li><strong><span style="color: #1d6b61;">Gene J</span></strong> is associated with the '<span style="color: #1d6b61;"><i>jerky</i></span>' phenotype. A fruit fly that is homozygous recessive for <span style="color: #1d6b61;">Gene J</span> moves in rapid and sudden movements, displaying an unpredictable flight pattern.</li> <li><strong><span style="color: #9d2f55;">Gene T</span></strong> is analogous to the '<span style="color: #9d2f55;"><i>tipsy</i></span>' phenotype. A fruit fly that is homozygous recessive for <span style="color: #9d2f55;">Gene T</span> moves in an erratic path, suggesting a lack of coordination, as if intoxicated.</li> </ul></p><table style="border-collapse: collapse; border: 2px solid black;"><tr><th align="center" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">Phenotype</span></th><th colspan="2" align="center" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">Genotypes</span></th><th align="center" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">Progeny<br/>Count</span></th></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">jerky, tipsy</span></td><td align="center" style="border: 1px solid black; background-color: #caf5ec; padding: 5px;"><span style="font-size: large; color: #000000;">j</span></td><td align="center" style="border: 1px solid black; background-color: #ffe2e7; padding: 5px;"><span style="font-size: large; color: #000000;">t</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">34,367</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">jerky</span></td><td align="center" style="border: 1px solid black; background-color: #caf5ec; padding: 5px;"><span style="font-size: large; color: #000000;">j</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #9d2f55;">+</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">90,376</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">tipsy</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #1d6b61;">+</span></td><td align="center" style="border: 1px solid black; background-color: #ffe2e7; padding: 5px;"><span style="font-size: large; color: #000000;">t</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">90,549</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;"><i>wildtype</i></span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #1d6b61;">+</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #9d2f55;">+</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">34,708</span></td></tr><tr><th colspan="3" align="right" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">TOTAL =</span></th><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">250,000</span></td></tr></table><p>The resulting phenotypes are summarized in the table above.</p> <h6>Question</h6> <p>With the progeny data from the table, <strong>calculate the genetic distance between the two genes,</strong> expressing your answer in centimorgans (cM)</p>
+PROMPT_6B5F_790C
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_6B5F_790C_CHOICE_1';
+<sup>(34,367 + 34,708)</sup>/<sub>250,000</sub> = <sup>69,075</sup>/<sub>250,000</sub> = 0.2763 = <strong>27.63 cM</strong>
+LITERAL_6B5F_790C_CHOICE_1
+$choice_2 = <<'LITERAL_6B5F_790C_CHOICE_2';
+<sup>(34,367 + 90,376)</sup>/<sub>250,000</sub> = <sup>124,743</sup>/<sub>250,000</sub> = 0.4990 = <strong>49.90 cM</strong>
+LITERAL_6B5F_790C_CHOICE_2
+$choice_3 = <<'LITERAL_6B5F_790C_CHOICE_3';
+<sup>(34,367 + 90,549)</sup>/<sub>250,000</sub> = <sup>124,916</sup>/<sub>250,000</sub> = 0.4997 = <strong>49.97 cM</strong>
+LITERAL_6B5F_790C_CHOICE_3
+$choice_4 = <<'LITERAL_6B5F_790C_CHOICE_4';
+<sup>(34,708 + 90,376)</sup>/<sub>250,000</sub> = <sup>125,084</sup>/<sub>250,000</sub> = 0.5003 = <strong>50.03 cM</strong>
+LITERAL_6B5F_790C_CHOICE_4
+$choice_5 = <<'LITERAL_6B5F_790C_CHOICE_5';
+<sup>(34,708 + 90,549)</sup>/<sub>250,000</sub> = <sup>125,257</sup>/<sub>250,000</sub> = 0.5010 = <strong>50.10 cM</strong>
+LITERAL_6B5F_790C_CHOICE_5
+$choice_6 = <<'LITERAL_6B5F_790C_CHOICE_6';
+<sup>(90,376 + 90,549)</sup>/<sub>250,000</sub> = <sup>180,925</sup>/<sub>250,000</sub> = 0.7237 = <strong>72.37 cM</strong>
+LITERAL_6B5F_790C_CHOICE_6
+$correct_1 = <<'LITERAL_6B5F_790C_CORRECT_1';
+<sup>(34,367 + 34,708)</sup>/<sub>250,000</sub> = <sup>69,075</sup>/<sub>250,000</sub> = 0.2763 = <strong>27.63 cM</strong>
+LITERAL_6B5F_790C_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5, $choice_6);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

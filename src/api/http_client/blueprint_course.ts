@@ -33,6 +33,7 @@ import { boundedResponseJson, requireNoStore } from "./response";
 
 const MAX_PAGE_SIZE = 100;
 const MAX_IDEMPOTENCY_KEY_BYTES = 128;
+const MAX_BLUEPRINT_RESPONSE_CHARACTERS = 16 * 1_024 * 1_024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 function pagePath(path: string, cursor: string | undefined, pageSize: number | undefined): string {
@@ -125,7 +126,13 @@ async function blueprintJson<T>(
   if (options.expectedStatus !== undefined && response.status !== options.expectedStatus) {
     throw new ApiProtocolError(`API response ${path} must use status ${options.expectedStatus}`);
   }
-  return { body: decoder(await boundedResponseJson(response, path), "response"), response };
+  return {
+    body: decoder(
+      await boundedResponseJson(response, path, MAX_BLUEPRINT_RESPONSE_CHARACTERS),
+      "response",
+    ),
+    response,
+  };
 }
 
 function requireRevisionEtag(response: Response, revision: string, path: string): string {

@@ -74,6 +74,54 @@ fn active_student_course_membership_resolves_base_policy() {
     );
 }
 
+fn start_decision_at(now: i64, completed_attempt_count: u32) -> AssignmentStartDecision {
+    let mut value = input();
+    value.now = stamp(now);
+    value.prior_assignment_attempt_count = completed_attempt_count;
+    let AssignmentAccessDecision::Allowed { start_decision, .. } =
+        resolve_effective_policy(value).expect("valid boundary policy")
+    else {
+        panic!("active Student should receive an Assignment Start Decision");
+    };
+    start_decision
+}
+
+#[test]
+fn assignment_start_decision_uses_exact_schedule_boundaries() {
+    assert_eq!(
+        start_decision_at(9_999, 0),
+        AssignmentStartDecision::NotYetAvailable
+    );
+    assert_eq!(
+        start_decision_at(10_000, 0),
+        AssignmentStartDecision::MayStart {
+            student_late_work_status: StudentLateWorkStatus::OnTime,
+        }
+    );
+    assert_eq!(
+        start_decision_at(20_000, 0),
+        AssignmentStartDecision::MayStart {
+            student_late_work_status: StudentLateWorkStatus::OnTime,
+        }
+    );
+    assert_eq!(
+        start_decision_at(20_001, 0),
+        AssignmentStartDecision::LateWorkRefused
+    );
+    assert_eq!(
+        start_decision_at(30_000, 0),
+        AssignmentStartDecision::Closed
+    );
+}
+
+#[test]
+fn assignment_start_decision_checks_attempt_limit_before_late_work() {
+    assert_eq!(
+        start_decision_at(20_001, 2),
+        AssignmentStartDecision::AttemptLimitReached
+    );
+}
+
 #[test]
 fn direct_student_accommodation_extends_due_time() {
     let mut value = input();

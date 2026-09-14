@@ -1,5 +1,4 @@
 use super::*;
-use objects::Sha256Checksum;
 use question_model::{
     AccountId, AssignmentId, CourseId, ImathasQuestionBackendBinding, SourceObjectChecksum,
     SourceObjectReference, Timestamp,
@@ -22,10 +21,6 @@ pub struct ImathasQuestionBackendSession {
     pub(crate) imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
     pub(crate) issued_at: Timestamp,
     pub(crate) expires_at: Timestamp,
-    pub(crate) revoked_at: Option<Timestamp>,
-    pub(crate) consumed_at: Option<Timestamp>,
-    pub(crate) lease_expires_at: Option<Timestamp>,
-    pub(crate) lease_active: bool,
 }
 
 impl ImathasQuestionBackendSession {
@@ -59,19 +54,11 @@ impl ImathasQuestionBackendSession {
             imathas_launch_binding_checksum: self.imathas_launch_binding_checksum.clone(),
             issued_at: self.issued_at,
             expires_at: self.expires_at,
-            revoked_at: self.revoked_at,
-            consumed_at: self.consumed_at,
-            lease_expires_at: self.lease_expires_at,
-            lease_active: self.lease_active,
         }
     }
 
     pub(crate) fn active_at(&self, now: Timestamp) -> Result<(), StoreError> {
-        if now < self.issued_at
-            || self.revoked_at.is_some()
-            || self.consumed_at.is_some()
-            || now >= self.expires_at
-        {
+        if now < self.issued_at || now >= self.expires_at {
             return Err(StoreError::Conflict);
         }
         Ok(())
@@ -95,19 +82,8 @@ impl ImathasQuestionBackendSession {
         imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
         issued_at: Timestamp,
         expires_at: Timestamp,
-        revoked_at: Option<Timestamp>,
-        consumed_at: Option<Timestamp>,
-        lease_expires_at: Option<Timestamp>,
-        lease_active: bool,
     ) -> Result<Self, StoreError> {
-        if expires_at <= issued_at
-            || revoked_at.is_some_and(|time| time < issued_at)
-            || consumed_at.is_some_and(|time| time < issued_at)
-            || lease_active != lease_expires_at.is_some()
-            || lease_expires_at.is_some_and(|time| time <= issued_at || time > expires_at)
-            || (revoked_at.is_some() && consumed_at.is_some())
-            || ((revoked_at.is_some() || consumed_at.is_some()) && lease_active)
-        {
+        if expires_at <= issued_at {
             return Err(StoreError::InvalidRecord(
                 "iMathAS Question Backend Session storage facts are invalid".into(),
             ));
@@ -127,10 +103,6 @@ impl ImathasQuestionBackendSession {
             imathas_launch_binding_checksum,
             issued_at,
             expires_at,
-            revoked_at,
-            consumed_at,
-            lease_expires_at,
-            lease_active,
         })
     }
 
@@ -153,10 +125,6 @@ impl ImathasQuestionBackendSession {
             parts.imathas_launch_binding_checksum,
             parts.issued_at,
             parts.expires_at,
-            parts.revoked_at,
-            parts.consumed_at,
-            parts.lease_expires_at,
-            parts.lease_active,
         )
     }
 }
@@ -179,10 +147,6 @@ impl std::fmt::Debug for ImathasQuestionBackendSession {
             .field("imathas_launch_binding_checksum", &"[redacted]")
             .field("issued_at", &self.issued_at)
             .field("expires_at", &self.expires_at)
-            .field("revoked_at", &self.revoked_at)
-            .field("consumed_at", &self.consumed_at)
-            .field("lease_expires_at", &self.lease_expires_at)
-            .field("lease_active", &self.lease_active)
             .finish()
     }
 }
@@ -238,20 +202,6 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
             && self.authentication == session.authentication
     }
 
-    #[allow(dead_code)] // Passed to PostgreSQL Store lease and consume bindings.
-    pub(crate) fn store_predicate(&self) -> ImathasQuestionBackendSessionStorePredicate {
-        ImathasQuestionBackendSessionStorePredicate {
-            course: self.course,
-            assignment: self.assignment,
-            grading_context: self.grading_context.clone(),
-            imathas_question_backend_binding: self.imathas_question_backend_binding.clone(),
-            source_object: self.source_object.clone(),
-            source_object_checksum: self.source_object_checksum.clone(),
-            imathas_launch_binding_checksum: self.imathas_launch_binding_checksum.clone(),
-            authentication: self.authentication.clone(),
-        }
-    }
-
     #[allow(dead_code)] // Used by the feature-gated PostgreSQL Store.
     pub(crate) fn storage_parts(&self) -> ImathasQuestionBackendSessionRestoreParts {
         ImathasQuestionBackendSessionRestoreParts {
@@ -266,20 +216,6 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
             authentication: self.authentication.clone(),
         }
     }
-}
-
-/// Exact immutable Store predicate facts carried only within the server-side boundary.
-#[allow(dead_code)] // Passed to PostgreSQL Store lease and consume bindings.
-#[derive(Clone, PartialEq)]
-pub(crate) struct ImathasQuestionBackendSessionStorePredicate {
-    pub(crate) course: CourseId,
-    pub(crate) assignment: AssignmentId,
-    pub(crate) grading_context: ImathasGradingContext,
-    pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
-    pub(crate) source_object: SourceObjectReference,
-    pub(crate) source_object_checksum: SourceObjectChecksum,
-    pub(crate) imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
-    pub(crate) authentication: ImathasQuestionBackendSessionAuthentication,
 }
 
 /// Server-only facts an adapter needs after Store authorization and AEAD restoration.
@@ -404,10 +340,6 @@ impl ImathasQuestionBackendSessionCreate {
             imathas_launch_binding_checksum: self.imathas_launch_binding_checksum,
             issued_at: self.issued_at,
             expires_at: self.expires_at,
-            revoked_at: None,
-            consumed_at: None,
-            lease_expires_at: None,
-            lease_active: false,
         };
         (session, self.imathas_question_backend_state)
     }
@@ -434,69 +366,39 @@ impl std::fmt::Debug for ImathasQuestionBackendSessionCreate {
 }
 
 #[derive(Clone, PartialEq)]
-pub struct ImathasQuestionBackendSessionLease {
-    pub(crate) reference: ImathasQuestionBackendSessionReference,
-    pub(crate) capability: [u8; 32],
-    pub(crate) expires_at: Timestamp,
-    pub(crate) expectation: ImathasQuestionBackendSessionRestoreExpectation,
+pub struct LoadedImathasQuestionBackendSession {
+    pub(super) session: ImathasQuestionBackendSession,
+    pub(super) imathas_question_backend_state: ImathasQuestionBackendStatePlaintext,
 }
 
-impl ImathasQuestionBackendSessionLease {
-    /// Returns the exact server-only grading context bound to this lease.
-    pub fn grading_context(&self) -> ImathasGradingContext {
-        self.expectation.grading_context.clone()
-    }
-
-    /// Returns the exact server-only Session authentication bound to this lease.
-    pub fn launch_session_authentication(&self) -> ImathasQuestionBackendSessionAuthentication {
-        self.expectation.authentication.clone()
-    }
-
-    #[allow(dead_code)] // Used by the feature-gated PostgreSQL Store.
-    pub(crate) fn from_server_capability(
-        reference: ImathasQuestionBackendSessionReference,
-        capability: [u8; 32],
-        expires_at: Timestamp,
-        expectation: ImathasQuestionBackendSessionRestoreExpectation,
+impl LoadedImathasQuestionBackendSession {
+    pub(crate) fn from_storage_parts(
+        session: ImathasQuestionBackendSession,
+        imathas_question_backend_state: ImathasQuestionBackendStatePlaintext,
     ) -> Self {
         Self {
-            reference,
-            capability,
-            expires_at,
-            expectation,
+            session,
+            imathas_question_backend_state,
         }
     }
 
-    #[allow(dead_code)] // Passed to the PostgreSQL Store lease binding.
-    pub(crate) fn capability_checksum(&self) -> Sha256Checksum {
-        Sha256Checksum::compute(&self.capability)
+    pub fn session(&self) -> &ImathasQuestionBackendSession {
+        &self.session
     }
 
-    #[allow(dead_code)] // Passed to PostgreSQL Store lease and consume bindings.
-    pub(crate) fn store_predicate(&self) -> ImathasQuestionBackendSessionStorePredicate {
-        self.expectation.store_predicate()
+    pub fn imathas_question_backend_state(&self) -> &ImathasQuestionBackendStatePlaintext {
+        &self.imathas_question_backend_state
     }
 
-    #[allow(dead_code)] // Used by the feature-gated PostgreSQL Store.
-    pub(crate) fn storage_parts(&self) -> ImathasQuestionBackendSessionLeaseParts {
-        ImathasQuestionBackendSessionLeaseParts {
-            reference: self.reference,
-            expires_at: self.expires_at,
-            capability_checksum: self.capability_checksum(),
-            restore: self.expectation.storage_parts(),
-        }
-    }
-
-    pub fn reference(&self) -> ImathasQuestionBackendSessionReference {
-        self.reference
-    }
-    pub fn expires_at(&self) -> Timestamp {
-        self.expires_at
+    pub fn imathas_question_backend_validation(&self) -> ImathasQuestionBackendSessionValidation {
+        self.session.imathas_question_backend_validation()
     }
 }
 
-impl std::fmt::Debug for ImathasQuestionBackendSessionLease {
+impl std::fmt::Debug for LoadedImathasQuestionBackendSession {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("ImathasQuestionBackendSessionLease([redacted])")
+        formatter.write_str(
+            "LoadedImathasQuestionBackendSession([redacted iMathAS Question Backend state])",
+        )
     }
 }

@@ -56,35 +56,6 @@ CREATE TABLE ple_private.imathas_question_backend_session (
     UNIQUE (imathas_question_backend_state_key_id, imathas_question_backend_state_nonce)
 );
 
--- The references into grading are installed by cross_domain_constraints.sql
--- after the grading family has created its immutable tables.
-CREATE TABLE ple_private.imathas_result_exchange (
-    imathas_question_backend_session_id uuid PRIMARY KEY REFERENCES ple_private.imathas_question_backend_session(imathas_question_backend_session_id) ON DELETE CASCADE,
-    state text NOT NULL CHECK (state IN ('verifying', 'ready_to_commit', 'committed', 'failed', 'cancelled')),
-    lease_token_sha256 bytea CHECK (lease_token_sha256 IS NULL OR octet_length(lease_token_sha256) = 32),
-    lease_expires_at timestamptz,
-    imathas_result_token_sha256 bytea CHECK (imathas_result_token_sha256 IS NULL OR octet_length(imathas_result_token_sha256) = 32),
-    imathas_result_normalized_score double precision,
-    imathas_result_checksum bytea CHECK (imathas_result_checksum IS NULL OR octet_length(imathas_result_checksum) = 32),
-    submission_id uuid UNIQUE,
-    question_submission_grading_id uuid UNIQUE,
-    grading_result_id uuid UNIQUE,
-    committed_job_lease_token_sha256 bytea CHECK (committed_job_lease_token_sha256 IS NULL OR octet_length(committed_job_lease_token_sha256) = 32),
-    created_at timestamptz NOT NULL,
-    updated_at timestamptz NOT NULL,
-    committed_at timestamptz,
-    failed_at timestamptz,
-    cancelled_at timestamptz,
-    failure_code text CHECK (failure_code IS NULL OR char_length(btrim(failure_code)) BETWEEN 1 AND 160),
-    CHECK (imathas_result_normalized_score IS NULL OR (imathas_result_normalized_score >= 0 AND imathas_result_normalized_score <= 1 AND imathas_result_normalized_score NOT IN ('NaN'::double precision, 'Infinity'::double precision, '-Infinity'::double precision))),
-    CHECK (updated_at >= created_at),
-    CHECK ((state = 'verifying' AND lease_token_sha256 IS NOT NULL AND lease_expires_at IS NOT NULL AND submission_id IS NULL AND question_submission_grading_id IS NULL AND grading_result_id IS NULL AND committed_at IS NULL AND failed_at IS NULL AND cancelled_at IS NULL)
-        OR (state = 'ready_to_commit' AND lease_token_sha256 IS NULL AND lease_expires_at IS NULL AND imathas_result_token_sha256 IS NOT NULL AND imathas_result_normalized_score IS NOT NULL AND imathas_result_checksum IS NOT NULL AND submission_id IS NOT NULL AND question_submission_grading_id IS NOT NULL AND grading_result_id IS NULL AND committed_at IS NULL AND failed_at IS NULL AND cancelled_at IS NULL)
-        OR (state = 'committed' AND lease_token_sha256 IS NULL AND lease_expires_at IS NULL AND imathas_result_token_sha256 IS NOT NULL AND imathas_result_normalized_score IS NOT NULL AND imathas_result_checksum IS NOT NULL AND submission_id IS NOT NULL AND question_submission_grading_id IS NOT NULL AND grading_result_id IS NOT NULL AND committed_job_lease_token_sha256 IS NOT NULL AND committed_at IS NOT NULL AND failed_at IS NULL AND cancelled_at IS NULL)
-        OR (state = 'failed' AND failed_at IS NOT NULL AND failure_code IS NOT NULL)
-        OR (state = 'cancelled' AND cancelled_at IS NOT NULL))
-);
-
 CREATE FUNCTION ple_private.enforce_imathas_question_backend_session_transition()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 BEGIN
@@ -100,33 +71,16 @@ BEGIN
     RETURN NEW;
 END $$;
 
-CREATE FUNCTION ple_private.enforce_imathas_result_exchange_transition()
-RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
-BEGIN
-    IF TG_OP = 'INSERT' THEN
-        IF NEW.state <> 'verifying' THEN RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'iMathAS Result Exchange starts verifying'; END IF;
-        RETURN NEW;
-    END IF;
-    IF NEW.updated_at < OLD.updated_at OR NOT ((OLD.state = 'verifying' AND NEW.state IN ('ready_to_commit', 'failed', 'cancelled')) OR (OLD.state = 'ready_to_commit' AND NEW.state = 'committed')) THEN
-        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'iMathAS Result Exchange transition is not forward';
-    END IF;
-    RETURN NEW;
-END $$;
-
 CREATE TRIGGER imathas_question_backend_session_transition_is_forward_only BEFORE UPDATE ON ple_private.imathas_question_backend_session FOR EACH ROW EXECUTE FUNCTION ple_private.enforce_imathas_question_backend_session_transition();
-CREATE TRIGGER imathas_result_exchange_transition_is_forward_only BEFORE INSERT OR UPDATE ON ple_private.imathas_result_exchange FOR EACH ROW EXECUTE FUNCTION ple_private.enforce_imathas_result_exchange_transition();
 CREATE INDEX imathas_question_backend_session_active_lookup_idx ON ple_private.imathas_question_backend_session(imathas_question_backend_session_id, account_id, expires_at) WHERE revoked_at IS NULL AND consumed_at IS NULL;
 
 ALTER TABLE ple_private.imathas_render_cache_entry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.imathas_render_cache_entry FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.imathas_question_backend_session ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.imathas_question_backend_session FORCE ROW LEVEL SECURITY;
-ALTER TABLE ple_private.imathas_result_exchange ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ple_private.imathas_result_exchange FORCE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE ple_private.imathas_render_cache_entry, ple_private.imathas_question_backend_session, ple_private.imathas_result_exchange FROM PUBLIC;
+REVOKE ALL ON TABLE ple_private.imathas_render_cache_entry, ple_private.imathas_question_backend_session FROM PUBLIC;
 CREATE POLICY imathas_render_cache_private_owner_access ON ple_private.imathas_render_cache_entry FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 CREATE POLICY imathas_session_private_owner_access ON ple_private.imathas_question_backend_session FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
-CREATE POLICY imathas_exchange_private_owner_access ON ple_private.imathas_result_exchange FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
-REVOKE ALL ON FUNCTION ple_private.enforce_imathas_question_backend_session_transition(), ple_private.enforce_imathas_result_exchange_transition() FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_private.enforce_imathas_question_backend_session_transition() FROM PUBLIC;
 
 RESET ROLE;

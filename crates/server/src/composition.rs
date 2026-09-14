@@ -9,17 +9,17 @@ use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
     SessionLifetime,
     postgres::{
+        PostgresAccountTimeZoneStore, PostgresAssignmentAttemptExpirySweepStore,
         PostgresAuthoringDraftStore, PostgresBlueprintCourseStore, PostgresCourseBannerStore,
         PostgresCourseGradebookStore, PostgresCourseInstanceStore, PostgresCourseRosterStore,
         PostgresCourseThemeStore, PostgresDraftQuestionSourceBindingStore,
         PostgresInstructorAccountStore, PostgresInstructorProfileStore,
         PostgresInvitationExportStore, PostgresLiveAssignmentDeliveryStore,
         PostgresLiveAssignmentStore, PostgresLiveStudentCourseLandingStore,
-        PostgresNativePleGradingStore, PostgresNativePleSubmissionStore,
         PostgresProfileThumbnailStore, PostgresPublicAssetPublicationStore,
         PostgresQuestionAssetDeliveryStore, PostgresQuestionLibraryStore, PostgresSessionStore,
-        PostgresSupportCapabilityStore, PostgresWebworkGradingStore, ProductionLoginProfile,
-        local_development_pool, production_pool,
+        PostgresSupportCapabilityStore, ProductionLoginProfile, local_development_pool,
+        production_pool,
     },
 };
 use objects::{
@@ -93,9 +93,9 @@ pub async fn production_router_from_env() -> Result<Router> {
     let invitation_exports = PostgresInvitationExportStore::new(pool.clone());
     let gradebook = PostgresCourseGradebookStore::new(pool.clone());
     let student_course_landing = PostgresLiveStudentCourseLandingStore::new(pool.clone());
+    let student_time_zones = PostgresAccountTimeZoneStore::new(pool.clone());
     let assignments = PostgresLiveAssignmentStore::new(pool.clone());
     let assignment_delivery = PostgresLiveAssignmentDeliveryStore::new(pool.clone());
-    let native_ple_submissions = PostgresNativePleSubmissionStore::new(pool.clone());
     let question_asset_delivery = PostgresQuestionAssetDeliveryStore::new(pool.clone());
     let authoring_drafts = PostgresAuthoringDraftStore::new(pool.clone());
     let authoring_publication = PostgresDraftQuestionSourceBindingStore::new(pool);
@@ -180,6 +180,7 @@ pub async fn production_router_from_env() -> Result<Router> {
             crate::live_student_course_landing::live_student_course_landing_router(
                 Arc::clone(&sessions),
                 student_course_landing,
+                student_time_zones,
             ),
         )
         .merge(crate::assignment_release::assignment_release_router(
@@ -190,7 +191,6 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::assignment_delivery::assignment_delivery_router(
             Arc::clone(&sessions),
             assignment_delivery,
-            native_ple_submissions,
             question_library_objects.clone(),
             webwork_adapter,
         ))
@@ -317,19 +317,19 @@ pub async fn question_library_object_store_from_env() -> Result<S3ObjectStore> {
 
 /// Attests the one worker login without constructing an API router or listener.
 // ASVS 8.3.1: the worker's database URL must attest the worker profile before
-// it can later claim a typed Job. No Account/session authority is constructed.
+// it can sweep expired Assignment Attempts. No Account/session authority is constructed.
 pub async fn verify_worker_database_login_from_env() -> Result<()> {
     let database_url = required_env("DATABASE_URL")?;
     let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local")
     {
         local_development_pool(
             &database_url,
-            ProductionLoginProfile::ImathasQuestionBackendGradingWorker,
+            ProductionLoginProfile::AssignmentAttemptExpiryWorker,
         )
     } else {
         production_pool(
             &database_url,
-            ProductionLoginProfile::ImathasQuestionBackendGradingWorker,
+            ProductionLoginProfile::AssignmentAttemptExpiryWorker,
         )
     }
     .context("could not construct the attested worker database pool")?;
@@ -339,133 +339,33 @@ pub async fn verify_worker_database_login_from_env() -> Result<()> {
     Ok(())
 }
 
-/// Runs the native-PLE-only worker with a separate database capability and
-/// restricted private-content object-reader identity.
-pub async fn run_native_ple_grading_worker_from_env() -> Result<()> {
+/// Runs the attested Assignment Attempt expiry worker.
+pub async fn run_attempt_expiry_worker_from_env() -> Result<()> {
     let database_url = required_env("DATABASE_URL")?;
     let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local")
     {
         local_development_pool(
             &database_url,
-            ProductionLoginProfile::NativePleGradingWorker,
+            ProductionLoginProfile::AssignmentAttemptExpiryWorker,
         )
     } else {
         production_pool(
             &database_url,
-            ProductionLoginProfile::NativePleGradingWorker,
+            ProductionLoginProfile::AssignmentAttemptExpiryWorker,
         )
     }
-    .context("could not construct the attested native PLE worker database pool")?;
+    .context("could not construct the attested Attempt expiry worker database pool")?;
     pool.acquire()
         .await
-        .context("the attested native PLE worker database pool could not connect")?;
-    crate::worker::run_native_ple_until_shutdown(
-        PostgresNativePleGradingStore::new(pool),
-        native_ple_worker_object_store_from_env().await?,
-    )
-    .await
-}
-
-/// Attest only the native-PLE worker's distinct database Service Identity.
-pub async fn verify_native_ple_worker_database_login_from_env() -> Result<()> {
-    let database_url = required_env("DATABASE_URL")?;
-    let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local")
-    {
-        local_development_pool(
-            &database_url,
-            ProductionLoginProfile::NativePleGradingWorker,
-        )
-    } else {
-        production_pool(
-            &database_url,
-            ProductionLoginProfile::NativePleGradingWorker,
-        )
-    }
-    .context("could not construct the attested native PLE worker database pool")?;
-    pool.acquire()
-        .await
-        .context("the attested native PLE worker database pool could not connect")?;
-    Ok(())
-}
-
-/// Runs the renderer-connected WeBWorK worker with only its own database and
-/// private Question Source capabilities.
-pub async fn run_webwork_grading_worker_from_env() -> Result<()> {
-    let database_url = required_env("DATABASE_URL")?;
-    let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local")
-    {
-        local_development_pool(&database_url, ProductionLoginProfile::WebworkGradingWorker)
-    } else {
-        production_pool(&database_url, ProductionLoginProfile::WebworkGradingWorker)
-    }
-    .context("could not construct the attested WeBWorK worker database pool")?;
-    pool.acquire()
-        .await
-        .context("the attested WeBWorK worker database pool could not connect")?;
-    let objects = webwork_worker_object_store_from_env().await?;
-    let adapter = webwork_adapter_from_env()?;
-    crate::worker::run_webwork_until_shutdown(
-        PostgresWebworkGradingStore::new(pool),
+        .context("the attested Attempt expiry worker database pool could not connect")?;
+    let objects = question_library_object_store_from_env().await?;
+    let webwork = webwork_adapter_from_env()?;
+    crate::worker::run_until_shutdown(
+        PostgresAssignmentAttemptExpirySweepStore::new(pool),
         objects,
-        adapter,
+        webwork,
     )
     .await
-}
-
-/// Attest only the WeBWorK worker's distinct database Service Identity.
-pub async fn verify_webwork_worker_database_login_from_env() -> Result<()> {
-    let database_url = required_env("DATABASE_URL")?;
-    let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local")
-    {
-        local_development_pool(&database_url, ProductionLoginProfile::WebworkGradingWorker)
-    } else {
-        production_pool(&database_url, ProductionLoginProfile::WebworkGradingWorker)
-    }
-    .context("could not construct the attested WeBWorK worker database pool")?;
-    pool.acquire()
-        .await
-        .context("the attested WeBWorK worker database pool could not connect")?;
-    Ok(())
-}
-
-async fn webwork_worker_object_store_from_env() -> Result<S3ObjectStore> {
-    let buckets = BucketNames {
-        public_assets: required_env("PLE_PUBLIC_ASSETS_BUCKET")?,
-        private_content: required_env("PLE_PRIVATE_CONTENT_BUCKET")?,
-        student_records: required_env("PLE_STUDENT_RECORDS_BUCKET")?,
-        temp_processing: required_env("PLE_TEMP_PROCESSING_BUCKET")?,
-    };
-    let client = minio_client(&EndpointConfig {
-        endpoint_url: required_env("PLE_S3_ENDPOINT")?,
-        region: required_env("PLE_S3_REGION")?,
-        access_key_id: required_env("PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID")?,
-        secret_access_key: required_env("PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY")?,
-    });
-    Ok(S3ObjectStore::new(client, buckets))
-}
-
-async fn native_ple_worker_object_store_from_env() -> Result<S3ObjectStore> {
-    let buckets = BucketNames {
-        public_assets: required_env("PLE_PUBLIC_ASSETS_BUCKET")?,
-        private_content: required_env("PLE_PRIVATE_CONTENT_BUCKET")?,
-        student_records: required_env("PLE_STUDENT_RECORDS_BUCKET")?,
-        temp_processing: required_env("PLE_TEMP_PROCESSING_BUCKET")?,
-    };
-    let client =
-        if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local") {
-            minio_client(&EndpointConfig {
-                endpoint_url: required_env("PLE_S3_ENDPOINT")?,
-                region: required_env("PLE_S3_REGION")?,
-                access_key_id: required_env("PLE_NATIVE_PLE_WORKER_S3_ACCESS_KEY_ID")?,
-                secret_access_key: required_env("PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY")?,
-            })
-        } else {
-            objects::aws::container_role_client(&objects::aws::ContainerRoleConfig {
-                region: required_env("PLE_S3_REGION")?,
-            })
-            .await
-        };
-    Ok(S3ObjectStore::new(client, buckets))
 }
 
 /// Runs the separate publisher with its one database capability and dedicated

@@ -1,12 +1,10 @@
 use super::*;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    AccountId, AssignmentAttemptId, AssignmentEntryId, AssignmentEntryScoringRule, AssignmentId,
-    AssignmentPointValue, CourseId, ImathasDeploymentReference, ImathasItemReference,
-    ImathasProfile, ImathasQuestionBackendBinding, IssuedQuestion, IssuedQuestionId, ObjectId,
-    QuestionAttemptId, QuestionAttemptReproductionDetails, QuestionBackendVersion,
-    QuestionGraderVersion, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
-    SourceObjectChecksum, SourceObjectReference, Timestamp,
+    AccountId, AssignmentId, CourseId, ImathasDeploymentReference, ImathasItemReference,
+    ImathasProfile, ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId, QuestionId,
+    QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference,
+    Timestamp,
 };
 use uuid::Uuid;
 fn facts(
@@ -120,324 +118,6 @@ fn grading_context_authentication_payload_v1_has_the_locked_row_530_bytes() {
     );
     assert_eq!(format!("{context:?}"), "ImathasGradingContext([redacted])");
 }
-fn transition(lease: ImathasQuestionBackendSessionLease) -> StageVerifiedImathasResult {
-    transition_with_score(lease, 1.0)
-}
-
-fn transition_with_score(
-    lease: ImathasQuestionBackendSessionLease,
-    score: f64,
-) -> StageVerifiedImathasResult {
-    let token = ImathasResultToken::from_server_adapter_bytes(
-        b"accepted iMathAS Question Backend result".to_vec(),
-    )
-    .expect("bounded token");
-    let grading_context = lease.expectation.grading_context.clone();
-    let authentication = lease.expectation.authentication.clone();
-    StageVerifiedImathasResult::new(
-        lease,
-        grading_context,
-        authentication,
-        ImathasResultTokenChecksum::from_verified_token(&token),
-        ImathasResult::new(ImathasNormalizedScore::try_from_f64(score).expect("score")),
-        Timestamp::from_unix_millis(20),
-    )
-    .expect("stage")
-}
-
-#[tokio::test]
-async fn stage_refuses_mixed_context_and_authentication() {
-    let account = AccountId::from_uuid(Uuid::from_u128(1));
-    let token = SessionTokenHash::compute(b"mixed");
-    let store =
-        MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
-    authorize(&store, token, account);
-    let (create, expectation) = facts(account);
-    let reference = store
-        .create_imathas_question_backend_session(token, create)
-        .await
-        .expect("create");
-    let lease = store
-        .lease_imathas_question_backend_session(
-            token,
-            reference,
-            expectation,
-            Timestamp::from_unix_millis(30),
-        )
-        .await
-        .expect("lease");
-    let token_checksum = ImathasResultTokenChecksum::from_verified_token(
-        &ImathasResultToken::from_server_adapter_bytes(vec![1]).expect("token"),
-    );
-    let result = ImathasResult::new(ImathasNormalizedScore::try_from_f64(1.0).expect("score"));
-    let wrong_context = ImathasGradingContext::new(
-        QuestionAttemptId::from_uuid(Uuid::from_u128(99)),
-        lease
-            .expectation
-            .grading_context
-            .question_revision()
-            .clone(),
-        lease.expectation.grading_context.question_seed(),
-    );
-    assert_eq!(
-        StageVerifiedImathasResult::new(
-            lease.clone(),
-            wrong_context,
-            lease.expectation.authentication.clone(),
-            token_checksum,
-            result.clone(),
-            Timestamp::from_unix_millis(20)
-        ),
-        Err(StoreError::Forbidden)
-    );
-    let wrong_auth = ImathasQuestionBackendSessionAuthentication::from_server_value(format!(
-        "bb.{}",
-        "a".repeat(64)
-    ))
-    .expect("auth");
-    let correct_context = lease.expectation.grading_context.clone();
-    assert_eq!(
-        StageVerifiedImathasResult::new(
-            lease,
-            correct_context,
-            wrong_auth,
-            token_checksum,
-            result,
-            Timestamp::from_unix_millis(20)
-        ),
-        Err(StoreError::Forbidden)
-    );
-}
-
-#[tokio::test]
-async fn memory_job_lease_reclaims_and_commits_once() {
-    let account = AccountId::from_uuid(Uuid::from_u128(1));
-    let token = SessionTokenHash::compute(b"worker");
-    let store =
-        MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
-    authorize(&store, token, account);
-    let (create, expectation) = facts(account);
-    let reference = store
-        .create_imathas_question_backend_session(token, create)
-        .await
-        .expect("create");
-    let lease = store
-        .lease_imathas_question_backend_session(
-            token,
-            reference,
-            expectation,
-            Timestamp::from_unix_millis(30),
-        )
-        .await
-        .expect("lease");
-    let staged = store
-        .stage_verified_imathas_result(token, transition_with_score(lease, 0.5))
-        .await
-        .expect("stage");
-    assert!(
-        store
-            .claim_imathas_result_grading_job(staged.job_id(), Timestamp::from_unix_millis(20))
-            .await
-            .is_err()
-    );
-    assert!(
-        store
-            .claim_imathas_result_grading_job(staged.job_id(), Timestamp::from_unix_millis(320_021))
-            .await
-            .is_err()
-    );
-    let first = store
-        .claim_imathas_result_grading_job(staged.job_id(), Timestamp::from_unix_millis(30))
-        .await
-        .expect("claim");
-    assert!(
-        store
-            .claim_imathas_result_grading_job(staged.job_id(), Timestamp::from_unix_millis(31))
-            .await
-            .is_err()
-    );
-    store.set_now(Timestamp::from_unix_millis(31));
-    let reclaimed = store
-        .claim_imathas_result_grading_job(staged.job_id(), Timestamp::from_unix_millis(40))
-        .await
-        .expect("reclaim");
-    assert_ne!(first.capability, reclaimed.capability);
-    assert!(
-        store
-            .commit_staged_imathas_result_grading(CommitStagedImathasResultGrading::new(
-                first,
-                Timestamp::from_unix_millis(31)
-            ))
-            .await
-            .is_err()
-    );
-    let command =
-        CommitStagedImathasResultGrading::new(reclaimed.clone(), Timestamp::from_unix_millis(31));
-    let receipt = store
-        .commit_staged_imathas_result_grading(command)
-        .await
-        .expect("commit");
-    assert_eq!(receipt.grading_result().points_earned, 5.0);
-    let replay = store
-        .commit_staged_imathas_result_grading(CommitStagedImathasResultGrading::new(
-            reclaimed,
-            Timestamp::from_unix_millis(31),
-        ))
-        .await
-        .expect("replay");
-    assert_eq!(receipt.id(), replay.id());
-    assert_eq!(receipt.checksum(), replay.checksum());
-    assert!(
-        store
-            .claim_imathas_result_grading_job(staged.job_id(), Timestamp::from_unix_millis(40))
-            .await
-            .is_err()
-    );
-}
-
-#[tokio::test]
-async fn exhausted_imathas_question_backend_grading_job_preserves_ready_evidence() {
-    let account = AccountId::from_uuid(Uuid::from_u128(1));
-    let token = SessionTokenHash::compute(b"exhausted");
-    let store =
-        MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
-    authorize(&store, token, account);
-    let (create, expectation) = facts(account);
-    let reference = store
-        .create_imathas_question_backend_session(token, create)
-        .await
-        .expect("create");
-    let lease = store
-        .lease_imathas_question_backend_session(
-            token,
-            reference,
-            expectation,
-            Timestamp::from_unix_millis(30),
-        )
-        .await
-        .expect("lease");
-    let stage_command = transition(lease);
-    let staged = store
-        .stage_verified_imathas_result(token, stage_command.clone())
-        .await
-        .expect("stage");
-    for now in [20_i64, 31, 42] {
-        store.set_now(Timestamp::from_unix_millis(now));
-        store
-            .claim_imathas_result_grading_job(
-                staged.job_id(),
-                Timestamp::from_unix_millis(now + 10),
-            )
-            .await
-            .expect("claim");
-    }
-    store.set_now(Timestamp::from_unix_millis(53));
-    assert!(
-        store
-            .claim_imathas_result_grading_job(staged.job_id(), Timestamp::from_unix_millis(60))
-            .await
-            .is_err()
-    );
-    let replay = store
-        .stage_verified_imathas_result(token, stage_command)
-        .await
-        .expect("ready evidence remains recoverable");
-    assert_eq!(
-        (
-            staged.question_submission_id(),
-            staged.question_submission_grading_id(),
-            staged.job_id(),
-        ),
-        (
-            replay.question_submission_id(),
-            replay.question_submission_grading_id(),
-            replay.job_id(),
-        )
-    );
-}
-
-#[test]
-fn automated_grading_receipt_checksum_v1_known_vector() {
-    let checksum = automated_grading_receipt_checksum_v1(
-        AutomatedGradingReceiptId::from_uuid(Uuid::from_u128(1)),
-        GradingResultId::from_uuid(Uuid::from_u128(2)),
-        QuestionSubmissionGradingId::from_uuid(Uuid::from_u128(3)),
-        question_model::QuestionSubmissionId::from_uuid(Uuid::from_u128(4)),
-        QuestionAttemptId::from_uuid(Uuid::from_u128(5)),
-        JobId::from_uuid(Uuid::from_u128(6)),
-        ImathasQuestionBackendSessionReference::from_uuid(Uuid::from_u128(7)),
-        ImathasResultTokenChecksum::from_storage_bytes([8; 32]),
-        ImathasResultChecksum::from_bytes([9; 32]),
-        question_model::GradingResult {
-            correct: true,
-            points_earned: 2.5,
-            points_possible: 5.0,
-        },
-        Timestamp::from_unix_millis(1_700_000_000_123),
-    );
-    assert_eq!(
-        checksum.as_bytes(),
-        &[
-            10, 25, 33, 104, 153, 82, 4, 94, 216, 130, 114, 44, 224, 180, 63, 65, 6, 157, 229, 13,
-            165, 154, 138, 104, 46, 82, 250, 69, 124, 90, 214, 171
-        ]
-    );
-}
-
-#[tokio::test]
-async fn changed_stage_replays_refuse_without_replacing_first_receipt() {
-    let account = AccountId::from_uuid(Uuid::from_u128(1));
-    for changed in 0..2 {
-        let token = SessionTokenHash::compute(format!("changed-{changed}").as_bytes());
-        let store =
-            MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
-        authorize(&store, token, account);
-        let (create, expectation) = facts(account);
-        let reference = store
-            .create_imathas_question_backend_session(token, create)
-            .await
-            .expect("create");
-        let lease = store
-            .lease_imathas_question_backend_session(
-                token,
-                reference,
-                expectation,
-                Timestamp::from_unix_millis(30),
-            )
-            .await
-            .expect("lease");
-        let first = store
-            .stage_verified_imathas_result(token, transition(lease.clone()))
-            .await
-            .expect("first");
-        let mut changed_stage = transition(lease.clone());
-        match changed {
-            0 => {
-                changed_stage.imathas_result_token_checksum =
-                    ImathasResultTokenChecksum::from_verified_token(
-                        &ImathasResultToken::from_server_adapter_bytes(vec![9]).expect("token"),
-                    )
-            }
-            1 => {
-                changed_stage.imathas_result =
-                    ImathasResult::new(ImathasNormalizedScore::try_from_f64(0.5).expect("score"))
-            }
-            _ => unreachable!("only result facts distinguish an iMathAS Result Exchange replay"),
-        }
-        assert_eq!(
-            store
-                .stage_verified_imathas_result(token, changed_stage)
-                .await,
-            Err(StoreError::Conflict)
-        );
-        let replay = store
-            .stage_verified_imathas_result(token, transition(lease.clone()))
-            .await
-            .expect("first receipt retained");
-        assert_eq!(first.job_id(), replay.job_id());
-    }
-}
-
 #[test]
 fn imathas_question_backend_result_token_bounds_redaction_and_checksum_are_exact() {
     assert!(ImathasResultToken::from_server_adapter_bytes(Vec::new()).is_err());
@@ -449,7 +129,6 @@ fn imathas_question_backend_result_token_bounds_redaction_and_checksum_are_exact
     let token =
         ImathasResultToken::from_server_adapter_bytes(b"abc".to_vec()).expect("known vector");
     let checksum = ImathasResultTokenChecksum::from_verified_token(&token);
-    let restored = ImathasResultTokenChecksum::from_storage_bytes(*checksum.as_bytes());
 
     assert_eq!(one.as_server_adapter_bytes(), &[7]);
     assert_eq!(maximum.as_server_adapter_bytes().len(), 8_192);
@@ -461,32 +140,17 @@ fn imathas_question_backend_result_token_bounds_redaction_and_checksum_are_exact
             0xf2, 0x00, 0x15, 0xad,
         ]
     );
-    assert_eq!(restored, checksum);
     assert!(format!("{token:?}").contains("[redacted]"));
 }
 
 #[test]
-fn normalized_score_boundaries_and_result_checksum_are_fixed() {
+fn normalized_score_boundaries_are_fixed() {
     assert!(ImathasNormalizedScore::try_from_f64(f64::NAN).is_err());
     assert!(ImathasNormalizedScore::try_from_f64(f64::INFINITY).is_err());
     assert!(ImathasNormalizedScore::try_from_f64(-0.0).is_err());
     assert!(ImathasNormalizedScore::try_from_f64(-0.1).is_err());
     assert!(ImathasNormalizedScore::try_from_f64(1.1).is_err());
     let zero = ImathasResult::new(ImathasNormalizedScore::try_from_f64(0.0).expect("zero"));
-    let one = ImathasResult::new(ImathasNormalizedScore::try_from_f64(1.0).expect("one"));
-    assert_ne!(zero.checksum(), one.checksum());
-    assert_eq!(
-        zero.checksum().as_bytes(),
-        &[
-            0xdf, 0xb9, 0x00, 0x6e, 0xb4, 0xa5, 0x34, 0x4a, 0x0a, 0x78, 0x5b, 0x26, 0xad, 0x76,
-            0x12, 0x85, 0x14, 0xa0, 0xaa, 0xcb, 0x60, 0xa9, 0x76, 0xd3, 0xf3, 0xc3, 0x68, 0x02,
-            0x0e, 0x20, 0x51, 0x1b,
-        ]
-    );
-    assert_eq!(
-        zero.checksum(),
-        ImathasResult::new(ImathasNormalizedScore::try_from_f64(0.0).expect("zero")).checksum()
-    );
     assert!(format!("{zero:?}").contains("[redacted]"));
 }
 
@@ -501,156 +165,29 @@ fn authorize(
         CourseId::from_uuid(Uuid::from_u128(2)),
         QuestionAttemptId::from_uuid(Uuid::from_u128(4)),
     );
-    store
-        .install_issued_question_scoring_snapshot(
-            QuestionAttemptId::from_uuid(Uuid::from_u128(4)),
-            issued_question(
-                AssignmentPointValue::from_whole(10),
-                AssignmentEntryScoringRule::Normal,
-            ),
-        )
-        .expect("install immutable Issued Question snapshot");
-}
-
-fn issued_question(
-    point_value: AssignmentPointValue,
-    scoring_rule: AssignmentEntryScoringRule,
-) -> IssuedQuestion {
-    IssuedQuestion {
-        id: IssuedQuestionId::from_uuid(Uuid::from_u128(40)),
-        assignment_attempt: AssignmentAttemptId::from_uuid(Uuid::from_u128(41)),
-        assignment_entry: AssignmentEntryId::from_uuid(Uuid::from_u128(42)),
-        assignment_content_entry_index: 0,
-        issued_position: 0,
-        reference: QuestionRevisionReference {
-            question_id: "123-4567".parse().expect("question ID"),
-            revision_number: QuestionRevisionNumber::new(1).expect("revision"),
-        },
-        question_seed: QuestionSeed::new(7),
-        reproduction_details: QuestionAttemptReproductionDetails {
-            backend: QuestionBackendVersion {
-                name: "imathas".to_string(),
-                version: "test".to_string(),
-            },
-            renderer_version: None,
-            source_object_reference: Some(SourceObjectReference {
-                object: ObjectId::from_uuid(Uuid::from_u128(43)),
-            }),
-            source_object_checksum: Some(
-                SourceObjectChecksum::parse("d".repeat(64)).expect("source checksum"),
-            ),
-            asset_objects: vec![],
-            grader: QuestionGraderVersion {
-                name: "imathas".to_string(),
-                version: "test".to_string(),
-            },
-            rendered_question_sha256: "e".repeat(64),
-        },
-        point_value,
-        scoring_rule,
-        question_statistics_eligibility: true,
-        question_pool_selection: None,
-        question_pool_item: None,
-    }
 }
 
 #[tokio::test]
-async fn memory_oracle_restores_exact_context_and_consumes_through_exchange_transition() {
+async fn memory_oracle_restores_exact_backend_state() {
     let account = AccountId::from_uuid(Uuid::from_u128(1));
     let token = SessionTokenHash::compute(b"session");
     let store =
         MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
     authorize(&store, token, account);
-    assert_eq!(
-        store.install_issued_question_scoring_snapshot(
-            QuestionAttemptId::from_uuid(Uuid::from_u128(4)),
-            issued_question(
-                AssignmentPointValue::from_whole(11),
-                AssignmentEntryScoringRule::Normal
-            ),
-        ),
-        Err(StoreError::Conflict),
-    );
     let (create, expectation) = facts(account);
-    let (session, _) =
-        facts(account)
-            .0
-            .into_session(ImathasQuestionBackendSessionReference::from_uuid(
-                Uuid::from_u128(98),
-            ));
-    assert!(!format!("{session:?}").contains("imathas_result_token_checksum"));
     let reference = store
         .create_imathas_question_backend_session(token, create)
         .await
         .expect("create");
     assert_eq!(
         store
-            .load_imathas_question_backend_session(token, reference, expectation.clone())
+            .load_imathas_question_backend_session(token, reference, expectation)
             .await
             .expect("load")
             .imathas_question_backend_state()
             .as_bytes(),
         &[1, 2, 3]
     );
-    let lease = store
-        .lease_imathas_question_backend_session(
-            token,
-            reference,
-            expectation.clone(),
-            Timestamp::from_unix_millis(30),
-        )
-        .await
-        .expect("lease");
-    let transition = transition(lease);
-    let expected_checksum = transition.imathas_result_token_checksum;
-    assert!(transition.lease().store_predicate() == expectation.store_predicate());
-    store
-        .stage_verified_imathas_result(token, transition)
-        .await
-        .expect("consume");
-    assert_eq!(
-        store.imathas_result_token_checksum(reference),
-        Some(expected_checksum)
-    );
-    assert_eq!(
-        store
-            .load_imathas_question_backend_session(token, reference, expectation)
-            .await,
-        Err(StoreError::Conflict)
-    );
-}
-
-#[tokio::test]
-async fn memory_exchange_checksum_is_single_use() {
-    let account = AccountId::from_uuid(Uuid::from_u128(1));
-    let token = SessionTokenHash::compute(b"single-use");
-    let store =
-        MemoryImathasQuestionBackendSessionStore::new(ring(), Timestamp::from_unix_millis(20));
-    authorize(&store, token, account);
-    let (create, expectation) = facts(account);
-    let reference = store
-        .create_imathas_question_backend_session(token, create)
-        .await
-        .expect("create");
-    let lease = store
-        .lease_imathas_question_backend_session(
-            token,
-            reference,
-            expectation,
-            Timestamp::from_unix_millis(30),
-        )
-        .await
-        .expect("lease");
-
-    let first = store
-        .stage_verified_imathas_result(token, transition(lease.clone()))
-        .await
-        .expect("first verified exchange");
-    let replay = store
-        .stage_verified_imathas_result(token, transition(lease))
-        .await
-        .expect("exact replay");
-    assert_eq!(first.job_id(), replay.job_id());
 }
 
 #[tokio::test]
@@ -669,18 +206,6 @@ async fn memory_oracle_refuses_wrong_restore_context_and_revoked_student_authori
     assert_eq!(
         store
             .load_imathas_question_backend_session(token, reference, wrong)
-            .await,
-        Err(StoreError::Forbidden)
-    );
-    let (_, wrong) = facts(AccountId::from_uuid(Uuid::from_u128(99)));
-    assert_eq!(
-        store
-            .lease_imathas_question_backend_session(
-                token,
-                reference,
-                wrong,
-                Timestamp::from_unix_millis(30),
-            )
             .await,
         Err(StoreError::Forbidden)
     );
@@ -760,30 +285,6 @@ fn session_validity_interval_starts_at_issue_time() {
     assert_eq!(
         session.active_at(Timestamp::from_unix_millis(100)),
         Err(StoreError::Conflict)
-    );
-}
-
-#[test]
-fn lease_storage_retains_the_complete_restore_expectation() {
-    let account = AccountId::from_uuid(Uuid::from_u128(1));
-    let (_, expectation) = facts(account);
-    let lease = ImathasQuestionBackendSessionLease::from_server_capability(
-        ImathasQuestionBackendSessionReference::from_uuid(Uuid::from_u128(99)),
-        [7; 32],
-        Timestamp::from_unix_millis(20),
-        expectation.clone(),
-    );
-    let restore = lease.storage_parts().restore;
-    let expected = expectation.storage_parts();
-
-    assert_eq!(
-        restore.imathas_question_backend_binding,
-        expected.imathas_question_backend_binding
-    );
-    assert_eq!(restore.grading_context, expected.grading_context);
-    assert_eq!(
-        restore.imathas_launch_binding_checksum,
-        expected.imathas_launch_binding_checksum
     );
 }
 

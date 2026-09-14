@@ -45,11 +45,13 @@ bash "$repository_root/tests/e2e/e2e_live_demo_course_seed.sh" --state
 stop_current
 
 start_without_live_demo
+# The opt-out removes the optional teaching graph while retaining the bundled,
+# reusable Genetics Blueprint that every installation ships.
 python3 -m local_stack_control.disposable_stack_command assert-live-demo-absent \
 	--manifest "$manifest_path"
 
-# The non-enumerating boundary remains public-facing even when the database is
-# otherwise empty.  The fixed reference is never an ambient caller input.
+# The non-enumerating boundary remains public-facing when the fixed Demo Course
+# is omitted. The reference is never an ambient caller input.
 source "$repository_root/tests/e2e/e2e_live_demo_assignment_helpers.sh"
 assert_concealed "$(request '/api/course-instances/C-1')"
 

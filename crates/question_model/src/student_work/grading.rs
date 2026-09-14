@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::IssuedQuestion;
-use crate::assignment::AssignmentEntryScoringRule;
+use crate::assignment::{AssignmentEntryScoringRule, AssignmentPointValue};
 
 /// Server-only Question Backend evaluation before Assignment scoring.
 ///
@@ -13,6 +13,57 @@ use crate::assignment::AssignmentEntryScoringRule;
 pub struct QuestionEvaluation {
     correct: bool,
     normalized_credit: f64,
+}
+
+/// Immutable credit outcome retained after a Question Backend evaluates a
+/// submitted response. It deliberately contains no Assignment points: points
+/// are current Assignment configuration and are applied when a score is read.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RecordedCredit {
+    normalized_credit: f64,
+}
+
+impl RecordedCredit {
+    /// Validates the only grading fact PLE persists for a submitted response.
+    pub fn new(normalized_credit: f64) -> Result<Self, QuestionEvaluationError> {
+        if !normalized_credit.is_finite() || !(0.0..=1.0).contains(&normalized_credit) {
+            return Err(QuestionEvaluationError::InvalidNormalizedCredit);
+        }
+        Ok(Self { normalized_credit })
+    }
+
+    /// Credit normalized to the inclusive unit interval.
+    pub const fn normalized_credit(self) -> f64 {
+        self.normalized_credit
+    }
+
+    /// Fully correct is a derived presentation classification, never a stored
+    /// second grading fact.
+    pub const fn is_fully_correct(self) -> bool {
+        self.normalized_credit == 1.0
+    }
+
+    /// Applies the current point value while preserving the issued scoring
+    /// treatment. This is pure calculation and never contacts a backend.
+    pub fn score(
+        self,
+        scoring_rule: AssignmentEntryScoringRule,
+        point_value: AssignmentPointValue,
+    ) -> GradingResult {
+        let points_possible = point_value.scaled() as f64 / 10_000.0;
+        let points_earned = match scoring_rule {
+            AssignmentEntryScoringRule::Normal | AssignmentEntryScoringRule::ExtraCredit => {
+                points_possible * self.normalized_credit
+            }
+            AssignmentEntryScoringRule::FullCredit => points_possible,
+            AssignmentEntryScoringRule::Excluded => 0.0,
+        };
+        GradingResult {
+            correct: self.is_fully_correct(),
+            points_earned,
+            points_possible,
+        }
+    }
 }
 
 impl QuestionEvaluation {
@@ -74,22 +125,11 @@ impl GradingResult {
         issued_question: &IssuedQuestion,
         evaluation: QuestionEvaluation,
     ) -> Self {
-        let point_value = issued_question.point_value.scaled() as f64 / 10_000.0;
-        let (points_earned, points_possible) = match issued_question.scoring_rule {
-            AssignmentEntryScoringRule::Normal => {
-                (point_value * evaluation.normalized_credit(), point_value)
-            }
-            AssignmentEntryScoringRule::FullCredit => (point_value, point_value),
-            AssignmentEntryScoringRule::ExtraCredit => {
-                (point_value * evaluation.normalized_credit(), point_value)
-            }
-            AssignmentEntryScoringRule::Excluded => (0.0, point_value),
-        };
-        Self {
-            correct: evaluation.correct(),
-            points_earned,
-            points_possible,
-        }
+        // Backend `correct` is intentionally not persisted separately. The
+        // stored credit is the one durable outcome PLE can use generically.
+        RecordedCredit::new(evaluation.normalized_credit())
+            .expect("QuestionEvaluation already validates normalized credit")
+            .score(issued_question.scoring_rule, issued_question.point_value)
     }
 }
 
@@ -167,5 +207,25 @@ mod tests {
                 .normalized_credit(),
             -0.0
         );
+    }
+
+    #[test]
+    fn current_points_recalculate_without_changing_recorded_credit() {
+        let recorded = RecordedCredit::new(0.67).expect("normalized credit");
+        let two_points = recorded
+            .score(
+                AssignmentEntryScoringRule::Normal,
+                AssignmentPointValue::from_whole(2),
+            )
+            .points_earned;
+        let three_points = recorded
+            .score(
+                AssignmentEntryScoringRule::Normal,
+                AssignmentPointValue::from_whole(3),
+            )
+            .points_earned;
+        assert!((two_points - 1.34).abs() < 1e-12);
+        assert!((three_points - 2.01).abs() < 1e-12);
+        assert_eq!(recorded.normalized_credit(), 0.67);
     }
 }

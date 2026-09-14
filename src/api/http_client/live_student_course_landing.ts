@@ -7,9 +7,11 @@ import {
   decodeLiveStudentAssignmentLandings,
   decodeLiveStudentCourseInvitations,
   decodeLiveStudentCourseLandings,
+  decodeStudentTimeZoneProfile,
+  decodeUpdateStudentTimeZoneInput,
 } from "../decoders/live_student_course_landing";
 import { ApiProtocolError, ApiRequestError } from "./error";
-import { requestSameOrigin, type ApiFetch } from "./request";
+import { requestSameOrigin, type ApiFetch, type RequestOptions } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
 function assignmentLandingPath(course: CourseInstanceReference): string {
@@ -24,8 +26,9 @@ async function landingJson<T>(
   basePath: string,
   path: string,
   decoder: (value: unknown, path?: string) => T,
+  options: RequestOptions = {},
 ): Promise<T> {
-  const response = await requestSameOrigin(fetchImplementation, basePath, path);
+  const response = await requestSameOrigin(fetchImplementation, basePath, path, options);
   requireNoStore(response, path);
   if (!response.ok) throw new ApiRequestError(response.status, path);
   if (response.status !== 200) {
@@ -40,6 +43,24 @@ export function createLiveStudentCourseLandingClient(
   basePath: string,
 ): Pick<ApiClient, keyof LiveStudentCourseLandingClient> {
   return {
+    getStudentTimeZoneProfile: () =>
+      landingJson(
+        fetchImplementation,
+        basePath,
+        "/api/student/profile/time-zone",
+        decodeStudentTimeZoneProfile,
+      ),
+    updateStudentTimeZone: (input) =>
+      landingJson(
+        fetchImplementation,
+        basePath,
+        "/api/student/profile/time-zone",
+        decodeStudentTimeZoneProfile,
+        {
+          method: "PUT",
+          body: decodeUpdateStudentTimeZoneInput(input, "request"),
+        },
+      ),
     listPendingLiveStudentCourseInvitations: () =>
       landingJson(
         fetchImplementation,

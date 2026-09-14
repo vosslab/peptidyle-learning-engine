@@ -1,0 +1,31 @@
+## DESCRIPTION
+## Imported Genetics source row 4a16_bbee; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic10/bbq-hardy_weinberg_numeric-NUM-5_choices-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_4A16_BBEE';
+<table style="border-collapse: collapse; border: 2px solid black;"><tr>  <th colspan="3" align="center">birds</th></tr><tr>  <th align="center">genotype</th>  <th align="center">phenotype</th>  <th align="center">count</th></tr><tr>  <td align="center">homozygous<br/>dominant</td>  <td align="center">black</td>  <td align="right">1</td></tr><tr>  <td align="center">heterozygous</td>  <td align="center">gray</td>  <td align="right">0</td></tr><tr>  <td align="center">homozygous<br/>recessive</td>  <td align="center">white</td>  <td align="right">0</td></tr><tr>  <th colspan="2" align="right">SUM</th>  <th align="right">1</th></tr></table>  <p>In a field there are 1 black birds, 0 gray birds, and 0 white birds that show incomplete dominance. What is the frequency of the <b>dominant</b> allele?</p><p>Note: Do not enter a percentage on the blank. For example, if the answer is 73.4%, enter 0.734 on the blank. Your answer will be a decimal value between 0 and 1.</p>
+PROMPT_4A16_BBEE
+$tolerance = "0.0099";
+$answer = Real("1.00")->with(tolerance => $tolerance, tolType => 'absolute');
+$lower_bound = "0.9901";
+$upper_bound = "1.0099";
+$inclusive_numeric_cmp = sub {
+  my ($correct, $student, $ans_hash) = @_;
+  my $student_value = $student->value;
+  return $student_value >= $lower_bound && $student_value <= $upper_bound;
+};
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{ans_rule(20)\}
+END_TEXT
+ANS($answer->cmp(checker => $inclusive_numeric_cmp));
+
+ENDDOCUMENT();

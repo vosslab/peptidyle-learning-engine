@@ -5,14 +5,14 @@ import type {
   StudentAssignmentAttemptNavigationClient,
   StudentAssignmentAttemptPresentation,
   StudentAssignmentAttemptResponseSaveAcknowledgement,
-  StudentAssignmentAttemptSubmissionAcknowledgement,
+  StudentAssignmentAttemptSubmissionResult,
 } from "../assignment_attempt_navigation";
 import {
   decodeStudentAssignmentAttemptContext,
   decodeStudentAssignmentAttemptPresentation,
   decodeStudentAssignmentAttemptProgress,
   decodeStudentAssignmentAttemptResponseSaveAcknowledgement,
-  decodeStudentAssignmentAttemptSubmissionAcknowledgement,
+  decodeStudentAssignmentAttemptSubmissionResult,
 } from "../decoders/assignment_attempt_navigation";
 import { decodeStudentResponse } from "../decoders/question_delivery";
 import { ApiProtocolError, ApiRequestError } from "./error";
@@ -121,14 +121,14 @@ export function createStudentAssignmentAttemptNavigationClient(
     },
     submitStudentAssignmentAttempt: async (
       attempt,
-    ): Promise<StudentAssignmentAttemptSubmissionAcknowledgement> => {
+    ): Promise<StudentAssignmentAttemptSubmissionResult> => {
       const path = `${attemptPath(attempt)}/submission`;
       const result = await requestSameOrigin(fetcher, basePath, path, { method: "POST" });
       requireNoStore(result, path);
       if (!result.ok) throw new ApiRequestError(result.status, path);
       if (result.status !== 200)
         throw new ApiProtocolError(`API response ${path} must use status 200`);
-      const acknowledgement = decodeStudentAssignmentAttemptSubmissionAcknowledgement(
+      const acknowledgement = decodeStudentAssignmentAttemptSubmissionResult(
         await boundedResponseJson(result, path),
         "response",
       );

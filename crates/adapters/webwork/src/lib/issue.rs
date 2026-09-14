@@ -11,7 +11,7 @@ use question_model::{
 use sha2::{Digest, Sha256};
 
 use crate::renderer_contract::{
-    RenderRequest, RenderedWebworkQuestion, RendererFailure, WebworkRenderer,
+    RenderRequest, RenderedWebworkQuestion, RendererFailure, ResumeRenderRequest, WebworkRenderer,
 };
 use crate::source_object_reference::ResolvedWebworkQuestionSource;
 
@@ -152,6 +152,42 @@ impl<R: WebworkRenderer> WebworkAdapter<R> {
         response: &StudentResponse,
     ) -> Result<grading::QuestionGradingOutcome, WebworkAdapterError> {
         crate::grade::grade(&self.renderer, question_seed, source, response).await
+    }
+
+    /// Re-renders an active saved backend response for presentation only.
+    ///
+    /// This does not alter the immutable issued document, persist a new
+    /// document, submit the response, or create a grading outcome.
+    pub async fn resume_document(
+        &self,
+        question_seed: QuestionSeed,
+        source: &ResolvedWebworkQuestionSource,
+        response: &StudentResponse,
+    ) -> Result<Vec<u8>, WebworkAdapterError> {
+        crate::source_object_reference::verify_source(source)?;
+        let StudentResponse::BackendOwned { payload } = response else {
+            return Err(WebworkAdapterError::Renderer(
+                RendererFailure::InvalidOutput("WeBWorK requires a backend-owned response".into()),
+            ));
+        };
+        let rendered = self
+            .renderer
+            .render_saved_response(ResumeRenderRequest {
+                pg_source: source.pg_source(),
+                pg_path: source.pg_path(),
+                question_revision: source.question_revision(),
+                seed: question_seed.value(),
+                response_payload: payload,
+            })
+            .await
+            .map_err(WebworkAdapterError::Renderer)?;
+        if rendered.lifecycle_state.as_deref().is_some() {
+            return Err(WebworkAdapterError::Renderer(RendererFailure::InvalidOutput(
+                "WeBWorK renderer returned unexpected lifecycle state; this integration resumes one stateless response"
+                    .to_string(),
+            )));
+        }
+        Ok(rendered.document)
     }
 }
 

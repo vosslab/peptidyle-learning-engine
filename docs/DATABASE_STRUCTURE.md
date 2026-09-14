@@ -72,6 +72,14 @@ ledger. Its identity is `pre-production` today; the first human-approved
 production cutover installs the matching immutable production-baseline
 identifier described above.
 
+`ple_private.account_time_zone` stores one exact installed-IANA name per Account.
+Student profile procedures derive the active Student from the installed session
+and accept no Account identifier. A Student Account created by Course Roster
+Import carries a private pending-default flag; its first accepted invitation
+copies the recorded inviting Instructor's zone and clears the flag. A Student
+choice also clears it, so later acceptance cannot overwrite that choice, and an
+existing Student Account is never marked for a new default.
+
 ## Questions and Blueprints
 
 A Published Question has a stable lineage in `ple_data.published_question`.
@@ -128,11 +136,29 @@ succeeds.
 Generic jobs and object cleanup remain technical facilities. Forced Question
 Correction retains the evidence required by its implemented workflow.
 
+Jobs remain internal technical records. Public-asset publication is an existing
+Job workload. The Phase 2 worker is a single generic expiry worker: it shares
+the ordinary Attempt evaluator and performs a 60-second expiry sweep. It reads
+immutable source only through S3 and the private WeBWorK renderer boundary.
+iMathAS retains its separate session and receipt boundary. The worker creates no
+public grading state, attention count, polling surface, or Instructor grading
+action. A completed immutable Grading Result cannot be reopened or replaced.
+
 ## Student Work as retained evidence
+
+Before Student Work exists, `read_student_assignment_access` and
+`list_released_live_student_assignments` use one statement timestamp and the
+same private Assignment Start Decision function. Both project only the current
+Student's effective available, due, close, whole-Attempt time-limit, Attempt-
+limit, and late-work values together with the Student Account's IANA display
+zone. Released Assignments scheduled for the future remain on the landing;
+their server decision is `not_yet_available`. Accommodation identity never
+crosses either reader.
 
 `ple_private.assignment_attempt` is the Student Work root. At start it retains
 the effective title, instructions, availability, due and close instants,
-whole-Attempt time limit, attempt limit, completion, late-work, feedback,
+whole-Attempt time limit, one immutable `expires_at` equal to the earlier of
+retained close and start plus retained time limit, attempt limit, completion, late-work, feedback,
 reuse, variation, ordering, and navigation rules. When an accommodation affects
 an effective value, the Attempt also retains its qualified accommodation source
 and Edit Number. Later current Assignment saves therefore cannot reinterpret
@@ -164,13 +190,24 @@ returns only the exact document for the owning Student, open Attempt, and
 issued position; it excludes the source, seed, response, and backend state.
 There is no WeBWorK replay table, renderer cache, or per-attempt backend state.
 The shared saved-response and whole-Attempt finalization lifecycle stores the
-bounded opaque backend response and queues grading without decoding PG fields.
+bounded opaque backend response without decoding PG fields.
 
-Whole-Attempt finalization atomically creates immutable Question Submissions
-and one typed grading Job with its pending grading row for each supported
-Question before it creates the Assignment Submission. That order gives workers
-one durable target per accepted Question while keeping the containing
-Assignment finalization coherent.
+Whole-Attempt finalization creates immutable Question Submissions for supported
+saved responses. A Question Backend that completes immediately commits its
+immutable normalized credit outcome and receipt through the ordinary submission
+path; backend-specific polling remains internal where needed.
+
+Student submission and deadline expiry share the private saved-response evidence
+writer. The server-owned `expires_at` blocks changes after expiry. Student
+operations that could change the Attempt enforce that expiry rule, and narrow
+background execution finalizes expired Attempts that require no later Student
+request. Reads remain read-only. At deadline, saved supported responses receive
+submissions while unanswered Questions become `closed_at_deadline`; readers
+resolve that state as zero. A zero-response Attempt completes at zero with no
+Question Submission. `assignment_submission.finalization_kind` distinguishes
+`student` from `deadline`; only the Student kind carries an authorizing Account.
+An expired save is returned as a refusal only after its expiry transition commits,
+so the incoming payload cannot roll back or overwrite finalization.
 
 ## Unrelease
 

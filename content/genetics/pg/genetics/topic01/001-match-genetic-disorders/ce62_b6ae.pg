@@ -1,0 +1,68 @@
+## DESCRIPTION
+## Imported Genetics source row ce62_b6ae; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic01/bbq-MATCH-genetic_disorders-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_CE62_B6AE';
+<p>ce62_b6ae</p> <p>Match each of the following <strong><span style="color: #b74300;">genetic</span></strong> <strong><span style="color: #d40000;">disorder</span></strong>s with their corresponding descriptions.</p><p><i>Note:</i> Each choice will be used exactly once.</p>
+PROMPT_CE62_B6AE
+loadMacros('PGML.pl', 'parserPopUp.pl');
+sub make_popup { return defined &DropDown ? DropDown(@_) : PopUp(@_); }
+$match_term_0 = <<'LITERAL_CE62_B6AE_MATCH_TERM_0';
+<span style="color: #006a79;">Prader-Willi syndrome</span>
+LITERAL_CE62_B6AE_MATCH_TERM_0
+$match_term_1 = <<'LITERAL_CE62_B6AE_MATCH_TERM_1';
+<span style="color: #93356f;">Turner syndrome</span>
+LITERAL_CE62_B6AE_MATCH_TERM_1
+$match_term_2 = <<'LITERAL_CE62_B6AE_MATCH_TERM_2';
+<span style="color: #6b5f00;">Fragile X syndrome</span>
+LITERAL_CE62_B6AE_MATCH_TERM_2
+$match_term_3 = <<'LITERAL_CE62_B6AE_MATCH_TERM_3';
+<span style="color: #414ec5;">Triple X syndrome</span>
+LITERAL_CE62_B6AE_MATCH_TERM_3
+$match_choice_0 = <<'LITERAL_CE62_B6AE_MATCH_CHOICE_0';
+a <strong><span style="color: #b74300;">genetic</span></strong> <strong><span style="color: #d40000;">disorder</span></strong> caused by a loss of function of specific genes on <strong><span style="color: #6c6c00;">chromosome</span></strong> 15
+LITERAL_CE62_B6AE_MATCH_CHOICE_0
+$match_choice_1 = <<'LITERAL_CE62_B6AE_MATCH_CHOICE_1';
+a condition that affects only females, results when one of their X <strong><span style="color: #6c6c00;">chromosome</span></strong>s is missing or partially missing
+LITERAL_CE62_B6AE_MATCH_CHOICE_1
+$match_choice_2 = <<'LITERAL_CE62_B6AE_MATCH_CHOICE_2';
+a <strong><span style="color: #b74300;">genetic</span></strong> condition involving changes in part of the X <strong><span style="color: #6c6c00;">chromosome</span></strong>
+LITERAL_CE62_B6AE_MATCH_CHOICE_2
+$match_choice_3 = <<'LITERAL_CE62_B6AE_MATCH_CHOICE_3';
+a <strong><span style="color: #b74300;">genetic</span></strong> condition in females which there are three copies of the X <strong><span style="color: #6c6c00;">chromosome</span></strong>
+LITERAL_CE62_B6AE_MATCH_CHOICE_3
+$match_dropdown_0 = make_popup(['', "A", "B", "C", "D"], 1);
+$match_dropdown_1 = make_popup(['', "A", "B", "C", "D"], 2);
+$match_dropdown_2 = make_popup(['', "A", "B", "C", "D"], 3);
+$match_dropdown_3 = make_popup(['', "A", "B", "C", "D"], 4);
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_PGML
+[@ MODES(HTML => '<div class="two-column">') @]*
+[@ MODES(HTML => '<div>') @]*
+[_]{$match_dropdown_0} *1.* [$match_term_0]*
+
+[_]{$match_dropdown_1} *2.* [$match_term_1]*
+
+[_]{$match_dropdown_2} *3.* [$match_term_2]*
+
+[_]{$match_dropdown_3} *4.* [$match_term_3]*
+[@ MODES(HTML => '</div><div>') @]*
+*A.* [$match_choice_0]*
+
+*B.* [$match_choice_1]*
+
+*C.* [$match_choice_2]*
+
+*D.* [$match_choice_3]*
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+ENDDOCUMENT();

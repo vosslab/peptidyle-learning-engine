@@ -107,12 +107,13 @@ fn store_error_response(error: StoreError) -> Response {
         StoreError::AlreadyExists => {
             route_error(StatusCode::CONFLICT, "Course navigation conflict")
         }
-        StoreError::AssignmentActivity(_) | StoreError::TimedOut | StoreError::Unavailable(_) => {
-            route_error(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Course navigation unavailable",
-            )
-        }
+        StoreError::AssignmentActivity(_)
+        | StoreError::TimedOut
+        | StoreError::LeaseLost
+        | StoreError::Unavailable(_) => route_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Course navigation unavailable",
+        ),
     }
 }
 

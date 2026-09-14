@@ -37,32 +37,11 @@ impl VerifiedImathasResult {
         self.grading_context.clone()
     }
 
-    /// Durable receipt of the exact iMathAS result token accepted by this adapter.
-    /// The caller supplies it to the later one-use Store transaction; this
-    /// adapter performs no Store consumption itself.
+    /// Checksum of the exact signed iMathAS result token accepted by this adapter.
     pub fn imathas_result_token_checksum(
         &self,
     ) -> learning_data_access::ImathasResultTokenChecksum {
         self.imathas_result_token_checksum
-    }
-
-    /// Converts this sealed verifier output into the sole LDA staging command.
-    /// The authenticated context and Session authentication remain private to
-    /// this proof and are compared against the exact leased Session by LDA.
-    pub fn stage(
-        self,
-        lease: learning_data_access::ImathasQuestionBackendSessionLease,
-        transitioned_at: question_model::Timestamp,
-    ) -> Result<learning_data_access::StageVerifiedImathasResult, learning_data_access::StoreError>
-    {
-        learning_data_access::StageVerifiedImathasResult::new(
-            lease,
-            self.grading_context,
-            self.launch_session_authentication,
-            self.imathas_result_token_checksum,
-            self.imathas_result,
-            transitioned_at,
-        )
     }
 
     /// iMathAS Question Backend implementations use this only after their signature/audience/
@@ -85,8 +64,8 @@ impl VerifiedImathasResult {
     /// The iMathAS Question Backend verifier is the only production constructor. Its
     /// result token has already passed signature, expiry, exact question, and
     /// exact iMathAS-binding checks before this sealed grade exists. The
-    /// caller-owned LDA Store transaction performs single-use consumption and
-    /// replay finalization after protocol verification succeeds.
+    /// caller-owned Assignment submission path records the immutable outcome
+    /// after protocol verification succeeds.
     pub(crate) fn from_result_verification(
         _seal: crate::result_verification::ImathasResultVerificationSeal,
         imathas_result: learning_data_access::ImathasResult,
@@ -130,7 +109,7 @@ pub enum ImathasQuestionBackendFailure {
     InvalidResponse,
 }
 
-/// Adapter failures suitable for a backend-local retry/degraded state.
+/// Adapter-local failures while preparing, presenting, or verifying iMathAS content.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImathasAdapterError {
     UnsupportedSource,

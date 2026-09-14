@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 00da_71ff; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-cytogenetic_notation-band_order-5_choices-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_00DA_71FF';
+<p>00da_71ff</p> Which band is most proximal (closest to the centromere) on chromosome 9q?
+PROMPT_00DA_71FF
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_00DA_71FF_CHOICE_1';
+<span style='font-family: monospace; font-weight: bold;'>9q47.1</span>
+LITERAL_00DA_71FF_CHOICE_1
+$choice_2 = <<'LITERAL_00DA_71FF_CHOICE_2';
+<span style='font-family: monospace; font-weight: bold;'>9q38.1</span>
+LITERAL_00DA_71FF_CHOICE_2
+$choice_3 = <<'LITERAL_00DA_71FF_CHOICE_3';
+<span style='font-family: monospace; font-weight: bold;'>9q43.2</span>
+LITERAL_00DA_71FF_CHOICE_3
+$choice_4 = <<'LITERAL_00DA_71FF_CHOICE_4';
+<span style='font-family: monospace; font-weight: bold;'>9q39.2</span>
+LITERAL_00DA_71FF_CHOICE_4
+$choice_5 = <<'LITERAL_00DA_71FF_CHOICE_5';
+<span style='font-family: monospace; font-weight: bold;'>9q34.1</span>
+LITERAL_00DA_71FF_CHOICE_5
+$correct_1 = <<'LITERAL_00DA_71FF_CORRECT_1';
+<span style='font-family: monospace; font-weight: bold;'>9q34.1</span>
+LITERAL_00DA_71FF_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

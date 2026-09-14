@@ -1,0 +1,40 @@
+## DESCRIPTION
+## Imported Genetics source row c323_2914; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic01/bbq-WOMC-genetic_disorders-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_C323_2914';
+<p>c323_2914</p> <p>Which one of the following <strong><span style="color: #b74300;">genetic</span></strong> <strong><span style="color: #d40000;">disorder</span></strong>s correspond to the description <span style='font-size: 1em;'><strong>'a chromosomal abnormality, in which the cells of the body contain extra <strong><span style="color: #b74300;">genetic</span></strong> material from <strong><span style="color: #6c6c00;">chromosome</span></strong> 21'</strong></span>.</p>
+PROMPT_C323_2914
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_C323_2914_CHOICE_1';
+Beta-Thalassemia
+LITERAL_C323_2914_CHOICE_1
+$choice_2 = <<'LITERAL_C323_2914_CHOICE_2';
+DiGeorge syndrome
+LITERAL_C323_2914_CHOICE_2
+$choice_3 = <<'LITERAL_C323_2914_CHOICE_3';
+Down syndrome
+LITERAL_C323_2914_CHOICE_3
+$choice_4 = <<'LITERAL_C323_2914_CHOICE_4';
+Prader-Willi syndrome
+LITERAL_C323_2914_CHOICE_4
+$correct_1 = <<'LITERAL_C323_2914_CORRECT_1';
+Down syndrome
+LITERAL_C323_2914_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

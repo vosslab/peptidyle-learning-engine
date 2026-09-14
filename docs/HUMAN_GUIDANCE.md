@@ -20,6 +20,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Time should be used efficiently. Agents and tokens are cheap; wall time is not.
 - Hard work should be broken into small, independently completable tasks with one owner and one verification.
 - Requirements should avoid being overly strict or using arbitrary numeric, timing, byte, or pixel equivalence gates.
+- Write plans in plain, concrete language. Use technical terms when they add precision.
 - This codebase is not in production yet, no one is using it, so we can fix the design and not have to worry about legacy support.
 - Prioritize positive prompting. Small LMs often mishandle negative prompting and may flip negative instructions into positive actions, producing poor code and egregious results.
 - Classify one-time checks separately from permanent tests.
@@ -32,6 +33,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   human-approved production deployment, structural changes use forward migrations.
 - Fresh production installation defaults to the complete Live Demo, with an explicit opt-out. Once provisioned,
   its records follow ordinary product lifecycle and deletion rules.
+- The complete Genetics Blueprint Course from Biology Problems Website is the example course that ships with every
+  PLE installation. Its content is free and open source.
 - Use direct SQL for state wholly owned by PostgreSQL. Use the owning path where required effects cross into another system.
 - All podman images on the Mac-Studio-36G machine are from this project; you do not have to preserve the project-named
   live-stack data volumes. Since no podman image is needed, I pre-approve all image pruning when needed.
@@ -207,6 +210,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Question writers may add Question Feedback when it helps. It remains optional Question-authored
   teaching content, and Student workflows remain complete whether or not Students read it.
 - The platform is question agnostic, but for its initial run, the primary question formats/backends are the native flat question style PLE JSON (which is compatible with QTI) and WeBWorK; IMathAS and H5P are included but are considered secondary.
+- When an existing parameterized WeBWorK Question source is available, prefer it to importing static variants.
 - Students should see one Question at a time during an Assignment.
 - Questions should have one canonical title. Compact interfaces may truncate that title rather than maintaining a separate short name.
 - A Question Backend returns an immutable credit fraction for a submitted response. PLE stores that grading outcome and uses it for scoring.

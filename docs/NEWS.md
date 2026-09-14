@@ -23,8 +23,8 @@ PLE remains pre-production; these notes describe the current development snapsho
   Course for a new term, shifting Course dates, applying a Blueprint update, and copying an
   Assignment from a Blueprint. Their records retain exact Course Origin and Assignment Source
   facts.
-- Automated grading now has immutable accepted-input receipts, answer-free status and retry flows,
-  generation-fenced recalculation, and Instructor exception handling.
+- Automated grading now has immutable accepted-input receipts, answer-free status, automatic
+  pre-result Job requeue, lease-fenced commits, and read-only Instructor visibility.
 - The connected demo runs the production-shaped Rust, PostgreSQL, object-store, worker, and HTTPS
   stack with deterministic cleanup.
 

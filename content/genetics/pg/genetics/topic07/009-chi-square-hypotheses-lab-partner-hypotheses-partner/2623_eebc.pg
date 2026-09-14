@@ -1,0 +1,40 @@
+## DESCRIPTION
+## Imported Genetics source row 2623_eebc; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic07/bbq-chi_square_hypotheses_lab_partner-hypotheses_partner-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_2623_EEBC';
+<p>2623_eebc</p> <p>Your lab partner is trying again (eye roll).</p><p>You cross two heterozygous individuals (Aa &times; Aa) and score the offspring phenotypes.</p><p>Total offspring scored: <span style='font-family: monospace;'>148</span></p><table style="border: 1px solid black; border-collapse: collapse;"><colgroup width="220"></colgroup><colgroup width="80"></colgroup><colgroup width="90"></colgroup><colgroup width="90"></colgroup><tr> <th align='center' colspan='4' style='background-color: silver'>Observed data</th> </tr><tr> <th align='center' style='background-color: lightgray'>Category</th> <th align='center' style='background-color: lightgray'>Ratio</th> <th align='center' style='background-color: lightgray'>Expected</th> <th align='center' style='background-color: lightgray'>Observed</th> </tr><tr> <td>&nbsp;Dominant phenotype (A&ndash;)</td> <td align='center'>3</td> <td align='center'>111</td> <td align='center'>115</td></tr><tr> <td>&nbsp;Recessive phenotype (aa)</td> <td align='center'>1</td> <td align='center'>37</td> <td align='center'>33</td></tr></table><hr/> <p>They are setting up a chi-squared (&chi;<sup>2</sup>) goodness-of-fit test, but they wrote the hypotheses below:</p><p><b>H<sub>0</sub></b>: The offspring proportions are not consistent with the expected 3:1 ratio (the differences are too large to explain by chance alone).<br/><b>H<sub>A</sub></b>: The offspring proportions are consistent with the expected 3:1 ratio (any differences from the expected ratio are due to chance).</p><p><b>What is the main problem with their hypotheses?</b></p>
+PROMPT_2623_EEBC
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_2623_EEBC_CHOICE_1';
+They swapped the null and alternative hypotheses.
+LITERAL_2623_EEBC_CHOICE_1
+$choice_2 = <<'LITERAL_2623_EEBC_CHOICE_2';
+They used the wrong expected ratio in the hypotheses.
+LITERAL_2623_EEBC_CHOICE_2
+$choice_3 = <<'LITERAL_2623_EEBC_CHOICE_3';
+Nothing is wrong; the hypotheses are stated correctly.
+LITERAL_2623_EEBC_CHOICE_3
+$choice_4 = <<'LITERAL_2623_EEBC_CHOICE_4';
+They incorrectly wrote the null hypothesis as an exact match (no random variation).
+LITERAL_2623_EEBC_CHOICE_4
+$correct_1 = <<'LITERAL_2623_EEBC_CORRECT_1';
+They swapped the null and alternative hypotheses.
+LITERAL_2623_EEBC_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

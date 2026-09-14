@@ -1,4 +1,4 @@
-//! One bounded installation action for the optional ordinary Live Demo graph.
+//! Installation publication for bundled curriculum and the optional Live Demo graph.
 
 use std::collections::BTreeMap;
 use std::io::Write as _;
@@ -11,12 +11,15 @@ use question_model::WorkspaceId;
 use uuid::Uuid;
 
 use crate::libpq_environment::LibpqEnvironment;
-use crate::pilot_content;
+use crate::{curriculum_content, pilot_content};
 
 const USAGE: &str = "usage: cargo tools installation-data <apply|provision [--without-live-demo]>";
 const PSQL_EXECUTABLE: &str = "/usr/bin/psql";
 const IMAGE_SCHEMA_ROOT: &str = "/opt/ple/schemas/installation_data";
+const IMAGE_GENETICS_CONTENT_ROOT: &str = "/opt/ple/content/genetics";
+const BUNDLED_GENETICS_MANIFEST: &str = "manifest.yaml";
 const PILOT_WORKSPACE_ID: &str = "00000000-0000-0000-0000-000000000201";
+const EXAMPLE_CONTENT_WORKSPACE_ID: &str = "00000000-0000-0000-0000-000000000202";
 
 pub(crate) const LIVE_DEMO_ELENA_ACCOUNT_ID: &str = "00000000-0000-0000-0000-000000000101";
 pub(crate) const LIVE_DEMO_MARY_ACCOUNT_ID: &str = "00000000-0000-0000-0000-000000000102";
@@ -25,15 +28,14 @@ pub(crate) const LIVE_DEMO_AVERY_ACCOUNT_ID: &str = "00000000-0000-0000-0000-000
 pub(crate) const LIVE_DEMO_COURSE_SHORT_NAME: &str = "BCHM 301";
 pub(crate) const LIVE_DEMO_COURSE_LONG_NAME: &str = "Biochemistry 301: Proteins and Peptides";
 pub(crate) const LIVE_DEMO_ASSIGNMENT_TITLE: &str = "Chapter 1 Pilot Practice";
-pub(crate) const LIVE_DEMO_MARY_ROSTER_ID: &str = "BIO301-MARY";
 
-/// Runs the fixed optional teaching-data installation operation.
+/// Runs the fixed bundled curriculum and optional teaching-data installation operation.
 pub(crate) fn run(args: &[String]) -> Result<()> {
     if matches!(args, [flag] if flag == "--help" || flag == "-h") {
         println!("{USAGE}");
         return Ok(());
     }
-    run_command(parse_arguments(args)?, apply)
+    run_command(parse_arguments(args)?)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -57,29 +59,33 @@ fn parse_arguments(args: &[String]) -> Result<InstallationDataCommand> {
     }
 }
 
-fn run_command<F>(command: InstallationDataCommand, apply: F) -> Result<()>
-where
-    F: FnOnce() -> Result<()>,
-{
+fn run_command(command: InstallationDataCommand) -> Result<()> {
     match command {
-        InstallationDataCommand::Apply => apply(),
+        InstallationDataCommand::Apply => {
+            // Preserve the long-standing Live Demo identifiers on a default
+            // installation before adding the reusable bundled Blueprint.
+            apply_live_demo()?;
+            apply_bundled_genetics()
+        }
         InstallationDataCommand::Provision {
             include_live_demo: false,
         } => {
+            apply_bundled_genetics()?;
             println!("installation-data: Live Demo provisioning skipped");
             Ok(())
         }
         InstallationDataCommand::Provision {
             include_live_demo: true,
         } => {
-            apply()?;
+            apply_live_demo()?;
+            apply_bundled_genetics()?;
             crate::installation_data_activity::provision()
         }
     }
 }
 
 /// Applies the Pilot publication and PostgreSQL-owned Live Demo graph.
-fn apply() -> Result<()> {
+fn apply_live_demo() -> Result<()> {
     validate_publisher_environment()?;
 
     let migration_database_url = required_environment("PLE_MIGRATION_DATABASE_URL")?;
@@ -142,7 +148,85 @@ fn apply() -> Result<()> {
     Ok(())
 }
 
+/// Publishes the shipped Genetics Blueprint through the ordinary authoring and
+/// Question-publication path. The temporary capability exists only for this
+/// installation operation and is revoked even when publication fails.
+fn apply_bundled_genetics() -> Result<()> {
+    validate_publisher_environment()?;
+
+    let migration_database_url = required_environment("PLE_MIGRATION_DATABASE_URL")?;
+    let session_id = SessionId::generate().map_err(anyhow::Error::msg)?;
+    let session_id_text = session_id.as_uuid().to_string();
+    let token_hash = fresh_session_token_hash()?;
+    run_manifest(
+        &migration_database_url,
+        "bundled_curriculum_context.sql",
+        &BTreeMap::from([
+            ("example_content_session_id", session_id_text.clone()),
+            ("example_content_session_token_hash", token_hash.to_string()),
+        ]),
+    )?;
+
+    let publication = publish_bundled_genetics(token_hash);
+    let cleanup = run_manifest(
+        &migration_database_url,
+        "revoke_example_content_session.sql",
+        &BTreeMap::from([("example_content_session_id", session_id_text)]),
+    );
+    match (publication, cleanup) {
+        (Ok(receipt), Ok(())) => {
+            println!("{}", receipt.installation_summary());
+            Ok(())
+        }
+        (Err(publication), Ok(())) => Err(publication),
+        (Ok(_), Err(cleanup)) => Err(cleanup.context("revoking the temporary PLE Example Content session")),
+        (Err(publication), Err(cleanup)) => Err(publication.context(format!(
+            "publishing bundled Genetics failed; the temporary PLE Example Content session also could not be revoked: {cleanup:#}"
+        ))),
+    }
+}
+
+fn publish_bundled_genetics(
+    session: SessionTokenHash,
+) -> Result<curriculum_content::publication::Receipt> {
+    let root = fixed_genetics_content_root()?;
+    let manifest = curriculum_content::load_from_root(&root, Path::new(BUNDLED_GENETICS_MANIFEST))
+        .context("loading the fixed bundled Genetics curriculum")?;
+    let workspace = WorkspaceId::from_uuid(
+        Uuid::parse_str(EXAMPLE_CONTENT_WORKSPACE_ID)
+            .expect("the fixed PLE Example Content workspace ID is valid"),
+    );
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .context("creating the bundled Genetics publication runtime")?;
+    runtime
+        .block_on(curriculum_content::publication::publish_with_context(
+            session, workspace, manifest, &root,
+        ))
+        .context("publishing the bundled Genetics Blueprint through the ordinary publisher")
+}
+
+fn fixed_genetics_content_root() -> Result<PathBuf> {
+    let source_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .context("locating the repository root from project-tools")?
+        .join("content/genetics");
+    for root in [PathBuf::from(IMAGE_GENETICS_CONTENT_ROOT), source_root] {
+        let Ok(root) = root.canonicalize() else {
+            continue;
+        };
+        if root.is_dir() {
+            return Ok(root);
+        }
+    }
+    bail!("the fixed bundled Genetics content root is unavailable")
+}
+
 fn fresh_session_token_hash() -> Result<SessionTokenHash> {
+    // ASVS 7.2.2, 7.2.3: every publisher capability starts as fresh CSPRNG
+    // material; no static installation credential is retained or logged.
     let mut token = [0_u8; 32];
     getrandom::fill(&mut token)
         .map_err(|_| anyhow::anyhow!("generating the temporary Pilot session token failed"))?;
@@ -228,7 +312,13 @@ fn run_manifest(
 
 fn fixed_manifest_path(filename: &str) -> Result<PathBuf> {
     ensure!(
-        matches!(filename, "prepublication_context.sql" | "install.sql"),
+        matches!(
+            filename,
+            "prepublication_context.sql"
+                | "install.sql"
+                | "bundled_curriculum_context.sql"
+                | "revoke_example_content_session.sql"
+        ),
         "installation-data manifest is not recognized"
     );
     let source_root = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -252,6 +342,8 @@ fn fixed_manifest_path(filename: &str) -> Result<PathBuf> {
 }
 
 fn psql_script(manifest: &Path, variables: &BTreeMap<&str, String>) -> Result<String> {
+    // ASVS 1.2.4: this is a fixed trusted manifest; only a deliberately small
+    // opaque-value alphabet may cross the psql variable boundary.
     let mut script = String::new();
     for (name, value) in variables {
         ensure!(
@@ -274,8 +366,14 @@ fn psql_script(manifest: &Path, variables: &BTreeMap<&str, String>) -> Result<St
         .context("installation-data manifest path is not UTF-8")?;
     ensure!(
         rendered_manifest.starts_with(IMAGE_SCHEMA_ROOT)
-            || rendered_manifest.ends_with("/schemas/installation_data/prepublication_context.sql")
-            || rendered_manifest.ends_with("/schemas/installation_data/install.sql"),
+            || [
+                "prepublication_context.sql",
+                "install.sql",
+                "bundled_curriculum_context.sql",
+                "revoke_example_content_session.sql",
+            ]
+            .iter()
+            .any(|name| rendered_manifest.ends_with(&format!("/schemas/installation_data/{name}"))),
         "installation-data manifest path is invalid"
     );
     script.push_str("\\ir ");
@@ -319,22 +417,6 @@ mod tests {
         );
         assert!(parse_arguments(&[]).is_err());
         assert!(parse_arguments(&["apply".to_owned(), "--file".to_owned()]).is_err());
-    }
-
-    #[test]
-    fn opt_out_returns_before_environment_reads_or_mutation() {
-        let applied = std::cell::Cell::new(false);
-        run_command(
-            InstallationDataCommand::Provision {
-                include_live_demo: false,
-            },
-            || {
-                applied.set(true);
-                bail!("apply must not run")
-            },
-        )
-        .unwrap();
-        assert!(!applied.get());
     }
 
     #[test]

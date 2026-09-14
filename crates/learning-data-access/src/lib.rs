@@ -9,6 +9,7 @@ mod account_time_zone;
 mod assignment_attempt;
 mod assignment_delivery;
 mod assignment_release;
+mod attempt_expiry;
 mod authentication_ceremony;
 mod authentication_email;
 mod authoring;
@@ -23,8 +24,6 @@ mod instructor_profile;
 mod invitation_export;
 mod live_gradebook;
 mod live_student_course_landing;
-mod native_ple_grading;
-mod native_ple_submission;
 mod object_record;
 mod pagination;
 pub mod postgres;
@@ -38,7 +37,6 @@ pub mod session;
 #[path = "contracts/store_error.rs"]
 mod store_error;
 mod support_capability;
-mod webwork_grading;
 
 pub use account_time_zone::AccountTimeZoneStore;
 pub use assignment_attempt::{
@@ -48,15 +46,18 @@ pub use assignment_attempt::{
 pub use assignment_delivery::{
     IssuedQuestionPresentation, LiveAssignmentAccess, LiveAssignmentAttempt,
     LiveAssignmentAttemptScore, LiveAssignmentDeliveryStore, LiveAssignmentPreviousAttempt,
-    LiveAssignmentPreviousAttemptState, LiveAssignmentStartDecision, NativeAssignmentIssuanceBatch,
-    NativePleIssuanceSource, NativePresentationInput, NativeWebworkIssuanceSource,
-    ReadyQuestionAssetRendition, StudentAssignmentAttemptBackendDocument,
+    LiveAssignmentPreviousAttemptState, NativeAssignmentIssuanceBatch, NativePleIssuanceSource,
+    NativePresentationInput, NativeWebworkIssuanceSource, ReadyQuestionAssetRendition,
+    StudentAssignmentAttemptBackendDocument, StudentAssignmentAttemptBackendDocumentResume,
     StudentAssignmentAttemptContext, StudentAssignmentAttemptFinalization,
-    StudentAssignmentAttemptHistory, StudentAssignmentAttemptHistoryAssignment,
-    StudentAssignmentAttemptHistoryCourse, StudentAssignmentAttemptHistoryEvidence,
-    StudentAssignmentAttemptHistoryQuestion, StudentAssignmentAttemptHistoryResponseSource,
-    StudentAssignmentAttemptPresentationEvidence, StudentAssignmentAttemptPresentationSource,
-    StudentAssignmentAttemptSavedResponse,
+    StudentAssignmentAttemptFinalizationBackend, StudentAssignmentAttemptFinalizationEvaluation,
+    StudentAssignmentAttemptFinalizationKind, StudentAssignmentAttemptFinalizationPreparation,
+    StudentAssignmentAttemptFinalizationPreparationOutcome,
+    StudentAssignmentAttemptFinalizationSource, StudentAssignmentAttemptHistory,
+    StudentAssignmentAttemptHistoryAssignment, StudentAssignmentAttemptHistoryCourse,
+    StudentAssignmentAttemptHistoryEvidence, StudentAssignmentAttemptHistoryQuestion,
+    StudentAssignmentAttemptHistoryResponseSource, StudentAssignmentAttemptPresentationEvidence,
+    StudentAssignmentAttemptPresentationSource, StudentAssignmentAttemptSavedResponse,
 };
 pub use assignment_release::{
     AssignmentPreview, AssignmentQuestionPickerEntry, AssignmentReleaseIssue,
@@ -65,6 +66,9 @@ pub use assignment_release::{
     DueSoonAssignmentSummary, DueSoonAssignments, LiveAssignmentStore, LiveAssignmentWorkspace,
     SaveBaseAssignmentPolicyInput, SaveLiveAssignmentInlineInput, SaveLiveAssignmentInput,
     UnreleasedLiveAssignment,
+};
+pub use attempt_expiry::{
+    AssignmentAttemptExpirySweepStore, ExpiredAssignmentAttemptFinalizationPreparation,
 };
 pub use authentication_ceremony::{
     AuthenticatedAccount, AuthenticationCeremonyLifetime, AuthenticationCeremonyStore,
@@ -84,6 +88,9 @@ pub use blueprint_course::{
     StoredBlueprintAssignmentEntry, StoredBlueprintCourse, StoredBlueprintCourseContent,
     StoredBlueprintCourseSummary, StoredBlueprintModule, StoredBlueprintRevision,
 };
+pub use browser_api_contract::student_assignment_decision::{
+    AssignmentStartDecision, StudentAssignmentDecisionSummary,
+};
 pub use course_banner::{
     ClaimedCourseBannerUpload, CourseBannerDeleteWork, CourseBannerObjectMetadata,
     CourseBannerStorageCheckResult, CourseBannerStore, FinalizedCourseBannerPromotion,
@@ -100,30 +107,23 @@ pub use course_roster::{
 };
 pub use course_theme::CourseThemeStore;
 pub use imathas_question_backend_session::{
-    AutomatedGradingReceipt, AutomatedGradingReceiptChecksum, AutomatedGradingReceiptId,
-    CommitStagedImathasResultGrading, GradingResultId, ImathasGradingContext,
-    ImathasGradingJobLease, ImathasLaunchBindingChecksum, ImathasNormalizedScore,
+    ImathasGradingContext, ImathasLaunchBindingChecksum, ImathasNormalizedScore,
     ImathasQuestionBackendLaunchPreparationValidation, ImathasQuestionBackendSession,
     ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
-    ImathasQuestionBackendSessionCreate, ImathasQuestionBackendSessionLease,
-    ImathasQuestionBackendSessionPreparationContext, ImathasQuestionBackendSessionReference,
-    ImathasQuestionBackendSessionRestoreExpectation, ImathasQuestionBackendSessionStore,
-    ImathasQuestionBackendSessionValidation, ImathasQuestionBackendStateCipher,
-    ImathasQuestionBackendStateKeyId, ImathasQuestionBackendStateKeyRing,
-    ImathasQuestionBackendStatePlaintext, ImathasResponseChecksum, ImathasResult,
-    ImathasResultChecksum, ImathasResultToken, ImathasResultTokenChecksum, JobId,
+    ImathasQuestionBackendSessionCreate, ImathasQuestionBackendSessionPreparationContext,
+    ImathasQuestionBackendSessionReference, ImathasQuestionBackendSessionRestoreExpectation,
+    ImathasQuestionBackendSessionStore, ImathasQuestionBackendSessionValidation,
+    ImathasQuestionBackendStateCipher, ImathasQuestionBackendStateKeyId,
+    ImathasQuestionBackendStateKeyRing, ImathasQuestionBackendStatePlaintext,
+    ImathasResponseChecksum, ImathasResult, ImathasResultToken, ImathasResultTokenChecksum,
     LoadedImathasQuestionBackendSession, MAX_IMATHAS_QUESTION_BACKEND_STATE_CIPHERTEXT_BYTES,
     MAX_IMATHAS_QUESTION_BACKEND_STATE_PLAINTEXT_BYTES, MemoryImathasQuestionBackendSessionStore,
-    QuestionSubmissionGradingId, StageVerifiedImathasResult, StagedImathasResultReceipt,
     derive_imathas_question_backend_evaluation,
 };
 #[allow(unused_imports)] // Crate-private PostgreSQL Store row-binding surface.
 pub(crate) use imathas_question_backend_session::{
-    ImathasGradingJobLeaseParts, ImathasQuestionBackendSessionCreateParts,
-    ImathasQuestionBackendSessionLeaseParts, ImathasQuestionBackendSessionRestoreParts,
-    ImathasQuestionBackendSessionStorageParts, ImathasQuestionBackendSessionStorePredicate,
-    ImathasQuestionBackendStateCipherStorageParts, StageVerifiedImathasResultParts,
-    automated_grading_receipt_checksum_v1,
+    ImathasQuestionBackendSessionCreateParts, ImathasQuestionBackendSessionRestoreParts,
+    ImathasQuestionBackendSessionStorageParts, ImathasQuestionBackendStateCipherStorageParts,
 };
 pub use instructor_account::{
     CreateInstructorAccountInput, DeactivateInstructorAccountInput, InstructorAccountList,
@@ -140,11 +140,6 @@ pub use live_gradebook::{CourseGradebook, CourseGradebookStore, CourseGradebookS
 pub use live_student_course_landing::{
     LiveStudentAssignmentLandingSummary, LiveStudentCourseInvitationSummary,
     LiveStudentCourseLandingStore, LiveStudentCourseLandingSummary,
-};
-pub use native_ple_grading::{NativePleGradingJobLease, NativePleGradingStore};
-pub use native_ple_submission::{
-    AcceptNativePleSubmission, NativePleSubmissionStatus, NativePleSubmissionStore,
-    ResolvedNativePleSubmission, StudentQuestionSubmissionGradingState,
 };
 pub use object_record::{
     WorkspaceQuestionSourceObjectRecordStore, validate_workspace_question_source_object_record,
@@ -174,4 +169,3 @@ pub use support_capability::{
     IssueSupportCapabilityInput, SupportCapabilityReceipt, SupportCapabilityStore,
     SupportMinimumProjection, SupportOperationKind,
 };
-pub use webwork_grading::{WebworkGradingJobLease, WebworkGradingStore};

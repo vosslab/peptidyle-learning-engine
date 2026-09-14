@@ -184,12 +184,13 @@ fn store_error_response(error: StoreError) -> Response {
         StoreError::AlreadyExists => {
             route_error(StatusCode::CONFLICT, "Support capability conflict")
         }
-        StoreError::AssignmentActivity(_) | StoreError::TimedOut | StoreError::Unavailable(_) => {
-            route_error(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Support capability unavailable",
-            )
-        }
+        StoreError::AssignmentActivity(_)
+        | StoreError::TimedOut
+        | StoreError::LeaseLost
+        | StoreError::Unavailable(_) => route_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Support capability unavailable",
+        ),
     }
 }
 fn concealed() -> Response {

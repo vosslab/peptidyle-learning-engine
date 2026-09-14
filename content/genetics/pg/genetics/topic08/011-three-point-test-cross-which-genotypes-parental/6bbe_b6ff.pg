@@ -1,0 +1,56 @@
+## DESCRIPTION
+## Imported Genetics source row 6bbe_b6ff; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic08/bbq-three-point_test_cross-which_genotypes-PARENTAL-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_6BBE_B6FF';
+<p>6bbe_b6ff</p> <h4>Three-Point Test Cross Problem</h4><p>A test cross is a way to explore the relationship between genes and their respective alleles. It is a useful tool for genetic mapping and deciphering the inheritance of traits. Specifically, a three-point test cross examines three (3) genes at the same time to learn about their assortment in gamete formation.</p><p>A standard three-point test cross involves crossing a heterozygous organism for all three genes with an organism that is homozygous recessive for all three genes</p> <p>For this problem, a test cross using a fruit fly (<i>Drosophila melanogaster</i>) heterozygous for three genes was conducted to understand their genetic interactions.</p><h6>Characteristics of Recessive Phenotypes</h6><p><ul><li><strong><span style="color: #266c4f;">Gene B</span></strong> is linked with the '<span style="color: #266c4f;"><i>bumpy</i></span>' phenotype. A fruit fly that is homozygous recessive for <span style="color: #266c4f;">Gene B</span> has a skin texture that is not smooth, but rough with small bumps all over.</li> <li><strong><span style="color: #4155b1;">Gene C</span></strong> is affiliated with the '<span style="color: #4155b1;"><i>chummy</i></span>' phenotype. A fruit fly that is homozygous recessive for <span style="color: #4155b1;">Gene C</span> shows behavior where it always maintains a close distance to other flies.</li> <li><strong><span style="color: #9c334e;">Gene M</span></strong> is analogous to the '<span style="color: #9c334e;"><i>mushy</i></span>' phenotype. A fruit fly that is homozygous recessive for <span style="color: #9c334e;">Gene M</span> feels soft to the touch and unusually squishy, unlike the usual firmness.</li> </ul></p><table style="border-collapse: collapse; border: 2px solid black;"><tr><th align="center" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">Phenotype</span></th><th colspan="3" align="center" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">Genotypes</span></th><th align="center" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">Progeny<br/>Count</span></th></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">bumpy, chummy, mushy</span></td><td align="center" style="border: 1px solid black; background-color: #cef5e0; padding: 5px;"><span style="font-size: large; color: #000000;">b</span></td><td align="center" style="border: 1px solid black; background-color: #e6e9ff; padding: 5px;"><span style="font-size: large; color: #000000;">c</span></td><td align="center" style="border: 1px solid black; background-color: #ffe2e6; padding: 5px;"><span style="font-size: large; color: #000000;">m</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">433</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">bumpy, chummy</span></td><td align="center" style="border: 1px solid black; background-color: #cef5e0; padding: 5px;"><span style="font-size: large; color: #000000;">b</span></td><td align="center" style="border: 1px solid black; background-color: #e6e9ff; padding: 5px;"><span style="font-size: large; color: #000000;">c</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #9c334e;">+</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">883</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">bumpy, mushy</span></td><td align="center" style="border: 1px solid black; background-color: #cef5e0; padding: 5px;"><span style="font-size: large; color: #000000;">b</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #4155b1;">+</span></td><td align="center" style="border: 1px solid black; background-color: #ffe2e6; padding: 5px;"><span style="font-size: large; color: #000000;">m</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">3,291</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">bumpy</span></td><td align="center" style="border: 1px solid black; background-color: #cef5e0; padding: 5px;"><span style="font-size: large; color: #000000;">b</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #4155b1;">+</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #9c334e;">+</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">60</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">chummy, mushy</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #266c4f;">+</span></td><td align="center" style="border: 1px solid black; background-color: #e6e9ff; padding: 5px;"><span style="font-size: large; color: #000000;">c</span></td><td align="center" style="border: 1px solid black; background-color: #ffe2e6; padding: 5px;"><span style="font-size: large; color: #000000;">m</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">32</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">chummy</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #266c4f;">+</span></td><td align="center" style="border: 1px solid black; background-color: #e6e9ff; padding: 5px;"><span style="font-size: large; color: #000000;">c</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #9c334e;">+</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">3,241</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">mushy</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #266c4f;">+</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #4155b1;">+</span></td><td align="center" style="border: 1px solid black; background-color: #ffe2e6; padding: 5px;"><span style="font-size: large; color: #000000;">m</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">865</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;"><i>wildtype</i></span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #266c4f;">+</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #4155b1;">+</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #9c334e;">+</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">395</span></td></tr><tr><th colspan="4" align="right" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">TOTAL =</span></th><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">9,200</span></td></tr></table><p>The resulting phenotypes are summarized in the table above.</p> <h6>Question</h6> <p>Based on the traits expressed in the offspring, identify the <span style="color: DarkRed;"><strong>parental genotype combinations</strong></span>. These are the allele combinations that the parent fruit flies originally carried.</p> <p>More than one genotype will be correct. Select all that apply.</p>
+PROMPT_6BBE_B6FF
+loadMacros('parserCheckboxList.pl');
+$choice_1 = <<'LITERAL_6BBE_B6FF_CHOICE_1';
+bcm
+LITERAL_6BBE_B6FF_CHOICE_1
+$choice_2 = <<'LITERAL_6BBE_B6FF_CHOICE_2';
+bc+
+LITERAL_6BBE_B6FF_CHOICE_2
+$choice_3 = <<'LITERAL_6BBE_B6FF_CHOICE_3';
+b+m
+LITERAL_6BBE_B6FF_CHOICE_3
+$choice_4 = <<'LITERAL_6BBE_B6FF_CHOICE_4';
+b++
+LITERAL_6BBE_B6FF_CHOICE_4
+$choice_5 = <<'LITERAL_6BBE_B6FF_CHOICE_5';
++cm
+LITERAL_6BBE_B6FF_CHOICE_5
+$choice_6 = <<'LITERAL_6BBE_B6FF_CHOICE_6';
++c+
+LITERAL_6BBE_B6FF_CHOICE_6
+$choice_7 = <<'LITERAL_6BBE_B6FF_CHOICE_7';
+++m
+LITERAL_6BBE_B6FF_CHOICE_7
+$choice_8 = <<'LITERAL_6BBE_B6FF_CHOICE_8';
++++
+LITERAL_6BBE_B6FF_CHOICE_8
+$correct_1 = <<'LITERAL_6BBE_B6FF_CORRECT_1';
+b+m
+LITERAL_6BBE_B6FF_CORRECT_1
+$correct_2 = <<'LITERAL_6BBE_B6FF_CORRECT_2';
++c+
+LITERAL_6BBE_B6FF_CORRECT_2
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5, $choice_6, $choice_7, $choice_8);
+@correct = ($correct_1, $correct_2);
+$answer = CheckboxList([@choices], [@correct], labels => 'ABC', displayLabels => 1, randomize => 0, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->checks\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

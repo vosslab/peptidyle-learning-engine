@@ -186,7 +186,10 @@ fn store_error_response(error: StoreError) -> Response {
             route_error(StatusCode::UNPROCESSABLE_ENTITY, "Course Roster is invalid")
         }
         StoreError::AlreadyExists => route_error(StatusCode::CONFLICT, "Course Roster conflict"),
-        StoreError::AssignmentActivity(_) | StoreError::TimedOut | StoreError::Unavailable(_) => {
+        StoreError::AssignmentActivity(_)
+        | StoreError::TimedOut
+        | StoreError::LeaseLost
+        | StoreError::Unavailable(_) => {
             route_error(StatusCode::SERVICE_UNAVAILABLE, "Course Roster unavailable")
         }
     }

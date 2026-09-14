@@ -7,9 +7,7 @@ import type { CourseGradebook, CourseGradebookStudentWork } from "../live_gradeb
 import {
   DecodeError,
   decodeArray,
-  decodeNonnegativeInteger,
   decodeNullable,
-  decodePositiveInteger,
   decodeRecord,
   decodeString,
   decodeStringEnum,
@@ -61,27 +59,31 @@ function studentWork(value: unknown, path: string): CourseGradebookStudentWork {
     "rosterId",
     "assignmentReference",
     "assignmentAttemptCompletion",
-    "gradedQuestionCount",
-    "questionCount",
-    "pointsEarned",
-    "pointsPossible",
+    "expiredSubmitting",
+    "score",
   ]);
-  const pointsEarned = nonNegativeFinite(
-    field(record, "pointsEarned", path),
-    `${path}.pointsEarned`,
-  );
-  const pointsPossible = nonNegativeFinite(
-    field(record, "pointsPossible", path),
-    `${path}.pointsPossible`,
-  );
-  const gradedQuestionCount = decodeNonnegativeInteger(
-    field(record, "gradedQuestionCount", path),
-    `${path}.gradedQuestionCount`,
-  );
-  const questionCount = decodePositiveInteger(
-    field(record, "questionCount", path),
-    `${path}.questionCount`,
-  );
+  const scoreValue = field(record, "score", path);
+  const expiredSubmitting = field(record, "expiredSubmitting", path);
+  if (typeof expiredSubmitting !== "boolean")
+    throw new DecodeError(`${path}.expiredSubmitting`, "a boolean");
+  const score =
+    scoreValue === null
+      ? null
+      : ((): NonNullable<CourseGradebookStudentWork["score"]> => {
+          const scoreRecord = decodeRecord(scoreValue, `${path}.score`);
+          requireOnlyFields(scoreRecord, `${path}.score`, ["pointsEarned", "pointsPossible"]);
+          const pointsEarned = nonNegativeFinite(
+            field(scoreRecord, "pointsEarned", `${path}.score`),
+            `${path}.score.pointsEarned`,
+          );
+          const pointsPossible = nonNegativeFinite(
+            field(scoreRecord, "pointsPossible", `${path}.score`),
+            `${path}.score.pointsPossible`,
+          );
+          if (pointsEarned > pointsPossible)
+            throw new DecodeError(`${path}.score`, "an ordered non-negative Assignment score");
+          return { pointsEarned, pointsPossible };
+        })();
   const assignmentAttemptCompletion = decodeNullable(
     field(record, "assignmentAttemptCompletion", path),
     `${path}.assignmentAttemptCompletion`,
@@ -89,10 +91,8 @@ function studentWork(value: unknown, path: string): CourseGradebookStudentWork {
       decodeStringEnum(candidate, candidatePath, ASSIGNMENT_ATTEMPT_COMPLETIONS),
   );
   if (
-    gradedQuestionCount > questionCount ||
-    pointsEarned > pointsPossible ||
-    (assignmentAttemptCompletion === null &&
-      (gradedQuestionCount !== 0 || pointsEarned !== 0 || pointsPossible !== 0))
+    (assignmentAttemptCompletion === null && (score !== null || expiredSubmitting)) ||
+    (expiredSubmitting && (assignmentAttemptCompletion !== "inProgress" || score !== null))
   ) {
     throw new DecodeError(path, "internally consistent answer-free progress totals");
   }
@@ -103,10 +103,8 @@ function studentWork(value: unknown, path: string): CourseGradebookStudentWork {
       `${path}.assignmentReference`,
     ),
     assignmentAttemptCompletion,
-    gradedQuestionCount,
-    questionCount,
-    pointsEarned,
-    pointsPossible,
+    expiredSubmitting,
+    score,
   };
 }
 

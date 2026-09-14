@@ -8,17 +8,14 @@ use sqlx::{Postgres, Row, Transaction};
 
 use super::Pool;
 use super::connection::map_sqlx_error;
-use crate::imathas_question_backend_session::StagedImathasResultReceipt;
 use crate::{
-    AutomatedGradingReceipt, AutomatedGradingReceiptChecksum, CommitStagedImathasResultGrading,
-    ImathasGradingJobLease, ImathasLaunchBindingChecksum, ImathasQuestionBackendSession,
+    ImathasLaunchBindingChecksum, ImathasQuestionBackendSession,
     ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
-    ImathasQuestionBackendSessionCreate, ImathasQuestionBackendSessionLease,
-    ImathasQuestionBackendSessionReference, ImathasQuestionBackendSessionRestoreExpectation,
-    ImathasQuestionBackendSessionStorageParts, ImathasQuestionBackendSessionStore,
-    ImathasQuestionBackendStateCipher, ImathasQuestionBackendStateKeyId,
-    ImathasQuestionBackendStateKeyRing, ImathasResponseChecksum,
-    LoadedImathasQuestionBackendSession, SessionTokenHash, StageVerifiedImathasResult, StoreError,
+    ImathasQuestionBackendSessionCreate, ImathasQuestionBackendSessionReference,
+    ImathasQuestionBackendSessionRestoreExpectation, ImathasQuestionBackendSessionStorageParts,
+    ImathasQuestionBackendSessionStore, ImathasQuestionBackendStateCipher,
+    ImathasQuestionBackendStateKeyId, ImathasQuestionBackendStateKeyRing, ImathasResponseChecksum,
+    LoadedImathasQuestionBackendSession, SessionTokenHash, StoreError,
 };
 
 /// PostgreSQL implementation of the durable iMathAS Question Backend Session boundary.
@@ -144,246 +141,6 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
             session,
             imathas_question_backend_state,
         ))
-    }
-
-    async fn lease_imathas_question_backend_session(
-        &self,
-        session_token_hash: SessionTokenHash,
-        reference: ImathasQuestionBackendSessionReference,
-        expectation: ImathasQuestionBackendSessionRestoreExpectation,
-        lease_expires_at: Timestamp,
-    ) -> Result<ImathasQuestionBackendSessionLease, StoreError> {
-        let mut capability = [0_u8; 32];
-        getrandom::fill(&mut capability).map_err(|_| {
-            StoreError::Unavailable(
-                "iMathAS Question Backend Session lease randomness unavailable".into(),
-            )
-        })?;
-        let lease = ImathasQuestionBackendSessionLease::from_server_capability(
-            reference,
-            capability,
-            lease_expires_at,
-            expectation,
-        );
-        let lease_parts = lease.storage_parts();
-        let context = lease_parts.restore;
-        let (mut transaction, _) = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
-        sqlx::query(
-            "SELECT ple_api.lease_imathas_question_backend_session(\
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, decode($10, 'hex'), $11, \
-                $12::numeric, $13, $14, to_timestamp($15::double precision / 1000.0))",
-        )
-        .bind(lease_parts.reference.as_uuid())
-        .bind(context.course.as_uuid())
-        .bind(context.assignment.as_uuid())
-        .bind(context.grading_context.question_attempt().as_uuid())
-        .bind(
-            context
-                .imathas_question_backend_binding
-                .deployment_reference()
-                .as_str(),
-        )
-        .bind(
-            context
-                .imathas_question_backend_binding
-                .item_reference()
-                .as_str(),
-        )
-        .bind(
-            context
-                .grading_context
-                .question_revision()
-                .question_id
-                .as_compact_str(),
-        )
-        .bind(
-            i32::try_from(
-                context
-                    .grading_context
-                    .question_revision()
-                    .revision_number
-                    .get(),
-            )
-            .map_err(|_| {
-                StoreError::InvalidRecord(
-                    "Question Revision number exceeds PostgreSQL integer range".into(),
-                )
-            })?,
-        )
-        .bind(context.source_object.object.as_uuid())
-        .bind(context.source_object_checksum.as_str())
-        .bind(context.imathas_question_backend_binding.profile().as_str())
-        .bind(context.grading_context.question_seed().value().to_string())
-        .bind(context.imathas_launch_binding_checksum.as_str())
-        .bind(lease_parts.capability_checksum.as_bytes().to_vec())
-        .bind(lease_parts.expires_at.as_unix_millis())
-        .execute(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(lease)
-    }
-
-    async fn stage_verified_imathas_result(
-        &self,
-        session_token_hash: SessionTokenHash,
-        stage: StageVerifiedImathasResult,
-    ) -> Result<StagedImathasResultReceipt, StoreError> {
-        let transition_parts = stage.storage_parts();
-        let lease = transition_parts.lease;
-        let context = lease.restore;
-        let (mut transaction, _) = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
-        let row = sqlx::query(
-            "SELECT * FROM ple_api.stage_verified_imathas_result(\
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, decode($10, 'hex'), $11, \
-                $12::numeric, $13, $14, $15, $16, $17, $18, $19, \
-                $20, to_timestamp($21::double precision / 1000.0))",
-        )
-        .bind(lease.reference.as_uuid())
-        .bind(context.course.as_uuid())
-        .bind(context.assignment.as_uuid())
-        .bind(context.grading_context.question_attempt().as_uuid())
-        .bind(
-            context
-                .imathas_question_backend_binding
-                .deployment_reference()
-                .as_str(),
-        )
-        .bind(
-            context
-                .imathas_question_backend_binding
-                .item_reference()
-                .as_str(),
-        )
-        .bind(
-            context
-                .grading_context
-                .question_revision()
-                .question_id
-                .as_compact_str(),
-        )
-        .bind(
-            i32::try_from(
-                context
-                    .grading_context
-                    .question_revision()
-                    .revision_number
-                    .get(),
-            )
-            .map_err(|_| {
-                StoreError::InvalidRecord(
-                    "Question Revision number exceeds PostgreSQL integer range".into(),
-                )
-            })?,
-        )
-        .bind(context.source_object.object.as_uuid())
-        .bind(context.source_object_checksum.as_str())
-        .bind(context.imathas_question_backend_binding.profile().as_str())
-        .bind(context.grading_context.question_seed().value().to_string())
-        .bind(context.imathas_launch_binding_checksum.as_str())
-        .bind(lease.capability_checksum.as_bytes().to_vec())
-        .bind(
-            transition_parts
-                .imathas_result_token_checksum
-                .as_bytes()
-                .to_vec(),
-        )
-        .bind(transition_parts.imathas_result.normalized_score().value())
-        .bind(transition_parts.imathas_result_checksum.as_bytes().to_vec())
-        .bind(transition_parts.question_submission_id.as_uuid())
-        .bind(transition_parts.grading_job_id.as_uuid())
-        .bind(transition_parts.question_submission_grading_id.as_uuid())
-        .bind(transition_parts.transitioned_at.as_unix_millis())
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        let receipt = StagedImathasResultReceipt::from_storage_parts(
-            question_model::QuestionSubmissionId::from_uuid(
-                row.try_get("submission_id").map_err(map_sqlx_error)?,
-            ),
-            crate::QuestionSubmissionGradingId::from_uuid(
-                row.try_get("question_submission_grading_id")
-                    .map_err(map_sqlx_error)?,
-            ),
-            crate::JobId::from_uuid(row.try_get("job_id").map_err(map_sqlx_error)?),
-        );
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(receipt)
-    }
-
-    async fn claim_imathas_result_grading_job(
-        &self,
-        grading_job_id: crate::JobId,
-        lease_expires_at: Timestamp,
-    ) -> Result<ImathasGradingJobLease, StoreError> {
-        let lease_token = random_uuid()?;
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_imathas_question_backend_grading_worker")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let claimed: bool = sqlx::query_scalar(
-            "SELECT ple_api.claim_imathas_result_grading_job(\
-                $1, $2, to_timestamp($3::double precision / 1000.0))",
-        )
-        .bind(grading_job_id.as_uuid())
-        .bind(lease_token)
-        .bind(lease_expires_at.as_unix_millis())
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        if !claimed {
-            return Err(StoreError::Conflict);
-        }
-        Ok(ImathasGradingJobLease::from_server_capability(
-            grading_job_id,
-            lease_token,
-            lease_expires_at,
-        ))
-    }
-
-    async fn commit_staged_imathas_result_grading(
-        &self,
-        command: CommitStagedImathasResultGrading,
-    ) -> Result<AutomatedGradingReceipt, StoreError> {
-        let (lease, committed_at) = command.storage_parts();
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_imathas_question_backend_grading_worker")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let row = sqlx::query(
-            "SELECT * FROM ple_api.commit_imathas_result_grading(\
-                $1, $2, to_timestamp($3::double precision / 1000.0))",
-        )
-        .bind(lease.job_id.as_uuid())
-        .bind(lease.lease_token)
-        .bind(committed_at.as_unix_millis())
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        let receipt = AutomatedGradingReceipt::from_storage_parts(
-            crate::AutomatedGradingReceiptId::from_uuid(
-                row.try_get("automated_grading_receipt_id")
-                    .map_err(map_sqlx_error)?,
-            ),
-            AutomatedGradingReceiptChecksum::from_bytes(fixed_bytes::<32>(
-                &row,
-                "automated_grading_receipt_checksum",
-            )?),
-            question_model::GradingResult {
-                correct: row.try_get("correct").map_err(map_sqlx_error)?,
-                points_earned: row.try_get("points_earned").map_err(map_sqlx_error)?,
-                points_possible: row.try_get("points_possible").map_err(map_sqlx_error)?,
-            },
-        );
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(receipt)
     }
 }
 
@@ -533,10 +290,6 @@ fn decode_imathas_question_backend_session_row(
         imathas_launch_binding_checksum,
         issued_at,
         expires_at,
-        revoked_at: None,
-        consumed_at: None,
-        lease_expires_at: None,
-        lease_active: false,
     };
     let session = ImathasQuestionBackendSession::from_row_parts(parts)
         .map_err(|_| invalid_stored_session())?;
@@ -552,12 +305,6 @@ fn fixed_bytes<const N: usize>(row: &PgRow, column: &str) -> Result<[u8; N], Sto
 
 fn invalid_stored_session() -> StoreError {
     StoreError::Unavailable("stored iMathAS Question Backend Session is invalid".into())
-}
-
-fn random_uuid() -> Result<uuid::Uuid, StoreError> {
-    crate::random_uuid::random_uuid_v4(|_| {
-        StoreError::Unavailable("iMathAS grading UUID randomness unavailable".into())
-    })
 }
 
 fn ensure_resolved_session_account(

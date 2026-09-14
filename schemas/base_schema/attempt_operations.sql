@@ -55,6 +55,8 @@ DECLARE assignment_row ple_data.assignment%ROWTYPE;
 DECLARE existing_attempt ple_private.assignment_attempt%ROWTYPE;
 DECLARE account_id uuid := ple_api.current_session_account_id();
 DECLARE now_value timestamptz := pg_catalog.clock_timestamp();
+DECLARE completed_attempt_count integer;
+DECLARE start_decision_value text;
 DECLARE next_attempt_number integer;
 DECLARE selection jsonb;
 DECLARE issued jsonb;
@@ -71,8 +73,10 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Assignment Attempt start arguments are invalid';
     END IF;
 
-    -- Every Student Work mutator acquires this Assignment row first.  The
+    -- Every Student Work mutator acquires this Assignment row first. The
     -- guarded Unrelease procedure uses the identical first lock.
+    -- ASVS 2.3.3, 15.4.2: authorization, timing checks, and creation stay in
+    -- one locked transaction so the decision cannot race the accepted write.
     PERFORM ple_private.lock_assignment_for_student_work(p_assignment_id);
     SELECT * INTO assignment_row FROM ple_data.assignment WHERE assignment_id = p_assignment_id;
     IF NOT FOUND OR assignment_row.assignment_status <> 'released'
@@ -85,18 +89,37 @@ BEGIN
     SELECT * INTO accommodation_row
       FROM ple_private.student_assignment_accommodation
      WHERE student_record_id = p_student_record_id AND assignment_id = p_assignment_id;
-    IF COALESCE(accommodation_row.available_at, assignment_row.available_at) > now_value
-       OR COALESCE(accommodation_row.closes_at, assignment_row.closes_at) < now_value
-       OR (assignment_row.late_work_rule = 'reject'
-           AND COALESCE(accommodation_row.due_at, assignment_row.due_at) IS NOT NULL
-           AND now_value > COALESCE(accommodation_row.due_at, assignment_row.due_at)) THEN
+
+    SELECT count(*)::integer INTO completed_attempt_count
+      FROM ple_private.assignment_attempt AS attempt
+     WHERE attempt.student_record_id = p_student_record_id
+       AND attempt.assignment_id = p_assignment_id
+       AND (attempt.completed_at IS NOT NULL
+            OR EXISTS (SELECT 1 FROM ple_private.assignment_submission AS submission
+                         WHERE submission.assignment_attempt_id = attempt.assignment_attempt_id)
+            OR (attempt.expires_at IS NOT NULL AND attempt.expires_at <= now_value));
+    start_decision_value := ple_private.assignment_start_decision(
+        assignment_row.assignment_status,
+        COALESCE(accommodation_row.available_at, assignment_row.available_at),
+        COALESCE(accommodation_row.due_at, assignment_row.due_at),
+        COALESCE(accommodation_row.closes_at, assignment_row.closes_at),
+        COALESCE(accommodation_row.attempt_limit, assignment_row.attempt_limit),
+        completed_attempt_count,
+        assignment_row.late_work_rule,
+        now_value
+    );
+    IF start_decision_value IN ('closed', 'not_yet_available') THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Assignment Attempt start is outside its effective availability';
     END IF;
 
-    SELECT * INTO existing_attempt FROM ple_private.assignment_attempt
-     WHERE student_record_id = p_student_record_id AND assignment_id = p_assignment_id
-       AND completed_at IS NULL
-     ORDER BY attempt_number DESC LIMIT 1;
+    SELECT * INTO existing_attempt FROM ple_private.assignment_attempt AS candidate
+     WHERE candidate.student_record_id = p_student_record_id
+       AND candidate.assignment_id = p_assignment_id
+       AND candidate.completed_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM ple_private.assignment_submission AS submission
+                        WHERE submission.assignment_attempt_id = candidate.assignment_attempt_id)
+       AND (candidate.expires_at IS NULL OR candidate.expires_at > now_value)
+     ORDER BY candidate.attempt_number DESC LIMIT 1;
     -- Resume is interpretation of an existing Attempt, so it follows the
     -- retained Attempt rule rather than a later released Assignment edit.
     IF FOUND AND existing_attempt.assignment_attempt_resume_rule = 'resumable' THEN
@@ -106,6 +129,11 @@ BEGIN
         RETURN NEXT;
         RETURN;
     END IF;
+    IF start_decision_value = 'attempt_limit_reached' THEN
+        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Assignment Attempt limit is reached';
+    ELSIF start_decision_value = 'late_work_refused' THEN
+        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Assignment Attempt start is outside its effective availability';
+    END IF;
     SELECT COALESCE(max(existing_assignment_attempt.attempt_number), 0) + 1 INTO next_attempt_number
       FROM ple_private.assignment_attempt AS existing_assignment_attempt
      WHERE existing_assignment_attempt.student_record_id = p_student_record_id
@@ -114,9 +142,8 @@ BEGIN
        AND next_attempt_number > COALESCE(accommodation_row.attempt_limit, assignment_row.attempt_limit) THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Assignment Attempt limit is reached';
     END IF;
-
     INSERT INTO ple_private.assignment_attempt(
-        assignment_attempt_id, student_record_id, assignment_id, attempt_number, started_at,
+        assignment_attempt_id, student_record_id, assignment_id, attempt_number, started_at, expires_at,
         assignment_title, assignment_instructions, available_at, due_at, closes_at,
         assignment_attempt_time_limit_seconds, attempt_limit, late_work_rule,
         assignment_completion_rule, assignment_completion_score_threshold,
@@ -131,6 +158,29 @@ BEGIN
         attempt_limit_accommodation_id, attempt_limit_accommodation_edit_number
     ) VALUES (
         p_assignment_attempt_id, p_student_record_id, p_assignment_id, next_attempt_number, now_value,
+        CASE
+            WHEN COALESCE(accommodation_row.assignment_attempt_time_limit_seconds,
+                          assignment_row.assignment_attempt_time_limit_seconds) IS NOT NULL
+                 AND COALESCE(accommodation_row.closes_at, assignment_row.closes_at) IS NOT NULL
+                THEN least(
+                    now_value + pg_catalog.make_interval(
+                        secs => COALESCE(
+                            accommodation_row.assignment_attempt_time_limit_seconds,
+                            assignment_row.assignment_attempt_time_limit_seconds
+                        )
+                    ),
+                    COALESCE(accommodation_row.closes_at, assignment_row.closes_at)
+                )
+            WHEN COALESCE(accommodation_row.assignment_attempt_time_limit_seconds,
+                          assignment_row.assignment_attempt_time_limit_seconds) IS NOT NULL
+                THEN now_value + pg_catalog.make_interval(
+                    secs => COALESCE(
+                        accommodation_row.assignment_attempt_time_limit_seconds,
+                        assignment_row.assignment_attempt_time_limit_seconds
+                    )
+                )
+            ELSE COALESCE(accommodation_row.closes_at, assignment_row.closes_at)
+        END,
         assignment_row.assignment_title, assignment_row.assignment_instructions,
         COALESCE(accommodation_row.available_at, assignment_row.available_at),
         COALESCE(accommodation_row.due_at, assignment_row.due_at),
@@ -503,20 +553,24 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE attempt_row ple_private.assignment_attempt%ROWTYPE;
 DECLARE question_attempt_id_value uuid;
-DECLARE now_value timestamptz := pg_catalog.clock_timestamp();
+DECLARE now_value timestamptz;
 BEGIN
+    attempt_row := ple_private.assert_current_student_attempt(
+        p_assignment_attempt_reference_number
+    );
+    now_value := pg_catalog.clock_timestamp();
+    IF EXISTS (
+        SELECT 1 FROM ple_private.assignment_submission AS submission
+         WHERE submission.assignment_attempt_id = attempt_row.assignment_attempt_id
+    ) OR (attempt_row.expires_at IS NOT NULL AND now_value >= attempt_row.expires_at) THEN
+        assignment_attempt_reference_number := attempt_row.reference_number;
+        issued_position := p_issued_position;
+        response_state := 'expired';
+        RETURN NEXT;
+        RETURN;
+    END IF;
     IF p_issued_position < 0 OR jsonb_typeof(p_student_response) <> 'object' THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Student response arguments are invalid';
-    END IF;
-    attempt_row := ple_private.assert_current_student_attempt(p_assignment_attempt_reference_number);
-    PERFORM ple_private.lock_assignment_for_student_work(attempt_row.assignment_id);
-    IF (attempt_row.closes_at IS NOT NULL AND attempt_row.closes_at < now_value)
-       OR (attempt_row.late_work_rule = 'reject' AND attempt_row.due_at IS NOT NULL
-           AND attempt_row.due_at < now_value)
-       OR (attempt_row.assignment_attempt_time_limit_seconds IS NOT NULL
-           AND attempt_row.started_at + pg_catalog.make_interval(
-               secs => attempt_row.assignment_attempt_time_limit_seconds) < now_value) THEN
-        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Assignment Attempt no longer accepts responses';
     END IF;
     SELECT question_attempt.question_attempt_id INTO question_attempt_id_value
       FROM ple_private.issued_question AS issued
@@ -524,10 +578,20 @@ BEGIN
      WHERE issued.assignment_attempt_id = attempt_row.assignment_attempt_id
        AND issued.issued_position = p_issued_position
        AND question_attempt.question_attempt_state = 'open'
-       AND (question_attempt.deadline_at IS NULL OR question_attempt.deadline_at >= now_value)
      FOR UPDATE OF question_attempt;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Issued Question is unavailable';
+    END IF;
+    now_value := pg_catalog.clock_timestamp();
+    IF EXISTS (
+        SELECT 1 FROM ple_private.assignment_submission AS submission
+         WHERE submission.assignment_attempt_id = attempt_row.assignment_attempt_id
+    ) OR (attempt_row.expires_at IS NOT NULL AND now_value >= attempt_row.expires_at) THEN
+        assignment_attempt_reference_number := attempt_row.reference_number;
+        issued_position := p_issued_position;
+        response_state := 'expired';
+        RETURN NEXT;
+        RETURN;
     END IF;
     INSERT INTO ple_private.assignment_attempt_saved_response(question_attempt_id, student_response, saved_at)
     VALUES (question_attempt_id_value, p_student_response, now_value)
@@ -536,122 +600,6 @@ BEGIN
     assignment_attempt_reference_number := attempt_row.reference_number;
     issued_position := p_issued_position;
     response_state := 'saved';
-    RETURN NEXT;
-END $$;
-
-CREATE FUNCTION ple_private.finalize_student_assignment_attempt(
-    p_assignment_attempt_reference_number bigint
-) RETURNS TABLE (submission_state text, missing_positions integer[])
-LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-DECLARE attempt_row ple_private.assignment_attempt%ROWTYPE;
-DECLARE now_value timestamptz := pg_catalog.clock_timestamp();
-DECLARE finalized_question_attempt record;
-DECLARE question_submission_id_value uuid;
-DECLARE question_submission_grading_id_value uuid;
-DECLARE grading_job_id_value uuid;
-BEGIN
-    attempt_row := ple_private.assert_current_student_attempt(p_assignment_attempt_reference_number);
-    PERFORM ple_private.lock_assignment_for_student_work(attempt_row.assignment_id);
-    PERFORM 1 FROM ple_private.question_attempt AS question_attempt
-      JOIN ple_private.issued_question AS issued ON issued.issued_question_id = question_attempt.issued_question_id
-     WHERE issued.assignment_attempt_id = attempt_row.assignment_attempt_id
-     FOR UPDATE OF question_attempt;
-
-    -- A lost response to an accepted whole-Attempt finalization converges on
-    -- its immutable Assignment Submission.  It neither reopens Questions nor
-    -- creates another Submission or grading Job.
-    IF EXISTS (
-        SELECT 1 FROM ple_private.assignment_submission AS submission
-         WHERE submission.assignment_attempt_id = attempt_row.assignment_attempt_id
-    ) THEN
-        submission_state := 'submitted';
-        missing_positions := ARRAY[]::integer[];
-        RETURN NEXT;
-        RETURN;
-    END IF;
-
-    SELECT array_agg(issued.issued_position ORDER BY issued.issued_position) INTO missing_positions
-      FROM ple_private.issued_question AS issued
-      LEFT JOIN ple_private.question_attempt AS question_attempt ON question_attempt.issued_question_id = issued.issued_question_id
-      LEFT JOIN ple_private.assignment_attempt_saved_response AS response ON response.question_attempt_id = question_attempt.question_attempt_id
-     WHERE issued.assignment_attempt_id = attempt_row.assignment_attempt_id
-       AND (question_attempt.question_attempt_state <> 'open' OR response.question_attempt_id IS NULL);
-    IF missing_positions IS NOT NULL THEN
-        submission_state := 'missing_responses';
-        RETURN NEXT;
-        RETURN;
-    END IF;
-
-    -- Saved-response finalization owns only the database-native and WeBWorK
-    -- paths.  iMathAS persists its verified external result through delivery,
-    -- rather than allowing this generic operation to manufacture evidence.
-    IF EXISTS (
-        SELECT 1
-          FROM ple_private.issued_question AS issued
-          LEFT JOIN ple_private.question_revision_source_binding AS source
-            ON source.question_id = issued.question_id
-           AND source.revision_number = issued.revision_number
-         WHERE issued.assignment_attempt_id = attempt_row.assignment_attempt_id
-           AND (source.question_id IS NULL OR source.backend NOT IN ('ple', 'webwork'))
-    ) THEN
-        RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Assignment Attempt submission is unavailable';
-    END IF;
-
-    UPDATE ple_private.question_attempt AS question_attempt
-       SET question_attempt_state = 'submission_accepted', submitted_at = now_value
-      FROM ple_private.issued_question AS issued
-     WHERE question_attempt.issued_question_id = issued.issued_question_id
-       AND issued.assignment_attempt_id = attempt_row.assignment_attempt_id;
-
-    FOR finalized_question_attempt IN
-        SELECT question_attempt.question_attempt_id, response.student_response,
-               CASE source.backend
-                   WHEN 'ple' THEN 'native_ple_grading'
-                   WHEN 'webwork' THEN 'webwork_grading'
-               END AS worker_kind
-          FROM ple_private.question_attempt AS question_attempt
-          JOIN ple_private.issued_question AS issued
-            ON issued.issued_question_id = question_attempt.issued_question_id
-          JOIN ple_private.assignment_attempt_saved_response AS response
-            ON response.question_attempt_id = question_attempt.question_attempt_id
-          JOIN ple_private.question_revision_source_binding AS source
-            ON source.question_id = issued.question_id
-           AND source.revision_number = issued.revision_number
-         WHERE issued.assignment_attempt_id = attempt_row.assignment_attempt_id
-         ORDER BY issued.issued_position
-    LOOP
-        question_submission_id_value := pg_catalog.gen_random_uuid();
-        question_submission_grading_id_value := pg_catalog.gen_random_uuid();
-        grading_job_id_value := pg_catalog.gen_random_uuid();
-        INSERT INTO ple_private.question_submission(
-            submission_id, question_attempt_id, submitted_at, student_response
-        ) VALUES (
-            question_submission_id_value,
-            finalized_question_attempt.question_attempt_id,
-            now_value,
-            finalized_question_attempt.student_response
-        );
-        PERFORM ple_private.enqueue_grade_accepted_submission(
-            grading_job_id_value,
-            question_submission_grading_id_value,
-            question_submission_id_value,
-            finalized_question_attempt.worker_kind,
-            '{}'::jsonb,
-            now_value,
-            3,
-            now_value
-        );
-    END LOOP;
-    INSERT INTO ple_private.assignment_submission(
-        assignment_submission_id, assignment_attempt_id, submitted_at, authorized_by_account_id, receipt
-    ) VALUES (
-        pg_catalog.gen_random_uuid(), attempt_row.assignment_attempt_id, now_value,
-        ple_api.current_session_account_id(), jsonb_build_object('submissionState', 'submitted')
-    );
-    submission_state := 'submitted';
-    missing_positions := ARRAY[]::integer[];
     RETURN NEXT;
 END $$;
 
@@ -777,198 +725,3 @@ BEGIN
      WHERE issued.assignment_attempt_id = attempt_row.assignment_attempt_id
      ORDER BY issued.issued_position;
 END $$;
-
--- Accommodations are current teaching configuration.  An Attempt copies its
--- effective values and sources at start, while this guarded CAS path remains
--- available for later Attempts.
-CREATE FUNCTION ple_private.save_student_assignment_accommodation(
-    p_accommodation_id uuid,
-    p_student_record_id uuid,
-    p_assignment_id uuid,
-    p_expected_edit_number bigint,
-    p_available_at timestamptz,
-    p_due_at timestamptz,
-    p_closes_at timestamptz,
-    p_assignment_attempt_time_limit_seconds integer,
-    p_attempt_limit integer
-) RETURNS TABLE (accommodation_edit_number bigint)
-LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-DECLARE current_row ple_private.student_assignment_accommodation%ROWTYPE;
-DECLARE course_id_value uuid;
-BEGIN
-    IF p_accommodation_id IS NULL OR p_student_record_id IS NULL OR p_assignment_id IS NULL
-       OR p_expected_edit_number IS NULL OR p_expected_edit_number < 0 THEN
-        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Student Assignment Accommodation save is invalid';
-    END IF;
-    SELECT assignment.course_id INTO course_id_value
-      FROM ple_data.assignment AS assignment
-     WHERE assignment.assignment_id = p_assignment_id;
-    IF NOT FOUND
-       OR NOT ple_data.student_assignment_has_course_scope(p_student_record_id, p_assignment_id)
-       OR NOT ple_api.current_session_account_is_course_instructor(course_id_value) THEN
-        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Student Assignment Accommodation is unavailable';
-    END IF;
-    -- Shares the Student Work root lock so a newly accepted current
-    -- accommodation and an Attempt start observe one ordering.
-    PERFORM ple_private.lock_assignment_for_student_work(p_assignment_id);
-    SELECT * INTO current_row FROM ple_private.student_assignment_accommodation
-     WHERE student_record_id = p_student_record_id AND assignment_id = p_assignment_id
-     FOR UPDATE;
-    IF NOT FOUND THEN
-        IF p_expected_edit_number <> 0 THEN
-            RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Student Assignment Accommodation Edit Number is stale';
-        END IF;
-        INSERT INTO ple_private.student_assignment_accommodation(
-            accommodation_id, student_record_id, assignment_id, available_at, due_at, closes_at,
-            assignment_attempt_time_limit_seconds, attempt_limit, created_at
-        ) VALUES (
-            p_accommodation_id, p_student_record_id, p_assignment_id, p_available_at, p_due_at,
-            p_closes_at, p_assignment_attempt_time_limit_seconds, p_attempt_limit,
-            pg_catalog.transaction_timestamp()
-        ) RETURNING ple_private.student_assignment_accommodation.accommodation_edit_number
-          INTO accommodation_edit_number;
-        RETURN NEXT;
-        RETURN;
-    END IF;
-    IF current_row.accommodation_id <> p_accommodation_id THEN
-        RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Student Assignment Accommodation identity is unavailable';
-    END IF;
-    IF current_row.accommodation_edit_number <> p_expected_edit_number THEN
-        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Student Assignment Accommodation Edit Number is stale';
-    END IF;
-    IF ROW(current_row.available_at, current_row.due_at, current_row.closes_at,
-           current_row.assignment_attempt_time_limit_seconds, current_row.attempt_limit)
-       IS NOT DISTINCT FROM ROW(p_available_at, p_due_at, p_closes_at,
-                                p_assignment_attempt_time_limit_seconds, p_attempt_limit) THEN
-        accommodation_edit_number := current_row.accommodation_edit_number;
-        RETURN NEXT;
-        RETURN;
-    END IF;
-    UPDATE ple_private.student_assignment_accommodation
-       SET available_at = p_available_at,
-           due_at = p_due_at,
-           closes_at = p_closes_at,
-           assignment_attempt_time_limit_seconds = p_assignment_attempt_time_limit_seconds,
-           attempt_limit = p_attempt_limit,
-           accommodation_edit_number = current_row.accommodation_edit_number + 1
-     WHERE accommodation_id = p_accommodation_id
- RETURNING ple_private.student_assignment_accommodation.accommodation_edit_number
-      INTO accommodation_edit_number;
-    RETURN NEXT;
-END $$;
-
-REVOKE ALL ON FUNCTION ple_private.lock_assignment_for_student_work(uuid),
-    ple_private.assert_current_student_attempt(bigint),
-    ple_private.start_assignment_attempt(uuid, uuid, uuid, jsonb, jsonb),
-    ple_private.prepare_current_assignment_attempt_start(bigint, bigint),
-    ple_private.read_started_student_assignment_attempt(uuid),
-    ple_private.save_student_assignment_attempt_response(bigint, integer, jsonb),
-    ple_private.finalize_student_assignment_attempt(bigint),
-    ple_private.read_student_assignment_attempt_progress(bigint),
-    ple_private.read_student_assignment_attempt_saved_response(bigint, integer),
-    ple_private.lock_question_attempt_for_grading(uuid),
-    ple_private.read_student_assignment_attempt_history_evidence(bigint),
-    ple_private.save_student_assignment_accommodation(uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, integer, integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_private.lock_assignment_for_student_work(uuid),
-    ple_private.start_assignment_attempt(uuid, uuid, uuid, jsonb, jsonb),
-    ple_private.prepare_current_assignment_attempt_start(bigint, bigint),
-    ple_private.read_started_student_assignment_attempt(uuid),
-    ple_private.save_student_assignment_attempt_response(bigint, integer, jsonb),
-    ple_private.finalize_student_assignment_attempt(bigint),
-    ple_private.read_student_assignment_attempt_progress(bigint),
-    ple_private.read_student_assignment_attempt_saved_response(bigint, integer),
-    ple_private.read_student_assignment_attempt_history_evidence(bigint),
-    ple_private.save_student_assignment_accommodation(uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, integer, integer) TO ple_api_owner;
-RESET ROLE;
-
-SET LOCAL ROLE ple_api_owner;
-CREATE FUNCTION ple_api.start_assignment_attempt(uuid, uuid, uuid, jsonb, jsonb)
-RETURNS TABLE (assignment_attempt_id uuid, attempt_number integer, resumed boolean)
-LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT * FROM ple_private.start_assignment_attempt($1, $2, $3, $4, $5)
-$$;
-CREATE FUNCTION ple_api.prepare_current_assignment_attempt_start(bigint, bigint)
-RETURNS TABLE (
-    student_record_id uuid, assignment_id uuid, assignment_entry_id uuid,
-    entry_kind text, authored_position integer, fixed_question_id text,
-    fixed_revision_number integer, question_pool_item_id uuid,
-    pool_question_id text, pool_revision_number integer, selection_count integer,
-    pool_selection_rule text, question_pool_reuse_rule text,
-    question_variation_rule text
-)
-LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT * FROM ple_private.prepare_current_assignment_attempt_start($1, $2)
-$$;
-CREATE FUNCTION ple_api.read_started_student_assignment_attempt(uuid)
-RETURNS TABLE (
-    assignment_attempt_reference_number bigint, course_reference_number bigint,
-    assignment_reference_number bigint, attempt_number integer,
-    assignment_title text, assignment_instructions text
-)
-LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT * FROM ple_private.read_started_student_assignment_attempt($1)
-$$;
-CREATE FUNCTION ple_api.save_student_assignment_attempt_response(bigint, integer, jsonb)
-RETURNS TABLE (assignment_attempt_reference_number bigint, issued_position integer, response_state text)
-LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT assignment_attempt_reference_number, issued_position + 1, response_state
-      FROM ple_private.save_student_assignment_attempt_response($1, $2 - 1, $3)
-$$;
-CREATE FUNCTION ple_api.finalize_student_assignment_attempt(bigint)
-RETURNS TABLE (submission_state text, missing_positions integer[])
-LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT submission_state,
-           ARRAY(SELECT position + 1 FROM unnest(missing_positions) AS position)
-      FROM ple_private.finalize_student_assignment_attempt($1)
-$$;
-CREATE FUNCTION ple_api.read_student_assignment_attempt_progress(bigint)
-RETURNS TABLE (assignment_attempt_reference_number bigint, question_count integer,
-    recommended_position integer, issued_position integer, response_state text)
-LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT assignment_attempt_reference_number, question_count,
-           recommended_position + 1, issued_position + 1, response_state
-      FROM ple_private.read_student_assignment_attempt_progress($1)
-$$;
-CREATE FUNCTION ple_api.read_student_assignment_attempt_saved_response(bigint, integer)
-RETURNS TABLE (issued_position integer, student_response jsonb)
-LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT issued_position + 1, student_response
-      FROM ple_private.read_student_assignment_attempt_saved_response($1, $2 - 1)
-$$;
-CREATE FUNCTION ple_api.read_student_assignment_attempt_history_evidence(bigint)
-RETURNS TABLE (assignment_attempt_reference_number bigint, assignment_title text, assignment_instructions text,
-    issued_position integer, question_id text, revision_number integer, question_seed numeric,
-    question_attempt_limit integer, question_attempt_time_limit_seconds integer,
-    question_attempt_grace_seconds integer, question_attempt_state text, student_response jsonb)
-LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT assignment_attempt_reference_number, assignment_title, assignment_instructions,
-           issued_position + 1, question_id, revision_number, question_seed,
-           question_attempt_limit, question_attempt_time_limit_seconds,
-           question_attempt_grace_seconds, question_attempt_state, student_response
-      FROM ple_private.read_student_assignment_attempt_history_evidence($1)
-$$;
-CREATE FUNCTION ple_api.save_student_assignment_accommodation(
-    uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, integer, integer
-) RETURNS TABLE (accommodation_edit_number bigint)
-LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT * FROM ple_private.save_student_assignment_accommodation($1, $2, $3, $4, $5, $6, $7, $8, $9)
-$$;
-REVOKE ALL ON FUNCTION ple_api.start_assignment_attempt(uuid, uuid, uuid, jsonb, jsonb),
-    ple_api.prepare_current_assignment_attempt_start(bigint, bigint),
-    ple_api.read_started_student_assignment_attempt(uuid),
-    ple_api.save_student_assignment_attempt_response(bigint, integer, jsonb),
-    ple_api.finalize_student_assignment_attempt(bigint), ple_api.read_student_assignment_attempt_progress(bigint),
-    ple_api.read_student_assignment_attempt_saved_response(bigint, integer),
-    ple_api.read_student_assignment_attempt_history_evidence(bigint),
-    ple_api.save_student_assignment_accommodation(uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, integer, integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.start_assignment_attempt(uuid, uuid, uuid, jsonb, jsonb),
-    ple_api.prepare_current_assignment_attempt_start(bigint, bigint),
-    ple_api.read_started_student_assignment_attempt(uuid),
-    ple_api.save_student_assignment_attempt_response(bigint, integer, jsonb),
-    ple_api.finalize_student_assignment_attempt(bigint), ple_api.read_student_assignment_attempt_progress(bigint),
-    ple_api.read_student_assignment_attempt_saved_response(bigint, integer),
-    ple_api.read_student_assignment_attempt_history_evidence(bigint),
-    ple_api.save_student_assignment_accommodation(uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, integer, integer) TO ple_app;
-RESET ROLE;

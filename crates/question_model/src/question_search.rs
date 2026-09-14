@@ -13,6 +13,12 @@ pub const MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS: usize = 16;
 /// Maximum free-form tag selections accepted in one Question Search query.
 pub const MAX_QUESTION_SEARCH_TAG_FILTERS: usize = 64;
 
+/// Maximum encoded continuation cursor length for Question Library search.
+///
+/// The title-and-Question-ID keyset cursor must carry a maximum-length Question
+/// Title; it is intentionally distinct from the smaller generic list cursor.
+pub const MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES: usize = 5_462;
+
 /// Maximum reviewed Question Author names returned in one Question Search facet snapshot.
 pub const MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS: usize = 64;
 

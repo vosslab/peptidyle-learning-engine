@@ -255,12 +255,13 @@ fn store_error_response(error: StoreError) -> Response {
             "Course Instance is invalid",
         ),
         StoreError::AlreadyExists => route_error(StatusCode::CONFLICT, "Course Instance conflict"),
-        StoreError::AssignmentActivity(_) | StoreError::TimedOut | StoreError::Unavailable(_) => {
-            route_error(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "Course Instance unavailable",
-            )
-        }
+        StoreError::AssignmentActivity(_)
+        | StoreError::TimedOut
+        | StoreError::LeaseLost
+        | StoreError::Unavailable(_) => route_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Course Instance unavailable",
+        ),
     }
 }
 

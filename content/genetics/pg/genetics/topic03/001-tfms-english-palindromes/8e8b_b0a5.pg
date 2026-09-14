@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 8e8b_b0a5; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic03/bbq-TFMS-english_palindromes-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_8E8B_B0A5';
+<p>8e8b_b0a5</p> Which one of the following English words is <strong>NOT</strong> a palindrome?
+PROMPT_8E8B_B0A5
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_8E8B_B0A5_CHOICE_1';
+Level
+LITERAL_8E8B_B0A5_CHOICE_1
+$choice_2 = <<'LITERAL_8E8B_B0A5_CHOICE_2';
+dog
+LITERAL_8E8B_B0A5_CHOICE_2
+$choice_3 = <<'LITERAL_8E8B_B0A5_CHOICE_3';
+Pop
+LITERAL_8E8B_B0A5_CHOICE_3
+$choice_4 = <<'LITERAL_8E8B_B0A5_CHOICE_4';
+Solos
+LITERAL_8E8B_B0A5_CHOICE_4
+$choice_5 = <<'LITERAL_8E8B_B0A5_CHOICE_5';
+Sos
+LITERAL_8E8B_B0A5_CHOICE_5
+$correct_1 = <<'LITERAL_8E8B_B0A5_CORRECT_1';
+dog
+LITERAL_8E8B_B0A5_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

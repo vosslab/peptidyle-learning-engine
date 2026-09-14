@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 38c9_255d; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-cytogenetic_notation-sub-band_notation-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_38C9_255D';
+<p>38c9_255d</p> In cytogenetic notation, what does "45,-16,XY" refer to?
+PROMPT_38C9_255D
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_38C9_255D_CHOICE_1';
+This indicates a <span style="color: #99004d;">female (&female;)</span> human karyotype <span style="color: #4d0099;">with a partial deletion of</span> chromosome 16.
+LITERAL_38C9_255D_CHOICE_1
+$choice_2 = <<'LITERAL_38C9_255D_CHOICE_2';
+This indicates a <span style="color: #004d99;">male (&male;)</span> human karyotype <span style="color: #994d00;">lacking</span> chromosome 16.
+LITERAL_38C9_255D_CHOICE_2
+$choice_3 = <<'LITERAL_38C9_255D_CHOICE_3';
+This indicates a <span style="color: #99004d;">female (&female;)</span> human karyotype <span style="color: #994d00;">lacking</span> chromosome 16.
+LITERAL_38C9_255D_CHOICE_3
+$choice_4 = <<'LITERAL_38C9_255D_CHOICE_4';
+This indicates a <span style="color: #99004d;">female (&female;)</span> human karyotype <span style="color: #00994d;">with an extra</span> chromosome 16.
+LITERAL_38C9_255D_CHOICE_4
+$choice_5 = <<'LITERAL_38C9_255D_CHOICE_5';
+This indicates a <span style="color: #004d99;">male (&male;)</span> human karyotype <span style="color: #4d0099;">with a partial duplication of</span> chromosome 16.
+LITERAL_38C9_255D_CHOICE_5
+$correct_1 = <<'LITERAL_38C9_255D_CORRECT_1';
+This indicates a <span style="color: #004d99;">male (&male;)</span> human karyotype <span style="color: #994d00;">lacking</span> chromosome 16.
+LITERAL_38C9_255D_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

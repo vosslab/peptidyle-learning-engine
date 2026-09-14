@@ -1,0 +1,40 @@
+## DESCRIPTION
+## Imported Genetics source row df61_0538; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic07/bbq-chi_square_hypotheses-pair-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_DF61_0538';
+<p>df61_0538</p> <p>In a plant species with incomplete dominance, you cross two pink individuals (Rr &times; Rr) and score flower color.</p><p>Total offspring scored: <span style='font-family: monospace;'>220</span></p><table style="border: 1px solid black; border-collapse: collapse;"><colgroup width="220"></colgroup><colgroup width="80"></colgroup><colgroup width="90"></colgroup><colgroup width="90"></colgroup><tr> <th align='center' colspan='4' style='background-color: silver'>Observed data</th> </tr><tr> <th align='center' style='background-color: lightgray'>Category</th> <th align='center' style='background-color: lightgray'>Ratio</th> <th align='center' style='background-color: lightgray'>Expected</th> <th align='center' style='background-color: lightgray'>Observed</th> </tr><tr> <td>&nbsp;Red flowers (RR)</td> <td align='center'>1</td> <td align='center'>55</td> <td align='center'>61</td></tr><tr> <td>&nbsp;Pink flowers (Rr)</td> <td align='center'>2</td> <td align='center'>110</td> <td align='center'>114</td></tr><tr> <td>&nbsp;White flowers (rr)</td> <td align='center'>1</td> <td align='center'>55</td> <td align='center'>45</td></tr></table><hr/> <p>For a chi-squared (&chi;<sup>2</sup>) goodness-of-fit test, which option correctly states the null hypothesis (H<sub>0</sub>) and the alternative hypothesis (H<sub>A</sub>)?</p>
+PROMPT_DF61_0538
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_DF61_0538_CHOICE_1';
+<p><b>H<sub>0</sub></b>: The offspring proportions are consistent with the expected 1:2:1 ratio (any differences from the expected ratio are due to chance).<br/><b>H<sub>A</sub></b>: The offspring proportions are not consistent with the expected 1:2:1 ratio (the differences are too large to explain by chance alone).</p>
+LITERAL_DF61_0538_CHOICE_1
+$choice_2 = <<'LITERAL_DF61_0538_CHOICE_2';
+<p><b>H<sub>0</sub></b>: The offspring proportions are consistent with the expected 1:1:1 ratio (any differences from the expected ratio are due to chance).<br/><b>H<sub>A</sub></b>: The offspring proportions are not consistent with the expected 1:1:1 ratio (the differences are too large to explain by chance alone).</p>
+LITERAL_DF61_0538_CHOICE_2
+$choice_3 = <<'LITERAL_DF61_0538_CHOICE_3';
+<p><b>H<sub>0</sub></b>: The offspring proportions are not consistent with the expected 1:2:1 ratio (the differences are too large to explain by chance alone).<br/><b>H<sub>A</sub></b>: The offspring proportions are consistent with the expected 1:2:1 ratio (any differences from the expected ratio are due to chance).</p>
+LITERAL_DF61_0538_CHOICE_3
+$choice_4 = <<'LITERAL_DF61_0538_CHOICE_4';
+<p><b>H<sub>0</sub></b>: The observed counts are exactly in a 1:2:1 ratio.<br/><b>H<sub>A</sub></b>: The observed counts are not exactly in a 1:2:1 ratio.</p>
+LITERAL_DF61_0538_CHOICE_4
+$correct_1 = <<'LITERAL_DF61_0538_CORRECT_1';
+<p><b>H<sub>0</sub></b>: The offspring proportions are consistent with the expected 1:2:1 ratio (any differences from the expected ratio are due to chance).<br/><b>H<sub>A</sub></b>: The offspring proportions are not consistent with the expected 1:2:1 ratio (the differences are too large to explain by chance alone).</p>
+LITERAL_DF61_0538_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

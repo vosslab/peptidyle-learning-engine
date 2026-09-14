@@ -7,7 +7,6 @@ import test from "node:test";
 
 import { createBrowserSessionBoundary } from "../src/auth/browser_session_boundary.ts";
 import { createSessionBootstrap, sessionFailureState } from "../src/auth/session_context.tsx";
-import { prefetchMatchesIssuedSuccessor } from "../src/features/question_attempt/prefetch_binding.ts";
 import { productRoleMayAccessRoute, routeContractForPathname } from "../src/route_contract.ts";
 
 test("route contracts fail closed and reserve declared teaching routes for instructors", () => {
@@ -161,25 +160,4 @@ test("the generated browser surface excludes answer-bearing type names", () => {
       filename,
     );
   }
-});
-
-test("prefetched successors require the committed receipt binding", () => {
-  const successor = {
-    predecessor: "attempt-a",
-    issuedQuestion: { id: "issued-question-b" },
-    question_seed: 2,
-    renderedQuestionSha256: "a".repeat(64),
-  };
-  const issued = {
-    id: "attempt-b",
-    issuedQuestion: successor.issuedQuestion,
-    question_seed: successor.question_seed,
-    deadline: null,
-    renderedQuestionSha256: successor.renderedQuestionSha256,
-  };
-  assert.equal(prefetchMatchesIssuedSuccessor(successor, issued, "attempt-a"), true);
-  assert.equal(
-    prefetchMatchesIssuedSuccessor({ ...successor, question_seed: 3 }, issued, "attempt-a"),
-    false,
-  );
 });

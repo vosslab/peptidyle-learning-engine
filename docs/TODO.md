@@ -8,6 +8,10 @@ are in [ROADMAP.md](ROADMAP.md).
 
 ## Future product capabilities
 
+- [ ] Audit and map the 11 existing parameterized WeBWorK sources in the
+      Biology Problems Website Genetics downloads to the bundled Genetics
+      content. Where coverage is the same, replace static wrapper variants
+      through ordinary Question publication.
 - [ ] Build public Blueprint Course search as one bounded projection, Store,
       Server, authorization, and browser workflow capability.
 - [ ] Build My Questions, Starred Questions, and Watched Questions as bounded

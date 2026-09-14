@@ -16,11 +16,14 @@ import type {
   StudentAssignmentAttemptResponseState,
 } from "../api/assignment_attempt_navigation";
 import type { StudentResponseFormatCheck } from "../api/decoders/student_response_format_check";
+import { ApiRequestError } from "../api/http_client";
 import { useApplicationApi } from "../api/application_api";
 import { StudentAssignmentAttemptNavigation } from "../components/student_assignment_attempt_navigation";
 import type { StudentAssignmentAttemptQuestionState } from "../components/student_assignment_attempt_navigation";
+import { formatAssignmentDeliveryTime } from "../components/student_assignment_presentation";
 import { QuestionPresentationRenderer } from "../components/question_renderer";
 import { QuestionPresentationResponseControl } from "../components/question_response_controls/question_response_control";
+import type { SubmissionOutcome } from "../components/question_response_controls/common";
 import {
   saveCapturedBackendOwnedResponse,
   type BackendOwnedCapture,
@@ -68,6 +71,10 @@ function AttemptExperience(props: {
     "idle" | "submitting" | "submitted" | "error"
   >("idle");
   const [submissionError, setSubmissionError] = createSignal<string | null>(null);
+  const [submittedScore, setSubmittedScore] = createSignal<{
+    readonly pointsEarned: number;
+    readonly pointsPossible: number;
+  }>();
   const [remainingMilliseconds, setRemainingMilliseconds] = createSignal<number | null>(
     props.context.timerRemainingMilliseconds,
   );
@@ -80,11 +87,13 @@ function AttemptExperience(props: {
   const responseState = new AssignmentAttemptResponseState();
   let saveTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
   let activeSave: Promise<boolean> | undefined;
+  let expiryRefresh: Promise<void> | undefined;
   let finishAssignmentButton: HTMLButtonElement | undefined;
   let backendOwnedCapture: BackendOwnedCapture | undefined;
 
   const currentPosition = (): number | null => position();
   const isSubmitted = (): boolean => submissionState() === "submitted";
+  const isExpired = (): boolean => remainingMilliseconds() === 0;
 
   async function loadProgress(): Promise<void> {
     progressRequest += 1;
@@ -201,7 +210,7 @@ function AttemptExperience(props: {
   }
 
   async function activatePosition(nextPosition: number): Promise<void> {
-    if (nextPosition === currentPosition() || isSubmitted()) return;
+    if (nextPosition === currentPosition() || isSubmitted() || isExpired()) return;
     if (!(await saveCurrentResponse())) return;
     setPosition(nextPosition);
   }
@@ -211,20 +220,28 @@ function AttemptExperience(props: {
     setSubmissionState("submitting");
     setSubmissionError(null);
     try {
-      const finalized = await saveCapturedBackendOwnedResponse(
+      const result = await saveCapturedBackendOwnedResponse(
         backendOwnedCapture,
         saveCurrentResponse,
         () => runtime.client.submitStudentAssignmentAttempt(props.context.assignmentAttempt),
       );
-      if (!finalized) {
+      if (!result) {
         setSubmissionState("error");
         setSubmissionError(saveError() ?? "Response was not saved.");
         return;
       }
+      if (result.score !== null) setSubmittedScore(result.score);
       setSubmissionState("submitted");
       await loadProgress();
     } catch (error: unknown) {
       setSubmissionState("error");
+      if (error instanceof ApiRequestError && error.status === 503) {
+        // ASVS 16.5.1-16.5.2: do not expose transport details; saved work remains available.
+        setSubmissionError(
+          "This Assignment Attempt was not submitted. Submission is temporarily unavailable. Your saved responses are still here. Try again while time remains.",
+        );
+        return;
+      }
       setSubmissionError(
         `This Assignment Attempt was not submitted: ${errorMessage(error, "Please review your saved responses and try again.")}`,
       );
@@ -264,9 +281,7 @@ function AttemptExperience(props: {
     }
   }
 
-  function saveOutcome(): Promise<
-    import("../features/question_attempt/question_attempt_state").SubmissionOutcome
-  > {
+  function saveOutcome(): Promise<SubmissionOutcome> {
     return saveCurrentResponse().then((saved) =>
       saved
         ? { kind: "accepted" as const }
@@ -285,11 +300,33 @@ function AttemptExperience(props: {
         elapsedMilliseconds,
       })
       .then((next) => {
-        if (request === timerRequest) setRemainingMilliseconds(next);
+        if (request !== timerRequest) return;
+        setRemainingMilliseconds(next);
+        if (next === 0) void refreshAfterExpiry();
       })
       .catch(() => {
         if (request === timerRequest) setTimerUnavailable(true);
       });
+  }
+
+  async function refreshAfterExpiry(): Promise<void> {
+    if (isSubmitted() || expiryRefresh !== undefined) return expiryRefresh;
+    const refresh = (async (): Promise<void> => {
+      try {
+        const context = await runtime.client.getStudentAssignmentAttemptContext(
+          props.context.assignmentAttempt,
+        );
+        setRemainingMilliseconds(context.timerRemainingMilliseconds);
+        await loadProgress();
+      } catch (error: unknown) {
+        setLoadError(
+          `Time is up. Your saved responses are being submitted automatically: ${errorMessage(error, "The result will appear when submission finishes.")}`,
+        );
+      }
+    })();
+    expiryRefresh = refresh;
+    await refresh;
+    if (expiryRefresh === refresh) expiryRefresh = undefined;
   }
 
   createEffect(() => {
@@ -320,7 +357,7 @@ function AttemptExperience(props: {
   function responseStateForNavigation(
     responseState: StudentAssignmentAttemptResponseState,
   ): StudentAssignmentAttemptQuestionState {
-    if (isSubmitted() || responseState === "submitted") return "closed";
+    if (isSubmitted() || isExpired() || responseState === "submitted") return "closed";
     return responseState;
   }
 
@@ -341,11 +378,23 @@ function AttemptExperience(props: {
           <h1>{props.context.assignment.title}</h1>
         </div>
         <Show when={!isSubmitted()}>
-          <span class="calm-status" role="timer">
-            {timerUnavailable()
-              ? "Timer unavailable; the server still enforces the time limit."
-              : formatRemaining(remainingMilliseconds())}
-          </span>
+          <div>
+            <span class="calm-status" role="timer">
+              {timerUnavailable()
+                ? "Timer unavailable; the server still enforces the time limit."
+                : formatRemaining(remainingMilliseconds())}
+            </span>
+            <Show when={props.context.expiresAt !== null}>
+              <p class="assignment-attempt-expiry">
+                Saved responses submit automatically at{" "}
+                {formatAssignmentDeliveryTime(
+                  props.context.expiresAt,
+                  props.context.displayTimeZone,
+                )}
+                .
+              </p>
+            </Show>
+          </div>
         </Show>
       </header>
 
@@ -375,7 +424,7 @@ function AttemptExperience(props: {
 
       <Show when={loadError()}>
         {(message) => (
-          <section class="attempt-recovery" role="alert">
+          <section class="attempt-error" role="alert">
             <p>{message()}</p>
             <button class="quiet-action" type="button" onClick={retryCurrentLoad}>
               Retry
@@ -386,14 +435,28 @@ function AttemptExperience(props: {
 
       <Show when={isSubmitted()}>
         <section class="attempt-summary" aria-labelledby="assignment-submitted-heading">
-          <h2 id="assignment-submitted-heading">Assignment submitted</h2>
-          <p>Your saved responses are now submitted for this Assignment Attempt.</p>
+          <h2 id="assignment-submitted-heading">Your answers were accepted</h2>
+          <p>Your saved responses are submitted for this Assignment Attempt.</p>
+          <Show when={submittedScore()}>
+            {(score) => (
+              <p>
+                Score: {score().pointsEarned} of {score().pointsPossible} points
+              </p>
+            )}
+          </Show>
+        </section>
+      </Show>
+
+      <Show when={!isSubmitted() && isExpired()}>
+        <section class="attempt-summary" aria-labelledby="assignment-expired-heading">
+          <h2 id="assignment-expired-heading">Time is up</h2>
+          <p>Your saved responses are being submitted automatically.</p>
         </section>
       </Show>
 
       <Show when={presentation()} keyed>
         {(currentPresentation) => (
-          <Show when={!isSubmitted()}>
+          <Show when={!isSubmitted() && !isExpired()}>
             <article class="question-card">
               <div class="prompt-copy">
                 <ErrorBoundary fallback={<p class="inline-error">Question rendering failed.</p>}>
@@ -464,7 +527,7 @@ function AttemptExperience(props: {
         )}
       </Show>
 
-      <Show when={progress() && !isSubmitted()}>
+      <Show when={progress() && !isSubmitted() && !isExpired()}>
         <section
           class="assignment-attempt-submit"
           aria-labelledby="assignment-attempt-submit-heading"

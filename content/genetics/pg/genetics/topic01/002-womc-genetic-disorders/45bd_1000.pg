@@ -1,0 +1,40 @@
+## DESCRIPTION
+## Imported Genetics source row 45bd_1000; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic01/bbq-WOMC-genetic_disorders-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_45BD_1000';
+<p>45bd_1000</p> <p>Which one of the following <strong><span style="color: #b74300;">genetic</span></strong> <strong><span style="color: #d40000;">disorder</span></strong>s correspond to the description <span style='font-size: 1em;'><strong>'<strong><span style="color: #d40000;">disorder</span></strong> that is due to a missing piece (deletion) of a specific part of <strong><span style="color: #6c6c00;">chromosome</span></strong> 4'</strong></span>.</p>
+PROMPT_45BD_1000
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_45BD_1000_CHOICE_1';
+Edwards syndrome
+LITERAL_45BD_1000_CHOICE_1
+$choice_2 = <<'LITERAL_45BD_1000_CHOICE_2';
+Philadelphia <strong><span style="color: #6c6c00;">chromosome</span></strong>
+LITERAL_45BD_1000_CHOICE_2
+$choice_3 = <<'LITERAL_45BD_1000_CHOICE_3';
+Sickle-cell anemia
+LITERAL_45BD_1000_CHOICE_3
+$choice_4 = <<'LITERAL_45BD_1000_CHOICE_4';
+Wolf-Hirschhorn syndrome
+LITERAL_45BD_1000_CHOICE_4
+$correct_1 = <<'LITERAL_45BD_1000_CORRECT_1';
+Wolf-Hirschhorn syndrome
+LITERAL_45BD_1000_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

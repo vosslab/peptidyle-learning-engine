@@ -86,9 +86,7 @@ BEGIN
           FROM pg_catalog.pg_roles AS role
          WHERE role.rolname IN (
              'ple_public_asset_publisher',
-             'ple_native_ple_grading_worker',
-             'ple_webwork_grading_worker',
-             'ple_imathas_question_backend_grading_worker',
+             'ple_assignment_attempt_expiry_worker',
              'ple_unrelease_executor',
              'ple_data_owner',
              'ple_private_owner',
@@ -113,9 +111,7 @@ BEGIN
           FROM pg_catalog.pg_roles AS role
          WHERE role.rolname IN (
              'ple_public_asset_publisher',
-             'ple_native_ple_grading_worker',
-             'ple_webwork_grading_worker',
-             'ple_imathas_question_backend_grading_worker',
+             'ple_assignment_attempt_expiry_worker',
              'ple_unrelease_executor',
              'ple_data_owner',
              'ple_private_owner',
@@ -125,7 +121,7 @@ BEGIN
              'ple_auth',
              'ple_student'
          )
-    ) <> 12 THEN
+    ) <> 10 THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
             MESSAGE = 'the PLE capability roles do not satisfy the bootstrap contract';

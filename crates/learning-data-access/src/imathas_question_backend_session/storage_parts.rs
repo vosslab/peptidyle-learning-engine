@@ -1,18 +1,15 @@
 //! Crate-private PostgreSQL row bindings for iMathAS Question Backend Sessions.
 
-use objects::Sha256Checksum;
 use question_model::{
-    AccountId, AssignmentId, CourseId, ImathasQuestionBackendBinding, QuestionSubmissionId,
-    SourceObjectChecksum, SourceObjectReference, Timestamp,
+    AccountId, AssignmentId, CourseId, ImathasQuestionBackendBinding, SourceObjectChecksum,
+    SourceObjectReference, Timestamp,
 };
-use uuid::Uuid;
 
 use super::{
     ImathasGradingContext, ImathasLaunchBindingChecksum, ImathasQuestionBackendSession,
     ImathasQuestionBackendSessionAuthentication, ImathasQuestionBackendSessionChallenge,
     ImathasQuestionBackendSessionReference, ImathasQuestionBackendStatePlaintext,
-    ImathasResponseChecksum, ImathasResult, ImathasResultChecksum, ImathasResultTokenChecksum,
-    JobId, QuestionSubmissionGradingId,
+    ImathasResponseChecksum,
 };
 
 /// Exact server-only row facts used to create and reconstruct a Session.
@@ -32,10 +29,6 @@ pub(crate) struct ImathasQuestionBackendSessionStorageParts {
     pub(crate) imathas_launch_binding_checksum: ImathasLaunchBindingChecksum,
     pub(crate) issued_at: Timestamp,
     pub(crate) expires_at: Timestamp,
-    pub(crate) revoked_at: Option<Timestamp>,
-    pub(crate) consumed_at: Option<Timestamp>,
-    pub(crate) lease_expires_at: Option<Timestamp>,
-    pub(crate) lease_active: bool,
 }
 
 /// Complete immutable restore binding carried within the server-side Store boundary.
@@ -57,34 +50,4 @@ pub(crate) struct ImathasQuestionBackendSessionRestoreParts {
 pub(crate) struct ImathasQuestionBackendSessionCreateParts {
     pub(crate) session: ImathasQuestionBackendSession,
     pub(crate) imathas_question_backend_state: ImathasQuestionBackendStatePlaintext,
-}
-
-/// Exact lease arguments retained for the stateless PostgreSQL Store.
-#[allow(dead_code)] // Used by the feature-gated PostgreSQL Store.
-pub(crate) struct ImathasQuestionBackendSessionLeaseParts {
-    pub(crate) reference: ImathasQuestionBackendSessionReference,
-    pub(crate) expires_at: Timestamp,
-    pub(crate) capability_checksum: Sha256Checksum,
-    pub(crate) restore: ImathasQuestionBackendSessionRestoreParts,
-}
-
-/// Exact verified iMathAS Result Exchange arguments carried to PostgreSQL.
-#[allow(dead_code)] // Used by the feature-gated PostgreSQL Store.
-pub(crate) struct StageVerifiedImathasResultParts {
-    pub(crate) lease: ImathasQuestionBackendSessionLeaseParts,
-    pub(crate) imathas_result_token_checksum: ImathasResultTokenChecksum,
-    pub(crate) imathas_result: ImathasResult,
-    pub(crate) imathas_result_checksum: ImathasResultChecksum,
-    pub(crate) question_submission_id: QuestionSubmissionId,
-    pub(crate) grading_job_id: JobId,
-    pub(crate) question_submission_grading_id: QuestionSubmissionGradingId,
-    pub(crate) transitioned_at: Timestamp,
-}
-
-/// Exact worker-job lease arguments carried to the PostgreSQL commit procedure.
-#[allow(dead_code)] // Used by the feature-gated PostgreSQL Store.
-pub(crate) struct ImathasGradingJobLeaseParts {
-    pub(crate) job_id: JobId,
-    pub(crate) lease_token: Uuid,
-    pub(crate) expires_at: Timestamp,
 }

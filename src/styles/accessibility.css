@@ -1,3 +1,28 @@
+/* Optional account preference: stronger structure while retaining theme anchors and canvas. */
+html[data-contrast="increased"] {
+  --ple-ink: #111827;
+  --ple-muted: #354052;
+  --ple-accent: #0f4d70;
+  --ple-accent-strong: #0b3d5a;
+  --ple-action-hover: #082f49;
+  --ple-focus: #111827;
+  --ple-border: #718096;
+  --ple-border-strong: #354052;
+}
+
+html[data-contrast="increased"] :focus-visible {
+  outline-width: 3px;
+  outline-offset: 2px;
+}
+
+html[data-contrast="increased"] .course-theme-scope {
+  --ple-ink: #111827 !important;
+  --ple-muted: #354052 !important;
+  --ple-focus: #111827 !important;
+  --ple-border: #718096 !important;
+  --ple-border-strong: #354052 !important;
+}
+
 @media (forced-colors: active) {
   .primary-action,
   .primary-link,

@@ -44,11 +44,8 @@ mod launch_session_bridge {
     use objects::{ObjectAddress, ObjectStore, PutObject};
     use question_model::generation::QuestionSeed;
     use question_model::{
-        AccountId, AssignmentAttemptId, AssignmentEntryId, AssignmentEntryScoringRule,
-        AssignmentId, AssignmentPointValue, CourseId, ImathasDeploymentReference,
-        ImathasItemReference, ImathasProfile, ImathasQuestionBackendBinding, IssuedQuestion,
-        IssuedQuestionId, ObjectId, QuestionAttemptId, QuestionAttemptReproductionDetails,
-        QuestionBackendVersion, QuestionGraderVersion, QuestionId, QuestionRendererVersion,
+        AccountId, AssignmentId, CourseId, ImathasDeploymentReference, ImathasItemReference,
+        ImathasProfile, ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId, QuestionId,
         QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum,
         SourceObjectReference, Timestamp,
     };
@@ -72,49 +69,6 @@ mod launch_session_bridge {
 
     fn expires() -> Timestamp {
         Timestamp::from_unix_millis(100)
-    }
-
-    fn issued_question(question: &QuestionRevisionReference) -> IssuedQuestion {
-        IssuedQuestion {
-            id: IssuedQuestionId::from_uuid(Uuid::from_u128(70)),
-            assignment_attempt: AssignmentAttemptId::from_uuid(Uuid::from_u128(71)),
-            assignment_entry: AssignmentEntryId::from_uuid(Uuid::from_u128(72)),
-            assignment_content_entry_index: 0,
-            issued_position: 0,
-            reference: question.clone(),
-            question_seed: QuestionSeed::new(11),
-            reproduction_details: QuestionAttemptReproductionDetails {
-                backend: QuestionBackendVersion {
-                    name: crate::ADAPTER_ID.to_owned(),
-                    version: crate::ADAPTER_VERSION.to_owned(),
-                },
-                renderer_version: Some(QuestionRendererVersion {
-                    name: "imathas-profile".to_owned(),
-                    version: crate::result_verification::IMATHAS_GRADING_PROFILE_ID.to_owned(),
-                }),
-                source_object_reference: Some(SourceObjectReference {
-                    object: ObjectId::from_uuid(Uuid::from_u128(4)),
-                }),
-                source_object_checksum: Some(
-                    SourceObjectChecksum::parse(
-                        "e066deba4e5894d18a5ab7bc36113e9a33ae1e95fded873429c91473c38dbfda"
-                            .to_owned(),
-                    )
-                    .expect("recorded source checksum"),
-                ),
-                asset_objects: Vec::new(),
-                grader: QuestionGraderVersion {
-                    name: crate::GRADING_ID.to_owned(),
-                    version: crate::GRADING_VERSION.to_owned(),
-                },
-                rendered_question_sha256: "0".repeat(64),
-            },
-            point_value: AssignmentPointValue::from_whole(1),
-            scoring_rule: AssignmentEntryScoringRule::Normal,
-            question_statistics_eligibility: true,
-            question_pool_selection: None,
-            question_pool_item: None,
-        }
     }
 
     fn imathas_binding() -> ImathasQuestionBackendBinding {
@@ -201,59 +155,6 @@ mod launch_session_bridge {
         .expect("context")
     }
 
-    fn alternate_context(
-        _question: &QuestionRevisionReference,
-        source: &ResolvedImathasQuestionSource,
-        artifact: &SourceObjectReference,
-        grading_context: learning_data_access::ImathasGradingContext,
-        authentication_secret: [u8; 32],
-    ) -> ImathasQuestionBackendSessionPreparationContext {
-        let challenge = learning_data_access::ImathasQuestionBackendSessionChallenge::generate()
-            .expect("challenge");
-        let authentication =
-            ImathasSessionAuthenticationCodec::from_server_secret(authentication_secret)
-                .expect("codec")
-                .authenticate_for_lda(&grading_context, &challenge);
-        let imathas_question_backend_binding = lda_imathas_backend();
-        ImathasQuestionBackendSessionPreparationContext::new(
-            AccountId::from_uuid(Uuid::from_u128(1)),
-            CourseId::from_uuid(Uuid::from_u128(2)),
-            AssignmentId::from_uuid(Uuid::from_u128(3)),
-            grading_context,
-            imathas_question_backend_binding,
-            artifact.clone(),
-            source.source_object_checksum().clone(),
-            ImathasResponseChecksum::from_bytes([4; 32]),
-            challenge,
-            authentication,
-            Timestamp::from_unix_millis(10),
-            expires(),
-        )
-        .expect("context")
-    }
-
-    fn restore_expectation(
-        _question: &QuestionRevisionReference,
-        source: &ResolvedImathasQuestionSource,
-        artifact: &SourceObjectReference,
-        grading_context: learning_data_access::ImathasGradingContext,
-        authentication: learning_data_access::ImathasQuestionBackendSessionAuthentication,
-        digest: learning_data_access::ImathasLaunchBindingChecksum,
-    ) -> ImathasQuestionBackendSessionRestoreExpectation {
-        let imathas_question_backend_binding = lda_imathas_backend();
-        ImathasQuestionBackendSessionRestoreExpectation::new(
-            AccountId::from_uuid(Uuid::from_u128(1)),
-            CourseId::from_uuid(Uuid::from_u128(2)),
-            AssignmentId::from_uuid(Uuid::from_u128(3)),
-            grading_context,
-            imathas_question_backend_binding,
-            artifact.clone(),
-            source.source_object_checksum().clone(),
-            digest,
-            authentication,
-        )
-    }
-
     fn lda_imathas_backend() -> ImathasQuestionBackendBinding {
         imathas_binding()
     }
@@ -329,12 +230,6 @@ mod launch_session_bridge {
             CourseId::from_uuid(Uuid::from_u128(2)),
             QuestionAttemptId::from_uuid(Uuid::from_u128(7)),
         );
-        store
-            .install_issued_question_scoring_snapshot(
-                QuestionAttemptId::from_uuid(Uuid::from_u128(7)),
-                issued_question(&question),
-            )
-            .expect("install immutable Issued Question snapshot");
         let digest = preparation.imathas_launch_binding_checksum().clone();
         let reference = store
             .create_imathas_question_backend_session(
@@ -402,137 +297,6 @@ mod launch_session_bridge {
         assert_eq!(transport.result_calls(), 1);
         assert!(!format!("{loaded:?}").contains("recorded-proxy-session"));
         assert!(!format!("{validation:?}").contains("recorded-proxy-session"));
-
-        let lease = store
-            .lease_imathas_question_backend_session(
-                token,
-                reference,
-                initial_restore_expectation,
-                Timestamp::from_unix_millis(30),
-            )
-            .await
-            .expect("lease");
-        let staged = result
-            .clone()
-            .stage(lease, Timestamp::from_unix_millis(25))
-            .expect("verified result stages only through its exact context and authentication");
-        assert!(!format!("{staged:?}").contains("recorded-proxy-session"));
-
-        let original_context = validation.grading_context.clone();
-        let mismatched_context = learning_data_access::ImathasGradingContext::new(
-            QuestionAttemptId::from_uuid(Uuid::from_u128(88)),
-            original_context.question_revision().clone(),
-            original_context.question_seed(),
-        );
-        store.install_active_student_authorization(
-            account,
-            CourseId::from_uuid(Uuid::from_u128(2)),
-            mismatched_context.question_attempt(),
-        );
-        store
-            .install_issued_question_scoring_snapshot(
-                mismatched_context.question_attempt(),
-                issued_question(&question),
-            )
-            .expect("install immutable Issued Question snapshot");
-        let mismatched_context_preparation = alternate_context(
-            &question,
-            &source,
-            &artifact,
-            mismatched_context.clone(),
-            [7; 32],
-        );
-        let mismatched_context_authentication = mismatched_context_preparation
-            .preparation_validation()
-            .authentication;
-        let mismatched_context_digest =
-            learning_data_access::ImathasLaunchBindingChecksum::parse("b".repeat(64))
-                .expect("iMathAS Launch Binding Checksum");
-        let mismatched_context_reference = store
-            .create_imathas_question_backend_session(
-                token,
-                mismatched_context_preparation
-                    .complete(
-                        mismatched_context_digest.clone(),
-                        preparation.imathas_launch_state().clone(),
-                    )
-                    .expect("create"),
-            )
-            .await
-            .expect("store");
-        let mismatched_context_lease = store
-            .lease_imathas_question_backend_session(
-                token,
-                mismatched_context_reference,
-                restore_expectation(
-                    &question,
-                    &source,
-                    &artifact,
-                    mismatched_context,
-                    mismatched_context_authentication,
-                    mismatched_context_digest,
-                ),
-                Timestamp::from_unix_millis(30),
-            )
-            .await
-            .expect("lease");
-        assert_eq!(
-            result
-                .clone()
-                .stage(mismatched_context_lease, Timestamp::from_unix_millis(25),),
-            Err(learning_data_access::StoreError::Forbidden),
-            "a verified Session A result refuses Session B's different-context lease before Store staging"
-        );
-
-        let mismatched_authentication_preparation = alternate_context(
-            &question,
-            &source,
-            &artifact,
-            original_context.clone(),
-            [8; 32],
-        );
-        let mismatched_authentication = mismatched_authentication_preparation
-            .preparation_validation()
-            .authentication;
-        let mismatched_authentication_digest =
-            learning_data_access::ImathasLaunchBindingChecksum::parse("c".repeat(64))
-                .expect("iMathAS Launch Binding Checksum");
-        let mismatched_authentication_reference = store
-            .create_imathas_question_backend_session(
-                token,
-                mismatched_authentication_preparation
-                    .complete(
-                        mismatched_authentication_digest.clone(),
-                        preparation.imathas_launch_state().clone(),
-                    )
-                    .expect("create"),
-            )
-            .await
-            .expect("store");
-        let mismatched_authentication_lease = store
-            .lease_imathas_question_backend_session(
-                token,
-                mismatched_authentication_reference,
-                restore_expectation(
-                    &question,
-                    &source,
-                    &artifact,
-                    original_context,
-                    mismatched_authentication,
-                    mismatched_authentication_digest,
-                ),
-                Timestamp::from_unix_millis(30),
-            )
-            .await
-            .expect("lease");
-        assert_eq!(
-            result.clone().stage(
-                mismatched_authentication_lease,
-                Timestamp::from_unix_millis(25),
-            ),
-            Err(learning_data_access::StoreError::Forbidden),
-            "a verified Session A result refuses Session B's different-authentication lease before Store staging"
-        );
 
         let verifier = crate::result_verification::ImathasResultVerifier::new(
             crate::result_verification::ImathasGradingProfile::grading_deployment(

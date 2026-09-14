@@ -1,0 +1,46 @@
+## DESCRIPTION
+## Imported Genetics source row 95e3_6bdf; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic05/bbq-epistasis_test_cross-forward_direction-6_choices-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_95E3_6BDF';
+<p>95e3_6bdf</p> <p>In a standard dihybrid cross involving two independent genes, the expected F<sub>2</sub> phenotypic ratio is <b>9:3:3:1</b>. A test-cross with an F<sub>1</sub> individual and a double recessive usually yields a <b>1:1:1:1</b> phenotypic ratio if the genes assort independently.</p><p>In a specific cross, F<sub>2</sub> progeny exhibit a modified dihybrid ratio of <b>15:1</b> (instead of 9:3:3:1).</p> <p>What phenotypic ratio would be expected from a test-cross with an individual from the F<sub>1</sub> progeny?</p>
+PROMPT_95E3_6BDF
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_95E3_6BDF_CHOICE_1';
+a ratio of 1:2
+LITERAL_95E3_6BDF_CHOICE_1
+$choice_2 = <<'LITERAL_95E3_6BDF_CHOICE_2';
+a ratio of 1:3
+LITERAL_95E3_6BDF_CHOICE_2
+$choice_3 = <<'LITERAL_95E3_6BDF_CHOICE_3';
+a ratio of 2:1
+LITERAL_95E3_6BDF_CHOICE_3
+$choice_4 = <<'LITERAL_95E3_6BDF_CHOICE_4';
+a ratio of 2:2 or 1:1
+LITERAL_95E3_6BDF_CHOICE_4
+$choice_5 = <<'LITERAL_95E3_6BDF_CHOICE_5';
+a ratio of 3:1
+LITERAL_95E3_6BDF_CHOICE_5
+$choice_6 = <<'LITERAL_95E3_6BDF_CHOICE_6';
+a ratio of 3:2
+LITERAL_95E3_6BDF_CHOICE_6
+$correct_1 = <<'LITERAL_95E3_6BDF_CORRECT_1';
+a ratio of 3:1
+LITERAL_95E3_6BDF_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5, $choice_6);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

@@ -1,6 +1,7 @@
 //! Project build, generation, database, fixture, and acceptance tools.
 
 mod application;
+mod curriculum_content;
 mod database;
 mod database_coordinator;
 mod fixtures;

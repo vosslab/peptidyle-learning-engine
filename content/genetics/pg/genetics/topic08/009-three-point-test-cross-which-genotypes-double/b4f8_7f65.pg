@@ -1,0 +1,56 @@
+## DESCRIPTION
+## Imported Genetics source row b4f8_7f65; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic08/bbq-three-point_test_cross-which_genotypes-DOUBLE-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_B4F8_7F65';
+<p>b4f8_7f65</p> <h4>Three-Point Test Cross Problem</h4><p>A test cross is a way to explore the relationship between genes and their respective alleles. It is a useful tool for genetic mapping and deciphering the inheritance of traits. Specifically, a three-point test cross examines three (3) genes at the same time to learn about their assortment in gamete formation.</p><p>A standard three-point test cross involves crossing a heterozygous organism for all three genes with an organism that is homozygous recessive for all three genes</p> <p>For this problem, a test cross using a fruit fly (<i>Drosophila melanogaster</i>) heterozygous for three genes was conducted to understand their genetic interactions.</p><h6>Characteristics of Recessive Phenotypes</h6><p><ul><li><strong><span style="color: #8d4a00;">Gene H</span></strong> is correlated with the '<span style="color: #8d4a00;"><i>horsey</i></span>' phenotype. A fruit fly that is homozygous recessive for <span style="color: #8d4a00;">Gene H</span> is quite big and strong-looking, much larger than your typical fruit fly.</li> <li><strong><span style="color: #1d6d53;">Gene M</span></strong> is connected with the '<span style="color: #1d6d53;"><i>mushy</i></span>' phenotype. A fruit fly that is homozygous recessive for <span style="color: #1d6d53;">Gene M</span> feels soft to the touch and unusually squishy, unlike the usual firmness.</li> <li><strong><span style="color: #365f95;">Gene W</span></strong> is related to the '<span style="color: #365f95;"><i>waxy</i></span>' phenotype. A fruit fly that is homozygous recessive for <span style="color: #365f95;">Gene W</span> has a thick protective layer that is water resistant and opague.</li> </ul></p><table style="border-collapse: collapse; border: 2px solid black;"><tr><th align="center" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">Phenotype</span></th><th colspan="3" align="center" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">Genotypes</span></th><th align="center" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">Progeny<br/>Count</span></th></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">horsey, mushy, waxy</span></td><td align="center" style="border: 1px solid black; background-color: #ffe5ce; padding: 5px;"><span style="font-size: large; color: #000000;">h</span></td><td align="center" style="border: 1px solid black; background-color: #cbf5e7; padding: 5px;"><span style="font-size: large; color: #000000;">m</span></td><td align="center" style="border: 1px solid black; background-color: #e2eaff; padding: 5px;"><span style="font-size: large; color: #000000;">w</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">2,183</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">horsey, mushy</span></td><td align="center" style="border: 1px solid black; background-color: #ffe5ce; padding: 5px;"><span style="font-size: large; color: #000000;">h</span></td><td align="center" style="border: 1px solid black; background-color: #cbf5e7; padding: 5px;"><span style="font-size: large; color: #000000;">m</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #365f95;">+</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">26</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">horsey, waxy</span></td><td align="center" style="border: 1px solid black; background-color: #ffe5ce; padding: 5px;"><span style="font-size: large; color: #000000;">h</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #1d6d53;">+</span></td><td align="center" style="border: 1px solid black; background-color: #e2eaff; padding: 5px;"><span style="font-size: large; color: #000000;">w</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">880</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">horsey</span></td><td align="center" style="border: 1px solid black; background-color: #ffe5ce; padding: 5px;"><span style="font-size: large; color: #000000;">h</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #1d6d53;">+</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #365f95;">+</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">135</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">mushy, waxy</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #8d4a00;">+</span></td><td align="center" style="border: 1px solid black; background-color: #cbf5e7; padding: 5px;"><span style="font-size: large; color: #000000;">m</span></td><td align="center" style="border: 1px solid black; background-color: #e2eaff; padding: 5px;"><span style="font-size: large; color: #000000;">w</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">125</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">mushy</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #8d4a00;">+</span></td><td align="center" style="border: 1px solid black; background-color: #cbf5e7; padding: 5px;"><span style="font-size: large; color: #000000;">m</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #365f95;">+</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">875</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;">waxy</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #8d4a00;">+</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #1d6d53;">+</span></td><td align="center" style="border: 1px solid black; background-color: #e2eaff; padding: 5px;"><span style="font-size: large; color: #000000;">w</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">39</span></td></tr><tr><td align="left" style="border: 1px solid black; background-color: #ffffff; padding: 5px;">&nbsp;<span style="font-size: medium; color: #000000;"><i>wildtype</i></span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #8d4a00;">+</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #1d6d53;">+</span></td><td align="center" style="border: 1px solid black; background-color: #f8f8f8; padding: 5px;"><span style="font-size: large; color: #365f95;">+</span></td><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">2,237</span></td></tr><tr><th colspan="4" align="right" style="border: 1px solid black; background-color: #cccccc; padding: 10px;"><span style="font-size: medium; color: #000000;">TOTAL =</span></th><td align="right" style="border: 1px solid black; background-color: #ffffff; padding: 5px;"><span style="font-size: medium; color: #000000;">6,500</span></td></tr></table><p>The resulting phenotypes are summarized in the table above.</p> <h6>Question</h6> <p>Based on the traits expressed in the offspring, identify the <span style="color: DarkGreen;"><strong>double crossover genotype combinations</strong></span>. These allele combinations are a result of two genetic crossover events.</p> <p>More than one genotype will be correct. Select all that apply.</p>
+PROMPT_B4F8_7F65
+loadMacros('parserCheckboxList.pl');
+$choice_1 = <<'LITERAL_B4F8_7F65_CHOICE_1';
+hmw
+LITERAL_B4F8_7F65_CHOICE_1
+$choice_2 = <<'LITERAL_B4F8_7F65_CHOICE_2';
+hm+
+LITERAL_B4F8_7F65_CHOICE_2
+$choice_3 = <<'LITERAL_B4F8_7F65_CHOICE_3';
+h+w
+LITERAL_B4F8_7F65_CHOICE_3
+$choice_4 = <<'LITERAL_B4F8_7F65_CHOICE_4';
+h++
+LITERAL_B4F8_7F65_CHOICE_4
+$choice_5 = <<'LITERAL_B4F8_7F65_CHOICE_5';
++mw
+LITERAL_B4F8_7F65_CHOICE_5
+$choice_6 = <<'LITERAL_B4F8_7F65_CHOICE_6';
++m+
+LITERAL_B4F8_7F65_CHOICE_6
+$choice_7 = <<'LITERAL_B4F8_7F65_CHOICE_7';
+++w
+LITERAL_B4F8_7F65_CHOICE_7
+$choice_8 = <<'LITERAL_B4F8_7F65_CHOICE_8';
++++
+LITERAL_B4F8_7F65_CHOICE_8
+$correct_1 = <<'LITERAL_B4F8_7F65_CORRECT_1';
+hm+
+LITERAL_B4F8_7F65_CORRECT_1
+$correct_2 = <<'LITERAL_B4F8_7F65_CORRECT_2';
+++w
+LITERAL_B4F8_7F65_CORRECT_2
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5, $choice_6, $choice_7, $choice_8);
+@correct = ($correct_1, $correct_2);
+$answer = CheckboxList([@choices], [@correct], labels => 'ABC', displayLabels => 1, randomize => 0, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->checks\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

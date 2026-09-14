@@ -4,17 +4,13 @@ import type { AssignmentSummary } from "../../generated/api/AssignmentSummary";
 import type { StudentAssignmentLandingSummary } from "../../generated/api/StudentAssignmentLandingSummary";
 import type { StudentAssignmentDetail } from "../../generated/api/StudentAssignmentDetail";
 import type { CourseSummary } from "../../generated/api/CourseSummary";
-import type { StudentFeedback } from "../../generated/api/StudentFeedback";
 import type { StudentQuestionAttemptView } from "../../generated/api/StudentQuestionAttemptView";
-import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { AssignmentEntryId } from "../../generated/api/AssignmentEntryId";
 import type { IssuedQuestionId } from "../../generated/api/IssuedQuestionId";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
-import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { AssignmentScoringState } from "../../generated/api/AssignmentScoringState";
 import type { AssignmentStatus } from "../../generated/api/AssignmentStatus";
-import type { AssignmentAttemptCompletion } from "../../generated/api/AssignmentAttemptCompletion";
 import type { Capability } from "../../generated/api/Capability";
 import type { AccountId } from "../../generated/api/AccountId";
 import type { ProductRole } from "../../generated/api/ProductRole";
@@ -181,68 +177,6 @@ export interface StudentIssuedQuestion {
   readonly issuedPosition: number;
   readonly reference: QuestionRevisionReference;
   readonly questionStatisticsEligibility: boolean;
-}
-
-/** Explicit receipt for the one accepted Question Submission on one Question Attempt. */
-export interface QuestionSubmissionReceipt {
-  readonly accepted: true;
-  readonly attemptId: QuestionAttemptId;
-}
-
-/** A Question Submission Receipt after grading has produced a browser-safe result. */
-export interface GradedQuestionSubmissionReceipt extends QuestionSubmissionReceipt {
-  readonly attempt: StudentQuestionAttemptView;
-  readonly assignmentScoringState: AssignmentScoringState;
-  /** Persisted completion state; successor absence alone is not completion evidence. */
-  readonly assignmentAttemptCompletion: AssignmentAttemptCompletion;
-  /** Browser-safe Student Feedback, or an explicit policy withholding it. */
-  readonly feedback: StudentFeedback | null;
-  readonly nextIssued: NextIssuedAttempt | null;
-  /** The grade receipt is durable, but a successor has not been issued yet. */
-  readonly nextPending: boolean;
-}
-
-/**
- * The closed Student acknowledgement returned by submission and status routes.
- * Pending alternatives deliberately omit answers, feedback, results, successors, and scores.
- */
-export type QuestionSubmissionGradingState = "pending" | "graded" | "instructorAttention";
-
-/** Accepted Question Submission plus its separate current grading state. */
-export type QuestionSubmissionAcknowledgement =
-  | {
-      readonly receipt: GradedQuestionSubmissionReceipt;
-      readonly gradingState: "graded";
-    }
-  | {
-      readonly receipt: QuestionSubmissionReceipt;
-      readonly gradingState: "pending";
-      readonly nextAction: "check_status";
-    }
-  | {
-      readonly receipt: QuestionSubmissionReceipt;
-      readonly gradingState: "instructorAttention";
-      readonly nextAction: "check_status";
-    };
-
-/** Safe binding for a newly active next attempt; no Question Source reference or source bytes leak. */
-export interface NextIssuedAttempt {
-  readonly id: QuestionAttemptId;
-  readonly issuedQuestion: StudentIssuedQuestion;
-  readonly question_seed: number;
-  readonly deadline: number | null;
-  readonly renderedQuestionSha256: string;
-}
-
-/** Key-free Question Presentation cached only behind its owned predecessor attempt. */
-export interface PrefetchedNextQuestion {
-  readonly predecessor: QuestionAttemptId;
-  readonly issuedQuestion: StudentIssuedQuestion;
-  readonly question_seed: number;
-  readonly renderedQuestionSha256: string;
-  /** Same safe Question Pool Selection Position used when this cached successor becomes current. */
-  readonly questionPoolSelectionPosition: QuestionPoolSelectionPosition | null;
-  readonly presentation: QuestionPresentation;
 }
 
 /** Receipt for an Instructor command that releases Student Feedback for one attempt. */

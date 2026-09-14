@@ -588,6 +588,8 @@ fn assignment_start_decision(
     now: Timestamp,
     prior_assignment_attempt_count: u32,
 ) -> AssignmentStartDecision {
+    // ASVS 2.1.2, 2.2.3, 8.1.3: keep the documented close, availability,
+    // completed-Attempt-limit, and late-work decision order explicit.
     if policy.closes_at.value.is_some_and(|closes| now >= closes) {
         return AssignmentStartDecision::Closed;
     }

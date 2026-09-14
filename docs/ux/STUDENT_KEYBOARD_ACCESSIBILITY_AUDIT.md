@@ -134,7 +134,7 @@ frontend route/session contracts. They remain permanent behavior tests under
 acceptance.
 
 The current connected-browser owner is `./devel/run_playwright_tests.sh --build`, including the
-registered `learner_native_ple_recovery` scenario. This historical audit does not substitute for a
+registered `learner_worker_interruption` scenario. This historical audit does not substitute for a
 new complete keyboard sweep; it records no additional Playwright pass.
 
 ## Remaining human evaluation

@@ -1,0 +1,40 @@
+## DESCRIPTION
+## Imported Genetics source row d881_beed; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic06/bbq-WOMC-sex_determination-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_D881_BEED';
+<p>d881_beed</p> <p>Which one of the following sex determination systems correspond to the description <span style='font-size: 1em;'><strong>'sex is based on whether or<strong> <strong>NOT</strong> </strong>the <strong><span style="color: #cc0066;">female &female;</span> </strong><strong><span style="color: #c80085;">egg (ovum)</span></strong> is exposed to <strong><span style="color: #007576;">sperm</span></strong>'</strong></span>.</p>
+PROMPT_D881_BEED
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_D881_BEED_CHOICE_1';
+<strong><span style="color: #a719db;">Haplo-Diploid system</span></strong>
+LITERAL_D881_BEED_CHOICE_1
+$choice_2 = <<'LITERAL_D881_BEED_CHOICE_2';
+<strong><span style="color: #3b7600;">X-O system</span></strong>
+LITERAL_D881_BEED_CHOICE_2
+$choice_3 = <<'LITERAL_D881_BEED_CHOICE_3';
+<strong><span style="color: #b74300;">X-Y system</span></strong>
+LITERAL_D881_BEED_CHOICE_3
+$choice_4 = <<'LITERAL_D881_BEED_CHOICE_4';
+<strong><span style="color: #0067cc;">Z-W system</span></strong>
+LITERAL_D881_BEED_CHOICE_4
+$correct_1 = <<'LITERAL_D881_BEED_CORRECT_1';
+<strong><span style="color: #a719db;">Haplo-Diploid system</span></strong>
+LITERAL_D881_BEED_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

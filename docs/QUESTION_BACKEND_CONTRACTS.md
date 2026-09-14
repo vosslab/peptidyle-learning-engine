@@ -158,8 +158,8 @@ The browser preflight and shared response API enforce the same 64 KiB bound. If 
 content reaches it, revise the shared model, browser, and adapter contract together, then update
 the boundary test; ordinary threshold drift is repaired at the layer that diverged.
 
-After PLE finalizes the Attempt, the WeBWorK worker resolves the exact immutable source and seed,
-passes the opaque pair array to the adapter once, and records the renderer's normalized outcome.
+During ordinary Attempt submission, PLE resolves the exact immutable source and seed, passes the
+opaque pair array to the adapter once, and records the renderer's immutable normalized credit outcome.
 There is no WeBWorK replay mapping, PLE control-specific conversion, renderer-output cache, or
 backend state to reconstruct. Decision E1 is stateless: the shared lifecycle-state slot is absent
 for both render and grade. A renderer failure refuses issuance or grading; it never records an
@@ -217,12 +217,10 @@ expiry/revocation/consumption, lease, and encrypted backend state. Its Result Ex
 normalized-score-only iMathAS Result and LDA-derived checksum, alongside the Result
 Token checksum. After iMathAS verification outside PostgreSQL, authenticated staging atomically
 consumes the exact Session into Ready-to-Commit, creates the marker `StudentResponse::ImathasQuestionBackend {}`
-Question Submission, pending Question Submission Grading, and ready typed grading Job. Only a worker
-holding that Job's lease may lock the selected Issued Question, resolve its point value and scoring
-rule, combine them with backend QuestionEvaluation, and idempotently commit the Assignment-owned
-Grading Result and Automated Grading Receipt. A lease-expiry recovery claim is permitted; final worker failure belongs to the Job and
-Question Submission Grading (`instructor_attention`) while ready evidence remains for an authorized
-recovery Job. RLS and least-privilege SECURITY DEFINER functions require the authenticated active
+Question Submission. The iMathAS Result Exchange retains its backend-specific session and receipt
+evidence until its immutable normalized credit outcome can be committed. It does not create a
+Student or Instructor grading lifecycle, and PLE does not expose a regrading capability. RLS and
+least-privilege SECURITY DEFINER functions require the authenticated active
 Student and exact restore tuple; validity is half-open, binding immutable, and direct mutation refused.
 iMathAS Result is distinct from the Result Token and PLE Grading Result; no browser/generated
 Result DTO is created. LTI remains future registered-protocol planning only.

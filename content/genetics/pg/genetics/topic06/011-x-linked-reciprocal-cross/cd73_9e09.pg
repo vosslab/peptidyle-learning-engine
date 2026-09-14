@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row cd73_9e09; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic06/bbq-x_linked_reciprocal_cross-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_CD73_9E09';
+<p>cd73_9e09</p> <p>In fruit flies, eye color is X-linked with red eyes dominant to white eyes. A true-breeding red-eyed female is crossed with a white-eyed male.</p><p>Which statement best describes the F<sub>1</sub> offspring?</p>
+PROMPT_CD73_9E09
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_CD73_9E09_CHOICE_1';
+Half the sons are white-eyed and half are red-eyed; all daughters are red-eyed (carriers).
+LITERAL_CD73_9E09_CHOICE_1
+$choice_2 = <<'LITERAL_CD73_9E09_CHOICE_2';
+All daughters are red-eyed (carriers) and all sons are white-eyed.
+LITERAL_CD73_9E09_CHOICE_2
+$choice_3 = <<'LITERAL_CD73_9E09_CHOICE_3';
+Half the daughters are white-eyed and half are red-eyed; all sons are white-eyed.
+LITERAL_CD73_9E09_CHOICE_3
+$choice_4 = <<'LITERAL_CD73_9E09_CHOICE_4';
+All daughters are red-eyed (carriers) and all sons are red-eyed.
+LITERAL_CD73_9E09_CHOICE_4
+$choice_5 = <<'LITERAL_CD73_9E09_CHOICE_5';
+All offspring are red-eyed.
+LITERAL_CD73_9E09_CHOICE_5
+$correct_1 = <<'LITERAL_CD73_9E09_CORRECT_1';
+All daughters are red-eyed (carriers) and all sons are red-eyed.
+LITERAL_CD73_9E09_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

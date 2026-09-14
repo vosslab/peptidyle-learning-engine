@@ -2,8 +2,7 @@
 
 This document defines what PLE reproduces exactly, what it merely checks for
 consistency, and what must remain server-owned. It applies to static PLE
-Question JSON, WeBWorK backend documents, issued student presentations, cache entries,
-and prefetch reservations.
+Question JSON, WeBWorK backend documents, issued Student presentations, and cache entries.
 
 The central rule is deliberately narrow: **the same immutable inputs must
 reproduce the same authoritative Source Object Reference.** It does not mean that every new
@@ -16,12 +15,13 @@ attempt uses the stored values.
 | Layer                           | Authoritative inputs                                                                 | Exact result                                                                                                                                                                             | Owner                              |
 | ------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
 | Static PLE Question JSON render | immutable Question Revision, Question Seed                                           | Question Variation Presentation and Question Attempt Reproduction Details                                                                                                                | trusted server backend             |
-| WeBWorK issue                   | Question, immutable Question Revision, source Object Reference, seed, renderer       | exact backend-owned document, digest, and reproduction details persisted with one Question Attempt                                                                                     | private adapter and attempt store  |
+| WeBWorK issue                   | Question, immutable Question Revision, source Object Reference, seed, renderer       | exact backend-owned document, digest, and reproduction details persisted with one Question Attempt                                                                                       | private adapter and attempt store  |
 | Student issuance                | Question Variation Presentation, server-held Question Asset Renditions, stored nonce | Question Presentation and server-held Issued Question Presentation with Question Presentation Response Format, Presentation Response Item References, and Question Presentation Checksum | trusted server; browser may verify |
-| Submission                      | authenticated Question Attempt, student response                                     | one stored receipt or conflict                                                                                                                                                           | trusted server/store               |
+| Working save                    | authenticated Assignment Attempt, issued position, and Student Response              | one current saved response while the Attempt remains active                                                                                                                              | trusted server/store               |
+| Attempt finalization            | exact Assignment Attempt and its durable saved responses                             | one immutable Assignment Submission plus accepted Question Submission and Job evidence                                                                                                   | PostgreSQL                         |
 
-The first four rows are reproducibility and consistency contracts. The final
-row is an authorization and lifecycle contract. No checksum authenticates a
+The render and issuance rows are reproducibility and consistency contracts. Saving and finalization
+are authorization and lifecycle contracts. No checksum authenticates a
 student, replaces TLS, or makes a client-side grade authoritative.
 
 ## Stable lineage and revision identity
@@ -139,7 +139,7 @@ other internal identities remain server-side.
 | Question Presentation Checksum             | persisted descriptor agrees with a reconstructed public presentation                                      | authentication, transport integrity, or pixel rendering                             |
 | `pd1_` Question Presentation Token         | compact browser/server presentation-consistency comparison                                                | a durable secret or a substitute for the full stored Question Presentation Checksum |
 | Presentation Response Item Reference CRC16 | selected Response Item corresponds to one unique object in this presentation                              | collision resistance across presentations or a security boundary                    |
-| Question Submission and Receipt            | exact repeat returns the existing Receipt and a changed response conflicts                                | question correctness                                                                |
+| Assignment Submission                      | explicit finalization and expiry auto-submission converged on one accepted whole-Attempt outcome          | Question correctness or grading authority                                           |
 
 ## WeBWorK document and grading contract
 
@@ -151,29 +151,22 @@ browser read serves that stored document; it does not rerender it or inspect
 its controls.
 
 The browser serializes the document's form data as an opaque ordered payload.
-PLE saves those bytes through the shared lifecycle. The WeBWorK grading worker
-uses the saved payload, stored source, and stored seed for one stateless
-renderer grade request. It accepts no PLE-native response shape and has no
-replay mapping, shared render cache, or backend lifecycle state to recreate.
+PLE saves those bytes through the shared lifecycle. Ordinary Attempt submission
+and shared expiry finalization use the saved payload, stored source, and stored
+seed for one stateless renderer grade request. It accepts no PLE-native response
+shape and has no replay mapping, shared render cache, or backend lifecycle state
+to recreate.
 
-## Prefetch
+## Attempt continuity
 
-Prefetch is an authenticated, bodyless `POST` tied to the active predecessor
-attempt. The server selects the next position and fresh seed, renders the
-question, creates a Course/Student/Assignment Attempt/predecessor-bound reservation, and
-persists its Question Attempt Reproduction Details, and presentation binding. It does not
-start the next timer or let the browser choose seed, version, backend, source,
-or grading state.
+The server issues the fixed Question set when the Assignment Attempt starts and retains each exact
+Question Revision, seed, presentation binding, and backend-owned document. The browser selects one
+position at a time. Reconnect and reload read the same active Attempt and saved responses; they do
+not issue a successor Question or change the deadline.
 
-When a reservation is reused, the server verifies its immutable version, seed,
-Question Attempt Reproduction Details, and stored presentation binding. It rebuilds the
-presentation with the persisted nonce and refuses if the full Question Presentation Checksum differs.
-Promotion consumes the reservation atomically with successor issuance; a
-committed receipt is the only authority that activates the next attempt.
-
-This is why prefetch may prepare non-secret work early without weakening timing
-or grading ownership. A fresh future attempt is not created by browser state;
-only a matching, server-owned reservation can become one.
+At expiry, PostgreSQL auto-submits the durable saved responses and closes unanswered positions.
+That server-owned finalization is the Assignment Attempt recovery. The browser has no prefetch,
+reservation, promotion, or successor-Question authority.
 
 ## Current verification
 

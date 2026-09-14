@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 6841_0885; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-WOMC-chromosome_alterations-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_6841_0885';
+<p>6841_0885</p> <p>Which one of the following alterations to <strong><span style="color: #008672;">chromosome</span></strong> structure correspond to the description <span style='font-size: 1em;'><strong>'includes the <strong><span style="color: #c1480a;">centromere</span></strong> and there is a break point in each arm'</strong></span>.</p>
+PROMPT_6841_0885
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_6841_0885_CHOICE_1';
+Robertsonian translocation
+LITERAL_6841_0885_CHOICE_1
+$choice_2 = <<'LITERAL_6841_0885_CHOICE_2';
+deletion
+LITERAL_6841_0885_CHOICE_2
+$choice_3 = <<'LITERAL_6841_0885_CHOICE_3';
+duplications
+LITERAL_6841_0885_CHOICE_3
+$choice_4 = <<'LITERAL_6841_0885_CHOICE_4';
+paracentric inversion
+LITERAL_6841_0885_CHOICE_4
+$choice_5 = <<'LITERAL_6841_0885_CHOICE_5';
+pericentric inversion
+LITERAL_6841_0885_CHOICE_5
+$correct_1 = <<'LITERAL_6841_0885_CORRECT_1';
+pericentric inversion
+LITERAL_6841_0885_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

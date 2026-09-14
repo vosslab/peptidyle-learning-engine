@@ -156,10 +156,14 @@ export function responseContentType(response: Response, path: string): void {
   if (contentType === null || !contentType.toLowerCase().includes("application/json"))
     throw new ApiProtocolError(`API response ${path} must use application/json`);
 }
-export async function boundedResponseJson(response: Response, path: string): Promise<unknown> {
+export async function boundedResponseJson(
+  response: Response,
+  path: string,
+  maximumCharacters = MAX_RESPONSE_CHARACTERS,
+): Promise<unknown> {
   responseContentType(response, path);
   const text = await response.text();
-  if (text.length === 0 || text.length > MAX_RESPONSE_CHARACTERS)
+  if (text.length === 0 || text.length > maximumCharacters)
     throw new ApiProtocolError(`API response ${path} must contain bounded JSON`);
   return decodeJson(text, path);
 }

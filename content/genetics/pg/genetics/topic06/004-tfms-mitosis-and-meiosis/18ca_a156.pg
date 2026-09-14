@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 18ca_a156; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic06/bbq-TFMS-mitosis_and_meiosis-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_18CA_A156';
+<p>18ca_a156</p> <p>Which one of the following statements is<strong> <span style="color: #ba372a;"><strong>FALSE</strong></span> </strong> regarding <strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;">mitosis</span></strong></span></strong></span></strong> and <strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">meiosis</span></strong></span></strong></span></strong> cell division?</p>
+PROMPT_18CA_A156
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_18CA_A156_CHOICE_1';
+In diploid organisms, the final cells resulting from <strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">meiosis</span></strong></span></strong> cell division are diploid
+LITERAL_18CA_A156_CHOICE_1
+$choice_2 = <<'LITERAL_18CA_A156_CHOICE_2';
+<strong><span style="color: MediumBlue;">Meiosis</span></strong> occurs only in specialized germline cells and produces gametes.
+LITERAL_18CA_A156_CHOICE_2
+$choice_3 = <<'LITERAL_18CA_A156_CHOICE_3';
+<strong><span style="color: MediumBlue;">Meiosis</span></strong> occurs in two phases, that is, <strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">meiosis</span></strong> I</span></strong> and <strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">meiosis</span></strong> I</span></strong>I</span></strong>
+LITERAL_18CA_A156_CHOICE_3
+$choice_4 = <<'LITERAL_18CA_A156_CHOICE_4';
+During the process of <strong><span style="color: MediumBlue;">meiosis</span></strong> several processes occur that cause genetic variation among organisms
+LITERAL_18CA_A156_CHOICE_4
+$choice_5 = <<'LITERAL_18CA_A156_CHOICE_5';
+<strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">Meiosis</span></strong> I</span></strong> is the only stage where homologous chromosomes pair up and exchange genetic material
+LITERAL_18CA_A156_CHOICE_5
+$correct_1 = <<'LITERAL_18CA_A156_CORRECT_1';
+In diploid organisms, the final cells resulting from <strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">meiosis</span></strong></span></strong> cell division are diploid
+LITERAL_18CA_A156_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row b7db_b8b0; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic02/bbq-TFMS-rna_v_dna-biol_301-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_B7DB_B8B0';
+<p>b7db_b8b0</p> <p>Which one of the following statements is<strong> <span style="color: #ba372a;"><strong>FALSE</strong></span> </strong> about differences between <strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;">RNA</span></strong></span></strong> and <strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">DNA</span></strong></span></strong>?</p>
+PROMPT_B7DB_B8B0
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_B7DB_B8B0_CHOICE_1';
+the <strong><span style="color: OrangeRed;">RNA</span></strong> sugar is ribose, <strong><span style="color: MediumBlue;">DNA</span></strong> has a different sugar
+LITERAL_B7DB_B8B0_CHOICE_1
+$choice_2 = <<'LITERAL_B7DB_B8B0_CHOICE_2';
+uracil in <strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;">RNA</span></strong></span></strong> takes the place of adenine in <strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">DNA</span></strong></span></strong>
+LITERAL_B7DB_B8B0_CHOICE_2
+$choice_3 = <<'LITERAL_B7DB_B8B0_CHOICE_3';
+<strong><span style="color: OrangeRed;">RNA</span></strong> can sometimes form a double-stranded helix
+LITERAL_B7DB_B8B0_CHOICE_3
+$choice_4 = <<'LITERAL_B7DB_B8B0_CHOICE_4';
+<strong><span style="color: OrangeRed;">RNA</span></strong> is usually single-stranded (simplex), whereas <strong><span style="color: MediumBlue;">DNA</span></strong> is usually double-stranded (duplex)
+LITERAL_B7DB_B8B0_CHOICE_4
+$choice_5 = <<'LITERAL_B7DB_B8B0_CHOICE_5';
+<strong><span style="color: MediumBlue;">DNA</span></strong> has a regular consistent structure and does<strong> <strong>NOT</strong> </strong>adopt a wide variety of tertiary structures
+LITERAL_B7DB_B8B0_CHOICE_5
+$correct_1 = <<'LITERAL_B7DB_B8B0_CORRECT_1';
+uracil in <strong><span style="color: OrangeRed;"><strong><span style="color: OrangeRed;">RNA</span></strong></span></strong> takes the place of adenine in <strong><span style="color: MediumBlue;"><strong><span style="color: MediumBlue;">DNA</span></strong></span></strong>
+LITERAL_B7DB_B8B0_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

@@ -46,8 +46,10 @@ CREATE TABLE ple_private.assignment_submission (
     assignment_submission_id uuid PRIMARY KEY,
     assignment_attempt_id uuid NOT NULL UNIQUE REFERENCES ple_private.assignment_attempt(assignment_attempt_id) ON DELETE CASCADE,
     submitted_at timestamptz NOT NULL,
-    authorized_by_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
-    receipt jsonb NOT NULL CHECK (jsonb_typeof(receipt) = 'object')
+    finalization_kind text NOT NULL CHECK (finalization_kind IN ('student', 'deadline')),
+    authorized_by_account_id uuid REFERENCES ple_private.account(account_id),
+    receipt jsonb NOT NULL CHECK (jsonb_typeof(receipt) = 'object'),
+    CHECK ((finalization_kind = 'student') = (authorized_by_account_id IS NOT NULL))
 );
 
 CREATE FUNCTION ple_private.enforce_question_attempt_state_transition()

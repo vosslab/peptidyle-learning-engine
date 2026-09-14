@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 85d5_7111; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic02/bbq-chargaff_dna_percent-5_choices-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_85D5_7111';
+<p>85d5_7111</p> <p>According to Chargaff's rules concerning the base pairing composition in double-stranded DNA, consider a sample where the percentage composition of <strong><span style='color: #2a2000;'>37% is guanine</span></strong>.</p><p>What are the percentages of the other three bases?</p>
+PROMPT_85D5_7111
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_85D5_7111_CHOICE_1';
+<span style='color: #004d00;'>adenine (A): 13%</span> &mdash; <span style='color: #003566;'>cytosine (C): 13%</span> &mdash; <span style='color: #6e1212;'>thymine (T): 37%</span>
+LITERAL_85D5_7111_CHOICE_1
+$choice_2 = <<'LITERAL_85D5_7111_CHOICE_2';
+<span style='color: #004d00;'>adenine (A): 37%</span> &mdash; <span style='color: #003566;'>cytosine (C): 13%</span> &mdash; <span style='color: #6e1212;'>thymine (T): 13%</span>
+LITERAL_85D5_7111_CHOICE_2
+$choice_3 = <<'LITERAL_85D5_7111_CHOICE_3';
+<span style='color: #004d00;'>adenine (A): 13%</span> &mdash; <span style='color: #003566;'>cytosine (C): 37%</span> &mdash; <span style='color: #6e1212;'>thymine (T): 13%</span>
+LITERAL_85D5_7111_CHOICE_3
+$choice_4 = <<'LITERAL_85D5_7111_CHOICE_4';
+<span style='color: #004d00;'>adenine (A): 13%</span> &mdash; <span style='color: #003566;'>cytosine (C): 25%</span> &mdash; <span style='color: #6e1212;'>thymine (T): 25%</span>
+LITERAL_85D5_7111_CHOICE_4
+$choice_5 = <<'LITERAL_85D5_7111_CHOICE_5';
+<span style='color: #004d00;'>adenine (A): 25%</span> &mdash; <span style='color: #003566;'>cytosine (C): 25%</span> &mdash; <span style='color: #6e1212;'>thymine (T): 13%</span>
+LITERAL_85D5_7111_CHOICE_5
+$correct_1 = <<'LITERAL_85D5_7111_CORRECT_1';
+<span style='color: #004d00;'>adenine (A): 13%</span> &mdash; <span style='color: #003566;'>cytosine (C): 37%</span> &mdash; <span style='color: #6e1212;'>thymine (T): 13%</span>
+LITERAL_85D5_7111_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

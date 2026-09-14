@@ -556,8 +556,13 @@ BEGIN
                     WHERE event.invitation_id = invitation.invitation_id
                )
         ) THEN
-            INSERT INTO ple_private.course_invitation
-            VALUES (pg_catalog.gen_random_uuid(), course, student, 'student', now_at, now_at + interval '7 days');
+            INSERT INTO ple_private.course_invitation (
+                invitation_id, course_id, target_account_id, membership_role,
+                inviting_instructor_account_id, inviting_instructor_role, issued_at, expires_at
+            ) VALUES (
+                pg_catalog.gen_random_uuid(), course, student, 'student', actor, 'instructor',
+                now_at, now_at + interval '7 days'
+            );
             PERFORM ple_audit.record_course_roster_event(course, student, actor, 'invitation_created');
         END IF;
         roster_id := p_roster[item]; roster_email := p_normalized[item]; state := 'invitation_pending';
@@ -571,7 +576,7 @@ CREATE FUNCTION ple_api.claim_course_invitation(
 )
 RETURNS TABLE(active_student_membership boolean)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
-DECLARE course uuid; student uuid; invitation uuid; existing_record uuid; now_at timestamptz;
+DECLARE course uuid; student uuid; invitation uuid; inviter uuid; existing_record uuid; now_at timestamptz;
 BEGIN
     student := ple_api.current_session_account_id();
     SELECT course_id INTO course FROM ple_data.course_instance WHERE reference_number = p_reference;
@@ -586,7 +591,8 @@ BEGIN
         RETURN QUERY SELECT true;
         RETURN;
     END IF;
-    SELECT invitation_id INTO invitation FROM ple_private.course_invitation
+    SELECT invitation_id, inviting_instructor_account_id INTO invitation, inviter
+      FROM ple_private.course_invitation
      WHERE course_id = course AND target_account_id = student AND membership_role = 'student'
        AND expires_at > pg_catalog.clock_timestamp()
        AND NOT EXISTS (
@@ -598,6 +604,9 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course Invitation is unavailable';
     END IF;
     now_at := pg_catalog.transaction_timestamp();
+    -- ASVS 4.2.1: only the authenticated invitation target can reach this
+    -- one-time default. A prior Student choice clears the pending flag and wins.
+    PERFORM ple_private.apply_student_invitation_time_zone_default(student, inviter);
     INSERT INTO ple_data.student_record VALUES (p_student_record, course, student, now_at)
     ON CONFLICT (course_id, student_account_id) DO NOTHING;
     SELECT student_record_id INTO existing_record FROM ple_data.student_record

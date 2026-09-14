@@ -9,10 +9,13 @@ export interface CourseGradebookStudentWork {
   readonly rosterId: string;
   readonly assignmentReference: AssignmentReference;
   readonly assignmentAttemptCompletion: AssignmentAttemptCompletion | null;
-  readonly gradedQuestionCount: number;
-  readonly questionCount: number;
-  readonly pointsEarned: number;
-  readonly pointsPossible: number;
+  /** Derived from server time; no grading operation or queue state. */
+  readonly expiredSubmitting: boolean;
+  /** Null while an expired Attempt is awaiting background submission. */
+  readonly score: {
+    readonly pointsEarned: number;
+    readonly pointsPossible: number;
+  } | null;
 }
 
 /** The complete browser projection for one current Instructor Course. */

@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row f3d2_53ce; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-letter_translocation_problem_color-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_F3D2_53CE';
+<p>f3d2_53ce</p> <p>In a reciprocal translocation, two nonhomologous chromosomes each break once and exchange their terminal fragments. Gene order within each fragment is preserved; only the junctions change.</p><p>Two chromosomes with the gene sequences <span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;">&#x25C0;<span style="color: DarkRed; ">CDE</span></span><span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;"><span style="color: OrangeRed; ">FGHIJ</span>&#x25B6;</span> and <span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;">&#x25C0;<span style="color: DarkBlue; ">OPQR</span></span><span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;"><span style="color: DarkGreen; ">STUVWXY</span>&#x25B6;</span> undergo a reciprocal translocation after breaks between <span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;"><span style="color: DarkRed; ">E</span><strong>&#x23D0;</strong><span style="color: OrangeRed; ">F</span></span> and <span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;"><span style="color: DarkBlue; ">R</span><strong>&#x23D0;</strong><span style="color: DarkGreen; ">S</span></span>, where the symbols: &#x25C0; and &#x25B6; represent the telomeres. </p><p>Which one of the following is <strong>NOT</strong> a possible product of this translocation?</p>
+PROMPT_F3D2_53CE
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_F3D2_53CE_CHOICE_1';
+<span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;"><span style="color: DarkRed; ">CDE</span></span><strong>&#x2261;</strong><span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;"><span style="color: DarkGreen; ">STUVWXY</span></span>
+LITERAL_F3D2_53CE_CHOICE_1
+$choice_2 = <<'LITERAL_F3D2_53CE_CHOICE_2';
+<span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;"><span style="color: OrangeRed; ">JIHGF</span></span><strong>&#x2261;</strong><span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;"><span style="color: DarkBlue; ">RQPO</span></span>
+LITERAL_F3D2_53CE_CHOICE_2
+$choice_3 = <<'LITERAL_F3D2_53CE_CHOICE_3';
+<span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;"><span style="color: OrangeRed; ">JIHGF</span></span><strong>&#x2261;</strong><span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;"><span style="color: DarkGreen; ">STUVWXY</span></span>
+LITERAL_F3D2_53CE_CHOICE_3
+$choice_4 = <<'LITERAL_F3D2_53CE_CHOICE_4';
+<span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;"><span style="color: DarkBlue; ">RQPO</span></span><strong>&#x2261;</strong><span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;"><span style="color: DarkGreen; ">YXWVUTS</span></span>
+LITERAL_F3D2_53CE_CHOICE_4
+$choice_5 = <<'LITERAL_F3D2_53CE_CHOICE_5';
+<span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;"><span style="color: DarkRed; ">CDE</span></span><strong>&#x2261;</strong><span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;"><span style="color: DarkBlue; ">RQPO</span></span>
+LITERAL_F3D2_53CE_CHOICE_5
+$correct_1 = <<'LITERAL_F3D2_53CE_CORRECT_1';
+<span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;"><span style="color: DarkBlue; ">RQPO</span></span><strong>&#x2261;</strong><span style="font-family: monospace; font-size: 1.2em; display: inline-block; margin-left: 1px; margin-right: 1px;"><span style="color: DarkGreen; ">YXWVUTS</span></span>
+LITERAL_F3D2_53CE_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

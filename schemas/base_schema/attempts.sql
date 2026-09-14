@@ -39,8 +39,8 @@ CREATE TABLE ple_private.assignment_attempt (
     assignment_id uuid NOT NULL REFERENCES ple_data.assignment(assignment_id),
     attempt_number integer NOT NULL CHECK (attempt_number > 0),
     started_at timestamptz NOT NULL,
+    expires_at timestamptz,
     completed_at timestamptz,
-    completion_score numeric CHECK (completion_score >= 0 AND completion_score <= 1),
     assignment_title text NOT NULL CHECK (assignment_title ~ '[^[:space:]]'),
     assignment_instructions text NOT NULL CHECK (assignment_instructions !~ E'\\x00'),
     available_at timestamptz,
@@ -74,8 +74,8 @@ CREATE TABLE ple_private.assignment_attempt (
     attempt_limit_accommodation_id uuid,
     attempt_limit_accommodation_edit_number bigint CHECK (attempt_limit_accommodation_edit_number > 0),
     UNIQUE (student_record_id, assignment_id, attempt_number),
+    CHECK (expires_at IS NULL OR expires_at >= started_at),
     CHECK (completed_at IS NULL OR completed_at >= started_at),
-    CHECK ((completed_at IS NULL) = (completion_score IS NULL)),
     CHECK ((available_at IS NULL OR due_at IS NULL OR available_at <= due_at)
        AND (due_at IS NULL OR closes_at IS NULL OR due_at <= closes_at)),
     CHECK (assignment_attempt_time_limit_seconds IS NULL OR assignment_attempt_time_limit_seconds > 0),
@@ -233,6 +233,7 @@ BEGIN
        OR NEW.assignment_id IS DISTINCT FROM OLD.assignment_id
        OR NEW.attempt_number IS DISTINCT FROM OLD.attempt_number
        OR NEW.started_at IS DISTINCT FROM OLD.started_at
+       OR NEW.expires_at IS DISTINCT FROM OLD.expires_at
        OR ROW(NEW.assignment_title, NEW.assignment_instructions, NEW.available_at, NEW.due_at, NEW.closes_at,
               NEW.assignment_attempt_time_limit_seconds, NEW.attempt_limit, NEW.late_work_rule,
               NEW.assignment_completion_rule, NEW.assignment_completion_score_threshold,
@@ -360,6 +361,9 @@ DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION ple_private.validate
 
 CREATE INDEX assignment_attempt_student_assignment_lookup_idx
     ON ple_private.assignment_attempt(student_record_id, assignment_id, attempt_number DESC);
+CREATE INDEX assignment_attempt_expiry_sweep_idx
+    ON ple_private.assignment_attempt(expires_at, assignment_attempt_id)
+    WHERE expires_at IS NOT NULL AND completed_at IS NULL;
 CREATE INDEX issued_question_attempt_position_idx ON ple_private.issued_question(assignment_attempt_id, issued_position);
 
 ALTER TABLE ple_private.student_assignment_accommodation ENABLE ROW LEVEL SECURITY;

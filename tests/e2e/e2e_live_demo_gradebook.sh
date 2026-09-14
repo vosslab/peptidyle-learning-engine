@@ -64,6 +64,14 @@ persona_cookie() {
 status() { printf '%s' "${1##*$'\n'}"; }
 body() { printf '%s' "${1%$'\n'*}"; }
 
+postgres_scalar() {
+    local postgres sql="$1"
+    postgres="$(service_id postgres)"
+    podman exec "$postgres" sh -lc \
+        'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' \
+        sh "$sql"
+}
+
 course_reference() {
     python3 -c 'import json,re,sys
 items=json.loads(sys.argv[1]).get("items",[])
@@ -77,9 +85,6 @@ concealed() {
     [ "$(status "$1")" = 404 ] || { echo "Gradebook access was not concealed" >&2; exit 1; }
 }
 
-# Submission recovery produces the immutable Grading Result evidence that this
-# read-only projection consumes. It remains a separate disposable acceptance.
-bash "$repository_root/tests/e2e/e2e_live_demo_submission_recovery.sh" --fault >/dev/null
 instructor_cookie="$(persona_cookie elenaInstructor)"
 student_cookie="$(persona_cookie maryStudent)"
 sysadmin_cookie="$(persona_cookie morganSysadmin)"
@@ -103,7 +108,7 @@ rows=value["studentWork"]
 if not isinstance(rows,list) or not rows:
     raise SystemExit("Gradebook projection lacks active Student Work")
 for row in rows:
-    if set(row)!={"rosterId","assignmentReference","assignmentAttemptCompletion","gradedQuestionCount","questionCount","pointsEarned","pointsPossible"}:
+    if set(row)!={"rosterId","assignmentReference","assignmentAttemptCompletion","expiredSubmitting","score"}:
         raise SystemExit("Gradebook projection exposed an unapproved field")
     if not isinstance(row["rosterId"],str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}",row["rosterId"]):
         raise SystemExit("Gradebook roster projection is invalid")
@@ -111,19 +116,30 @@ for row in rows:
         raise SystemExit("Gradebook Assignment projection is invalid")
     if row["assignmentAttemptCompletion"] not in (None,"inProgress","completed"):
         raise SystemExit("Gradebook Assignment Attempt completion is invalid")
-    if not isinstance(row["gradedQuestionCount"],int) or row["gradedQuestionCount"] < 0:
-        raise SystemExit("Gradebook graded Question count is invalid")
-    if not isinstance(row["questionCount"],int) or not 0 <= row["gradedQuestionCount"] <= row["questionCount"] or row["questionCount"] < 1:
-        raise SystemExit("Gradebook Question count is invalid")
-    if not all(isinstance(row[k],(int,float)) and not isinstance(row[k],bool) for k in ("pointsEarned","pointsPossible")) or not 0 <= row["pointsEarned"] <= row["pointsPossible"]:
-        raise SystemExit("Gradebook points projection is invalid")
-    if row["assignmentAttemptCompletion"] is None and (row["gradedQuestionCount"] != 0 or row["pointsEarned"] != 0 or row["pointsPossible"] != 0):
+    if not isinstance(row["expiredSubmitting"],bool):
+        raise SystemExit("Gradebook expiry projection is invalid")
+    score=row["score"]
+    if score is not None:
+        if set(score)!={"pointsEarned","pointsPossible"} or not all(isinstance(score[k],(int,float)) and not isinstance(score[k],bool) for k in ("pointsEarned","pointsPossible")) or not 0 <= score["pointsEarned"] <= score["pointsPossible"]:
+            raise SystemExit("Gradebook points projection is invalid")
+    if row["assignmentAttemptCompletion"] is None and (score is not None or row["expiredSubmitting"]):
         raise SystemExit("Gradebook not-started row exposes work totals")
+    if row["expiredSubmitting"] and (row["assignmentAttemptCompletion"] != "inProgress" or score is not None):
+        raise SystemExit("Gradebook expired submission projection is invalid")
 serialized=json.dumps(value).lower()
 if any(word in serialized for word in ("studentresponse","answerkey","sourceobject","checksum","grader")):
     raise SystemExit("Gradebook projection exposed private grading evidence")' "$(body "$received")" "$course"
 
 postgres="$(service_id postgres)"
+gateway="$(service_id gateway)"
+port="$(gateway_port)"
+headers="$(podman exec "$gateway" curl --silent --show-error --insecure --max-time 12 \
+    --dump-header - --output /dev/null --header "Host: localhost:$port" \
+    --header "Cookie: $instructor_cookie" "https://localhost:8080$path")"
+printf '%s\n' "$headers" | tr -d '\r' | rg -qi '^cache-control: no-store$' || {
+    echo "Gradebook response was cacheable" >&2
+    exit 1
+}
 podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "DO \$\$ BEGIN IF has_table_privilege('\''ple_app'\'', '\''ple_private.grading_result'\'', '\''SELECT'\'') OR has_table_privilege('\''ple_app'\'', '\''ple_private.question_submission'\'', '\''SELECT'\'') THEN RAISE EXCEPTION '\''direct Gradebook evidence access widened'\''; END IF; END \$\$; SELECT '\''gradebook_catalog_authority'\'';"' | rg -qx 'gradebook_catalog_authority' || { echo "Gradebook least-privilege evidence failed" >&2; exit 1; }
 
 echo "Gradebook authority: current Course Instructor receives answer-free immutable grading evidence with concealed foreign access"

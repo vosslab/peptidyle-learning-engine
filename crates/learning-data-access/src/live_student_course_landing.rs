@@ -5,6 +5,7 @@
 //! Account and exact active Student Course Membership before it projects them.
 
 use async_trait::async_trait;
+use browser_api_contract::student_assignment_decision::StudentAssignmentDecisionSummary;
 use question_model::{AssignmentAttemptCompletion, AssignmentReference, CourseInstanceReference};
 use serde::Serialize;
 
@@ -45,6 +46,8 @@ pub struct LiveStudentAssignmentLandingSummary {
     pub assignment: AssignmentReference,
     /// Student-facing released Assignment title.
     pub title: String,
+    /// Same server-owned policy and start decision returned by Assignment Access.
+    pub decision: StudentAssignmentDecisionSummary,
     /// One-based current Assignment Attempt number, or none before work starts.
     pub assignment_attempt_number: Option<u32>,
     /// Current Assignment Attempt completion, or none when work has not started.

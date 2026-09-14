@@ -45,7 +45,7 @@ try {
     typeof first !== "object" ||
     Array.isArray(first) ||
     Object.keys(first).sort().join(",") !==
-      "assignmentAttemptCompletion,assignmentReference,gradedQuestionCount,pointsEarned,pointsPossible,questionCount,rosterId"
+      "assignmentAttemptCompletion,assignmentReference,expiredSubmitting,rosterId,score"
   ) {
     throw new Error("Gradebook browser received non-answer-free Student Work evidence");
   }

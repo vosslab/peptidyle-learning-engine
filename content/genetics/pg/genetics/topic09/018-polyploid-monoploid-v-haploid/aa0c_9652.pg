@@ -1,0 +1,46 @@
+## DESCRIPTION
+## Imported Genetics source row aa0c_9652; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-polyploid-monoploid_v_haploid-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_AA0C_9652';
+<p>aa0c_9652</p> <p>A certain plant is found to be a dodecaploid (12n) with 60 chromosomes in total.</p><h5>What are the monoploid (m) and haploid (h) numbers for this plant?</h5><p><i>Note: 60/12 = 5 and 60/2 = 30</i></p>
+PROMPT_AA0C_9652
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_AA0C_9652_CHOICE_1';
+<p>monoploid, m = 30 and haploid, h = 30</p>
+LITERAL_AA0C_9652_CHOICE_1
+$choice_2 = <<'LITERAL_AA0C_9652_CHOICE_2';
+<p>monoploid, m = 30 and haploid, h = 5</p>
+LITERAL_AA0C_9652_CHOICE_2
+$choice_3 = <<'LITERAL_AA0C_9652_CHOICE_3';
+<p>monoploid, m = 60 and haploid, h = 30</p>
+LITERAL_AA0C_9652_CHOICE_3
+$choice_4 = <<'LITERAL_AA0C_9652_CHOICE_4';
+<p>monoploid, m = 5 and haploid, h = 5</p>
+LITERAL_AA0C_9652_CHOICE_4
+$choice_5 = <<'LITERAL_AA0C_9652_CHOICE_5';
+<p>monoploid, m = 5 and haploid, h = 30</p>
+LITERAL_AA0C_9652_CHOICE_5
+$choice_6 = <<'LITERAL_AA0C_9652_CHOICE_6';
+<p>monoploid, m = 60 and haploid, h = 5</p>
+LITERAL_AA0C_9652_CHOICE_6
+$correct_1 = <<'LITERAL_AA0C_9652_CORRECT_1';
+<p>monoploid, m = 5 and haploid, h = 30</p>
+LITERAL_AA0C_9652_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5, $choice_6);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

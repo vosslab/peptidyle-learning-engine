@@ -103,6 +103,12 @@ fn response_pairs_refuse_noncanonical_and_server_owned_names() {
     assert!(decode_response_pairs(br#"[["problemSeed","9"]]"#).is_err());
     assert!(decode_response_pairs(br#"[["isInstructor","1"]]"#).is_err());
     assert!(decode_response_pairs(br#"[["showSolutions","1"]]"#).is_err());
+    assert!(decode_response_pairs(br#"[["answersSubmitted","1"]]"#).is_err());
+    assert!(decode_response_pairs(br#"[["previewAnswers","1"]]"#).is_err());
+    assert!(decode_response_pairs(br#"[["processAnswers","1"]]"#).is_err());
+    assert!(
+        decode_response_pairs(br#"[["problemSourceURL","https://elsewhere.example"]]"#).is_err()
+    );
     assert!(decode_response_pairs(br#"[["problemJWT","x"]]"#).is_err());
     assert!(decode_response_pairs(br#"[["PrObLeMjWt","x"]]"#).is_err());
     assert!(decode_response_pairs(br#"[["outputFormat","html"]]"#).is_err());

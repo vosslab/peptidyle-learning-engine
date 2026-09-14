@@ -1,0 +1,79 @@
+## DESCRIPTION
+## Imported Genetics source row ec8a_d39c; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-MATCH-chromosome_alterations-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_EC8A_D39C';
+<p>ec8a_d39c</p> <p>Match each of the following alterations to <strong><span style="color: #008672;">chromosome</span></strong> structure with their corresponding descriptions.</p><p><i>Note:</i> Each choice will be used exactly once.</p>
+PROMPT_EC8A_D39C
+loadMacros('PGML.pl', 'parserPopUp.pl');
+sub make_popup { return defined &DropDown ? DropDown(@_) : PopUp(@_); }
+$match_term_0 = <<'LITERAL_EC8A_D39C_MATCH_TERM_0';
+<span style="color: #a22d40;">deletion</span>
+LITERAL_EC8A_D39C_MATCH_TERM_0
+$match_term_1 = <<'LITERAL_EC8A_D39C_MATCH_TERM_1';
+<span style="color: #197031;">paracentric inversion</span>
+LITERAL_EC8A_D39C_MATCH_TERM_1
+$match_term_2 = <<'LITERAL_EC8A_D39C_MATCH_TERM_2';
+<span style="color: #8a3295;">Robertsonian translocation</span>
+LITERAL_EC8A_D39C_MATCH_TERM_2
+$match_term_3 = <<'LITERAL_EC8A_D39C_MATCH_TERM_3';
+<span style="color: #7a5700;">non-disjunction</span>
+LITERAL_EC8A_D39C_MATCH_TERM_3
+$match_term_4 = <<'LITERAL_EC8A_D39C_MATCH_TERM_4';
+<span style="color: #006c6a;">pericentric inversion</span>
+LITERAL_EC8A_D39C_MATCH_TERM_4
+$match_choice_0 = <<'LITERAL_EC8A_D39C_MATCH_CHOICE_0';
+portion of the <strong><span style="color: #008672;">chromosome</span></strong> is missing
+LITERAL_EC8A_D39C_MATCH_CHOICE_0
+$match_choice_1 = <<'LITERAL_EC8A_D39C_MATCH_CHOICE_1';
+can result from <strong><span style="color: #a16c04;">genes</span></strong> recombination where a part of a single <strong><span style="color: #008672;">chromosome</span></strong> arm is <strong><span style="color: #56225d;">reverse</span></strong>d
+LITERAL_EC8A_D39C_MATCH_CHOICE_1
+$match_choice_2 = <<'LITERAL_EC8A_D39C_MATCH_CHOICE_2';
+caused by breaks at or near the <strong><span style="color: #c1480a;">centromere</span></strong>s of two acrocentric <strong><span style="color: #008672;">chromosome</span></strong>s
+LITERAL_EC8A_D39C_MATCH_CHOICE_2
+$match_choice_3 = <<'LITERAL_EC8A_D39C_MATCH_CHOICE_3';
+the failure of homologous <strong><span style="color: #008672;">chromosome</span></strong>s to separate properly during cell division
+LITERAL_EC8A_D39C_MATCH_CHOICE_3
+$match_choice_4 = <<'LITERAL_EC8A_D39C_MATCH_CHOICE_4';
+<strong><span style="color: #c1480a;">centromere</span></strong> is included in the <strong><span style="color: #56225d;">reverse</span></strong>d loop that is formed during synapsis
+LITERAL_EC8A_D39C_MATCH_CHOICE_4
+$match_dropdown_0 = make_popup(['', "A", "B", "C", "D", "E"], 1);
+$match_dropdown_1 = make_popup(['', "A", "B", "C", "D", "E"], 2);
+$match_dropdown_2 = make_popup(['', "A", "B", "C", "D", "E"], 3);
+$match_dropdown_3 = make_popup(['', "A", "B", "C", "D", "E"], 4);
+$match_dropdown_4 = make_popup(['', "A", "B", "C", "D", "E"], 5);
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_PGML
+[@ MODES(HTML => '<div class="two-column">') @]*
+[@ MODES(HTML => '<div>') @]*
+[_]{$match_dropdown_0} *1.* [$match_term_0]*
+
+[_]{$match_dropdown_1} *2.* [$match_term_1]*
+
+[_]{$match_dropdown_2} *3.* [$match_term_2]*
+
+[_]{$match_dropdown_3} *4.* [$match_term_3]*
+
+[_]{$match_dropdown_4} *5.* [$match_term_4]*
+[@ MODES(HTML => '</div><div>') @]*
+*A.* [$match_choice_0]*
+
+*B.* [$match_choice_1]*
+
+*C.* [$match_choice_2]*
+
+*D.* [$match_choice_3]*
+
+*E.* [$match_choice_4]*
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+ENDDOCUMENT();

@@ -159,11 +159,12 @@ INSERT INTO ple_private.course_roster_profile (
 ON CONFLICT (course_roster_profile_id) DO NOTHING;
 
 INSERT INTO ple_private.course_invitation (
-    invitation_id, course_id, target_account_id, membership_role, issued_at, expires_at
+    invitation_id, course_id, target_account_id, membership_role,
+    inviting_instructor_account_id, inviting_instructor_role, issued_at, expires_at
 ) VALUES
-    ('00000000-0000-0000-0000-000000000241', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000102', 'student', clock_timestamp(), clock_timestamp() + interval '365 days'),
-    ('00000000-0000-0000-0000-000000000242', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000103', 'student', clock_timestamp(), clock_timestamp() + interval '365 days'),
-    ('00000000-0000-0000-0000-000000000243', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000104', 'student', clock_timestamp(), clock_timestamp() + interval '365 days')
+    ('00000000-0000-0000-0000-000000000241', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000102', 'student', '00000000-0000-0000-0000-000000000101', 'instructor', clock_timestamp(), clock_timestamp() + interval '365 days'),
+    ('00000000-0000-0000-0000-000000000242', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000103', 'student', '00000000-0000-0000-0000-000000000101', 'instructor', clock_timestamp(), clock_timestamp() + interval '365 days'),
+    ('00000000-0000-0000-0000-000000000243', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000104', 'student', '00000000-0000-0000-0000-000000000101', 'instructor', clock_timestamp(), clock_timestamp() + interval '365 days')
 ON CONFLICT (invitation_id) DO NOTHING;
 
 INSERT INTO ple_data.student_record (student_record_id, course_id, student_account_id, created_at) VALUES

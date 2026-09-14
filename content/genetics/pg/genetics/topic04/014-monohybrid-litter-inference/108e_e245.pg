@@ -1,0 +1,40 @@
+## DESCRIPTION
+## Imported Genetics source row 108e_e245; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic04/bbq-monohybrid_litter_inference-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_108E_E245';
+<p>108e_e245</p> <p>A person with widow's peak known to be heterozygous is crossed with an individual of unknown genotype. In a large litter of 16 offspring, 12 show widow's peak and 4 show straight hairline.</p><p>Assume a single gene with A dominant to a. What is the most likely genotype of the unknown parent?</p>
+PROMPT_108E_E245
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_108E_E245_CHOICE_1';
+<span style='font-family: monospace;'>AA</span>
+LITERAL_108E_E245_CHOICE_1
+$choice_2 = <<'LITERAL_108E_E245_CHOICE_2';
+<span style='font-family: monospace;'>Aa</span>
+LITERAL_108E_E245_CHOICE_2
+$choice_3 = <<'LITERAL_108E_E245_CHOICE_3';
+<span style='font-family: monospace;'>aa</span>
+LITERAL_108E_E245_CHOICE_3
+$choice_4 = <<'LITERAL_108E_E245_CHOICE_4';
+Cannot be determined from the data given
+LITERAL_108E_E245_CHOICE_4
+$correct_1 = <<'LITERAL_108E_E245_CORRECT_1';
+<span style='font-family: monospace;'>Aa</span>
+LITERAL_108E_E245_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

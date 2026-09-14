@@ -11,6 +11,7 @@ import type { StudentFeedbackReleaseTiming } from "../../generated/api/StudentFe
 import type { StudentLateWorkStatus } from "../../generated/api/StudentLateWorkStatus";
 import type { QuestionPoolReuseRule } from "../../generated/api/QuestionPoolReuseRule";
 import type { AssignmentQuestionVariationRule } from "../../generated/api/AssignmentQuestionVariationRule";
+import type { StudentAssignmentDecisionSummary } from "../../generated/api/StudentAssignmentDecisionSummary";
 import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
 export interface StudentAssignmentPresentationDelivery {
@@ -56,6 +57,7 @@ export function StudentAssignmentStartFacts(props: {
   readonly questionCount: number;
   readonly pointsPossible?: number;
   readonly timeLimitSeconds: number | null;
+  readonly decision?: StudentAssignmentDecisionSummary;
 }): JSX.Element {
   return (
     <section
@@ -74,12 +76,71 @@ export function StudentAssignmentStartFacts(props: {
             <dd>{props.pointsPossible}</dd>
           </div>
         </Show>
+        <Show when={props.decision === undefined}>
+          <div>
+            <dt>Time limit</dt>
+            <dd>{formatAssignmentAttemptTimeLimit(props.timeLimitSeconds)}</dd>
+          </div>
+        </Show>
+      </dl>
+      <Show when={props.decision}>
+        {(decision) => <StudentAssignmentDecisionDetails decision={decision()} />}
+      </Show>
+    </section>
+  );
+}
+
+/** Formats server-owned Assignment access facts without recomputing permission. */
+export function StudentAssignmentDecisionDetails(props: {
+  readonly decision: StudentAssignmentDecisionSummary;
+}): JSX.Element {
+  return (
+    <div class="student-assignment-decision">
+      <p class="student-assignment-decision__status" role="status">
+        <strong>
+          {props.decision.startDecision === "may_start" ? "Can start" : "Cannot start"}
+        </strong>
+        <Show when={props.decision.publicReason}>{(publicReason) => <> - {publicReason()}</>}</Show>
+      </p>
+      <p class="student-assignment-decision__zone">
+        Times are shown in your time zone: {props.decision.displayTimeZone}.
+      </p>
+      <dl class="assignment-facts">
+        <div>
+          <dt>Available</dt>
+          <dd>
+            {formatAssignmentDeliveryTime(
+              props.decision.availableAt,
+              props.decision.displayTimeZone,
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt>Due</dt>
+          <dd data-assignment-decision-due>
+            {formatAssignmentDeliveryTime(props.decision.dueAt, props.decision.displayTimeZone)}
+          </dd>
+        </div>
+        <div>
+          <dt>Closes</dt>
+          <dd>
+            {formatAssignmentDeliveryTime(props.decision.closesAt, props.decision.displayTimeZone)}
+          </dd>
+        </div>
         <div>
           <dt>Time limit</dt>
-          <dd>{formatAssignmentAttemptTimeLimit(props.timeLimitSeconds)}</dd>
+          <dd>{formatAssignmentAttemptTimeLimit(props.decision.timeLimitSeconds)}</dd>
+        </div>
+        <div>
+          <dt>Attempt limit</dt>
+          <dd>{formatAssignmentLimit(props.decision.attemptLimit, "attempt", "attempts")}</dd>
+        </div>
+        <div>
+          <dt>Late work</dt>
+          <dd>{formatLateWorkRule(props.decision.lateWorkRule)}</dd>
         </div>
       </dl>
-    </section>
+    </div>
   );
 }
 

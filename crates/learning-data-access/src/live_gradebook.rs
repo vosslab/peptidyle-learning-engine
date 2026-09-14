@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use question_model::CourseInstanceReference;
 use serde::Serialize;
 
-use crate::{SessionTokenHash, StoreError};
+use crate::{LiveAssignmentAttemptScore, SessionTokenHash, StoreError};
 
 /// One Course-local answer-free progress row for an active Student.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -13,10 +13,10 @@ pub struct CourseGradebookStudentWork {
     pub roster_id: String,
     pub assignment_reference: question_model::AssignmentReference,
     pub assignment_attempt_completion: Option<question_model::AssignmentAttemptCompletion>,
-    pub graded_question_count: u32,
-    pub question_count: u32,
-    pub points_earned: f64,
-    pub points_possible: f64,
+    /// Derived only from server time and durable submission evidence.
+    pub expired_submitting: bool,
+    /// Missing only until background submission records immutable outcomes.
+    pub score: Option<LiveAssignmentAttemptScore>,
 }
 
 /// The current Course Instructor's answer-free Gradebook evidence projection.

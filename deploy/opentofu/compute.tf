@@ -111,12 +111,11 @@ resource "aws_iam_role_policy" "publisher_storage" {
 }
 
 resource "aws_iam_role_policy" "worker_storage" {
-  name = "worker-storage-only"
+  name = "attempt-expiry-question-source-read"
   role = aws_iam_role.worker.id
   policy = jsonencode({ Version = "2012-10-17", Statement = [
-    { Effect = "Allow", Action = ["s3:GetObject"], Resource = ["${aws_s3_bucket.object["private_content"].arn}/questions/*", "${aws_s3_bucket.object["student_records"].arn}/records/*", "${aws_s3_bucket.object["temp_processing"].arn}/processing/*"] },
-    { Effect = "Allow", Action = ["s3:PutObject", "s3:AbortMultipartUpload", "s3:DeleteObject"], Resource = ["${aws_s3_bucket.object["private_content"].arn}/questions/*", "${aws_s3_bucket.object["student_records"].arn}/records/*", "${aws_s3_bucket.object["temp_processing"].arn}/processing/*"] },
-    { Effect = "Allow", Action = ["kms:Decrypt", "kms:GenerateDataKey"], Resource = [aws_kms_key.object["private_content"].arn, aws_kms_key.object["student_records"].arn, aws_kms_key.object["temp_processing"].arn] }
+    { Effect = "Allow", Action = ["s3:GetObject"], Resource = "${aws_s3_bucket.object["private_content"].arn}/questions/*" },
+    { Effect = "Allow", Action = ["kms:Decrypt"], Resource = aws_kms_key.object["private_content"].arn }
   ] })
 }
 
@@ -148,7 +147,7 @@ locals {
     { name = "PLE_STUDENT_RECORDS_KMS_KEY_ARN", value = aws_kms_key.object["student_records"].arn },
     { name = "PLE_TEMP_PROCESSING_KMS_KEY_ARN", value = aws_kms_key.object["temp_processing"].arn }
   ]
-  api_required_secret_keys = ["DATABASE_URL", "PLE_AUTOMATED_GRADING_DATABASE_URL", "PLE_TRUSTED_PROXY_CIDRS", "PLE_PUBLIC_ASSET_BASE_URL"]
+  api_required_secret_keys = ["DATABASE_URL", "PLE_TRUSTED_PROXY_CIDRS", "PLE_PUBLIC_ASSET_BASE_URL"]
   smtp_secret_keys         = ["PLE_SMTP_RELAY", "PLE_SMTP_PORT", "PLE_SMTP_TLS_MODE", "PLE_SMTP_USERNAME", "PLE_SMTP_FROM", "PLE_PUBLIC_APP_BASE_URL"]
   webwork_secret_keys      = ["PLE_WEBWORK_RENDERER_BASE_URL", "PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS", "PLE_WEBWORK_MAX_RESPONSE_BYTES", "PLE_WEBWORK_RENDERER_ID", "PLE_WEBWORK_RENDERER_VERSION"]
   api_secrets = [
@@ -159,8 +158,7 @@ locals {
     { name = "PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL", valueFrom = "${var.fast_path_application_secrets_arn}:PLE_ACCEPTED_SUBMISSION_FAST_PATH_DATABASE_URL::" }
   ]
   worker_secrets = [
-    for key in ["PLE_WORKER_DATABASE_URL", "PLE_AUTOMATED_GRADING_DATABASE_URL"] :
-    { name = key, valueFrom = "${var.worker_application_secrets_arn}:${key}::" }
+    { name = "PLE_WORKER_DATABASE_URL", valueFrom = "${var.worker_application_secrets_arn}:PLE_WORKER_DATABASE_URL::" }
   ]
   recovery_secrets = [
     { name = "PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL", valueFrom = "${var.recovery_application_secrets_arn}:PLE_ACCEPTED_SUBMISSION_RECOVERY_DATABASE_URL::" }

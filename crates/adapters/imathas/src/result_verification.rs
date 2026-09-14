@@ -1,7 +1,7 @@
 //! The first concrete, deliberately narrow iMathAS grading profile.
 //!
 //! This module verifies a score only after the server-side iMathAS Question Backend has matched
-//! it to an exact, single-use iMathAS Question Backend Session. The iMathAS
+//! it to an exact iMathAS Question Backend Session. The iMathAS
 //! grading profile carries the signed iMathAS Session Challenge and iMathAS Launch Binding
 //! Checksum. The unextended upstream iMathAS protocol omits PLE account, attempt,
 //! Question Revision, Question Attempt, and result-identity facts; consequently a valid JWT alone is never a
@@ -125,8 +125,7 @@ pub enum ImathasGradingFailure {
 }
 
 impl ImathasGradingFailure {
-    /// Maps only transport-independent failures into the adapter's existing
-    /// question-local retry/degraded classification.
+    /// Maps transport-independent verification failures into adapter-local errors.
     pub fn into_adapter_error(self) -> ImathasAdapterError {
         match self {
             Self::UnsupportedProfile => ImathasAdapterError::UnsupportedProfile,

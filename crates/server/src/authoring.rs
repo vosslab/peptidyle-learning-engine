@@ -740,7 +740,10 @@ fn private_store_error(error: StoreError) -> Response {
         StoreError::AlreadyExists => {
             private_error(StatusCode::CONFLICT, "Draft Question operation conflicts")
         }
-        StoreError::Unavailable(_) | StoreError::AssignmentActivity(_) | StoreError::TimedOut => {
+        StoreError::LeaseLost
+        | StoreError::Unavailable(_)
+        | StoreError::AssignmentActivity(_)
+        | StoreError::TimedOut => {
             private_error(StatusCode::SERVICE_UNAVAILABLE, "Authoring is unavailable")
         }
     }

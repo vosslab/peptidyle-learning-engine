@@ -1,0 +1,40 @@
+## DESCRIPTION
+## Imported Genetics source row c735_4d61; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic01/bbq-WOMC-genetic_disorders-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_C735_4D61';
+<p>c735_4d61</p> <p>Which one of the following <strong><span style="color: #b74300;">genetic</span></strong> <strong><span style="color: #d40000;">disorder</span></strong>s correspond to the description <span style='font-size: 1em;'><strong>'gets its name from the distinctive sweet odor of affected infants' urine'</strong></span>.</p>
+PROMPT_C735_4D61
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_C735_4D61_CHOICE_1';
+Beta-Thalassemia
+LITERAL_C735_4D61_CHOICE_1
+$choice_2 = <<'LITERAL_C735_4D61_CHOICE_2';
+Cri du chat syndrome
+LITERAL_C735_4D61_CHOICE_2
+$choice_3 = <<'LITERAL_C735_4D61_CHOICE_3';
+Klinefelter syndrome
+LITERAL_C735_4D61_CHOICE_3
+$choice_4 = <<'LITERAL_C735_4D61_CHOICE_4';
+Maple syrup urine disease
+LITERAL_C735_4D61_CHOICE_4
+$correct_1 = <<'LITERAL_C735_4D61_CORRECT_1';
+Maple syrup urine disease
+LITERAL_C735_4D61_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

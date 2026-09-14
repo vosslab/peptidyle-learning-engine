@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::{
         HeaderMap, HeaderValue, StatusCode,
         header::{COOKIE, ETAG, IF_MATCH},
@@ -17,6 +17,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use axum_extra::extract::Query;
 use learning_data_access::{
     PublishedQuestionLibraryEntry, QuestionLibraryStore, SessionTokenHash, StoreError,
     postgres::PostgresQuestionLibraryStore,
@@ -40,6 +41,8 @@ use question_model::ProductRole;
 
 const DEFAULT_PAGE_SIZE: u16 = 50;
 const MAX_PAGE_SIZE: u16 = 100;
+
+mod paging;
 
 #[derive(Clone)]
 struct QuestionLibraryRouteState {
@@ -132,12 +135,6 @@ impl TryFrom<QuestionSearchQuery> for QuestionSearchRequest {
     type Error = (StatusCode, &'static str);
 
     fn try_from(query: QuestionSearchQuery) -> Result<Self, Self::Error> {
-        if query.cursor.is_some() {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                "Question Library continuation is unavailable for this fixed live baseline",
-            ));
-        }
         if query
             .page_size
             .is_some_and(|size| size == 0 || size > MAX_PAGE_SIZE)
@@ -157,7 +154,7 @@ impl TryFrom<QuestionSearchQuery> for QuestionSearchRequest {
             question_licenses: query.question_licenses,
             used_in_my_courses: query.used_in_my_courses,
             authorship: query.authorship,
-            cursor: None,
+            cursor: query.cursor,
             page_size: query.page_size.or(Some(DEFAULT_PAGE_SIZE)),
         }
         .normalized()
@@ -195,26 +192,28 @@ async fn search_questions(
             );
         }
     };
-    let matching = summaries
+    let mut matching = summaries
         .iter()
         .filter(|entry| matches_query(entry, &query))
         .collect::<Vec<_>>();
-    let page_size = usize::from(query.page_size.unwrap_or(DEFAULT_PAGE_SIZE));
-    if matching.len() > page_size {
-        return route_error(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "Question Library baseline requires a larger page size",
-        );
-    }
+    let (items, next_cursor) = match paging::page(&mut matching, &query) {
+        Ok(page) => page,
+        Err(()) => {
+            return route_error(
+                StatusCode::BAD_REQUEST,
+                "Question Library continuation is invalid",
+            );
+        }
+    };
     let page = QuestionSearchPage {
-        items: matching
+        items: items
             .iter()
             .map(|entry| QuestionSearchResult {
                 summary: entry.summary.clone(),
                 evidence: QuestionStatistics::Unavailable,
             })
             .collect(),
-        next_cursor: None,
+        next_cursor,
         facets: facets(&matching),
     };
     crate::auth::no_store(Json(page).into_response())
@@ -785,6 +784,7 @@ fn store_error_response(error: StoreError) -> Response {
         | StoreError::OwnershipMismatch
         | StoreError::AssignmentActivity(_)
         | StoreError::TimedOut
+        | StoreError::LeaseLost
         | StoreError::Unavailable(_) => route_error(
             StatusCode::SERVICE_UNAVAILABLE,
             "Question Library unavailable",
@@ -841,7 +841,7 @@ fn route_error(status: StatusCode, message: &'static str) -> Response {
 #[cfg(test)]
 mod tests {
     use crate::question_publication::QuestionIdSecret;
-    use axum::http::HeaderValue;
+    use axum::http::{HeaderValue, Uri};
 
     use super::*;
 
@@ -875,5 +875,80 @@ mod tests {
         assert!(expected_availability_edit_number(&headers).is_err());
         headers.insert(IF_MATCH, HeaderValue::from_static("W/\"7\""));
         assert!(expected_availability_edit_number(&headers).is_err());
+    }
+
+    #[test]
+    fn question_search_query_accepts_repeated_filter_values() {
+        let uri: Uri = concat!(
+            "/api/questions/search?backends=ple&backends=webwork",
+            "&author_names=Ada&author_names=Grace",
+            "&tags=protein&tags=structure",
+            "&question_types=multipleChoice&question_types=fillInBlank",
+            "&capabilities=hints&capabilities=serverGrading",
+            "&question_licenses=CC-BY-4.0&question_licenses=CC0-1.0"
+        )
+        .parse()
+        .expect("test URI parses");
+
+        let query = Query::<QuestionSearchQuery>::try_from_uri(&uri)
+            .expect("repeated filters decode")
+            .0;
+        let request = QuestionSearchRequest::try_from(query).expect("valid query request");
+
+        assert_eq!(
+            request.backends,
+            vec![QuestionBackend::Ple, QuestionBackend::Webwork]
+        );
+        assert_eq!(request.author_names, vec!["ada", "grace"]);
+        assert_eq!(request.tags, vec!["protein", "structure"]);
+        assert_eq!(request.page_size, Some(DEFAULT_PAGE_SIZE));
+    }
+
+    #[test]
+    fn question_search_query_accepts_single_filter_values_and_defaults() {
+        let uri: Uri = concat!(
+            "/api/questions/search?backends=ple&author_names=Ada&tags=protein",
+            "&question_types=multipleChoice&capabilities=hints",
+            "&question_licenses=CC-BY-4.0"
+        )
+        .parse()
+        .expect("test URI parses");
+
+        let query = Query::<QuestionSearchQuery>::try_from_uri(&uri)
+            .expect("single filters decode")
+            .0;
+        let request = QuestionSearchRequest::try_from(query).expect("valid query request");
+
+        assert_eq!(request.backends, vec![QuestionBackend::Ple]);
+        assert_eq!(request.author_names, vec!["ada"]);
+        assert_eq!(request.tags, vec!["protein"]);
+
+        let default_uri: Uri = "/api/questions/search".parse().expect("test URI parses");
+        let default_query = Query::<QuestionSearchQuery>::try_from_uri(&default_uri)
+            .expect("omitted filters decode")
+            .0;
+        let default_request =
+            QuestionSearchRequest::try_from(default_query).expect("valid default query request");
+        assert!(default_request.backends.is_empty());
+        assert!(default_request.author_names.is_empty());
+        assert_eq!(default_request.page_size, Some(DEFAULT_PAGE_SIZE));
+    }
+
+    #[test]
+    fn question_search_query_rejects_scalar_parameter_pollution_and_invalid_fields() {
+        for query in [
+            "text=one&text=two",
+            "page_size=10&page_size=20",
+            "backends=unknown",
+            "unexpected=value",
+        ] {
+            let uri: Uri = format!("/api/questions/search?{query}")
+                .parse()
+                .expect("test URI parses");
+            assert!(
+                Query::<QuestionSearchQuery>::try_from_uri(&uri).is_err(),
+                "query must reject: {query}"
+            );
+        }
     }
 }

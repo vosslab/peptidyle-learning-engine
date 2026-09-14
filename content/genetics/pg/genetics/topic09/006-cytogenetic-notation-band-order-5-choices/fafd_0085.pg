@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row fafd_0085; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic09/bbq-cytogenetic_notation-band_order-5_choices-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_FAFD_0085';
+<p>fafd_0085</p> Which band is most distal (farthest from the centromere) on chromosome 20p?
+PROMPT_FAFD_0085
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_FAFD_0085_CHOICE_1';
+<span style='font-family: monospace; font-weight: bold;'>20p45</span>
+LITERAL_FAFD_0085_CHOICE_1
+$choice_2 = <<'LITERAL_FAFD_0085_CHOICE_2';
+<span style='font-family: monospace; font-weight: bold;'>20p32.3</span>
+LITERAL_FAFD_0085_CHOICE_2
+$choice_3 = <<'LITERAL_FAFD_0085_CHOICE_3';
+<span style='font-family: monospace; font-weight: bold;'>20p25</span>
+LITERAL_FAFD_0085_CHOICE_3
+$choice_4 = <<'LITERAL_FAFD_0085_CHOICE_4';
+<span style='font-family: monospace; font-weight: bold;'>20p19.3</span>
+LITERAL_FAFD_0085_CHOICE_4
+$choice_5 = <<'LITERAL_FAFD_0085_CHOICE_5';
+<span style='font-family: monospace; font-weight: bold;'>20p49</span>
+LITERAL_FAFD_0085_CHOICE_5
+$correct_1 = <<'LITERAL_FAFD_0085_CORRECT_1';
+<span style='font-family: monospace; font-weight: bold;'>20p49</span>
+LITERAL_FAFD_0085_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

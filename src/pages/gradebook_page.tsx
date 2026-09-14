@@ -16,6 +16,12 @@ function progressLabel(completion: "inProgress" | "completed" | null): string {
   return "Not started";
 }
 
+function scoreLabel(work: CourseGradebook["studentWork"][number]): string {
+  if (work.score !== null)
+    return formatPointScore(work.score.pointsEarned, work.score.pointsPossible);
+  return work.expiredSubmitting ? "Expired, submitting" : "-";
+}
+
 function GradebookEvidence(props: { readonly gradebook: CourseGradebook }): JSX.Element {
   return (
     <Show
@@ -34,7 +40,6 @@ function GradebookEvidence(props: { readonly gradebook: CourseGradebook }): JSX.
               <th scope="col">Roster ID</th>
               <th scope="col">Assignment</th>
               <th scope="col">Progress</th>
-              <th scope="col">Graded Questions</th>
               <th scope="col">Score</th>
             </tr>
           </thead>
@@ -45,14 +50,7 @@ function GradebookEvidence(props: { readonly gradebook: CourseGradebook }): JSX.
                   <td>{work.rosterId}</td>
                   <td>{work.assignmentReference}</td>
                   <td>{progressLabel(work.assignmentAttemptCompletion)}</td>
-                  <td>
-                    {work.gradedQuestionCount} of {work.questionCount}
-                  </td>
-                  <td>
-                    {work.assignmentAttemptCompletion === null
-                      ? "-"
-                      : formatPointScore(work.pointsEarned, work.pointsPossible)}
-                  </td>
+                  <td>{scoreLabel(work)}</td>
                 </tr>
               )}
             </For>

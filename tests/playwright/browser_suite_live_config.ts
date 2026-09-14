@@ -11,7 +11,6 @@ export interface BrowserScenarioInputV1 {
   readonly baselineReads: readonly string[];
   readonly visibleObservation: string;
   readonly serviceReceipt?: string;
-  readonly faultTransition?: "native_ple_submission_recovery" | "deterministic_grader_exception";
 }
 type Value = Record<string, unknown>;
 const ID = /^[a-z][a-z0-9_]{0,95}$/u;
@@ -81,7 +80,6 @@ function parse(contents: string): BrowserScenarioInputV1 {
     "visibleObservation",
   ];
   if (input.serviceReceipt !== undefined) expected.push("serviceReceipt");
-  if (input.faultTransition !== undefined) expected.push("faultTransition");
   if (
     Object.keys(input).sort().join(",") !== expected.sort().join(",") ||
     input.schemaVersion !== 2 ||
@@ -93,10 +91,7 @@ function parse(contents: string): BrowserScenarioInputV1 {
     !identifiers(input.baselineReads) ||
     !visibleObservation(input.visibleObservation) ||
     (input.serviceReceipt !== undefined &&
-      (typeof input.serviceReceipt !== "string" || !SERVICE_RECEIPTS.has(input.serviceReceipt))) ||
-    (input.faultTransition !== undefined &&
-      input.faultTransition !== "native_ple_submission_recovery" &&
-      input.faultTransition !== "deterministic_grader_exception")
+      (typeof input.serviceReceipt !== "string" || !SERVICE_RECEIPTS.has(input.serviceReceipt)))
   )
     throw new Error("browser-suite input has an invalid shape");
   const result: BrowserScenarioInputV1 = {
@@ -108,7 +103,6 @@ function parse(contents: string): BrowserScenarioInputV1 {
     baselineReads: input.baselineReads,
     visibleObservation: input.visibleObservation,
     ...(input.serviceReceipt === undefined ? {} : { serviceReceipt: input.serviceReceipt }),
-    ...(input.faultTransition === undefined ? {} : { faultTransition: input.faultTransition }),
   };
   if (JSON.stringify(result) !== contents)
     throw new Error("browser-suite input must use canonical ASCII JSON");

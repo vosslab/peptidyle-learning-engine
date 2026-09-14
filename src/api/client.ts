@@ -24,7 +24,6 @@ import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
 import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
 import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
-import type { StudentResponse } from "../../generated/api/StudentResponse";
 import type { CourseInvitationReference } from "../../generated/api/CourseInvitationReference";
 import type { CourseInvitationTerminalActionRequest } from "../../generated/api/CourseInvitationTerminalActionRequest";
 import type { PendingCourseInvitationsPage } from "../../generated/api/PendingCourseInvitationsPage";
@@ -40,13 +39,11 @@ import type {
   StudentAssignmentLandingSummary,
   StudentAssignmentDetail,
   StudentQuestionAttempt,
-  QuestionSubmissionAcknowledgement,
   AuthenticatedSession,
   CourseSummary,
   CursorPage,
   ImathasQuestionBackendLaunch,
   StudentFeedbackReleaseResponse,
-  PrefetchedNextQuestion,
 } from "./contracts";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
@@ -190,31 +187,12 @@ export interface ApiClient
     assignmentId: AssignmentId,
     attemptId: QuestionAttemptId,
   ) => Promise<QuestionPresentation>;
-  /** Best-effort key-free preparation; null means no deterministic successor. */
-  readonly prefetchNextQuestion: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    attemptId: QuestionAttemptId,
-    signal?: AbortSignal,
-  ) => Promise<PrefetchedNextQuestion | null>;
   /** Creates an iMathAS Question Backend launch by same-origin POST, then returns its inert shell route. */
   readonly beginImathasQuestionBackendLaunch: (
     courseId: CourseId,
     assignmentId: AssignmentId,
     attemptId: QuestionAttemptId,
   ) => Promise<ImathasQuestionBackendLaunch>;
-  readonly submitResponse: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    attemptId: QuestionAttemptId,
-    response: StudentResponse,
-  ) => Promise<QuestionSubmissionAcknowledgement>;
-  /** Reads a previously acknowledged student submission without resending an Answer Key. */
-  readonly getSubmissionStatus: (
-    courseId: CourseId,
-    assignmentId: AssignmentId,
-    attemptId: QuestionAttemptId,
-  ) => Promise<QuestionSubmissionAcknowledgement>;
   /** Instructor command only; current Student Feedback is read through a later summary GET. */
   readonly releaseStudentFeedback: (
     attemptId: QuestionAttemptId,

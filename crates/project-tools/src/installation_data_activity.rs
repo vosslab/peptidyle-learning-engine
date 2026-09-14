@@ -11,14 +11,13 @@ use question_model::AccountId;
 use reqwest::{Method, StatusCode, header};
 use serde_json::{Map, Value, json};
 use server_core::auth::{self, CookieTransport, SessionConfig};
-use tokio::time::sleep;
 use url::Url;
 use uuid::Uuid;
 
 use crate::installation_data::{
     LIVE_DEMO_ASSIGNMENT_TITLE, LIVE_DEMO_AVERY_ACCOUNT_ID, LIVE_DEMO_COURSE_LONG_NAME,
     LIVE_DEMO_COURSE_SHORT_NAME, LIVE_DEMO_ELENA_ACCOUNT_ID, LIVE_DEMO_JACK_ACCOUNT_ID,
-    LIVE_DEMO_MARY_ACCOUNT_ID, LIVE_DEMO_MARY_ROSTER_ID,
+    LIVE_DEMO_MARY_ACCOUNT_ID,
 };
 
 #[path = "installation_data_activity_http.rs"]
@@ -34,8 +33,6 @@ const JACK_SAVED_RESPONSE_COUNT: u64 = 2;
 const TEMPORARY_SESSION_SECONDS: u32 = 5 * 60;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(12);
 const MAX_RESPONSE_BYTES: usize = 128 * 1024;
-const GRADING_POLL_ATTEMPTS: u32 = 112;
-const GRADING_POLL_DELAY: Duration = Duration::from_millis(250);
 
 const DEMO_ACCOUNTS: [DemoAccount; 4] = [
     DemoAccount::new("elena", LIVE_DEMO_ELENA_ACCOUNT_ID),
@@ -353,7 +350,6 @@ async fn converge(endpoint: &BrowserEndpoint, sessions: &TemporarySessions) -> R
     )
     .await?;
 
-    wait_for_mary_grade(&api, sessions.session("elena")?, &graph).await?;
     verify_complete_activity(&api, sessions, &graph, &jack_attempt).await
 }
 
@@ -461,6 +457,7 @@ async fn student_attempt_state(
                 &[
                     "reference",
                     "title",
+                    "decision",
                     "assignmentAttemptNumber",
                     "assignmentAttemptCompletion",
                     "gradedQuestionCount",
@@ -512,7 +509,12 @@ async fn ensure_avery_is_startable(
     );
     let access = assignment_access(api, avery, graph).await?;
     ensure!(
-        access.get("startDecision").and_then(Value::as_str) == Some("may_start")
+        access
+            .get("decision")
+            .and_then(Value::as_object)
+            .and_then(|decision| decision.get("startDecision"))
+            .and_then(Value::as_str)
+            == Some("may_start")
             && access.get("activeAssignmentAttempt") == Some(&Value::Null),
         "Live Demo Avery Assignment is not startable"
     );
@@ -542,12 +544,11 @@ async fn assignment_access(
     let object = closed_object(
         &value,
         &[
-            "startDecision",
+            "decision",
             "activeAssignmentAttempt",
             "title",
             "questionCount",
             "pointsPossible",
-            "timeLimitSeconds",
             "previousAttempts",
         ],
         "Assignment access",
@@ -568,7 +569,12 @@ async fn prepare_attempt(
     if state == AttemptState::NotStarted {
         let access = assignment_access(api, student, graph).await?;
         ensure!(
-            access.get("startDecision").and_then(Value::as_str) == Some("may_start")
+            access
+                .get("decision")
+                .and_then(Value::as_object)
+                .and_then(|decision| decision.get("startDecision"))
+                .and_then(Value::as_str)
+                == Some("may_start")
                 && access.get("activeAssignmentAttempt") == Some(&Value::Null),
             "Live Demo {student_name} Assignment is not startable"
         );
@@ -707,82 +713,42 @@ async fn submit_attempt(api: &ProductApi, student: &TemporarySession, attempt: &
         StatusCode::OK,
         "Assignment submission",
     )?;
+    let receipt = receipt
+        .as_object()
+        .context("Live Demo Assignment submission receipt is invalid")?;
     ensure!(
-        receipt == json!({"assignmentAttempt": attempt, "submissionState": "submitted"}),
+        receipt.keys().map(String::as_str).collect::<Vec<_>>()
+            == ["assignmentAttempt", "score", "submissionState"],
+        "Live Demo Assignment submission receipt is not closed"
+    );
+    ensure!(
+        receipt.get("assignmentAttempt").and_then(Value::as_str) == Some(attempt)
+            && receipt.get("submissionState").and_then(Value::as_str) == Some("submitted"),
         "Live Demo Assignment submission receipt is invalid"
     );
-    Ok(())
-}
-
-async fn wait_for_mary_grade(
-    api: &ProductApi,
-    instructor: &TemporarySession,
-    graph: &DemoGraph,
-) -> Result<()> {
-    for attempt in 0..GRADING_POLL_ATTEMPTS {
-        let gradebook = expect_status(
-            api.request(
-                instructor,
-                "Gradebook",
-                Method::GET,
-                &format!("/api/course-instances/{}/gradebook", graph.course),
-                None,
-            )
-            .await?,
-            StatusCode::OK,
-            "Gradebook",
-        )?;
-        if mary_grade_is_complete(&gradebook, graph)? {
-            return Ok(());
-        }
-        if attempt + 1 < GRADING_POLL_ATTEMPTS {
-            sleep(GRADING_POLL_DELAY).await;
-        }
-    }
-    bail!("Live Demo Mary Assignment Attempt grading timed out")
-}
-
-fn mary_grade_is_complete(gradebook: &Value, graph: &DemoGraph) -> Result<bool> {
-    let rows = closed_array_field(
-        gradebook,
-        &["courseReference", "studentWork"],
-        "studentWork",
-        "Gradebook",
-    )?;
-    let matches = rows
-        .iter()
-        .filter_map(|row| {
-            let object = closed_object(
-                row,
-                &[
-                    "rosterId",
-                    "assignmentReference",
-                    "assignmentAttemptCompletion",
-                    "gradedQuestionCount",
-                    "questionCount",
-                    "pointsEarned",
-                    "pointsPossible",
-                ],
-                "Gradebook row",
-            )
-            .ok()?;
-            (object.get("rosterId")?.as_str() == Some(LIVE_DEMO_MARY_ROSTER_ID)
-                && object.get("assignmentReference")?.as_str() == Some(graph.assignment.as_str()))
-            .then_some(object)
-        })
-        .collect::<Vec<_>>();
+    let score = receipt
+        .get("score")
+        .and_then(Value::as_object)
+        .context("Live Demo native PLE submission did not return a score")?;
     ensure!(
-        matches.len() == 1,
-        "Live Demo Mary Gradebook projection is invalid"
+        score.keys().map(String::as_str).collect::<Vec<_>>() == ["pointsEarned", "pointsPossible"],
+        "Live Demo Assignment score is not closed"
     );
-    Ok(matches[0]
-        .get("assignmentAttemptCompletion")
-        .and_then(Value::as_str)
-        == Some("completed")
-        && matches[0]
-            .get("gradedQuestionCount")
-            .and_then(Value::as_u64)
-            == Some(LIVE_DEMO_QUESTION_COUNT))
+    let points_earned = score
+        .get("pointsEarned")
+        .and_then(Value::as_f64)
+        .context("Live Demo Assignment score is invalid")?;
+    let points_possible = score
+        .get("pointsPossible")
+        .and_then(Value::as_f64)
+        .context("Live Demo Assignment score is invalid")?;
+    ensure!(
+        points_earned.is_finite()
+            && points_possible.is_finite()
+            && (0.0..=points_possible).contains(&points_earned),
+        "Live Demo Assignment score is invalid"
+    );
+    Ok(())
 }
 
 async fn verify_complete_activity(

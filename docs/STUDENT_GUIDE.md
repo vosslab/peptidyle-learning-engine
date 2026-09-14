@@ -9,8 +9,8 @@ membership, Student record, or authorization claim.
 
 After entry, a seeded Student can claim their own Course Invitation, open an
 authorized Course Instance and released Assignment, start or resume an
-Assignment Attempt, use the issued Question Response Control, and submit a
-Student Response. The server evaluates Course Membership, Assignment Access,
+Assignment Attempt, use the issued Question Response Controls, save responses,
+and submit the Assignment Attempt. The server evaluates Course Membership, Assignment Access,
 timing, and Student ownership at every protected boundary. Start the local
 stack using [USAGE.md](USAGE.md); [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and
 [API_CONTRACTS.md](API_CONTRACTS.md) define the current route boundary.
@@ -26,16 +26,16 @@ The current workflow is:
 
 1. Open an authorized Course Instance and Assignment.
 2. Start or resume an Assignment Attempt.
-3. Submit a response through visible Question Response Controls.
-4. Read the answer-free submission acknowledgement and permitted Student
-   Feedback or grading state.
-5. Continue or begin another Assignment Attempt only when Assignment rules
+3. Save each response through the visible Question Response Controls.
+4. Submit the Assignment Attempt, or let the server submit its saved responses automatically when
+   its wall-clock time expires.
+5. Read the completed Assignment result and permitted Student Feedback.
+6. Begin another Assignment Attempt only when Assignment rules
    allow it.
 
 The server keeps Answer Keys, Question Graders, private Question Source data,
 and Question Attempt Reproduction Details outside the Student browser boundary.
-Student Feedback is a separate policy-evaluated projection; a submission-status
-response reports only the nonce-bound grading state. The server also determines
+Student Feedback is a separate policy-evaluated projection. The server also determines
 timing, late-work treatment, and authorization; the browser does not infer them
 from its own clock or from an identifier.
 

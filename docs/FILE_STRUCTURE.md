@@ -55,7 +55,8 @@ schemas/
 |  +- attempt_*.sql                   Attempt, retained evidence, interaction, presentation, access, operations, and history
 |  +- delivery_*.sql                  Question delivery and backend bindings
 |  +- jobs.sql                        Short-lived leased execution records
-|  +- grading.sql                     Submission and grading records
+|  +- grading.sql                     Submission records and private grading state transitions
+|  +- grading_access.sql              Restricted grading readers, Gradebook, and worker wrappers
 |  +- student_assignment_landing.sql  Student-facing current Assignment landing readers
 |  +- statistics.sql                  Question Revision observation and statistic records
 |  +- corrections.sql                 Forced Question Correction evidence

@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row 1e05_a30e; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic04/bbq-lethal_allele_survival-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_1E05_A30E';
+<p>1e05_a30e</p> <p>In mice, allele Y causes yellow coat in heterozygotes (Yy) but is lethal in homozygotes (YY). A heterozygous individual is crossed with a normal homozygous recessive individual.</p><p>If 160 conceptions occur, how many are expected to be lethal?</p>
+PROMPT_1E05_A30E
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_1E05_A30E_CHOICE_1';
+120
+LITERAL_1E05_A30E_CHOICE_1
+$choice_2 = <<'LITERAL_1E05_A30E_CHOICE_2';
+80
+LITERAL_1E05_A30E_CHOICE_2
+$choice_3 = <<'LITERAL_1E05_A30E_CHOICE_3';
+40
+LITERAL_1E05_A30E_CHOICE_3
+$choice_4 = <<'LITERAL_1E05_A30E_CHOICE_4';
+0
+LITERAL_1E05_A30E_CHOICE_4
+$choice_5 = <<'LITERAL_1E05_A30E_CHOICE_5';
+160
+LITERAL_1E05_A30E_CHOICE_5
+$correct_1 = <<'LITERAL_1E05_A30E_CORRECT_1';
+0
+LITERAL_1E05_A30E_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

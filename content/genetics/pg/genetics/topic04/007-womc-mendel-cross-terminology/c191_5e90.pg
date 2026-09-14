@@ -1,0 +1,40 @@
+## DESCRIPTION
+## Imported Genetics source row c191_5e90; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic04/bbq-WOMC-mendel_cross_terminology-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_C191_5E90';
+<p>c191_5e90</p> <p>Which one of the following Mendelian crosses and generational stages correspond to the description <span style='font-size: 1em;'><strong>'a type of cross where a test organism showing a <strong><span style="color: #003fff;">dominant</span></strong> trait is crossed with one showing all <strong><span style="color: #00775f;">recessive</span></strong> traits'</strong></span>.</p>
+PROMPT_C191_5E90
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_C191_5E90_CHOICE_1';
+<strong><span style="color: #b74300;">F<sub>1</sub> generation</span></strong>
+LITERAL_C191_5E90_CHOICE_1
+$choice_2 = <<'LITERAL_C191_5E90_CHOICE_2';
+<strong><span style="color: #007a00;">F<sub>2</sub> generation</span></strong>
+LITERAL_C191_5E90_CHOICE_2
+$choice_3 = <<'LITERAL_C191_5E90_CHOICE_3';
+<strong><span style="color: #3b7600;">backcross</span></strong>
+LITERAL_C191_5E90_CHOICE_3
+$choice_4 = <<'LITERAL_C191_5E90_CHOICE_4';
+<strong><span style="color: #d40000;">test cross</span></strong>
+LITERAL_C191_5E90_CHOICE_4
+$correct_1 = <<'LITERAL_C191_5E90_CORRECT_1';
+<strong><span style="color: #d40000;">test cross</span></strong>
+LITERAL_C191_5E90_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

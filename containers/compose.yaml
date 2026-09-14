@@ -224,14 +224,12 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in the env file}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in the env file}
-      # These are projected only into this privileged local bootstrap and the
-      # one-shot publisher.  API and worker never receive this identity.
+      # These identities are projected only into this privileged local
+      # bootstrap. The deadline worker receives its own read-only identity.
       PLE_PUBLISHER_S3_ACCESS_KEY_ID: ${PLE_PUBLISHER_S3_ACCESS_KEY_ID:?set publisher storage access key in the env file}
       PLE_PUBLISHER_S3_SECRET_ACCESS_KEY: ${PLE_PUBLISHER_S3_SECRET_ACCESS_KEY:?set publisher storage secret in the env file}
-      PLE_NATIVE_PLE_WORKER_S3_ACCESS_KEY_ID: ${PLE_NATIVE_PLE_WORKER_S3_ACCESS_KEY_ID:?set native PLE worker storage access key in the env file}
-      PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY: ${PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY:?set native PLE worker storage secret in the env file}
-      PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID: ${PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID:?set WeBWorK worker storage access key in the env file}
-      PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY: ${PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY:?set WeBWorK worker storage secret in the env file}
+      PLE_WORKER_S3_ACCESS_KEY_ID: ${PLE_WORKER_S3_ACCESS_KEY_ID:?set worker storage access key in the env file}
+      PLE_WORKER_S3_SECRET_ACCESS_KEY: ${PLE_WORKER_S3_SECRET_ACCESS_KEY:?set worker storage secret in the env file}
       HOME: /tmp
     entrypoint:
       - /bin/sh
@@ -265,20 +263,13 @@ services:
         mc admin policy info local ple-public-asset-publisher >/dev/null
         mc admin user add local "$${PLE_PUBLISHER_S3_ACCESS_KEY_ID}" "$${PLE_PUBLISHER_S3_SECRET_ACCESS_KEY}"
         mc admin policy attach local ple-public-asset-publisher --user "$${PLE_PUBLISHER_S3_ACCESS_KEY_ID}"
-        native_policy=$$(mktemp /tmp/native-ple-worker-policy.XXXXXX)
-        trap 'rm -f "$$policy_file" "$$native_policy"' EXIT
-        printf '%s' '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::private-content/questions/*"]}]}' >"$$native_policy"
-        if mc admin policy info local ple-native-ple-grading-worker >/dev/null 2>&1; then mc admin policy remove local ple-native-ple-grading-worker; fi
-        mc admin policy create local ple-native-ple-grading-worker "$$native_policy"
-        mc admin user add local "$${PLE_NATIVE_PLE_WORKER_S3_ACCESS_KEY_ID}" "$${PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY}"
-        mc admin policy attach local ple-native-ple-grading-worker --user "$${PLE_NATIVE_PLE_WORKER_S3_ACCESS_KEY_ID}"
-        webwork_policy=$$(mktemp /tmp/webwork-worker-policy.XXXXXX)
-        trap 'rm -f "$$policy_file" "$$native_policy" "$$webwork_policy"' EXIT
-        printf '%s' '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::private-content/questions/*"]}]}' >"$$webwork_policy"
-        if mc admin policy info local ple-webwork-grading-worker >/dev/null 2>&1; then mc admin policy remove local ple-webwork-grading-worker; fi
-        mc admin policy create local ple-webwork-grading-worker "$$webwork_policy"
-        mc admin user add local "$${PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID}" "$${PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY}"
-        mc admin policy attach local ple-webwork-grading-worker --user "$${PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID}"
+        worker_policy=$$(mktemp /tmp/attempt-expiry-worker-policy.XXXXXX)
+        trap 'rm -f "$$policy_file" "$$worker_policy"' EXIT
+        printf '%s' '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::private-content/questions/*"]}]}' >"$$worker_policy"
+        if mc admin policy info local ple-attempt-expiry-worker >/dev/null 2>&1; then mc admin policy remove local ple-attempt-expiry-worker; fi
+        mc admin policy create local ple-attempt-expiry-worker "$$worker_policy"
+        mc admin user add local "$${PLE_WORKER_S3_ACCESS_KEY_ID}" "$${PLE_WORKER_S3_SECRET_ACCESS_KEY}"
+        mc admin policy attach local ple-attempt-expiry-worker --user "$${PLE_WORKER_S3_ACCESS_KEY_ID}"
     user: "10001:10001"
     read_only: true
     cap_drop:
@@ -426,10 +417,9 @@ services:
       # SMTP and iMathAS. Storage and renderer traffic remain private.
       - api_outbound
 
-  # The worker has one database login and no browser, gateway, object-store,
-  # renderer, or outbound network authority. Its private non-HTTP readiness
-  # socket lets the API report M2 dependency state without a public route.
-  # M3 supplies typed procedures and lease protocol; it performs no queue work.
+  # The deadline worker has one database login, one read-only Question-source
+  # object identity, and private renderer access. It has no browser, gateway,
+  # API write credential, or public outbound network authority.
   worker:
     labels: *ple-disposable-capability-label
     image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
@@ -437,11 +427,33 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+      identity-secret-init:
+        condition: service_completed_successfully
+      webwork-renderer:
+        condition: service_healthy
     environment:
+      PLE_BROWSER_ORIGIN: ${PLE_BROWSER_ORIGIN:?set PLE_BROWSER_ORIGIN in the env file}
       PLE_STORAGE_TOPOLOGY: ${PLE_STORAGE_TOPOLOGY:?set PLE_STORAGE_TOPOLOGY in the env file}
       # Service Login Setup replaces this fail-closed sentinel before the
       # worker starts. The worker never receives the API login URL.
       DATABASE_URL: ${PLE_WORKER_DATABASE_URL:-postgres://ple_worker_login:service-login-setup-required@postgres:5432/${POSTGRES_DB:-peptidyle}}
+      PLE_S3_ENDPOINT: http://minio:9000
+      PLE_S3_REGION: us-east-1
+      PLE_PUBLIC_ASSETS_BUCKET: public-assets
+      PLE_PRIVATE_CONTENT_BUCKET: private-content
+      PLE_STUDENT_RECORDS_BUCKET: student-records
+      PLE_TEMP_PROCESSING_BUCKET: temp-processing
+      AWS_ACCESS_KEY_ID: ${PLE_WORKER_S3_ACCESS_KEY_ID:-attempt-expiry-worker-storage-setup-required}
+      AWS_SECRET_ACCESS_KEY: ${PLE_WORKER_S3_SECRET_ACCESS_KEY:-attempt-expiry-worker-storage-setup-required}
+      PLE_WEBWORK_RENDERER_BASE_URL: http://webwork-renderer:3000/
+      PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:-15}
+      PLE_WEBWORK_MAX_RESPONSE_BYTES: ${PLE_WEBWORK_MAX_RESPONSE_BYTES:-1048576}
+      PLE_WEBWORK_RENDERER_ID: ${PLE_WEBWORK_RENDERER_ID:-vosslab-webwork-pg-renderer}
+      PLE_WEBWORK_RENDERER_VERSION_FILE: /run/ple-secrets/question-renderer-version
+    volumes:
+      - ple_identity_runtime:/run/ple-secrets:ro
     healthcheck:
       test: ["CMD", "/usr/local/bin/peptidyle-api", "--worker", "--health-probe"]
       interval: 10s
@@ -458,110 +470,6 @@ services:
       - /tmp:rw,noexec,nosuid,size=16m,mode=1777
     cpus: "0.25"
     mem_limit: 128m
-    pids_limit: 64
-    restart: on-failure
-    stop_grace_period: 30s
-    networks:
-      - default
-
-  native-ple-worker:
-    labels: *ple-disposable-capability-label
-    image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
-    command: ["--native-ple-worker"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-      createbuckets:
-        condition: service_completed_successfully
-    environment:
-      PLE_STORAGE_TOPOLOGY: ${PLE_STORAGE_TOPOLOGY:?set PLE_STORAGE_TOPOLOGY in the env file}
-      DATABASE_URL: ${PLE_NATIVE_PLE_WORKER_DATABASE_URL:-postgres://ple_native_ple_worker_login:service-login-setup-required@postgres:5432/${POSTGRES_DB:-peptidyle}}
-      PLE_S3_ENDPOINT: http://minio:9000
-      PLE_S3_REGION: us-east-1
-      PLE_PRIVATE_CONTENT_BUCKET: private-content
-      PLE_PUBLIC_ASSETS_BUCKET: public-assets
-      PLE_STUDENT_RECORDS_BUCKET: student-records
-      PLE_TEMP_PROCESSING_BUCKET: temp-processing
-      PLE_NATIVE_PLE_WORKER_S3_ACCESS_KEY_ID: ${PLE_NATIVE_PLE_WORKER_S3_ACCESS_KEY_ID:-native-ple-worker-storage-setup-required}
-      PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY: ${PLE_NATIVE_PLE_WORKER_S3_SECRET_ACCESS_KEY:-native-ple-worker-storage-setup-required}
-    healthcheck:
-      test: ["CMD", "/usr/local/bin/peptidyle-api", "--native-ple-worker", "--health-probe"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-      start_period: 5s
-    healthcheck:
-      test: ["CMD", "/usr/local/bin/peptidyle-api", "--native-ple-worker", "--health-probe"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-      start_period: 5s
-    user: "10001:10001"
-    read_only: true
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
-    cpus: "0.25"
-    mem_limit: 128m
-    pids_limit: 64
-    restart: on-failure
-    stop_grace_period: 30s
-    networks:
-      - default
-
-  webwork-worker:
-    labels: *ple-disposable-capability-label
-    image: ${PLE_APPLICATION_IMAGE:-localhost/peptidyle-learning-engine:local}
-    command: ["--webwork-worker"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-      createbuckets:
-        condition: service_completed_successfully
-      identity-secret-init:
-        condition: service_completed_successfully
-      webwork-renderer:
-        condition: service_healthy
-    environment:
-      # The worker constructs renderer embed URLs from this deployment-owned
-      # browser origin, exactly as the API does.
-      PLE_BROWSER_ORIGIN: ${PLE_BROWSER_ORIGIN:?set PLE_BROWSER_ORIGIN in the env file}
-      PLE_STORAGE_TOPOLOGY: ${PLE_STORAGE_TOPOLOGY:?set PLE_STORAGE_TOPOLOGY in the env file}
-      DATABASE_URL: ${PLE_WEBWORK_WORKER_DATABASE_URL:-postgres://ple_webwork_worker_login:service-login-setup-required@postgres:5432/${POSTGRES_DB:-peptidyle}}
-      PLE_S3_ENDPOINT: http://minio:9000
-      PLE_S3_REGION: us-east-1
-      PLE_PRIVATE_CONTENT_BUCKET: private-content
-      PLE_PUBLIC_ASSETS_BUCKET: public-assets
-      PLE_STUDENT_RECORDS_BUCKET: student-records
-      PLE_TEMP_PROCESSING_BUCKET: temp-processing
-      PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID: ${PLE_WEBWORK_WORKER_S3_ACCESS_KEY_ID:-webwork-worker-storage-setup-required}
-      PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY: ${PLE_WEBWORK_WORKER_S3_SECRET_ACCESS_KEY:-webwork-worker-storage-setup-required}
-      PLE_WEBWORK_RENDERER_BASE_URL: http://webwork-renderer:3000/
-      PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS: ${PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS:-15}
-      PLE_WEBWORK_MAX_RESPONSE_BYTES: ${PLE_WEBWORK_MAX_RESPONSE_BYTES:-1048576}
-      PLE_WEBWORK_RENDERER_ID: ${PLE_WEBWORK_RENDERER_ID:-vosslab-webwork-pg-renderer}
-      PLE_WEBWORK_RENDERER_VERSION_FILE: /run/ple-secrets/question-renderer-version
-    volumes:
-      - ple_identity_runtime:/run/ple-secrets:ro
-    healthcheck:
-      test: ["CMD", "/usr/local/bin/peptidyle-api", "--webwork-worker", "--health-probe"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-      start_period: 5s
-    user: "10001:10001"
-    read_only: true
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
-    cpus: "0.25"
-    mem_limit: 192m
     pids_limit: 64
     restart: on-failure
     stop_grace_period: 30s

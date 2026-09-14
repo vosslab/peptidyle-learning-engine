@@ -44,6 +44,7 @@ import {
   decodeStringEnum,
 } from "../decoder";
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY";
+import { MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES } from "../../../generated/api/MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES";
 import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
 import { MAX_ASSIGNMENT_QUESTION_POOL_ITEMS } from "../../../generated/api/MAX_ASSIGNMENT_QUESTION_POOL_ITEMS";
 import { MAX_QUESTION_SEARCH_OWN_COURSE_USAGES } from "../../../generated/api/MAX_QUESTION_SEARCH_OWN_COURSE_USAGES";
@@ -56,7 +57,6 @@ import {
   decodeBoundedArray,
   decodeQuestionRevisionReference,
   decodeQuestionAvailability,
-  decodeCursor,
   decodeQuestionTitle,
   decodeCourseInstanceReference,
   decodeIdentifier,
@@ -302,10 +302,22 @@ export function decodeQuestionSearchPage(value: unknown, path = "response"): Que
     nextCursor: decodeNullable(
       field(record, "nextCursor", path),
       `${path}.nextCursor`,
-      decodeCursor,
+      decodeQuestionSearchCursor,
     ),
     facets: decodeQuestionSearchFacets(field(record, "facets", path), `${path}.facets`),
   };
+}
+
+/** Decodes the title-and-ID keyset cursor specific to Question Library search. */
+function decodeQuestionSearchCursor(value: unknown, path: string): string {
+  const cursor = decodeNonemptyString(value, path);
+  if (cursor.length > MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES) {
+    throw new DecodeError(
+      path,
+      `a Question Library cursor no longer than ${MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES} characters`,
+    );
+  }
+  return cursor;
 }
 
 /** Strict safe immutable Question Details View; source and grading fields are rejected. */

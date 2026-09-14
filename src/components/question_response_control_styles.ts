@@ -31,7 +31,7 @@ export const QUESTION_RESPONSE_CONTROL_STYLES = `
   .question-response-control .format-status.error { border-color: var(--ple-danger); background: color-mix(in srgb, var(--ple-danger) 7%, white); color: var(--ple-danger); font-weight: 700; }
   .question-response-control .status-spinner { display: inline-block; width: 0.9rem; height: 0.9rem; margin-right: 0.35rem; border: 2px solid currentcolor; border-right-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
   .question-response-control .response-actions, .question-response-control .imathas-question-backend-actions { display: flex; flex-wrap: wrap; gap: 0.25rem; }
-  .question-response-control .imathas-question-backend-frame { width: 100%; min-height: 24rem; border: 1px solid currentColor; }
+  .question-response-control .imathas-question-backend-frame, .question-response-control .backend-owned-document__frame { width: 100%; min-height: 24rem; border: 1px solid currentColor; }
   @media (max-width: 360px) {
     .question-response-control .ordering-row { grid-template-columns: minmax(0, 1fr) 44px 44px; }
     .question-response-control .choice-card { padding-inline: 0.4rem; }

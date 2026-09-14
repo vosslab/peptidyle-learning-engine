@@ -57,11 +57,16 @@ function AssignmentAttemptHistoryContent(props: {
       </p>
       <section aria-labelledby="assignment-attempt-score-heading">
         <h2 id="assignment-attempt-score-heading">Score</h2>
-        <p>
-          {props.history.score === undefined
-            ? "Your score is not available for this attempt."
-            : `${props.history.score.pointsEarned} of ${props.history.score.pointsPossible} points`}
-        </p>
+        <Show
+          when={props.history.score}
+          fallback={<p>Your score is not available under this Assignment's feedback policy.</p>}
+        >
+          {(score) => (
+            <p>
+              {score().pointsEarned} of {score().pointsPossible} points
+            </p>
+          )}
+        </Show>
       </section>
       <section aria-labelledby="assignment-attempt-responses-heading">
         <h2 id="assignment-attempt-responses-heading">Your recorded work</h2>

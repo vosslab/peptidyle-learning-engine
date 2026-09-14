@@ -1,0 +1,68 @@
+## DESCRIPTION
+## Imported Genetics source row c07b_7da5; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic04/bbq-MATCH-mendelian_genetics_terms-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_C07B_7DA5';
+<p>c07b_7da5</p> <p>Match each of the following Mendelian genetics terms with their corresponding definitions.</p><p><i>Note:</i> Each choice will be used exactly once.</p>
+PROMPT_C07B_7DA5
+loadMacros('PGML.pl', 'parserPopUp.pl');
+sub make_popup { return defined &DropDown ? DropDown(@_) : PopUp(@_); }
+$match_term_0 = <<'LITERAL_C07B_7DA5_MATCH_TERM_0';
+<strong><span style="color: #935d00;">genotype</span></strong>
+LITERAL_C07B_7DA5_MATCH_TERM_0
+$match_term_1 = <<'LITERAL_C07B_7DA5_MATCH_TERM_1';
+<strong><span style="color: #3b7600;">gamete</span></strong>
+LITERAL_C07B_7DA5_MATCH_TERM_1
+$match_term_2 = <<'LITERAL_C07B_7DA5_MATCH_TERM_2';
+<strong><span style="color: #c80085;">homozygous</span></strong>
+LITERAL_C07B_7DA5_MATCH_TERM_2
+$match_term_3 = <<'LITERAL_C07B_7DA5_MATCH_TERM_3';
+<strong><span style="color: #b74300;">trait</span></strong>
+LITERAL_C07B_7DA5_MATCH_TERM_3
+$match_choice_0 = <<'LITERAL_C07B_7DA5_MATCH_CHOICE_0';
+Mendel referred to this as the <i>"internal nature"</i> of an organism
+LITERAL_C07B_7DA5_MATCH_CHOICE_0
+$match_choice_1 = <<'LITERAL_C07B_7DA5_MATCH_CHOICE_1';
+haploid cells like sperm or egg that merge during fertilization
+LITERAL_C07B_7DA5_MATCH_CHOICE_1
+$match_choice_2 = <<'LITERAL_C07B_7DA5_MATCH_CHOICE_2';
+two of the same <strong><span style="color: #6c6c00;">allele</span></strong> for a specific gene
+LITERAL_C07B_7DA5_MATCH_CHOICE_2
+$match_choice_3 = <<'LITERAL_C07B_7DA5_MATCH_CHOICE_3';
+a specific form of a heritable feature, like purple color in flowers
+LITERAL_C07B_7DA5_MATCH_CHOICE_3
+$match_dropdown_0 = make_popup(['', "A", "B", "C", "D"], 1);
+$match_dropdown_1 = make_popup(['', "A", "B", "C", "D"], 2);
+$match_dropdown_2 = make_popup(['', "A", "B", "C", "D"], 3);
+$match_dropdown_3 = make_popup(['', "A", "B", "C", "D"], 4);
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_PGML
+[@ MODES(HTML => '<div class="two-column">') @]*
+[@ MODES(HTML => '<div>') @]*
+[_]{$match_dropdown_0} *1.* [$match_term_0]*
+
+[_]{$match_dropdown_1} *2.* [$match_term_1]*
+
+[_]{$match_dropdown_2} *3.* [$match_term_2]*
+
+[_]{$match_dropdown_3} *4.* [$match_term_3]*
+[@ MODES(HTML => '</div><div>') @]*
+*A.* [$match_choice_0]*
+
+*B.* [$match_choice_1]*
+
+*C.* [$match_choice_2]*
+
+*D.* [$match_choice_3]*
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+ENDDOCUMENT();

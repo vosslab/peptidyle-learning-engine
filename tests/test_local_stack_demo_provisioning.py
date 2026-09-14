@@ -46,10 +46,10 @@ def lifecycle_target(tmp_path: pathlib.Path, project: str, env_name: str) -> loc
 
 
 #============================================
-def test_ready_live_demo_uses_one_canonical_migrator_command_after_readiness(
+def test_ready_installation_data_uses_one_canonical_migrator_command_after_readiness(
 	tmp_path: pathlib.Path,
 ) -> None:
-	"""The controller delegates cross-system activity to the Rust owner once."""
+	"""The controller delegates bundled content publication to the Rust owner once."""
 	selected = lifecycle_target(tmp_path, "ple-local", "workspace/env.local")
 	selected.env_file.parent.mkdir()
 	selected.env_file.write_text("PLE_GATEWAY_HOST_PORT=8181\n", encoding="ascii")
@@ -64,7 +64,9 @@ def test_ready_live_demo_uses_one_canonical_migrator_command_after_readiness(
 			return local_stack_control.models.CommandResult(tuple(argv), 0, "", "")
 
 	runner = Runner()
-	local_stack_control.lifecycle.provision_ready_live_demo(selected, runner)
+	local_stack_control.lifecycle.provision_ready_installation_data(
+		selected, runner, without_live_demo=False
+	)
 
 	assert len(runner.calls) == 1
 	assert runner.calls[0][-8:] == [
@@ -75,11 +77,14 @@ def test_ready_live_demo_uses_one_canonical_migrator_command_after_readiness(
 
 
 #============================================
-def test_explicit_demo_opt_out_skips_all_demo_data_effects(
+def test_explicit_demo_opt_out_keeps_bundled_content_provisioning(
 	tmp_path: pathlib.Path,
 ) -> None:
-	"""The opt-out leaves canonical lifecycle work intact but starts no Demo phase."""
+	"""The opt-out omits only the Demo graph, never bundled content."""
 	selected = lifecycle_target(tmp_path, "ple-live-demo-browser", "workspace/env.local")
+	selected.env_file.parent.mkdir()
+	selected.env_file.write_text("PLE_GATEWAY_HOST_PORT=8181\n", encoding="ascii")
+	selected.env_file.chmod(0o600)
 	disposable = local_stack_control.models.DisposableComposeTarget(
 		target=selected,
 		owner_policy="live-demo-browser",
@@ -92,9 +97,33 @@ def test_explicit_demo_opt_out_skips_all_demo_data_effects(
 		1.0, False, False, False, without_live_demo=True
 	)
 
-	assert not local_stack_control.lifecycle.should_provision_live_demo(
-		disposable, options, initial_database_install=True
+	assert local_stack_control.lifecycle.should_provision_installation_data(
+		disposable, initial_database_install=True
 	)
+
+	class Runner(UnexpectedRunner):
+		def __init__(self) -> None:
+			self.call: list[str] | None = None
+
+		def run(
+			self,
+			argv: list[str],
+			environment: dict[str, str] | None = None,
+			cwd: pathlib.Path | None = None,
+			stdin: str | None = None,
+		) -> local_stack_control.models.CommandResult:
+			self.call = argv
+			return local_stack_control.models.CommandResult(tuple(argv), 0, "", "")
+
+	runner = Runner()
+	local_stack_control.lifecycle.provision_ready_installation_data(
+		disposable, runner, without_live_demo=options.without_live_demo
+	)
+	assert runner.call is not None
+	assert runner.call[-9:] == [
+		"--profile", "migration", "run", "--rm", "--no-deps",
+		"database-migrator", "installation-data", "provision", "--without-live-demo",
+	]
 
 
 #============================================
@@ -111,10 +140,8 @@ def test_later_lifecycle_replay_never_reprovisions_ordinary_demo_data(
 		private_environment_file=selected.env_file,
 		live_demo_profile=local_stack_control.models.LiveDemoProfile.BROWSER,
 	)
-	options = local_stack_control.lifecycle.LifecycleOptions(1.0, False, False, False)
-
-	assert not local_stack_control.lifecycle.should_provision_live_demo(
-		disposable, options, initial_database_install=False
+	assert not local_stack_control.lifecycle.should_provision_installation_data(
+		disposable, initial_database_install=False
 	)
 
 

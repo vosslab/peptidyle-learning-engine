@@ -9,7 +9,10 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use learning_data_access::LiveAssignmentDeliveryStore;
-use question_model::{AssignmentAttemptReference, AssignmentReference, CourseInstanceReference};
+use question_model::{
+    AccountTimeZone, AssignmentAttemptReference, AssignmentReference, CourseInstanceReference,
+    Timestamp,
+};
 use serde::Serialize;
 
 use super::{StateData, concealed, store_error, student};
@@ -53,6 +56,8 @@ pub(super) async fn student_context(
 struct StudentAssignmentAttemptContextResponse {
     assignment_attempt: AssignmentAttemptReference,
     attempt_number: u32,
+    display_time_zone: AccountTimeZone,
+    expires_at: Option<Timestamp>,
     timer_remaining_milliseconds: Option<u64>,
     course: StudentAssignmentAttemptCourseContext,
     assignment: StudentAssignmentAttemptAssignmentContext,
@@ -81,6 +86,8 @@ impl From<learning_data_access::StudentAssignmentAttemptContext>
         Self {
             assignment_attempt: value.assignment_attempt,
             attempt_number: value.attempt_number,
+            display_time_zone: value.display_time_zone,
+            expires_at: value.expires_at,
             timer_remaining_milliseconds: value.timer_remaining_milliseconds,
             course: StudentAssignmentAttemptCourseContext {
                 reference: value.course,

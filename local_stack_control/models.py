@@ -35,8 +35,6 @@ BASE_LONG_RUNNING_SERVICES = (
 	"webwork-renderer",
 	"api",
 	"worker",
-	"native-ple-worker",
-	"webwork-worker",
 	"gateway",
 )
 BASE_ONE_SHOT_SERVICES = (
@@ -104,7 +102,6 @@ LIVE_DEMO_PROFILE_POLICIES = (
 		),
 		child_capabilities=(
 			"browser_lifecycle", "readiness_fault", "worker_lifecycle",
-			"native_ple_worker_lifecycle",
 			"webwork_renderer_lifecycle",
 		),
 		evidence_log_services=(("renderer_delivery", "api"),),

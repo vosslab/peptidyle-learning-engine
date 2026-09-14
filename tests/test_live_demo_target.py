@@ -110,7 +110,6 @@ def test_closed_profiles_have_exact_topology_and_child_capabilities() -> None:
 	)
 	assert browser.child_capabilities == (
 		"browser_lifecycle", "readiness_fault", "worker_lifecycle",
-		"native_ple_worker_lifecycle",
 		"webwork_renderer_lifecycle",
 	)
 	assert webwork.child_capabilities == (

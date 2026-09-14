@@ -210,15 +210,20 @@ def has_playwright_import(file_path: str) -> bool:
 #============================================
 def list_mjs_files_outside_playwright() -> list[str]:
 	"""
-	List all .mjs files under tests/, excluding tests/playwright/ subtree.
+	List permanent .mjs files under tests/, excluding browser and temporary tiers.
 
 	Returns relative paths from repo root.
 	"""
 	tests_dir = os.path.join(REPO_ROOT, "tests")
 	playwright_dir = get_playwright_dir()
+	temporary_dir = os.path.join(tests_dir, "_temp")
 	files = []
 	for root, dirs, filenames in os.walk(tests_dir):
-		if root.startswith(playwright_dir):
+		# Temporary browser verification belongs in tests/_temp/ and runs
+		# explicitly; this permanent naming gate governs only permanent tiers.
+		if root == playwright_dir or root.startswith(playwright_dir + os.sep):
+			continue
+		if root == temporary_dir or root.startswith(temporary_dir + os.sep):
 			continue
 		for filename in filenames:
 			if filename.endswith(".mjs"):
@@ -231,9 +236,9 @@ def list_mjs_files_outside_playwright() -> list[str]:
 #============================================
 def check_playwright_imports_in_playwright_folder() -> list[str]:
 	"""
-	Return .mjs files with Playwright imports outside tests/playwright/.
+	Return permanent .mjs files with Playwright imports outside tests/playwright/.
 
-	Playwright browser tests must live under the browser tier
+	Permanent Playwright browser tests must live under the browser tier
 	(tests/playwright/, including tests/playwright/e2e/) to avoid
 	confusion with fast-running pure Node tests or whole-system E2E.
 

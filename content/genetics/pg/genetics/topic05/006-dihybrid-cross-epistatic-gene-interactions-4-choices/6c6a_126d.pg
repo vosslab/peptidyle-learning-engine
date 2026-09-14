@@ -1,0 +1,40 @@
+## DESCRIPTION
+## Imported Genetics source row 6c6a_126d; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic05/bbq-dihybrid_cross_epistatic_gene_interactions-4_choices-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_6C6A_126D';
+<p>6c6a_126d</p> <table style="border: 0px solid white; border-collapse: collapse; "> <tr><td> <table style="border: 1px solid black; border-collapse: collapse; "><colgroup width="60"></colgroup> <colgroup width="60"></colgroup> <colgroup width="80"></colgroup> <colgroup width="80"></colgroup> <colgroup width="80"></colgroup> <colgroup width="80"></colgroup> <tr> <th align='center' colspan='2' rowspan='2' style='background-color: lightgray; vertical-align: middle;'>Dihybrid<br/>Cross</th> <th align='center' colspan='4'>Female &female;</th> </tr><tr> <td align='center' style='background-color: lightgray'>GT</td> <td align='center' style='background-color: lightgray'>Gt</td> <td align='center' style='background-color: lightgray'>gT</td> <td align='center' style='background-color: lightgray'>gt</td></tr><tr> <th align='center' rowspan='4' style='vertical-align: middle;'>Male<br/>&male;</th> <td align='center' style='background-color: lightgray'>GT</td> <td align='center' style='background-color: azure;'>GGTT</td> <td align='center' style='background-color: azure;'>GGTt</td> <td align='center' style='background-color: azure;'>GgTT</td> <td align='center' style='background-color: azure;'>GgTt</td></tr><tr> <td align='center' style='background-color: lightgray'>Gt</td> <td align='center' style='background-color: azure;'>GGTt</td> <td align='center' style='background-color: azure;'>GGtt</td> <td align='center' style='background-color: azure;'>GgTt</td> <td align='center' style='background-color: azure;'>Ggtt</td></tr><tr> <td align='center' style='background-color: lightgray'>gT</td> <td align='center' style='background-color: azure;'>GgTT</td> <td align='center' style='background-color: azure;'>GgTt</td> <td align='center' style='background-color: azure;'>ggTT</td> <td align='center' style='background-color: azure;'>ggTt</td></tr><tr> <td align='center' style='background-color: lightgray'>gt</td> <td align='center' style='background-color: azure;'>GgTt</td> <td align='center' style='background-color: azure;'>Ggtt</td> <td align='center' style='background-color: azure;'>ggTt</td> <td align='center' style='background-color: cornflowerblue;'>ggtt</td></tr></table> </td><td> &nbsp; </td><td> <table style="border: 1px solid black; border-collapse: collapse; "><colgroup width="60"></colgroup> <colgroup width="60"></colgroup> <colgroup width="80"></colgroup> <tr> <th align='center' colspan='2' rowspan='2' style='background-color: lightgray; vertical-align: middle;'>Test<br/>Cross</th> <th align='center' colspan='1'>Female &female;</th> </tr><tr> <td align='center' style='background-color: lightgray'>gt</td></tr><tr> <th align='center' rowspan='4' style='vertical-align: middle;'>Male<br/>&male;</th> <td align='center' style='background-color: lightgray'>GT</td> <td align='center' style='background-color: azure;'>GgTt</td></tr><tr> <td align='center' style='background-color: lightgray'>Gt</td> <td align='center' style='background-color: azure;'>Ggtt</td></tr><tr> <td align='center' style='background-color: lightgray'>gT</td> <td align='center' style='background-color: azure;'>ggTt</td></tr><tr> <td align='center' style='background-color: lightgray'>gt</td> <td align='center' style='background-color: cornflowerblue;'>ggtt</td></tr></table></td></tr></table> <br/> <p>Above are the phenotypic results from a dihybrid cross and double heterozygote test cross. The phenotypes were fifteen to one (15:1).</p><p><strong>What type of gene interaction is being shown?</strong></p>
+PROMPT_6C6A_126D
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_6C6A_126D_CHOICE_1';
+These two genes show <strong>dominant epistasis</strong> When one gene is dominant, it hides the phenotype of the other gene.
+LITERAL_6C6A_126D_CHOICE_1
+$choice_2 = <<'LITERAL_6C6A_126D_CHOICE_2';
+These two genes show <strong>duplicate dominant epistasis</strong> When either gene is dominant, it shows the same phenotype.
+LITERAL_6C6A_126D_CHOICE_2
+$choice_3 = <<'LITERAL_6C6A_126D_CHOICE_3';
+These two genes show <strong>duplicate recessive epistasis</strong> When either gene is homozygous recessive, it hides the effect of the other gene.
+LITERAL_6C6A_126D_CHOICE_3
+$choice_4 = <<'LITERAL_6C6A_126D_CHOICE_4';
+These two genes show <strong>digenic inheritance</strong> Interaction of two genes affect the phenotypic expression of a single trait.
+LITERAL_6C6A_126D_CHOICE_4
+$correct_1 = <<'LITERAL_6C6A_126D_CORRECT_1';
+These two genes show <strong>duplicate dominant epistasis</strong> When either gene is dominant, it shows the same phenotype.
+LITERAL_6C6A_126D_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

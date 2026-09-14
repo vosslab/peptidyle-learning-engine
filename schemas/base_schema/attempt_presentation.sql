@@ -581,11 +581,24 @@ BEGIN
      ORDER BY issued.issued_position;
 END $$;
 
--- The backend document has a distinct read seam.  The ordinary presentation
--- evidence reader remains answer-free JSON and never serializes backend HTML.
+-- The backend document has a distinct read seam. The ordinary presentation
+-- evidence reader remains answer-free JSON and never serializes backend HTML;
+-- private resume facts remain below the document route boundary.
 CREATE FUNCTION ple_private.read_student_assignment_attempt_backend_document(
     p_assignment_attempt_reference_number bigint, p_issued_position integer
-) RETURNS TABLE (backend_document text) LANGUAGE plpgsql SECURITY DEFINER
+) RETURNS TABLE (
+    backend_document text,
+    issued_question_id uuid,
+    assignment_entry_id uuid,
+    issued_position integer,
+    question_id text,
+    revision_number integer,
+    question_seed numeric,
+    source_object_id uuid,
+    source_object_checksum text,
+    webwork_pg_path text,
+    student_response jsonb
+) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE assignment_attempt_id_value uuid;
 BEGIN
@@ -600,15 +613,33 @@ BEGIN
     END IF;
     PERFORM ple_private.require_owned_attempt_for_presentation(assignment_attempt_id_value);
     RETURN QUERY
-    SELECT binding.backend_document
+    SELECT binding.backend_document,
+           issued.issued_question_id,
+           issued.assignment_entry_id,
+           issued.issued_position,
+           issued.question_id,
+           issued.revision_number,
+           question_attempt.question_seed,
+           question_attempt.source_object_id,
+           encode(question_attempt.source_object_checksum, 'hex'),
+           source.webwork_pg_path,
+           response.student_response
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_attempt AS question_attempt
         ON question_attempt.issued_question_id = issued.issued_question_id
       JOIN ple_private.question_attempt_presentation_binding AS binding
         ON binding.question_attempt_id = question_attempt.question_attempt_id
+      JOIN ple_private.question_revision_source_binding AS source
+        ON source.question_id = issued.question_id
+       AND source.revision_number = issued.revision_number
+      LEFT JOIN ple_private.assignment_attempt_saved_response AS response
+        ON response.question_attempt_id = question_attempt.question_attempt_id
      WHERE issued.assignment_attempt_id = assignment_attempt_id_value
        AND issued.issued_position = p_issued_position
        AND question_attempt.issued_capability = 'webwork_presentation'
+       AND source.backend = 'webwork'
+       AND question_attempt.source_object_id IS NOT NULL
+       AND question_attempt.source_object_checksum IS NOT NULL
        AND binding.backend_document IS NOT NULL
        AND char_length(btrim(binding.backend_document)) > 0;
 END $$;
@@ -677,9 +708,23 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api
       FROM ple_private.read_student_assignment_attempt_presentation_evidence_set($1)
 $$;
 CREATE FUNCTION ple_api.read_student_assignment_attempt_backend_document(bigint, integer)
-RETURNS TABLE (backend_document text)
+RETURNS TABLE (
+    backend_document text,
+    issued_question_id uuid,
+    assignment_entry_id uuid,
+    issued_position integer,
+    question_id text,
+    revision_number integer,
+    question_seed numeric,
+    source_object_id uuid,
+    source_object_checksum text,
+    webwork_pg_path text,
+    student_response jsonb
+)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
-    SELECT backend_document
+    SELECT backend_document, issued_question_id, assignment_entry_id, issued_position + 1 AS issued_position,
+           question_id, revision_number, question_seed, source_object_id,
+           source_object_checksum, webwork_pg_path, student_response
       FROM ple_private.read_student_assignment_attempt_backend_document($1, $2 - 1)
 $$;
 REVOKE ALL ON FUNCTION ple_api.prepare_student_assignment_attempt_presentation(uuid),

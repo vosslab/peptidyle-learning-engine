@@ -9,3 +9,4 @@
 
 pub mod assignment_delivery;
 pub mod blueprint_course;
+pub mod student_assignment_decision;

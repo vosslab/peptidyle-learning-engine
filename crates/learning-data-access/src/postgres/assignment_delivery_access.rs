@@ -1,13 +1,7 @@
 //! Student Assignment Access storage projection.
 
-use super::{
-    assignment_delivery::{PostgresLiveAssignmentDeliveryStore, optional_positive_i32},
-    connection::map_sqlx_error,
-};
-use crate::{
-    LiveAssignmentAccess, LiveAssignmentPreviousAttempt, LiveAssignmentStartDecision,
-    SessionTokenHash, StoreError,
-};
+use super::{assignment_delivery::PostgresLiveAssignmentDeliveryStore, connection::map_sqlx_error};
+use crate::{LiveAssignmentAccess, LiveAssignmentPreviousAttempt, SessionTokenHash, StoreError};
 use question_model::{AssignmentReference, CourseInstanceReference};
 use sqlx::Row;
 
@@ -20,7 +14,16 @@ pub(super) async fn read(
     let mut tx = store.begin(token).await?;
     let row = sqlx::query(
         "SELECT start_decision, assignment_title, question_count, points_possible, \
-         assignment_attempt_time_limit_seconds, previous_attempts \
+         assignment_attempt_time_limit_seconds AS time_limit_seconds, attempt_limit, \
+         late_work_rule, display_time_zone, \
+         CASE WHEN available_at IS NULL THEN NULL ELSE \
+             floor(extract(epoch FROM available_at) * 1000)::bigint END AS available_at_millis, \
+         CASE WHEN due_at IS NULL THEN NULL ELSE \
+             floor(extract(epoch FROM due_at) * 1000)::bigint END AS due_at_millis, \
+         CASE WHEN closes_at IS NULL THEN NULL ELSE \
+             floor(extract(epoch FROM closes_at) * 1000)::bigint END AS closes_at_millis, \
+         floor(extract(epoch FROM evaluated_at) * 1000)::bigint AS evaluated_at_millis, \
+         previous_attempts \
          FROM ple_api.read_student_assignment_access($1, $2)",
     )
     .bind(i64::from(course.number()))
@@ -28,7 +31,7 @@ pub(super) async fn read(
     .fetch_one(&mut *tx)
     .await
     .map_err(map_sqlx_error)?;
-    let value: String = row.try_get("start_decision").map_err(map_sqlx_error)?;
+    let decision = super::student_assignment_decision::decode(&row)?;
     let title: String = row.try_get("assignment_title").map_err(map_sqlx_error)?;
     let question_count = u32::try_from(
         row.try_get::<i32, _>("question_count")
@@ -41,11 +44,6 @@ pub(super) async fn read(
             "Assignment points possible is invalid".to_string(),
         ));
     }
-    let time_limit_seconds = optional_positive_i32(
-        &row,
-        "assignment_attempt_time_limit_seconds",
-        "Assignment time limit",
-    )?;
     let previous_attempts: Vec<LiveAssignmentPreviousAttempt> = serde_json::from_value(
         row.try_get("previous_attempts").map_err(map_sqlx_error)?,
     )
@@ -70,25 +68,11 @@ pub(super) async fn read(
         .await?;
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(LiveAssignmentAccess {
-        start_decision: decision(&value)?,
+        decision,
         active_assignment_attempt,
         title,
         question_count,
         points_possible,
-        time_limit_seconds,
         previous_attempts,
     })
-}
-
-fn decision(value: &str) -> Result<LiveAssignmentStartDecision, StoreError> {
-    match value {
-        "may_start" => Ok(LiveAssignmentStartDecision::MayStart),
-        "not_yet_available" => Ok(LiveAssignmentStartDecision::NotYetAvailable),
-        "closed" => Ok(LiveAssignmentStartDecision::Closed),
-        "attempt_limit_reached" => Ok(LiveAssignmentStartDecision::AttemptLimitReached),
-        "late_work_refused" => Ok(LiveAssignmentStartDecision::LateWorkRefused),
-        _ => Err(StoreError::InvalidRecord(
-            "Assignment Access decision is invalid".to_string(),
-        )),
-    }
 }

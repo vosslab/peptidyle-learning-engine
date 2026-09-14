@@ -1,0 +1,43 @@
+## DESCRIPTION
+## Imported Genetics source row bbc7_f156; static curriculum staging source.
+## ENDDESCRIPTION
+## KEYWORDS('genetics','imported-curriculum')
+## DBsubject('Genetics')
+## Author('Neil R. Voss; imported from source/topic05/bbq-unique_cross_genotypes-with_hint-6_genes-questions.txt')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+loadMacros('PGstandard.pl', 'MathObjects.pl', 'PGcourse.pl');
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+$prompt = <<'PROMPT_BBC7_F156';
+<p>bbc7_f156</p> <h3>Genotype Diversity in Hybrid Cross</h3><p>In a hybrid cross, the range of possible genotypes in the offspring is determined by the genetic makeup of the parental organisms.</p><p>Assume that all genes sort independently and display complete dominance.</p><p><i>Hint: For each gene pair from the parents, you can get 1, 2, or 3 unique genotypes.<br/>This is based on the combinations: homozygous x homozygous (1), homozygous x heterozygous (2), and heterozygous x heterozygous (3).</i></p><p>Considering the principle of independent assortment, how many unique <span style="color: MediumBlue;"><strong>GENOTYPES</strong></span> could be produced in a hybrid cross between the following individuals?</p><table style='border-collapse: collapse; border: 1px solid black;'><tbody><tr><td style='padding-left: 10px; padding-right: 10px;'>Female (&female;)</td><td style='padding-left: 10px; padding-right: 10px;'><span style="font-family: monospace; font-size: 1.3em; background-color: #f0f0f0; padding: 3px 6px; border-radius: 4px;">Aa bb cc DD Ee Ff </span></td></tr><tr><td style='padding-left: 10px; padding-right: 10px;'>Male (&male;)</td><td style='padding-left: 10px; padding-right: 10px;'><span style="font-family: monospace; font-size: 1.3em; background-color: #f0f0f0; padding: 3px 6px; border-radius: 4px;">Aa Bb Cc dd EE Ff </span></td></tr></tbody></table>
+PROMPT_BBC7_F156
+loadMacros('parserRadioButtons.pl');
+$choice_1 = <<'LITERAL_BBC7_F156_CHOICE_1';
+2 &times; 3<sup>2</sup> &nbsp; = 18 (<i>i.e.</i> 1 gene with two forms and 2 genes with three forms)
+LITERAL_BBC7_F156_CHOICE_1
+$choice_2 = <<'LITERAL_BBC7_F156_CHOICE_2';
+2<sup>5</sup> &nbsp; = 32 (<i>i.e.</i> 5 genes with two forms)
+LITERAL_BBC7_F156_CHOICE_2
+$choice_3 = <<'LITERAL_BBC7_F156_CHOICE_3';
+2<sup>3</sup> &times; 3<sup>2</sup> &nbsp; = 72 (<i>i.e.</i> 3 genes with two forms and 2 genes with three forms)
+LITERAL_BBC7_F156_CHOICE_3
+$choice_4 = <<'LITERAL_BBC7_F156_CHOICE_4';
+2<sup>5</sup> &times; 3 &nbsp; = 96 (<i>i.e.</i> 5 genes with two forms and 1 gene with three forms)
+LITERAL_BBC7_F156_CHOICE_4
+$choice_5 = <<'LITERAL_BBC7_F156_CHOICE_5';
+2<sup>3</sup> &times; 3<sup>3</sup> &nbsp; = 216 (<i>i.e.</i> 3 genes with two forms and 3 genes with three forms)
+LITERAL_BBC7_F156_CHOICE_5
+$correct_1 = <<'LITERAL_BBC7_F156_CORRECT_1';
+2<sup>3</sup> &times; 3<sup>2</sup> &nbsp; = 72 (<i>i.e.</i> 3 genes with two forms and 2 genes with three forms)
+LITERAL_BBC7_F156_CORRECT_1
+@choices = ($choice_1, $choice_2, $choice_3, $choice_4, $choice_5);
+$answer = RadioButtons([@choices], $correct_1, labels => 'ABC', displayLabels => 1, randomize => 0, noindex => 1, separator => '<div style="margin-bottom: 0.7em;"></div>');
+TEXT(MODES(HTML => $prompt, TeX => ''));
+BEGIN_TEXT
+\{$answer->buttons\}
+END_TEXT
+ANS($answer->cmp);
+
+ENDDOCUMENT();

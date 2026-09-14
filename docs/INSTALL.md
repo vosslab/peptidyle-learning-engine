@@ -1,9 +1,11 @@
 # Install
 
-Installation prepares a contributor checkout and, when selected by the installer,
-creates PLE's canonical database structure and ordinary Live Demo data. PLE remains
-pre-production; these instructions describe local development and controlled
-installation operations, not a production deployment procedure.
+Installation prepares a contributor checkout and creates PLE's canonical database
+structure. Every installation includes the complete, free and open-source Biology
+Problems Website Genetics Blueprint as its example course. The ordinary Live Demo is
+separate optional teaching data. PLE remains pre-production; these instructions
+describe local development and controlled installation operations, not a production
+deployment procedure.
 
 ## Requirements
 
@@ -71,26 +73,32 @@ Do not use `migrate` for an empty database. The base schema stays editable only 
 that freeze; see [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and
 [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md).
 
-## Installation data and Live Demo
+## Installation content and Live Demo
 
-After services are ready, the default installation-data phase creates the
-complete ordinary, removable Live Demo teaching graph. The fixed operation is:
+After services are ready, installation data publishes the complete Genetics
+Blueprint through the ordinary content-publication path. It is installation
+content, not a fixture, SQL dump, or separate pilot deployment. The same default
+operation also creates the complete ordinary, removable Live Demo teaching graph:
 
 ```bash
 cargo tools installation-data provision
 ```
 
-`provision` runs the Pilot publication and database-owned graph, then creates
-cross-system Student Work and grading effects through their owning product
-paths. `apply` is the narrower convergent SQL/Pilot graph operation and does
-not create a complete Live Demo. The local-stack controller supplies the
-required migrator, publisher, storage, API, and worker capabilities. The graph
-is documented in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and uses the same schema
-and lifecycle as other teaching records.
+The Genetics Blueprint has eleven ordered topic assignments and is reusable by
+vetted Instructors as an Available Blueprint. `--without-live-demo` does not omit
+this example course; it omits only the fictional Live Demo teaching graph.
+`provision` runs content publication and the database-owned Live Demo graph, then
+creates the Live Demo's cross-system Student Work and grading effects through their
+owning product paths. `apply` remains the narrower convergent installation operation
+and does not create a complete Live Demo. The local-stack controller supplies the
+required migrator, publisher, storage, API, and worker capabilities. The graph is
+documented in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and uses the same schema and
+lifecycle as other teaching records.
 
 For a local disposable stack, Live Demo data is selected by default. Explicitly
-opt out before provisioning with the controller command below; the convenience
-launcher does not expose this option:
+opt out of the Live Demo before provisioning with the controller command below;
+the bundled Genetics Blueprint remains present and the convenience launcher does
+not expose this option:
 
 ```bash
 source source_me.sh && python3 local_stack.py start --headless --without-live-demo
@@ -122,9 +130,10 @@ itself prove the connected service or visible browser acceptance gates. See
 
 After the structural base, API, worker, publisher, object storage, and browser
 origin are ready, the short-lived audited administration environment runs
-`cargo tools installation-data provision` to create the complete known-good
-Live Demo. An installation owner can instead run
-`cargo tools installation-data provision --without-live-demo` before data is
-created. OpenTofu intentionally leaves this final product-data step to that
-audited workflow; it does not receive database or application secrets or create
-a one-shot provisioning subsystem.
+`cargo tools installation-data provision` to publish the bundled Genetics example
+and create the complete known-good Live Demo. An installation owner can instead
+run `cargo tools installation-data provision --without-live-demo`; that still
+publishes the Genetics Blueprint while omitting the Live Demo. OpenTofu
+intentionally leaves this final product-data step to that audited workflow; it
+does not receive database or application secrets or create a one-shot
+provisioning subsystem.

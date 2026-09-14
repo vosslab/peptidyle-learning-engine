@@ -2,6 +2,10 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
+import { build } from "esbuild";
+import { solidPlugin } from "esbuild-plugin-solid";
+import { createComponent } from "solid-js";
+import { renderToString } from "solid-js/web";
 
 import {
   formatAssignmentAttemptTimeLimit,
@@ -9,6 +13,29 @@ import {
   formatAssignmentDeliveryTime,
   toStudentAssignmentPresentationData,
 } from "../src/components/student_assignment_presentation.tsx";
+
+async function loadDecisionDetailsForSsr() {
+  const result = await build({
+    bundle: true,
+    entryPoints: [
+      new URL("../src/components/student_assignment_presentation.tsx", import.meta.url).pathname,
+    ],
+    format: "esm",
+    outfile: "student_assignment_presentation.js",
+    platform: "node",
+    plugins: [solidPlugin({ solid: { generate: "ssr", hydratable: false } })],
+    write: false,
+  });
+  const javascript = result.outputFiles.find((output) => output.path.endsWith(".js"));
+  if (javascript === undefined)
+    throw new Error("Student Assignment decision SSR bundle is missing.");
+  const encoded = Buffer.from(javascript.contents).toString("base64");
+  const module = await import(`data:text/javascript;base64,${encoded}`);
+  if (typeof module.StudentAssignmentDecisionDetails !== "function") {
+    throw new Error("Student Assignment decision component export is missing.");
+  }
+  return module.StudentAssignmentDecisionDetails;
+}
 
 const instructorDelivery = {
   available_at: null,
@@ -98,4 +125,47 @@ test("assignment instants use the supplied viewer zone instead of the browser zo
     expected,
     "fixed instant must render in the supplied viewer zone",
   );
+});
+
+test("decision presentation renders one server instant differently in two supplied zones", async () => {
+  const StudentAssignmentDecisionDetails = await loadDecisionDetailsForSsr();
+  const dueAt = Date.parse("2026-01-15T18:30:00Z");
+  const decision = {
+    availableAt: Date.parse("2026-01-15T17:30:00Z"),
+    dueAt,
+    closesAt: Date.parse("2026-01-15T19:30:00Z"),
+    timeLimitSeconds: 900,
+    attemptLimit: 2,
+    lateWorkRule: "reject",
+    displayTimeZone: "America/New_York",
+    evaluatedAt: Date.parse("2026-01-15T17:00:00Z"),
+    startDecision: "may_start",
+    publicReason: null,
+  };
+  const newYorkDue = formatAssignmentDeliveryTime(dueAt, "America/New_York");
+  const losAngelesDue = formatAssignmentDeliveryTime(dueAt, "America/Los_Angeles");
+  const newYorkHtml = renderToString(() =>
+    createComponent(StudentAssignmentDecisionDetails, { decision }),
+  );
+  const losAngelesHtml = renderToString(() =>
+    createComponent(StudentAssignmentDecisionDetails, {
+      decision: { ...decision, displayTimeZone: "America/Los_Angeles" },
+    }),
+  );
+
+  assert.notEqual(newYorkDue, losAngelesDue);
+  assert.ok(newYorkHtml.includes(newYorkDue));
+  assert.ok(losAngelesHtml.includes(losAngelesDue));
+  assert.match(newYorkHtml, /Can start/u);
+  assert.match(newYorkHtml, /Times are shown in your time zone: America\/New_York\./u);
+  assert.doesNotMatch(newYorkHtml, /Cannot start/u);
+
+  const closedReason = "This Assignment is closed for new work.";
+  const closedHtml = renderToString(() =>
+    createComponent(StudentAssignmentDecisionDetails, {
+      decision: { ...decision, startDecision: "closed", publicReason: closedReason },
+    }),
+  );
+  assert.match(closedHtml, /Cannot start/u);
+  assert.equal((closedHtml.match(new RegExp(closedReason, "gu")) ?? []).length, 1);
 });
