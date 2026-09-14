@@ -307,6 +307,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Unreleasing an Assignment should permanently delete its Student work because the Assignment is being returned to a pre-release state.
 - Assignment randomization should be called **Randomize question order**.
 - Questions should have one canonical title. Compact interfaces may truncate that title rather than maintaining a separate short name.
+- A submitted Question response has a grading result such as correct, incorrect, or partial credit. The Assignment applies the Question's point value to that result to calculate the Student's score.
+- Changing a Question's point value after Students have submitted work should recalculate affected Assignment scores from the existing grading results. This is score recalculation; the Question grading results remain unchanged.
 
 ## Instructor philosophy
 
