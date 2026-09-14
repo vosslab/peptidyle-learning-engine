@@ -8,6 +8,10 @@ are in [ROADMAP.md](ROADMAP.md).
 
 ## Future product capabilities
 
+- [ ] Build email-code authentication and the Gmail API Email Delivery Backend
+      as the complete challenge, Store, Server, operator credential, abuse-control,
+      session, browser, and connected-delivery capability specified in
+      [GMAIL_EMAIL_DELIVERY_BACKEND.md](GMAIL_EMAIL_DELIVERY_BACKEND.md).
 - [ ] Audit and map the 11 existing parameterized WeBWorK sources in the
       Biology Problems Website Genetics downloads to the bundled Genetics
       content. Where coverage is the same, replace static wrapper variants

@@ -509,7 +509,7 @@ CSPRNG and computes the seventh character with HMAC-SHA-256 under a redacted ins
 The schema has one valid compact full-ID uniqueness boundary, and publication retries only that
 conflict. Secret loading, rotation, publication, lookup validation, and browser entry remain their
 owning composition and Question Library packages.
-**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-philosophy),
+**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#questions),
 [`QUESTION_ID_SPEC.md`](QUESTION_ID_SPEC.md), `crates/question_model/src/question_library.rs`, and
 Question Library API in
 [CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).

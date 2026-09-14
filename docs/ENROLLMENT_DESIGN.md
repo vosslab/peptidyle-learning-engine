@@ -217,19 +217,20 @@ authenticated Account session before exact course relationship resolution.
 Passkey registration begins from an authenticated PLE Account, so a passkey can
 shorten later sign-in but cannot bootstrap the first Account by itself. The
 seeded selector is disabled when its deployment settings are absent. Any future
-email start must fail closed unless both the invitation-token secret and a
-complete external SMTP configuration are present; a Server Route's existence is
-not evidence of a live email-authentication ceremony. No such email ceremony or
-route is active today.
+email start must fail closed unless its challenge configuration and complete
+Email Delivery Backend configuration are present. Invitation issuance separately
+requires its invitation-token secret. A Server Route's existence is not evidence
+of a live email-authentication ceremony. No such email ceremony or route is active
+today.
 
 ENR6 therefore specifies email authentication to restore an existing PLE
 Account before future invitation redemption. Future authentication ceremonies
 must authenticate existing Accounts; they must not create Student Accounts.
-Copy-link delivery would remove SMTP from the invitation handoff, but would not
-replace Account authentication. The local browser currently exercises real
-Account and account-session records through seeded entry; that selector is a
-deployment convenience for connected evidence, not a parallel identity or
-invitation path.
+Copy-link delivery would remove the Email Delivery Backend from the invitation
+handoff, but would not replace Account authentication. The local browser currently
+exercises real Account and account-session records through seeded entry; that
+selector is a deployment convenience for connected evidence, not a parallel
+identity or invitation path.
 
 ### Person, course, and email
 
@@ -318,14 +319,14 @@ procedure.
 
 In the future enrollment design, invitation at a verified email address is the
 normal enrollment path. The instructor may copy the returned one-time link into
-an existing trusted LMS or let a configured SMTP provider deliver the same
-link:
+an existing trusted LMS or let a configured Email Delivery Backend deliver the
+same link:
 
 ```text
 instructor enters email and roster ID
     -> PLE creates a pending invitation
     -> PLE returns one copyable invitation link in the no-store create response
-    -> instructor shares it through an LMS, or configured SMTP sends it
+    -> instructor shares it through an LMS, or the configured delivery backend sends it
     -> student completes future short-lived, single-use email authentication
     -> PLE resolves the student's created opaque AccountId
     -> student claims the invitation
@@ -528,11 +529,11 @@ The future ordinary instructor journey will be:
 Course -> Students -> Create invitation -> Copy link -> Share through trusted LMS
 ```
 
-In the future design, configured SMTP may deliver the same link, but no
-ordinary enrollment action may depend on PLE operating a mail server. Bulk
-roster commit remains SMTP-dependent until a separately reviewed bounded
-multi-link handoff exists; it must not return a large page of bearer secrets by
-accident.
+In the future design, a configured Email Delivery Backend may deliver the same
+link, but no ordinary enrollment action may depend on PLE operating a mail server.
+Bulk roster commit remains delivery-backend-dependent until a separately reviewed
+bounded multi-link handoff exists; it must not return a large page of bearer
+secrets by accident.
 
 The screen emphasizes outcomes rather than internal record types:
 
@@ -670,6 +671,8 @@ count, and time.
   student-record authority.
 - [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md) distinguishes `AccountId`,
   `StudentRecordId`, Course Instance, Course Membership, and browser identities.
+- [GMAIL_EMAIL_DELIVERY_BACKEND.md](GMAIL_EMAIL_DELIVERY_BACKEND.md) specifies the
+  planned provider-neutral delivery boundary and its Gmail API implementation.
 - [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security)
   defines forced RLS and trusted authenticated Account context.
 - [API_CONTRACTS.md](API_CONTRACTS.md) records the routes that currently ship.

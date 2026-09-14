@@ -202,6 +202,8 @@ connected and browser evidence are not substitutes for deterministic contract te
 - [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md): PostgreSQL role and authorization model.
 - [CONTRACTS.md](CONTRACTS.md): durable module and API contract index.
 - [DEVELOPMENT.md](DEVELOPMENT.md): contributor workflow and local development constraints.
+- [GMAIL_EMAIL_DELIVERY_BACKEND.md](GMAIL_EMAIL_DELIVERY_BACKEND.md): planned provider-neutral
+  email delivery contract, Gmail API adapter, operator setup, and secret-storage boundary.
 - [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md): permanent-test and acceptance-evidence policy.
 
 ## Where to add work

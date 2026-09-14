@@ -8,7 +8,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 [PROPAGATED HEADER - ENTRIES BELOW ARE YOURS]
 <!-- VENDORED HEADER: END -->
 
-## Guidance Format
+## How to use this guidance
 
 - Guidance bullets should start with the subject when practical, making them easier to scan.
 - Guidance should stay terse and in my own words.
@@ -16,7 +16,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - This document uses GitHub Flavored Markdown (GFM).
 - Bullet duplication is acceptable because many agents only skim read one section at a time.
 
-## General Development Agent guidance
+## Development principles
+
+### Agent working principles
 
 - Read and learn the core principles in docs/REPO_STYLE.md
 - Apply the Keep It Simple, Stupid (KISS) philosophy aggressively.
@@ -35,22 +37,37 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Prefer durable long-term fixes when the additional cost is justified.
 - Prefer adaptable boundaries and simple domain concepts over speculative edge-case machinery.
 - Stay focused on the requested work. Complete the required work and avoid adding unplanned functionality.
+
+### Codebase development rules
+
 - Every source file should stay below 1000 lines. Split complete capabilities into focused modules.
-
-## Codebase Development Agent guidance
-
 - PLE is pre-production with no users. Fix the design directly rather than preserving legacy behavior.
+- Use SQL directly to create the initial PostgreSQL database.
+- Before production, edit the main database design directly as the design changes.
+- After production, update existing databases without rebuilding them from scratch.
+
+- PLE is pre-production with no users or durable production data. Improve the design directly.
+- Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) for details.
+- Adaptability should be a focus so the software can evolve as requirements and insights change.
+- Cargo, Node, and PyPI dependencies should use the latest versions to include security fixes.
+- If an interface is measured as too slow, consider moving the slow code to Rust/WebAssembly.
+- Do not create or leave placeholder database tables, states, APIs, workers, or compatibility scaffolding before the feature has an approved product design.
+
+### PLE development rules
+
 - A fresh production installation includes the complete Live Demo by default.
 - Treat the initial course content as shipped examples.
 - BiologyProblems.org content is free and open source.
 - The Genetics Blueprint Course from BiologyProblems.org ships as the example course.
-- Use SQL directly to create the initial PostgreSQL database.
-- Before production, edit the main database design directly as the design changes.
-- After production, update existing databases without rebuilding them from scratch.
 - All Podman content on the Mac-Studio-36G machine belongs to this project.
 - Neil pre-approves pruning Podman images, volumes, and containers on Mac-Studio-36G as needed.
+- The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
+- PLE should use one global installation with no institution boundaries.
+- Project images and simulated live-stack data are disposable acceptance infrastructure.
+- `./launchers/run_live_demo.sh` is the normal local-stack entry point. For direct controller
+  diagnostics, use `source source_me.sh && python3 local_stack.py`.
 
-## Glossary
+## Product vocabulary
 
 - **Blueprint Course**: A reusable course used to create **Course Instances**. It has no enrolled **Students** or deadlines.
 - **Blueprint Revision**: A fixed version of a **Blueprint Course** preserved so its content cannot change.
@@ -67,32 +84,15 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Assessment Question Editor**: The **Instructor** editor for selecting, adding, removing, and ordering Questions in an Assessment.
 - **Assessment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assessment, such as dates, scoring, attempts, late work, and what **Students** can see.
 
-## Development philosophy
+## Accounts and roles
 
-- PLE is pre-production with no users or durable production data. Improve the design directly.
-- Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) for details.
-- Adaptability should be a focus so the software can evolve as requirements and insights change.
-- Cargo, Node, and PyPI dependencies should use the latest versions to include security fixes.
-- If an interface is measured as too slow, consider moving the slow code to Rust/WebAssembly.
-- The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
-- PLE should use one global installation with no institution boundaries.
+### Account rules
+
 - PLE accounts should be global across PLE and use passwordless passkeys and email authentication.
-- Project images and simulated live-stack data are disposable acceptance infrastructure.
-- `./launchers/run_live_demo.sh` is the normal local-stack entry point. For direct controller
-  diagnostics, use `source source_me.sh && python3 local_stack.py`.
-- Do not create or leave placeholder database tables, states, APIs, workers, or compatibility scaffolding before the feature has an approved product design.
-
-## User account design
-
 - Email is not configured for the Live Demo yet; use the visible seeded-role entry for demo access.
 - The three major user types are **Sysadmins**, **Instructors**, and **Students**.
 - Potential future user roles are **Course Observers**, **Student Observers**, and **Graders**.
 - **Students** are required to use their university or institutional (`.edu` in the USA) email accounts.
-- **Sysadmin** uses tomato red as its role color.
-- **Instructor** uses teal green as its role color.
-- **Student** uses lavender /purple as its role color.
-- Role colors should be used consistently in role labels and other appropriate interface cues.
-- Demo role selection should clearly state both the user's role and name.
 - **Sysadmin** accounts should require higher security than other accounts, like TOTP authentication
 - Every Account has exactly one Product Role: **Student**, **Instructor**, or **Sysadmin**.
 - Product Role is locked and cannot change during the lifetime of an Account.
@@ -101,17 +101,65 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Reactivating an Instructor Account restores access to the same Account and Product Role.
 - Instructor Account deletion or permanent closure should be a separate deliberate action from temporary deactivation.
 
-### Course interface
+### Instructor role
 
-- A **Blueprint Course** should provide an obvious action for creating a **Course Instance** from it.
-- The Course Editor should show the Course structure and its ordered Assessments without showing every Question at once.
-- Selecting an Assessment in the Course Editor opens that Assessment for editing.
-- Assessment content and Assessment properties should remain separate editing tasks.
-- Creating a Course Instance from a Blueprint Course copies its Assessments, Questions, Question Pools, and reusable settings.
-- Course Instance Assessments created from a Blueprint Course start unreleased with dates unset.
-- Blueprint Courses do not contain dates or relative schedules.
+- All vetted **Instructors** have the same product capabilities.
+- A **Sysadmin** vets an Instructor's real identity before creating the Instructor Account.
+- Course membership determines which private Course records an Instructor may use.
+- **Instructors** can search and browse the global **Question Library**.
+- **Instructors** can browse the content of Public and Archived **Blueprint Courses**.
+- **Instructors** log in only with a passkey or email code; no passwords.
+- **Instructors** should have a clearly labeled, answer-free **Student** view without changing their identity.
 
-## Interface philosophy
+### Student role
+
+- **Students** log in only with a passkey or email code; no passwords.
+- Students may use multiple passkeys across their devices.
+- An **Instructor** can reset Student login access and send a new signup code when needed.
+- **Student** data should be collected reluctantly, used deliberately, and purged predictably.
+- Student Course data falls under FERPA; treat it as radioactive.
+- Student email addresses are immutable.
+- Student Accounts persist across Courses and semesters.
+- A Student Account is global and is not owned by or permanently tied to a Course Instance.
+- Roster import uses institutional email to find an existing Student Account or create one when needed.
+- Each Course Instance has its own course-scoped Student Record and enrollment for the Student Account.
+- Student Work, Attempts, submissions, and grades follow Course retention independently of the Student Account.
+- Removing a **Student** from a Course revokes future Course access but does not immediately delete the Student's Course records or Student Work.
+- Student Work and grades remain subject to the normal Course retention policy after enrollment ends.
+- An **Instructor** can deactivate a Student's access to their Course.
+- Deactivating Course access does not delete the Student Account or Student Work.
+- An **Instructor** can restore the Student's Course access later.
+
+### Sysadmin role
+
+- A **Sysadmin** has full administrative authority over PLE.
+- Sysadmins vet **Instructors** and create Instructor Accounts.
+- Sysadmins can help Instructors repair Courses, Students, and content.
+- The human developer, Dr. Neil Voss, is currently both a **Sysadmin** and an **Instructor**.
+- Neil uses separate Sysadmin and Instructor logins so the roles remain distinct.
+- **Sysadmins** have full platform-administration capability but do not automatically have access to FERPA Course records.
+- A Sysadmin may access Course or Student records when needed to resolve a specific support problem.
+- Sysadmin support access should be limited to that support task and recorded for audit.
+- Sysadmin support does not make the Sysadmin an **Instructor** or Course member.
+
+### Future Course roles
+
+- PLE may eventually support **Course Observer**, **Student Observer**, and **Grader** roles.
+- **Course Observers** are read-only participants with access to Course content and non-FERPA aggregate information.
+- **Student Observers** are read-only participants with authorized access to a particular Student's Course information.
+- **Graders** are not currently needed because Assessment grading is automatic.
+- Course authorization should remain adaptable enough to add these relationships later.
+
+## Interface design
+
+### General interface design
+
+- **Sysadmin** uses tomato red as its role color.
+- **Instructor** uses teal green as its role color.
+- **Student** uses lavender /purple as its role color.
+- Role colors should be used consistently in role labels and other appropriate interface cues.
+- Demo role selection should clearly state both the user's role and name.
+- Instructor and **Sysadmin** workflows should work well in a 1280 by 800 desktop browser viewport.
 
 - Design around what users need to find and do.
 - Important information should stand out from supporting information.
@@ -165,6 +213,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Student avatar selection should be visual and playful, similar to choosing a LEGO avatar.
 - **Instructors** and **Sysadmins** may select a provided avatar or add their own Profile image.
 - The current avatar appears consistently anywhere PLE represents that user.
+- Instructor Profile includes the Instructor's time zone and profile image.
+- Profile images may use any reasonable aspect ratio and are cropped to a consistent rounded square.
 - See **Ribbon and page layout** for the overall navigation and page-position rules.
 
 ### Breadcrumbs
@@ -178,7 +228,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Keeping the breadcrumb row in place prevents the main content from moving up or down as breadcrumb depth changes.
 - See **Ribbon and page layout** for the overall page-position rules.
 
-## Instructor interface
+### Instructor interface
 
 - The Instructor interface should make frequent teaching tasks fast and easy to find.
 - The Instructor menu has **Courses**, **Questions**, and **Assessments** in one dense top bar.
@@ -186,16 +236,22 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - All required ribbon choices remain visible even when their collection is empty.
 - A working navigation destination remains visible when its collection is empty.
 - A future or unavailable capability should not appear as a usable control until its workflow exists.
-- A navigation destination remains visible when its collection is empty.
 - Empty collection pages should explain what the collection is for and provide an obvious action to create or add the first item when the user can do so.
 - Similar pages should place similar actions in consistent locations.
+- Instructor pages should be composed around the teaching task rather than collections of padded components.
+- Instructor Course and Assessment lists should be dense and easy to scan, more like a spreadsheet than cards.
+- Instructor **Student View** is an answer-free preview and does not create Student Work, Assessment Attempts, submissions, or grades.
 
-### Courses interface
+#### Courses
 
 - The **Courses** ribbon must include: My Blueprint Courses, My Active Courses, My Inactive Courses, Search Public Blueprint Courses.
 - Course lists should support scanning and comparison without opening each Course.
+- The Course Editor should show the Course structure and its ordered Assessments without showing every Question at once.
+- Selecting an Assessment in the Course Editor opens that Assessment for editing.
+- Assessment content and Assessment properties should remain separate editing tasks.
+- My Active Courses and My Inactive Courses should both be available from the Courses area.
 
-#### Blueprint Courses
+##### Blueprint Courses
 
 - **My Blueprint Courses** should emphasize reusable course design rather than teaching activity.
 - **Search Public Blueprint Courses** helps Instructors find a Blueprint Course they already have in mind.
@@ -219,18 +275,19 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Instructors may fork a Public Blueprint Course to continue development privately.
 - Blueprint Courses do not have a separate Draft state.
 
-#### Course Instances
+##### Course Instances
 
 - **My Active Courses** should emphasize Course Instances the Instructor is currently teaching.
 - Active Course Instances should make upcoming Assessments and important course activity easy to find.
 - **My Inactive Courses** should keep past Course Instances available without competing with active Course Instances.
 - Creating a Course Instance from a Blueprint Course preserves its Assessments, Questions, pools, and settings.
 - Assessments created from a Blueprint Course start unreleased with dates unset.
+- An Instructor can upload a small centered Course banner and select a three-color theme.
 - Course Instance Assessments have two editors:
   - **Assessment Question Editor**: Selects, adds, removes, and orders Questions in an Assessment.
   - **Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and what **Students** can see.
 
-### Questions interface
+#### Questions
 
 - The **Questions** ribbon must include: My Questions, My Draft Questions, Starred, Watched, Search Question Library, Browse Question Library.
 - **My Questions** should make the Instructor's Published Questions easy to find and manage.
@@ -238,7 +295,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Starred** should provide a quick personal collection of Questions the Instructor wants to keep handy.
 - **Watched** should help Instructors follow Questions where changes or activity matter to them.
 
-#### Search Question Library
+##### Search Question Library
 
 - **Search Question Library** helps Instructors find specific Questions in a large library.
 - Search should begin with a prominent search box, similar to Google Search.
@@ -264,7 +321,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Clearing or changing part of a search should be quick.
 - Opening a result and returning should preserve the Instructor's search and position.
 
-#### Browse Question Library
+##### Browse Question Library
 
 - **Browse Question Library** helps Instructors explore Questions without knowing what to search for.
 - Browse should help Instructors understand what the Question Library contains.
@@ -275,7 +332,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Instructors should be able to move from browsing into a more focused search.
 - Search and Browse are different paths into the same **Question Library**.
 
-### Assessments interface
+#### Assessments
 
 - The **Assessments** ribbon must include: Assessments Due Soon, My Assessment Templates.
 - **Assessments Due Soon** should emphasize Assessments that may need the Instructor's attention.
@@ -291,8 +348,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Assessment Properties should group related settings so important settings are easy to find.
 - Instructors can randomize Question order for an Assessment.
 - Answer-choice randomization belongs to the Question, not the Assessment.
+- **Assessments Due Soon** shows upcoming Assessments across the Courses an **Instructor** teaches.
+- Assessments Due Soon shows the Course and due time for each Assessment.
 
-### High-consequence actions interface
+#### High-consequence actions
 
 - Danger Zone contains **Assessment Unrelease**, **Archive Published Question**, and **Archive Blueprint Course**.
 - Danger Zone should be visually separate from ordinary editing actions.
@@ -350,9 +409,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - High-consequence administrative actions should have a visually distinct area.
 - Confirmation for destructive actions should clearly state what will happen.
 
------
-
-## Data philosophy
+## Data and history
 
 - Answers, keys, grading, and correctness decisions should stay on the server, out of reach of **Students**.
 - Public data should stay separate from private, answer-bearing, identifying, or radioactive FERPA data.
@@ -362,7 +419,6 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Student and FERPA data
 
-- Student retention removes identifiable Student evidence, not privacy-safe aggregate Question statistics.
 - **Student** course data falls under FERPA; treat it as radioactive.
 - **Student** data should be collected reluctantly, used deliberately, and purged predictably.
 - FERPA access should be scoped through exact Course membership and **Student** ownership.
@@ -370,14 +426,15 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Student Accounts persist independently of Course data and Course retention.
 - Course work, Attempts, submissions, grades, and other FERPA-sensitive data follow the Course retention policy.
 - Course metadata, Assignment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
+- **Student Work** is the collective term for FERPA-sensitive records created by a Student in a Course Instance.
+- Student Work includes Assessment Attempts, saved and submitted Question responses, grading outcomes, and the evidence needed to interpret that work.
+- Student Work is an umbrella term; the underlying records retain their own identities and purposes.
+- Student retention removes identifiable Student evidence, not privacy-safe aggregate Question statistics.
 - Privacy-safe aggregate Question statistics remain after the underlying Student records are deleted.
 - Aggregate Question statistics must not identify or allow reconstruction of individual Student activity.
 - Published Question statistics retain accepted graded Attempt count and correct count.
 - Eligible Question Types may also retain aggregate answer-choice counts.
 - Question statistics are version-specific first, with clearly labeled Question-level rollups when appropriate.
-- **Student Work** is the collective term for FERPA-sensitive records created by a Student in a Course Instance.
-- Student Work includes Assessment Attempts, saved and submitted Question responses, grading outcomes, and the evidence needed to interpret that work.
-- Student Work is an umbrella term; the underlying records retain their own identities and purposes.
 
 ### Course retention
 
@@ -423,21 +480,22 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - Assignment deadlines are stored as instants.
 - Instructor dates and times use the Instructor's IANA time zone.
+- The Instructor's time zone is used to interpret dates and times the Instructor enters.
+- Changing an Instructor's time zone changes how existing deadlines are displayed without changing the deadlines.
+- Assessment deadlines are stored as absolute UTC instants.
 - Students have their own IANA time zone for displaying dates and times.
+- A Student's time zone defaults to the Instructor's time zone during the invite phase.
+- Changing a Student's time zone changes how existing deadlines are displayed without changing the deadlines.
 - Changing a display time zone changes how a deadline is shown, not the deadline itself.
 
------
-
-## Question philosophy
+## Questions
 
 - Questions are subject agnostic. Properly tagged Questions from all subjects belong in the same Question Library.
 - Questions are strictly and deterministically automated; grading does not require an **Instructor**.
 - Questions have one canonical title. Compact interfaces may truncate that title.
 - Every Question stored by PLE has its own internal Question record.
-- Published Questions receive a public `AAAA-ZBBB` Crockford Base32 ID.
-- A Question Pool has its own public `AAAA-ZBBB` Crockford Base32 ID and immutable revisions.
 
-### Draft Question lifecycle
+### Draft Questions
 
 - Draft Questions are private working content.
 - Draft Questions use current state rather than immutable Revisions.
@@ -514,7 +572,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Each member of a Question Pool is a **Published Question**.
 - Question Pools are always published and have no draft or unpublished state.
 - A Question Pool is an independently reusable Question Library object.
-- A Question Pool has its own public `AAAA-ZBBB` Crockford Base32 ID.
+- A Question Pool has its own public `AAAA-ZBBB` Crockford Base32 ID and immutable revisions.
 - Importing a Question Pool into a new Assignment automatically forks the Question Pool.
 - The fork belongs to the new Assignment and can be changed without changing the source Question Pool.
 - Forking a Question Pool preserves its Published Questions by their public `AAAA-ZBBB` IDs.
@@ -535,7 +593,6 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Published Question Pools are available to all vetted **Instructors**.
 - **Students** access Question content through their Assignments rather than through the Question Library.
 - Published content remains discoverable when used by a private **Course Instance**.
-- Question stewardship should use a GitHub-like model.
 - With 13,000 Questions in Neil's first course, manually archiving Questions is unlikely to be a useful primary workflow.
 - Question Library workflows should support bulk operations because an Instructor may manage thousands of Questions.
 - Instructors should be able to select many Questions and update shared metadata such as tags, subject, topic, or other search fields together.
@@ -543,6 +600,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Published Question identity
 
+- Published Questions receive a public `AAAA-ZBBB` Crockford Base32 ID.
 - Published Questions and published Question Pools have public Crockford Base32 IDs.
 - Public IDs use the form `AAAA-ZBBB`.
 - Seven Crockford Base32 characters are cryptographically random and provide the identity.
@@ -569,6 +627,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Question stewardship
 
+- Question stewardship should use a GitHub-like model.
 - **Published Questions** can be starred and watched, similar to GitHub.
 - Star means favorite and visible endorsement.
 - Vetted **Instructors** can see the star count and which vetted **Instructors** starred a Question.
@@ -576,8 +635,6 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Watching drives in-app notifications for revisions, forks, improvement threads, and impact notices.
 - An **Instructor's** watch list remains private.
 - **Students** and anonymous users do not receive **Instructor** identity lists or watch information.
-- Question writers may add optional Question Feedback when it helps.
-- Student workflows remain complete whether or not Students read Question Feedback.
 
 #### Question statistics
 
@@ -596,10 +653,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - Answer-choice randomization belongs to the Question.
 - PLE-native Questions control their own answer-choice randomization.
+- Question writers may add optional Question Feedback when it helps.
+- Student workflows remain complete whether or not Students read Question Feedback.
 
------
-
-## Course philosophy
+## Courses
 
 - **Courses** organize reusable teaching content and its delivery to **Students**.
 - PLE has two Course forms: **Blueprint Courses** and **Course Instances**.
@@ -607,8 +664,6 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Course Instances may be created from a Blueprint Course or started empty.
 - A Course can have multiple co-**Instructors** with equal teaching authority.
 - **Sysadmins** can create Courses, but **Instructors** teach them.
-- Every Course must have an assigned **Instructor** who owns the Course.
-- A Course can have multiple co-**Instructors** with equal teaching authority.
 - Every Course Instance must have at least one assigned **Instructor**.
 - Creating a Course Instance establishes its first Instructor membership but does not give that Instructor greater Course authority than later co-Instructors.
 
@@ -618,19 +673,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Blueprint Courses** are reusable course definitions for building **Course Instances**.
 - Blueprint Courses are a similar concept as LibreTexts' ADAPT alpha courses.
 - Blueprint Courses have no **Students**, deadlines, or other teaching-specific delivery settings.
+- Blueprint Courses do not contain dates or relative schedules.
 - Public Blueprint Courses are visible and reusable by every vetted **Instructor**.
 - Blueprint Courses contain only **Published Questions** and published **Question Pools**.
 - An **Instructor** may deliberately publish an existing Course Instance structure as a new Blueprint Course.
-
-#### Blueprint Course stewardship
-
-- **Instructors** can Star or Watch Public and Archived Blueprint Courses.
-- A Star is a visible endorsement and helps **Instructors** save useful Blueprint Courses.
-- Vetted **Instructors** can see who Starred a Blueprint Course and its Star count.
-- Watching a Blueprint Course is private.
-- Watchers are notified about new Blueprint Revisions and other important Blueprint changes.
-- Forking or adopting a Blueprint Course does not automatically Star or Watch it.
-- Stars and Watches belong to the Blueprint Course across all of its Revisions.
 
 #### Blueprint Course lifecycle
 
@@ -659,6 +705,16 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Blueprint Course metadata can change without creating a Blueprint Revision.
 - Blueprint Course names are metadata and identify the Blueprint across Revisions.
 - Changing a Blueprint Course name does not create a new Blueprint Revision.
+
+#### Blueprint Course stewardship
+
+- **Instructors** can Star or Watch Public and Archived Blueprint Courses.
+- A Star is a visible endorsement and helps **Instructors** save useful Blueprint Courses.
+- Vetted **Instructors** can see who Starred a Blueprint Course and its Star count.
+- Watching a Blueprint Course is private.
+- Watchers are notified about new Blueprint Revisions and other important Blueprint changes.
+- Forking or adopting a Blueprint Course does not automatically Star or Watch it.
+- Stars and Watches belong to the Blueprint Course across all of its Revisions.
 
 #### Blueprint adoption and updates
 
@@ -700,24 +756,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Canonical Blueprint JSON may support offline inspection or editing, even if it is not optimized for hand editing.
 - Canonical Blueprint JSON is the complete exchange format, not the primary persistence model.
 
-### Blueprint adoption and updates
+### Course Instances
 
-- An **adoption** occurs when an **Instructor** creates a Course Instance from a Blueprint Course.
-- Blueprint Courses track how many Course Instances have been created from them as their adoption count.
-- A Course Instance created from a Blueprint Course is a daughter Course Instance of that Blueprint Course.
-- A daughter Course Instance records its parent Blueprint Course and the exact Blueprint Revision used to create it.
-- New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review and approval.
-- Routine Blueprint updates should be quick for an **Instructor** to review and approve.
-- It should be obvious when a daughter Course Instance is using an older Blueprint Revision.
-- Changes to existing Assessments follow the Blueprint Revision update workflow.
-- Newly added Blueprint Assessments are automatically added to daughter Course Instances as unreleased Assessments.
-- Blueprint changes to existing Assessments are never silently applied to daughter Course Instances.
-
-### Course Instance creation
+#### Course Instance creation
 
 - An **Instructor** can create a Course Instance from a Public Blueprint Course.
-- Creating a Course Instance from a Blueprint Course counts as an adoption of that Blueprint Course.
-- The new Course Instance receives every Assessment from the selected Blueprint Revision.
 - **Instructors** can also create a new empty Course Instance without a parent Blueprint Course.
 - Course Instances have **Students**, deadlines, releases, and other delivery-specific settings.
 - Course Instances contain only **Published Questions** and published **Question Pools**.
@@ -725,6 +768,23 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Active Courses are current teaching Course Instances.
 - Inactive Courses retain Course metadata after FERPA-sensitive Student data is removed.
 - An **Instructor** may deliberately publish reusable Course Instance structure as a new **Blueprint Course**.
+
+#### Blueprint adoption and daughter Course Instances
+
+- An **adoption** occurs when an **Instructor** creates a Course Instance from a Blueprint Course.
+- Blueprint Courses track how many Course Instances have been created from them as their adoption count.
+- A Course Instance created from a Blueprint Course is a daughter Course Instance of that Blueprint Course.
+- A daughter Course Instance records its parent Blueprint Course and the exact Blueprint Revision used to create it.
+- Creating a Course Instance from a Blueprint Course counts as an adoption of that Blueprint Course.
+- The new Course Instance receives every Assessment from the selected Blueprint Revision.
+- Creating a Course Instance from a Blueprint Course copies its Assessments, Questions, Question Pools, and reusable settings.
+- Course Instance Assessments created from a Blueprint Course start unreleased with dates unset.
+- New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review and approval.
+- Routine Blueprint updates should be quick for an **Instructor** to review and approve.
+- It should be obvious when a daughter Course Instance is using an older Blueprint Revision.
+- Changes to existing Assessments follow the Blueprint Revision update workflow.
+- Newly added Blueprint Assessments are automatically added to daughter Course Instances as unreleased Assessments.
+- Blueprint changes to existing Assessments are never silently applied to daughter Course Instances.
 
 ### Course names
 
@@ -736,9 +796,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A Course Instance might be `BCHM 355/455` / `BCHM 355/455 Section 20 Biochemistry (Roosevelt U; Spring 2026)`.
 - Course Instance names are properties of the Course Instance and are not derived from Blueprint Course names.
 
------
-
-## Assessment philosophy
+## Assessments
 
 - **Assessment** is the PLE object for organizing Questions into a graded or practice activity.
 - PLE has **Blueprint Assessments** and **Course Instance Assessments**.
@@ -752,6 +810,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Assessments contain an ordered sequence of Questions and Question Pools.
 - **Instructors** can add, remove, and reorder Questions and Question Pools.
 - Questions and Question Pools remain distinct even though both can occupy positions in an Assessment.
+- Assessment Question-order randomization is called **Randomize question order**.
 
 ### Assessment types
 
@@ -822,7 +881,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Assessment Templates do not contain Questions or Question Pools.
 - Blueprint Assessments do not use Assessment Templates.
 
-### Course Instance Assessment lifecycle and defaults
+### Course Instance Assessment release and defaults
 
 - Course Instance Assessments start unreleased.
 - Releasing a Course Instance Assessment requires an automated and interactive **Assessment Release Validation** process.
@@ -847,9 +906,6 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Until then, Quizzes and Exams do not disclose correct answers.
 - Question Feedback is always shown when a Question includes it.
 - Unreleasing a Course Instance Assessment permanently deletes its Student Work and returns to a pre-release state.
-- Assessment Question-order randomization is called **Randomize question order**.
-- **Assessments Due Soon** shows upcoming Assessments across the Courses an **Instructor** teaches.
-- Assessments Due Soon shows the Course and due time for each Assessment.
 
 ### Assessment Attempts
 
@@ -904,71 +960,3 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Changing Question point values recalculates affected Assessment scores.
 - Score recalculation does not require another Question Backend interaction.
 - Score recalculation does not change the stored Question grading outcome.
-
------
-
-## Instructor philosophy
-
-- All vetted **Instructors** have the same product capabilities.
-- A **Sysadmin** vets an Instructor's real identity before creating the Instructor Account.
-- Course membership determines which private Course records an Instructor may use.
-- **Instructors** can search and browse the global **Question Library**.
-- **Instructors** can browse the content of Public and Archived **Blueprint Courses**.
-- **Instructors** log in only with a passkey or email code; no passwords.
-- **Instructors** should have a clearly labeled, answer-free **Student** view without changing their identity.
-- Instructor and **Sysadmin** workflows should work well in a 1280 by 800 desktop browser viewport.
-- Instructor pages should be composed around the teaching task rather than collections of padded components.
-- Instructor Course and Assessment lists should be dense and easy to scan, more like a spreadsheet than cards.
-- My Active Courses and My Inactive Courses should both be available from the Courses area.
-- An Instructor can upload a small centered Course banner and select a three-color theme.
-- Instructor Profile includes the Instructor's time zone and profile image.
-- Profile images may use any reasonable aspect ratio and are cropped to a consistent rounded square.
-- The Instructor's time zone is used to interpret dates and times the Instructor enters.
-- Changing an Instructor's time zone changes how existing deadlines are displayed without changing the deadlines.
-- Assessment deadlines are stored as absolute UTC instants.
-- Instructor **Student View** is an answer-free preview and does not create Student Work, Assessment Attempts, submissions, or grades.
-
-## Student philosophy
-
-- **Students** log in only with a passkey or email code; no passwords.
-- Students may use multiple passkeys across their devices.
-- An **Instructor** can reset Student login access and send a new signup code when needed.
-- **Student** data should be collected reluctantly, used deliberately, and purged predictably.
-- Student Course data falls under FERPA; treat it as radioactive.
-- Student email addresses are immutable.
-- Student Accounts persist across Courses and semesters.
-- A Student Account is global and is not owned by or permanently tied to a Course Instance.
-- Roster import uses institutional email to find an existing Student Account or create one when needed.
-- Each Course Instance has its own course-scoped Student Record and enrollment for the Student Account.
-- Student Work, Attempts, submissions, and grades follow Course retention independently of the Student Account.
-- Students have their own time zone for displaying dates and times.
-- A Student's time zone defaults to the Instructor's time zone during the invite phase.
-- Changing a Student's time zone changes how existing deadlines are displayed without changing the deadlines.
-- Removing a **Student** from a Course revokes future Course access but does not immediately delete the Student's Course records or Student Work.
-- Student Work and grades remain subject to the normal Course retention policy after enrollment ends.
-- An **Instructor** can deactivate a Student's access to their Course.
-- Deactivating Course access does not delete the Student Account or Student Work.
-- An **Instructor** can restore the Student's Course access later.
-
-## Sysadmin philosophy
-
-- A **Sysadmin** has full administrative authority over PLE.
-- Sysadmins vet **Instructors** and create Instructor Accounts.
-- Sysadmins can help Instructors repair Courses, Students, and content.
-- The human developer, Dr. Neil Voss, is currently both a **Sysadmin** and an **Instructor**.
-- Neil uses separate Sysadmin and Instructor logins so the roles remain distinct.
-- Sysadmins do not receive routine access to FERPA Course records.
-- Sysadmins stay out of Student rosters, grades, and other FERPA records during normal operation.
-- A Sysadmin may access FERPA records when helping an Instructor resolve a specific Course problem.
-- **Sysadmins** have full platform-administration capability but do not automatically have access to FERPA Course records.
-- A Sysadmin may access Course or Student records when needed to resolve a specific support problem.
-- Sysadmin support access should be limited to that support task and recorded for audit.
-- Sysadmin support does not make the Sysadmin an **Instructor** or Course member.
-
-## Future course roles
-
-- PLE may eventually support **Course Observer**, **Student Observer**, and **Grader** roles.
-- **Course Observers** are read-only participants with access to Course content and non-FERPA aggregate information.
-- **Student Observers** are read-only participants with authorized access to a particular Student's Course information.
-- **Graders** are not currently needed because Assessment grading is automatic.
-- Course authorization should remain adaptable enough to add these relationships later.

@@ -4,6 +4,13 @@
 
 ### Additions and New Features
 
+- Added the planned Gmail API Email Delivery Backend specification. It keeps institutional email
+  as the PLE Account identity and a dedicated Gmail account as delivery transport, defines the
+  provider-neutral adapter, email-code ceremony, abuse controls, operator CLI, OAuth flow,
+  host-protected credential file, API-only container mount, failure behavior, recovery, and
+  attended delivery acceptance. Enrollment documentation and the future-capability backlog now
+  point to the specification. No Gmail route, credential, or runtime behavior is claimed.
+
 - Every installation now publishes the complete free and open-source Biology Problems Website
   Genetics Blueprint as its example course. The default installation also creates the optional
   Live Demo. `--without-live-demo` still publishes Genetics and omits the Live Demo Accounts,
@@ -15,6 +22,17 @@
   Questions no longer cause searches to fail above one page. Server and frontend checks passed.
 
 ### Fixes and Maintenance
+
+- Reorganized Human Guidance under the approved Development, vocabulary, Accounts and roles,
+  Interface, Data and history, Questions, Courses, and Assessments hierarchy. A temporary exact
+  comparison preserved all 744 bullet blocks without wording changes, and links to renamed current
+  headings were updated. The focused Human Guidance format gate passed two tests.
+
+- Cleaned only same-subsection Human Guidance duplication and the Course Instance ownership
+  contradiction. Course Instances retain equal co-Instructors with no privileged first Instructor;
+  Private Blueprint ownership and intentional cross-section reinforcement remain unchanged. A
+  read-only follow-up found no remaining same-subsection duplication or move-created contradiction
+  requiring correction, and the focused Human Guidance format gate passed two tests.
 
 - Course Instance creation now adopts every Blueprint Assignment atomically, preserving exact
   Question Revision pins, fixed Questions, pools, points, instructions, and policies with fresh
