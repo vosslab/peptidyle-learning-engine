@@ -374,11 +374,22 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Revisions and history
 
 - Be conservative about creating revisions.
-- Assignments, Course Instances, and Draft Questions use current state.
+- Assessments, Course Instances, and Draft Questions use current state.
 - Published Questions and Blueprint Courses have immutable revisions.
-- Mutable working state gets Edit Numbers when needed for concurrency.
-- Student Work retains the exact evidence needed to interpret what the Student received, submitted, and was graded on.
-- Teaching configuration may change without changing the historical meaning of existing Student Work.
+- Mutable working state uses a monotonic sequential Edit Number when needed for concurrency.
+- An Edit Number is only a counter and does not identify a stored historical object.
+- Question and Blueprint Revisions use monotonic sequential Revision Numbers.
+- A Revision Number identifies a specific immutable Revision stored by PLE.
+- Question Revision Numbers start at 1 for each Published Question.
+- Blueprint Revision Numbers start at 1 for each Blueprint Course.
+- Each Question and Blueprint Revision also has a SHA-256 hash of its contents.
+- Revision Numbers identify stored Revisions; SHA-256 hashes identify their exact contents.
+- Revision Numbers and Revision hashes never change or get reused.
+- Student Work records the exact Assessment Attempt and Published Question Revision delivered to the Student.
+- Student Work records the Student's responses and the grading outcome returned by the Question Backend.
+- Student Work records the Question Pool Revision and selected Published Question Revision for each response.
+- Changes to Question point values recalculate scores from the stored grading outcome without changing the outcome.
+- Changes to Assessment settings do not change the recorded history of completed Assessment Attempts.
 
 ### Dates and time zones
 
@@ -566,7 +577,17 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Blueprint Courses contain only **Published Questions** and published **Question Pools**.
 - An **Instructor** may deliberately publish an existing Course Instance structure as a new Blueprint Course.
 
-### Blueprint Course lifecycle
+#### Blueprint Course stewardship
+
+- **Instructors** can Star or Watch Public and Archived Blueprint Courses.
+- A Star is a visible endorsement and helps **Instructors** save useful Blueprint Courses.
+- Vetted **Instructors** can see who Starred a Blueprint Course and its Star count.
+- Watching a Blueprint Course is private.
+- Watchers are notified about new Blueprint Revisions and other important Blueprint changes.
+- Forking or adopting a Blueprint Course does not automatically Star or Watch it.
+- Stars and Watches belong to the Blueprint Course across all of its Revisions.
+
+#### Blueprint Course lifecycle
 
 - Blueprint Courses have three lifecycle states: **Private**, **Public**, and **Archived**.
 - New Blueprint Courses and forks start Private.
@@ -582,7 +603,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Other **Instructors** can fork an Archived Blueprint Course to create a new Private Blueprint Course.
 - Blueprint Courses have no separate draft state.
 
-### Blueprint Course revisions
+#### Blueprint Course revisions
 
 - Blueprint Courses use immutable **Blueprint Revisions** for saved history and concurrency.
 - Blueprint Course editing uses explicit Save.
@@ -594,7 +615,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Blueprint Courses maintain a changelog visible to all vetted **Instructors**.
 - The changelog should make meaningful changes between Blueprint Revisions easy to understand.
 
-### Blueprint adoption and updates
+#### Blueprint adoption and updates
 
 - Blueprint adoption copies every Assessment from the Blueprint Course into the Course Instance.
 - Course Instances pin the exact Blueprint Revision from which they were adopted.
@@ -605,7 +626,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Blueprint changes to existing Assessments are never silently applied to daughter Course Instances.
 - Newly added Blueprint Assessments are automatically added to daughter Course Instances as unreleased Assessments.
 
-### Blueprint Course forks and Change Proposals
+#### Blueprint Course forks and Change Proposals
 
 - An **Instructor** can fork a **Blueprint Course** to create a new independent Blueprint Course.
 - A fork records the source Blueprint Course and Blueprint Revision from which it was created.
@@ -620,39 +641,45 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Change Proposals never directly change daughter Course Instances.
 - Daughter Course Instances receive accepted changes through the normal Blueprint update workflow.
 
-### Blueprint Course JSON
+#### Blueprint Course JSON
 
-- Blueprint Courses have a canonical JSON representation for comparison and exchange.
+- Blueprint Courses have a canonical JSON representation for comparison, import, export, and exchange.
+- Canonical Blueprint JSON must contain enough information to fully recreate a Blueprint Course.
+- Importing exported Blueprint JSON should reproduce the same Blueprint Course content and structure.
 - Blueprint JSON contains Blueprint metadata and an ordered list of Blueprint Assessments.
-- Blueprint Assessments contain only reusable teaching settings, not Course Instance delivery settings.
+- Blueprint Assessments contain only reusable teaching settings.
 - Blueprint Assessments contain ordered **Published Questions** and published **Question Pools**.
 - Blueprint Assessments have no deadlines, release dates, Student data, or other Course Instance settings.
 - Blueprint Revisions can be compared through their canonical JSON representations.
-- Blueprint Course Change Proposals use the canonical JSON to identify changes between Blueprint Revisions.
-- Canonical Blueprint JSON is the comparison and exchange format, not the primary persistence model.
+- Blueprint Course Change Proposals use canonical JSON to identify changes between Blueprint Revisions.
+- Canonical Blueprint JSON may support offline inspection or editing, even if it is not optimized for hand editing.
+- Canonical Blueprint JSON is the complete exchange format, not the primary persistence model.
 
-### Course Instances
+### Blueprint adoption and updates
 
-- A **Course Instance** may be created from a **Blueprint Course** or started as a new Course.
-- Creating a Course Instance from a Blueprint Course uses Blueprint adoption.
-- **Instructors** can create a new empty **Course Instance** without a parent **Blueprint Course**.
+- An **adoption** occurs when an **Instructor** creates a Course Instance from a Blueprint Course.
+- Blueprint Courses track how many Course Instances have been created from them as their adoption count.
+- A Course Instance created from a Blueprint Course is a daughter Course Instance of that Blueprint Course.
+- A daughter Course Instance records its parent Blueprint Course and the exact Blueprint Revision used to create it.
+- New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review and approval.
+- Routine Blueprint updates should be quick for an **Instructor** to review and approve.
+- It should be obvious when a daughter Course Instance is using an older Blueprint Revision.
+- Changes to existing Assessments follow the Blueprint Revision update workflow.
+- Newly added Blueprint Assessments are automatically added to daughter Course Instances as unreleased Assessments.
+- Blueprint changes to existing Assessments are never silently applied to daughter Course Instances.
+
+### Course Instance creation
+
+- An **Instructor** can create a Course Instance from a Public Blueprint Course.
+- Creating a Course Instance from a Blueprint Course counts as an adoption of that Blueprint Course.
+- The new Course Instance receives every Assessment from the selected Blueprint Revision.
+- **Instructors** can also create a new empty Course Instance without a parent Blueprint Course.
 - Course Instances have **Students**, deadlines, releases, and other delivery-specific settings.
-- Course Instances contain only **Published Questions**.
+- Course Instances contain only **Published Questions** and published **Question Pools**.
 - Course Instances are visible only to their co-**Instructors** and enrolled **Students**.
 - Active Courses are current teaching Course Instances.
 - Inactive Courses retain Course metadata after FERPA-sensitive Student data is removed.
 - An **Instructor** may deliberately publish reusable Course Instance structure as a new **Blueprint Course**.
-
-### Blueprint adoption and updates
-
-- Blueprint adoption creates every Assessment from the Blueprint Course in the Course Instance.
-- Course Instances pin the exact Blueprint Revision from which they were adopted.
-- New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review and approval.
-- Routine Blueprint updates should be quick for an **Instructor** to review and approve.
-- It should be obvious when a Course Instance is using an older Blueprint Revision.
-- Changes to existing Assessments follow the Blueprint Revision update workflow.
-- Newly added Blueprint Assessments are automatically added to daughter Course Instances as unreleased Assessments.
-- Blueprint changes to existing Assessments are never silently applied to Course Instances.
 
 ### Course names
 
@@ -661,23 +688,29 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Short names are for compact navigation and should stay under about 16 characters when practical.
 - Long names are descriptive names used for headings, breadcrumbs, and Course listings.
 - A Blueprint Course might be `Biochemistry` / `Upper-Level Introductory Biochemistry`.
-- A Course Instance might be `BCHM 355/455` / `BCHM 355/455 Section 20 Biochemistry (Roosevelt University; Spring 2026)`.
+- A Course Instance might be `BCHM 355/455` / `BCHM 355/455 Section 20 Biochemistry (Roosevelt U; Spring 2026)`.
 - Course Instance names are properties of the Course Instance and are not derived from Blueprint Course names.
 
 -----
 
 ## Assessment philosophy
 
-- **Assessment** is the PLE object used to deliver Questions to **Students**.
-- Assessment types are **Regular Assignment**, **Practice Question Assignment**, **Bonus Assignment**, **Quiz**, and **Exam**.
-- All Assessment types use the same underlying Assessment model.
-- Assessment type describes pedagogical purpose and provides appropriate defaults.
-- **Assessment Attempt** is one Student attempt at an Assessment.
+- **Assessment** is the PLE object for organizing Questions into a graded or practice activity.
+- PLE has **Blueprint Assessments** and **Course Instance Assessments**.
+- Blueprint Assessments define reusable Assessment content and teaching settings.
+- Course Instance Assessments deliver Questions to **Students**.
+- All Assessments use the same underlying Assessment model.
 - Use **Assignment** only for Regular Assignments, Practice Question Assignments, and Bonus Assignments.
-
 
 ### Assessment types
 
+- PLE defines the available Assessment Types.
+- Assessment Type describes the pedagogical purpose of an Assessment and provides appropriate defaults.
+- Assessment Types are **Regular Assignment**, **Practice Question Assignment**, **Bonus Assignment**, **Quiz**, and **Exam**.
+- **Instructors** select an Assessment Type but cannot create new Assessment Types.
+- Blueprint Assessments and Course Instance Assessments use the same Assessment Types.
+- **Instructors** can change Assessment settings independently of the defaults for its Type.
+- Changing Assessment settings does not change its Assessment Type.
 - **Regular Assignments** give **Students** regular practice applying course ideas outside class.
 - Regular Assignments reinforce current learning and may also introduce new topics.
 - Regular Assignments are designed as practice for learning, not merely as one-time assessments.
@@ -691,11 +724,57 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Exams** are individual assessments associated with scheduled exam periods.
 - Exams may use more restrictive Attempt, timing, availability, and feedback settings.
 
+### Assessment type appearance
 
-### Assessment lifecycle and defaults
+- Each Assessment Type has its own PLE-defined Font Awesome icon.
+- Assessment Type icons remain consistent across PLE themes.
+- Each Assessment Type also has its own theme-defined color.
+- Themes may change Assessment Type colors but preserve the meaning of each Type.
+- Assessment Type should never be communicated by color alone.
+- Icons and labels should remain sufficient to identify the Assessment Type without color.
+- **Regular Assignment** uses the Font Awesome `pen-to-square` icon.
+- **Practice Question Assignment** uses the Font Awesome `arrows-spin` icon.
+- **Bonus Assignment** uses the Font Awesome `sparkles` icon.
+- **Quiz** uses the Font Awesome `square-q` icon.
+- **Exam** uses the Font Awesome `file-signature` icon.
 
-- New Assessments default to accepting submissions only through the due date.
-- New Assessments default to starting new Attempts only through the due date.
+### Blueprint Assessments
+
+- A **Blueprint Assessment** is an Assessment in a **Blueprint Course**.
+- Blueprint Assessments define reusable Assessment content and teaching settings.
+- Blueprint Assessments have an Assessment Type.
+- Blueprint Assessments contain ordered **Published Questions** and published **Question Pools**.
+- Blueprint Assessments define Question point values and points possible.
+- Blueprint Assessments have no **Students**, Student Work, due dates, release dates, or other Course Instance delivery settings.
+- Blueprint Assessments do not use Assessment Templates.
+- Creating a daughter Course Instance from a Blueprint Course copies its Blueprint Assessments into the Course Instance.
+
+### Course Instance Assessments
+
+- A **Course Instance Assessment** is an Assessment in a **Course Instance**.
+- Course Instance Assessments are the Assessments delivered to **Students**.
+- Course Instance Assessments have an Assessment Type, Questions, Question Pools, point values, and points possible.
+- Course Instance Assessments also have delivery settings such as due dates, release status, and Student availability.
+- Course Instance Assessments copied from a Blueprint Assessment can be changed for the needs of that Course Instance.
+- Newly added Blueprint Assessments are automatically copied to daughter Course Instances as unreleased Course Instance Assessments.
+
+### Assessment Templates
+
+- An **Assessment Template** is a reusable set of settings for creating Course Instance Assessments.
+- Assessment Templates are separate from Assessment Types.
+- Every Assessment Template has one of the five Assessment Types.
+- **Instructors** can create and change their own Assessment Templates.
+- Assessment Templates provide defaults for settings such as Attempts, timing, scoring, and disclosure.
+- Creating a Course Instance Assessment from a Template copies its settings into the new Assessment.
+- The new Course Instance Assessment can be changed independently after it is created.
+- Changing an Assessment Template does not change Assessments previously created from it.
+- Assessment Templates do not contain Questions or Question Pools.
+- Blueprint Assessments do not use Assessment Templates.
+
+### Course Instance Assessment lifecycle and defaults
+
+- New Course Instance Assessments default to accepting submissions only through the due date.
+- New Course Instance Assessments default to starting new Attempts only through the due date.
 - Late work defaults to rejected.
 - Assessment disclosure settings remain separate and independently configurable.
 - **Regular Assignments** and **Bonus Assignments** should rarely show the correct answer.
@@ -704,41 +783,39 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Quizzes** and **Exams** show correct answers after all **Students** in the Course have completed the Assessment.
 - Until then, Quizzes and Exams do not disclose correct answers.
 - Question Feedback is always shown when a Question includes it.
-- Unreleasing an Assessment permanently deletes its Student Work and returns it to a pre-release state.
+- Unreleasing a Course Instance Assessment permanently deletes its Student Work and returns to a pre-release state.
 - Assessment Question-order randomization is called **Randomize question order**.
 - **Assessments Due Soon** shows upcoming Assessments across the Courses an **Instructor** teaches.
 - Assessments Due Soon shows the Course and due time for each Assessment.
 
-
 ### Assessment Attempts
 
-- Each **Assessment Attempt** has a time limit.
+- An **Assessment Attempt** is one Student attempt at a Course Instance Assessment.
+- Blueprint Assessments do not have Assessment Attempts.
+- Each Assessment Attempt has a time limit.
 - Attempt time limits help **Students** develop an accurate sense of expected working speed.
 - Timed Assessment Attempts use wall-clock time.
 - The server owns the Attempt start and expiration times.
 - Attempt time continues while the **Student** is disconnected or the browser is closed.
-- A **Student** may reconnect, reload, or use another authenticated browser session to resume the same active Attempt.
+- A **Student** may reconnect, reload, or use another browser session to resume the same active Attempt.
 - Resuming an Attempt does not reset, pause, or extend its time limit.
 - Question responses are saved as the **Student** works and remain part of the Attempt across browser sessions.
 - Submission belongs to the Assessment Attempt, not to individual Questions.
-- When an Assessment Attempt expires, its saved responses are submitted automatically.
-- Questions without saved responses close unanswered when the Attempt expires.
 - **Instructors** control the number of permitted Assessment Attempts.
 - Regular Assignments default to unlimited Attempts.
 - **Students** may repeat an Assessment as often as its settings allow, including practicing toward a perfect score.
-- Assessment Attempt submission and grading are automatic.
-- PLE has no **Instructor** grading, regrading, or retry-grading workflow.
+- Assessment Attempt submission and grading are automatic and require no **Instructor** action.
 - Attempt expiration is checked whenever a **Student** interacts with the Attempt.
-- Background processing also submits expired Attempts when no browser remains open.
-- Background processing uses the ordinary submission path and completes Question Backend interactions that require polling.
-
+- Background processing ensures expired Attempts are submitted even when the **Student** is no longer connected.
+- When an Attempt expires, PLE submits its saved responses and leaves unanswered Questions unanswered.
+- An expired incomplete Attempt becomes a completed grading event through background processing.
 
 ### Assessment scoring
 
+- Blueprint Assessments and Course Instance Assessments assign point values to Questions.
 - A Question Backend returns an immutable credit fraction for each submitted response.
 - PLE stores the credit fraction as the Question grading outcome.
-- Each Question in an Assessment has a point value.
-- Assessment scores are calculated from stored credit fractions and current Question point values.
+- Course Instance Assessment scores are calculated from stored credit fractions and current Question point values.
 - Changing Question point values recalculates affected Assessment scores.
 - Score recalculation does not require another Question Backend interaction.
 - Score recalculation does not change the stored Question grading outcome.
@@ -747,67 +824,56 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ## Instructor philosophy
 
-- All vetted **Instructors** are equal.
-- **Instructor** accounts are created once the **Instructor's** real identity is vetted by a **Sysadmin**.
-- **Instructors** can browse and search the global question library.
-- **Instructors** can browse the question content of all **Blueprint Courses**.
-- **Instructor** and **Sysadmin** workflows should be designed for a 1280 by 800 desktop 16:10 aspect browser viewport.
-- Pages should be composed around the teaching task, not a collection of individually padded components.
+- All vetted **Instructors** have the same product capabilities.
+- A **Sysadmin** vets an Instructor's real identity before creating the Instructor Account.
+- Course membership determines which private Course records an Instructor may use.
+- **Instructors** can search and browse the global **Question Library**.
+- **Instructors** can browse the content of Public and Archived **Blueprint Courses**.
 - **Instructors** log in only with a passkey or email code; no passwords.
 - **Instructors** should have a clearly labeled, answer-free **Student** view without changing their identity.
-- An **Instructor** can upload a small centered course banner and select a three-color theme.
-- Blueprint Courses are the shared reusable course definitions.
-- Every approved **Instructor** has the same product capabilities; course membership determines which
-  course records each **Instructor** may use.
-- students might use a iphone, chrome laptop, and windows desktop, so they could need multiple. If a student loses there login the instructor should be able to reset and send a new signup code
-- Instructor Course and Assignment lists should be dense and easy to scan, more like a spreadsheet than cards.
-- Assignment title and due date should be editable directly from the Course Assignment list.
-- New Assignments should default to 11:59 PM in the Instructor's time zone.
-- Question answer visibility should be controlled by the Instructor. By default, Students should see the answer they selected and whether it was correct or incorrect. When an answer is incorrect, the correct answer should remain hidden. Instructors can choose a more restrictive setting where Students see only whether their response was correct or incorrect.
-- Instructor Profile should include the Instructor's time zone and profile image.
-- Profile images can be uploaded at any reasonable aspect ratio. Crop the image to a consistent rounded square before committing it as the Profile image.
-- Assignment Preview should open separately from the editing surface.
-- Instructors can randomize Question order for an Assignment. Default is that questions are randomly presented.
+- Instructor and **Sysadmin** workflows should work well in a 1280 by 800 desktop browser viewport.
+- Instructor pages should be composed around the teaching task rather than collections of padded components.
+- Instructor Course and Assessment lists should be dense and easy to scan, more like a spreadsheet than cards.
 - My Active Courses and My Inactive Courses should both be available from the Courses area.
-- The Instructor's time zone should be used to interpret dates and times the Instructor enters.
-- Changing a Instructor's time zone should update how existing deadlines are displayed while preserving the deadline itself.
-- Assignment deadlines should be stored as absolute UTC instants.
+- An Instructor can upload a small centered Course banner and select a three-color theme.
+- Instructor Profile includes the Instructor's time zone and profile image.
+- Profile images may use any reasonable aspect ratio and are cropped to a consistent rounded square.
+- The Instructor's time zone is used to interpret dates and times the Instructor enters.
+- Changing an Instructor's time zone changes how existing deadlines are displayed without changing the deadlines.
+- Assessment deadlines are stored as absolute UTC instants.
 
 ## Student philosophy
 
-- Each **Assignment Attempt** has a time limit so one Question set does not remain open for days.
-- **Students** may start another **Assignment Attempt** as often as needed, including practicing to a perfect score.
 - **Students** log in only with a passkey or email code; no passwords.
+- Students may use multiple passkeys across their devices.
+- An **Instructor** can reset Student login access and send a new signup code when needed.
 - **Student** data should be collected reluctantly, used deliberately, and purged predictably.
-- **Student** course data falls under FERPA; treat it as radioactive.
+- Student Course data falls under FERPA; treat it as radioactive.
 - Student email addresses are immutable.
 - Student Accounts persist across Courses and semesters.
 - A Student Account is global and is not owned by or permanently tied to a Course Instance.
-- When an Instructor uploads a roster, PLE uses the institutional email to find an existing Student Account or creates one when none exists.
-- Each Course Instance creates its own course-scoped Student Record and enrollment relationship for that Student Account.
-- Course work, Attempts, submissions, and grades follow the Course retention policy independently of the lifetime of the Student Account.
+- Roster import uses institutional email to find an existing Student Account or create one when needed.
+- Each Course Instance has its own course-scoped Student Record and enrollment for the Student Account.
+- Student Work, Attempts, submissions, and grades follow Course retention independently of the Student Account.
 - Students have their own time zone for displaying dates and times.
 - A Student's time zone defaults to the Instructor's time zone during the invite phase.
-- Changing a Student's time zone updates how existing deadlines are displayed while preserving the deadline itself.
+- Changing a Student's time zone changes how existing deadlines are displayed without changing the deadlines.
 
 ## Sysadmin philosophy
 
-- A **Sysadmin** must be a god-level account:
-  - **Instructor** vetting and account creation.
-  - Help for non-tech **Instructors** fixing their courses, including **Students** and content.
-- The human developer, Dr. Neil Voss, is the current **Sysadmin** and is also an **Instructor**.
-- Neil will have two logins, one for Sysadmin and one for Instructor, so the user roles remain distinct
-- Every **Instructor** is manually approved after validation that the **Instructor** is a real person.
-- A **Sysadmin** does not receive general access to FERPA course records.
-- Sysadmins stay out of Student rosters, grades, and other FERPA course records during normal
-  operation. They may access them when helping an Instructor resolve a specific course problem.
+- A **Sysadmin** has full administrative authority over PLE.
+- Sysadmins vet **Instructors** and create Instructor Accounts.
+- Sysadmins can help Instructors repair Courses, Students, and content.
+- The human developer, Dr. Neil Voss, is currently both a **Sysadmin** and an **Instructor**.
+- Neil uses separate Sysadmin and Instructor logins so the roles remain distinct.
+- Sysadmins do not receive routine access to FERPA Course records.
+- Sysadmins stay out of Student rosters, grades, and other FERPA records during normal operation.
+- A Sysadmin may access FERPA records when helping an Instructor resolve a specific Course problem.
 
-## Course observers, student observers, and graders philosophy
+## Future course roles
 
-- Both observer types are read-only participants.
-- **Course Observers** can see assignments and questions for a course and which **Students** have completed the assignments.
-- **Course Observers** do not see scores.
-- **Student Observers** can see everything about a particular **Student**. PLE will assume FERPA rights to the **Student** have been waived.
-- **Graders** are not needed right now because we do not have manual grading.
-- Course authorization should stay adaptable for future **Grader** and **Course Observer** relationships. A
-  **Course Observer** receives anonymous aggregate grades without **Student**-level FERPA information.
+- PLE may eventually support **Course Observer**, **Student Observer**, and **Grader** roles.
+- **Course Observers** are read-only participants with access to Course content and non-FERPA aggregate information.
+- **Student Observers** are read-only participants with authorized access to a particular Student's Course information.
+- **Graders** are not currently needed because Assessment grading is automatic.
+- Course authorization should remain adaptable enough to add these relationships later.
