@@ -54,18 +54,18 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - **Blueprint Course**: A reusable course used to create **Course Instances**. It has no enrolled **Students** or deadlines.
 - **Blueprint Revision**: A fixed version of a **Blueprint Course** preserved so its content cannot change.
-- **Course Instance**: A course created from a **Blueprint Course** for teaching. It has **Students**, deadlines, releases, and other course settings.
+- **Course Instance**: A course used for teaching. It has **Students**, deadlines, releases, and other course settings. It may be created from a Blueprint Course or started empty.
 - **Published Question**: A validated question in the global **Question Library**, available to vetted **Instructors**.
 - **Draft Question**: A private question being developed by an **Instructor**. It must pass validation before publication.
-- **Question Library**: The global collection of **Published Questions** available to vetted **Instructors**. Assignment questions come from this library.
+- **Question Library**: The global collection of Published Questions and published Question Pools available to vetted **Instructors**.
 
 - **User Roles**:
   - **Sysadmin**: A PLE administrator who manages the system, approves **Instructors**, creates accounts, and helps manage courses.
   - **Instructor**: An approved user who teaches courses and can browse, reuse, create, fork, and publish Questions.
-  - **Student**: A user enrolled in a **Course Instance** who completes Assignments and other course activities.
+  - **Student**: A user enrolled in a **Course Instance** who completes Assessments and other course activities.
 
-- **Assignment Question Editor**: The **Instructor** editor for selecting, adding, removing, and ordering Questions in an Assignment.
-- **Assignment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assignment, such as dates, scoring, attempts, late work, and what **Students** can see.
+- **Assessment Question Editor**: The **Instructor** editor for selecting, adding, removing, and ordering Questions in an Assessment.
+- **Assessment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assessment, such as dates, scoring, attempts, late work, and what **Students** can see.
 
 ## Development philosophy
 
@@ -80,6 +80,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Project images and simulated live-stack data are disposable acceptance infrastructure.
 - `./launchers/run_live_demo.sh` is the normal local-stack entry point. For direct controller
   diagnostics, use `source source_me.sh && python3 local_stack.py`.
+- Do not create or leave placeholder database tables, states, APIs, workers, or compatibility scaffolding before the feature has an approved product design.
 
 ## User account design
 
@@ -93,38 +94,42 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Role colors should be used consistently in role labels and other appropriate interface cues.
 - Demo role selection should clearly state both the user's role and name.
 - **Sysadmin** accounts should require higher security than other accounts, like TOTP authentication
+- Every Account has exactly one Product Role: **Student**, **Instructor**, or **Sysadmin**.
+- Product Role is locked and cannot change during the lifetime of an Account.
+- A person who needs more than one Product Role uses separate Accounts.
+- Instructor Accounts may be deactivated without deleting their authored content, Course relationships, or historical records.
+- Reactivating an Instructor Account restores access to the same Account and Product Role.
+- Instructor Account deletion or permanent closure should be a separate deliberate action from temporary deactivation.
 
 ### Course interface
 
 - A **Blueprint Course** should provide an obvious action for creating a **Course Instance** from it.
-- Blueprint Course editing should follow Course Editor -> Assignment Editor.
-- The Course Editor should show the Course structure without editing every Question on one page.
-- Selecting an Assignment in the Course Editor opens the editor for that Assignment.
-- Only the selected Assignment's Questions should appear in its Assignment Editor.
-- Creating a Course Instance from a Blueprint Course preserves its Assignments, Questions, pools, and settings.
-- Assignments created from a Blueprint Course start unreleased with dates unset.
-- Blueprint Courses should not contain relative Assignment schedules.
+- The Course Editor should show the Course structure and its ordered Assessments without showing every Question at once.
+- Selecting an Assessment in the Course Editor opens that Assessment for editing.
+- Assessment content and Assessment properties should remain separate editing tasks.
+- Creating a Course Instance from a Blueprint Course copies its Assessments, Questions, Question Pools, and reusable settings.
+- Course Instance Assessments created from a Blueprint Course start unreleased with dates unset.
+- Blueprint Courses do not contain dates or relative schedules.
 
 ## Interface philosophy
 
 - Design around what users need to find and do.
-- PLE often presents large collections where users need to find a few relevant items.
-- Optimize large collections for scanning, searching, filtering, and comparison.
 - Important information should stand out from supporting information.
 - Related information should be visually grouped and aligned.
-- Dense pages should still be easy to scan.
-- Use spacing to separate meaningful groups, not simply to make pages feel spacious.
-- Use containers and borders only when they clarify structure.
-- Prefer alignment and dividers over nested cards when they communicate the structure clearly.
-- Show enough information at once to support comparison without excessive scrolling.
+- Similar pages should place similar controls in consistent locations.
+- Primary actions should be easy to find and appear near the content or workflow they affect.
+- Avoid scattering related actions across page headers, menus, navigation, and content areas.
+- PLE often presents large collections where users need to find a few relevant items.
+- Optimize large collections for scanning, searching, filtering, and comparison.
+- Show enough useful information at once to support comparison without excessive scrolling.
 - Search and filters should help users quickly narrow large collections.
-- Secondary details should not compete visually with the main task.
-- Interface density should serve finding information, not density for its own sake.
+- Dense pages should remain easy to scan.
+- Use spacing to separate meaningful groups rather than simply making pages spacious.
+- Prefer alignment, typography, and dividers over unnecessary cards, boxes, borders, and nested containers.
+- Keep the visual design compact, flat, information dense, and consistent across PLE.
 - Dream big on the UI. Choose one visual philosophy and carry it through the entire interface.
-- Visual design should be information dense, less bubbly, and use less unnecessary padding.
-- Visual design should be compact and flat. Minimize padding, rounded containers, nested boxes, and unused space.
-- Prefer dividers, alignment, and typography over cards and boxes for grouping related content.
-- Pages should show substantially more useful content without scrolling when practical.
+- Use drag-and-drop where it makes reordering faster and more natural.
+- Reordering must also have a precise keyboard-accessible method.
 - Themes should use biome and habitat names, such as Forest, Grassland, Ocean, and Desert.
 - UUIDs should never appear in visible content, navigation URLs, or copyable links.
 - Use [Atkinson Hyperlegible Next](https://www.brailleinstitute.org/freefont/) as the main PLE font.
@@ -132,43 +137,58 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Prefer the official Braille Institute font files and include the needed weights locally with PLE.
 - Question Backend-rendered content may use its own fonts when needed for correct display.
 - Students should have no upload capabilities. Instructor-created content should use text boxes.
-- Deep pages should use breadcrumbs to make the current Course, Assignment, or other context clear.
+
+### Ribbon and page layout
+
+- The top Ribbon is the persistent navigation area for signed-in PLE pages.
+- The Ribbon should remain in the same location and use the same overall structure while navigating.
+- Navigation choices should remain in predictable locations as users move between related pages.
+- Changing a Ribbon selection changes the content below the Ribbon without moving the main content area up or down.
+- Ribbon rows should keep their space when needed so changing selections does not make the content area jump.
+- Page actions should appear near the content they affect rather than changing the Ribbon layout.
+- See **User top bar** and **Breadcrumbs** for the persistent elements that make up the top of the page.
 
 ### User top bar
 
 - All signed-in users share the same basic top bar layout.
-- The PLE logo and product name appear at the upper left.
-- Clicking the PLE logo or product name returns the user to their home dashboard.
-- Each role has a clearly defined home dashboard.
-- Product Role appears once, next to the PLE name.
+- The top bar remains in a consistent location as users navigate.
+- The PLE logo and product name appear at the upper left and link to the user's home dashboard.
+- Each Product Role has its own home dashboard and navigation.
+- Product Role appears once next to the PLE name.
 - Role-specific navigation appears between the product identity and Profile.
-- Navigation choices remain in consistent locations as users move between pages.
 - Profile appears at the far right as an icon-only avatar.
 - Clicking the Profile avatar opens the Profile menu.
 - The Profile menu contains Profile settings, account settings, and Sign Out.
 - Sign Out belongs in the Profile menu rather than the main top bar.
 - The Profile avatar uses a generic user avatar until the user selects another avatar.
-- Students select Profile avatars from a PLE-provided collection and cannot upload images.
+- **Students** select avatars from a PLE-provided collection and cannot upload Profile images.
 - Student avatar selection should be visual and playful, similar to choosing a LEGO avatar.
-- Instructors and Sysadmins may select a provided avatar or add their own Profile image.
+- **Instructors** and **Sysadmins** may select a provided avatar or add their own Profile image.
 - The current avatar appears consistently anywhere PLE represents that user.
+- See **Ribbon and page layout** for the overall navigation and page-position rules.
 
 ### Breadcrumbs
 
-- All signed-in accounts use the same permanent breadcrumb row below the top bar.
-- The breadcrumb row keeps the same space even when there is only one breadcrumb level.
+- All signed-in users have a permanent breadcrumb row below the top Ribbon.
+- The breadcrumb row remains in the same location and keeps the same space as users navigate.
 - Breadcrumbs show the path from the user's home dashboard to the current page.
 - Each breadcrumb level links back to its corresponding page.
 - Breadcrumbs use human-readable names rather than internal identifiers.
-- Course and Assignment breadcrumbs preserve the current Course context.
-- The permanent breadcrumb row keeps page content from moving up or down as users navigate.
+- Course and Assessment breadcrumbs preserve the current Course context.
+- Keeping the breadcrumb row in place prevents the main content from moving up or down as breadcrumb depth changes.
+- See **Ribbon and page layout** for the overall page-position rules.
 
 ## Instructor interface
 
 - The Instructor interface should make frequent teaching tasks fast and easy to find.
-- The Instructor menu has **Courses**, **Questions**, and **Assignments** in one dense top bar.
+- The Instructor menu has **Courses**, **Questions**, and **Assessments** in one dense top bar.
 - Instructor Profile uses a generic user icon until the **Instructor** adds a Profile image.
 - All required ribbon choices remain visible even when their collection is empty.
+- A working navigation destination remains visible when its collection is empty.
+- A future or unavailable capability should not appear as a usable control until its workflow exists.
+- A navigation destination remains visible when its collection is empty.
+- Empty collection pages should explain what the collection is for and provide an obvious action to create or add the first item when the user can do so.
+- Similar pages should place similar actions in consistent locations.
 
 ### Courses interface
 
@@ -181,13 +201,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Search Public Blueprint Courses** helps Instructors find a Blueprint Course they already have in mind.
 - Public Blueprint Course search should support quickly narrowing a large collection.
 - A **Blueprint Course** should provide an obvious action for creating a **Course Instance** from it.
-- Blueprint Course editing should follow Course Editor -> Blueprint Assignment Editor.
+- Blueprint Course editing should follow Course Editor -> Blueprint Assessment Editor.
 - The Course Editor should show the Blueprint Course structure without editing every Question on one page.
-- Selecting a Blueprint Assignment in the Course Editor opens the editor for that Blueprint Assignment.
-- Only the selected Blueprint Assignment's Questions should appear in its editor.
-- **Blueprint Assignment Question Editor**: Selects, adds, removes, and orders Questions in a Blueprint Assignment.
-- **Blueprint Assignment Properties Editor**: Controls scoring, attempts, late work, and what **Students** can see.
-- Blueprint Courses should not contain Assignment dates or relative Assignment schedules.
+- Selecting a Blueprint Assessment in the Course Editor opens the editor for that Blueprint Assessment.
+- Only the selected Blueprint Assessment's Questions should appear in its editor.
+- **Blueprint Assessment Question Editor**: Selects, adds, removes, and orders Questions in a Blueprint Assessment.
+- **Blueprint Assessment Properties Editor**: Controls scoring, attempts, late work, and what **Students** can see.
+- Blueprint Courses should not contain Assessment dates or relative Assessment schedules.
 - Blueprint Courses follow the lifecycle **Private -> Public -> Archived**.
 - New and forked Blueprint Courses start **Private**.
 - Private Blueprint Courses are visible only to their owner.
@@ -202,13 +222,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 #### Course Instances
 
 - **My Active Courses** should emphasize Course Instances the Instructor is currently teaching.
-- Active Course Instances should make upcoming Assignments and important course activity easy to find.
+- Active Course Instances should make upcoming Assessments and important course activity easy to find.
 - **My Inactive Courses** should keep past Course Instances available without competing with active Course Instances.
-- Creating a Course Instance from a Blueprint Course preserves its Assignments, Questions, pools, and settings.
-- Assignments created from a Blueprint Course start unreleased with dates unset.
-- Course Instance Assignments have two editors:
-  - **Assignment Question Editor**: Selects, adds, removes, and orders Questions in an Assignment.
-  - **Assignment Properties Editor**: Controls dates, scoring, attempts, late work, and what **Students** can see.
+- Creating a Course Instance from a Blueprint Course preserves its Assessments, Questions, pools, and settings.
+- Assessments created from a Blueprint Course start unreleased with dates unset.
+- Course Instance Assessments have two editors:
+  - **Assessment Question Editor**: Selects, adds, removes, and orders Questions in an Assessment.
+  - **Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and what **Students** can see.
 
 ### Questions interface
 
@@ -255,55 +275,60 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Instructors should be able to move from browsing into a more focused search.
 - Search and Browse are different paths into the same **Question Library**.
 
-### Assignments interface
+### Assessments interface
 
-- The **Assignments** ribbon must include: Assignments Due Soon, My Assignment Templates.
-- **Assignments Due Soon** should emphasize Assignments that may need the Instructor's attention.
-- Assignment lists should make Course, release status, due date, and other important state easy to scan.
-- **My Assignment Templates** should emphasize reusable Assignment design rather than Course activity.
-- Assignment editing has two editors:
-  - **Assignment Question Editor**: Selects, adds, removes, and orders Questions.
-  - **Assignment Properties Editor**: Controls dates, scoring, attempts, late work, and other Assignment settings.
-- The two Assignment editors should remain clearly distinct.
-- The Assignment Question Editor should make Question order easy to understand at a glance.
+- The **Assessments** ribbon must include: Assessments Due Soon, My Assessment Templates.
+- **Assessments Due Soon** should emphasize Assessments that may need the Instructor's attention.
+- Assessment lists should make Course, release status, due date, and other important state easy to scan.
+- **My Assessment Templates** should emphasize reusable Assessment design rather than Course activity.
+- Assessment editing has two editors:
+  - **Assessment Question Editor**: Selects, adds, removes, and orders Questions.
+  - **Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and other Assessment settings.
+- The two Assessment editors should remain clearly distinct.
+- The Assessment Question Editor should make Question order easy to understand at a glance.
 - Adding Questions should provide direct paths to Search and Browse Question Library.
-- Instructors should be able to inspect a Question before adding it to an Assignment.
-- Assignment Properties should group related settings so important settings are easy to find.
-- Instructors can randomize Question order for an Assignment.
-- Answer-choice randomization belongs to the Question, not the Assignment.
+- Instructors should be able to inspect a Question before adding it to an Assessment.
+- Assessment Properties should group related settings so important settings are easy to find.
+- Instructors can randomize Question order for an Assessment.
+- Answer-choice randomization belongs to the Question, not the Assessment.
 
 ### High-consequence actions interface
 
-- Danger Zone contains **Assignment Unrelease**, **Archive Published Question**, and **Archive Blueprint Course**.
+- Danger Zone contains **Assessment Unrelease**, **Archive Published Question**, and **Archive Blueprint Course**.
 - Danger Zone should be visually separate from ordinary editing actions.
-- Assignment Unrelease should explain that Student work will be deleted.
-- Assignment Unrelease should require typing the Assignment title before confirmation.
+- Assessment Unrelease should explain that Student work will be deleted.
+- Assessment Unrelease should require typing the Assessment title before confirmation.
 - Archive actions should explain the effect on shared availability and require a clear confirmation.
 - Restore actions should use ordinary availability controls.
 
 ### Student interface
 
-- The Student interface should focus on current Courses, Assignments, and work that needs attention.
+- The Student interface should focus on current Courses, Coursework, and work that needs attention.
+- **Coursework** is the Student-facing collective term for Assignments, Practice, Bonus work, Quizzes, and Exams.
+- Student-facing interfaces should use the specific Assessment Type when referring to an individual item rather than calling it an Assessment.
+- The Student Ribbon should use familiar Student language rather than internal PLE terms such as Assessment.
+- Coursework lists may provide filters for **Assignments**, **Practice**, **Bonus**, **Quizzes**, and **Exams**.
+- Each Coursework item should clearly show its Assessment Type using its label and Type icon.
 - The Student interface should make the next useful action easy to find.
 - The Student menu is simpler than the Instructor menu.
 - Student workflows should work well on laptops, portrait tablets, narrow phones, and square displays.
 - Every Student browser action should be usable with the keyboard alone.
-- Student pages should use Student-facing language and names meaningful to Students.
+- Student pages should use names meaningful to Students.
 - Student navigation and pages should contain only Student interfaces and capabilities.
 - Students enrolled in one active Course should go directly into that Course.
-- Students should be able to see their active Courses and Assignments from the main navigation.
-- Course pages should make upcoming, available, completed, and missed Assignments easy to distinguish.
-- Assignment lists should make due dates and completion status easy to scan.
-- Students should see the Assignment title, Question count, points possible, time limit, and previous Attempts before starting.
-- Students only ever see one Question at a time while taking Assignments, quizzes, and exams.
-- While taking an Assignment, navigation should show every Question, its saved status, and allow Students to jump directly between Questions.
+- Students should be able to see their active Courses and Coursework from the main navigation.
+- Course pages should make upcoming, available, completed, and missed Coursework easy to distinguish.
+- Coursework lists should make due dates, Type, and completion status easy to scan.
+- Before starting Coursework, Students should see its title, Type, Question count, points possible, time limit, and previous Attempts.
+- Students see one Question at a time while completing an Assignment, Practice, Bonus work, Quiz, or Exam.
+- While completing Coursework, navigation should show every Question, its saved status, and allow Students to jump directly between Questions.
 - Leaving a Question and returning should preserve its saved response.
-- The current Question and overall Assignment progress should remain easy to see.
-- The Assignment timer should be subtle and keep the focus on the Questions.
-- While taking a timed Assignment, the remaining time should stay visible while moving between Questions.
+- The current Question and overall progress should remain easy to see.
+- The timer should be subtle and keep the focus on the Questions.
+- For timed Coursework, the remaining time should stay visible while moving between Questions.
 - Submission status should be obvious and use plain language.
-- Scores and feedback should appear where the Assignment settings allow them.
-- Completed Assignments should remain easy to find and review.
+- Scores and feedback should appear where the Coursework settings allow them.
+- Completed Coursework should remain easy to find and review.
 - Student content entry should use the response controls provided by Questions and other Student activities.
 
 ### Sysadmin interface
@@ -332,6 +357,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Answers, keys, grading, and correctness decisions should stay on the server, out of reach of **Students**.
 - Public data should stay separate from private, answer-bearing, identifying, or radioactive FERPA data.
 - Human-readable titles and identifiers should be used wherever people must recognize, copy, or enter them.
+- FERPA-sensitive Student data should not become ordinary logs, analytics, URLs, or long-lived browser storage.
+- Opaque IDs remain FERPA-sensitive when they link a Student to Course activity.
 
 ### Student and FERPA data
 
@@ -348,6 +375,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Published Question statistics retain accepted graded Attempt count and correct count.
 - Eligible Question Types may also retain aggregate answer-choice counts.
 - Question statistics are version-specific first, with clearly labeled Question-level rollups when appropriate.
+- **Student Work** is the collective term for FERPA-sensitive records created by a Student in a Course Instance.
+- Student Work includes Assessment Attempts, saved and submitted Question responses, grading outcomes, and the evidence needed to interpret that work.
+- Student Work is an umbrella term; the underlying records retain their own identities and purposes.
 
 ### Course retention
 
@@ -382,14 +412,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A Revision Number identifies a specific immutable Revision stored by PLE.
 - Question Revision Numbers start at 1 for each Published Question.
 - Blueprint Revision Numbers start at 1 for each Blueprint Course.
-- Each Question and Blueprint Revision also has a SHA-256 hash of its contents.
-- Revision Numbers identify stored Revisions; SHA-256 hashes identify their exact contents.
-- Revision Numbers and Revision hashes never change or get reused.
 - Student Work records the exact Assessment Attempt and Published Question Revision delivered to the Student.
 - Student Work records the Student's responses and the grading outcome returned by the Question Backend.
 - Student Work records the Question Pool Revision and selected Published Question Revision for each response.
 - Changes to Question point values recalculate scores from the stored grading outcome without changing the outcome.
 - Changes to Assessment settings do not change the recorded history of completed Assessment Attempts.
+- Immutable Question source and Question assets use SHA-256 checksums where needed to verify their stored contents.
 
 ### Dates and time zones
 
@@ -403,13 +431,19 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ## Question philosophy
 
 - Questions are subject agnostic. Properly tagged Questions from all subjects belong in the same Question Library.
-- **Draft Questions** remain private until publication.
-- **Draft Questions** must pass an automated and interactive Question Publication Validation process before joining the Question Library.
 - Questions are strictly and deterministically automated; grading does not require an **Instructor**.
 - Questions have one canonical title. Compact interfaces may truncate that title.
 - Every Question stored by PLE has its own internal Question record.
 - Published Questions receive a public `AAAA-ZBBB` Crockford Base32 ID.
 - A Question Pool has its own public `AAAA-ZBBB` Crockford Base32 ID and immutable revisions.
+
+### Draft Question lifecycle
+
+- Draft Questions are private working content.
+- Draft Questions use current state rather than immutable Revisions.
+- Saving a Draft Question replaces its previous working state.
+- Instructors may delete Draft Questions they no longer need.
+- PLE may clean up abandoned Draft Questions after an appropriate warning and recovery period.
 
 ### Question formats and types
 
@@ -502,6 +536,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Students** access Question content through their Assignments rather than through the Question Library.
 - Published content remains discoverable when used by a private **Course Instance**.
 - Question stewardship should use a GitHub-like model.
+- With 13,000 Questions in Neil's first course, manually archiving Questions is unlikely to be a useful primary workflow.
+- Question Library workflows should support bulk operations because an Instructor may manage thousands of Questions.
+- Instructors should be able to select many Questions and update shared metadata such as tags, subject, topic, or other search fields together.
+- Question Library search, filters, sorting, and bulk editing should make large imports practical to clean up.
 
 #### Published Question identity
 
@@ -513,22 +551,21 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - ID generation enforces database uniqueness and retries when a random collision occurs.
 - IDs never encode creation order, Question Type, ownership, subject, or other metadata.
 
-#### Revisions, edits, and forks
+#### Published Question revisions, edits, and forks
 
 - **Published Questions** maintain immutable revision history.
-- Assignments and Student Work remain pinned to exact immutable Published Question Revisions.
-- New revisions become controlled updates rather than silently changing issued or graded work.
-- Teaching changes preserve the historical meaning of existing Student Work.
-- Moderate edits create a new immutable revision in the same Question lineage.
-- Moderate edits are made by the Question owner.
-- Moderate edits should remain within limits that preserve the identity and meaning of the Question.
-- Full forks may be created by any **Instructor**.
-- Full forks begin as private **Draft Questions** with their own authorship and lineage.
-- Full forks must pass Question Publication Validation before joining the Question Library.
-- Published forks become separate Question lineages with source attribution.
+- Assessments and Student Work remain pinned to exact immutable Published Question Revisions.
+- Publishing a new Question Revision does not silently change existing Assessments or Student Work.
+- The Question owner may publish corrections, wording changes, accessibility improvements, answer changes, grading changes, and other updates as a new Revision.
+- Changing Question source, answer content, grading rules, feedback, or Question assets creates a new Question Revision.
+- Changing the Question title, description, tags, subject, topic, or other search metadata does not create a new Question Revision.
+- Search metadata belongs to the Published Question as a whole rather than to one Revision.
+- Any **Instructor** may fork a Published Question to create a separate Question with a new Question ID.
+- A fork starts as a private **Draft Question** with its own authorship and lineage.
+- A fork must pass Question Publication Validation before joining the Question Library.
+- Published forks retain source attribution.
 - Forced corrections are audited **Sysadmin** actions reserved for critical flaws.
-- Question authorship, contributor credit, history, attribution, and compatible CC licensing are preserved across revisions and forks.
-- Question change proposals are a future workflow requiring their own approved product design.
+- Question authorship, contributor credit, history, attribution, and compatible CC licensing are preserved across Revisions and forks.
 
 #### Question stewardship
 
@@ -545,12 +582,15 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 #### Question statistics
 
 - Privacy-safe aggregate Question statistics remain after the underlying Student records are deleted.
-- Question statistics are revision-specific first.
-- Each Published Question Revision retains its accepted graded Attempt count and correct count.
+- Question statistics are kept separately for each Published Question Revision.
+- Each Published Question Revision may retain aggregate counts of correct, incorrect, partial-credit, and unanswered results.
 - Eligible Question Types may also retain aggregate answer-choice counts.
-- Question-level statistics may combine revisions when clearly labeled and privacy thresholds are met.
-- Question statistics expose aggregate Student behavior rather than identifiable Student records.
-- Student data retention removes identifiable Student evidence rather than privacy-safe aggregate Question statistics.
+- Question-level statistics may combine Revisions when clearly labeled and privacy thresholds are met.
+- Question statistics contain aggregate counts rather than Student Attempts or identifiable Student records.
+- Student data retention removes the underlying Student evidence without removing approved aggregate Question statistics.
+- Removing Student names alone does not make statistics anonymous.
+- Shared Question statistics should be shown only when individual Students cannot reasonably be identified from the aggregate.
+- Course-specific Question analysis remains FERPA-sensitive when individual Students could be inferred.
 
 #### Question behavior
 
@@ -563,10 +603,15 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - **Courses** organize reusable teaching content and its delivery to **Students**.
 - PLE has two Course forms: **Blueprint Courses** and **Course Instances**.
-- **Course Instances** are built from **Blueprint Courses**.
+- **Blueprint Courses** provide reusable course designs for creating Course Instances.
+- Course Instances may be created from a Blueprint Course or started empty.
 - A Course can have multiple co-**Instructors** with equal teaching authority.
 - **Sysadmins** can create Courses, but **Instructors** teach them.
 - Every Course must have an assigned **Instructor** who owns the Course.
+- A Course can have multiple co-**Instructors** with equal teaching authority.
+- Every Course Instance must have at least one assigned **Instructor**.
+- Creating a Course Instance establishes its first Instructor membership but does not give that Instructor greater Course authority than later co-Instructors.
+
 
 ### Blueprint Courses
 
@@ -596,24 +641,24 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Public Blueprint Courses are visible and reusable by every vetted **Instructor**.
 - Public Blueprint Courses can be adopted to create daughter Course Instances.
 - Archived Blueprint Courses are read-only and no longer actively maintained.
-- Archived Blueprint Courses remain visible and reusable by every vetted **Instructor**.
+- Archived Blueprint Courses remain visible by every vetted **Instructor**. 
 - Archived Blueprint Courses are excluded from normal search results unless the search explicitly includes them.
 - Archived Blueprint Courses cannot be adopted to create new daughter Course Instances.
+- Archived Blueprint Courses can be forked but not adopted.
 - The owning **Instructor** can return an Archived Blueprint Course to Public before adopting it again.
 - Other **Instructors** can fork an Archived Blueprint Course to create a new Private Blueprint Course.
 - Blueprint Courses have no separate draft state.
 
 #### Blueprint Course revisions
 
-- Blueprint Courses use immutable **Blueprint Revisions** for saved history and concurrency.
-- Blueprint Course editing uses explicit Save.
-- Each successful Save creates the next Blueprint Revision.
-- Multiple edits before Save become one Blueprint Revision.
-- **Instructors** cannot accidentally navigate away from a Blueprint Course with unsaved changes.
-- Blueprint Course names identify the Blueprint across revisions.
+- Blueprint Courses use immutable **Blueprint Revisions** for saved reusable content.
+- Blueprint Course content editing uses explicit Save.
+- Saving changed Blueprint content creates the next Blueprint Revision.
+- Multiple content edits before Save become one Blueprint Revision.
+- Saving unchanged Blueprint content does not create another Revision.
+- Blueprint Course metadata can change without creating a Blueprint Revision.
+- Blueprint Course names are metadata and identify the Blueprint across Revisions.
 - Changing a Blueprint Course name does not create a new Blueprint Revision.
-- Blueprint Courses maintain a changelog visible to all vetted **Instructors**.
-- The changelog should make meaningful changes between Blueprint Revisions easy to understand.
 
 #### Blueprint adoption and updates
 
@@ -702,6 +747,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - All Assessments use the same underlying Assessment model.
 - Use **Assignment** only for Regular Assignments, Practice Question Assignments, and Bonus Assignments.
 
+### Assessment content
+
+- Assessments contain an ordered sequence of Questions and Question Pools.
+- **Instructors** can add, remove, and reorder Questions and Question Pools.
+- Questions and Question Pools remain distinct even though both can occupy positions in an Assessment.
+
 ### Assessment types
 
 - PLE defines the available Assessment Types.
@@ -773,6 +824,18 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Course Instance Assessment lifecycle and defaults
 
+- Course Instance Assessments start unreleased.
+- Releasing a Course Instance Assessment requires an automated and interactive **Assessment Release Validation** process.
+- Assessment Release Validation checks the Assessment settings and data required for release.
+- Validation should catch missing, invalid, or unreasonable values and explain what the **Instructor** needs to fix.
+- Release Validation should check dates for reasonable values, such as a due date at least 24 hours in the future and less than 6 months away.
+- Release Validation should check that release, due, and other dates occur in a valid order.
+- Release Validation should check required settings such as point values, Attempt limits, and time limits for valid ranges.
+- Release Validation should check that the Assessment contains Questions and that required Question settings are valid.
+- The **Instructor** should be able to correct validation problems and run Release Validation again.
+- An Assessment can be released only after Release Validation passes.
+- Releasing an Assessment makes it available to **Students** according to its dates and access settings.
+- Student Work begins when a **Student** starts an Assessment Attempt.
 - New Course Instance Assessments default to accepting submissions only through the due date.
 - New Course Instance Assessments default to starting new Attempts only through the due date.
 - Late work defaults to rejected.
@@ -792,6 +855,27 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - An **Assessment Attempt** is one Student attempt at a Course Instance Assessment.
 - Blueprint Assessments do not have Assessment Attempts.
+- Question responses are saved as the **Student** works and remain part of the Attempt across browser sessions.
+- **Instructors** control the number of permitted Assessment Attempts.
+- Regular Assignments default to unlimited Attempts.
+- **Students** may repeat an Assessment as often as its settings allow, including practicing toward a perfect score.
+- Assessment Attempt submission and grading are fully automatic and require no **Instructor** action.
+- Automatic grading does not require a separate Student or **Instructor** grading workflow.
+
+### Assessment responses and submission
+
+- Assessments are submitted as a whole; Questions are not submitted individually.
+- A Question either has a complete saved response or has no saved response.
+- PLE saves complete Question responses as the **Student** works.
+- The Student may change a saved response while the Assessment Attempt remains open.
+- Submitting the Assessment Attempt submits all saved Question responses together.
+- Questions without a saved response are submitted unanswered.
+- PLE treats an incomplete Question response as unsaved, although the Question interface may keep the Student's unfinished input while they work.
+- A Question Backend may evaluate a response before Assessment submission when needed for its interaction.
+- The **Student** does not see the grading outcome until the Assessment Attempt is submitted.
+
+### Assessment Attempt timing and expiration
+
 - Each Assessment Attempt has a time limit.
 - Attempt time limits help **Students** develop an accurate sense of expected working speed.
 - Timed Assessment Attempts use wall-clock time.
@@ -799,16 +883,17 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Attempt time continues while the **Student** is disconnected or the browser is closed.
 - A **Student** may reconnect, reload, or use another browser session to resume the same active Attempt.
 - Resuming an Attempt does not reset, pause, or extend its time limit.
-- Question responses are saved as the **Student** works and remain part of the Attempt across browser sessions.
-- Submission belongs to the Assessment Attempt, not to individual Questions.
-- **Instructors** control the number of permitted Assessment Attempts.
-- Regular Assignments default to unlimited Attempts.
-- **Students** may repeat an Assessment as often as its settings allow, including practicing toward a perfect score.
-- Assessment Attempt submission and grading are automatic and require no **Instructor** action.
 - Attempt expiration is checked whenever a **Student** interacts with the Attempt.
 - Background processing ensures expired Attempts are submitted even when the **Student** is no longer connected.
 - When an Attempt expires, PLE submits its saved responses and leaves unanswered Questions unanswered.
-- An expired incomplete Attempt becomes a completed grading event through background processing.
+
+### Student Work
+
+- Student Work keeps the exact Published Question Revision delivered to the **Student**.
+- For a Question Pool, Student Work keeps the exact Question Pool Revision and Published Question Revision selected.
+- Student Work keeps the **Student's** submitted response and the grading outcome returned by the Question Backend.
+- Changes to Assessment content do not replace Question evidence already delivered in existing Attempts.
+- PLE should retain only the additional historical Student Work data needed to interpret or grade that work correctly.
 
 ### Assessment scoring
 
@@ -841,6 +926,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The Instructor's time zone is used to interpret dates and times the Instructor enters.
 - Changing an Instructor's time zone changes how existing deadlines are displayed without changing the deadlines.
 - Assessment deadlines are stored as absolute UTC instants.
+- Instructor **Student View** is an answer-free preview and does not create Student Work, Assessment Attempts, submissions, or grades.
 
 ## Student philosophy
 
@@ -858,6 +944,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Students have their own time zone for displaying dates and times.
 - A Student's time zone defaults to the Instructor's time zone during the invite phase.
 - Changing a Student's time zone changes how existing deadlines are displayed without changing the deadlines.
+- Removing a **Student** from a Course revokes future Course access but does not immediately delete the Student's Course records or Student Work.
+- Student Work and grades remain subject to the normal Course retention policy after enrollment ends.
+- An **Instructor** can deactivate a Student's access to their Course.
+- Deactivating Course access does not delete the Student Account or Student Work.
+- An **Instructor** can restore the Student's Course access later.
 
 ## Sysadmin philosophy
 
@@ -869,6 +960,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Sysadmins do not receive routine access to FERPA Course records.
 - Sysadmins stay out of Student rosters, grades, and other FERPA records during normal operation.
 - A Sysadmin may access FERPA records when helping an Instructor resolve a specific Course problem.
+- **Sysadmins** have full platform-administration capability but do not automatically have access to FERPA Course records.
+- A Sysadmin may access Course or Student records when needed to resolve a specific support problem.
+- Sysadmin support access should be limited to that support task and recorded for audit.
+- Sysadmin support does not make the Sysadmin an **Instructor** or Course member.
 
 ## Future course roles
 
