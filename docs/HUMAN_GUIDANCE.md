@@ -209,6 +209,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The platform is question agnostic, but for its initial run, the primary question formats/backends are the native flat question style PLE JSON (which is compatible with QTI) and WeBWorK; IMathAS and H5P are included but are considered secondary.
 - Students should see one Question at a time during an Assignment.
 - Questions should have one canonical title. Compact interfaces may truncate that title rather than maintaining a separate short name.
+- A Question Backend returns an immutable credit fraction for a submitted response. PLE stores that grading outcome and uses it for scoring.
+- Assignment scores are derived from stored credit fractions and current Question point values. Changing point values changes calculated scores without further interaction with the Question Backend.
+
 
 ## Question library philosophy
 
@@ -293,6 +296,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Pedagogically, **Students** may start another **Assignment Attempt** as often as needed. Repeating an Assignment to a perfect score should build understanding and confidence.
 - **Instructors** control the number of permitted Assignment Attempts. Regular Assignments should default to unlimited Attempts, while Instructors may set a more restrictive limit when appropriate.
 - Submission belongs to the **Assignment Attempt**, not to individual Questions.
+- Assignment Attempt submission and grading are automatic. PLE has no Instructor grading, regrading, or retry-grading workflow.
+- Attempt expiration is enforced whenever a Student interacts with the Attempt and is also completed in the background so an expired Attempt is submitted when no browser remains open. Background processing uses the ordinary submission path and completes backend interactions that require polling.
 
 ## Assignment defaults and lifecycle
 
