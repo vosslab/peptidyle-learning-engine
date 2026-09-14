@@ -1,8 +1,8 @@
 //! Live Course Instance creation, member summary, and teaching-team Server Routes.
 //!
 //! This module exposes the smallest live-teaching boundary: an exact Blueprint Revision
-//! becomes a Course Instance with one Assigned Instructor.  Roster, Assignment,
-//! and Student delivery routes remain outside this module.
+//! is adopted into a Course Instance with all its Assignments and one Assigned Instructor.
+//! Assignments start Unreleased; Student Work is never copied.
 
 use std::{str::FromStr, sync::Arc};
 

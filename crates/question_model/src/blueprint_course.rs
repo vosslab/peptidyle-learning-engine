@@ -32,12 +32,6 @@ pub use blueprint_children::{
     CreateBlueprintModuleInput, ReplaceBlueprintCourseContentInput,
 };
 
-mod relative_assignment_schedule;
-pub use relative_assignment_schedule::{
-    LocalTimeOfDay, LocalTimeOfDayError, RelativeAssignmentSchedule,
-    RelativeAssignmentScheduleMoment,
-};
-
 /// Failure to validate a reusable title or module label.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlueprintCourseTitleError {
@@ -174,12 +168,10 @@ pub struct BlueprintAssignmentContentInput {
     pub entries: Vec<BlueprintAssignmentEntryInput>,
     /// Reusable delivery and Assignment Attempt defaults.
     pub defaults: BlueprintAssignmentDefaults,
-    /// Optional local calendar-relative timing defaults.
-    pub schedule: RelativeAssignmentSchedule,
 }
 
 impl BlueprintAssignmentContentInput {
-    /// Validates bounded ordered entries and their reusable schedule meaning.
+    /// Validates bounded ordered entries and their reusable assignment meaning.
     pub fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
         validate_blueprint_course_title(&self.title)
             .map_err(|_| BlueprintCourseValidationError::InvalidContentTitle)?;
@@ -187,7 +179,6 @@ impl BlueprintAssignmentContentInput {
             return Err(BlueprintCourseValidationError::InvalidEntryCount);
         }
         self.defaults.validate()?;
-        self.schedule.validate()?;
         let mut total_question_pool_items = 0_usize;
         for entry in &self.entries {
             if let BlueprintAssignmentEntryInput::Pool(pool) = entry {
@@ -286,8 +277,6 @@ pub struct BlueprintAssignmentContentView {
     pub entries: Vec<BlueprintAssignmentEntryView>,
     /// Reusable delivery and Assignment Attempt defaults.
     pub defaults: BlueprintAssignmentDefaults,
-    /// Optional local calendar-relative timing defaults.
-    pub schedule: RelativeAssignmentSchedule,
 }
 
 /// Strong revision evidence for one complete BlueprintCourse tree.
@@ -390,6 +379,10 @@ pub struct BlueprintCourseSummaryView {
     pub current_revision: crate::BlueprintRevisionReference,
     /// Browser-safe classification for this returned Blueprint Course view.
     pub read_access: BlueprintCourseReadAccess,
+    /// Lifetime Course Instances adopted from this Blueprint lineage, across Revisions.
+    pub total_adoptions: u64,
+    /// Students counted once per adopted Course Instance, including ended memberships.
+    pub total_students_ever_enrolled: u64,
 }
 
 /// Safe current Blueprint Course View of one complete BlueprintCourse tree.
@@ -437,8 +430,6 @@ pub enum BlueprintCourseValidationError {
     DuplicateQuestionPoolItem,
     /// All Question Pool Items exceed the assignment-level shared bound.
     TooManyQuestionPoolItems,
-    /// Relative available, due, and close moments are not chronologically meaningful.
-    InvalidScheduleOrder,
     /// A reusable whole Assignment Attempt time limit exceeds the ordinary assignment bound.
     AssignmentAttemptTimeLimitOutOfRange,
     /// A reusable attempt limit exceeds the ordinary assignment bound.
@@ -469,9 +460,6 @@ impl std::fmt::Display for BlueprintCourseValidationError {
             Self::DuplicateQuestionPoolItem => "Question Pool Items must be distinct",
             Self::TooManyQuestionPoolItems => {
                 "Question Pool Items exceed the assignment-level bound"
-            }
-            Self::InvalidScheduleOrder => {
-                "relative availability, due, and close moments must be ordered"
             }
             Self::AssignmentAttemptTimeLimitOutOfRange => {
                 "reusable time limit exceeds the supported range"
@@ -530,7 +518,7 @@ mod tests {
         }
     }
 
-    fn input(schedule: RelativeAssignmentSchedule) -> BlueprintAssignmentContentInput {
+    fn input() -> BlueprintAssignmentContentInput {
         BlueprintAssignmentContentInput {
             title: "Protein structure practice".to_string(),
             instructions: AssignmentInstructions::try_new("Explain each choice.".to_string())
@@ -560,7 +548,6 @@ mod tests {
                 }),
             ],
             defaults: defaults(),
-            schedule,
         }
     }
 
@@ -608,54 +595,8 @@ mod tests {
     }
 
     #[test]
-    fn local_relative_schedule_keeps_partial_defaults_and_rejects_reversed_pairs() {
-        let time = |value| LocalTimeOfDay::parse(value).expect("valid local time");
-        let available = RelativeAssignmentScheduleMoment {
-            day_offset: -1,
-            local_time: time("08:30:00.000"),
-        };
-        let due = RelativeAssignmentScheduleMoment {
-            day_offset: 0,
-            local_time: time("17:00:00.000"),
-        };
-        let close = RelativeAssignmentScheduleMoment {
-            day_offset: 1,
-            local_time: time("08:00:00.000"),
-        };
-        for schedule in [
-            RelativeAssignmentSchedule {
-                available_at: Some(available.clone()),
-                due_at: None,
-                closes_at: None,
-            },
-            RelativeAssignmentSchedule {
-                available_at: None,
-                due_at: Some(due.clone()),
-                closes_at: None,
-            },
-            RelativeAssignmentSchedule {
-                available_at: None,
-                due_at: None,
-                closes_at: Some(close.clone()),
-            },
-        ] {
-            assert!(schedule.validate().is_ok());
-        }
-        assert_eq!(
-            RelativeAssignmentSchedule {
-                available_at: None,
-                due_at: Some(due),
-                closes_at: Some(available),
-            }
-            .validate(),
-            Err(BlueprintCourseValidationError::InvalidScheduleOrder)
-        );
-        assert!(LocalTimeOfDay::parse("08:30").is_err());
-    }
-
-    #[test]
     fn ordered_content_validation_uses_vector_order_and_pool_meaning() {
-        let content = input(RelativeAssignmentSchedule::default());
+        let content = input();
         assert!(content.validate().is_ok());
         let wire = serde_json::to_value(&content).expect("content serializes");
         assert_eq!(wire["entries"][0]["kind"], "fixed");
@@ -666,7 +607,7 @@ mod tests {
         assert!(wire["entries"][1].get("entries").is_none());
         assert_eq!(wire["entries"][1]["points_per_item"], "2");
         assert!(wire["defaults"].is_object());
-        assert!(wire["schedule"].is_object());
+        assert!(wire.get("schedule").is_none());
         assert_eq!(
             serde_json::from_value::<BlueprintAssignmentContentInput>(wire)
                 .expect("content round trips"),
@@ -696,7 +637,7 @@ mod tests {
             long_name: "Biochemistry Blueprint".to_string(),
             modules: vec![CreateBlueprintModuleInput {
                 label: "Week 1".to_string(),
-                assignments: vec![input(RelativeAssignmentSchedule::default())],
+                assignments: vec![input()],
             }],
         };
         assert!(blueprint.validate().is_ok());
@@ -753,7 +694,6 @@ mod tests {
                             }),
                         ],
                         defaults: defaults(),
-                        schedule: RelativeAssignmentSchedule::default(),
                     },
                 }],
             }],
@@ -835,7 +775,6 @@ mod blueprint_course_tests {
                         },
                         student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
                     },
-                    schedule: RelativeAssignmentSchedule::default(),
                 }],
             }],
         };
@@ -891,7 +830,6 @@ mod blueprint_course_tests {
                 },
                 student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             },
-            schedule: RelativeAssignmentSchedule::default(),
         };
         let replacement = ReplaceBlueprintCourseContentInput {
             modules: vec![BlueprintModuleReplacementInput {

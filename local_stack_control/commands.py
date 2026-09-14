@@ -355,9 +355,9 @@ def start(
 			without_live_demo=args.without_live_demo,
 		)
 	entry_url = live_demo_entry_url(result.origin)
+	print(f"Live demo entry: {entry_url}", flush=True)
 	if not args.headless:
 		open_developer_origin(runner, repo_root, entry_url)
-	print(f"Live demo entry: {entry_url}")
 	print(f"Project: {result.project}")
 	print("Stop with: ./launchers/run_live_demo.sh stop")
 	return 0
@@ -401,8 +401,8 @@ def open(
 		repo_root
 	)
 	entry_url = live_demo_entry_url(result.origin)
+	print(f"Live demo entry: {entry_url}", flush=True)
 	open_developer_origin(runner, repo_root, entry_url)
-	print(f"Live demo entry opened: {entry_url}")
 	return 0
 
 

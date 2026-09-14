@@ -8,7 +8,6 @@ import {
   blueprintCourseContinuationPresentation,
   emptyReusableContent,
   moveReusableEntry,
-  updateReusableSchedule,
   validateBlueprintCourseContent,
   validateReusableContent,
 } from "../src/features/blueprint_course/blueprint_course_model.ts";
@@ -58,23 +57,6 @@ test("Question Pool validation keeps selection count inside the selected Questio
     pool?.kind === "pool" ? { ...content, entries: [{ ...pool, selection_count: 2 }] } : content;
 
   assert.match(validateReusableContent(invalid).message ?? "", /selection count/);
-});
-
-test("relative schedule keeps a valid independently useful due moment", () => {
-  const scheduled = updateReusableSchedule(emptyReusableContent("Quiz"), "due_at", {
-    day_offset: 7,
-    local_time: "09:00:00.000",
-  });
-
-  assert.equal(
-    validateReusableContent({
-      ...scheduled,
-      entries: [
-        { kind: "fixed", question_id: "AAA-BBBB", points_possible: "1", scoring_rule: "normal" },
-      ],
-    }).valid,
-    true,
-  );
 });
 
 test("Blueprint Course pages append unique public references and name the next action", () => {

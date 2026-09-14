@@ -31,3 +31,26 @@ export function seededDemoAvailabilityStatus(unavailableAccountCount: number): s
   }
   return `${unavailableAccountCount} demo Accounts are unavailable. The available choices remain usable.`;
 }
+
+/** Role styling is presentation only; the server owns Account authority. */
+export function seededDemoRole(persona: SeededDemoPersona): "instructor" | "student" | "sysadmin" {
+  switch (persona) {
+    case "elenaInstructor":
+      return "instructor";
+    case "morganSysadmin":
+      return "sysadmin";
+    default:
+      return "student";
+  }
+}
+
+export function seededDemoRoleLabel(persona: SeededDemoPersona): string {
+  switch (seededDemoRole(persona)) {
+    case "instructor":
+      return "Instructor Dr.";
+    case "sysadmin":
+      return "Sysadmin";
+    case "student":
+      return "Student";
+  }
+}

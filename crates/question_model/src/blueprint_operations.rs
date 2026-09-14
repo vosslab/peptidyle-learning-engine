@@ -1,20 +1,16 @@
-//! Validated Blueprint Revision Content and target-term schedule resolution.
+//! Validated reusable Blueprint Revision Content.
 
 use std::collections::BTreeSet;
 
-use chrono::{Duration, NaiveDate};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    AccountTimeZone, AssignmentAuthoredContentField, AssignmentAuthoredContentLocalError,
     AssignmentEntryScoringRule, AssignmentInstructions, AssignmentPointValue, AssignmentTitle,
-    BaseAssignmentPolicy, BlueprintAssignmentDefaults, BlueprintAssignmentReference,
-    BlueprintCourseValidationError, BlueprintModuleReference, CourseTerm, LocalDateAndTime,
-    LocalTimeOfDay, MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
+    BlueprintAssignmentDefaults, BlueprintAssignmentReference, BlueprintCourseValidationError,
+    BlueprintModuleReference, MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
     MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-    QuestionRevisionReference, RelativeAssignmentSchedule, RelativeAssignmentScheduleMoment,
-    Timestamp, validate_blueprint_course_title,
+    QuestionRevisionReference, validate_blueprint_course_title,
 };
 
 mod contracts;
@@ -77,7 +73,6 @@ pub struct BlueprintAssignmentContent {
     instructions: AssignmentInstructions,
     entries: Vec<BlueprintAssignmentEntryContent>,
     defaults: BlueprintAssignmentDefaults,
-    schedule: RelativeAssignmentSchedule,
 }
 impl BlueprintAssignmentContent {
     /// Validates all Blueprint Assignment meaning before constructing a baseline.
@@ -87,13 +82,11 @@ impl BlueprintAssignmentContent {
         instructions: AssignmentInstructions,
         entries: Vec<BlueprintAssignmentEntryContent>,
         defaults: BlueprintAssignmentDefaults,
-        schedule: RelativeAssignmentSchedule,
     ) -> Result<Self, BlueprintCourseValidationError> {
         if entries.is_empty() || entries.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
             return Err(BlueprintCourseValidationError::InvalidEntryCount);
         }
         defaults.validate()?;
-        schedule.validate()?;
         let total = entries
             .iter()
             .filter_map(|entry| match entry {
@@ -114,7 +107,6 @@ impl BlueprintAssignmentContent {
             instructions,
             entries,
             defaults,
-            schedule,
         })
     }
     /// Returns the stable Blueprint Assignment identity retained across Revisions.
@@ -136,10 +128,6 @@ impl BlueprintAssignmentContent {
     /// Returns fixed questions and pools in meaningful authored order.
     pub fn entries(&self) -> &[BlueprintAssignmentEntryContent] {
         &self.entries
-    }
-    /// Returns the target-term-relative schedule defaults.
-    pub fn schedule(&self) -> &RelativeAssignmentSchedule {
-        &self.schedule
     }
 }
 
@@ -365,7 +353,6 @@ struct EncodedAssignment<'a> {
     instructions: &'a AssignmentInstructions,
     entries: Vec<EncodedEntry<'a>>,
     defaults: &'a BlueprintAssignmentDefaults,
-    schedule: &'a RelativeAssignmentSchedule,
 }
 
 #[derive(Serialize)]
@@ -448,154 +435,7 @@ fn encode_assignment(assignment: &BlueprintAssignmentContent) -> EncodedAssignme
             })
             .collect(),
         defaults: assignment.defaults(),
-        schedule: assignment.schedule(),
     }
-}
-
-/// One relative moment resolved in the acting Account zone and as an absolute time.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct ResolvedAssignmentScheduleMoment {
-    /// Exact wall-clock value in the acting Account's authorized zone.
-    pub local: LocalDateAndTime,
-    /// Server-resolved absolute timestamp persisted by teaching state.
-    pub timestamp: Timestamp,
-}
-/// Complete answer-free target-term schedule preview.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct ResolvedAssignmentSchedule {
-    /// Resolved first student-availability moment when configured.
-    pub available_at: Option<ResolvedAssignmentScheduleMoment>,
-    /// Resolved ordinary due moment when configured.
-    pub due_at: Option<ResolvedAssignmentScheduleMoment>,
-    /// Resolved hard close moment when configured.
-    pub closes_at: Option<ResolvedAssignmentScheduleMoment>,
-}
-impl RelativeAssignmentSchedule {
-    /// Projects a stored policy into reusable calendar-relative meaning in the acting Account zone.
-    /// Each absolute timestamp must project to an inclusive source-term local date,
-    /// and the resulting related moments must remain chronological. This gives
-    /// adoption callers a typed correction rather than discarding a stored date
-    /// when a course is shifted. (ASVS 2.2.1, 2.2.2, 2.2.3)
-    pub fn from_base_policy(
-        policy: &BaseAssignmentPolicy,
-        source_term: &CourseTerm,
-        account_time_zone: &AccountTimeZone,
-    ) -> Result<Self, AssignmentAuthoredContentLocalError> {
-        let schedule = Self {
-            available_at: project_relative_moment(
-                policy.available_at,
-                source_term,
-                account_time_zone,
-                AssignmentAuthoredContentField::AvailableAt,
-            )?,
-            due_at: project_relative_moment(
-                policy.due_at,
-                source_term,
-                account_time_zone,
-                AssignmentAuthoredContentField::DueAt,
-            )?,
-            closes_at: project_relative_moment(
-                policy.closes_at,
-                source_term,
-                account_time_zone,
-                AssignmentAuthoredContentField::ClosesAt,
-            )?,
-        };
-        schedule
-            .validate()
-            .map_err(|_| AssignmentAuthoredContentLocalError::ScheduleOutOfOrder)?;
-        Ok(schedule)
-    }
-
-    /// Resolves calendar offsets in the acting Account's IANA zone.
-    pub fn resolve_for_target_term(
-        &self,
-        term: &CourseTerm,
-        account_time_zone: &AccountTimeZone,
-    ) -> Result<ResolvedAssignmentSchedule, AssignmentAuthoredContentLocalError> {
-        self.validate()
-            .map_err(|_| AssignmentAuthoredContentLocalError::ScheduleOutOfOrder)?;
-        Ok(ResolvedAssignmentSchedule {
-            available_at: resolve(
-                self.available_at.as_ref(),
-                term,
-                account_time_zone,
-                AssignmentAuthoredContentField::AvailableAt,
-            )?,
-            due_at: resolve(
-                self.due_at.as_ref(),
-                term,
-                account_time_zone,
-                AssignmentAuthoredContentField::DueAt,
-            )?,
-            closes_at: resolve(
-                self.closes_at.as_ref(),
-                term,
-                account_time_zone,
-                AssignmentAuthoredContentField::ClosesAt,
-            )?,
-        })
-    }
-}
-
-fn project_relative_moment(
-    value: Option<Timestamp>,
-    source_term: &CourseTerm,
-    account_time_zone: &AccountTimeZone,
-    field: AssignmentAuthoredContentField,
-) -> Result<Option<RelativeAssignmentScheduleMoment>, AssignmentAuthoredContentLocalError> {
-    value
-        .map(|value| {
-            let local = LocalDateAndTime::from_activity_timestamp_in_account_time_zone(
-                value,
-                source_term,
-                account_time_zone,
-                field,
-            )?;
-            let date = NaiveDate::parse_from_str(&local.as_str()[..10], "%Y-%m-%d")
-                .expect("validated Account-local date");
-            let start = NaiveDate::parse_from_str(source_term.start_date().as_str(), "%Y-%m-%d")
-                .expect("validated course term");
-            let day_offset = i32::try_from(date.signed_duration_since(start).num_days())
-                .map_err(|_| AssignmentAuthoredContentLocalError::TimestampOutOfRange(field))?;
-            let local_time =
-                LocalTimeOfDay::parse(&local.as_str()[11..]).expect("validated Account-local time");
-            Ok(RelativeAssignmentScheduleMoment {
-                day_offset,
-                local_time,
-            })
-        })
-        .transpose()
-}
-fn resolve(
-    value: Option<&RelativeAssignmentScheduleMoment>,
-    term: &CourseTerm,
-    account_time_zone: &AccountTimeZone,
-    field: AssignmentAuthoredContentField,
-) -> Result<Option<ResolvedAssignmentScheduleMoment>, AssignmentAuthoredContentLocalError> {
-    value
-        .map(|value| {
-            let start = NaiveDate::parse_from_str(term.start_date().as_str(), "%Y-%m-%d")
-                .expect("valid term");
-            let date = start
-                .checked_add_signed(Duration::days(i64::from(value.day_offset)))
-                .ok_or(AssignmentAuthoredContentLocalError::TimestampOutOfRange(
-                    field,
-                ))?;
-            let local = LocalDateAndTime::parse(&format!(
-                "{}T{}",
-                date.format("%Y-%m-%d"),
-                value.local_time.as_str()
-            ))
-            .map_err(|_| AssignmentAuthoredContentLocalError::TimestampOutOfRange(field))?;
-            Ok(ResolvedAssignmentScheduleMoment {
-                timestamp: local.resolve_in_account_time_zone(term, account_time_zone, field)?,
-                local,
-            })
-        })
-        .transpose()
 }
 
 #[cfg(test)]
@@ -629,29 +469,5 @@ mod wire_tests {
 
         assert_eq!(pool.items(), &[pinned]);
         assert_ne!(pool.items(), &[newer_revision]);
-    }
-
-    #[test]
-    fn resolved_schedule_uses_snake_case_and_refuses_unknown_fields() {
-        let schedule = RelativeAssignmentSchedule {
-            available_at: Some(RelativeAssignmentScheduleMoment {
-                day_offset: 0,
-                local_time: LocalTimeOfDay::parse("08:00:00.000").expect("time"),
-            }),
-            due_at: None,
-            closes_at: None,
-        };
-        let term = CourseTerm::from_parts("2026-08-24", "2026-12-12").expect("term");
-        let account_time_zone = AccountTimeZone::parse("America/Chicago").expect("zone");
-        let resolved = schedule
-            .resolve_for_target_term(&term, &account_time_zone)
-            .expect("resolved schedule");
-        let wire = serde_json::to_value(&resolved).expect("schedule serializes");
-        assert!(wire.get("time_zone").is_none());
-        assert!(wire.get("available_at").is_some());
-        assert!(wire.get("timeZone").is_none());
-        let mut forged = wire;
-        forged["authority"] = serde_json::json!("instructor");
-        assert!(serde_json::from_value::<ResolvedAssignmentSchedule>(forged).is_err());
     }
 }

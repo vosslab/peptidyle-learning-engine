@@ -31,7 +31,7 @@ grades, and delivery settings. It is the only course type that receives student 
 The current Instructor workflow can create a Course Instance from a Blueprint Course's current Revision.
 The retained design also permits first creating a minimal Blueprint Course. A Course Instance has
 its own teaching title, term, and IANA time zone; it receives reusable Blueprint Revision Content
-and reviewed relative schedule offsets, but never Students, invitations, grades, or other delivery
+but never assignment dates, Students, invitations, grades, or other delivery
 state from another instance.
 
 ## How do Blueprint updates reach a Course Instance?

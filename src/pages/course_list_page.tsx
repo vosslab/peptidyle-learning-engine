@@ -1,6 +1,6 @@
 // course_list_page.tsx - live Course Instance creation from exact Blueprint Revisions.
 
-import { A } from "@solidjs/router";
+import { A, useSearchParams } from "@solidjs/router";
 import { createMemo, createResource, createSignal, For, Show, type JSX } from "solid-js";
 
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
@@ -82,6 +82,7 @@ function BlueprintSourceSelect(props: {
 /** Course Instance list and Instructor self-assignment creation task. */
 function TeachingCourseListPage(): JSX.Element {
   const applicationApi = useApplicationApi();
+  const [searchParams] = useSearchParams();
   const session = useSessionBootstrap();
   const isInstructor = createMemo(() => {
     const state = session.state();
@@ -98,7 +99,15 @@ function TeachingCourseListPage(): JSX.Element {
   const [createdCourses, setCreatedCourses] = createSignal<ReadonlyArray<CourseInstanceSummary>>(
     [],
   );
-  const [source, setSource] = createSignal("");
+  const [sourceChoice, setSource] = createSignal<string>();
+  const source = (): string => {
+    const choice = sourceChoice();
+    if (choice !== undefined) return choice;
+    const selected = availableBlueprints().find(
+      (blueprint) => blueprint.reference === searchParams.blueprint,
+    );
+    return selected === undefined ? "" : blueprintSourceValue(selected);
+  };
   const [shortName, setShortName] = createSignal("");
   const [longName, setLongName] = createSignal("");
   const [startDate, setStartDate] = createSignal("");
@@ -176,11 +185,12 @@ function TeachingCourseListPage(): JSX.Element {
       <p class="eyebrow">Teaching</p>
       <h1>{isInstructor() ? "Course Instances you teach" : "Your Course Instances"}</h1>
       <p class="page-lede">
-        A Course Instance begins from one exact reusable Blueprint Revision and one Assigned
-        Instructor. Enrollment and Assignment delivery are not created here.
+        Adopt a Blueprint Course to create your Course Instance with all its assignments. Review
+        dates and settings before releasing assignments to students.
       </p>
       <Show when={isInstructor()}>
         <form
+          id="create-course-instance"
           class="course-create-form"
           aria-busy={isCreating()}
           novalidate

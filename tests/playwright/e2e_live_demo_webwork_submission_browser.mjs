@@ -36,7 +36,7 @@ async function makeOneOrdinaryEdit(frame) {
 
 try {
   await page.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Continue as Mary Okafor" }).click();
+  await page.getByRole("button", { name: "Assume the role of Student Mary Okafor" }).click();
   await page.waitForURL(`${origin}/`);
   await page.goto(`${origin}/assignment-attempts/${attempt}`, { waitUntil: "domcontentloaded" });
   await page.locator('[data-route-surface="assignmentAttempt"]').waitFor();

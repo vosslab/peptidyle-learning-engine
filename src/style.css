@@ -50,7 +50,7 @@
   --ple-list-row-padding-inline: var(--ple-space-4);
   --ple-list-row-gap: var(--ple-space-3);
   --ple-question-library-window-block-size: min(65vh, 33rem);
-  --ple-question-library-row-block-size: 164px;
+  --ple-question-library-row-block-size: 112px;
   --ple-assignment-field-gap: 0.25rem;
   --ple-assignment-field-margin-block: 0.45rem;
   --ple-assignment-field-font-size: 0.9rem;
@@ -423,7 +423,7 @@ h3 {
 
 .course-create-form {
   display: grid;
-  grid-template-columns: minmax(12rem, 2fr) repeat(3, minmax(9rem, 1fr)) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.35rem 0.7rem;
   align-items: end;
   margin: 0.7rem 0;
@@ -439,12 +439,20 @@ h3 {
 }
 
 .course-create-form label {
+  display: grid;
+  gap: 0.25rem;
+  align-self: start;
   color: var(--ple-muted);
   font-size: 0.82rem;
   font-weight: 700;
 }
 
-.course-create-form input {
+.course-create-form label:has(#course-blueprint-source) {
+  grid-column: 1 / -1;
+}
+
+.course-create-form input,
+.course-create-form select {
   width: 100%;
 }
 
@@ -962,7 +970,7 @@ textarea:hover {
 
 @media (max-width: 40rem) {
   :root {
-    --ple-question-library-row-block-size: 216px;
+    --ple-question-library-row-block-size: 164px;
   }
 }
 
@@ -983,4 +991,30 @@ textarea:hover {
   .assignment-attempt-expiry {
     text-align: start;
   }
+}
+
+/* Shared role colors keep demo selection and the Ribbon identity consistent. */
+[data-product-role="instructor"] {
+  --ple-role-ink: #07594f;
+  --ple-role-surface: #d9f2e9;
+  --ple-role-accent: #168575;
+}
+[data-product-role="student"] {
+  --ple-role-ink: #563183;
+  --ple-role-surface: #eee5fa;
+  --ple-role-accent: #8861b5;
+}
+[data-product-role="sysadmin"] {
+  --ple-role-ink: #8d291d;
+  --ple-role-surface: #ffe5df;
+  --ple-role-accent: #ff6347;
+}
+.live-demo-persona-action[data-product-role],
+.ple-app-ribbon__product-role[data-product-role] {
+  color: var(--ple-role-ink);
+  background: var(--ple-role-surface);
+  border-inline-start: 4px solid var(--ple-role-accent);
+}
+.live-demo-persona-action[data-product-role] small {
+  color: var(--ple-role-ink);
 }

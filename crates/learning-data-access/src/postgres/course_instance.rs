@@ -142,11 +142,14 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
+        let assignments =
+            super::course_blueprint_adoption::creation_assignments(&mut transaction, &input)
+                .await?;
         let row = sqlx::query(
             "SELECT reference_number, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, creator_is_assigned_instructor \
              FROM ple_api.create_course_instance(\
-             $1, $2, $3, $4, $5, $6, $7, $8, $9::date, $10::date, $11)",
+             $1, $2, $3, $4, $5, $6, $7, $8, $9::date, $10::date, $11, $12)",
         )
         .bind(random_uuid()?)
         .bind(random_uuid()?)
@@ -166,6 +169,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                 .assigned_instructor
                 .map(|reference| i64::from(reference.number())),
         )
+        .bind(assignments)
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;

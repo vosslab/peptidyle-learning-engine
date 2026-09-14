@@ -197,7 +197,7 @@
 
 .blueprint-course-detail-editor {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(11rem, max-content);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--ple-section-gap);
   align-items: start;
 }
@@ -244,12 +244,10 @@
 }
 
 .blueprint-course-detail-actions {
-  position: sticky;
-  top: var(--ple-layout-gap);
-  grid-column: 2;
-  grid-row: 2;
-  align-items: stretch;
-  flex-direction: column;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .blueprint-course-module {
@@ -304,4 +302,25 @@
   .blueprint-course-small-field {
     max-width: none;
   }
+}
+
+.blueprint-course-assignment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.blueprint-course-assignment-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-block: 0.25rem;
+  border-bottom: 1px solid var(--ple-border);
+}
+.blueprint-course-assignment-list li > span {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.blueprint-course-assignment-list button {
+  flex-shrink: 0;
 }

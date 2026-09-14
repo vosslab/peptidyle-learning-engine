@@ -14,14 +14,16 @@ From the repository root, start the normal local developer entry point:
 
 The launcher installs missing TypeScript dependencies through its existing helper,
 builds the production `dist/` bundle, starts the fixed HTTPS stack, and prints the
-Live Demo entry URL. Open an already-running demo, or start and open a fresh one:
+Live Demo entry URL. New launches choose an HTTPS gateway port in the 8000-8399
+range. Open an already-running demo, or start and open a fresh one:
 
 ```bash
 ./launchers/run_live_demo.sh open
 ./launchers/run_live_demo.sh start --open
 ```
 
-Use `--headless` when the command must not open a browser. Each start replaces the
+Start and open always print the URL before attempting to open a browser, including
+when the browser opener fails. Use `--headless` when the command must not open a browser. Each start replaces the
 fixed disposable stack and its previous local data; unrelated Podman projects remain
 outside this lifecycle. Stop it through the same owner:
 
@@ -33,6 +35,22 @@ The local identity selector replaces only identity verification. The server stil
 derives each authenticated session, Product Role, and Course relationship from stored
 PLE records. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the ordinary teaching
 graph and its data boundaries.
+
+## Work with Blueprint Courses
+
+Open a Blueprint Course and choose **Create Course Instance from this Blueprint**.
+The Course creation form selects its current saved Revision; enter Course names and
+term dates, then choose **Create Course Instance**. This adopts the complete Blueprint:
+all assignments, including quizzes, exams, practice, and bonus assignments, become independently
+editable Course Assignments. Their Questions, pools, points, instructions, and defaults are retained;
+assignment dates start unset. Set dates in the Course Instance and review the assignments
+before releasing them. Adoption either completes in full or creates no Course Instance.
+
+The Blueprint overview lists assignments without editable fields. For a Blueprint
+you own, choose **Open Course Editor**, then **Edit assignment** beside one assignment.
+Use **Return to assignment list** to switch assignments. Local edits stay available
+until **Save Blueprint Course** creates a Revision or you discard them. Course names
+and availability are grouped in a separate expandable section.
 
 ## Choose installation data
 

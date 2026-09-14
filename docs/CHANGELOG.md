@@ -16,6 +16,34 @@
 
 ### Fixes and Maintenance
 
+- Course Instance creation now adopts every Blueprint Assignment atomically, preserving exact
+  Question Revision pins, fixed Questions, pools, points, instructions, and policies with fresh
+  teaching identities. Adopted Assignments start Unreleased with dates unset. Removed Blueprint
+  relative schedules from the model, API, seed content, and editor. Blueprint discovery now sorts
+  by total adoptions or Students ever enrolled, counting each Student once per Course Instance
+  even after leaving and rejoining. The fresh-schema isolated PostgreSQL Store probe passed
+  adoption of fixed and pooled Questions, initial state, lifetime counts, and concurrent Revision
+  checks. The complete offline Rust gate (including WebAssembly), frontend gate (373 tests),
+  materialization unit test, and 276 focused Python checks passed. C-3 was not repaired.
+
+- New Live Demo launches choose their HTTPS gateway port from 8000-8399 instead of
+  55000-55399. Existing running demos retain their current URL. The focused target and
+  developer-controller checks passed 30 tests.
+
+- Clarified demo role choices with Instructor Dr., Student, and Sysadmin labels, sharing teal,
+  lavender, and tomato role colors with the Ribbon. Blueprint overviews now list assignments;
+  owners enter Course Editor and select one assignment before editing. Names and availability
+  are expandable. A direct Create Course Instance action preselects the current Blueprint.
+  Removed repeated unavailable-statistics copy and reduced desktop Question Library rows from
+  164 to 112 pixels. The demo controller prints and flushes its URL before any browser opener.
+  Fixed Blueprint input focus loss caused by remounting the editor on each local change.
+  The frontend gate passed 374 Node tests, and focused controller/documentation checks passed
+  255 tests. The existing live Blueprint browser journey passed Save, conflict, metadata,
+  archive/restore, and unsaved-navigation checks. A temporary real-browser probe created a
+  Course Instance from BP-2, verified one selected assignment editor, and found no axe violations
+  on that editor or horizontal overflow at 320, 480, 768, and 1920 pixels. Captures are in
+  `test-results/interface_polish/`; this is focused evidence, not full aggregate acceptance.
+
 - M4 and Phase 2 are complete as of 2026-09-14. The fresh canonical runtime at
   `https://localhost:55390` published `BP-2`, Revision 1, in session 53170 with the r11 hashes:
   11 topics, 119 banks, and 20,579 rows. The reviewed r5 browser proof reloaded that exact

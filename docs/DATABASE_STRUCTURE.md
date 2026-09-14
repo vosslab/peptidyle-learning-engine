@@ -114,6 +114,12 @@ Blueprint short name, long name, and availability are lineage metadata under
 one opaque ETag, so archive and restore do not break exact Revision resolution
 or create a Revision.
 
+Course Instance creation adopts every Assignment from its exact Blueprint Revision in one
+transaction. `course_blueprint_adoption.sql` inserts fresh unreleased Assignments and their
+entries, retaining exact Question pins and leaving dates unset. Blueprint list counts derive
+adoptions from Course Instances and lifetime Students from distinct Course/Account membership
+pairs, including ended episodes.
+
 `BlueprintAssignmentSource` records provenance with one stable Blueprint
 Assignment reference and one exact Blueprint Revision reference. It is
 provenance, not a third Revision family.

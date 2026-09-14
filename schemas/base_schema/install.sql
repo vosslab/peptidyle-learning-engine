@@ -23,6 +23,7 @@
 \ir course_media.sql
 \ir profile_media.sql
 \ir assignments.sql
+\ir course_blueprint_adoption.sql
 \ir assignment_operations.sql
 \ir attempts.sql
 \ir attempt_interaction.sql

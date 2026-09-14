@@ -211,7 +211,7 @@ Availability controls its ordinary browsing and new selection. Its reusable
 content exists only in immutable **Blueprint Revisions**. Browser edits are
 unsaved local working state; an explicit Save creates the next Revision. **Blueprint
 Revision Content** is the complete answer-free content held by one saved
-Blueprint Revision: its structure, defaults, relative schedules, and exact
+Blueprint Revision: its structure, defaults, and exact
 Question Revision References. A **Blueprint Content Checksum** is the SHA-256
 integrity value for its one canonical pre-production encoding. A **Blueprint
 Content Check** compares complete Blueprint Revision Content using exact
@@ -236,12 +236,6 @@ PostgreSQL-bigint revision value. A **Blueprint Revision Reference** is exactly
 that Blueprint Course Reference and Blueprint Revision Number pair; it has no
 separate UUID identity.
 
-**Relative Assignment Schedule** is the reusable schedule intent for one
-Blueprint Assignment. Each Relative Assignment Schedule Moment stores a signed
-calendar-day offset from Course Term start and one local time. It represents
-reusable wall-clock intent; schedule resolution supplies the Account Time Zone
-and absolute Timestamp.
-
 **Blueprint Course Owner** is the Active Instructor Account accountable for one
 Blueprint Course's content Save, fork, and availability decisions. Its
 inheritance path is Authenticated Session to Active Instructor Account to the
@@ -257,14 +251,8 @@ content. Its inheritance path is Authenticated Session to Active Instructor
 Account to one saved Blueprint Revision. The classification describes the
 returned view and grants no authority.
 
-**Resolved Assignment Schedule** is the target-term result of resolving one
-Relative Assignment Schedule. An Instructor-authorized Blueprint-to-Course
-operation uses the authenticated Instructor's Account Time Zone to interpret
-each resulting Local Date and Time. Each Resolved Assignment Schedule Moment
-pairs that value with its exact absolute Timestamp. The Assignment stores the
-resulting current availability, due, and close instants. An Assignment Attempt
-retains any of those exact facts that its access, timing, or grading evidence
-requires.
+Blueprint Assignments have no schedule. Adoption creates Unreleased Assignments with
+availability, due, and close dates unset; the Instructor sets dates in the Course Instance.
 
 Creation accepts only complete reusable content and atomically creates an
 Available Blueprint Course and Revision 1. The deliberate minimum is one Module,
@@ -316,8 +304,11 @@ and does not require a parallel PLE domain object.
 **Course Instance** is live teaching created from an exact Blueprint Revision.
 It owns its current **Course Term** directly: its calendar dates, enrollment,
 deadlines, releases, accommodations, grades, and other delivery-specific facts.
-Course Instance Creation atomically records its source and an initial Instructor
-Course Membership. A Course Term is mutable current state, not a Revision.
+**Blueprint Adoption** creates the Course Instance's own Assignments from every member
+of one exact Blueprint Revision, retaining exact Question Revision pins, Question Pools,
+points, instructions, and defaults. Assignment dates start unset.
+Course Instance Creation atomically records its source, initial Instructor Course Membership,
+and all adopted Assignments with new identities, initial Edit Numbers, and Unreleased state. A Course Term is mutable current state, not a Revision.
 
 **Course Origin** is immutable source history for one Course Instance. It
 retains the exact Blueprint Revision and, for a rollover, the exact source

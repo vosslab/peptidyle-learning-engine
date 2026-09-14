@@ -48,6 +48,7 @@ schemas/
 |  +- question_*.sql                  Question lineages, stewardship, authoring, assets, and their operations
 |  +- object_records.sql              Typed object-record ownership
 |  +- blueprints.sql                  Blueprint lineage, save-created Revisions, and availability
+|  +- course_blueprint_adoption.sql   Complete atomic Blueprint adoption into teaching Assignments
 |  +- course_*.sql                    Course terms, membership, roster, operations, and media
 |  +- profile_media.sql               Instructor profile-media ownership
 |  +- assignments.sql                 Current Assignment state and exact Question pins

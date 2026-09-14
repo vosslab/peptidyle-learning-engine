@@ -178,7 +178,9 @@ test.describe("Course Appearance propagation on the production PLE stack", () =>
 
       await test.step("A second Instructor Course retains the default appearance", async () => {
         await signOutVisible(instructor);
-        await instructor.getByRole("button", { name: /Continue as .*Elena Rivera/iu }).click();
+        await instructor
+          .getByRole("button", { name: /Assume the role of .*Elena Rivera/iu })
+          .click();
         await instructor.getByRole("link", { name: "Courses", exact: true }).click();
         await expect(
           instructor.getByRole("heading", { name: "Course Instances you teach", exact: true }),

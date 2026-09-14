@@ -100,6 +100,21 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
   const [loadingMore, setLoadingMore] = createSignal(false);
   const [continuationFailed, setContinuationFailed] = createSignal(false);
   const [creating, setCreating] = createSignal(false);
+  const [sort, setSort] = createSignal<"name" | "adoptions" | "students">("name");
+  const sortedCourses = (): ReadonlyArray<BlueprintCourseSummaryView> =>
+    [...courses()].sort((left, right) => {
+      const popularity =
+        sort() === "adoptions"
+          ? right.total_adoptions - left.total_adoptions
+          : sort() === "students"
+            ? right.total_students_ever_enrolled - left.total_students_ever_enrolled
+            : 0;
+      return (
+        popularity ||
+        left.long_name.localeCompare(right.long_name) ||
+        left.reference.localeCompare(right.reference)
+      );
+    });
   const [notice, setNotice] = createSignal<Notice>({
     kind: "status",
     text: "Loading Blueprint Courses.",
@@ -198,12 +213,32 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
                 </p>
               }
             >
+              <label class="blueprint-course-sort">
+                Sort Blueprint Courses
+                <select
+                  value={sort()}
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    if (value === "name" || value === "adoptions" || value === "students")
+                      setSort(value);
+                  }}
+                >
+                  <option value="name">Name</option>
+                  <option value="adoptions">Total adoptions</option>
+                  <option value="students">Students ever enrolled</option>
+                </select>
+              </label>
               <ul class="blueprint-course-summary-list">
-                <For each={courses()}>
+                <For each={sortedCourses()}>
                   {(course) => (
                     <li>
                       <A href={referencePath(course.reference)}>
                         <strong>{course.long_name}</strong>
+                        <span>
+                          {course.total_adoptions.toLocaleString()} adoptions ·{" "}
+                          {course.total_students_ever_enrolled.toLocaleString()} students ever
+                          enrolled
+                        </span>
                         <span>
                           {course.read_access === "blueprint_course_owner"
                             ? "You are the Blueprint Course Owner."
@@ -251,6 +286,11 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
 export function BlueprintCourseDetailWorkspace(
   props: BlueprintCourseDetailWorkspaceProps,
 ): JSX.Element {
+  const [editing, setEditing] = createSignal(false);
+  const [selectedAssignment, setSelectedAssignment] = createSignal<{
+    readonly moduleIndex: number;
+    readonly assignmentIndex: number;
+  }>();
   const [state, setState] = createSignal<LoadState>("loading");
   const [current, setCurrent] = createSignal<LoadedBlueprintCourse>();
   const [notice, setNotice] = createSignal<Notice>({
@@ -564,7 +604,7 @@ export function BlueprintCourseDetailWorkspace(
 
   onMount(() => void load(false));
   return (
-    <main class="page blueprint-course-workspace" data-route-surface="blueprintCourseDetail">
+    <section class="page blueprint-course-workspace" data-route-surface="blueprintCourseDetail">
       <A class="quiet-link" href="/blueprint-courses">
         Return to Blueprint Courses
       </A>
@@ -580,28 +620,40 @@ export function BlueprintCourseDetailWorkspace(
             Retry loading Blueprint Course
           </button>
         </Match>
-        <Match when={state() === "ready" && current()} keyed>
+        <Match when={state() === "ready" && current()}>
           {(loaded) => (
             <section class="blueprint-course-detail-editor">
               <header class="blueprint-course-page-heading">
                 <p class="eyebrow">Blueprint Course</p>
-                <h1>{loaded.view.long_name}</h1>
+                <h1>{loaded().view.long_name}</h1>
                 <p class="page-lede">
                   Reusable course structure without Students, deadlines, or course delivery
-                  settings. Current Revision {loaded.view.current_revision.revision}.
+                  settings. Current Revision {loaded().view.current_revision.revision}.
                 </p>
               </header>
-              <Show
-                when={loaded.view.read_access === "blueprint_course_owner"}
-                fallback={
-                  <aside class="blueprint-course-inspection">
-                    <h2>Inspect reusable structure</h2>
-                    <p>
-                      Only the Blueprint Course Owner can change this reusable course structure.
-                    </p>
-                  </aside>
-                }
-              >
+              <nav class="blueprint-course-detail-actions" aria-label="Blueprint Course actions">
+                <Show when={loaded().view.availability === "available"}>
+                  <A
+                    class="primary-link"
+                    href={`/?blueprint=${encodeURIComponent(loaded().view.reference)}#create-course-instance`}
+                  >
+                    Create Course Instance from this Blueprint
+                  </A>
+                </Show>
+                <Show when={loaded().view.read_access === "blueprint_course_owner"}>
+                  <button
+                    type="button"
+                    class="quiet-action"
+                    onClick={() => {
+                      setEditing(!editing());
+                      setSelectedAssignment(undefined);
+                    }}
+                  >
+                    {editing() ? "Return to Blueprint overview" : "Open Course Editor"}
+                  </button>
+                </Show>
+              </nav>
+              <Show when={editing() && loaded().view.read_access === "blueprint_course_owner"}>
                 <div class="blueprint-course-owner-controls">
                   <aside class="blueprint-course-inspection">
                     <h2>Save reusable structure</h2>
@@ -624,125 +676,185 @@ export function BlueprintCourseDetailWorkspace(
                       </Show>
                     </footer>
                   </aside>
-                  <aside class="blueprint-course-inspection">
-                    <h2>Blueprint Course names</h2>
-                    <p>Names control discovery and do not create a Blueprint Revision.</p>
-                    <label>
-                      Blueprint Course short name
-                      <input
-                        value={shortName()}
-                        maxlength="200"
-                        disabled={metadataSaving()}
-                        onInput={(event) => setShortName(event.currentTarget.value)}
-                      />
-                    </label>
-                    <label>
-                      Blueprint Course long name
-                      <input
-                        value={longName()}
-                        maxlength="200"
-                        disabled={metadataSaving()}
-                        onInput={(event) => setLongName(event.currentTarget.value)}
-                      />
-                    </label>
-                    <footer class="blueprint-course-save-actions blueprint-course-detail-actions">
-                      <button
-                        type="button"
-                        disabled={
-                          metadataSaving() ||
-                          (shortName() === loaded.view.short_name &&
-                            longName() === loaded.view.long_name)
-                        }
-                        onClick={() => void saveNames()}
-                      >
-                        {metadataSaving() ? "Saving names..." : "Save Blueprint Course names"}
-                      </button>
-                      <Show when={metadataConflict()}>
-                        <div class="blueprint-course-inline-actions">
-                          <p class="blueprint-course-field-help" role="status">
-                            Blueprint Course metadata changed elsewhere. Your typed names remain
-                            here.
-                          </p>
-                          <button
-                            type="button"
-                            class="quiet-action"
-                            disabled={metadataSaving()}
-                            onClick={() => void reloadMetadata()}
-                          >
-                            Reload current metadata
-                          </button>
-                        </div>
-                      </Show>
-                    </footer>
-                  </aside>
-                  <aside class="blueprint-course-inspection">
-                    <Show
-                      when={loaded.view.availability === "available"}
-                      fallback={
-                        <>
-                          <h2>Restore Blueprint Course</h2>
-                          <p>
-                            Restore this Blueprint Course so Instructors can select its current
-                            Revision.
-                          </p>
-                          <button
-                            type="button"
-                            disabled={metadataSaving()}
-                            onClick={() => void restore()}
-                          >
-                            {metadataSaving() ? "Restoring..." : "Restore Blueprint Course"}
-                          </button>
-                        </>
-                      }
-                    >
-                      <h2>Archive Blueprint Course</h2>
-                      <p>
-                        Archive removes this Blueprint Course from new selection. Saved Revisions
-                        remain intact.
-                      </p>
+                  <details>
+                    <summary>Course names and availability</summary>
+                    <aside class="blueprint-course-inspection">
+                      <h2>Blueprint Course names</h2>
+                      <p>Names control discovery and do not create a Blueprint Revision.</p>
                       <label>
-                        Confirm Blueprint Course long name
+                        Blueprint Course short name
                         <input
-                          value={archiveConfirmation()}
+                          value={shortName()}
                           maxlength="200"
                           disabled={metadataSaving()}
-                          onInput={(event) => setArchiveConfirmation(event.currentTarget.value)}
+                          onInput={(event) => setShortName(event.currentTarget.value)}
                         />
                       </label>
-                      <button
-                        type="button"
-                        disabled={metadataSaving()}
-                        onClick={() => void archive()}
+                      <label>
+                        Blueprint Course long name
+                        <input
+                          value={longName()}
+                          maxlength="200"
+                          disabled={metadataSaving()}
+                          onInput={(event) => setLongName(event.currentTarget.value)}
+                        />
+                      </label>
+                      <footer class="blueprint-course-save-actions blueprint-course-detail-actions">
+                        <button
+                          type="button"
+                          disabled={
+                            metadataSaving() ||
+                            (shortName() === loaded().view.short_name &&
+                              longName() === loaded().view.long_name)
+                          }
+                          onClick={() => void saveNames()}
+                        >
+                          {metadataSaving() ? "Saving names..." : "Save Blueprint Course names"}
+                        </button>
+                        <Show when={metadataConflict()}>
+                          <div class="blueprint-course-inline-actions">
+                            <p class="blueprint-course-field-help" role="status">
+                              Blueprint Course metadata changed elsewhere. Your typed names remain
+                              here.
+                            </p>
+                            <button
+                              type="button"
+                              class="quiet-action"
+                              disabled={metadataSaving()}
+                              onClick={() => void reloadMetadata()}
+                            >
+                              Reload current metadata
+                            </button>
+                          </div>
+                        </Show>
+                      </footer>
+                    </aside>
+                    <aside class="blueprint-course-inspection">
+                      <Show
+                        when={loaded().view.availability === "available"}
+                        fallback={
+                          <>
+                            <h2>Restore Blueprint Course</h2>
+                            <p>
+                              Restore this Blueprint Course so Instructors can select its current
+                              Revision.
+                            </p>
+                            <button
+                              type="button"
+                              disabled={metadataSaving()}
+                              onClick={() => void restore()}
+                            >
+                              {metadataSaving() ? "Restoring..." : "Restore Blueprint Course"}
+                            </button>
+                          </>
+                        }
                       >
-                        {metadataSaving() ? "Archiving..." : "Archive Blueprint Course"}
-                      </button>
-                    </Show>
-                  </aside>
+                        <h2>Archive Blueprint Course</h2>
+                        <p>
+                          Archive removes this Blueprint Course from new selection. Saved Revisions
+                          remain intact.
+                        </p>
+                        <label>
+                          Confirm Blueprint Course long name
+                          <input
+                            value={archiveConfirmation()}
+                            maxlength="200"
+                            disabled={metadataSaving()}
+                            onInput={(event) => setArchiveConfirmation(event.currentTarget.value)}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          disabled={metadataSaving()}
+                          onClick={() => void archive()}
+                        >
+                          {metadataSaving() ? "Archiving..." : "Archive Blueprint Course"}
+                        </button>
+                      </Show>
+                    </aside>
+                  </details>
                 </div>
               </Show>
               <div class="blueprint-course-editor-content">
-                <For each={loaded.content.modules}>
-                  {(module, moduleIndex) => (
-                    <section class="blueprint-course-module">
-                      <h2>{module.label}</h2>
-                      <For each={module.assignments}>
-                        {(assignment, assignmentIndex) => (
+                <h2>{editing() ? "Course Editor" : "Assignments"}</h2>
+                <Show
+                  when={selectedAssignment() === undefined}
+                  fallback={
+                    <button
+                      type="button"
+                      class="quiet-action"
+                      onClick={() => setSelectedAssignment(undefined)}
+                    >
+                      Return to assignment list
+                    </button>
+                  }
+                >
+                  <Show when={editing()}>
+                    <p>Select an assignment to edit its Questions and defaults.</p>
+                  </Show>
+                  <For each={loaded().content.modules}>
+                    {(module, moduleIndex) => (
+                      <section class="blueprint-course-module">
+                        <h3>{module.label}</h3>
+                        <ul class="blueprint-course-assignment-list">
+                          <For each={module.assignments}>
+                            {(assignment, assignmentIndex) => (
+                              <li>
+                                <span>{assignment.content.title}</span>
+                                <button
+                                  type="button"
+                                  class="quiet-action"
+                                  onClick={() =>
+                                    setSelectedAssignment({
+                                      moduleIndex: moduleIndex(),
+                                      assignmentIndex: assignmentIndex(),
+                                    })
+                                  }
+                                >
+                                  {editing() ? "Edit assignment" : "View assignment"}
+                                </button>
+                              </li>
+                            )}
+                          </For>
+                        </ul>
+                      </section>
+                    )}
+                  </For>
+                </Show>
+                <Show when={selectedAssignment()} keyed>
+                  {(selection) => {
+                    const content = ():
+                      | ReplaceBlueprintCourseContentInput["modules"][number]["assignments"][number]["content"]
+                      | undefined =>
+                      current()?.content.modules[selection.moduleIndex]?.assignments[
+                        selection.assignmentIndex
+                      ]?.content;
+                    return (
+                      <Show when={content()}>
+                        {(assignmentContent) => (
                           <section class="blueprint-course-content-card">
                             <BlueprintAssignmentContentEditor
-                              content={assignment.content}
-                              editable={loaded.view.read_access === "blueprint_course_owner"}
+                              content={assignmentContent()}
+                              editable={
+                                editing() && loaded().view.read_access === "blueprint_course_owner"
+                              }
                               pickerRepository={props.pickerRepository}
                               pickerSources={props.pickerSources}
-                              onChange={(content, text) =>
-                                changeAssignment(moduleIndex(), assignmentIndex(), content, text)
+                              onChange={(nextContent, text) =>
+                                changeAssignment(
+                                  selection.moduleIndex,
+                                  selection.assignmentIndex,
+                                  nextContent,
+                                  text,
+                                )
                               }
                             />
                           </section>
                         )}
-                      </For>
-                    </section>
-                  )}
-                </For>
+                      </Show>
+                    );
+                  }}
+                </Show>
               </div>
             </section>
           )}
@@ -760,6 +872,6 @@ export function BlueprintCourseDetailWorkspace(
             "Blueprint Course changes were not saved. Resolve the save error, then try again or stay here.",
         }}
       />
-    </main>
+    </section>
   );
 }

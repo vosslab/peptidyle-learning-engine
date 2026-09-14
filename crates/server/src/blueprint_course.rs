@@ -412,6 +412,8 @@ fn summary_view(
     record: learning_data_access::StoredBlueprintCourseSummary,
 ) -> BlueprintCourseSummaryView {
     BlueprintCourseSummaryView {
+        total_adoptions: record.total_adoptions,
+        total_students_ever_enrolled: record.total_students_ever_enrolled,
         reference: record.reference,
         short_name: record.short_name,
         long_name: record.long_name,
@@ -571,7 +573,6 @@ fn assignment_content_view(
         instructions: content.instructions.clone(),
         entries,
         defaults: content.defaults.clone(),
-        schedule: content.schedule.clone(),
     })
 }
 fn question_view(

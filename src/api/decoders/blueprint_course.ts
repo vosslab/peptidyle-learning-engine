@@ -38,7 +38,6 @@ const MAX_PAGE_SIZE = 100;
 const QUESTION_ID = /^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u;
 const POSITIVE_REVISION = /^[1-9][0-9]*$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
-const LOCAL_TIME = /^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\.[0-9]{3}$/u;
 
 function text(value: unknown, path: string): string {
   const decoded = decodeNonemptyString(value, path);
@@ -79,39 +78,6 @@ function pointValue(value: unknown, path: string): string {
     throw new DecodeError(path, "a canonical nonnegative point decimal with at most four places");
   }
   return decoded;
-}
-
-function localTime(value: unknown, path: string): string {
-  const decoded = decodeString(value, path);
-  if (!LOCAL_TIME.test(decoded)) throw new DecodeError(path, "exact HH:MM:SS.sss local time");
-  return decoded;
-}
-
-function scheduleMoment(value: unknown, path: string): unknown {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["day_offset", "local_time"]);
-  return {
-    day_offset: decodeSafeInteger(field(record, "day_offset", path), `${path}.day_offset`),
-    local_time: localTime(field(record, "local_time", path), `${path}.local_time`),
-  };
-}
-
-function schedule(value: unknown, path: string): unknown {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["available_at", "due_at", "closes_at"]);
-  return {
-    available_at: decodeNullable(
-      field(record, "available_at", path),
-      `${path}.available_at`,
-      scheduleMoment,
-    ),
-    due_at: decodeNullable(field(record, "due_at", path), `${path}.due_at`, scheduleMoment),
-    closes_at: decodeNullable(
-      field(record, "closes_at", path),
-      `${path}.closes_at`,
-      scheduleMoment,
-    ),
-  };
 }
 
 function assignmentCompletionRule(value: unknown, path: string): unknown {
@@ -335,7 +301,7 @@ function selectionRule(value: unknown, path: string): void {
 
 function assignmentContent(value: unknown, path: string): unknown {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["title", "instructions", "entries", "defaults", "schedule"]);
+  requireOnlyFields(record, path, ["title", "instructions", "entries", "defaults"]);
   const instructions = decodeString(field(record, "instructions", path), `${path}.instructions`);
   if (Array.from(instructions).length > MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS)
     throw new DecodeError(`${path}.instructions`, "instructions within the shared bound");
@@ -356,7 +322,6 @@ function assignmentContent(value: unknown, path: string): unknown {
       "Question Pool Items within the Assignment total bound",
     );
   defaults(field(record, "defaults", path), `${path}.defaults`);
-  schedule(field(record, "schedule", path), `${path}.schedule`);
   return value;
 }
 
@@ -457,11 +422,10 @@ function questionView(value: unknown, path: string): void {
 
 function contentView(value: unknown, path: string): void {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["title", "instructions", "entries", "defaults", "schedule"]);
+  requireOnlyFields(record, path, ["title", "instructions", "entries", "defaults"]);
   text(field(record, "title", path), `${path}.title`);
   decodeString(field(record, "instructions", path), `${path}.instructions`);
   defaults(field(record, "defaults", path), `${path}.defaults`);
-  schedule(field(record, "schedule", path), `${path}.schedule`);
   decodeBoundedArray(
     field(record, "entries", path),
     `${path}.entries`,
@@ -547,6 +511,8 @@ function revisionReference(value: unknown, path: string): BlueprintRevisionRefer
 function summary(value: unknown, path: string): BlueprintCourseSummaryView {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
+    "total_adoptions",
+    "total_students_ever_enrolled",
     "reference",
     "short_name",
     "long_name",
@@ -555,7 +521,19 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
     "current_revision",
     "read_access",
   ]);
+  const totalAdoptions = decodeSafeInteger(
+    field(record, "total_adoptions", path),
+    `${path}.total_adoptions`,
+  );
+  const totalStudents = decodeSafeInteger(
+    field(record, "total_students_ever_enrolled", path),
+    `${path}.total_students_ever_enrolled`,
+  );
+  if (totalAdoptions < 0 || totalStudents < 0)
+    throw new DecodeError(path, "nonnegative Blueprint popularity totals");
   return {
+    total_adoptions: totalAdoptions,
+    total_students_ever_enrolled: totalStudents,
     reference: blueprintReference(field(record, "reference", path), `${path}.reference`),
     short_name: text(field(record, "short_name", path), `${path}.short_name`),
     long_name: text(field(record, "long_name", path), `${path}.long_name`),

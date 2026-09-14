@@ -57,7 +57,6 @@ function contentInput() {
         class_statistics: "never",
       },
     },
-    schedule: { available_at: null, due_at: null, closes_at: null },
   };
 }
 

@@ -3,7 +3,6 @@
 import { For, Show, createSignal, type JSX } from "solid-js";
 
 import type { BlueprintAssignmentContentInput } from "../../../generated/api/BlueprintAssignmentContentInput";
-import type { RelativeAssignmentScheduleMoment } from "../../../generated/api/RelativeAssignmentScheduleMoment";
 import {
   QuestionPicker,
   type QuestionPickerSource,
@@ -16,10 +15,8 @@ import {
   removeReusableEntry,
   updateReusableDefaults,
   updateReusablePoolSelectionCount,
-  updateReusableSchedule,
   updateReusableText,
   type ReusableEntryDirection,
-  type ReusableScheduleField,
 } from "./blueprint_course_model";
 
 export interface BlueprintAssignmentContentEditorProps {
@@ -34,19 +31,6 @@ type PickerIntent = "fixed" | "pool";
 
 function plural(count: number, singular: string): string {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
-}
-
-function displayMoment(moment: RelativeAssignmentScheduleMoment | null): string {
-  return moment === null ? "" : `${moment.day_offset}|${moment.local_time}`;
-}
-
-function readMoment(value: string): RelativeAssignmentScheduleMoment | null {
-  if (value.trim() === "") return null;
-  const [offset, localTime, extra] = value.split("|");
-  if (offset === undefined || localTime === undefined || extra !== undefined) return null;
-  const dayOffset = Number(offset);
-  if (!Number.isSafeInteger(dayOffset)) return null;
-  return { day_offset: dayOffset, local_time: localTime };
 }
 
 function entrySummary(entry: BlueprintAssignmentContentInput["entries"][number]): string {
@@ -88,21 +72,6 @@ export function BlueprintAssignmentContentEditor(
     );
   }
 
-  function changeSchedule(field: ReusableScheduleField, value: string): void {
-    const moment = readMoment(value);
-    if (value.trim() !== "" && moment === null) {
-      props.onChange(
-        props.content,
-        "Use a whole day offset, a vertical bar, and HH:MM:SS.sss, for example 7|09:00:00.000.",
-      );
-      return;
-    }
-    props.onChange(
-      updateReusableSchedule(props.content, field, moment),
-      "Schedule updated in local working state. Review the calendar order before saving.",
-    );
-  }
-
   function changeNumber(
     field: "assignment_attempt_time_limit_seconds" | "attempt_limit",
     value: string,
@@ -117,7 +86,7 @@ export function BlueprintAssignmentContentEditor(
     }
     props.onChange(
       updateReusableDefaults(props.content, { ...props.content.defaults, [field]: parsed }),
-      "Reusable defaults updated. Questions and schedule remain unsaved until you Save the Blueprint Course.",
+      "Reusable defaults updated. Questions and defaults remain unsaved until you Save the Blueprint Course.",
     );
   }
 
@@ -314,7 +283,7 @@ export function BlueprintAssignmentContentEditor(
                     ...props.content.defaults,
                     late_work_rule,
                   }),
-                  "Late-work default updated. Continue with schedule or save.",
+                  "Late-work default updated. Review the defaults or save.",
                 );
               }}
             >
@@ -338,7 +307,7 @@ export function BlueprintAssignmentContentEditor(
                       assignmentAttemptGradeRule: rule,
                     },
                   }),
-                  "Assignment Attempt grade-rule default updated. Continue with schedule or save.",
+                  "Assignment Attempt grade-rule default updated. Review the defaults or save.",
                 );
               }}
             >
@@ -348,34 +317,6 @@ export function BlueprintAssignmentContentEditor(
               <option value="instructorSelected">Instructor-selected Assignment Attempt</option>
             </select>
           </label>
-        </div>
-      </fieldset>
-
-      <fieldset disabled={!props.editable}>
-        <legend>Optional relative schedule</legend>
-        <p class="blueprint-course-field-help">
-          Use day offset and local time, such as 7|09:00:00.000. Leave any moment blank when the
-          future course should decide it.
-        </p>
-        <div class="blueprint-course-form-grid">
-          <ScheduleField
-            label="Available"
-            field="available_at"
-            content={props.content}
-            onChange={changeSchedule}
-          />
-          <ScheduleField
-            label="Due"
-            field="due_at"
-            content={props.content}
-            onChange={changeSchedule}
-          />
-          <ScheduleField
-            label="Close"
-            field="closes_at"
-            content={props.content}
-            onChange={changeSchedule}
-          />
         </div>
       </fieldset>
 
@@ -395,25 +336,5 @@ export function BlueprintAssignmentContentEditor(
         )}
       </Show>
     </section>
-  );
-}
-
-interface ScheduleFieldProps {
-  readonly label: string;
-  readonly field: ReusableScheduleField;
-  readonly content: BlueprintAssignmentContentInput;
-  readonly onChange: (field: ReusableScheduleField, value: string) => void;
-}
-
-function ScheduleField(props: ScheduleFieldProps): JSX.Element {
-  return (
-    <label>
-      {props.label} relative moment
-      <input
-        value={displayMoment(props.content.schedule[props.field])}
-        placeholder="7|09:00:00.000"
-        onInput={(event) => props.onChange(props.field, event.currentTarget.value)}
-      />
-    </label>
   );
 }

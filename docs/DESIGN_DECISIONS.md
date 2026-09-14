@@ -1624,3 +1624,25 @@ The settled identity, authentication, privacy, recovery, and Blueprint Revision
 decisions are retained in [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md). The
 focused local-stack, Gradebook, wire-contract, and Blueprint-operation decisions
 are retained in [DESIGN_DECISIONS_OPERATIONS.md](DESIGN_DECISIONS_OPERATIONS.md).
+
+## Blueprint adoption and discovery
+
+A Blueprint Course is adopted into a Course Instance. Adoption atomically creates every
+Blueprint Assignment, including its ordered fixed Questions and Question Pools, exact Question
+Revision pins, instructions, points, and assignment policies. Fresh Assignment, entry, and pool
+item identities make each adoption independently editable. The Course Instance retains the exact
+Blueprint Revision provenance. This makes a Blueprint a complete reusable course rather than an
+empty course shell. No Student Work is adopted.
+
+Blueprint Courses have no relative schedules. Adopted Assignments start Unreleased with
+availability, due, and close dates unset. Instructors set those dates in the Course Instance;
+reusable content does not need calendar-offset machinery.
+
+Blueprint discovery can sort by total adoptions or total Students ever enrolled. Adoption totals
+count Course Instances across all Revisions. Enrollment totals count each Student once per Course
+Instance, including ended memberships; leaving and rejoining the same Course Instance does not
+increase the total. The interface exposes aggregate counts, not Student identities.
+
+Owners: the Blueprint and Course Instance contracts in [API_CONTRACTS.md](API_CONTRACTS.md),
+`crates/learning-data-access/src/postgres/course_blueprint_adoption.rs`, and
+`schemas/base_schema/course_blueprint_adoption.sql`.

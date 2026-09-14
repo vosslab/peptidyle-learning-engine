@@ -13,8 +13,8 @@ use question_model::{
     BlueprintQuestionPoolContent, BlueprintRevision, BlueprintRevisionContent,
     BlueprintRevisionReference, CreateBlueprintCourseInput, CreateBlueprintCourseReceipt,
     QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId, QuestionPoolSelectionRule,
-    QuestionRevisionReference, RelativeAssignmentSchedule, RenameBlueprintCourseInput,
-    ReplaceBlueprintCourseContentInput, RequestChecksum, SaveBlueprintCourseReceipt,
+    QuestionRevisionReference, RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput,
+    RequestChecksum, SaveBlueprintCourseReceipt,
 };
 use serde::{Deserialize, Serialize};
 
@@ -44,6 +44,10 @@ pub struct StoredBlueprintCourseSummary {
     pub metadata_etag: BlueprintMetadataEtag,
     pub current_revision: BlueprintRevision,
     pub read_access: BlueprintCourseReadAccess,
+    /// Lifetime Course Instances adopted from this Blueprint lineage, across Revisions.
+    pub total_adoptions: u64,
+    /// Students counted once per adopted Course Instance, including ended memberships.
+    pub total_students_ever_enrolled: u64,
 }
 
 /// Exact immutable Blueprint Revision content, including after lineage archive.
@@ -85,7 +89,6 @@ pub struct StoredBlueprintAssignmentContent {
     pub instructions: AssignmentInstructions,
     pub entries: Vec<StoredBlueprintAssignmentEntry>,
     pub defaults: question_model::BlueprintAssignmentDefaults,
-    pub schedule: RelativeAssignmentSchedule,
 }
 
 /// Stored entry retaining exact immutable Question Revision references.
@@ -302,7 +305,6 @@ impl StoredBlueprintAssignmentContent {
             instructions: input.instructions,
             entries,
             defaults: input.defaults,
-            schedule: input.schedule,
         })
     }
 
@@ -356,7 +358,6 @@ impl StoredBlueprintAssignmentContent {
             self.instructions.clone(),
             entries,
             self.defaults.clone(),
-            self.schedule.clone(),
         )
         .map_err(invalid_content)
     }
@@ -496,7 +497,6 @@ mod tests {
                             activity_rules: AssignmentActivityRules::default(),
                             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
                         },
-                        schedule: RelativeAssignmentSchedule::default(),
                     },
                 }],
             }],

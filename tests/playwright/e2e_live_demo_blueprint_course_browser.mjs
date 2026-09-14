@@ -27,6 +27,11 @@ function blueprintSavePath(reference) {
   return new RegExp(`^/api/course-blueprints/${reference}$`, "u");
 }
 
+async function openAssignmentEditor(target) {
+  await target.getByRole("button", { name: "Open Course Editor", exact: true }).click();
+  await target.getByRole("button", { name: "Edit assignment", exact: true }).click();
+}
+
 async function expectBeforeUnload(target, action) {
   const warning = target.waitForEvent("dialog");
   const actionResult = action();
@@ -40,7 +45,9 @@ async function expectBeforeUnload(target, action) {
 
 try {
   await page.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Continue as Elena Rivera" }).click();
+  await page
+    .getByRole("button", { name: "Assume the role of Instructor Dr. Elena Rivera" })
+    .click();
   await page.waitForURL(`${origin}/library`);
   await page
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
@@ -119,7 +126,9 @@ try {
   try {
     const discoveryPage = await discoveryContext.newPage();
     await discoveryPage.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
-    await discoveryPage.getByRole("button", { name: "Continue as Elena Rivera" }).click();
+    await discoveryPage
+      .getByRole("button", { name: "Assume the role of Instructor Dr. Elena Rivera" })
+      .click();
     await discoveryPage.waitForURL(`${origin}/library`);
     await discoveryPage
       .getByRole("navigation", { name: "Ribbon tabs", exact: true })
@@ -174,6 +183,7 @@ try {
   const metadataPath = new RegExp(`^/api/course-blueprints/${reference}/metadata$`, "u");
   const archivePath = new RegExp(`^/api/course-blueprints/${reference}/archive$`, "u");
   const restorePath = new RegExp(`^/api/course-blueprints/${reference}/restore$`, "u");
+  await openAssignmentEditor(page);
   const save = page.getByRole("button", { name: "Save Blueprint Course", exact: true });
   if (!(await save.isDisabled())) throw new Error("Save was enabled for clean Revision 1 content");
 
@@ -205,6 +215,7 @@ try {
   try {
     await staleEditor.goto(page.url(), { waitUntil: "domcontentloaded" });
     await staleEditor.getByRole("heading", { name: courseLongName }).waitFor();
+    await openAssignmentEditor(staleEditor);
     const staleEditorTitle = staleEditor.getByLabel("Assignment title", { exact: true });
     await staleEditorTitle.fill(`Other editor revision ${runId}`);
     const savedRevisionThree = staleEditor.waitForResponse(
@@ -244,6 +255,7 @@ try {
     await staleEditor.close();
   }
 
+  await page.getByText("Course names and availability", { exact: true }).click();
   const renamedShortName = `Renamed BP ${runId}`;
   const renamedLongName = `Renamed Blueprint Course ${runId}`;
   await page.getByLabel("Blueprint Course short name", { exact: true }).fill(renamedShortName);
@@ -274,6 +286,8 @@ try {
   await page.getByRole("heading", { name: renamedLongName, exact: true }).waitFor();
   await page.getByText(/Current Revision 3\./u).waitFor();
 
+  await openAssignmentEditor(page);
+  await page.getByText("Course names and availability", { exact: true }).click();
   await page
     .getByLabel("Confirm Blueprint Course long name", { exact: true })
     .fill(renamedLongName);
@@ -334,6 +348,7 @@ try {
 
   await page.goForward();
   await page.waitForURL(new RegExp(`/blueprint-courses/${reference}$`, "u"));
+  await openAssignmentEditor(page);
   await assignmentTitle.fill(`Reload guard ${runId}`);
   await expectBeforeUnload(page, () => page.reload({ waitUntil: "domcontentloaded" }));
   if ((await assignmentTitle.inputValue()) !== `Reload guard ${runId}`) {
@@ -342,6 +357,7 @@ try {
 
   const closeGuardPage = await context.newPage();
   await closeGuardPage.goto(page.url(), { waitUntil: "domcontentloaded" });
+  await openAssignmentEditor(closeGuardPage);
   await closeGuardPage.getByLabel("Assignment title", { exact: true }).fill(`Close guard ${runId}`);
   await expectBeforeUnload(closeGuardPage, () => closeGuardPage.close({ runBeforeUnload: true }));
   if (closeGuardPage.isClosed()) {

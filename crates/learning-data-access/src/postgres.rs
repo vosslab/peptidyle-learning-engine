@@ -38,6 +38,7 @@ mod blueprint_course;
 mod connection;
 #[cfg(feature = "postgres")]
 mod course_banner;
+mod course_blueprint_adoption;
 #[cfg(feature = "postgres")]
 mod course_instance;
 #[cfg(feature = "postgres")]

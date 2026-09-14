@@ -767,19 +767,29 @@ $$;
 CREATE FUNCTION ple_api.list_blueprint_courses()
 RETURNS TABLE (
     reference_number bigint, short_name text, long_name text, availability text,
-    metadata_etag uuid, current_blueprint_revision_number bigint, is_owner boolean
+    metadata_etag uuid, current_blueprint_revision_number bigint, is_owner boolean,
+    total_adoptions bigint, total_students_ever_enrolled bigint
 )
-LANGUAGE sql STABLE SECURITY DEFINER
+LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
-    SELECT course.reference_number, course.short_name, course.long_name,
+BEGIN
+    RETURN QUERY SELECT course.reference_number, course.short_name, course.long_name,
            course.availability, course.metadata_etag,
            course.current_blueprint_revision_number,
-           course.owner_account_id = ple_api.current_session_account_id()
+           course.owner_account_id = ple_api.current_session_account_id(),
+           (SELECT count(*) FROM ple_data.course_instance AS adoption
+             WHERE adoption.blueprint_course_reference_number = course.reference_number),
+           (SELECT count(DISTINCT (membership.course_id, membership.account_id))
+              FROM ple_data.course_instance AS adoption
+              JOIN ple_data.course_membership AS membership ON membership.course_id = adoption.course_id
+             WHERE adoption.blueprint_course_reference_number = course.reference_number
+               AND membership.role = 'student')
       FROM ple_data.blueprint_course AS course
      WHERE ple_api.current_session_account_is_instructor()
        AND course.availability = 'available'
-     ORDER BY course.long_name, course.reference_number
+     ORDER BY course.long_name, course.reference_number;
+END
 $$;
 
 CREATE FUNCTION ple_api.load_blueprint_course(p_reference_number bigint)

@@ -17,10 +17,8 @@ export {
   reusableContentInputFromView,
   updateReusableDefaults,
   updateReusablePoolSelectionCount,
-  updateReusableSchedule,
   updateReusableText,
   validateReusableContent,
   type BlueprintCourseValidation,
   type ReusableEntryDirection,
-  type ReusableScheduleField,
 } from "./blueprint_course_model";

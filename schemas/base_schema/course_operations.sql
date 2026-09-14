@@ -198,7 +198,7 @@ CREATE FUNCTION ple_api.create_course_instance(
     p_course_id uuid, p_origin_id uuid, p_membership_id uuid, p_event_id uuid,
     p_blueprint_reference bigint, p_blueprint_revision bigint,
     p_short_name text, p_long_name text, p_term_start date, p_term_end date,
-    p_assigned_instructor_reference bigint
+    p_assigned_instructor_reference bigint, p_assignments jsonb
 )
 RETURNS TABLE(reference_number bigint, short_name text, long_name text, term_starts_on date,
               term_ends_on date, creator_is_assigned_instructor boolean)
@@ -209,6 +209,8 @@ DECLARE
     course_reference bigint;
     now_at timestamptz;
     blueprint ple_data.blueprint_course%ROWTYPE;
+    expected_sources uuid[];
+    supplied_sources uuid[];
 BEGIN
     IF p_course_id IS NULL OR p_origin_id IS NULL OR p_membership_id IS NULL OR p_event_id IS NULL
        OR p_blueprint_reference NOT BETWEEN 1 AND 2147483647 OR p_blueprint_revision <= 0
@@ -256,6 +258,19 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '40001',
             MESSAGE = 'Blueprint Revision precondition is stale';
     END IF;
+    IF jsonb_typeof(p_assignments) IS DISTINCT FROM 'array' THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint adoption assignments are invalid';
+    END IF;
+    SELECT array_agg(source.blueprint_assignment_reference ORDER BY source.blueprint_assignment_reference)
+      INTO expected_sources FROM ple_data.blueprint_revision_assignment AS source
+     WHERE source.blueprint_course_reference_number = p_blueprint_reference
+       AND source.blueprint_revision_number = p_blueprint_revision;
+    SELECT array_agg((item ->> 'source')::uuid ORDER BY (item ->> 'source')::uuid)
+      INTO supplied_sources FROM jsonb_array_elements(p_assignments) AS item;
+    IF expected_sources IS NULL OR supplied_sources IS DISTINCT FROM expected_sources THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Blueprint adoption requires every Assignment from its exact Revision';
+    END IF;
     now_at := pg_catalog.transaction_timestamp();
     INSERT INTO ple_data.course_instance (
         course_id, blueprint_course_reference_number, blueprint_revision_number,
@@ -271,6 +286,10 @@ BEGIN
     ) VALUES (p_origin_id, p_course_id, p_blueprint_reference, p_blueprint_revision, NULL, now_at);
     INSERT INTO ple_data.course_membership (membership_id, course_id, account_id, role, joined_at)
     VALUES (p_membership_id, p_course_id, assigned, 'instructor', now_at);
+    -- All Blueprint members are materialized before the creation transaction can commit.
+    PERFORM ple_data.initialize_course_assignments(
+        p_course_id, p_blueprint_reference, p_blueprint_revision, p_assignments
+    );
     PERFORM ple_audit.record_course_instance_creation_event(
         p_event_id, p_course_id, course_reference, p_blueprint_reference, p_blueprint_revision,
         assigned, actor, now_at
@@ -739,7 +758,7 @@ $$;
 REVOKE ALL ON FUNCTION ple_api.current_session_account_has_course_roster_support(uuid, uuid),
     ple_api.read_course_theme(uuid), ple_api.update_course_theme(uuid, text),
     ple_api.resolve_course_navigation(bigint), ple_api.read_course_summary(uuid),
-    ple_api.create_course_instance(uuid, uuid, uuid, uuid, bigint, bigint, text, text, date, date, bigint),
+    ple_api.create_course_instance(uuid, uuid, uuid, uuid, bigint, bigint, text, text, date, date, bigint, jsonb),
     ple_api.list_course_instances(), ple_api.load_course_instance(bigint),
     ple_api.list_course_creation_instructors(), ple_api.list_course_roster(bigint, uuid),
     ple_api.read_course_roster_support(uuid), ple_api.list_live_student_course_landing(),
@@ -754,7 +773,7 @@ REVOKE ALL ON FUNCTION ple_api.current_session_account_has_course_roster_support
 GRANT EXECUTE ON FUNCTION ple_api.current_session_account_has_course_roster_support(uuid, uuid),
     ple_api.read_course_theme(uuid), ple_api.update_course_theme(uuid, text),
     ple_api.resolve_course_navigation(bigint), ple_api.read_course_summary(uuid),
-    ple_api.create_course_instance(uuid, uuid, uuid, uuid, bigint, bigint, text, text, date, date, bigint),
+    ple_api.create_course_instance(uuid, uuid, uuid, uuid, bigint, bigint, text, text, date, date, bigint, jsonb),
     ple_api.list_course_instances(), ple_api.load_course_instance(bigint),
     ple_api.list_course_creation_instructors(), ple_api.list_course_roster(bigint, uuid),
     ple_api.read_course_roster_support(uuid), ple_api.list_live_student_course_landing(),

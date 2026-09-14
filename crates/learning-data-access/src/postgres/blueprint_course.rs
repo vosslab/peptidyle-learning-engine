@@ -509,6 +509,16 @@ fn retained_question_pins(
 
 fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<StoredBlueprintCourseSummary, StoreError> {
     Ok(StoredBlueprintCourseSummary {
+        total_adoptions: u64::try_from(
+            row.try_get::<i64, _>("total_adoptions")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| invalid("Blueprint adoption count"))?,
+        total_students_ever_enrolled: u64::try_from(
+            row.try_get::<i64, _>("total_students_ever_enrolled")
+                .map_err(map_sqlx_error)?,
+        )
+        .map_err(|_| invalid("Blueprint enrollment count"))?,
         reference: reference(row.try_get("reference_number").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,

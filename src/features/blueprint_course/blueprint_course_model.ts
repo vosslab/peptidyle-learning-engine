@@ -7,15 +7,12 @@ import type { BlueprintAssignmentContentInput } from "../../../generated/api/Blu
 import type { BlueprintAssignmentContentView } from "../../../generated/api/BlueprintAssignmentContentView";
 import type { BlueprintAssignmentEntryInput } from "../../../generated/api/BlueprintAssignmentEntryInput";
 import type { BlueprintAssignmentEntryView } from "../../../generated/api/BlueprintAssignmentEntryView";
-import type { RelativeAssignmentSchedule } from "../../../generated/api/RelativeAssignmentSchedule";
-import type { RelativeAssignmentScheduleMoment } from "../../../generated/api/RelativeAssignmentScheduleMoment";
 import type { QuestionPickerSelection } from "../question_picker";
 
 export const MAX_REUSABLE_ENTRIES = 1024;
 export const MAX_QUESTION_POOL_ITEMS = 1024;
 export const MAX_REUSABLE_TITLE_LENGTH = 200;
 
-export type ReusableScheduleField = "available_at" | "due_at" | "closes_at";
 export type ReusableEntryDirection = -1 | 1;
 
 export interface BlueprintCourseValidation {
@@ -77,10 +74,6 @@ function defaultDefaults(): BlueprintAssignmentDefaults {
   };
 }
 
-function emptySchedule(): RelativeAssignmentSchedule {
-  return { available_at: null, due_at: null, closes_at: null };
-}
-
 /** Builds an editable assignment content with visible teaching defaults. */
 export function emptyReusableContent(
   title = "Untitled Blueprint Assignment",
@@ -90,7 +83,6 @@ export function emptyReusableContent(
     instructions: "",
     entries: [],
     defaults: defaultDefaults(),
-    schedule: emptySchedule(),
   };
 }
 
@@ -194,14 +186,6 @@ export function updateReusablePoolSelectionCount(
   return { ...content, entries };
 }
 
-export function updateReusableSchedule(
-  content: BlueprintAssignmentContentInput,
-  field: ReusableScheduleField,
-  moment: RelativeAssignmentScheduleMoment | null,
-): BlueprintAssignmentContentInput {
-  return { ...content, schedule: { ...content.schedule, [field]: moment } };
-}
-
 export function updateReusableDefaults(
   content: BlueprintAssignmentContentInput,
   defaults: BlueprintAssignmentDefaults,
@@ -214,51 +198,6 @@ export function updateReusableText(
   change: Partial<Pick<BlueprintAssignmentContentInput, "title" | "instructions">>,
 ): BlueprintAssignmentContentInput {
   return { ...content, ...change };
-}
-
-function momentValue(moment: RelativeAssignmentScheduleMoment | null): number | null {
-  if (moment === null) return null;
-  if (!/^([01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3}$/.test(moment.local_time)) return null;
-  const [hours, minutes, seconds, milliseconds] = moment.local_time.split(/[:.]/).map(Number);
-  if (
-    hours === undefined ||
-    minutes === undefined ||
-    seconds === undefined ||
-    milliseconds === undefined
-  ) {
-    return null;
-  }
-  return (
-    moment.day_offset * 86_400_000 +
-    hours * 3_600_000 +
-    minutes * 60_000 +
-    seconds * 1_000 +
-    milliseconds
-  );
-}
-
-function validateSchedule(schedule: RelativeAssignmentSchedule): BlueprintCourseValidation {
-  const available = momentValue(schedule.available_at);
-  const due = momentValue(schedule.due_at);
-  const closes = momentValue(schedule.closes_at);
-  if (
-    [schedule.available_at, schedule.due_at, schedule.closes_at].some(
-      (moment) => moment !== null && momentValue(moment) === null,
-    )
-  ) {
-    return { valid: false, message: "Use local times in HH:MM:SS.sss format." };
-  }
-  if (
-    (available !== null && due !== null && available > due) ||
-    (due !== null && closes !== null && due > closes) ||
-    (available !== null && closes !== null && available > closes)
-  ) {
-    return {
-      valid: false,
-      message: "Available, due, and close moments must remain in calendar order.",
-    };
-  }
-  return { valid: true, message: null };
 }
 
 /** Guides local authoring before the server performs authoritative validation. */
@@ -299,7 +238,7 @@ export function validateReusableContent(
       };
     }
   }
-  return validateSchedule(content.schedule);
+  return { valid: true, message: null };
 }
 
 /** Validates the complete local Blueprint Course tree before its create request. */
@@ -372,7 +311,6 @@ export function reusableContentInputFromView(
     instructions: content.instructions,
     entries: content.entries.map(entryInputFromView),
     defaults: content.defaults,
-    schedule: content.schedule,
   };
 }
 

@@ -113,7 +113,7 @@ def random_ports() -> LiveDemoPorts:
 		random_port(53500),
 		random_port(54000),
 		random_port(54500),
-		random_port(55000),
+		random_port(8000),
 	)
 	return ports
 

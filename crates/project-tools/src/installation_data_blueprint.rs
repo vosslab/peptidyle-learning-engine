@@ -11,8 +11,8 @@ use question_model::{
     AssignmentPointValue, BlueprintAssignmentContentInput, BlueprintAssignmentDefaults,
     BlueprintAssignmentEntryInput, BlueprintAvailability, BlueprintRevision,
     CreateBlueprintCourseInput, CreateBlueprintModuleInput, LateWorkRule, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionRevisionReference, RelativeAssignmentSchedule,
-    RequestChecksum, ReusableFixedQuestionInput,
+    QuestionAttemptTimeLimit, QuestionRevisionReference, RequestChecksum,
+    ReusableFixedQuestionInput,
 };
 
 use crate::{
@@ -116,8 +116,7 @@ fn validate_loaded_content(
     ensure!(
         actual_assignment.content.title == expected_assignment.title
             && actual_assignment.content.instructions == expected_assignment.instructions
-            && actual_assignment.content.defaults == expected_assignment.defaults
-            && actual_assignment.content.schedule == expected_assignment.schedule,
+            && actual_assignment.content.defaults == expected_assignment.defaults,
         "Live Demo Blueprint Assignment content differs from the fixed definition"
     );
     ensure!(
@@ -197,7 +196,6 @@ fn live_demo_blueprint_input(
                     activity_rules: AssignmentActivityRules::default(),
                     student_feedback_release_rule: Default::default(),
                 },
-                schedule: RelativeAssignmentSchedule::default(),
             }],
         }],
     };
@@ -277,7 +275,6 @@ mod tests {
                             })
                             .collect(),
                         defaults: assignment.defaults.clone(),
-                        schedule: assignment.schedule.clone(),
                     },
                 }],
             }],

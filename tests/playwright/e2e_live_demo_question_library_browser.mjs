@@ -17,7 +17,9 @@ try {
   // the document and then the actual demo control rather than requiring every
   // background request in the live stack to go idle.
   await page.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Continue as Elena Rivera" }).click();
+  await page
+    .getByRole("button", { name: "Assume the role of Instructor Dr. Elena Rivera" })
+    .click();
   await page.waitForURL(`${origin}/library`);
   await page.getByRole("link", { name: "Question Library" }).waitFor();
 

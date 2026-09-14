@@ -4,9 +4,12 @@
 
 use std::collections::BTreeMap;
 
-use learning_data_access::postgres::{PostgresBlueprintCourseStore, lazy_pool};
+use learning_data_access::postgres::{
+    PostgresBlueprintCourseStore, PostgresCourseInstanceStore, lazy_pool,
+};
 use learning_data_access::{
-    BlueprintCourseStore, SessionTokenHash, StoreError, StoredBlueprintCourseContent,
+    BlueprintCourseStore, CourseInstanceStore, CreateCourseInstanceInput, SessionTokenHash,
+    StoreError, StoredBlueprintCourseContent,
 };
 use question_model::{
     AssignmentActivityRules, AssignmentEntryScoringRule, AssignmentInstructions,
@@ -15,7 +18,7 @@ use question_model::{
     BlueprintAssignmentReplacementInput, BlueprintCourseReference, BlueprintModuleEditChoice,
     BlueprintModuleReplacementInput, BlueprintRevision, CreateBlueprintCourseInput,
     CreateBlueprintModuleInput, LateWorkRule, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-    QuestionId, QuestionRevisionNumber, QuestionRevisionReference, RelativeAssignmentSchedule,
+    QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
     ReplaceBlueprintCourseContentInput, ReusableFixedQuestionInput, StudentFeedbackReleaseRule,
 };
 use sqlx::{Connection, PgConnection, Row};
@@ -59,15 +62,29 @@ fn content_input(title: &str) -> CreateBlueprintCourseInput {
                 title: title.to_owned(),
                 instructions: AssignmentInstructions::try_new("Read the prompt.".to_owned())
                     .expect("fixture instructions"),
-                entries: vec![BlueprintAssignmentEntryInput::Fixed(
-                    ReusableFixedQuestionInput {
+                entries: vec![
+                    BlueprintAssignmentEntryInput::Fixed(ReusableFixedQuestionInput {
                         question_id: question_id(),
                         points_possible: AssignmentPointValue::from_whole(2),
                         scoring_rule: AssignmentEntryScoringRule::Normal,
                         question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
                         question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-                    },
-                )],
+                    }),
+                    BlueprintAssignmentEntryInput::Pool(question_model::ReusablePoolInput {
+                        items: vec![question_id()],
+                        selection_count: 1,
+                        points_per_item: AssignmentPointValue::from_whole(3),
+                        scoring_rule: AssignmentEntryScoringRule::ExtraCredit,
+                        selection_rule: question_model::QuestionPoolSelectionRule {
+                            selected_question_order:
+                                question_model::QuestionPoolSelectedQuestionOrder::RandomOrder,
+                        },
+                        question_attempt_limit: QuestionAttemptLimit {
+                            max_attempts: Some(2),
+                        },
+                        question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
+                    }),
+                ],
                 defaults: BlueprintAssignmentDefaults {
                     assignment_attempt_time_limit_seconds: None,
                     attempt_limit: None,
@@ -75,7 +92,6 @@ fn content_input(title: &str) -> CreateBlueprintCourseInput {
                     activity_rules: AssignmentActivityRules::default(),
                     student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
                 },
-                schedule: RelativeAssignmentSchedule::default(),
             }],
         }],
     }
@@ -139,6 +155,8 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
     .execute(&mut *transaction)
     .await
     .expect("reader Instructor account");
+    sqlx::query("INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES ($1, 'student', clock_timestamp())")
+        .bind(id(0xb104)).execute(&mut *transaction).await.expect("Student fixture");
     sqlx::query(
         "INSERT INTO ple_private.authenticated_session \
          (session_id, account_id, product_role, token_hash, created_at, expires_at) \
@@ -358,6 +376,61 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let blueprint_reference = format!("BP-{reference}")
         .parse::<BlueprintCourseReference>()
         .expect("Blueprint reference");
+    let instance_store =
+        PostgresCourseInstanceStore::new(lazy_pool(&application_url).expect("adoption pool"));
+    let adopted = instance_store
+        .create_course_instance(
+            reader_token(),
+            CreateCourseInstanceInput {
+                blueprint_course: blueprint_reference,
+                blueprint_revision: BlueprintRevision::new(1).expect("Revision 1"),
+                short_name: "ADOPT".into(),
+                long_name: "Complete Blueprint adoption".into(),
+                term: question_model::CourseTerm::from_parts("2030-01-01", "2030-05-01")
+                    .expect("term"),
+                assigned_instructor: None,
+            },
+        )
+        .await
+        .expect("adopt all Blueprint Assignments");
+    let inspection = lazy_pool(migration_url).expect("adoption inspection pool");
+    let row = sqlx::query("SELECT count(*) AS assignments, bool_and(a.assignment_status = 'unreleased' AND a.assignment_edit_number = 1 AND a.available_at IS NULL AND a.due_at IS NULL AND a.closes_at IS NULL) AS initial_state, bool_and(a.source_blueprint_revision_number = 1) AS exact_source FROM ple_data.assignment a JOIN ple_data.course_instance c ON c.course_id = a.course_id WHERE c.reference_number = $1")
+        .bind(i64::from(adopted.course.reference.number())).fetch_one(&inspection).await.expect("adopted assignments");
+    assert_eq!(row.get::<i64, _>("assignments"), 1);
+    assert!(row.get::<bool, _>("initial_state"));
+    assert!(row.get::<bool, _>("exact_source"));
+    let adopted_pins: Vec<(String, i32)> = sqlx::query_as("SELECT e.question_id, e.question_revision_number FROM ple_data.assignment_entry e JOIN ple_data.assignment a ON a.assignment_id=e.assignment_id JOIN ple_data.course_instance c ON c.course_id=a.course_id WHERE c.reference_number=$1 AND e.entry_kind='fixed_question'")
+        .bind(i64::from(adopted.course.reference.number())).fetch_all(&inspection).await.expect("adopted Question pins");
+    assert_eq!(adopted_pins, vec![(QUESTION.to_owned(), 1)]);
+    let pool_pins: Vec<(String, i32)> = sqlx::query_as("SELECT i.question_id,i.question_revision_number FROM ple_data.question_pool_item i JOIN ple_data.assignment a ON a.assignment_id=i.assignment_id JOIN ple_data.course_instance c ON c.course_id=a.course_id WHERE c.reference_number=$1")
+        .bind(i64::from(adopted.course.reference.number())).fetch_all(&inspection).await.expect("adopted pool pins");
+    assert_eq!(pool_pins, vec![(QUESTION.to_owned(), 1)]);
+    let mut enrollment = inspection.begin().await.expect("enrollment fixture");
+    sqlx::query("SET LOCAL ROLE ple_api_owner")
+        .execute(&mut *enrollment)
+        .await
+        .expect("membership owner");
+    let course_id: Uuid = sqlx::query_scalar(
+        "SELECT course_id FROM ple_data.course_instance WHERE reference_number=$1",
+    )
+    .bind(i64::from(adopted.course.reference.number()))
+    .fetch_one(&mut *enrollment)
+    .await
+    .expect("adopted course identity");
+    sqlx::query("INSERT INTO ple_data.student_record (student_record_id, course_id, student_account_id, created_at) VALUES ($1,$2,$3,clock_timestamp())")
+        .bind(id(0xb105)).bind(course_id).bind(id(0xb104)).execute(&mut *enrollment).await.expect("Student Record");
+    for episode in [0xb106, 0xb107] {
+        sqlx::query("INSERT INTO ple_data.course_membership (membership_id,course_id,account_id,role,student_record_id,joined_at) VALUES ($1,$2,$3,'student',$4,clock_timestamp())")
+            .bind(id(episode)).bind(course_id).bind(id(0xb104)).bind(id(0xb105)).execute(&mut *enrollment).await.expect("membership episode");
+        sqlx::query("INSERT INTO ple_data.course_membership_event (course_membership_event_id,membership_id,event_kind,occurred_at,reason) VALUES ($1,$2,'ended',clock_timestamp(),'verification departure')")
+            .bind(id(episode + 0x10)).bind(id(episode)).execute(&mut *enrollment).await.expect("ended membership");
+    }
+    enrollment
+        .commit()
+        .await
+        .expect("enrollment fixture commit");
+    inspection.close().await;
+
     let reader_list = reader_store
         .list_blueprint_courses(reader_token())
         .await
@@ -370,6 +443,8 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         reader_summary.read_access,
         question_model::BlueprintCourseReadAccess::ActiveInstructor
     );
+    assert_eq!(reader_summary.total_adoptions, 1);
+    assert_eq!(reader_summary.total_students_ever_enrolled, 1);
     let reader_view = reader_store
         .load_blueprint_course(reader_token(), blueprint_reference)
         .await
@@ -699,7 +774,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
              '00000000-0000-0000-0000-00000000b132', \
              '00000000-0000-0000-0000-00000000b133', \
              $1, 3, 'RACE-C', 'Concurrent head Course', \
-             '2030-01-01'::date, '2030-05-01'::date, NULL)",
+             '2030-01-01'::date, '2030-05-01'::date, NULL, '[]'::jsonb)",
         )
         .bind(reference)
         .fetch_one(&mut *transaction)

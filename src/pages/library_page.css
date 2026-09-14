@@ -62,15 +62,13 @@
   grid-template-areas:
     "title action"
     "summary action"
-    "evidence action"
-    "authors action"
-    "identity identity";
+    "authors identity";
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto minmax(0, 2.6em) auto auto auto;
+  grid-template-rows: auto minmax(0, 2.6em) auto;
   gap: 0.18rem 1rem;
   align-content: center;
   overflow: hidden;
-  padding: calc(var(--ple-row-padding-block) + 0.1rem) var(--ple-section-gap);
+  padding: 0.45rem var(--ple-section-gap);
   border-bottom: 1px solid var(--ple-border);
 }
 
@@ -100,15 +98,6 @@
   white-space: nowrap;
 }
 
-.library-page .question-library-row-evidence {
-  grid-area: evidence;
-  margin: 0;
-  color: var(--ple-muted);
-  font-size: 0.8rem;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
 .library-page .question-library-row .copyable-question-id {
   grid-area: identity;
   justify-content: end;
@@ -132,13 +121,12 @@
 
   .library-page .question-library-row {
     grid-template-areas:
-      "title"
-      "summary"
-      "evidence"
-      "authors"
+      "title title"
+      "summary summary"
+      "authors authors"
       "identity action";
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto minmax(0, 2.6em) auto auto auto auto;
+    grid-template-rows: auto minmax(0, 2.6em) auto auto;
     align-content: start;
   }
 

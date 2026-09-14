@@ -10,6 +10,8 @@ import {
   isLiveDemoUnavailable,
   seededDemoAvailabilityStatus,
   seededDemoDescription,
+  seededDemoRole,
+  seededDemoRoleLabel,
 } from "./live_demo_auth_model";
 import "./live_demo_auth.css";
 
@@ -105,7 +107,7 @@ export function SignInPage(): JSX.Element {
       >
         <section class="auth-panel live-demo-panel" aria-labelledby="live-demo-heading">
           <h2 id="live-demo-heading">Choose a demo Account</h2>
-          <p>Each choice creates the ordinary host-only Authenticated Session.</p>
+          <p>Choose a role to explore its tools and course views.</p>
           <Show when={seededDemo().kind === "loading"}>
             <p class="calm-status live-demo-status" role="status" aria-live="polite">
               Loading available demo Accounts...
@@ -122,11 +124,15 @@ export function SignInPage(): JSX.Element {
                 {(account) => (
                   <button
                     class="quiet-action live-demo-persona-action"
+                    data-product-role={seededDemoRole(account.persona)}
                     type="button"
                     disabled={seededDemo().kind === "opening"}
                     onClick={() => void selectSeededDemoAccount(account)}
                   >
-                    <span>Continue as {account.displayName}</span>
+                    <span>
+                      Assume the role of {seededDemoRoleLabel(account.persona)}{" "}
+                      {account.displayName}
+                    </span>
                     <small>{seededDemoDescription(account.persona)}</small>
                   </button>
                 )}

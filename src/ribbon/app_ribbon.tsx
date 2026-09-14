@@ -357,7 +357,12 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
               </span>
               <span class="ple-app-ribbon__brand-word">Peptidyle</span>
             </a>
-            <span class="ple-app-ribbon__product-role">{props.model.context.productLabel}</span>
+            <span
+              class="ple-app-ribbon__product-role"
+              data-product-role={props.model.context.productLabel.toLowerCase()}
+            >
+              {props.model.context.productLabel}
+            </span>
           </div>
           <div class="ple-app-ribbon__context-details">
             <Show when={props.model.context.scopeLabel}>

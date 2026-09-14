@@ -24,8 +24,8 @@ use question_model::{
     QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionAuthor, QuestionAuthorDisplayName,
     QuestionAuthorship, QuestionBackend, QuestionFormat, QuestionLicense,
     QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, QuestionRevisionReason,
-    QuestionRevisionReference, QuestionType, RelativeAssignmentSchedule, RequestChecksum,
-    ReusablePoolInput, SourceObjectChecksum, SourceObjectReference, Timestamp, WorkspaceId,
+    QuestionRevisionReference, QuestionType, RequestChecksum, ReusablePoolInput,
+    SourceObjectChecksum, SourceObjectReference, Timestamp, WorkspaceId,
 };
 use server_core::question_publication::{
     HmacQuestionIdIssuer, NewQuestionLineagePublicationCommand, NewQuestionLineagePublisher,
@@ -472,7 +472,6 @@ fn blueprint_input(
                 activity_rules: AssignmentActivityRules::default(),
                 student_feedback_release_rule: Default::default(),
             },
-            schedule: RelativeAssignmentSchedule::default(),
         });
     }
     let input = CreateBlueprintCourseInput {
@@ -543,7 +542,6 @@ fn validate_loaded_content(
             actual.content.title == expected.title
                 && actual.content.instructions == expected.instructions
                 && actual.content.defaults == expected.defaults
-                && actual.content.schedule == expected.schedule
                 && actual.content.entries.len() == expected.entries.len(),
             "curriculum Blueprint Assignment content differs"
         );
