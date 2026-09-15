@@ -23,15 +23,15 @@ active plan.
 | Development principles | 14 | 2 | 2 | 23 | 39 |
 | Product vocabulary | 2 | 10 | 10 | 0 | 12 |
 | Accounts and roles | 24 | 19 | 19 | 8 | 51 |
-| Interface design | 78 | 140 | 140 | 1 | 219 |
+| Interface design | 79 | 141 | 141 | 1 | 221 |
 | Data and history | 28 | 40 | 39 | 0 | 68 |
 | Questions | 55 | 84 | 83 | 2 | 141 |
 | Courses | 31 | 70 | 64 | 4 | 105 |
 | Assessments | 27 | 109 | 104 | 0 | 136 |
-| **Total** | **259** | **474** | **461** | **43** | **776** |
+| **Total** | **260** | **475** | **462** | **43** | **778** |
 
-The current checklist contains 776 HG bullets: 259 verified, 474 open, and 43 N/A.
-Thirteen later duplicate open bullets carry an `Owner:` pointer, leaving 461 owning-open records.
+The current checklist contains 778 HG bullets: 260 verified, 475 open, and 43 N/A.
+Thirteen later duplicate open bullets carry an `Owner:` pointer, leaving 462 owning-open records.
 
 ## Report routes
 

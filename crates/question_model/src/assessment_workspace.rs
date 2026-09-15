@@ -7,12 +7,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AccountTimeZone, AssessmentActivityRules, AssessmentEditNumber, AssessmentEntry,
-    AssessmentEntryAvailability, AssessmentEntryScoringRule, AssessmentOverview,
-    AssessmentPointValue, AssessmentQuestionVariationRule, AssessmentStatus, AssessmentTitle,
-    Capability, InstructorAssessmentAuthoredContentLocal, LateWorkRule, QuestionAttemptLimit,
-    QuestionAttemptTimeLimit, QuestionId, QuestionPoolReuseRule, QuestionPoolSelectionRule,
-    StudentFeedbackReleaseRule,
+    AssessmentActivityRules, AssessmentEditNumber, AssessmentEntry, AssessmentEntryAvailability,
+    AssessmentEntryScoringRule, AssessmentPointValue, AssessmentStatus, AssessmentTitle,
+    Capability, InstructorAssessmentAuthoredContentLocal, QuestionAttemptLimit,
+    QuestionAttemptTimeLimit, QuestionId, QuestionPoolSelectionRule, StudentFeedbackReleaseRule,
 };
 
 /// Browser request to create one stable Assessment.
@@ -149,70 +147,6 @@ pub struct AssessmentReleaseValidation {
     pub blocking_issues: Vec<AssessmentReleaseIssue>,
 }
 
-/// Answer-free, non-mutating Instructor Student View for an Instructor's
-/// stable-identity Student view.  It deliberately omits assessment, item,
-/// question, Assessment Attempt, and Question Attempt identities.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct InstructorStudentView {
-    /// Student-facing assessment title.
-    pub title: AssessmentTitle,
-    /// Student-facing instructions.
-    pub instructions: crate::AssessmentInstructions,
-    /// Authenticated Instructor's IANA zone for presenting delivery facts.
-    pub display_time_zone: AccountTimeZone,
-    /// Server-derived base delivery facts, without student progress or actions.
-    pub delivery: InstructorStudentViewDelivery,
-    /// Number of questions a student receives in one Assessment Attempt; derived by the server.
-    pub questions_per_assessment_attempt: u32,
-    /// Student-visible Question Pool Reuse Rule.
-    pub question_pool_reuse_rule: QuestionPoolReuseRule,
-    /// Student-visible Question Variation Rule.
-    pub question_variation_rule: AssessmentQuestionVariationRule,
-    /// Student-visible disclosure schedule.
-    pub student_feedback_release_rule: StudentFeedbackReleaseRule,
-}
-
-/// Instructor-base delivery facts for stable-identity Student view. These
-/// facts describe assessment policy, never a particular student's state.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct InstructorStudentViewDelivery {
-    #[serde(rename = "available_at")]
-    pub available_at: Option<crate::Timestamp>,
-    #[serde(rename = "due_at")]
-    pub due_at: Option<crate::Timestamp>,
-    #[serde(rename = "closes_at")]
-    pub closes_at: Option<crate::Timestamp>,
-    #[serde(rename = "assessment_attempt_time_limit_seconds")]
-    pub assessment_attempt_time_limit_seconds: Option<u32>,
-    #[serde(rename = "attempt_limit")]
-    pub attempt_limit: Option<u32>,
-    #[serde(rename = "late_work_rule")]
-    pub late_work_rule: LateWorkRule,
-}
-
-impl InstructorStudentView {
-    /// Adds the Instructor Student-view delivery data to the shared
-    /// answer-free assessment landing presentation.
-    pub fn from_landing(
-        landing: AssessmentOverview,
-        delivery: InstructorStudentViewDelivery,
-        display_time_zone: AccountTimeZone,
-    ) -> Self {
-        Self {
-            title: landing.title,
-            instructions: landing.instructions,
-            display_time_zone,
-            delivery,
-            questions_per_assessment_attempt: landing.questions_per_assessment_attempt,
-            question_pool_reuse_rule: landing.question_pool_reuse_rule,
-            question_variation_rule: landing.question_variation_rule,
-            student_feedback_release_rule: landing.student_feedback_release_rule,
-        }
-    }
-}
-
 impl AssessmentReleaseValidation {
     /// Derives readiness from current Assessment Content without mutating it.
     pub fn from_entries(entries: &[AssessmentEntry]) -> Self {
@@ -256,6 +190,7 @@ impl AssessmentReleaseValidation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::AssessmentQuestionVariationRule;
 
     #[test]
     fn empty_assessment_content_names_the_questions_blocker() {

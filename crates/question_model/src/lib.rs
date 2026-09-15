@@ -20,6 +20,8 @@ pub mod answer;
 /// Stable Assessment Entries, Question Pools, and exact point values.
 pub mod assessment;
 pub mod assessment_activity_rules;
+/// Browser-safe, no-write Instructor Student View contracts.
+pub mod assessment_student_view;
 /// Strict browser contracts and derived readiness for the Instructor assessment workspace.
 pub mod assessment_workspace;
 pub mod auth;
@@ -108,12 +110,15 @@ pub use crate::assessment_activity_rules::{
     QuestionPoolReuseRule, QuestionPoolSelectionInputs, StudentFeedbackReleaseRule,
     StudentFeedbackReleaseTiming,
 };
+pub use crate::assessment_student_view::{
+    InstructorStudentView, InstructorStudentViewDelivery, InstructorStudentViewEntry,
+    InstructorStudentViewNotShownReason, InstructorStudentViewQuestionReference,
+};
 pub use crate::assessment_workspace::{
     AssessmentEntryRequest, AssessmentPoliciesValidationFailure,
     AssessmentPoliciesValidationFailureCode, AssessmentPoliciesValidationIssue,
     AssessmentReleaseIssue, AssessmentReleaseValidation, CreateAssessmentRequest,
-    InstructorStudentView, InstructorStudentViewDelivery, ReplaceAssessmentContentRequest,
-    ReplaceAssessmentPoliciesRequest,
+    ReplaceAssessmentContentRequest, ReplaceAssessmentPoliciesRequest,
 };
 pub use crate::auth::{AccountId, ProductRole};
 pub use crate::blueprint_course::canonical_exchange::{

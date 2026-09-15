@@ -341,7 +341,7 @@ PLE product or code behavior.
 - [ ] Use drag-and-drop where it makes reordering faster and more natural.
   - Mismatch: No implemented drag-and-drop reordering surface was found in the audited shell evidence.
 - [x] Reordering must also have a precise keyboard-accessible method.
-  - Evidence (source): `src/features/blueprint_course/blueprint_assignment_content_editor.tsx` `moveEntry` and `src/pages/assignment_workspace/assignment_workspace_questions_page.tsx` `move` back their labelled native-button Move earlier and Move later controls.
+  - Evidence (source): `src/features/blueprint_course/blueprint_assessment_content_editor.tsx` `moveEntry` and `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `move` back their labelled native-button Move earlier and Move later controls.
   - Evidence (source): `src/features/ple_question_json_authoring/question_json_choice_list.tsx` `onMoveChoice`, `src/features/ple_question_json_authoring/question_json_multiple_answer_editor.tsx` `onMoveChoice`, `src/features/ple_question_json_authoring/question_json_multi_fill_in_editor.tsx` `onMoveBlank`, `src/features/ple_question_json_authoring/question_json_matching_editor.tsx` `onMoveItem`, and `src/features/ple_question_json_authoring/question_json_ordering_editor.tsx` `onMoveItem` give every native JSON reorderer the same precise buttons.
   - Evidence (test): `tests/test_blueprint_course_model.mjs` `reusable entries preserve fixed and Question Pool interleaving`, `tests/test_ple_question_json_editor_model.mjs` `choice edits retain semantic IDs and enforce choices and correct-answer invariants`, `tests/test_ple_question_json_multiple_answer_editor.mjs` `multiple-answer text edits and reordering retain choice IDs and exact correct IDs`, and `tests/test_ple_question_json_multi_fill_ordering_authoring.mjs` `ORDER treats Ordering Items as the source of truth and derives correctOrder after movement` protect the stable reorder results.
   - Decision: The one-time seven-surface keyboard-control inventory passed and was removed rather than becoming a permanent implementation-inventory test. It does not select drag-and-drop surfaces, which remains the separate Human Guidance product question.
@@ -359,6 +359,12 @@ PLE product or code behavior.
   - Decision: One-time normal-and-italic computed-style proof passed and was removed; the behavior does not retain a permanent implementation-coupled test.
 - [x] Prefer the official Braille Institute font files and include the needed weights locally with PLE.
   - Evidence (source): `src/styles/browser_fonts.css` `@font-face` loads local Atkinson Hyperlegible Next variable font files.
+- [x] When a narrow font is needed, use `IBM Plex Sans Condensed` for long unbreakable strings such as URLs.
+  - Evidence (source): `src/styles/browser_fonts.css` `--ple-font-narrow` declares the local `IBM Plex Sans Condensed` face and applies it only to the PLE Question JSON editor's Citation URL input; `pipeline/build.mjs` `BROWSER_FONT_BUNDLES` copies and verifies that same-origin asset.
+  - Evidence (runtime): `src/features/ple_question_json_authoring/question_json_editor_styles.ts` `PLE_QUESTION_JSON_EDITOR_STYLES`: a one-time Chromium fixture imported the actual injected editor CSS against production-built local font assets on 2026-09-15; at 360 and 1280 CSS pixels in light and dark OS preferences it requested the local font, computed the narrow family on the Citation URL input, and retained normal input value, horizontal-scroll, and overflow behavior.
+- [x] With `IBM Plex Sans Condensed`, try `font-variant-numeric: slashed-zero` to better distinguish `0` from `O`.
+  - Evidence (source): `src/styles/browser_fonts.css` `font-variant-numeric: slashed-zero` applies it to that narrow Citation URL input; `src/assets/fonts/ibm_plex_sans_condensed/provenance.txt` records the locally retained IBM Plex Sans Condensed Regular asset, OFL provenance, and its verified OpenType `zero` GSUB feature.
+  - Evidence (runtime): `src/styles/browser_fonts.css` `font-variant-numeric: slashed-zero`: that same one-time Chromium fixture computed `slashed-zero` on the local IBM face without a fallback; it was removed rather than retained as a permanent implementation-coupled test.
 - [ ] Question Backend-rendered content may use its own fonts when needed for correct display.
   - Mismatch: No Question Backend font-isolation implementation evidence was found in the shell audit.
 - [ ] Students should have no upload capabilities. Instructor-created content should use text boxes.
@@ -421,7 +427,7 @@ PLE product or code behavior.
 - [ ] The current avatar appears consistently anywhere PLE represents that user.
   - Mismatch: No cross-surface all-role avatar consistency evidence was found.
 - [x] Instructor Profile includes the Instructor's time zone and profile image.
-  - Evidence (source): `src/pages/instructor_profile_page.tsx` `InstructorProfilePage` renders Profile image and time-zone controls.
+  - Evidence (source): `src/pages/profile_page.tsx` `ProfilePage` renders the time-zone value and Profile image controls.
 - [x] Profile images may use any reasonable aspect ratio and are cropped to a consistent rounded square.
   - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-app-ribbon__profile img` uses `object-fit: cover` within the fixed rounded profile box.
 - [x] See **Ribbon and page layout** for the overall navigation and page-position rules.
@@ -452,7 +458,7 @@ PLE product or code behavior.
 - [ ] The Instructor menu has **Courses**, **Questions**, and **Assessments** in one dense top bar.
   - Mismatch: `src/ribbon/ribbon_catalog.ts` labels the third tab "Assignments," not the required "Assessments."
 - [x] Instructor Profile uses a generic user icon until the **Instructor** adds a Profile image.
-  - Evidence (source): `src/features/instructor_profile/ribbon_profile_avatar.tsx` `RibbonProfileAvatar` falls back to `RibbonIcon` `circle-user` when no thumbnail URL exists.
+  - Evidence (source): `src/features/profile_avatar/ribbon_account_avatar.tsx` `RibbonAccountAvatar` falls back to `RibbonIcon` `circle-user` when no Profile image or provided avatar exists.
 - [ ] All required ribbon choices remain visible even when their collection is empty.
   - Mismatch: several required choices have `future` destinations in `src/ribbon/ribbon_catalog.ts` and are not admitted as usable controls.
 - [x] A working navigation destination remains visible when its collection is empty.
@@ -468,7 +474,11 @@ PLE product or code behavior.
 - [ ] Instructor Course and Assessment lists should be dense and easy to scan, more like a spreadsheet than cards.
   - Mismatch: `src/pages/course_list_page.tsx` has a dense Course Instance row, but no Assessment-named list exists; `src/pages/assignments_due_soon_page.tsx` still presents Assignments.
 - [ ] Instructor **Student View** is an answer-free preview and does not create Student Work, Assessment Attempts, submissions, or grades.
-  - Mismatch: `src/pages/assignment_preview_page.tsx` implements an Assignment preview, and its display text alone does not verify the required Assessment projection and no-write behavior.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_student_view_page.tsx` `AssessmentWorkspaceStudentViewPage` renders the server-authorized answer-free Assessment projection, loads only the manifest and selected Question, disables native response controls, and provides no Student Work, Assessment Attempt, submission, or grade action.
+  - Evidence (source): `crates/server/src/assessment_student_view.rs` `assessment_student_view_router`, `crates/learning-data-access/src/postgres/assessment_student_view.rs` `PostgresInstructorStudentViewStore`, and `schemas/base_schema/assessment_student_view.sql` `load_instructor_student_view_question_source` implement the authorized no-write server, Store, and SQL boundaries.
+  - Evidence (runtime): a fresh PostgreSQL proof exercised the real Store through the API roles with a nonempty Ready Asset rendition and verified read-only SQLSTATE `25006` plus zero writes to Student-state tables.
+  - Evidence (test): an independently reviewed Chromium component proof with mock transport covered native and WeBWorK presentations, navigation, disabled controls, stale and error recovery, and no mutation requests; it was not connected or live-stack acceptance.
+  - Mismatch: connected live-HTTP acceptance is still missing; the unchanged full server compile is blocked in the AWS dependency graph; and production iMathAS Student View integration remains deferred outside the pilot. Independent final server source review passed, but it does not establish runtime behavior.
 
 #### Courses
 
@@ -686,8 +696,8 @@ PLE product or code behavior.
 
 - [ ] Danger Zone contains **Assessment Unrelease**, **Archive Published Question**, and **Archive Blueprint Course**.
   - Mismatch: the implemented UI names the first action "Unrelease assignment," not Assessment Unrelease.
-- [x] Danger Zone should be visually separate from ordinary editing actions.
-  - Evidence (source): `src/pages/assignment_workspace/assignment_workspace_policies_page.tsx` `assignment-workspace-unrelease-danger-zone` is a separate danger section.
+- [ ] Danger Zone should be visually separate from ordinary editing actions.
+  - Mismatch: `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` renders the separate `assessment-workspace-unrelease-danger-zone` section, but `src/pages/assessment_workspace/assessment_workspace.css` still styles the retired `assignment-workspace-unrelease-danger-zone` class, so the intended visual separation is not applied.
 - [ ] Assessment Unrelease should explain that Student work will be deleted.
   - Mismatch: `src/pages/assignment_workspace/assignment_workspace_policies_page.tsx` explains Assignment unrelease, not Assessment Unrelease.
 - [ ] Assessment Unrelease should require typing the Assessment title before confirmation.
@@ -1187,7 +1197,7 @@ PLE product or code behavior.
 - [x] The Question Library is one global collection of published Question content.
   - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question` is not course-scoped.
 - [x] **Published Questions** are available to all vetted **Instructors**.
-  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `question_library_entries` requires an active Instructor Account and exposes available Question summaries.
+  - Evidence (source): `schemas/base_schema/question_library_operations.sql` `question_library_entries` requires an active Instructor Account and exposes available Question summaries.
 - [ ] Published Question Pools are available to all vetted **Instructors**.
   - Mismatch: published Question Pool library objects do not exist.
 - [ ] **Students** access Question content through their Coursework rather than through the Question Library.
@@ -1229,11 +1239,11 @@ PLE product or code behavior.
 - [ ] Assessments and Student Work remain pinned to exact immutable Published Question Revisions.
   - Mismatch: exact revision columns are source evidence only; no connected test verifies an Assessment and Student Work stay pinned across a later publication.
 - [x] Publishing a new Question Revision does not silently change existing Assessments or Student Work.
-  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` publication appends `next_revision_number` rather than rewriting prior rows.
+  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` publication appends `next_revision_number` rather than rewriting prior rows.
 - [x] The Question owner may publish corrections, wording changes, accessibility improvements, answer changes, grading changes, and other updates as a new Revision.
-  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `publish_question_revision` appends an owner-authored revision.
+  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` `publish_question_revision` appends an owner-authored revision.
 - [x] Changing Question source, answer content, grading rules, feedback, or Question assets creates a new Question Revision.
-  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `publish_question_revision` persists a new source binding keyed to a new revision.
+  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` `publish_question_revision` persists a new source binding keyed to a new revision.
 - [x] Changing the Question title, description, tags, subject, topic, or other search metadata does not create a new Question Revision.
   - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` is separate from `question_revision`.
 - [x] Search metadata belongs to the Published Question as a whole rather than to one Revision.

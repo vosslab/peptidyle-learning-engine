@@ -111,7 +111,12 @@ impl ImathasQuestionBackendConfig {
         Ok(self)
     }
 
-    fn supported_profile(&self) -> SupportedImathasProfile {
+    /// Returns the exact validated render profile selected by this deployment configuration.
+    ///
+    /// The value contains no endpoint or credential. Callers must still require the source's
+    /// Deployment Reference to match the configuration before composing a published render
+    /// binding.
+    pub fn supported_profile(&self) -> SupportedImathasProfile {
         // Construction has already frozen these compatibility claims.
         SupportedImathasProfile::new(
             question_model::ImathasProfile::new(IMATHAS_GRADING_PROFILE_ID)

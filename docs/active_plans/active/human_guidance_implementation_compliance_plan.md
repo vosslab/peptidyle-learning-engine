@@ -1306,6 +1306,11 @@ merely to obtain a passing result.
 - Owned boundary: `crates/server/src/assignment_delivery.rs`; do not alter the frontend preview
   presentation in this contributor.
 - Dependencies: pending A9 Attempt/write boundary.
+- Priority note: iMathAS is not planned for the pilot and remains a PLE Question Backend. Prioritize Native PLE
+  and WeBWorK Student View delivery; finish the already-bounded no-write iMathAS adapter without
+  spending substantial additional time, then defer broader iMathAS production wiring and live proof.
+  This is neither an N/A classification nor an exemption from Human Guidance completion; its later
+  production completion remains open.
 - Focused gates: `source source_me.sh && cargo test -p server_core assignment_delivery`; then
   `bash tests/e2e/e2e_live_demo_course_instance.sh --service`; then fast checks.
 - Permanent-gate decision and failure plan: retain no-write/answer-redaction authorization cases

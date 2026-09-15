@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 use axum::{
     extract::{Path, State},
-    http::{HeaderMap, HeaderValue, StatusCode, header},
+    http::{HeaderMap, HeaderName, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD};
@@ -56,6 +56,17 @@ pub(crate) async fn document(
         Some(value) => value,
         _ => return concealed(),
     };
+    author_content_document_response(&author_content, state.browser_origin.as_ref())
+}
+
+/// Builds one isolated author-content document after the caller has authorized
+/// and reproduced the exact immutable native Question source.
+pub(crate) fn author_content_document_response(
+    author_content: &question_model::AuthorContentPresentation,
+    browser_origin: &str,
+) -> Response {
+    // ASVS 1.1.2, 1.2.1, 3.2.1, 3.4.3-3.4.6, and 4.1.1: source enters only
+    // the existing base64/nonce document builder under its isolated response policy.
     let runtime = match author_content.library_ids() {
         [] => None,
         [AuthorContentLibraryId::Rdkit] => match reviewed_rdkit_runtime() {
@@ -66,10 +77,12 @@ pub(crate) async fn document(
     };
     let nonce = match document_nonce() {
         Ok(value) => value,
-        Err(()) => return StatusCode::SERVICE_UNAVAILABLE.into_response(),
+        Err(()) => {
+            return crate::auth::no_store(StatusCode::SERVICE_UNAVAILABLE.into_response());
+        }
     };
     let html = document_html(author_content.source(), runtime.as_ref(), &nonce);
-    let csp = document_csp(state.browser_origin.as_ref(), runtime.as_ref(), &nonce);
+    let csp = document_csp(browser_origin, runtime.as_ref(), &nonce);
     let mut response = (StatusCode::OK, html).into_response();
     let response_headers = response.headers_mut();
     response_headers.insert(
@@ -88,6 +101,10 @@ pub(crate) async fn document(
     response_headers.insert(
         header::X_CONTENT_TYPE_OPTIONS,
         HeaderValue::from_static("nosniff"),
+    );
+    response_headers.insert(
+        HeaderName::from_static("cross-origin-resource-policy"),
+        HeaderValue::from_static("same-origin"),
     );
     response
 }

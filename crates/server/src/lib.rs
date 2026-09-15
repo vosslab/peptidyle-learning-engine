@@ -13,6 +13,8 @@ mod assessment_pool_fork;
 mod assessment_pool_selection_count;
 /// Direct-Instructor Assessment Workspace and immutable release routes.
 pub(crate) mod assessment_release;
+/// Answer-free, no-write Instructor Student View delivery routes.
+pub(crate) mod assessment_student_view;
 /// Authentication, sessions, and the first-party browser boundary.
 pub mod auth;
 /// Fixed public routes for reviewed author-content runtime assets.

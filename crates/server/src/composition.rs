@@ -18,10 +18,11 @@ use learning_data_access::{
         PostgresCourseRetentionNotificationStore, PostgresCourseRetentionStore,
         PostgresCourseRosterStore, PostgresCourseThemeStore,
         PostgresDraftQuestionSourceBindingStore, PostgresInstructorAccountStore,
-        PostgresInvitationExportStore, PostgresLiveAssessmentDeliveryStore,
-        PostgresLiveAssessmentStore, PostgresLiveStudentCourseLandingStore,
-        PostgresPublicAssetPublicationStore, PostgresQuestionAssetDeliveryStore,
-        PostgresQuestionForkStore, PostgresQuestionLibraryStore, PostgresQuestionPoolCreationStore,
+        PostgresInstructorStudentViewStore, PostgresInvitationExportStore,
+        PostgresLiveAssessmentDeliveryStore, PostgresLiveAssessmentStore,
+        PostgresLiveStudentCourseLandingStore, PostgresPublicAssetPublicationStore,
+        PostgresQuestionAssetDeliveryStore, PostgresQuestionForkStore,
+        PostgresQuestionLibraryStore, PostgresQuestionPoolCreationStore,
         PostgresQuestionPoolLibraryStore, PostgresQuestionStarStore,
         PostgresQuestionWatchNotificationStore, PostgresQuestionWatchStore, PostgresSessionStore,
         PostgresSupportCapabilityStore, PostgresSysadminTotpStore, ProductionLoginProfile,
@@ -114,9 +115,10 @@ pub async fn production_router_from_env() -> Result<Router> {
     let assessment_pool_selection_counts =
         PostgresAssessmentPoolSelectionCountStore::new(pool.clone());
     let assessment_delivery = PostgresLiveAssessmentDeliveryStore::new(pool.clone());
+    let assessment_student_view = PostgresInstructorStudentViewStore::new(pool.clone());
     let question_asset_delivery = PostgresQuestionAssetDeliveryStore::new(pool.clone());
     let authoring_drafts = PostgresAuthoringDraftStore::new(pool.clone());
-    let authoring_publication = PostgresDraftQuestionSourceBindingStore::new(pool);
+    let authoring_publication = PostgresDraftQuestionSourceBindingStore::new(pool.clone());
     let question_library_objects = question_library_object_store_from_env().await?;
     let webwork_adapter = webwork_adapter_from_env()?;
     let webwork_asset_proxy = webwork_asset_proxy_from_env()?;
@@ -284,9 +286,19 @@ pub async fn production_router_from_env() -> Result<Router> {
             Arc::clone(&sessions),
             assessment_delivery,
             question_library_objects.clone(),
-            webwork_adapter,
+            Arc::clone(&webwork_adapter),
             Arc::clone(&browser_boundary.origin),
         ))
+        .merge(
+            crate::assessment_student_view::assessment_student_view_router(
+                Arc::clone(&sessions),
+                assessment_student_view,
+                question_library_objects.clone(),
+                Arc::clone(&webwork_adapter),
+                question_id_issuer.clone(),
+                Arc::clone(&browser_boundary.origin),
+            ),
+        )
         .merge(
             crate::webwork_asset_proxy::webwork_asset_proxy_router(webwork_asset_proxy)
                 .map_err(anyhow::Error::msg)?,

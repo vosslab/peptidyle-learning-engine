@@ -1,30 +1,21 @@
 /* Shared desktop-first surface for the assignment workspace shell and its child pages. */
 
-.assignment-workspace {
+.assessment-workspace {
   display: grid;
   gap: var(--ple-section-gap);
 }
 
-.assignment-workspace-overview,
-.assignment-workspace-placeholder,
-.assignment-workspace-policies {
+.assessment-workspace-overview,
+.assessment-workspace-policies {
   display: grid;
   gap: var(--ple-section-gap);
 }
 
-.assignment-workspace-policy-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
-  gap: var(--ple-card-gap, 1rem);
-}
-
-.assignment-workspace-policy-grid > *,
-.assignment-workspace-policies .assignment-editor-policy-panel {
+.assessment-workspace-policies .assessment-editor-policy-panel {
   min-width: 0;
 }
 
-.assignment-workspace-policies .assignment-editor-policy-panel {
+.assessment-workspace-policies .assessment-editor-policy-panel {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   padding: var(--ple-panel-padding, 0.85rem);
   border-radius: var(--ple-radius-inset, 0.7rem);
@@ -32,45 +23,45 @@
   box-shadow: var(--ple-shadow);
 }
 
-.assignment-workspace-policies .assignment-editor-policy-set {
+.assessment-workspace-policies .assessment-editor-policy-set {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   gap: var(--ple-assignment-field-gap);
 }
 
-.assignment-workspace-policies .assignment-editor-policy-set--disclosure,
-.assignment-workspace-policies .assignment-editor-policy-set--lifecycle,
-.assignment-workspace-policies .assignment-editor-policy-set--schedule {
+.assessment-workspace-policies .assessment-editor-policy-set--disclosure,
+.assessment-workspace-policies .assessment-editor-policy-set--lifecycle,
+.assessment-workspace-policies .assessment-editor-policy-set--schedule {
   grid-column: 1 / -1;
 }
 
-.assignment-workspace-policies .assignment-editor-policy-set--disclosure {
+.assessment-workspace-policies .assessment-editor-policy-set--disclosure {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.assignment-workspace-policies .assignment-editor-policy-set--lifecycle {
+.assessment-workspace-policies .assessment-editor-policy-set--lifecycle {
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
 }
 
-.assignment-workspace-policies .assignment-editor-policy-set--schedule {
+.assessment-workspace-policies .assessment-editor-policy-set--schedule {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.assignment-workspace-policies .assignment-editor-policy-set > legend,
-.assignment-workspace-policies .assignment-editor-policy-set > .assignment-editor-note {
+.assessment-workspace-policies .assessment-editor-policy-set > legend,
+.assessment-workspace-policies .assessment-editor-policy-set > .assessment-editor-note {
   grid-column: 1 / -1;
 }
 
-.assignment-workspace-policies .assignment-editor-field,
-.assignment-workspace-policies .assignment-editor-field input,
-.assignment-workspace-policies .assignment-editor-field select,
-.assignment-workspace-policies .assignment-editor-field textarea {
+.assessment-workspace-policies .assessment-editor-field,
+.assessment-workspace-policies .assessment-editor-field input,
+.assessment-workspace-policies .assessment-editor-field select,
+.assessment-workspace-policies .assessment-editor-field textarea {
   min-width: 0;
   max-width: 100%;
 }
 
-.assignment-workspace-save-message {
+.assessment-workspace-save-message {
   margin: 0;
   padding: 0.75rem 0.9rem;
   border-inline-start: 0.35rem solid var(--ple-success, #237447);
@@ -78,12 +69,12 @@
   background: color-mix(in srgb, var(--ple-success, #237447) 12%, var(--ple-card-surface));
 }
 
-.assignment-workspace-save-message[role="alert"] {
+.assessment-workspace-save-message[role="alert"] {
   border-inline-start-color: var(--ple-danger, #a33a26);
   background: color-mix(in srgb, var(--ple-danger, #a33a26) 10%, var(--ple-card-surface));
 }
 
-.assignment-workspace-unrelease-danger-zone {
+.assessment-workspace-unrelease-danger-zone {
   display: grid;
   gap: 0.75rem;
   padding: var(--ple-panel-padding, 0.85rem);
@@ -92,19 +83,19 @@
   background: color-mix(in srgb, var(--ple-danger, #a33a26) 9%, var(--ple-card-surface));
 }
 
-.assignment-workspace-unrelease-danger-zone h2,
-.assignment-workspace-unrelease-danger-zone p {
+.assessment-workspace-unrelease-danger-zone h2,
+.assessment-workspace-unrelease-danger-zone p {
   margin: 0;
 }
 
-.assignment-workspace-unrelease-danger-zone dl {
+.assessment-workspace-unrelease-danger-zone dl {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.5rem;
   margin: 0;
 }
 
-.assignment-workspace-unrelease-danger-zone dt {
+.assessment-workspace-unrelease-danger-zone dt {
   color: var(--ple-muted);
   font-size: 0.76rem;
   font-weight: 750;
@@ -112,79 +103,29 @@
   text-transform: uppercase;
 }
 
-.assignment-workspace-unrelease-danger-zone dd {
+.assessment-workspace-unrelease-danger-zone dd {
   margin: 0.12rem 0 0;
   font-variant-numeric: tabular-nums;
   font-weight: 750;
 }
 
-.assignment-workspace-unrelease-danger-zone .assignment-editor-field {
+.assessment-workspace-unrelease-danger-zone .assessment-editor-field {
   max-width: 48rem;
 }
 
-.assignment-workspace-danger-action {
+.assessment-workspace-danger-action {
   justify-self: start;
   border-color: var(--ple-danger, #a33a26);
   background: var(--ple-danger, #a33a26);
   color: white;
 }
 
-.assignment-workspace-danger-action:focus-visible {
+.assessment-workspace-danger-action:focus-visible {
   outline: 0.2rem solid var(--ple-focus);
   outline-offset: 0.2rem;
 }
 
-.assignment-workspace-policy-summary {
-  min-width: 0;
-  padding: calc(var(--ple-panel-padding, 0.85rem) - 0.2rem);
-  border-radius: var(--ple-radius-inset, 0.7rem);
-  background: color-mix(in srgb, var(--ple-card-surface) 84%, transparent);
-  box-shadow: var(--ple-shadow);
-}
-
-.assignment-workspace-policy-summary h2 {
-  margin: 0 0 0.45rem;
-  font-size: 1rem;
-}
-
-.assignment-workspace-policy-summary dl {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.45rem var(--ple-layout-gap, 1rem);
-  margin: 0;
-}
-
-.assignment-workspace-policy-summary dl > div {
-  min-width: 0;
-}
-
-.assignment-workspace-policy-summary dt {
-  color: var(--ple-muted);
-  font-size: 0.76rem;
-  font-weight: 750;
-  letter-spacing: 0.035em;
-  text-transform: uppercase;
-}
-
-.assignment-workspace-policy-summary dd {
-  margin: 0.12rem 0 0;
-  font-size: 0.86rem;
-  line-height: 1.32;
-  overflow-wrap: anywhere;
-}
-
-.assignment-workspace-policy-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.7rem 1rem;
-  padding: calc(var(--ple-panel-padding, 0.85rem) - 0.25rem);
-  border-radius: var(--ple-radius-inset, 0.7rem);
-  background: color-mix(in srgb, var(--ple-card-surface) 90%, transparent);
-  box-shadow: var(--ple-shadow);
-}
-
-.assignment-workspace-policy-controls {
+.assessment-workspace-policy-controls {
   display: grid;
   min-width: 0;
   gap: var(--ple-section-gap);
@@ -193,14 +134,14 @@
   border: 0;
 }
 
-.assignment-workspace-schedule {
+.assessment-workspace-schedule {
   display: grid;
   grid-column: 1 / -1;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--ple-compact-gap, 0.35rem);
 }
 
-.assignment-workspace-choice {
+.assessment-workspace-choice {
   display: flex;
   align-items: baseline;
   gap: 0.45rem;
@@ -208,88 +149,155 @@
   width: fit-content;
 }
 
-.assignment-workspace-policies .assignment-workspace-choice input {
+.assessment-workspace-policies .assessment-workspace-choice input {
   flex: 0 0 auto;
   width: auto;
   min-width: auto;
   max-width: none;
 }
 
-.assignment-workspace-header {
+.assessment-workspace-header {
   display: grid;
   gap: 0.32rem;
 }
 
-.assignment-workspace-header h1 {
+.assessment-workspace-header h1 {
   max-width: 42ch;
 }
 
-.assignment-workspace-grid {
+.assessment-workspace-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--ple-card-gap, 1rem);
 }
 
-.assignment-workspace-card {
+.assessment-workspace-card {
   min-width: 0;
   padding: 1rem;
 }
 
-.assignment-workspace-card:last-child {
+.assessment-workspace-card:last-child {
   grid-column: 1 / -1;
 }
 
-.assignment-workspace-card h2,
-.assignment-workspace-contextual-actions h2 {
+.assessment-workspace-card h2 {
   margin-top: 0;
 }
 
-.assignment-workspace-card .assignment-facts {
+.assessment-workspace-card .assessment-facts {
   margin-top: 0.85rem;
 }
 
-.assignment-workspace-next-actions {
+.assessment-workspace-next-actions {
   margin: 0.7rem 0;
   padding-left: 1.2rem;
 }
 
-.assignment-workspace-action-row,
-.assignment-workspace-contextual-actions {
+.assessment-workspace-action-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.7rem 1rem;
 }
 
-.assignment-workspace-action-row {
+.assessment-workspace-action-row {
   margin: 1rem 0 0;
 }
 
-.assignment-workspace-contextual-actions {
-  padding-top: 0.3rem;
-}
-
-.assignment-workspace-contextual-actions h2 {
-  flex-basis: 100%;
-}
-
-.assignment-workspace-placeholder {
-  max-width: 62ch;
-}
-
-.assignment-workspace-student-view {
+.assessment-workspace-student-view {
   display: grid;
   gap: var(--ple-section-gap);
-  max-width: 68ch;
+  width: min(100%, var(--ple-reading-max-inline));
 }
 
 .student-view-cue {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.35rem 1rem;
   padding: 0.8rem 1rem;
   border: 1px solid var(--ple-focus);
   border-radius: var(--ple-radius-inset, 0.6rem);
   background: color-mix(in srgb, var(--ple-focus) 8%, var(--ple-card-surface));
   color: var(--ple-ink);
   font-weight: 700;
+}
+
+.student-view-cue span {
+  font-weight: 500;
+}
+
+.student-view-assessment-summary,
+.student-view-question-area,
+.student-view-question-preview {
+  display: grid;
+  gap: 1rem;
+}
+
+.student-view-question-area {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--ple-border);
+}
+
+.student-view-question-navigation,
+.student-view-question-pager,
+.student-view-question-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.student-view-question-navigation {
+  justify-content: space-between;
+}
+
+.student-view-question-navigation h2 {
+  margin: 0;
+}
+
+.student-view-question-buttons .selected {
+  border-color: var(--ple-focus);
+  background: color-mix(in srgb, var(--ple-focus) 12%, var(--ple-card-surface));
+  font-weight: 700;
+}
+
+.student-view-question-pager {
+  justify-content: space-between;
+}
+
+.student-view-disabled-response {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-inset, 0.6rem);
+}
+
+.student-view-disabled-response [inert] {
+  pointer-events: none;
+  opacity: 0.72;
+}
+
+.student-view-question-document {
+  width: 100%;
+  min-height: 28rem;
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-inset, 0.6rem);
+  background: var(--ple-card-surface);
+}
+
+.student-view-stale {
+  padding: 0.8rem 1rem;
+  border-left: 0.3rem solid var(--ple-focus);
+  background: color-mix(in srgb, var(--ple-focus) 8%, var(--ple-card-surface));
+}
+
+.student-view-stale > :first-child,
+.student-view-stale > :last-child {
+  margin-block: 0;
+}
+
+.student-view-unavailable-entries {
+  margin-block: 0;
 }
 
 .student-view-actions {
@@ -309,53 +317,44 @@
   color: var(--ple-muted);
 }
 
-.assignment-workspace-placeholder .quiet-link {
-  width: fit-content;
-}
-
-.assignment-workspace-state {
+.assessment-workspace-state {
   width: min(100%, var(--ple-reading-max-inline));
 }
 
 @media (max-width: 60rem) {
-  .assignment-workspace-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .assignment-workspace-policy-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .assignment-workspace-policies .assignment-editor-policy-panel {
+  .student-view-cue {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .assignment-workspace-policy-summary dl {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .assessment-workspace-grid {
+    grid-template-columns: 1fr;
   }
 
-  .assignment-workspace-unrelease-danger-zone dl {
+  .assessment-workspace-policies .assessment-editor-policy-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .assessment-workspace-unrelease-danger-zone dl {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .assignment-workspace-schedule {
+  .assessment-workspace-schedule {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .assignment-workspace-card:last-child {
+  .assessment-workspace-card:last-child {
     grid-column: auto;
   }
 }
 
 @media (max-width: 40rem) {
-  .assignment-workspace-policies .assignment-editor-policy-set--disclosure,
-  .assignment-workspace-policies .assignment-editor-policy-set--lifecycle,
-  .assignment-workspace-policies .assignment-editor-policy-set--schedule,
-  .assignment-workspace-policy-summary dl {
+  .assessment-workspace-policies .assessment-editor-policy-set--disclosure,
+  .assessment-workspace-policies .assessment-editor-policy-set--lifecycle,
+  .assessment-workspace-policies .assessment-editor-policy-set--schedule {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .assignment-workspace-unrelease-danger-zone dl {
+  .assessment-workspace-unrelease-danger-zone dl {
     grid-template-columns: minmax(0, 1fr);
   }
 }

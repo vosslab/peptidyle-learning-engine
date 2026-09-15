@@ -152,6 +152,9 @@ The authoritative exhaustive record is the
 
 - Instructor **Student View** is an answer-free preview and does not create Student Work, Assessment Attempts, submissions, or grades.
   - Source: `docs/HUMAN_GUIDANCE.md:243`
+  - Implementation: `AssessmentWorkspaceStudentViewPage`, `assessment_student_view_router`, `PostgresInstructorStudentViewStore`, and `load_instructor_student_view_question_source` now form the server-authorized answer-free, no-write Assessment projection.
+  - Accepted evidence: fresh PostgreSQL exercised the real Store through API roles with a nonempty Ready Asset rendition, read-only SQLSTATE `25006`, and zero Student-state writes. Independently reviewed Chromium component evidence covered native and WeBWorK rendering, navigation, disabled controls, stale and error recovery, and no mutation requests using mock transport.
+  - Remaining gap: the Chromium evidence was not connected or live-stack acceptance; the unchanged full server compile remains blocked in the AWS dependency graph; and production iMathAS Student View integration remains deferred outside the pilot. Independent final server source review passed, but it does not establish runtime behavior.
 
 - The **Courses** ribbon must include: My Blueprint Courses, My Active Courses, My Inactive Courses, Search Public Blueprint Courses.
   - Source: `docs/HUMAN_GUIDANCE.md:247`

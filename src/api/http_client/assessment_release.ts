@@ -11,7 +11,6 @@ import type {
   UnreleasedLiveAssessment,
 } from "../assessment_release";
 import {
-  decodeAssessmentPreview,
   decodeAssessmentQuestionPicker,
   decodeAssessmentReleaseValidation,
   decodeAssessmentUnreleaseImpact,
@@ -253,15 +252,6 @@ export function createLiveAssessmentReleaseClient(
           basePath,
           `${assessmentPath(course, assessment)}/release-validation`,
           decodeAssessmentReleaseValidation,
-        )
-      ).body,
-    getLiveAssessmentPreview: async (course, assessment) =>
-      (
-        await assessmentJson(
-          fetchImplementation,
-          basePath,
-          `${assessmentPath(course, assessment)}/preview`,
-          decodeAssessmentPreview,
         )
       ).body,
     releaseLiveAssessment: async (

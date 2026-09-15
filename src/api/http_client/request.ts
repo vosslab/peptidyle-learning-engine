@@ -8,11 +8,9 @@ import type {
   AssessmentContentInput,
   AssessmentCreateInput,
   StudentFeedbackReleaseResponse,
-  InstructorStudentView,
 } from "../contracts";
 import {
   decodeAssessmentContentInput,
-  decodeInstructorStudentView,
   decodeAssessmentAttempt,
   decodeCapabilityViolations,
   decodeStudentFeedbackReleaseResponse,
@@ -23,7 +21,6 @@ import { decodeAssessmentEditorDetail } from "../decoders/assessment_workspace";
 import { ApiProtocolError, ApiRequestError, AssessmentConflictError } from "./error";
 import {
   MAX_RESPONSE_CHARACTERS,
-  boundedResponseJson,
   decodeJson,
   requireNoStore,
   responseContentType,
@@ -184,7 +181,6 @@ export function createRequestClient(
   | "createAssessment"
   | "getAssessmentWorkspace"
   | "saveAssessmentContent"
-  | "getInstructorStudentView"
   | "startAssessmentAttempt"
   | "releaseStudentFeedback"
   | "validateResponseFormatOnServer"
@@ -232,18 +228,6 @@ export function createRequestClient(
           headers: { "if-match": assessmentEtag },
         },
       );
-    },
-    getInstructorStudentView: async (courseId, assessmentId): Promise<InstructorStudentView> => {
-      const path = `${assessmentPath(courseId, assessmentId)}/student-view`;
-      const response = await fetchImplementation(requestPath(basePath, path), {
-        method: "GET",
-        headers: { accept: "application/json" },
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      requireNoStore(response, path);
-      if (!response.ok) throw new ApiRequestError(response.status, path);
-      return decodeInstructorStudentView(await boundedResponseJson(response, path), "response");
     },
     startAssessmentAttempt: (courseId, assessmentId): Promise<AssessmentAttempt> =>
       requestJson(

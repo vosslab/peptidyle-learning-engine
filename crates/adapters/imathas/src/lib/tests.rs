@@ -5,6 +5,79 @@ use objects::memory::MemoryObjectStore;
 
 use super::*;
 
+#[derive(Clone, Copy)]
+struct NoAccessObjectStore;
+
+#[async_trait]
+impl ObjectStore for NoAccessObjectStore {
+    async fn put(
+        &self,
+        _request: PutObject,
+    ) -> Result<objects::ObjectRecord, objects::ObjectStoreError> {
+        panic!("Student View preview must not write object storage")
+    }
+
+    async fn get(
+        &self,
+        _address: &ObjectAddress,
+    ) -> Result<objects::StoredObject, objects::ObjectStoreError> {
+        panic!("Student View preview must not read object storage")
+    }
+
+    async fn delete(&self, _address: &ObjectAddress) -> Result<(), objects::ObjectStoreError> {
+        panic!("Student View preview must not delete object storage")
+    }
+
+    async fn signed_url(
+        &self,
+        _address: &ObjectAddress,
+        _now: Timestamp,
+    ) -> Result<objects::SignedUrl, objects::ObjectStoreError> {
+        panic!("Student View preview must not create an object-storage delivery URL")
+    }
+}
+
+#[derive(Clone)]
+struct ExpectedPreviewBackend {
+    question_revision: QuestionRevisionReference,
+    question_seed: QuestionSeed,
+}
+
+impl sealed::QuestionBackendSealed for ExpectedPreviewBackend {}
+
+#[async_trait]
+impl QuestionBackend for ExpectedPreviewBackend {
+    async fn snapshot(
+        &self,
+        _locator: &ImathasQuestionLocation,
+    ) -> Result<(Vec<u8>, SupportedImathasProfile), ImathasQuestionBackendFailure> {
+        panic!("Student View preview must not prepare a publication snapshot")
+    }
+
+    async fn render(
+        &self,
+        request: ImathasRenderRequest<'_>,
+    ) -> Result<SafeImathasQuestionRender, ImathasQuestionBackendFailure> {
+        assert_eq!(request.snapshot, b"{\"recorded\":true}");
+        assert_eq!(request.profile, "recorded-v1");
+        assert_eq!(request.question_revision, self.question_revision);
+        assert_eq!(request.question_seed, self.question_seed);
+        Ok(SafeImathasQuestionRender {
+            question_title: "Previewed iMathAS question".into(),
+            prompt: vec![QuestionContentBlock::Text {
+                markdown: "Read-only iMathAS prompt.".into(),
+            }],
+        })
+    }
+
+    async fn verify_result(
+        &self,
+        _request: ImathasResultRequest<'_>,
+    ) -> Result<VerifiedImathasResult, ImathasQuestionBackendFailure> {
+        panic!("Student View preview must not verify or grade a result")
+    }
+}
+
 #[derive(Clone)]
 struct RecordedImathasQuestionBackend {
     renders: Arc<AtomicUsize>,
@@ -223,6 +296,58 @@ async fn draft_snapshot_is_unversioned_and_publication_handoff_is_source_object_
             ImathasQuestionLocation::from_draft_imathas_question_backend_binding(&draft_binding())
         ),
         "ImathasQuestionLocation(REDACTED)"
+    );
+}
+
+#[tokio::test]
+async fn student_view_preview_is_answer_free_no_write_and_fail_closed() {
+    let source_store = MemoryObjectStore::default();
+    let (question, source, _) = stored_source(&source_store).await;
+    let seed = QuestionSeed::new(73);
+    let adapter = ImathasAdapter::new(
+        NoAccessObjectStore,
+        ExpectedPreviewBackend {
+            question_revision: question.clone(),
+            question_seed: seed,
+        },
+        [profile()],
+    );
+
+    let preview = adapter.preview(&question, seed, &source).await.unwrap();
+    assert_eq!(preview.question_title, "Previewed iMathAS question");
+    assert_eq!(
+        preview.prompt,
+        vec![QuestionContentBlock::Text {
+            markdown: "Read-only iMathAS prompt.".into(),
+        }]
+    );
+
+    let wrong_question = QuestionRevisionReference {
+        question_id: QuestionId::from_canonical_parts("BCDEFGH", 'H').expect("Question ID"),
+        revision_number: question.revision_number,
+    };
+    assert_eq!(
+        adapter
+            .preview(&wrong_question, seed, &source)
+            .await
+            .unwrap_err(),
+        ImathasAdapterError::SourceDoesNotMatchQuestion
+    );
+
+    let unsupported = ImathasAdapter::new(
+        NoAccessObjectStore,
+        ExpectedPreviewBackend {
+            question_revision: question.clone(),
+            question_seed: seed,
+        },
+        [],
+    );
+    assert_eq!(
+        unsupported
+            .preview(&question, seed, &source)
+            .await
+            .unwrap_err(),
+        ImathasAdapterError::UnsupportedProfile
     );
 }
 

@@ -33,8 +33,8 @@ test("route contracts fail closed and reserve declared teaching routes for instr
     "assessmentWorkspaceStudentView",
   );
   assert.equal(
-    routeContractForPathname("/instructor/courses/CI7K3M2Q/assessments/A9D2RX5/delivery-check")?.id,
-    "assessmentPreview",
+    routeContractForPathname("/instructor/courses/CI7K3M2Q/assessments/A9D2RX5/delivery-check"),
+    undefined,
   );
   assert.equal(
     routeContractForPathname("/instructor/courses/CI7K3M2Q/assessments/A9D2RX5/release"),

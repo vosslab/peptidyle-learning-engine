@@ -9,6 +9,18 @@
 
 ### Additions and New Features
 
+- Added the canonical no-write Instructor Student View server boundary. The manifest projects
+  current answer-free Assessment policy and transient exact Pool selections with a strong saved
+  Edit Number ETag; separate reauthorized reads deliver native PLE presentations and sandboxed
+  pre-submission WeBWorK documents without creating Student Work, Attempts, submissions, grades,
+  stored objects, or renderer cache entries. The prior metadata-only Assessment `/preview` API is
+  no longer registered. Production iMathAS Student View rendering remains explicitly unavailable
+  until its existing configured backend is composed into this server path.
+
+- Added locally vendored IBM Plex Sans Condensed only for long Citation URL input values, including
+  slashed-zero numerals, same-origin production delivery, and a one-time Chromium font receipt.
+  Atkinson Hyperlegible Next remains the main PLE font; this adds no broad anchor styling.
+
 - Added active-vetted-Instructor published Question Pool reads: bounded opaque-cursor global
   discovery, server-HMAC-validated current Revision detail, and Course-Instructor-owned exact
   Assessment fork detail reuse the answer-free exact Question Revision projection. Every published
@@ -365,6 +377,25 @@
   run with the repository's TypeScript loader and is not a permanent test.
 
 ### Fixes and Maintenance
+
+- Repaired the Question Asset Publication claim to use the canonical Job attempt fields and
+  unambiguous Job-qualified CAS predicates. A fresh PostgreSQL 17 proof passed exact claim,
+  single-attempt increment, active-lease exclusion, and atomic Pending-to-Ready activation.
+
+- Repaired the deferred Question Asset Publication-to-Job invariant. The trigger now reads the
+  referenced current Job row and null-safely checks its exact kind, target, worker, Question, and
+  Revision instead of reading nonexistent publication fields; a fresh PostgreSQL 17 proof passed
+  valid Pending/Ready commits and rejected wrong bindings without disabling triggers or RLS.
+
+- Split accepted publication receipt and Question Library test owners into focused modules, and
+  modularized Question-authoring and Blueprint SQL without changing their statements or behavior.
+  Focused formatting and line-limit gates plus a fresh PostgreSQL schema install passed; the full
+  Cargo compile remains blocked by the unrelated AWS Smithy dependency incompatibility.
+
+- Set the local combined compiled-artifact budget to under 10 GB across workspace and temporary
+  build targets. The development guide now preserves useful compatible caches, requires exact
+  target, owner, and active-process inspection before an explicit cleanup decision, and does not
+  treat the budget as an entire-checkout limit or recurring test threshold.
 
 - Repaired durable contract and archived release-readiness links after the Assessment source
   cutover, and restored the required rationale fields for three existing design decisions.

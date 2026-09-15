@@ -103,6 +103,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   const [poolForks, setPoolForks] = createSignal<
     ReadonlyMap<AssessmentEntryId, AssessmentQuestionPoolForkView>
   >(new Map());
+  const [poolForkLoadFailed, setPoolForkLoadFailed] = createSignal(false);
   const [availablePools, setAvailablePools] = createSignal<
     ReadonlyArray<QuestionPoolLibrarySummary>
   >([]);
@@ -115,6 +116,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   const [poolScoringRule, setPoolScoringRule] = createSignal<
     "normal" | "fullCredit" | "extraCredit" | "excluded"
   >("normal");
+  let poolForkLoadRequest = 0;
 
   const descriptions = createMemo(() => {
     const known = new Map<string, string>();
@@ -137,7 +139,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
 
   onMount(() => {
     void loadAvailable();
-    void loadPoolForks(entries());
+    void loadInitialPoolForks();
   });
 
   async function loadAvailable(): Promise<void> {
@@ -155,7 +157,19 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     }
   }
 
-  async function loadPoolForks(currentEntries: ReadonlyArray<AssessmentEntry>): Promise<void> {
+  async function loadInitialPoolForks(): Promise<void> {
+    if ((await loadPoolForks(entries())) === "failed") {
+      setMessage(
+        "Exact Question Pool members could not load. Reload the Assessment and try again.",
+      );
+    }
+  }
+
+  async function loadPoolForks(
+    currentEntries: ReadonlyArray<AssessmentEntry>,
+  ): Promise<"loaded" | "failed" | "superseded"> {
+    const request = ++poolForkLoadRequest;
+    setPoolForkLoadFailed(false);
     const poolEntries = currentEntries.filter(
       (entry): entry is Extract<AssessmentEntry, { readonly kind: "questionPool" }> =>
         entry.kind === "questionPool",
@@ -174,11 +188,14 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
             ] as const,
         ),
       );
+      if (request !== poolForkLoadRequest) return "superseded";
       setPoolForks(new Map(loaded));
+      setPoolForkLoadFailed(false);
+      return "loaded";
     } catch {
-      setMessage(
-        "Exact Question Pool members could not load. Reload the Assessment and try again.",
-      );
+      if (request !== poolForkLoadRequest) return "superseded";
+      setPoolForkLoadFailed(true);
+      return "failed";
     }
   }
 
@@ -187,18 +204,30 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   }
 
   function move(index: number, offset: -1 | 1): void {
+    if (needsReload()) {
+      setMessage("Reload the latest Assessment before changing its entry order.");
+      return;
+    }
     setEntries((current) => moveAssessmentEntry(current, index, offset));
     setDirty((current) => nextQuestionEditDirty(current, "move"));
     setMessage("Entry order changed. Save Questions when ready.");
   }
 
   function remove(index: number): void {
+    if (needsReload()) {
+      setMessage("Reload the latest Assessment before removing an entry.");
+      return;
+    }
     setEntries((current) => removeAssessmentEntry(current, index));
     setDirty((current) => nextQuestionEditDirty(current, "remove"));
     setMessage("Entry removed. Save Questions when ready.");
   }
 
   function add(candidate: AssessmentQuestionPickerEntry): void {
+    if (needsReload()) {
+      setMessage("Reload the latest Assessment before adding an entry.");
+      return;
+    }
     setEntries((current) => appendAvailableFixedQuestion(current, candidate, entryId()));
     setDirty((current) => nextQuestionEditDirty(current, "add"));
     setMessage(
@@ -232,15 +261,28 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     }
   }
 
-  async function reload(): Promise<void> {
+  async function reload(discardLocalChanges = false): Promise<void> {
+    if (dirty() && !discardLocalChanges) {
+      setMessage(
+        "Your unsaved Assessment changes remain here. Discard them explicitly before reloading.",
+      );
+      return;
+    }
+    if (discardLocalChanges) setDirty(false);
     setBusy(true);
     try {
       const latest = await workspace.reloadAssessment();
       setEntries(latest.workspace.entries);
       setTitle(latest.workspace.title);
-      await loadPoolForks(latest.workspace.entries);
-      setNeedsReload(false);
-      setMessage("Latest assessment loaded. Review its complete ordered Entries.");
+      if ((await loadPoolForks(latest.workspace.entries)) === "loaded") {
+        setNeedsReload(false);
+        setMessage("Latest assessment loaded. Review its complete ordered Entries.");
+      } else {
+        setNeedsReload(true);
+        setMessage(
+          "Latest Assessment loaded, but exact Question Pool members could not load. Reload again.",
+        );
+      }
     } catch {
       setMessage("The latest assessment could not load. Your current Entries remain here.");
     } finally {
@@ -249,12 +291,25 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   }
 
   async function refreshAfterPoolMutation(success: string): Promise<void> {
-    const latest = await workspace.reloadAssessment();
-    setEntries(latest.workspace.entries);
-    setTitle(latest.workspace.title);
-    await loadPoolForks(latest.workspace.entries);
-    setNeedsReload(false);
-    setMessage(success);
+    try {
+      const latest = await workspace.reloadAssessment();
+      setEntries(latest.workspace.entries);
+      setTitle(latest.workspace.title);
+      if ((await loadPoolForks(latest.workspace.entries)) === "loaded") {
+        setNeedsReload(false);
+        setMessage(success);
+      } else {
+        setNeedsReload(true);
+        setMessage(
+          `${success} It was committed, but exact Question Pool members could not load. Reload again.`,
+        );
+      }
+    } catch {
+      setNeedsReload(true);
+      setMessage(
+        `${success} It was committed, but the latest Assessment could not load. Reload again.`,
+      );
+    }
   }
 
   async function updatePoolSelectionCount(
@@ -368,7 +423,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       <UnsavedChangesGuard dirty={dirty} save={save} />
       <header class="assessment-workspace-header">
         <p class="eyebrow">Assessment workspace</p>
-        <h1 id="assessment-questions-heading">Questions</h1>
+        <h1 id="assessment-questions-heading">Assessment Question Editor</h1>
         <p class="page-lede">
           Every Entry retains its exact Question Revision and stable identity for future Attempts.
         </p>
@@ -384,7 +439,9 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         Assessment title
         <input
           value={title()}
+          disabled={busy() || needsReload()}
           onInput={(event) => {
+            if (needsReload()) return;
             setTitle(event.currentTarget.value);
             setDirty((current) => nextQuestionEditDirty(current, "title"));
           }}
@@ -400,21 +457,21 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
                   <AssessmentEntrySummary entry={entry} description={description} />{" "}
                   <button
                     type="button"
-                    disabled={busy() || index() === 0}
+                    disabled={busy() || needsReload() || index() === 0}
                     onClick={() => move(index(), -1)}
                   >
                     Move earlier
                   </button>{" "}
                   <button
                     type="button"
-                    disabled={busy() || index() === entries().length - 1}
+                    disabled={busy() || needsReload() || index() === entries().length - 1}
                     onClick={() => move(index(), 1)}
                   >
                     Move later
                   </button>{" "}
                   <button
                     type="button"
-                    disabled={busy()}
+                    disabled={busy() || needsReload()}
                     aria-label={`Remove Assessment Entry ${index() + 1}`}
                     onClick={() => remove(index())}
                   >
@@ -425,6 +482,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
                       <AssessmentPoolEntryEditor
                         entry={poolEntry()}
                         fork={poolForks().get(poolEntry().id)}
+                        exactMembersUnavailable={poolForkLoadFailed()}
                         availableQuestions={available()}
                         mutationsEnabled={!dirty() && !needsReload()}
                         busy={busy()}
@@ -460,7 +518,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
                   {candidate.reference.revisionNumber}: {candidate.description}{" "}
                   <button
                     type="button"
-                    disabled={busy() || entries().length >= MAX_ASSIGNMENT_ENTRIES}
+                    disabled={busy() || needsReload() || entries().length >= MAX_ASSIGNMENT_ENTRIES}
                     onClick={() => add(candidate)}
                   >
                     Add Question
@@ -558,8 +616,10 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
           {busy() ? "Saving Questions..." : "Save Questions and order"}
         </button>
         <Show when={needsReload()}>
-          <button type="button" onClick={() => void reload()}>
-            Reload latest assessment
+          <button type="button" onClick={() => void reload(dirty())}>
+            {dirty()
+              ? "Discard local changes and reload latest Assessment"
+              : "Reload latest Assessment"}
           </button>
         </Show>
       </p>

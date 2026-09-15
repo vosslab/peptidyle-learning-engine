@@ -11,7 +11,7 @@ import { App } from "../../src/app";
 import { routeScopeKey } from "../../src/navigation/route_params";
 import { appRoutes, notFoundRoute } from "../../src/routes";
 
-type EvidenceCase = "policies" | "preview" | "workspace" | "roster";
+type EvidenceCase = "policies" | "studentView" | "workspace" | "roster";
 
 interface DeferredContentHarness {
   readonly dispose: () => void;
@@ -25,7 +25,7 @@ const PATHS: Readonly<Record<EvidenceCase, string>> = {
   // This is a role-authorized Instructor route; the fixture's session remains
   // Instructor for every routed case in this harness.
   policies: "/instructor/courses/CI7K3M2Q/assessments/A9D2RX5/properties",
-  preview: "/instructor/courses/CI4W8QF9/assessments/A5G7K3M/delivery-check",
+  studentView: "/instructor/courses/CI4W8QF9/assessments/A5G7K3M/student-view",
   workspace: "/instructor/courses/CI2N7H5X/assessments/A2N7H5X",
   roster: "/instructor/courses/CI9P6R4V/students",
 };
@@ -47,7 +47,7 @@ function assertFixturePathsHaveValidScope(): void {
 
 const COURSE_REFERENCE: Readonly<Record<EvidenceCase, string>> = {
   policies: "CI7K3M2Q",
-  preview: "CI4W8QF9",
+  studentView: "CI4W8QF9",
   workspace: "CI2N7H5X",
   roster: "CI9P6R4V",
 };
@@ -142,8 +142,6 @@ export function mountRibbonDeferredContentHarness(target: HTMLElement): Deferred
         }
         if (property === "getLiveAssignmentWorkspace")
           return () => unresolved("getLiveAssignmentWorkspace");
-        if (property === "getLiveAssignmentPreview")
-          return () => unresolved("getLiveAssignmentPreview");
         if (property === "getLiveCourseRoster") return () => unresolved("getLiveCourseRoster");
         if (property === "assetUrl") return () => "/asset";
         return () =>

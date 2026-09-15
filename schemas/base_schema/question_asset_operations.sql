@@ -11,7 +11,9 @@ ALTER TABLE ple_private.question_asset_publication
 CREATE FUNCTION ple_private.validate_question_asset_publication_job()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private AS $$
-DECLARE publication ple_private.question_asset_publication%ROWTYPE;
+DECLARE
+    publication ple_private.question_asset_publication%ROWTYPE;
+    publication_job ple_private.job%ROWTYPE;
 BEGIN
     SELECT * INTO publication
       FROM ple_private.question_asset_publication
@@ -19,11 +21,17 @@ BEGIN
     IF NOT FOUND THEN
         RETURN NULL;
     END IF;
-    IF NEW.job_kind <> 'publish_public_assets'
-       OR NEW.job_target_kind <> 'public_asset_publication'
-       OR NEW.worker_kind <> 'public_asset_publisher'
-       OR NEW.question_id <> publication.question_id
-       OR NEW.revision_number <> publication.revision_number THEN
+    SELECT * INTO publication_job
+      FROM ple_private.job
+     WHERE job_id = publication.job_id;
+    -- ASVS 2.1.2, 2.3.3: the deferred check binds the current publication
+    -- atomically to its exact current immutable Job contract.
+    IF NOT FOUND
+       OR publication_job.job_kind IS DISTINCT FROM 'publish_public_assets'
+       OR publication_job.job_target_kind IS DISTINCT FROM 'public_asset_publication'
+       OR publication_job.worker_kind IS DISTINCT FROM 'public_asset_publisher'
+       OR publication_job.question_id IS DISTINCT FROM publication.question_id
+       OR publication_job.revision_number IS DISTINCT FROM publication.revision_number THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Question Asset Publication requires its exact Public Asset publisher Job';
     END IF;
@@ -77,7 +85,7 @@ BEGIN
        AND candidate.worker_kind = 'public_asset_publisher'
        AND candidate.question_id = registry.question_id
        AND candidate.revision_number = registry.revision_number
-       AND candidate.assessment_attempt_count < candidate.max_assessment_attempts
+       AND candidate.attempt_count < candidate.max_attempts
        AND ((candidate.state = 'ready' AND candidate.available_at <= claimed_at)
          OR (candidate.state = 'leased' AND candidate.lease_expires_at <= claimed_at))
      ORDER BY candidate.available_at, candidate.job_id
@@ -86,21 +94,22 @@ BEGIN
         RETURN;
     END IF;
 
-    SELECT * INTO publication_job FROM ple_private.job
-     WHERE job_id = publication.job_id;
-    UPDATE ple_private.job
+    SELECT job.* INTO publication_job
+      FROM ple_private.job AS job
+     WHERE job.job_id = publication.job_id;
+    UPDATE ple_private.job AS job
        SET state = 'leased', lease_token = p_lease_token,
            lease_expires_at = p_lease_expires_at,
-           assessment_attempt_count = publication_job.assessment_attempt_count + 1
-     WHERE job_id = publication_job.job_id
-       AND job_kind = 'publish_public_assets'
-       AND job_target_kind = 'public_asset_publication'
-       AND worker_kind = 'public_asset_publisher'
-       AND question_id = publication.question_id
-       AND revision_number = publication.revision_number
-       AND assessment_attempt_count = publication_job.assessment_attempt_count
-       AND ((state = 'ready' AND available_at <= claimed_at)
-         OR (state = 'leased' AND lease_expires_at <= claimed_at));
+           attempt_count = publication_job.attempt_count + 1
+     WHERE job.job_id = publication_job.job_id
+       AND job.job_kind = 'publish_public_assets'
+       AND job.job_target_kind = 'public_asset_publication'
+       AND job.worker_kind = 'public_asset_publisher'
+       AND job.question_id = publication.question_id
+       AND job.revision_number = publication.revision_number
+       AND job.attempt_count = publication_job.attempt_count
+       AND ((job.state = 'ready' AND job.available_at <= claimed_at)
+         OR (job.state = 'leased' AND job.lease_expires_at <= claimed_at));
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '40001',
             MESSAGE = 'Question Asset Publication Job changed during claim';

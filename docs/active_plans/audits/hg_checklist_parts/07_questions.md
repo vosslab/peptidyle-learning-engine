@@ -216,7 +216,7 @@
 - [x] The Question Library is one global collection of published Question content.
   - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question` is not course-scoped.
 - [x] **Published Questions** are available to all vetted **Instructors**.
-  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `question_library_entries` requires an active Instructor Account and exposes available Question summaries.
+  - Evidence (source): `schemas/base_schema/question_library_operations.sql` `question_library_entries` requires an active Instructor Account and exposes available Question summaries.
 - [ ] Published Question Pools are available to all vetted **Instructors**.
   - Mismatch: published Question Pool library objects do not exist.
 - [ ] **Students** access Question content through their Coursework rather than through the Question Library.
@@ -258,11 +258,11 @@
 - [ ] Assessments and Student Work remain pinned to exact immutable Published Question Revisions.
   - Mismatch: exact revision columns are source evidence only; no connected test verifies an Assessment and Student Work stay pinned across a later publication.
 - [x] Publishing a new Question Revision does not silently change existing Assessments or Student Work.
-  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` publication appends `next_revision_number` rather than rewriting prior rows.
+  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` publication appends `next_revision_number` rather than rewriting prior rows.
 - [x] The Question owner may publish corrections, wording changes, accessibility improvements, answer changes, grading changes, and other updates as a new Revision.
-  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `publish_question_revision` appends an owner-authored revision.
+  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` `publish_question_revision` appends an owner-authored revision.
 - [x] Changing Question source, answer content, grading rules, feedback, or Question assets creates a new Question Revision.
-  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `publish_question_revision` persists a new source binding keyed to a new revision.
+  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` `publish_question_revision` persists a new source binding keyed to a new revision.
 - [x] Changing the Question title, description, tags, subject, topic, or other search metadata does not create a new Question Revision.
   - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` is separate from `question_revision`.
 - [x] Search metadata belongs to the Published Question as a whole rather than to one Revision.

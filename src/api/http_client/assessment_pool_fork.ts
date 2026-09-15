@@ -72,6 +72,16 @@ function requireResponseEtag(response: Response, editNumber: string, path: strin
   }
 }
 
+function requireEntryReceipt(
+  received: AssessmentEntryId,
+  expected: AssessmentEntryId,
+  path: string,
+): void {
+  if (received !== expected) {
+    throw new ApiProtocolError(`API response ${path} must retain the requested Assessment Entry`);
+  }
+}
+
 async function requestJson<T>(
   fetchImplementation: ApiFetch,
   basePath: string,
@@ -157,13 +167,17 @@ export function createAssessmentPoolForkClient(
   basePath: string,
 ): AssessmentPoolForkClient {
   return {
-    getAssessmentQuestionPoolFork: (course, assessment, entry) =>
-      requestJson(
+    getAssessmentQuestionPoolFork: async (course, assessment, entry) => {
+      const path = forkPath(course, assessment, entry);
+      const fork = await requestJson(
         fetchImplementation,
         basePath,
-        forkPath(course, assessment, entry),
+        path,
         decodeAssessmentQuestionPoolForkView,
-      ),
+      );
+      requireEntryReceipt(fork.assessmentEntryId, entry, path);
+      return fork;
+    },
     importAssessmentQuestionPoolFork: async (course, assessment, input, etag) => {
       const path = forkPath(course, assessment);
       const response = await requestSameOrigin(fetchImplementation, basePath, path, {
@@ -195,10 +209,11 @@ export function createAssessmentPoolForkClient(
       if (response.status === 412) throw new AssessmentPoolForkConflictError(path);
       if (!response.ok) throw new ApiRequestError(response.status, path);
       const receipt = decodeAppendReceipt(await boundedResponseJson(response, path), "response");
+      requireEntryReceipt(receipt.assessmentEntryId, entry, path);
       requireResponseEtag(response, receipt.assessmentEditNumber, path);
       return receipt;
     },
-    updateAssessmentQuestionPoolSelectionCount: (
+    updateAssessmentQuestionPoolSelectionCount: async (
       course,
       assessment,
       entry,
@@ -209,21 +224,26 @@ export function createAssessmentPoolForkClient(
         throw new ApiProtocolError("Assessment Pool selection count must be positive");
       }
       const path = `${forkPath(course, assessment, entry)}/selection-count`;
-      return requestSameOrigin(fetchImplementation, basePath, path, {
+      const response = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "PUT",
         headers: { "if-match": quotedStrongEtag(etag, path) },
         body: { selectionCount },
-      }).then(async (response) => {
-        requireNoStore(response, path);
-        if (response.status === 412) throw new AssessmentPoolForkConflictError(path);
-        if (!response.ok) throw new ApiRequestError(response.status, path);
-        const receipt = decodeAssessmentQuestionPoolSelectionCountReceipt(
-          await boundedResponseJson(response, path),
-          "response",
-        );
-        requireResponseEtag(response, receipt.assessmentEditNumber, path);
-        return receipt;
       });
+      requireNoStore(response, path);
+      if (response.status === 412) throw new AssessmentPoolForkConflictError(path);
+      if (!response.ok) throw new ApiRequestError(response.status, path);
+      const receipt = decodeAssessmentQuestionPoolSelectionCountReceipt(
+        await boundedResponseJson(response, path),
+        "response",
+      );
+      requireEntryReceipt(receipt.assessmentEntryId, entry, path);
+      if (receipt.selectionCount !== selectionCount) {
+        throw new ApiProtocolError(
+          `API response ${path} must retain the requested selection count`,
+        );
+      }
+      requireResponseEtag(response, receipt.assessmentEditNumber, path);
+      return receipt;
     },
   };
 }

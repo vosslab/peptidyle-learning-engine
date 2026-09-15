@@ -374,7 +374,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
     <section class="assessment-workspace-policies" aria-labelledby="assessment-policies-heading">
       <header class="assessment-workspace-header">
         <p class="eyebrow">Assessment workspace</p>
-        <h1 id="assessment-policies-heading">Policies</h1>
+        <h1 id="assessment-policies-heading">Assessment Properties Editor</h1>
         <p class="page-lede">
           Times use your Instructor time zone: {workspace.assessment().workspace.displayTimeZone}.
         </p>
@@ -564,11 +564,9 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
           </A>
           <A
             class="quiet-link"
-            href={`${assessmentWorkspacePath(workspace.courseReference, workspace.assessmentReference)}/delivery-check`}
-            target="_blank"
-            rel="noopener"
+            href={`${assessmentWorkspacePath(workspace.courseReference, workspace.assessmentReference)}/student-view`}
           >
-            Check assessment delivery
+            Open Student View
           </A>
         </p>
         <Show when={releaseValidation()}>

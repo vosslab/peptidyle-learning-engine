@@ -72,7 +72,6 @@ export interface RouteContract {
     | "profile"
     | "accountSettings"
     | "courseRoster"
-    | "assessmentPreview"
     | "instructorAccounts"
     | "pendingCourseInvitations"
     | "studentCourseInvitations"
@@ -358,13 +357,6 @@ export const ROUTE_CONTRACT = [
       taskGroup: "assessment",
       contentLayout: "fullWidth",
     },
-  },
-  {
-    id: "assessmentPreview",
-    path: "/instructor/courses/:courseRef/assessments/:assessmentRef/delivery-check",
-    surface: "Instructor-only assessment delivery check",
-    requiredProductRoles: ["instructor"],
-    ribbon: { scope: "courseInstance", tab: "assessments", contentLayout: "reading" },
   },
   {
     id: "gradebook",

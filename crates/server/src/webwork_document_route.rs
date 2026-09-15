@@ -13,6 +13,7 @@ use question_model::AssessmentAttemptReference;
 use crate::assessment_delivery::{StateData, concealed, student};
 
 const DOCUMENT_CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'none'";
+const PREVIEW_DOCUMENT_CSP: &str = "sandbox allow-scripts; default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'none'";
 
 /// Serves the immutable retained renderer document, or an ephemeral
 /// backend-authored resume render for its saved opaque response, for one
@@ -71,6 +72,25 @@ pub(crate) async fn document(
         Err(_) => return concealed(),
     };
 
+    backend_document_response(document)
+}
+
+/// Applies the isolated browser-document policy to renderer-owned HTML.
+///
+/// Callers must authorize and resolve the exact immutable Question source
+/// before passing backend output to this response-only helper.
+pub(crate) fn backend_document_response(document: String) -> Response {
+    document_response(document, DOCUMENT_CSP)
+}
+
+/// Applies a response-level script-only sandbox to a no-write preview document.
+pub(crate) fn preview_backend_document_response(document: String) -> Response {
+    document_response(document, PREVIEW_DOCUMENT_CSP)
+}
+
+fn document_response(document: String, content_security_policy: &'static str) -> Response {
+    // ASVS 3.2.1, 3.4.3-3.4.6, and 4.1.1: preserve the existing isolated
+    // document CSP and declare its exact media, cache, origin, and referrer policy.
     let mut response = (StatusCode::OK, document).into_response();
     let response_headers = response.headers_mut();
     response_headers.insert(
@@ -80,11 +100,42 @@ pub(crate) async fn document(
     response_headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     response_headers.insert(
         header::CONTENT_SECURITY_POLICY,
-        HeaderValue::from_static(DOCUMENT_CSP),
+        HeaderValue::from_static(content_security_policy),
     );
     response_headers.insert(
         HeaderName::from_static("cross-origin-resource-policy"),
         HeaderValue::from_static("same-origin"),
     );
+    response_headers.insert(
+        header::REFERRER_POLICY,
+        HeaderValue::from_static("no-referrer"),
+    );
+    response_headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
     response
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn preview_document_has_response_level_script_only_sandbox() {
+        let response = preview_backend_document_response("<!doctype html>".to_string());
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get(header::CONTENT_SECURITY_POLICY),
+            Some(&HeaderValue::from_static(PREVIEW_DOCUMENT_CSP))
+        );
+        assert_eq!(
+            response.headers().get(header::CACHE_CONTROL),
+            Some(&HeaderValue::from_static("no-store"))
+        );
+        assert!(PREVIEW_DOCUMENT_CSP.starts_with("sandbox allow-scripts;"));
+        assert!(!PREVIEW_DOCUMENT_CSP.contains("allow-forms"));
+        assert!(!PREVIEW_DOCUMENT_CSP.contains("allow-same-origin"));
+    }
 }

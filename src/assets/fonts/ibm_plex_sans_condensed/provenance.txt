@@ -1,0 +1,27 @@
+IBM Plex Sans Condensed browser font asset
+
+Official source repository:
+https://github.com/IBM/plex
+
+Retrieved source revision:
+78cd4223d8de9fcb78cba84eadecb269c56093c5
+
+Typeface identity:
+IBM Plex Sans Condensed, Regular, Version 3.000.
+
+Retained file:
+- ibm_plex_sans_condensed_regular.woff2
+  Source: packages/plex-sans-condensed/fonts/complete/woff2/IBMPlexSansCondensed-Regular.woff2
+  SHA-256: a71a56e516751883cb7877112d39f9c13b92c2dc15caaf00277b7f9d941d673a
+
+OpenType verification:
+The retained font's GSUB table includes the `zero` feature used by
+`font-variant-numeric: slashed-zero`.
+
+License:
+SIL Open Font License, Version 1.1. The complete IBM copyright notice and
+license text are in ofl_1_1.txt.
+
+Build owner:
+pipeline/build.mjs copies this same-origin browser asset into dist/;
+styles/browser_fonts.css owns the local font-face and narrow URL-input rule.

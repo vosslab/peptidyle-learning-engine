@@ -80,10 +80,6 @@ pub fn assessment_release_router(
             get(validate_release),
         )
         .route(
-            "/api/course-instances/{course}/assessments/{assessment}/preview",
-            get(assessment_preview),
-        )
-        .route(
             "/api/course-instances/{course}/assessments/{assessment}/release",
             post(release_assessment),
         )
@@ -335,28 +331,6 @@ async fn validate_release(
     match state
         .assessments
         .validate_live_assessment_release(token, course, assessment)
-        .await
-    {
-        Ok(v) => crate::auth::no_store(Json(v).into_response()),
-        Err(e) => store_error(e),
-    }
-}
-async fn assessment_preview(
-    State(state): State<StateData>,
-    headers: HeaderMap,
-    Path((course, assessment)): Path<(String, String)>,
-) -> Response {
-    let (course, assessment) = match refs(&course, &assessment) {
-        Ok(v) => v,
-        Err(r) => return *r,
-    };
-    let token = match instructor(&state, &headers).await {
-        Ok(v) => v,
-        Err(r) => return *r,
-    };
-    match state
-        .assessments
-        .load_live_assessment_preview(token, course, assessment)
         .await
     {
         Ok(v) => crate::auth::no_store(Json(v).into_response()),

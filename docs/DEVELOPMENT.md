@@ -70,19 +70,25 @@ incremental compilation and retain line-table debug information for useful filen
 backtraces without full variable/type debugger data. A deliberate debugging session may temporarily
 override those defaults with `CARGO_INCREMENTAL=1`, `CARGO_PROFILE_DEV_DEBUG=full`, or
 `CARGO_PROFILE_TEST_DEBUG=full`; do not make those high-storage settings the shared default.
+An external temporary Cargo manifest does not inherit the workspace `[profile]` settings, even
+when it reuses the workspace `CARGO_TARGET_DIR`. Set `CARGO_INCREMENTAL=0`,
+`CARGO_PROFILE_DEV_DEBUG=line-tables-only`, and `CARGO_PROFILE_TEST_DEBUG=line-tables-only`
+explicitly for such probes before reusing the compatible cache.
 
 Cargo does not impose a byte ceiling on a workspace `target/` directory. Its retained dependency
-artifacts still accelerate repeat builds, so establish any repository ceiling from the measured
-size of a clean broad gate rather than treating zero cache as the goal. After two full local-stack
-browser builds, a workspace all-target check, and strict workspace Clippy on 2026-08-12, the reduced
-profile retained 6.0 GB total (`debug/deps` 4.2 GB and `debug/incremental` 0). Treat 20 GB as the local
-investigation threshold: stop adding build matrices, identify unexpected profiles/fingerprints, and
-decide explicitly whether the rebuildable target cache should be cleaned.
+artifacts still accelerate repeat builds, so zero cache is not the goal. Keep combined compiled
+artifacts under 10 GB across the workspace `target/` and temporary build targets. This is a local
+compiled-artifact budget, not an entire-checkout limit or a recurring test threshold. Reuse a
+compatible existing target cache rather than starting redundant build matrices. As use approaches
+the budget, stop adding matrices; inspect each exact target path, its owner, and unexpected
+profiles or fingerprints, then decide explicitly whether a particular rebuildable cache can be
+cleaned.
 
 Cargo artifacts are entirely rebuildable. Before reclaiming space, confirm no Cargo or `rustc`
-process is active, inspect the exact target with `cargo clean --dry-run`, and use `cargo clean` only
-when discarding the complete workspace build cache is intended. The command does not remove source,
-Git state, `node_modules`, or Podman data.
+process is active and inspect the exact path and owner. For the workspace target, use
+`cargo clean --dry-run` before `cargo clean`; use `cargo clean` only when discarding that complete
+workspace build cache is intended. Do not automatically delete temporary targets or broadly clean
+other caches. Cargo cleanup does not remove source, Git state, `node_modules`, or Podman data.
 
 The check gates are deliberately not product builds. The vendored `./check_codebase.sh` owns the
 TypeScript typechecks, ESLint, Prettier, and Node tests. The repository-owned `./check_rust.sh`

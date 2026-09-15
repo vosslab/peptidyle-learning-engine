@@ -5,22 +5,18 @@ import type { InstructorAssessmentAuthoredContentLocal } from "../../../generate
 import type { InstructorAssessmentAvailabilityView } from "../../../generated/api/InstructorAssessmentAvailabilityView";
 import type { StudentAssessmentDetail } from "../../../generated/api/StudentAssessmentDetail";
 import type { StudentAssessmentLandingSummary } from "../../../generated/api/StudentAssessmentLandingSummary";
-import type { InstructorStudentView } from "../../../generated/api/InstructorStudentView";
-import type { InstructorStudentViewDelivery } from "../../../generated/api/InstructorStudentViewDelivery";
 import type { StudentAssessmentDelivery } from "../../../generated/api/StudentAssessmentDelivery";
 import {
   DecodeError,
   decodeArray,
   decodeNonemptyString,
   decodeNullable,
-  decodeNonnegativeInteger,
   decodePositiveInteger,
   decodeRecord,
   decodeString,
   decodeStringEnum,
 } from "../decoder";
 import { decodeIdentifier, decodeTimestamp, field, requireOnlyFields } from "./shared";
-import { decodeStudentFeedbackReleaseRule } from "./assessment_policy";
 import { decodeAssessmentEntry } from "./question_library";
 import { decodeAssessmentReference } from "./shared";
 
@@ -258,88 +254,4 @@ export function decodeStudentAssessmentDetail(
     delivery,
     entries: decodeArray(field(record, "entries", path), `${path}.entries`, decodeAssessmentEntry),
   };
-}
-
-/** Decodes the deliberately identity-free Instructor Student View. */
-export function decodeInstructorStudentView(
-  value: unknown,
-  path = "response",
-): InstructorStudentView {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "title",
-    "instructions",
-    "displayTimeZone",
-    "delivery",
-    "questionsPerAssessmentAttempt",
-    "questionPoolReuseRule",
-    "questionVariationRule",
-    "studentFeedbackReleaseRule",
-  ]);
-  const deliveryRecord = decodeRecord(field(record, "delivery", path), `${path}.delivery`);
-  requireOnlyFields(deliveryRecord, `${path}.delivery`, [
-    "available_at",
-    "due_at",
-    "closes_at",
-    "assessment_attempt_time_limit_seconds",
-    "attempt_limit",
-    "late_work_rule",
-  ]);
-  const delivery: InstructorStudentViewDelivery = {
-    available_at: decodeNullable(
-      field(deliveryRecord, "available_at", `${path}.delivery`),
-      `${path}.delivery.available_at`,
-      decodeTimestamp,
-    ),
-    due_at: decodeNullable(
-      field(deliveryRecord, "due_at", `${path}.delivery`),
-      `${path}.delivery.due_at`,
-      decodeTimestamp,
-    ),
-    closes_at: decodeNullable(
-      field(deliveryRecord, "closes_at", `${path}.delivery`),
-      `${path}.delivery.closes_at`,
-      decodeTimestamp,
-    ),
-    assessment_attempt_time_limit_seconds: decodePolicyLimit(
-      field(deliveryRecord, "assessment_attempt_time_limit_seconds", `${path}.delivery`),
-      `${path}.delivery.assessment_attempt_time_limit_seconds`,
-    ),
-    attempt_limit: decodePolicyLimit(
-      field(deliveryRecord, "attempt_limit", `${path}.delivery`),
-      `${path}.delivery.attempt_limit`,
-    ),
-    late_work_rule: decodeStringEnum(
-      field(deliveryRecord, "late_work_rule", `${path}.delivery`),
-      `${path}.delivery.late_work_rule`,
-      LATE_POLICIES,
-    ),
-  };
-  return {
-    title: decodeNonemptyString(field(record, "title", path), `${path}.title`),
-    instructions: decodeInstructions(field(record, "instructions", path), `${path}.instructions`),
-    displayTimeZone: decodeNonemptyString(
-      field(record, "displayTimeZone", path),
-      `${path}.displayTimeZone`,
-    ),
-    delivery,
-    questionsPerAssessmentAttempt: decodeNonnegativeInteger(
-      field(record, "questionsPerAssessmentAttempt", path),
-      `${path}.questionsPerAssessmentAttempt`,
-    ),
-    questionPoolReuseRule: decodeStringEnum(
-      field(record, "questionPoolReuseRule", path),
-      `${path}.questionPoolReuseRule`,
-      ["reuseSelection", "selectAgain"] as const,
-    ),
-    questionVariationRule: decodeStringEnum(
-      field(record, "questionVariationRule", path),
-      `${path}.questionVariationRule`,
-      ["reuseVariation", "newVariation"] as const,
-    ),
-    studentFeedbackReleaseRule: decodeStudentFeedbackReleaseRule(
-      field(record, "studentFeedbackReleaseRule", path),
-      `${path}.studentFeedbackReleaseRule`,
-    ),
-  } satisfies InstructorStudentView;
 }

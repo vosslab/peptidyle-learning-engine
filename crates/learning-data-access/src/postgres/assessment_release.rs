@@ -22,10 +22,10 @@ use super::{
     connection::map_sqlx_error,
 };
 use crate::{
-    AssessmentPreview, AssessmentQuestionPickerEntry, AssessmentReleaseIssue,
-    AssessmentReleaseValidation, AssessmentUnreleaseImpact, AuthoredAssessmentQuestion,
-    CourseAssessmentSourceChoice, CourseAssessmentSummary, CreateLiveAssessmentInput,
-    DueSoonAssessmentSummary, DueSoonAssessments, LiveAssessmentStore, LiveAssessmentWorkspace,
+    AssessmentQuestionPickerEntry, AssessmentReleaseIssue, AssessmentReleaseValidation,
+    AssessmentUnreleaseImpact, AuthoredAssessmentQuestion, CourseAssessmentSourceChoice,
+    CourseAssessmentSummary, CreateLiveAssessmentInput, DueSoonAssessmentSummary,
+    DueSoonAssessments, LiveAssessmentStore, LiveAssessmentWorkspace,
     SaveBaseAssessmentPolicyInput, SaveLiveAssessmentInlineInput, SaveLiveAssessmentInput,
     SessionTokenHash, StoreError, UnreleasedLiveAssessment,
 };
@@ -475,24 +475,6 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         Ok(AssessmentReleaseValidation {
             can_release: issues.is_empty(),
             issues,
-        })
-    }
-
-    async fn load_live_assessment_preview(
-        &self,
-        token: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
-    ) -> Result<AssessmentPreview, StoreError> {
-        let mut tx = self.begin(token).await?;
-        let context = schedule_context(&mut tx, course).await?;
-        let rows = workspace_rows(&mut tx, course, assessment).await?;
-        let workspace = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(AssessmentPreview {
-            title: workspace.title,
-            instructions: workspace.instructions,
-            questions: workspace.questions,
         })
     }
 

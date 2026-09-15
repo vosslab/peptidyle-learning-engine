@@ -35,9 +35,11 @@
 \ir course_media.sql
 \ir profile_media.sql
 \ir assessments.sql
+\ir assessment_pool_forks.sql
 \ir assessment_pool_selection.sql
 \ir course_blueprint_adoption.sql
 \ir assessment_operations.sql
+\ir assessment_student_view.sql
 \ir assessment_attempts.sql
 \ir assessment_attempt_interaction.sql
 \ir assessment_attempt_presentation.sql

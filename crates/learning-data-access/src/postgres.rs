@@ -31,6 +31,8 @@ mod assessment_pool_selection_count;
 #[cfg(feature = "postgres")]
 mod assessment_release;
 #[cfg(feature = "postgres")]
+mod assessment_student_view;
+#[cfg(feature = "postgres")]
 mod assessment_workspace_policy;
 #[cfg(feature = "postgres")]
 mod assessment_workspace_save;
@@ -123,6 +125,8 @@ pub use assessment_pool_fork::PostgresAssessmentPoolForkStore;
 pub use assessment_pool_selection_count::PostgresAssessmentPoolSelectionCountStore;
 #[cfg(feature = "postgres")]
 pub use assessment_release::PostgresLiveAssessmentStore;
+#[cfg(feature = "postgres")]
+pub use assessment_student_view::PostgresInstructorStudentViewStore;
 #[cfg(feature = "postgres")]
 pub use attempt_expiry::PostgresAssessmentAttemptExpirySweepStore;
 #[cfg(feature = "postgres")]

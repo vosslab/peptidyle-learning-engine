@@ -434,9 +434,18 @@ const CAPABILITY_DECLARATIONS = {
     ],
   },
   assessmentStudentView: {
-    kind: "unbacked",
-    reason: "Assessment workspace Student View has no registered production teaching/data handler.",
-    evidence: [...NO_TEACHING_HANDLER, "src/routes.ts::routeComponents"],
+    kind: "backed",
+    clientMethod: "ApiClient.getInstructorStudentView",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/assessment_student_view.rs::assessment_student_view_router",
+    },
+    evidence: [
+      "src/routes.ts::routeComponents",
+      "src/pages/assessment_workspace/assessment_workspace_student_view_page.tsx::AssessmentWorkspaceStudentViewPage",
+      "src/api/http_client/assessment_student_view.ts::createAssessmentStudentViewClient",
+      "crates/server/src/assessment_student_view.rs::assessment_student_view_router",
+    ],
   },
   gradeSettings: {
     kind: "unbacked",

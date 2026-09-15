@@ -12,6 +12,7 @@ mod assessment_delivery;
 mod assessment_pool_fork;
 mod assessment_pool_selection_count;
 mod assessment_release;
+mod assessment_student_view;
 mod attempt_expiry;
 mod authentication_ceremony;
 mod authentication_email;
@@ -85,12 +86,16 @@ pub use assessment_pool_selection_count::{
     AssessmentPoolSelectionCountInput, AssessmentPoolSelectionCountStore,
 };
 pub use assessment_release::{
-    AssessmentPreview, AssessmentQuestionPickerEntry, AssessmentReleaseIssue,
-    AssessmentReleaseValidation, AssessmentUnreleaseImpact, AuthoredAssessmentQuestion,
-    CourseAssessmentSourceChoice, CourseAssessmentSummary, CreateLiveAssessmentInput,
-    DueSoonAssessmentSummary, DueSoonAssessments, LiveAssessmentStore, LiveAssessmentWorkspace,
+    AssessmentQuestionPickerEntry, AssessmentReleaseIssue, AssessmentReleaseValidation,
+    AssessmentUnreleaseImpact, AuthoredAssessmentQuestion, CourseAssessmentSourceChoice,
+    CourseAssessmentSummary, CreateLiveAssessmentInput, DueSoonAssessmentSummary,
+    DueSoonAssessments, LiveAssessmentStore, LiveAssessmentWorkspace,
     SaveBaseAssessmentPolicyInput, SaveLiveAssessmentInlineInput, SaveLiveAssessmentInput,
     UnreleasedLiveAssessment,
+};
+pub use assessment_student_view::{
+    InstructorStudentViewSnapshot, InstructorStudentViewSnapshotEntry, InstructorStudentViewSource,
+    InstructorStudentViewStore,
 };
 pub use attempt_expiry::{
     AssessmentAttemptExpirySweepStore, ExpiredAssessmentAttemptFinalizationPreparation,

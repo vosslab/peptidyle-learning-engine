@@ -11,6 +11,7 @@ import { questionRevisionKey } from "./assessment_workspace_questions_model";
 export interface AssessmentPoolEntryEditorProps {
   readonly entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>;
   readonly fork: AssessmentQuestionPoolForkView | undefined;
+  readonly exactMembersUnavailable: boolean;
   readonly availableQuestions: ReadonlyArray<AssessmentQuestionPickerEntry>;
   readonly mutationsEnabled: boolean;
   readonly busy: boolean;
@@ -74,7 +75,9 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
         when={props.fork}
         fallback={
           <p class="assessment-editor-note">
-            Loading this Assessment&apos;s exact pinned Pool members...
+            {props.exactMembersUnavailable
+              ? "This Assessment's exact pinned Pool members could not load. Reload the Assessment and try again."
+              : "Loading this Assessment's exact pinned Pool members..."}
           </p>
         }
       >

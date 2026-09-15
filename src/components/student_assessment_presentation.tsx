@@ -2,7 +2,6 @@
 
 import { Show, type JSX } from "solid-js";
 
-import type { InstructorStudentView } from "../../generated/api/InstructorStudentView";
 import type { StudentAssessmentDetail } from "../../generated/api/StudentAssessmentDetail";
 import type { StudentAssessmentProgress } from "../../generated/api/StudentAssessmentProgress";
 import type { ClassStatistics } from "../../generated/api/ClassStatistics";
@@ -146,29 +145,8 @@ export function StudentAssessmentDecisionDetails(props: {
 
 /** Adapts either answer-free Assessment Overview to the shared presentation shape. */
 export function toStudentAssessmentPresentationData(
-  assessment: StudentAssessmentDetail | InstructorStudentView,
+  assessment: StudentAssessmentDetail,
 ): StudentAssessmentPresentationData {
-  if ("questionsPerAssessmentAttempt" in assessment) {
-    return {
-      title: assessment.title,
-      instructions: assessment.instructions,
-      displayTimeZone: assessment.displayTimeZone,
-      delivery: {
-        availableAt: assessment.delivery.available_at,
-        dueAt: assessment.delivery.due_at,
-        closesAt: assessment.delivery.closes_at,
-        assessmentAttemptTimeLimitSeconds:
-          assessment.delivery.assessment_attempt_time_limit_seconds,
-        attemptLimit: assessment.delivery.attempt_limit,
-        lateWorkRule: assessment.delivery.late_work_rule,
-      },
-      questionsPerAssessmentAttempt: assessment.questionsPerAssessmentAttempt,
-      questionPoolReuseRule: assessment.questionPoolReuseRule,
-      questionVariationRule: assessment.questionVariationRule,
-      studentFeedbackReleaseRule: assessment.studentFeedbackReleaseRule,
-    };
-  }
-
   return {
     title: assessment.title,
     instructions: assessment.instructions,

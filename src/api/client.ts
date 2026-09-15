@@ -32,7 +32,6 @@ import type {
   AssessmentEditorDetail,
   AssessmentCreateInput,
   AssessmentContentInput,
-  InstructorStudentView,
   StudentAssessmentLandingSummary,
   StudentAssessmentDetail,
   StudentQuestionAttempt,
@@ -62,6 +61,7 @@ import type { QuestionAvailabilityClient } from "./question_availability";
 import type { QuestionWatchClient } from "./question_watch";
 import type { QuestionStarClient } from "./question_star";
 import type { QuestionPoolLibraryClient } from "./question_pool_library";
+import type { AssessmentStudentViewClient } from "./assessment_student_view";
 /** Browser-safe client contract implemented by the current same-origin HTTP transport. */
 export interface ApiClient
   extends
@@ -80,7 +80,8 @@ export interface ApiClient
     QuestionAvailabilityClient,
     QuestionWatchClient,
     QuestionStarClient,
-    QuestionPoolLibraryClient {
+    QuestionPoolLibraryClient,
+    AssessmentStudentViewClient {
   /** Reads only the authenticated Account's role-neutral Profile settings. */
   readonly getProfile: () => Promise<ProfileSettings>;
   /** Reads only the authenticated Account's Account Settings preference. */
@@ -166,11 +167,6 @@ export interface ApiClient
     input: AssessmentContentInput,
     assessmentEtag: string,
   ) => Promise<AssessmentEditorDetail>;
-  /** Reads the non-mutating, answer-free Instructor Student view. */
-  readonly getInstructorStudentView: (
-    courseId: CourseId,
-    assessmentId: AssessmentId,
-  ) => Promise<InstructorStudentView>;
   readonly listAssessmentAttempts: (
     studentRecordId: StudentRecordId,
     cursor?: string,

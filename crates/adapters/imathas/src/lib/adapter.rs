@@ -170,10 +170,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
         source: &ResolvedImathasQuestionSource,
         created_at: Timestamp,
     ) -> Result<ImathasIssuedAttempt, ImathasAdapterError> {
-        verify_binding(question_revision, source)?;
-        if !self.profiles.contains(source.binding.profile()) {
-            return Err(ImathasAdapterError::UnsupportedProfile);
-        }
+        self.verify_render_source(question_revision, source)?;
         let key = render_key(question_revision, seed);
         match self.store.get(&key).await {
             Ok(stored) => {
@@ -194,9 +191,7 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
             })
             .await
             .map_err(ImathasAdapterError::QuestionBackend)?;
-        if question_model::validate_question_title(&safe.question_title).is_err() {
-            return Err(ImathasAdapterError::InvalidImathasQuestionBackendRender);
-        }
+        let safe = Self::validate_safe_render(safe)?;
         let record = CachedRender {
             schema: 1,
             source: source.source_object_reference().clone(),
@@ -241,6 +236,54 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
             }
             Err(error) => Err(ImathasAdapterError::ObjectStore(error)),
         }
+    }
+
+    /// Renders an answer-free Student View without reading or writing adapter storage.
+    ///
+    /// The seed is transient server input. The returned value contains only the safe Question
+    /// Title and Prompt defined by [`crate::SafeImathasQuestionRender`].
+    pub async fn preview(
+        &self,
+        question_revision: &QuestionRevisionReference,
+        seed: QuestionSeed,
+        source: &ResolvedImathasQuestionSource,
+    ) -> Result<crate::SafeImathasQuestionRender, ImathasAdapterError> {
+        self.verify_render_source(question_revision, source)?;
+        let safe = self
+            .question_backend
+            .render(ImathasRenderRequest {
+                snapshot: source.bytes(),
+                profile: source.binding.profile().as_str(),
+                question_revision: question_revision.clone(),
+                question_seed: seed,
+            })
+            .await
+            .map_err(ImathasAdapterError::QuestionBackend)?;
+        Self::validate_safe_render(safe)
+    }
+
+    fn verify_render_source(
+        &self,
+        question_revision: &QuestionRevisionReference,
+        source: &ResolvedImathasQuestionSource,
+    ) -> Result<(), ImathasAdapterError> {
+        // ASVS 2.2.1 and 2.2.2: enforce the revision binding and configured profile at the
+        // trusted adapter boundary before archived source reaches the backend renderer.
+        verify_binding(question_revision, source)?;
+        if !self.profiles.contains(source.binding.profile()) {
+            return Err(ImathasAdapterError::UnsupportedProfile);
+        }
+        Ok(())
+    }
+
+    fn validate_safe_render(
+        safe: crate::SafeImathasQuestionRender,
+    ) -> Result<crate::SafeImathasQuestionRender, ImathasAdapterError> {
+        // ASVS 8.2.3: the sealed return type exposes only the authorized title and prompt fields.
+        if question_model::validate_question_title(&safe.question_title).is_err() {
+            return Err(ImathasAdapterError::InvalidImathasQuestionBackendRender);
+        }
+        Ok(safe)
     }
 
     fn issued(

@@ -565,8 +565,6 @@ function breadcrumbsFor(
       return Object.freeze(courseTrail(assessmentLabel, studentCourse));
     case "assessmentCreate":
       return Object.freeze(courseTrail("New Assessment", courseAssessments));
-    case "assessmentPreview":
-      return Object.freeze(courseTrail("Delivery Check", courseAssessments));
     case "gradebook":
       return Object.freeze(courseTrail("Gradebook", courseAssessments));
     case "courseAppearance":
@@ -619,7 +617,6 @@ function breadcrumbPreludeReservedFor(route: RouteContract): boolean {
     case "assessmentWorkspaceQuestions":
     case "assessmentWorkspacePolicies":
     case "assessmentWorkspaceStudentView":
-    case "assessmentPreview":
     case "gradebook":
     case "courseAppearance":
     case "courseRoster":

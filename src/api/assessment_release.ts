@@ -167,13 +167,6 @@ export interface UnreleasedLiveAssessment {
   readonly deleted: AssessmentUnreleaseImpact;
 }
 
-/** Deliberately answer-free Instructor preview; it creates no Student delivery. */
-export interface AssessmentPreview {
-  readonly title: string;
-  readonly instructions: string;
-  readonly questions: ReadonlyArray<AuthoredAssessmentQuestion>;
-}
-
 /** Same-origin direct-Instructor Assessment Workspace boundary. */
 export interface LiveAssessmentReleaseClient {
   readonly listAssessmentsDueSoon: () => Promise<DueSoonAssessments>;
@@ -219,10 +212,6 @@ export interface LiveAssessmentReleaseClient {
     course: CourseInstanceReference,
     assessment: AssessmentReference,
   ) => Promise<AssessmentReleaseValidation>;
-  readonly getLiveAssessmentPreview: (
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
-  ) => Promise<AssessmentPreview>;
   readonly releaseLiveAssessment: (
     course: CourseInstanceReference,
     assessment: AssessmentReference,

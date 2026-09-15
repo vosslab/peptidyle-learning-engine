@@ -398,18 +398,6 @@ mod tests {
     }
 }
 
-/// Answer-free Instructor-authorized Assessment Preview for the current Assessment.
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AssessmentPreview {
-    /// Current Student-visible Assessment title.
-    pub title: AssessmentTitle,
-    /// Current Student-visible instructions.
-    pub instructions: AssessmentInstructions,
-    /// Ordered answer-free Question descriptions; this does not create Student delivery.
-    pub questions: Vec<AuthoredAssessmentQuestion>,
-}
-
 /// Aggregate, non-identifying Student Work affected by a proposed Unrelease.
 ///
 /// This projection exists only while the current Assessment is Released.  It
@@ -522,14 +510,6 @@ pub trait LiveAssessmentStore: Send + Sync {
         course: CourseInstanceReference,
         assessment: AssessmentReference,
     ) -> Result<AssessmentReleaseValidation, StoreError>;
-
-    /// Loads the narrow answer-free Assessment Preview without creating Student work.
-    async fn load_live_assessment_preview(
-        &self,
-        session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-        assessment: AssessmentReference,
-    ) -> Result<AssessmentPreview, StoreError>;
 
     /// Transitions the current Assessment from Unreleased to Released after
     /// exact Edit Number and current-content validation.

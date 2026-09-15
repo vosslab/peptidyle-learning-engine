@@ -50,7 +50,7 @@
 - [ ] Use drag-and-drop where it makes reordering faster and more natural.
   - Mismatch: No implemented drag-and-drop reordering surface was found in the audited shell evidence.
 - [x] Reordering must also have a precise keyboard-accessible method.
-  - Evidence (source): `src/features/blueprint_course/blueprint_assignment_content_editor.tsx` `moveEntry` and `src/pages/assignment_workspace/assignment_workspace_questions_page.tsx` `move` back their labelled native-button Move earlier and Move later controls.
+  - Evidence (source): `src/features/blueprint_course/blueprint_assessment_content_editor.tsx` `moveEntry` and `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `move` back their labelled native-button Move earlier and Move later controls.
   - Evidence (source): `src/features/ple_question_json_authoring/question_json_choice_list.tsx` `onMoveChoice`, `src/features/ple_question_json_authoring/question_json_multiple_answer_editor.tsx` `onMoveChoice`, `src/features/ple_question_json_authoring/question_json_multi_fill_in_editor.tsx` `onMoveBlank`, `src/features/ple_question_json_authoring/question_json_matching_editor.tsx` `onMoveItem`, and `src/features/ple_question_json_authoring/question_json_ordering_editor.tsx` `onMoveItem` give every native JSON reorderer the same precise buttons.
   - Evidence (test): `tests/test_blueprint_course_model.mjs` `reusable entries preserve fixed and Question Pool interleaving`, `tests/test_ple_question_json_editor_model.mjs` `choice edits retain semantic IDs and enforce choices and correct-answer invariants`, `tests/test_ple_question_json_multiple_answer_editor.mjs` `multiple-answer text edits and reordering retain choice IDs and exact correct IDs`, and `tests/test_ple_question_json_multi_fill_ordering_authoring.mjs` `ORDER treats Ordering Items as the source of truth and derives correctOrder after movement` protect the stable reorder results.
   - Decision: The one-time seven-surface keyboard-control inventory passed and was removed rather than becoming a permanent implementation-inventory test. It does not select drag-and-drop surfaces, which remains the separate Human Guidance product question.
@@ -68,6 +68,12 @@
   - Decision: One-time normal-and-italic computed-style proof passed and was removed; the behavior does not retain a permanent implementation-coupled test.
 - [x] Prefer the official Braille Institute font files and include the needed weights locally with PLE.
   - Evidence (source): `src/styles/browser_fonts.css` `@font-face` loads local Atkinson Hyperlegible Next variable font files.
+- [x] When a narrow font is needed, use `IBM Plex Sans Condensed` for long unbreakable strings such as URLs.
+  - Evidence (source): `src/styles/browser_fonts.css` `--ple-font-narrow` declares the local `IBM Plex Sans Condensed` face and applies it only to the PLE Question JSON editor's Citation URL input; `pipeline/build.mjs` `BROWSER_FONT_BUNDLES` copies and verifies that same-origin asset.
+  - Evidence (runtime): `src/features/ple_question_json_authoring/question_json_editor_styles.ts` `PLE_QUESTION_JSON_EDITOR_STYLES`: a one-time Chromium fixture imported the actual injected editor CSS against production-built local font assets on 2026-09-15; at 360 and 1280 CSS pixels in light and dark OS preferences it requested the local font, computed the narrow family on the Citation URL input, and retained normal input value, horizontal-scroll, and overflow behavior.
+- [x] With `IBM Plex Sans Condensed`, try `font-variant-numeric: slashed-zero` to better distinguish `0` from `O`.
+  - Evidence (source): `src/styles/browser_fonts.css` `font-variant-numeric: slashed-zero` applies it to that narrow Citation URL input; `src/assets/fonts/ibm_plex_sans_condensed/provenance.txt` records the locally retained IBM Plex Sans Condensed Regular asset, OFL provenance, and its verified OpenType `zero` GSUB feature.
+  - Evidence (runtime): `src/styles/browser_fonts.css` `font-variant-numeric: slashed-zero`: that same one-time Chromium fixture computed `slashed-zero` on the local IBM face without a fallback; it was removed rather than retained as a permanent implementation-coupled test.
 - [ ] Question Backend-rendered content may use its own fonts when needed for correct display.
   - Mismatch: No Question Backend font-isolation implementation evidence was found in the shell audit.
 - [ ] Students should have no upload capabilities. Instructor-created content should use text boxes.
@@ -130,7 +136,7 @@
 - [ ] The current avatar appears consistently anywhere PLE represents that user.
   - Mismatch: No cross-surface all-role avatar consistency evidence was found.
 - [x] Instructor Profile includes the Instructor's time zone and profile image.
-  - Evidence (source): `src/pages/instructor_profile_page.tsx` `InstructorProfilePage` renders Profile image and time-zone controls.
+  - Evidence (source): `src/pages/profile_page.tsx` `ProfilePage` renders the time-zone value and Profile image controls.
 - [x] Profile images may use any reasonable aspect ratio and are cropped to a consistent rounded square.
   - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-app-ribbon__profile img` uses `object-fit: cover` within the fixed rounded profile box.
 - [x] See **Ribbon and page layout** for the overall navigation and page-position rules.

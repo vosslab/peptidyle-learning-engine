@@ -260,38 +260,6 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
      ORDER BY entry.authored_position NULLS LAST, item.member_position NULLS LAST
 $$;
 
-CREATE FUNCTION ple_api.load_assessment_preview_rows(
-    p_course_reference_number text,
-    p_assessment_reference_number text
-)
-RETURNS TABLE (
-    assessment_title text,
-    assessment_instructions text,
-    assessment_entry_id uuid,
-    authored_position integer,
-    entry_kind text,
-    question_id text,
-    question_revision_number integer,
-    question_title text,
-    question_description text
-)
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT workspace.assessment_title,
-           workspace.assessment_instructions,
-           workspace.assessment_entry_id,
-           workspace.authored_position,
-           workspace.entry_kind,
-           workspace.question_id,
-           workspace.question_revision_number,
-           workspace.question_title,
-           workspace.question_description
-      FROM ple_api.load_assessment_workspace_rows(
-          p_course_reference_number, p_assessment_reference_number
-      ) AS workspace
-     ORDER BY workspace.authored_position NULLS LAST, workspace.question_revision_number
-$$;
-
 CREATE FUNCTION ple_api.validate_assessment_release(
     p_course_reference_number text,
     p_assessment_reference_number text
@@ -483,7 +451,6 @@ REVOKE ALL ON FUNCTION ple_api.list_course_assessments(text),
     ple_api.list_assessment_question_picker(text),
     ple_api.list_course_assessment_source_choices(text),
     ple_api.load_assessment_workspace_rows(text, text),
-    ple_api.load_assessment_preview_rows(text, text),
     ple_api.validate_assessment_release(text, text),
     ple_api.create_assessment(uuid, text, uuid, text, text),
     ple_api.save_assessment(text, text, bigint, jsonb, jsonb),
@@ -496,7 +463,6 @@ GRANT EXECUTE ON FUNCTION ple_api.list_course_assessments(text),
     ple_api.list_assessment_question_picker(text),
     ple_api.list_course_assessment_source_choices(text),
     ple_api.load_assessment_workspace_rows(text, text),
-    ple_api.load_assessment_preview_rows(text, text),
     ple_api.validate_assessment_release(text, text),
     ple_api.create_assessment(uuid, text, uuid, text, text),
     ple_api.save_assessment(text, text, bigint, jsonb, jsonb),

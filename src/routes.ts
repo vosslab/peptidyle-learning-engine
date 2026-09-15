@@ -31,7 +31,6 @@ import { StudentCourseInvitationPage } from "./pages/student_course_invitation_p
 import { StudentCourseInvitationsPage } from "./pages/student_course_invitations_page";
 import { StudentCourseLandingPage } from "./pages/student_course_landing_page";
 import { InstructorAccountsPage } from "./pages/instructor_accounts_page";
-import { AssessmentPreviewPage } from "./pages/assessment_preview_page";
 import { AssessmentsDueSoonPage } from "./pages/assessments_due_soon_page";
 import { AssessmentWorkspaceCreatePage } from "./pages/assessment_workspace/assessment_workspace_create_page";
 import {
@@ -78,7 +77,6 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
     createComponent(AssessmentWorkspaceLivePage, { section: "policies" }),
   assessmentWorkspaceStudentView: () =>
     createComponent(AssessmentWorkspaceLivePage, { section: "studentView" }),
-  assessmentPreview: AssessmentPreviewPage,
   gradebook: GradebookPage,
   courseAppearance: CourseAppearancePage,
   courseRoster: CourseRosterPage,

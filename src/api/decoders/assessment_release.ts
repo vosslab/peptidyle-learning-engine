@@ -15,7 +15,6 @@ import type { LocalDateAndTime } from "../../../generated/api/LocalDateAndTime";
 import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
 import type { QuestionPoolSelectedQuestionOrder } from "../../../generated/api/QuestionPoolSelectedQuestionOrder";
 import type {
-  AssessmentPreview,
   AssessmentQuestionPickerEntry,
   AssessmentReleaseValidation,
   AssessmentUnreleaseImpact,
@@ -794,23 +793,5 @@ export function decodeUnreleasedLiveAssessment(
       `${path}.assessment`,
     ),
     deleted: decodeAssessmentUnreleaseImpact(field(record, "deleted", path), `${path}.deleted`),
-  };
-}
-
-export function decodeAssessmentPreview(value: unknown, path = "response"): AssessmentPreview {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["title", "instructions", "questions"]);
-  return {
-    title: decodeAssessmentTitle(field(record, "title", path), `${path}.title`),
-    instructions: decodeAssessmentInstructions(
-      field(record, "instructions", path),
-      `${path}.instructions`,
-    ),
-    questions: decodeBoundedArray(
-      field(record, "questions", path),
-      `${path}.questions`,
-      MAX_ASSESSMENT_ORDERED_ENTRIES,
-      authoredQuestion,
-    ),
   };
 }

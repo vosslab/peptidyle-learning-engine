@@ -5,7 +5,7 @@
 - [ ] The Instructor menu has **Courses**, **Questions**, and **Assessments** in one dense top bar.
   - Mismatch: `src/ribbon/ribbon_catalog.ts` labels the third tab "Assignments," not the required "Assessments."
 - [x] Instructor Profile uses a generic user icon until the **Instructor** adds a Profile image.
-  - Evidence (source): `src/features/instructor_profile/ribbon_profile_avatar.tsx` `RibbonProfileAvatar` falls back to `RibbonIcon` `circle-user` when no thumbnail URL exists.
+  - Evidence (source): `src/features/profile_avatar/ribbon_account_avatar.tsx` `RibbonAccountAvatar` falls back to `RibbonIcon` `circle-user` when no Profile image or provided avatar exists.
 - [ ] All required ribbon choices remain visible even when their collection is empty.
   - Mismatch: several required choices have `future` destinations in `src/ribbon/ribbon_catalog.ts` and are not admitted as usable controls.
 - [x] A working navigation destination remains visible when its collection is empty.
@@ -21,7 +21,11 @@
 - [ ] Instructor Course and Assessment lists should be dense and easy to scan, more like a spreadsheet than cards.
   - Mismatch: `src/pages/course_list_page.tsx` has a dense Course Instance row, but no Assessment-named list exists; `src/pages/assignments_due_soon_page.tsx` still presents Assignments.
 - [ ] Instructor **Student View** is an answer-free preview and does not create Student Work, Assessment Attempts, submissions, or grades.
-  - Mismatch: `src/pages/assignment_preview_page.tsx` implements an Assignment preview, and its display text alone does not verify the required Assessment projection and no-write behavior.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_student_view_page.tsx` `AssessmentWorkspaceStudentViewPage` renders the server-authorized answer-free Assessment projection, loads only the manifest and selected Question, disables native response controls, and provides no Student Work, Assessment Attempt, submission, or grade action.
+  - Evidence (source): `crates/server/src/assessment_student_view.rs` `assessment_student_view_router`, `crates/learning-data-access/src/postgres/assessment_student_view.rs` `PostgresInstructorStudentViewStore`, and `schemas/base_schema/assessment_student_view.sql` `load_instructor_student_view_question_source` implement the authorized no-write server, Store, and SQL boundaries.
+  - Evidence (runtime): a fresh PostgreSQL proof exercised the real Store through the API roles with a nonempty Ready Asset rendition and verified read-only SQLSTATE `25006` plus zero writes to Student-state tables.
+  - Evidence (test): an independently reviewed Chromium component proof with mock transport covered native and WeBWorK presentations, navigation, disabled controls, stale and error recovery, and no mutation requests; it was not connected or live-stack acceptance.
+  - Mismatch: connected live-HTTP acceptance is still missing; the unchanged full server compile is blocked in the AWS dependency graph; and production iMathAS Student View integration remains deferred outside the pilot. Independent final server source review passed, but it does not establish runtime behavior.
 
 #### Courses
 
@@ -239,8 +243,8 @@
 
 - [ ] Danger Zone contains **Assessment Unrelease**, **Archive Published Question**, and **Archive Blueprint Course**.
   - Mismatch: the implemented UI names the first action "Unrelease assignment," not Assessment Unrelease.
-- [x] Danger Zone should be visually separate from ordinary editing actions.
-  - Evidence (source): `src/pages/assignment_workspace/assignment_workspace_policies_page.tsx` `assignment-workspace-unrelease-danger-zone` is a separate danger section.
+- [ ] Danger Zone should be visually separate from ordinary editing actions.
+  - Mismatch: `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` renders the separate `assessment-workspace-unrelease-danger-zone` section, but `src/pages/assessment_workspace/assessment_workspace.css` still styles the retired `assignment-workspace-unrelease-danger-zone` class, so the intended visual separation is not applied.
 - [ ] Assessment Unrelease should explain that Student work will be deleted.
   - Mismatch: `src/pages/assignment_workspace/assignment_workspace_policies_page.tsx` explains Assignment unrelease, not Assessment Unrelease.
 - [ ] Assessment Unrelease should require typing the Assessment title before confirmation.

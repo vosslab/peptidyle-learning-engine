@@ -37,15 +37,6 @@ async function loadDecisionDetailsForSsr() {
   return module.StudentAssessmentDecisionDetails;
 }
 
-const instructorDelivery = {
-  available_at: null,
-  due_at: null,
-  closes_at: null,
-  assessment_attempt_time_limit_seconds: 900,
-  attempt_limit: 2,
-  late_work_rule: "accept",
-};
-
 test("Student detail adapts available entries and Question Pool selections without exposing source identities", () => {
   const presentation = toStudentAssessmentPresentationData({
     id: "assessment-1",
@@ -76,34 +67,6 @@ test("Student detail adapts available entries and Question Pool selections witho
   assert.equal(presentation.displayTimeZone, "America/New_York");
   assert.equal("timeZone" in presentation, false);
   assert.equal("id" in presentation, false);
-});
-
-test("Instructor Student view keeps its explicit Question Variation Rule and disclosure data", () => {
-  const presentation = toStudentAssessmentPresentationData({
-    title: "Protein structure",
-    instructions: "Use your notes.",
-    displayTimeZone: "America/Los_Angeles",
-    delivery: instructorDelivery,
-    questionsPerAssessmentAttempt: 4,
-    questionPoolReuseRule: "selectAgain",
-    questionVariationRule: "newVariation",
-    studentFeedbackReleaseRule: {
-      score: "after_submit",
-      per_item_correctness: "after_submit",
-      submitted_response: "after_due",
-      question_feedback: "after_due",
-      question_answer: "after_close",
-      question_answer_explanation: "after_close",
-      class_statistics: "never",
-    },
-  });
-
-  assert.equal(presentation.questionsPerAssessmentAttempt, 4);
-  assert.equal(presentation.questionPoolReuseRule, "selectAgain");
-  assert.equal(presentation.questionVariationRule, "newVariation");
-  assert.equal(presentation.studentFeedbackReleaseRule?.question_feedback, "after_due");
-  assert.equal(presentation.displayTimeZone, "America/Los_Angeles");
-  assert.equal("studentLateWorkStatus" in presentation.delivery, false);
 });
 
 test("attempt-time copy stays readable across minute, hour, and second limits", () => {

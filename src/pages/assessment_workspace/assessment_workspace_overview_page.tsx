@@ -50,15 +50,16 @@ export function AssessmentWorkspaceOverviewPage(): JSX.Element {
         >
           <h2 id="assessment-next-heading">Edit this assessment</h2>
           <p>
-            Questions selects and orders the fixed Questions. Policies controls delivery and
-            feedback.
+            The Assessment Question Editor selects, adds, removes, and orders Questions and Question
+            Pools. The Assessment Properties Editor controls dates, scoring, attempts, late work,
+            and what Students can see.
           </p>
           <p class="assessment-workspace-action-row">
             <A class="primary-link" href={path("questions")}>
-              Edit Questions
+              Assessment Question Editor
             </A>
             <A class="quiet-link" href={path("policies")}>
-              Edit Policies
+              Assessment Properties Editor
             </A>
           </p>
         </section>

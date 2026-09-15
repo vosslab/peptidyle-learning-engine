@@ -12,16 +12,33 @@
     format("woff2");
 }
 
+/* IBM Plex Sans Condensed is reserved for long, unbreakable values where the
+ * narrower letterforms preserve more of the value at once. Ordinary interface
+ * text remains Atkinson Hyperlegible Next. */
+@font-face {
+  font-family: "IBM Plex Sans Condensed";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/assets/fonts/ibm_plex_sans_condensed/ibm_plex_sans_condensed_regular.woff2")
+    format("woff2");
+}
+
 :root {
+  --ple-font-narrow:
+    "IBM Plex Sans Condensed", "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, sans-serif;
   --ple-font-mono:
-    "Atkinson Hyperlegible Mono",
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    "Liberation Mono",
-    monospace;
+    "Atkinson Hyperlegible Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+}
+
+/* Citation URLs are the browser application's current editable long-URL
+ * surface. Inputs retain their normal single-line scroll/copy behavior. */
+.ple-question-json-authoring[data-route-surface="pleQuestionJsonEditor"]
+  .ple-question-json-authoring__field
+  > input[type="url"] {
+  font-family: var(--ple-font-narrow);
+  font-variant-numeric: slashed-zero;
 }
 
 /* Source, keys, and aligned identifiers need a true fixed-width face. */

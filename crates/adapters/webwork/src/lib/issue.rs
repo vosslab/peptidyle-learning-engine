@@ -122,6 +122,27 @@ impl<R: WebworkRenderer> WebworkAdapter<R> {
         question_seed: QuestionSeed,
         source: &ResolvedWebworkQuestionSource,
     ) -> Result<WebworkIssuedAttempt, WebworkAdapterError> {
+        let rendered = self.render(question_seed, source).await?;
+        Ok(issued(rendered, question_seed, source))
+    }
+
+    /// Produces one answer-free, pre-submission opaque document without constructing
+    /// Attempt reproduction, grading, lifecycle, or persistence values.
+    pub async fn preview_document(
+        &self,
+        question_seed: QuestionSeed,
+        source: &ResolvedWebworkQuestionSource,
+    ) -> Result<Vec<u8>, WebworkAdapterError> {
+        // ASVS 8.2.3: only the backend-owned browser document crosses this
+        // preview boundary; source and Attempt-shaped evidence stay private.
+        Ok(self.render(question_seed, source).await?.document)
+    }
+
+    async fn render(
+        &self,
+        question_seed: QuestionSeed,
+        source: &ResolvedWebworkQuestionSource,
+    ) -> Result<RenderedWebworkQuestion, WebworkAdapterError> {
         crate::source_object_reference::verify_source(source)?;
         let rendered = self
             .renderer
@@ -141,7 +162,7 @@ impl<R: WebworkRenderer> WebworkAdapter<R> {
                 ),
             ));
         }
-        Ok(issued(rendered, question_seed, source))
+        Ok(rendered)
     }
 
     /// Delegates an opaque browser payload to the renderer once.

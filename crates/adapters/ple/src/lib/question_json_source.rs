@@ -71,22 +71,21 @@ impl ResolvedPleQuestionJsonSource {
 }
 
 impl PleQuestionBackend {
+    /// Produces one answer-free native presentation without constructing
+    /// Attempt reproduction, grading, lifecycle, or persistence values.
+    pub fn preview_question_json(
+        &self,
+        source: &ResolvedPleQuestionJsonSource,
+    ) -> QuestionVariationPresentation {
+        presentation(source)
+    }
+
     /// Issues an answer-free presentation from verified PLE source bytes.
     pub fn issue_question_json(
         &self,
         source: &ResolvedPleQuestionJsonSource,
     ) -> Result<PleIssuedQuestion, PleQuestionBackendError> {
-        let presentation = QuestionVariationPresentation {
-            variation: QuestionVariation::from_question_revision_and_reproduction(
-                source.question_revision().clone(),
-                QuestionReproduction::Static,
-            ),
-            question_title: source.compiled.presentation().question_title().to_string(),
-            prompt: source.compiled.presentation().prompt().to_vec(),
-            response: source.compiled.presentation().response().clone(),
-            native_choice_order: source.compiled.presentation().native_choice_order(),
-            author_content: source.compiled.author_content().cloned(),
-        };
+        let presentation = presentation(source);
         // The generic presentation serialization intentionally excludes raw
         // author source. Its immutable answer-free descriptor is nonetheless
         // part of the retained rendering integrity record.
@@ -151,6 +150,20 @@ impl PleQuestionBackend {
                 recorded_result,
             )
             .map_err(PleQuestionBackendError::QuestionSourceDocument)
+    }
+}
+
+fn presentation(source: &ResolvedPleQuestionJsonSource) -> QuestionVariationPresentation {
+    QuestionVariationPresentation {
+        variation: QuestionVariation::from_question_revision_and_reproduction(
+            source.question_revision().clone(),
+            QuestionReproduction::Static,
+        ),
+        question_title: source.compiled.presentation().question_title().to_string(),
+        prompt: source.compiled.presentation().prompt().to_vec(),
+        response: source.compiled.presentation().response().clone(),
+        native_choice_order: source.compiled.presentation().native_choice_order(),
+        author_content: source.compiled.author_content().cloned(),
     }
 }
 

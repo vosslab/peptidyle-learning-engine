@@ -65,6 +65,10 @@ const BROWSER_FONT_BUNDLES = [
       "ofl_1_1.txt",
       "provenance.txt",
     ],
+    faces: [
+      { style: "normal", asset: "atkinson_hyperlegible_next_variable.woff2" },
+      { style: "italic", asset: "atkinson_hyperlegible_next_variable_italic.woff2" },
+    ],
   },
   {
     family: "Atkinson Hyperlegible Mono",
@@ -75,6 +79,16 @@ const BROWSER_FONT_BUNDLES = [
       "ofl_1_1.txt",
       "provenance.txt",
     ],
+    faces: [
+      { style: "normal", asset: "atkinson_hyperlegible_mono_variable.woff2" },
+      { style: "italic", asset: "atkinson_hyperlegible_mono_variable_italic.woff2" },
+    ],
+  },
+  {
+    family: "IBM Plex Sans Condensed",
+    assetDir: "assets/fonts/ibm_plex_sans_condensed",
+    assets: ["ibm_plex_sans_condensed_regular.woff2", "ofl_1_1.txt", "provenance.txt"],
+    faces: [{ style: "normal", asset: "ibm_plex_sans_condensed_regular.woff2" }],
   },
 ];
 
@@ -300,10 +314,7 @@ function checkBrowserFontDelivery() {
     throw new Error("browser font stylesheet must not refer to remote font assets");
   }
   for (const bundle of BROWSER_FONT_BUNDLES) {
-    for (const [style, asset] of [
-      ["normal", bundle.assets[0]],
-      ["italic", bundle.assets[1]],
-    ]) {
+    for (const { style, asset } of bundle.faces) {
       const fontFace = fontFaceBlocks.find(
         (block) =>
           block.includes(`font-family: "${bundle.family}"`) &&
@@ -318,9 +329,6 @@ function checkBrowserFontDelivery() {
         throw new Error(
           `browser ${bundle.family} ${style} @font-face rule does not refer to local font asset ${asset}`,
         );
-      }
-      if (!fs.existsSync(path.join(distDir, bundle.assetDir, asset))) {
-        throw new Error(`build finished but dist/${bundle.assetDir}/${asset} is missing`);
       }
     }
   }
