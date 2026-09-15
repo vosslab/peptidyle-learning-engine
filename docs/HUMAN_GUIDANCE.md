@@ -183,7 +183,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Use [Atkinson Hyperlegible Next](https://www.brailleinstitute.org/freefont/) as the main PLE font.
 - Use [Atkinson Hyperlegible Mono](https://www.brailleinstitute.org/freefont/) for code and other monospace text.
 - Prefer the official Braille Institute font files and include the needed weights locally with PLE.
-- When a narrow font is needed use 'IBM Plex Sans Condensed' for like long unbreakable strings like URLs.
+- When a narrow font is needed, use `IBM Plex Sans Condensed` for long unbreakable strings such as URLs.
+- With `IBM Plex Sans Condensed`, try `font-variant-numeric: slashed-zero` to better distinguish `0` from `O`.
 - Question Backend-rendered content may use its own fonts when needed for correct display.
 - Students should have no upload capabilities. Instructor-created content should use text boxes.
 
