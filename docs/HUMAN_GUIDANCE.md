@@ -180,7 +180,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Dream big on the UI. Choose one visual philosophy and carry it through the entire interface.
 - Use drag-and-drop where it makes reordering faster and more natural.
 - Reordering must also have a precise keyboard-accessible method.
-- Themes should use biome and habitat names, such as Forest, Grassland, Ocean, and Desert.
+- Themes should use biome and habitat names.
+- Implement the themes as specified in `docs/BIOME_THEME_PALETTES.md`
 - UUIDs should never appear in visible content, navigation URLs, or copyable links.
 - Use [Atkinson Hyperlegible Next](https://www.brailleinstitute.org/freefont/) as the main PLE font.
 - Use [Atkinson Hyperlegible Mono](https://www.brailleinstitute.org/freefont/) for code and other monospace text.
