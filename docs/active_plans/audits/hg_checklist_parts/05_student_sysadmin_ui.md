@@ -1,0 +1,102 @@
+### Student interface
+
+- [x] The Student interface should focus on current Courses, Coursework, and work that needs attention.
+  - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` lists current courses; `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` lists assigned work.
+- [ ] **Coursework** is the Student-facing collective term for Regular Assignments, Practice Question Assignments, Bonus Assignments, Quizzes, and Exams.
+  - Mismatch: `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` calls the collection "Assignments" and has no Coursework terminology or listed types.
+- [ ] Student-facing interfaces should use the specific Assessment Type when referring to an individual item rather than calling it an Assessment.
+  - Mismatch: `src/pages/student_course_landing_page.tsx` `AssignmentCard` has no Assessment Type label.
+- [ ] The Student Ribbon should use familiar Student language rather than internal PLE terms such as Assessment.
+  - Mismatch: `src/ribbon/ribbon_catalog.ts` `studentAssignments` provides only an "Assignments" control; no complete Student Ribbon is implemented.
+- N/A Coursework lists may provide filters for **Regular Assignments**, **Practice Question Assignments**, **Bonus Assignments**, **Quizzes**, and **Exams**.
+  - Reason: Optional permission does not require current product behavior.
+- [ ] Each Coursework item should clearly show its Assessment Type using its label and Type icon.
+  - Mismatch: `src/pages/student_course_landing_page.tsx` `AssignmentCard` has no type label or icon.
+- [x] The Student interface should make the next useful action easy to find.
+  - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssignmentCard` presents the primary "Open Assignment" action.
+- [ ] The Student menu is simpler than the Instructor menu.
+  - Mismatch: `src/ribbon/ribbon_catalog.ts` `RIBBON_TASK_CATALOG` does not define a complete Student menu for comparison.
+- [ ] Student workflows should work well on laptops, portrait tablets, narrow phones, and square displays.
+  - Mismatch: needs runtime evidence for the four required Student viewport classes; `tests/playwright/student_course_entry_m6_evidence.mjs` does not cover them.
+- [ ] Every Student browser action should be usable with the keyboard alone.
+  - Mismatch: needs keyboard-only journey evidence; `src/pages/assignment_attempt_page.tsx` has keyboard-operable controls but no complete Student journey test.
+- [x] Student pages should use names meaningful to Students.
+  - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` uses "Your courses" and "Open assigned work".
+- [ ] Student navigation and pages should contain only Student interfaces and capabilities.
+  - Mismatch: `src/route_contract.ts` `studentCourseLanding` restricts that one route to Students, but source inspection is not evidence that every Student navigation and page exposes only Student capabilities; the required authorization/runtime check has not been recorded.
+- [x] Students enrolled in one active Course should go directly into that Course.
+  - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` redirects the one-entry `courses()` result to its Course reference.
+- [x] Students should be able to see their active Courses and Coursework from the main navigation.
+  - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` provides the current-Course index; `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` provides its work.
+- [ ] Course pages should make upcoming, available, completed, and missed Coursework easy to distinguish.
+  - Mismatch: `src/pages/student_course_landing_page.tsx` `progressLabel` covers completed, in-progress, and not-started only; it has no upcoming or missed state.
+- [ ] Coursework lists should make due dates, Type, and completion status easy to scan.
+  - Mismatch: `src/pages/student_course_landing_page.tsx` `AssignmentCard` lacks visible due date and Assessment Type fields.
+- [ ] Before starting Coursework, Students should see its title, Type, Question count, points possible, time limit, and previous Attempts.
+  - Mismatch: `src/components/student_assignment_presentation.tsx` `StudentAssignmentStartFacts` has some delivery facts, but does not establish the complete required Type and previous-Attempts presentation.
+- [x] Students see one Question at a time while completing Coursework.
+  - Evidence (source): `src/pages/assignment_attempt_page.tsx` `AssignmentAttemptPage` renders one keyed `currentPresentation` question card.
+  - Evidence (test): `tests/playwright/e2e_live_demo_course_seed_browser.mjs` `expectAttempt` asserts one `article.question-card`.
+- [x] While completing Coursework, navigation should show every Question, its saved status, and allow Students to jump directly between Questions.
+  - Evidence (source): `src/components/student_assignment_attempt_navigation.tsx` `StudentAssignmentAttemptNavigation` renders every position, saved-status label, and position button.
+  - Evidence (test): `tests/test_student_assignment_attempt_navigation.mjs` `Student Question navigation renders ordered, answer-free states with one current Question`.
+- [x] Leaving a Question and returning should preserve its saved response.
+  - Evidence (source): `src/pages/assignment_attempt_page.tsx` `activatePosition` saves before loading another position and `loadPresentation` restores `savedResponse`.
+  - Evidence (test): `tests/playwright/e2e_live_demo_webwork_submission_browser.mjs` reload assertion verifies persisted `savedResponse`.
+- [x] The current Question and overall progress should remain easy to see.
+  - Evidence (source): `src/pages/assignment_attempt_page.tsx` `AssignmentAttemptPage` renders the current position and total question count beside the navigation.
+- [x] The timer should be subtle and keep the focus on the Questions.
+  - Evidence (source): `src/pages/assignment_attempt_page.tsx` `assignment-attempt-header` keeps `calm-status` timer in the header outside the question card.
+- [x] For timed Coursework, the remaining time should stay visible while moving between Questions.
+  - Evidence (source): `src/pages/assignment_attempt_page.tsx` `remainingMilliseconds` is header state independent of `currentPresentation`.
+- [x] Submission status should be obvious and use plain language.
+  - Evidence (source): `src/pages/assignment_attempt_page.tsx` `submissionState` renders "Your answers were accepted" and saved-response submission text.
+- [x] Scores and feedback should appear where the Coursework settings allow them.
+  - Evidence (source): `src/components/student_assignment_presentation.tsx` `StudentAssignmentPresentation` conditions scores and feedback on `studentFeedbackReleaseRule`.
+- [x] Completed Coursework should remain easy to find and review.
+  - Evidence (source): `src/pages/assignment_attempt_summary_page.tsx` `AssignmentAttemptSummaryPage` presents previous attempt score and recorded work.
+- [x] Student content entry should use the response controls provided by Questions and other Student activities.
+  - Evidence (source): `src/pages/assignment_attempt_page.tsx` `QuestionPresentationResponseControl` receives the Question presentation response format.
+- [ ] The complete Student Ribbon task layout does not have a locked-in design yet.
+  - Reason: HG: no locked-in design.
+  - Mismatch: no complete Student Ribbon task layout can be verified until the design is locked.
+
+### Sysadmin interface
+
+- [x] The Sysadmin interface should focus on system administration.
+  - Evidence (source): `src/pages/instructor_accounts_page.tsx` `InstructorAccountsPage` labels its workspace "System administration" and manages Instructor Accounts.
+- [ ] The Sysadmin menu should make Accounts, Instructors, Courses, and system configuration easy to find.
+  - Mismatch: `src/ribbon/ribbon_catalog.ts` defines Instructor Accounts and Scoped Support only; it has no Sysadmin Courses or system configuration destinations.
+- [ ] Sysadmins should be able to find users quickly by name or email.
+  - Mismatch: `src/pages/instructor_accounts_page.tsx` `InstructorAccountsPage` has no name or email search.
+- [ ] Account lists should support searching, filtering, and scanning large numbers of users.
+  - Mismatch: `src/pages/instructor_accounts_page.tsx` `InstructorAccountsPage` lists all Instructor Accounts without search, filters, or large-list pagination.
+- [ ] User pages should clearly show role, account status, and other important administrative information.
+  - Mismatch: `src/pages/instructor_accounts_page.tsx` `InstructorAccountsPage` displays only Instructor Account reference, state, and sign-in time; no user detail page exists.
+- [x] Sysadmins create accounts and manage account access.
+  - Evidence (source): `src/pages/instructor_accounts_page.tsx` `InstructorAccountsPage` provides Instructor Account creation, deactivation, and reactivation actions.
+- [ ] Sysadmins approve Instructors before they receive Instructor capabilities.
+  - Mismatch: `src/pages/instructor_accounts_page.tsx` `createAccount` creates an active Instructor Account directly; there is no approval state.
+- [ ] Instructor approval status should be easy to find and change.
+  - Mismatch: `src/pages/instructor_accounts_page.tsx` `InstructorAccountsPage` exposes active/deactivated/closed account lifecycle state, but no Instructor approval status exists to find or change.
+- [ ] Sysadmins should be able to find and inspect Courses across the installation.
+  - Mismatch: `src/pages/support_roster_page.tsx` `SupportRosterPage` inspects only one Instructor-issued exact-capability roster, not installation-wide Courses.
+- [ ] Course administration should show the Instructor and important Course status information.
+  - Mismatch: no Sysadmin Course administration page or Course status projection exists in `src/pages/`.
+- [ ] Sysadmins should manage Courses through Sysadmin interfaces and capabilities.
+  - Mismatch: `src/route_contract.ts` has no Sysadmin Course-management route.
+- [ ] System-wide settings should have their own area, separate from user and Course administration.
+  - Reason: product decision still unclear
+  - Question: Which implemented installation-wide settings must Sysadmins view or change, and which source-of-truth boundary owns each?
+  - Mismatch: `src/ribbon/ribbon_catalog.ts` has no system-settings destination. The guidance could require a page for actual platform settings, or no page until implemented system-owned settings exist; current evidence cannot select between those readings.
+- [x] Everyday navigation should emphasize frequently used administrative tasks.
+  - Evidence (source): `src/ribbon/ribbon_catalog.ts` `instructorAccounts` is a primary critical task while `supportRoster` is supporting normal priority.
+- [x] Rare installation and configuration tasks should remain available through secondary navigation.
+  - Evidence (source): `src/ribbon/ribbon_catalog.ts` `supportRoster` is the supporting `Scoped Support` administrative task.
+- [ ] High-consequence administrative actions should have a visually distinct area.
+  - Mismatch: `src/pages/instructor_accounts_page.tsx` `Deactivate Instructor Account` uses the ordinary `quiet-action` styling with no distinct high-consequence area.
+- [ ] Confirmation for destructive actions should clearly state what will happen.
+  - Mismatch: `src/pages/instructor_accounts_page.tsx` `deactivate` executes immediately after a reason is entered; no confirmation step states the consequence.
+- [ ] The complete Sysadmin Ribbon task layout does not have a locked-in design yet.
+  - Reason: HG: no locked-in design.
+  - Mismatch: no complete Sysadmin Ribbon task layout can be verified until the design is locked.
