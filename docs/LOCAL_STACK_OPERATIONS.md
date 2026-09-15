@@ -6,8 +6,8 @@ it delegates to `local_stack.py` and the private `local_stack_control` owner.
 The topology is defined by [containers/compose.yaml](../containers/compose.yaml)
 and the fixed production-auth overlay at
 [tests/e2e/compose.live-demo-browser.yaml](../tests/e2e/compose.live-demo-browser.yaml).
-Replica behavior and the planned AWS shape are in
-[MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md).
+Future infrastructure design artifacts are in [deploy/opentofu](../deploy/opentofu).
+They are not a selected production topology or deployment evidence.
 
 The local stack is a disposable development environment. It is not a
 production security boundary, a highly available database, or deployment
@@ -107,7 +107,8 @@ acceptance. Removing a populated volume is destructive.
 
 The local hardening limits accidental exposure and confused operations. A
 person controlling the host account or Podman socket can still inspect disposable
-data. Production uses managed RDS, S3, IAM, and KMS controls.
+data. Cloud production support is unimplemented; a future deployment must
+establish its own storage, identity, encryption, backup, and recovery controls.
 
 ## First run
 
@@ -115,6 +116,7 @@ Use the launcher from the repository root:
 
 ```bash
 ./launchers/run_live_demo.sh
+./launchers/run_live_demo.sh --open
 ./launchers/run_live_demo.sh open
 ./launchers/run_live_demo.sh start --open
 ```
@@ -125,8 +127,8 @@ The launcher resolves the checkout from its own filesystem location, sources
 `python3 local_stack.py start`. Start always builds the production `dist/`
 bundle, creates a fresh fixed target, waits for the HTTPS gateway, and prints its URL for an operator
 to open. `open` opens the exact URL of an already-running fixed target without restarting it;
-`--open` is its compatible shorthand. `start --open` creates a fresh target and opens it. `--headless`
-remains an accepted explicit spelling of the default non-opening behavior.
+`--open` is a compatible shorthand for `start --open`, which creates a fresh target and opens it.
+`--headless` remains an accepted explicit spelling of the default non-opening behavior.
 
 The fixed target is always:
 
@@ -303,11 +305,10 @@ accepted M19 on 2026-09-07; it remains outside this two-lane service command. Se
 
 ## Production boundary
 
-The local lifecycle does not deploy AWS resources. The planned production
-baseline in [deploy/opentofu](../deploy/opentofu) uses private Fargate API,
-worker, and publisher services, RDS PostgreSQL, versioned SSE-KMS S3 domains,
-CloudFront/WAF/ALB, VPC endpoints, and role-separated Secrets Manager values.
-The external renderer is disabled there by default. OpenTofu validation,
-disposable apply, migration/health, restore, rollback, drift, and bounded
-destroy remain deployment gates. A successful local stack or browser journey
-does not establish production readiness or release acceptance.
+The local lifecycle does not deploy cloud resources. OpenTofu files under
+[deploy/opentofu](../deploy/opentofu) remain future infrastructure design, not
+live deployment or acceptance evidence. A production implementation must
+separately prove its identity separation, encryption, provider policies,
+backup/restore, rollback, drift, and recovery controls. A successful local
+stack or browser journey does not establish production readiness or release
+acceptance.

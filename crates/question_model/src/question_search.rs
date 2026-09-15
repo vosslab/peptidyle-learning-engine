@@ -89,6 +89,26 @@ pub struct QuestionSearchTagFacet {
     pub count: u64,
 }
 
+/// Server-computed count for one exact stored subject display value.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct QuestionSearchSubjectFacet {
+    /// Exact public subject display value; it is not lowercased for presentation.
+    pub subject: String,
+    /// Number of matching discoverable publications in the query snapshot.
+    pub count: u64,
+}
+
+/// Server-computed count for one exact stored topic display value.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct QuestionSearchTopicFacet {
+    /// Exact public topic display value; it is not lowercased for presentation.
+    pub topic: String,
+    /// Number of matching discoverable publications in the query snapshot.
+    pub count: u64,
+}
+
 /// Server-computed count for one closed Question Type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -123,6 +143,10 @@ pub struct QuestionSearchRequest {
     pub backends: Vec<QuestionBackend>,
     /// Free-form metadata tags; any normalized tag may match.
     pub tags: Vec<String>,
+    /// Structured subjects; any normalized exact subject may match.
+    pub subjects: Vec<String>,
+    /// Structured topics; any normalized exact topic may match.
+    pub topics: Vec<String>,
     /// Immutable Question Types; any supplied type may match.
     pub question_types: Vec<QuestionType>,
     /// Required adapter capabilities; every supplied capability must be present.
@@ -154,6 +178,8 @@ pub struct QuestionSearchFilter {
     pub author_names: Vec<String>,
     pub backends: Vec<QuestionBackend>,
     pub tags: Vec<String>,
+    pub subjects: Vec<String>,
+    pub topics: Vec<String>,
     pub question_types: Vec<QuestionType>,
     pub capabilities: Vec<Capability>,
     pub question_licenses: Vec<QuestionLicense>,
@@ -175,6 +201,8 @@ impl QuestionSearchFilter {
             author_names: query.author_names,
             backends: query.backends,
             tags: query.tags,
+            subjects: query.subjects,
+            topics: query.topics,
             question_types: query.question_types,
             capabilities: query.capabilities,
             question_licenses: query.question_licenses,
@@ -196,6 +224,8 @@ impl From<QuestionSearchFilter> for QuestionSearchRequest {
             author_names: filter.author_names,
             backends: filter.backends,
             tags: filter.tags,
+            subjects: filter.subjects,
+            topics: filter.topics,
             question_types: filter.question_types,
             capabilities: filter.capabilities,
             question_licenses: filter.question_licenses,
@@ -214,6 +244,8 @@ impl Default for QuestionSearchRequest {
             author_names: Vec::new(),
             backends: Vec::new(),
             tags: Vec::new(),
+            subjects: Vec::new(),
+            topics: Vec::new(),
             question_types: Vec::new(),
             capabilities: Vec::new(),
             question_licenses: Vec::new(),
@@ -277,6 +309,8 @@ impl QuestionSearchRequest {
             120,
         )?;
         normalize_text_filters(&mut self.tags, MAX_QUESTION_SEARCH_TAG_FILTERS, 256)?;
+        normalize_text_filters(&mut self.subjects, MAX_QUESTION_SEARCH_TAG_FILTERS, 256)?;
+        normalize_text_filters(&mut self.topics, MAX_QUESTION_SEARCH_TAG_FILTERS, 256)?;
         if self.capabilities.len() > Capability::ALL.len()
             || self.question_licenses.len() > 3
             || self.backends.len() > QuestionBackend::ALL.len()
@@ -322,15 +356,23 @@ fn normalize_text(
     value: String,
     maximum_characters: usize,
 ) -> Result<String, QuestionSearchRequestError> {
-    let normalized = value
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_lowercase();
+    let normalized = normalized_question_search_group_value(&value);
     if normalized.chars().count() > maximum_characters {
         return Err(QuestionSearchRequestError::TooLarge);
     }
     Ok(normalized)
+}
+
+/// Produces the one comparison key used by structured text filters and facets.
+///
+/// The server uses this same function when grouping stored display values, so
+/// selecting a returned label applies to the group whose count was displayed.
+pub fn normalized_question_search_group_value(value: &str) -> String {
+    value
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
 }
 
 /// Server-computed count for one capability.
@@ -359,10 +401,22 @@ pub struct QuestionSearchQuestionLicenseFacet {
 pub struct QuestionSearchFacets {
     /// Exact reviewed Question Author display-name counts.
     pub author_names: Vec<QuestionSearchAuthorFacet>,
+    /// Whether additional matching Question Author names were omitted by the bound.
+    pub author_names_truncated: bool,
     /// Closed Question Backend counts.
     pub backends: Vec<QuestionSearchBackendFacet>,
     /// Exact stored public tag counts.
     pub tags: Vec<QuestionSearchTagFacet>,
+    /// Whether additional matching tags were omitted by the bound.
+    pub tags_truncated: bool,
+    /// Exact stored public subject counts.
+    pub subjects: Vec<QuestionSearchSubjectFacet>,
+    /// Whether additional matching subjects were omitted by the bound.
+    pub subjects_truncated: bool,
+    /// Exact stored public topic counts.
+    pub topics: Vec<QuestionSearchTopicFacet>,
+    /// Whether additional matching topics were omitted by the bound.
+    pub topics_truncated: bool,
     /// Closed immutable Question Type counts.
     pub question_types: Vec<QuestionTypeFacet>,
     /// Adapter capability counts.

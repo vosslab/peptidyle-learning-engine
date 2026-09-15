@@ -9,8 +9,6 @@ use question_model::{ObjectId, QuestionRevisionReference, Timestamp};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use sha2::{Digest, Sha256};
 
-/// Production AWS client wiring using container workload identity only.
-pub mod aws;
 /// Typed Object Storage Area and immutable Object Address construction.
 pub mod bucket;
 /// Shared hostile-input validation for still instructional raster images.
@@ -21,7 +19,7 @@ pub mod memory;
 pub mod minio;
 /// Trusted immutable Question Source object resolution.
 pub mod question_source;
-/// Production AWS S3 backend.
+/// S3-compatible object-store backend.
 pub mod s3;
 
 pub use crate::bucket::{

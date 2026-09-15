@@ -12,7 +12,7 @@
     "check": "./check_codebase.sh",
     "clean": "./devel/clean_build.sh",
     "clean:dist": "./devel/dist_clean.sh",
-    "format:write": "npx prettier --write '**/*.{ts,tsx,mts,cts,js,mjs,cjs}'"
+    "format:write": "npx prettier --write '**/*.{ts,tsx,mts,cts,js,mjs,cjs}' '!assets/author-content-dependencies/**'"
   },
   "dependencies": {
     "@solidjs/router": ">=1.0.0",

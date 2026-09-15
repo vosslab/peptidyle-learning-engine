@@ -24,6 +24,18 @@ try {
   await page.getByRole("link", { name: "Question Library" }).waitFor();
 
   const rows = page.locator("article.question-library-row");
+  const searchTips = page.locator("details.question-library-search-tips");
+  if ((await rows.count()) !== 0 || (await page.getByLabel("Backend").count()) !== 0) {
+    throw new Error("Fresh Question Library did not begin with the simple Search entry");
+  }
+  if (await searchTips.evaluate((element) => element.hasAttribute("open"))) {
+    throw new Error("Question Library Search tips were not initially collapsed");
+  }
+
+  const search = page.getByLabel("Search published questions");
+  await search.fill("x");
+  await page.getByLabel("Backend").waitFor();
+  await search.fill("");
   await page.waitForFunction(
     () => document.querySelectorAll("article.question-library-row").length === 8,
   );
@@ -47,12 +59,13 @@ try {
   if (
     selectedTitle === null ||
     selectedPath === null ||
-    !/^\/library\/[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/.test(selectedPath)
+    !/^\/library\/[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}\?libraryReturn=[0-9a-f-]{36}$/.test(
+      selectedPath,
+    )
   ) {
     throw new Error("Question Library did not expose a canonical exact Question Revision route");
   }
 
-  const search = page.getByLabel("Search published questions");
   await search.fill(selectedTitle);
   await page.waitForFunction(
     () => document.querySelectorAll("article.question-library-row").length === 1,
@@ -61,6 +74,21 @@ try {
   await page.waitForURL(`${origin}${selectedPath}`);
   await page.getByRole("heading", { name: selectedTitle, exact: true }).waitFor();
   await page.getByRole("region", { name: "Question prompt" }).waitFor();
+
+  await page.goBack();
+  await page.waitForURL(new RegExp(`${origin}/library\\?libraryReturn=`));
+  if ((await search.inputValue()) !== selectedTitle) {
+    throw new Error("Browser Back did not restore the Question Library search");
+  }
+  if ((await page.getByLabel("Backend").inputValue()) !== "ple" || (await rows.count()) !== 1) {
+    throw new Error("Browser Back did not restore the Question Library filters and results");
+  }
+
+  await selectedLink.click();
+  await page.getByRole("link", { name: "Return to question library" }).click();
+  if ((await search.inputValue()) !== selectedTitle || (await rows.count()) !== 1) {
+    throw new Error("The visible Question return link did not restore the Library view");
+  }
 } finally {
   await context.close();
   await browser.close();

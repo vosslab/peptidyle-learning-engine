@@ -26,12 +26,10 @@ use objects::{ResolvedQuestionSource, s3::S3ObjectStore};
 use question_model::{
     Capability, QuestionBackend, QuestionBackendCapabilities, QuestionDetails,
     QuestionDetailsPromptView, QuestionId, QuestionLineageView, QuestionRevisionReference,
-    QuestionSearchAuthorFacet, QuestionSearchAuthorship, QuestionSearchBackendFacet,
-    QuestionSearchCapabilityFacet, QuestionSearchCourseUse, QuestionSearchCourseUseFacet,
-    QuestionSearchFacets, QuestionSearchPage, QuestionSearchQuestionLicenseFacet,
-    QuestionSearchRequest, QuestionSearchResult, QuestionSearchTagFacet, QuestionStatistics,
-    QuestionSummary, QuestionTypeFacet, QuestionUseDetails, QuestionUseSummary,
-    ReusableQuestionView, ReusableSelectionAvailability,
+    QuestionSearchAuthorship, QuestionSearchCourseUse, QuestionSearchPage, QuestionSearchRequest,
+    QuestionSearchResult, QuestionStatistics, QuestionSummary, QuestionUseDetails,
+    QuestionUseSummary, ReusableQuestionView, ReusableSelectionAvailability,
+    normalized_question_search_group_value,
 };
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -43,6 +41,7 @@ use question_model::ProductRole;
 const DEFAULT_PAGE_SIZE: u16 = 50;
 const MAX_PAGE_SIZE: u16 = 100;
 
+mod facets;
 mod paging;
 mod search_query;
 mod shared_metadata;
@@ -123,6 +122,10 @@ struct QuestionSearchQuery {
     #[serde(default)]
     tags: Vec<String>,
     #[serde(default)]
+    subjects: Vec<String>,
+    #[serde(default)]
+    topics: Vec<String>,
+    #[serde(default)]
     question_types: Vec<question_model::QuestionType>,
     #[serde(default)]
     capabilities: Vec<Capability>,
@@ -141,6 +144,8 @@ struct QuestionSearchQuery {
 impl TryFrom<QuestionSearchQuery> for QuestionSearchRequest {
     type Error = (StatusCode, &'static str);
 
+    /// ASVS 2.2.1 and 2.2.2: applies the model's positive limits and
+    /// normalization again at the trusted service boundary.
     fn try_from(query: QuestionSearchQuery) -> Result<Self, Self::Error> {
         if query
             .page_size
@@ -156,6 +161,8 @@ impl TryFrom<QuestionSearchQuery> for QuestionSearchRequest {
             author_names: query.author_names,
             backends: query.backends,
             tags: query.tags,
+            subjects: query.subjects,
+            topics: query.topics,
             question_types: query.question_types,
             capabilities: query.capabilities,
             question_licenses: query.question_licenses,
@@ -222,7 +229,7 @@ async fn search_questions(
             })
             .collect(),
         next_cursor,
-        facets: facets(&matching),
+        facets: facets::facets(&matching),
     };
     crate::auth::no_store(Json(page).into_response())
 }
@@ -713,10 +720,9 @@ fn matches_query(
     }
     if !query.author_names.is_empty()
         && !summary.authorship.authors.iter().any(|author| {
-            query
-                .author_names
-                .iter()
-                .any(|name| name == &author.display_name.as_str().to_lowercase())
+            query.author_names.iter().any(|name| {
+                name == &normalized_question_search_group_value(author.display_name.as_str())
+            })
         })
     {
         return false;
@@ -725,11 +731,29 @@ fn matches_query(
         return false;
     }
     if !query.tags.is_empty()
-        && !summary
-            .metadata
-            .tags
-            .iter()
-            .any(|tag| query.tags.contains(&tag.as_str().to_lowercase()))
+        && !summary.metadata.tags.iter().any(|tag| {
+            query
+                .tags
+                .contains(&normalized_question_search_group_value(tag.as_str()))
+        })
+    {
+        return false;
+    }
+    if !query.subjects.is_empty()
+        && !entry.subject.as_ref().is_some_and(|subject| {
+            query
+                .subjects
+                .contains(&normalized_question_search_group_value(subject))
+        })
+    {
+        return false;
+    }
+    if !query.topics.is_empty()
+        && !entry.topic.as_ref().is_some_and(|topic| {
+            query
+                .topics
+                .contains(&normalized_question_search_group_value(topic))
+        })
     {
         return false;
     }
@@ -759,74 +783,6 @@ fn matches_query(
     }
     query.authorship != QuestionSearchAuthorship::AuthoredByCurrentAccount
         || entry.authored_by_current_account
-}
-
-fn facets(entries: &[&ResolvedQuestionLibraryEntry]) -> QuestionSearchFacets {
-    let mut authors = BTreeMap::<String, u64>::new();
-    let mut backends = BTreeMap::<QuestionBackend, u64>::new();
-    let mut tags = BTreeMap::<String, u64>::new();
-    let mut question_types = BTreeMap::<question_model::QuestionType, u64>::new();
-    let mut capabilities = BTreeMap::<Capability, u64>::new();
-    let mut licenses = BTreeMap::<question_model::QuestionLicense, u64>::new();
-    for entry in entries {
-        let summary = &entry.summary;
-        for author in &summary.authorship.authors {
-            *authors
-                .entry(author.display_name.as_str().to_string())
-                .or_default() += 1;
-        }
-        *backends.entry(summary.backend).or_default() += 1;
-        for tag in &summary.metadata.tags {
-            *tags.entry(tag.as_str().to_string()).or_default() += 1;
-        }
-        *question_types.entry(summary.question_type).or_default() += 1;
-        for capability in summary.capabilities.declared() {
-            *capabilities.entry(capability).or_default() += 1;
-        }
-        if let Some(license) = &summary.metadata.question_license {
-            *licenses.entry(license.clone()).or_default() += 1;
-        }
-    }
-    QuestionSearchFacets {
-        author_names: authors
-            .into_iter()
-            .map(|(author_name, count)| QuestionSearchAuthorFacet { author_name, count })
-            .collect(),
-        backends: backends
-            .into_iter()
-            .map(|(backend, count)| QuestionSearchBackendFacet { backend, count })
-            .collect(),
-        tags: tags
-            .into_iter()
-            .map(|(tag, count)| QuestionSearchTagFacet { tag, count })
-            .collect(),
-        question_types: question_types
-            .into_iter()
-            .map(|(question_type, count)| QuestionTypeFacet {
-                question_type,
-                count,
-            })
-            .collect(),
-        capabilities: capabilities
-            .into_iter()
-            .map(|(capability, count)| QuestionSearchCapabilityFacet { capability, count })
-            .collect(),
-        question_licenses: licenses
-            .into_iter()
-            .map(
-                |(question_license, count)| QuestionSearchQuestionLicenseFacet {
-                    question_license,
-                    count,
-                },
-            )
-            .collect(),
-        used_in_my_courses: QuestionSearchCourseUseFacet {
-            used: entries
-                .iter()
-                .filter(|entry| entry.used_in_current_account_courses)
-                .count() as u64,
-        },
-    }
 }
 
 fn store_error_response(error: StoreError) -> Response {

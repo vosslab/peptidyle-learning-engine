@@ -18,7 +18,7 @@ use axum::{
         header::{CONTENT_TYPE, COOKIE, ETAG, IF_MATCH},
     },
     response::{IntoResponse, Response},
-    routing::{get, post, put},
+    routing::{get, post},
 };
 use learning_data_access::{
     AuthoringDraft, AuthoringDraftStore, CreateAuthoringDraftInput, DraftQuestionEditNumber,

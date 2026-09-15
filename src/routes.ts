@@ -6,7 +6,7 @@ import type { RouteDefinition } from "@solidjs/router";
 import { AssessmentOverviewPage } from "./pages/assessment_overview_page";
 import { NotFoundPage } from "./pages/contract_pages";
 import { AssessmentAttemptSummaryPage } from "./pages/assessment_attempt_summary_page";
-import { LibraryRoutePage } from "./pages/library_route_page";
+import { BrowseLibraryRoutePage, LibraryRoutePage } from "./pages/library_route_page";
 import { QuestionDetailPage } from "./pages/question_detail_page";
 import { QuestionDraftEditorPage } from "./pages/question_draft_editor_page";
 import { QuestionDraftsPage } from "./pages/question_drafts_page";
@@ -63,6 +63,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   assessmentAttempt: AssessmentAttemptPage,
   assessmentAttemptSummary: AssessmentAttemptSummaryPage,
   library: LibraryRoutePage,
+  libraryBrowse: BrowseLibraryRoutePage,
   questionDetail: QuestionDetailPage,
   questionDrafts: QuestionDraftsPage,
   questionDraftEditor: QuestionDraftEditorPage,

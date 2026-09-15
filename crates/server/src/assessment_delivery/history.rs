@@ -412,15 +412,17 @@ mod tests {
 
     #[test]
     fn history_wire_keeps_the_exact_issued_question_revision() {
-        let wire = serde_json::to_value(project_history(&evidence())).expect("history serializes");
+        let evidence = evidence();
+        let expected = evidence.history.questions[0].question_revision.clone();
+        let wire = serde_json::to_value(project_history(&evidence)).expect("history serializes");
 
         assert_eq!(
             wire["questions"][0]["questionRevision"]["questionId"],
-            "ABCD-XEF1"
+            expected.question_id.to_string()
         );
         assert_eq!(
             wire["questions"][0]["questionRevision"]["revisionNumber"],
-            3
+            expected.revision_number.get()
         );
     }
 }

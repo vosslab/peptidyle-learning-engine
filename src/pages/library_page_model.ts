@@ -4,6 +4,15 @@ import { normalizeQuestionIdSyntax } from "../question_id";
 import type { QuestionFormat } from "../../generated/api/QuestionFormat";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
 import { MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES } from "../../generated/api/MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES";
+import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS } from "../../generated/api/MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS";
+import { MAX_QUESTION_SEARCH_TAG_FACETS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FACETS";
+import type { AuthenticatedSession } from "../api/contracts";
+import { MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS } from "../api/decoders/question_type_facets";
+import {
+  MAX_QUESTION_SEARCH_CAPABILITY_FACETS,
+  MAX_QUESTION_SEARCH_QUESTION_LICENSE_FACETS,
+  QUESTION_BACKENDS,
+} from "../api/decoders/shared";
 
 /** A browser-safe current Question Library record. */
 export interface QuestionLibraryBrowseRow {
@@ -38,6 +47,8 @@ export interface QuestionLibraryBrowseFacetAggregate {
     | "authorName"
     | "backend"
     | "tag"
+    | "subject"
+    | "topic"
     | "questionType"
     | "capability"
     | "questionLicense"
@@ -51,6 +62,8 @@ export interface QuestionLibraryBrowseQuery {
   readonly authorName: string | null;
   readonly backend: string | null;
   readonly tag: string | null;
+  readonly subjects: ReadonlyArray<string>;
+  readonly topics: ReadonlyArray<string>;
   readonly questionType: string | null;
   readonly capability: string | null;
   readonly questionLicense: string | null;
@@ -59,10 +72,26 @@ export interface QuestionLibraryBrowseQuery {
   readonly authorship: QuestionSearchAuthorship;
 }
 
+/** Honest notice that a free-form facet group is only the bounded leading set. */
+export interface QuestionLibraryFacetTruncation {
+  readonly authorNames: boolean;
+  readonly tags: boolean;
+  readonly subjects: boolean;
+  readonly topics: boolean;
+}
+
+export const NO_QUESTION_LIBRARY_FACET_TRUNCATION: QuestionLibraryFacetTruncation = {
+  authorNames: false,
+  tags: false,
+  subjects: false,
+  topics: false,
+};
+
 export interface QuestionLibraryBrowsePage {
   readonly items: ReadonlyArray<QuestionLibraryBrowseRow>;
   readonly nextCursor: string | null;
   readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
+  readonly facetTruncation: QuestionLibraryFacetTruncation;
 }
 
 /**
@@ -75,26 +104,37 @@ export interface QuestionLibraryBrowseRepository {
 
 export type QuestionLibraryBrowseState =
   | {
+      readonly kind: "initial";
+      readonly rows: readonly [];
+      readonly aggregates: readonly [];
+      readonly nextCursor: null;
+      readonly facetTruncation: QuestionLibraryFacetTruncation;
+    }
+  | {
       readonly kind: "loading";
       readonly rows: ReadonlyArray<QuestionLibraryBrowseRow>;
       readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
       readonly nextCursor: string | null;
+      readonly facetTruncation: QuestionLibraryFacetTruncation;
     }
   | {
       readonly kind: "ready";
       readonly rows: ReadonlyArray<QuestionLibraryBrowseRow>;
       readonly nextCursor: string | null;
       readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
+      readonly facetTruncation: QuestionLibraryFacetTruncation;
     }
   | {
       readonly kind: "empty";
       readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
+      readonly facetTruncation: QuestionLibraryFacetTruncation;
     }
   | {
       readonly kind: "error";
       readonly rows: ReadonlyArray<QuestionLibraryBrowseRow>;
       readonly aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>;
       readonly nextCursor: string | null;
+      readonly facetTruncation: QuestionLibraryFacetTruncation;
     };
 
 /**
@@ -108,6 +148,8 @@ export type QuestionLibraryBrowseState =
  */
 export interface QuestionLibraryReturnState {
   readonly token: string;
+  readonly sessionScope: AuthenticatedSession;
+  readonly origin: "search" | "browse";
   readonly query: QuestionLibraryBrowseQuery;
   readonly browseState: Extract<QuestionLibraryBrowseState, { readonly kind: "ready" }>;
   readonly scrollTop: number;
@@ -133,11 +175,18 @@ export function parseQuestionLibraryReturnToken(value: unknown): string | null {
 }
 
 export function questionLibraryReturnPath(token: string): string {
-  return `/library?${new URLSearchParams({ [QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER]: token }).toString()}`;
+  const origin =
+    pendingQuestionLibraryReturnState?.token === token
+      ? pendingQuestionLibraryReturnState.origin
+      : "search";
+  const pathname = origin === "browse" ? "/library/browse" : "/library";
+  return `${pathname}?${new URLSearchParams({ [QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER]: token }).toString()}`;
 }
 
 /** Save the current Library view only immediately before opening a Question. */
 export function saveQuestionLibraryReturnState(
+  sessionScope: AuthenticatedSession,
+  origin: "search" | "browse",
   token: string,
   query: QuestionLibraryBrowseQuery,
   browseState: QuestionLibraryBrowseState,
@@ -145,26 +194,47 @@ export function saveQuestionLibraryReturnState(
 ): void {
   if (parseQuestionLibraryReturnToken(token) === null) return;
   pendingQuestionLibraryReturnState = null;
-  if (browseState.kind !== "ready") return;
+  const retainedBrowseState = retainedQuestionLibraryReturnBrowseState(browseState);
+  if (retainedBrowseState === null) return;
   pendingQuestionLibraryReturnState = {
     token,
+    sessionScope,
+    origin,
     query: normalizeQuestionLibraryBrowseQuery(query),
-    browseState,
+    browseState: retainedBrowseState,
     scrollTop: Number.isFinite(scrollTop) ? Math.max(0, scrollTop) : 0,
   };
 }
 
-/** Consume a pending Question-detail return view so unrelated Library visits start fresh. */
+/** Consume the single pending view on every Library mount, whether or not it matches. */
 export function takeQuestionLibraryReturnState(
+  sessionScope: AuthenticatedSession,
   token: string | null,
 ): QuestionLibraryReturnState | null {
   const saved =
-    token !== null && pendingQuestionLibraryReturnState?.token === token
+    token !== null &&
+    pendingQuestionLibraryReturnState?.token === token &&
+    pendingQuestionLibraryReturnState.sessionScope === sessionScope
       ? pendingQuestionLibraryReturnState
       : null;
-  if (saved === null) return null;
   pendingQuestionLibraryReturnState = null;
   return saved;
+}
+
+function retainedQuestionLibraryReturnBrowseState(
+  state: QuestionLibraryBrowseState,
+): Extract<QuestionLibraryBrowseState, { readonly kind: "ready" }> | null {
+  if (state.kind === "ready") return state;
+  if ((state.kind !== "loading" && state.kind !== "error") || state.rows.length === 0) {
+    return null;
+  }
+  return {
+    kind: "ready",
+    rows: state.rows,
+    aggregates: state.aggregates,
+    nextCursor: state.nextCursor,
+    facetTruncation: state.facetTruncation,
+  };
 }
 
 /** Keep a restored virtual-list position inside the current rendered scroll range. */
@@ -182,7 +252,7 @@ export function clampQuestionLibraryReturnScrollTop(
 const MAX_TEXT_LENGTH = 512;
 const MAX_SUMMARY_LENGTH = 4_000;
 export const MAX_QUESTION_LIBRARY_BROWSE_PAGE_ITEMS = 100;
-const MAX_QUESTION_LIBRARY_BROWSE_AGGREGATES = 100;
+const MAX_QUESTION_LIBRARY_ROW_TEXT_ITEMS = 100;
 const MAX_FACET_COUNT = 1_000_000_000;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -226,7 +296,7 @@ function decodeQuestionFormat(value: unknown, path: string): QuestionFormat {
 }
 
 function stringList(value: unknown, path: string): ReadonlyArray<string> {
-  if (!Array.isArray(value) || value.length > MAX_QUESTION_LIBRARY_BROWSE_AGGREGATES) {
+  if (!Array.isArray(value) || value.length > MAX_QUESTION_LIBRARY_ROW_TEXT_ITEMS) {
     throw new Error(`${path} must be an array`);
   }
   return value.map((item, index) => boundedText(item, `${path}[${index}]`));
@@ -286,6 +356,8 @@ function decodeAggregate(value: unknown, path: string): QuestionLibraryBrowseFac
     facet !== "authorName" &&
     facet !== "backend" &&
     facet !== "tag" &&
+    facet !== "subject" &&
+    facet !== "topic" &&
     facet !== "questionType" &&
     facet !== "capability" &&
     facet !== "questionLicense" &&
@@ -305,16 +377,66 @@ function decodeAggregate(value: unknown, path: string): QuestionLibraryBrowseFac
   return { facet, value: boundedText(value["value"], `${path}.value`), count };
 }
 
+function decodeFacetTruncation(value: unknown): QuestionLibraryFacetTruncation {
+  if (!isRecord(value) || !hasExactKeys(value, ["authorNames", "tags", "subjects", "topics"])) {
+    throw new Error("Question Library facet truncation has an unexpected shape");
+  }
+  const authorNames = value["authorNames"];
+  const tags = value["tags"];
+  const subjects = value["subjects"];
+  const topics = value["topics"];
+  if (
+    typeof authorNames !== "boolean" ||
+    typeof tags !== "boolean" ||
+    typeof subjects !== "boolean" ||
+    typeof topics !== "boolean"
+  ) {
+    throw new Error("Question Library facet truncation fields must be boolean");
+  }
+  return {
+    authorNames,
+    tags,
+    subjects,
+    topics,
+  };
+}
+
+function validateAggregateGroupCaps(
+  aggregates: ReadonlyArray<QuestionLibraryBrowseFacetAggregate>,
+): void {
+  const caps: Readonly<Record<QuestionLibraryBrowseFacetAggregate["facet"], number>> = {
+    authorName: MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS,
+    backend: QUESTION_BACKENDS.length,
+    tag: MAX_QUESTION_SEARCH_TAG_FACETS,
+    subject: MAX_QUESTION_SEARCH_TAG_FACETS,
+    topic: MAX_QUESTION_SEARCH_TAG_FACETS,
+    questionType: MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
+    capability: MAX_QUESTION_SEARCH_CAPABILITY_FACETS,
+    questionLicense: MAX_QUESTION_SEARCH_QUESTION_LICENSE_FACETS,
+    usedInMyCourses: 1,
+  };
+  const counts = new Map<QuestionLibraryBrowseFacetAggregate["facet"], number>();
+  for (const aggregate of aggregates) {
+    const next = (counts.get(aggregate.facet) ?? 0) + 1;
+    if (next > caps[aggregate.facet]) {
+      throw new Error(`Question Library ${aggregate.facet} aggregate group is too large`);
+    }
+    counts.set(aggregate.facet, next);
+  }
+}
+
 /** Strictly decode the live/generated-client result before browser presentation. */
 export function decodeQuestionLibraryBrowsePage(value: unknown): QuestionLibraryBrowsePage {
-  if (!isRecord(value) || !hasExactKeys(value, ["aggregates", "items", "nextCursor"])) {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, ["aggregates", "facetTruncation", "items", "nextCursor"])
+  ) {
     throw new Error("Question Library response has an unexpected shape");
   }
   if (
     !Array.isArray(value["items"]) ||
     value["items"].length > MAX_QUESTION_LIBRARY_BROWSE_PAGE_ITEMS ||
-    !Array.isArray(value["aggregates"]) ||
-    value["aggregates"].length > MAX_QUESTION_LIBRARY_BROWSE_AGGREGATES
+    !Array.isArray(value["aggregates"])
   ) {
     throw new Error("Question Library response arrays are invalid");
   }
@@ -327,12 +449,15 @@ export function decodeQuestionLibraryBrowsePage(value: unknown): QuestionLibrary
   ) {
     throw new Error("Question Library response cursor is invalid");
   }
+  const aggregates = value["aggregates"].map((item, index) =>
+    decodeAggregate(item, `aggregates[${index}]`),
+  );
+  validateAggregateGroupCaps(aggregates);
   return {
     items: value["items"].map((item, index) => decodeRow(item, `items[${index}]`)),
     nextCursor,
-    aggregates: value["aggregates"].map((item, index) =>
-      decodeAggregate(item, `aggregates[${index}]`),
-    ),
+    aggregates,
+    facetTruncation: decodeFacetTruncation(value["facetTruncation"]),
   };
 }
 
@@ -341,6 +466,8 @@ export const EMPTY_QUESTION_LIBRARY_BROWSE_QUERY: QuestionLibraryBrowseQuery = {
   authorName: null,
   backend: null,
   tag: null,
+  subjects: [],
+  topics: [],
   questionType: null,
   capability: null,
   questionLicense: null,
@@ -356,6 +483,8 @@ export function normalizeQuestionLibraryBrowseQuery(
     authorName: query.authorName,
     backend: query.backend,
     tag: query.tag,
+    subjects: query.subjects.map((subject) => subject.trim().replace(/\s+/g, " ")),
+    topics: query.topics.map((topic) => topic.trim().replace(/\s+/g, " ")),
     questionType: query.questionType,
     capability: query.capability,
     questionLicense: query.questionLicense,
@@ -413,10 +542,11 @@ export class QuestionLibraryBrowseSession {
   #generation = 0;
   #query = EMPTY_QUESTION_LIBRARY_BROWSE_QUERY;
   #state: QuestionLibraryBrowseState = {
-    kind: "loading",
+    kind: "initial",
     rows: [],
     aggregates: [],
     nextCursor: null,
+    facetTruncation: NO_QUESTION_LIBRARY_FACET_TRUNCATION,
   };
   #loading = false;
   #queuedReset = false;
@@ -495,12 +625,14 @@ export class QuestionLibraryBrowseSession {
     // The aggregate values remain server-owned and are replaced, never merged,
     // when the exact replacement query completes.
     const retainedAggregates = this.#state.aggregates;
+    const retainedFacetTruncation = this.#state.facetTruncation;
     const retainedCursor = replace || this.#state.kind === "empty" ? null : this.#state.nextCursor;
     this.setState({
       kind: "loading",
       rows: retainedRows,
       aggregates: retainedAggregates,
       nextCursor: retainedCursor,
+      facetTruncation: retainedFacetTruncation,
     });
     try {
       const page = decodeQuestionLibraryBrowsePage(
@@ -512,8 +644,18 @@ export class QuestionLibraryBrowseSession {
       const rows = replace ? appendUnique([], page.items) : appendUnique(retainedRows, page.items);
       this.setState(
         rows.length === 0
-          ? { kind: "empty", aggregates: page.aggregates }
-          : { kind: "ready", rows, nextCursor: page.nextCursor, aggregates: page.aggregates },
+          ? {
+              kind: "empty",
+              aggregates: page.aggregates,
+              facetTruncation: page.facetTruncation,
+            }
+          : {
+              kind: "ready",
+              rows,
+              nextCursor: page.nextCursor,
+              aggregates: page.aggregates,
+              facetTruncation: page.facetTruncation,
+            },
       );
     } catch {
       if (generation === this.#generation) {
@@ -522,6 +664,7 @@ export class QuestionLibraryBrowseSession {
           rows: retainedRows,
           aggregates: retainedAggregates,
           nextCursor: retainedCursor,
+          facetTruncation: retainedFacetTruncation,
         });
       }
     } finally {

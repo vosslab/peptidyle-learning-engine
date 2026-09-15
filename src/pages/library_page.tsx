@@ -1,6 +1,6 @@
 // library_page.tsx - injected Question Library browse surface; route wiring follows the server contract.
 
-import { A, useSearchParams } from "@solidjs/router";
+import { A, useLocation, useSearchParams } from "@solidjs/router";
 import { For, Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import { CopyableQuestionId } from "../components/copyable_question_id";
@@ -12,9 +12,11 @@ import type {
   QuestionBulkMetadataUpdateResult,
 } from "../api/question_bulk_metadata";
 import { questionLibraryBulkSelectionRequest } from "../api/question_library_repository";
+import { useSessionBootstrap } from "../auth/session_context";
 import "./library_page.css";
 import {
   EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
+  NO_QUESTION_LIBRARY_FACET_TRUNCATION,
   QuestionLibraryBrowseSession,
   clampQuestionLibraryReturnScrollTop,
   createQuestionLibraryReturnToken,
@@ -28,6 +30,7 @@ import {
   type QuestionLibraryBrowseQuery,
   type QuestionLibraryBrowseRow,
   type QuestionLibraryBrowseState,
+  type QuestionLibraryFacetTruncation,
 } from "./library_page_model";
 
 /* Each virtual row reserves room for a Question Title, two-line summary, and Question Authors.
@@ -64,6 +67,21 @@ function backendLabel(value: string): string {
   return labels[value] ?? value;
 }
 
+function RetainedSelectOption(props: {
+  readonly value: string | null | undefined;
+  readonly label: (value: string) => string;
+}): JSX.Element {
+  return (
+    <Show when={props.value}>
+      {(value) => (
+        <option value={value()} selected>
+          {props.label(value())}
+        </option>
+      )}
+    </Show>
+  );
+}
+
 function webworkFormatLabel(value: QuestionLibraryBrowseRow["questionFormat"]): string | null {
   if (value === "webworkPg") return "PG";
   if (value === "webworkPgml") return "PGML";
@@ -71,26 +89,74 @@ function webworkFormatLabel(value: QuestionLibraryBrowseRow["questionFormat"]): 
 }
 
 export interface LibraryPageProps {
+  readonly mode: "search" | "browse";
   readonly repository: QuestionLibraryBrowseRepository;
   readonly metadataClient: QuestionBulkMetadataClient;
 }
 
+function queryParameterValues(value: string | ReadonlyArray<string> | undefined): Array<string> {
+  if (value === undefined) return [];
+  const values = typeof value === "string" ? [value] : value;
+  return values.filter((item) => item.trim().length > 0 && Array.from(item).length <= 256);
+}
+
+function searchHandoffQuery(search: string): QuestionLibraryBrowseQuery {
+  const parameters = new URLSearchParams(search);
+  return {
+    ...EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
+    subjects: queryParameterValues(parameters.getAll("subjects")),
+    topics: queryParameterValues(parameters.getAll("topics")),
+    tag: queryParameterValues(parameters.getAll("tag"))[0] ?? null,
+    questionType: queryParameterValues(parameters.getAll("questionType"))[0] ?? null,
+  };
+}
+
+function hasExactBrowseFilters(query: QuestionLibraryBrowseQuery): boolean {
+  return (
+    query.subjects.length > 0 ||
+    query.topics.length > 0 ||
+    query.tag !== null ||
+    query.questionType !== null
+  );
+}
+
+function searchWithinResultsPath(query: QuestionLibraryBrowseQuery): string {
+  const parameters = new URLSearchParams();
+  for (const subject of query.subjects) parameters.append("subjects", subject);
+  for (const topic of query.topics) parameters.append("topics", topic);
+  if (query.tag !== null) parameters.set("tag", query.tag);
+  if (query.questionType !== null) parameters.set("questionType", query.questionType);
+  const serialized = parameters.toString();
+  return serialized.length === 0 ? "/library" : `/library?${serialized}`;
+}
+
 /** Question Library UI with the production repository injected by the route composition. */
 export function LibraryPage(props: LibraryPageProps): JSX.Element {
+  const sessionBootstrapState = useSessionBootstrap().state();
+  if (sessionBootstrapState.kind !== "authenticated") {
+    throw new Error("Question Library requires an authenticated session scope");
+  }
+  const sessionScope = sessionBootstrapState.session;
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const returnToken = parseQuestionLibraryReturnToken(
     searchParams[QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER],
   );
-  const returnState = takeQuestionLibraryReturnState(returnToken);
+  const takenReturnState = takeQuestionLibraryReturnState(sessionScope, returnToken);
+  const returnState = takenReturnState?.origin === props.mode ? takenReturnState : null;
+  const initialHandoffQuery = searchHandoffQuery(location.search);
   const [query, setQuery] = createSignal<QuestionLibraryBrowseQuery>(
-    returnState?.query ?? EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
+    returnState?.query ?? initialHandoffQuery,
   );
-  const [state, setState] = createSignal<QuestionLibraryBrowseState>({
-    kind: "loading",
-    rows: [],
-    aggregates: [],
-    nextCursor: null,
-  });
+  const [state, setState] = createSignal<QuestionLibraryBrowseState>(
+    returnState?.browseState ?? {
+      kind: "initial",
+      rows: [],
+      aggregates: [],
+      nextCursor: null,
+      facetTruncation: NO_QUESTION_LIBRARY_FACET_TRUNCATION,
+    },
+  );
   const [scrollTop, setScrollTop] = createSignal(returnState?.scrollTop ?? 0);
   const [viewportHeight, setViewportHeight] = createSignal(560);
   const [rowHeightPx, setRowHeightPx] = createSignal(FALLBACK_ROW_HEIGHT_PX);
@@ -107,6 +173,16 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   let pendingScrollRestore = returnState?.scrollTop ?? null;
   const questionReturnTokens = new Map<string, string>();
   const session = new QuestionLibraryBrowseSession(props.repository, setState);
+
+  createEffect(() => {
+    const routeSearch = location.search;
+    if (props.mode !== "search" || returnState !== null) return;
+    const handoffQuery = searchHandoffQuery(routeSearch);
+    if (!hasExactBrowseFilters(handoffQuery)) return;
+    setQuery(handoffQuery);
+    setScrollTop(0);
+    void session.reset(handoffQuery);
+  });
 
   const ready = (): Extract<QuestionLibraryBrowseState, { readonly kind: "ready" }> | undefined => {
     const current = state();
@@ -125,6 +201,8 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
       | "authorName"
       | "backend"
       | "tag"
+      | "subject"
+      | "topic"
       | "questionType"
       | "capability"
       | "questionLicense"
@@ -132,9 +210,32 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   ): (() => ReadonlyArray<{ readonly value: string; readonly count: number }>) => {
     return () => aggregates().filter((aggregate) => aggregate.facet === facet);
   };
+  const browseFacets = (
+    facet: "subject" | "topic" | "tag" | "questionType",
+  ): (() => ReadonlyArray<{ readonly value: string; readonly count: number }>) => {
+    return () => {
+      const current = state();
+      if ((current.kind === "loading" || current.kind === "error") && current.rows.length === 0) {
+        return [];
+      }
+      return current.aggregates.filter((aggregate) => aggregate.facet === facet);
+    };
+  };
   const displayedRows = (): ReadonlyArray<QuestionLibraryBrowseRow> => {
     const current = state();
+    if (props.mode === "browse" && !hasExactBrowseFilters(query())) return [];
     return current.kind === "empty" ? [] : current.rows;
+  };
+  const facetTruncation = (): QuestionLibraryFacetTruncation => {
+    const current = state();
+    if ((current.kind === "loading" || current.kind === "error") && current.rows.length === 0) {
+      return NO_QUESTION_LIBRARY_FACET_TRUNCATION;
+    }
+    return current.facetTruncation;
+  };
+  const browsingGroupsLoading = (): boolean => {
+    const current = state();
+    return current.kind === "loading" && current.rows.length === 0;
   };
   const virtualWindow = (): Readonly<{
     readonly offset: number;
@@ -257,8 +358,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
 
   function saveReturnState(token: string): void {
     const current = session.state;
-    if (current.kind !== "ready") return;
-    saveQuestionLibraryReturnState(token, query(), current, scrollTop());
+    saveQuestionLibraryReturnState(sessionScope, props.mode, token, query(), current, scrollTop());
     // The source history entry receives the same route token, so browser Back
     // and the visible detail-page return link select the same saved view.
     history.replaceState(history.state, "", questionLibraryReturnPath(token));
@@ -294,171 +394,423 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     const observer = new ResizeObserver(refreshRowHeight);
     observer.observe(document.documentElement);
     onCleanup(() => observer.disconnect());
-    if (returnState === null) {
-      void session.reset(query());
-    } else {
+    if (returnState !== null) {
       session.restore(returnState.query, returnState.browseState);
+    } else if (props.mode === "browse") {
+      void session.reset(query());
     }
   });
 
   return (
-    <section class="page library-page" data-route-surface="library">
+    <section
+      class="page library-page"
+      data-route-surface={props.mode === "browse" ? "library-browse" : "library"}
+    >
       <p class="eyebrow">Shared educational content</p>
-      <h1>Question library</h1>
-      <p class="page-lede">Find a current published question to study, reuse, or assign.</p>
+      <h1>{props.mode === "browse" ? "Browse Question Library" : "Search Question Library"}</h1>
+      <p class="page-lede">
+        {props.mode === "browse"
+          ? "Explore what the library contains, then narrow from a broad subject to exact topics."
+          : "Find a current published question to study, reuse, or assign."}
+      </p>
       <p class="sr-only" role="status" aria-live="polite">
         {state().kind === "loading" ? "Loading Question Library results." : ""}
       </p>
-      <form class="question-library-controls" onSubmit={(event) => event.preventDefault()}>
-        <label class="question-library-search-control">
-          Search published questions
-          <input
-            type="search"
-            value={query().search}
-            onInput={(event) => changeQuery({ search: event.currentTarget.value })}
-            placeholder="Title or concept"
-            disabled={editorBusy()}
-          />
-        </label>
-        <details class="question-library-search-tips">
-          <summary>Search tips</summary>
-          <div>
-            <p>
-              Ordinary words search together. Use quotes for a phrase and a leading minus to
-              exclude.
-            </p>
-            <p>
-              Fields: <code>subject:</code>, <code>topic:</code>, <code>tags:</code>,{" "}
-              <code>type:</code>, and <code>author:</code>.
-            </p>
-            <ul aria-label="Search examples">
-              <li>
-                <code>topic:genetics</code>
-              </li>
-              <li>
-                <code>tags:&quot;cell division&quot;</code>
-              </li>
-              <li>
-                <code>type:&quot;multiple choice&quot;</code>
-              </li>
-              <li>
-                <code>author:&quot;Ada Lovelace&quot;</code>
-              </li>
-              <li>
-                <code>meiosis -mitosis</code>
-              </li>
-              <li>
-                <code>&quot;cell membrane&quot;</code>
-              </li>
-            </ul>
+      <Show when={props.mode === "search"}>
+        <form
+          class="question-library-controls"
+          classList={{ "question-library-controls-initial": state().kind === "initial" }}
+          onSubmit={(event) => event.preventDefault()}
+        >
+          <label class="question-library-search-control">
+            Search published questions
+            <input
+              type="search"
+              value={query().search}
+              onInput={(event) => changeQuery({ search: event.currentTarget.value })}
+              placeholder="Title or concept"
+              disabled={editorBusy()}
+            />
+          </label>
+          <details class="question-library-search-tips">
+            <summary>Search tips</summary>
+            <div>
+              <p>
+                Ordinary words search together. Use quotes for a phrase and a leading minus to
+                exclude.
+              </p>
+              <p>
+                Fields: <code>subject:</code>, <code>topic:</code>, <code>tags:</code>,{" "}
+                <code>type:</code>, and <code>author:</code>.
+              </p>
+              <ul aria-label="Search examples">
+                <li>
+                  <code>topic:genetics</code>
+                </li>
+                <li>
+                  <code>tags:&quot;cell division&quot;</code>
+                </li>
+                <li>
+                  <code>type:&quot;multiple choice&quot;</code>
+                </li>
+                <li>
+                  <code>author:&quot;Ada Lovelace&quot;</code>
+                </li>
+                <li>
+                  <code>meiosis -mitosis</code>
+                </li>
+                <li>
+                  <code>&quot;cell membrane&quot;</code>
+                </li>
+              </ul>
+            </div>
+          </details>
+          <Show when={state().kind !== "initial"}>
+            <label>
+              Question Author
+              <select
+                value={query().authorName ?? ""}
+                onChange={(event) => changeQuery({ authorName: event.currentTarget.value || null })}
+                disabled={editorBusy()}
+              >
+                <option value="">All Question Authors</option>
+                <RetainedSelectOption value={query().authorName} label={(value) => value} />
+                <For
+                  each={facets("authorName")().filter(
+                    (facet) => facet.value !== query().authorName,
+                  )}
+                >
+                  {(facet) => (
+                    <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>
+                  )}
+                </For>
+              </select>
+              <Show when={facetTruncation().authorNames}>
+                <span class="question-library-filter-truncated">
+                  More Question Authors match. Narrow the search or use <code>author:</code>.
+                </span>
+              </Show>
+            </label>
+            <label>
+              Backend
+              <select
+                value={query().backend ?? ""}
+                onChange={(event) => changeQuery({ backend: event.currentTarget.value || null })}
+                disabled={editorBusy()}
+              >
+                <option value="">All backends</option>
+                <RetainedSelectOption value={query().backend} label={backendLabel} />
+                <For each={facets("backend")().filter((facet) => facet.value !== query().backend)}>
+                  {(facet) => (
+                    <option
+                      value={facet.value}
+                    >{`${backendLabel(facet.value)} (${facet.count})`}</option>
+                  )}
+                </For>
+              </select>
+            </label>
+            <label>
+              Tag
+              <select
+                value={query().tag ?? ""}
+                onChange={(event) => changeQuery({ tag: event.currentTarget.value || null })}
+                disabled={editorBusy()}
+              >
+                <option value="">All tags</option>
+                <RetainedSelectOption value={query().tag} label={(value) => value} />
+                <For each={facets("tag")().filter((facet) => facet.value !== query().tag)}>
+                  {(facet) => (
+                    <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>
+                  )}
+                </For>
+              </select>
+              <Show when={facetTruncation().tags}>
+                <span class="question-library-filter-truncated">
+                  More tags match. Narrow the search or use <code>tags:</code>.
+                </span>
+              </Show>
+            </label>
+            <label>
+              Subject
+              <select
+                value={query().subjects[0] ?? ""}
+                onChange={(event) =>
+                  changeQuery({
+                    subjects: event.currentTarget.value ? [event.currentTarget.value] : [],
+                    topics: [],
+                  })
+                }
+                disabled={editorBusy()}
+              >
+                <option value="">All subjects</option>
+                <RetainedSelectOption value={query().subjects[0]} label={(value) => value} />
+                <For
+                  each={facets("subject")().filter((facet) => facet.value !== query().subjects[0])}
+                >
+                  {(facet) => (
+                    <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>
+                  )}
+                </For>
+              </select>
+              <Show when={facetTruncation().subjects}>
+                <span class="question-library-filter-truncated">
+                  More subjects match. Narrow the search or use <code>subject:</code>.
+                </span>
+              </Show>
+            </label>
+            <label>
+              Topic
+              <select
+                value={query().topics[0] ?? ""}
+                onChange={(event) =>
+                  changeQuery({
+                    topics: event.currentTarget.value ? [event.currentTarget.value] : [],
+                  })
+                }
+                disabled={editorBusy()}
+              >
+                <option value="">All topics</option>
+                <RetainedSelectOption value={query().topics[0]} label={(value) => value} />
+                <For each={facets("topic")().filter((facet) => facet.value !== query().topics[0])}>
+                  {(facet) => (
+                    <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>
+                  )}
+                </For>
+              </select>
+              <Show when={facetTruncation().topics}>
+                <span class="question-library-filter-truncated">
+                  More topics match. Narrow the search or use <code>topic:</code>.
+                </span>
+              </Show>
+            </label>
+            <label>
+              Question Type
+              <select
+                value={query().questionType ?? ""}
+                onChange={(event) =>
+                  changeQuery({ questionType: event.currentTarget.value || null })
+                }
+                disabled={editorBusy()}
+              >
+                <option value="">All Question Types</option>
+                <RetainedSelectOption value={query().questionType} label={questionTypeLabel} />
+                <For
+                  each={facets("questionType")().filter(
+                    (facet) => facet.value !== query().questionType,
+                  )}
+                >
+                  {(facet) => (
+                    <option
+                      value={facet.value}
+                    >{`${questionTypeLabel(facet.value)} (${facet.count})`}</option>
+                  )}
+                </For>
+              </select>
+            </label>
+            <label>
+              Question License
+              <select
+                value={query().questionLicense ?? ""}
+                onChange={(event) =>
+                  changeQuery({ questionLicense: event.currentTarget.value || null })
+                }
+                disabled={editorBusy()}
+              >
+                <option value="">All Question Licenses</option>
+                <RetainedSelectOption value={query().questionLicense} label={(value) => value} />
+                <For
+                  each={facets("questionLicense")().filter(
+                    (facet) => facet.value !== query().questionLicense,
+                  )}
+                >
+                  {(facet) => (
+                    <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>
+                  )}
+                </For>
+              </select>
+            </label>
+            <label>
+              Used in my courses
+              <select
+                value={query().usedInMyCourses ?? ""}
+                onChange={(event) =>
+                  changeQuery({ usedInMyCourses: event.currentTarget.value || null })
+                }
+                disabled={editorBusy()}
+              >
+                <option value="">Any course use</option>
+                <RetainedSelectOption
+                  value={query().usedInMyCourses}
+                  label={() => "Used in my courses"}
+                />
+                <For
+                  each={facets("usedInMyCourses")().filter(
+                    (facet) => facet.value !== query().usedInMyCourses,
+                  )}
+                >
+                  {(facet) => (
+                    <option value={facet.value}>{`Used in my courses (${facet.count})`}</option>
+                  )}
+                </For>
+              </select>
+            </label>
+            <label>
+              Capability
+              <select
+                value={query().capability ?? ""}
+                onChange={(event) => changeQuery({ capability: event.currentTarget.value || null })}
+                disabled={editorBusy()}
+              >
+                <option value="">All capabilities</option>
+                <RetainedSelectOption value={query().capability} label={(value) => value} />
+                <For
+                  each={facets("capability")().filter(
+                    (facet) => facet.value !== query().capability,
+                  )}
+                >
+                  {(facet) => (
+                    <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>
+                  )}
+                </For>
+              </select>
+            </label>
+          </Show>
+        </form>
+      </Show>
+      <Show when={props.mode === "browse"}>
+        <section class="question-library-browse-controls" aria-label="Browse Question Library">
+          <div class="question-library-browse-heading">
+            <div>
+              <h2>{hasExactBrowseFilters(query()) ? "Narrow these results" : "Choose a path"}</h2>
+              <p>
+                Counts describe all authorized Questions matching the current choices, not only the
+                rows loaded below.
+              </p>
+            </div>
+            <Show when={hasExactBrowseFilters(query())}>
+              <A class="primary-action" href={searchWithinResultsPath(query())}>
+                Search within results
+              </A>
+            </Show>
           </div>
-        </details>
-        <label>
-          Question Author
-          <select
-            value={query().authorName ?? ""}
-            onChange={(event) => changeQuery({ authorName: event.currentTarget.value || null })}
-            disabled={editorBusy()}
-          >
-            <option value="">All Question Authors</option>
-            <For each={facets("authorName")()}>
-              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
-            </For>
-          </select>
-        </label>
-        <label>
-          Backend
-          <select
-            value={query().backend ?? ""}
-            onChange={(event) => changeQuery({ backend: event.currentTarget.value || null })}
-            disabled={editorBusy()}
-          >
-            <option value="">All backends</option>
-            <For each={facets("backend")()}>
-              {(facet) => (
-                <option
-                  value={facet.value}
-                >{`${backendLabel(facet.value)} (${facet.count})`}</option>
-              )}
-            </For>
-          </select>
-        </label>
-        <label>
-          Tag
-          <select
-            value={query().tag ?? ""}
-            onChange={(event) => changeQuery({ tag: event.currentTarget.value || null })}
-            disabled={editorBusy()}
-          >
-            <option value="">All tags</option>
-            <For each={facets("tag")()}>
-              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
-            </For>
-          </select>
-        </label>
-        <label>
-          Question Type
-          <select
-            value={query().questionType ?? ""}
-            onChange={(event) => changeQuery({ questionType: event.currentTarget.value || null })}
-            disabled={editorBusy()}
-          >
-            <option value="">All Question Types</option>
-            <For each={facets("questionType")()}>
-              {(facet) => (
-                <option
-                  value={facet.value}
-                >{`${questionTypeLabel(facet.value)} (${facet.count})`}</option>
-              )}
-            </For>
-          </select>
-        </label>
-        <label>
-          Question License
-          <select
-            value={query().questionLicense ?? ""}
-            onChange={(event) =>
-              changeQuery({ questionLicense: event.currentTarget.value || null })
-            }
-            disabled={editorBusy()}
-          >
-            <option value="">All Question Licenses</option>
-            <For each={facets("questionLicense")()}>
-              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
-            </For>
-          </select>
-        </label>
-        <label>
-          Used in my courses
-          <select
-            value={query().usedInMyCourses ?? ""}
-            onChange={(event) =>
-              changeQuery({ usedInMyCourses: event.currentTarget.value || null })
-            }
-            disabled={editorBusy()}
-          >
-            <option value="">Any course use</option>
-            <For each={facets("usedInMyCourses")()}>
-              {(facet) => (
-                <option value={facet.value}>{`Used in my courses (${facet.count})`}</option>
-              )}
-            </For>
-          </select>
-        </label>
-        <label>
-          Capability
-          <select
-            value={query().capability ?? ""}
-            onChange={(event) => changeQuery({ capability: event.currentTarget.value || null })}
-            disabled={editorBusy()}
-          >
-            <option value="">All capabilities</option>
-            <For each={facets("capability")()}>
-              {(facet) => <option value={facet.value}>{`${facet.value} (${facet.count})`}</option>}
-            </For>
-          </select>
-        </label>
-      </form>
+          <Show when={browsingGroupsLoading()}>
+            <p class="loading-state" role="status">
+              Loading Question Library groups...
+            </p>
+          </Show>
+          <Show when={hasExactBrowseFilters(query())}>
+            <div class="question-library-browse-active" aria-label="Current browse filters">
+              <span>Browsing:</span>
+              <For each={query().subjects}>{(subject) => <strong>{subject}</strong>}</For>
+              <For each={query().topics}>{(topic) => <strong>{topic}</strong>}</For>
+              <Show when={query().tag}>{(tag) => <strong>Tag: {tag()}</strong>}</Show>
+              <Show when={query().questionType}>
+                {(questionType) => <strong>{questionTypeLabel(questionType())}</strong>}
+              </Show>
+              <button
+                class="quiet-action"
+                type="button"
+                onClick={() => changeQuery(EMPTY_QUESTION_LIBRARY_BROWSE_QUERY)}
+              >
+                Start over
+              </button>
+            </div>
+          </Show>
+          <div class="question-library-browse-groups">
+            <section aria-labelledby="question-library-subjects-heading">
+              <h3 id="question-library-subjects-heading">Subjects</h3>
+              <div class="question-library-facet-choices">
+                <For each={browseFacets("subject")()}>
+                  {(facet) => (
+                    <button
+                      type="button"
+                      aria-pressed={query().subjects.includes(facet.value)}
+                      onClick={() =>
+                        changeQuery({
+                          subjects: [facet.value],
+                          topics: [],
+                        })
+                      }
+                    >
+                      <span>{facet.value}</span>
+                      <strong>{facet.count}</strong>
+                    </button>
+                  )}
+                </For>
+              </div>
+              <Show when={facetTruncation().subjects}>
+                <p class="question-library-facet-truncated">
+                  More subjects are available. Choose one shown here or use Search Question Library
+                  to find a narrower match.
+                </p>
+              </Show>
+            </section>
+            <Show when={query().subjects.length > 0}>
+              <section aria-labelledby="question-library-topics-heading">
+                <h3 id="question-library-topics-heading">Topics in this subject</h3>
+                <div class="question-library-facet-choices">
+                  <For each={browseFacets("topic")()}>
+                    {(facet) => (
+                      <button
+                        type="button"
+                        aria-pressed={query().topics.includes(facet.value)}
+                        onClick={() => changeQuery({ topics: [facet.value] })}
+                      >
+                        <span>{facet.value}</span>
+                        <strong>{facet.count}</strong>
+                      </button>
+                    )}
+                  </For>
+                </div>
+                <Show when={facetTruncation().topics}>
+                  <p class="question-library-facet-truncated">
+                    More topics match. Search within these results to reach a topic not shown here.
+                  </p>
+                </Show>
+              </section>
+            </Show>
+            <section aria-labelledby="question-library-tags-heading">
+              <h3 id="question-library-tags-heading">Tags</h3>
+              <div class="question-library-facet-choices">
+                <For each={browseFacets("tag")()}>
+                  {(facet) => (
+                    <button
+                      type="button"
+                      aria-pressed={query().tag === facet.value}
+                      onClick={() => changeQuery({ tag: facet.value })}
+                    >
+                      <span>{facet.value}</span>
+                      <strong>{facet.count}</strong>
+                    </button>
+                  )}
+                </For>
+              </div>
+              <Show when={facetTruncation().tags}>
+                <p class="question-library-facet-truncated">
+                  More tags match. Search within these results to reach a tag not shown here.
+                </p>
+              </Show>
+            </section>
+            <section aria-labelledby="question-library-types-heading">
+              <h3 id="question-library-types-heading">Question Types</h3>
+              <div class="question-library-facet-choices">
+                <For each={browseFacets("questionType")()}>
+                  {(facet) => (
+                    <button
+                      type="button"
+                      aria-pressed={query().questionType === facet.value}
+                      onClick={() => changeQuery({ questionType: facet.value })}
+                    >
+                      <span>{questionTypeLabel(facet.value)}</span>
+                      <strong>{facet.count}</strong>
+                    </button>
+                  )}
+                </For>
+              </div>
+            </section>
+          </div>
+        </section>
+      </Show>
       <Show when={displayedRows().length > 0 || selectedIds().size > 0}>
         <section class="question-library-bulk-toolbar" aria-label="Bulk Question actions">
           <p aria-live="polite">

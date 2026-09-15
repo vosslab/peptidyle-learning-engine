@@ -6,7 +6,7 @@ set -euo pipefail
 repository_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 
 usage() {
-  echo "Usage: ./launchers/run_live_demo.sh [--headless|start [--open|--headless]|open|--open|stop]"
+  echo "Usage: ./launchers/run_live_demo.sh [--headless|--open|start [--open|--headless]|open|stop]"
 }
 
 command="start"
@@ -25,7 +25,7 @@ case "$#" in
         headless="true"
         ;;
       --open)
-        command="open"
+        headless="false"
         ;;
       start|open|stop)
         command="$1"

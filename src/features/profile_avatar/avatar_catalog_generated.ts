@@ -36,10 +36,10 @@ export const PROVIDED_AVATAR_CATALOG = [
   },
   {
     id: "coral-crossing",
-    name: "Coral crossing",
-    description: "Coral crossing bands and small squares.",
+    name: "Coral reef",
+    description: "Branching coral reef with a small fish in ocean water.",
     assetPath: "/assets/avatar_catalog/svg/coral-crossing.svg",
-    assetSha256: "3d0b1965b55749c7e011d738ba00389ad1be03516d8fff393546dc6ec8b16ddf",
+    assetSha256: "07e74194c72e6cced43dbde4e1dbb385097379c8bb4aff32958d9a77e09aa3a2",
     isSelectable: true,
   },
   {

@@ -34,6 +34,8 @@ const QUESTION_SEARCH_QUERY_FIELDS = [
   "author_names",
   "backends",
   "tags",
+  "subjects",
+  "topics",
   "question_types",
   "capabilities",
   "question_licenses",
@@ -147,6 +149,28 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
   );
   for (const tag of query.tags) {
     parameters.append("tags", normalizedQuestionSearchFilterText(tag, "Question Library tag", 256));
+  }
+  boundedQuestionSearchFilterValues(
+    query.subjects,
+    MAX_QUESTION_SEARCH_TAG_FILTERS,
+    "Question Library subjects",
+  );
+  for (const subject of query.subjects) {
+    parameters.append(
+      "subjects",
+      normalizedQuestionSearchFilterText(subject, "Question Library subject", 256),
+    );
+  }
+  boundedQuestionSearchFilterValues(
+    query.topics,
+    MAX_QUESTION_SEARCH_TAG_FILTERS,
+    "Question Library topics",
+  );
+  for (const topic of query.topics) {
+    parameters.append(
+      "topics",
+      normalizedQuestionSearchFilterText(topic, "Question Library topic", 256),
+    );
   }
   boundedQuestionSearchFilterValues(
     query.question_types,

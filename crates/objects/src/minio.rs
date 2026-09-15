@@ -1,9 +1,4 @@
-//! MinIO backend and the S3-compatible client.
-//!
-//! MinIO is the S3-compatible endpoint used by the development and test
-//! containers. Production AWS construction is deliberately separate in
-//! [`crate::aws`] so endpoint overrides and static credentials cannot leak into
-//! the production configuration shape.
+//! MinIO client construction for the supported disposable local runtime.
 
 #[cfg(feature = "s3")]
 use aws_sdk_s3::Client;
@@ -21,15 +16,18 @@ pub type S3Client = Client;
 
 /// Connection settings for an S3-compatible endpoint.
 #[cfg(feature = "s3")]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct EndpointConfig {
     /// Base URL, for example `http://minio:9000`.
     pub endpoint_url: String,
     /// Region name. MinIO ignores it, but the SDK requires one.
     pub region: String,
-    /// Access key from the environment.
+    /// Access key supplied by the disposable runtime's private configuration.
     pub access_key_id: String,
-    /// Secret key from the environment.
+    /// Secret key supplied by the disposable runtime's private configuration.
+    ///
+    /// This type deliberately does not implement `Debug`: ASVS 13.3.1 requires
+    /// credentials to remain out of diagnostics and other output.
     pub secret_access_key: String,
 }
 

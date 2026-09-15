@@ -18,7 +18,7 @@ This map identifies the owning location for current PLE behavior. The design bou
 +- schemas/                 Canonical PostgreSQL structure and installation data
 +- content/                 Reviewed teaching content, including Pilot Question sources
 +- containers/              Podman Compose definitions and service images
-+- deploy/opentofu/         Deployment infrastructure and policy checks
++- deploy/opentofu/         Future infrastructure design artifacts, not runtime evidence
 +- local_stack_control/     Disposable-stack lifecycle and acceptance helpers
 +- tests/                   Deterministic, connected, and browser evidence lanes
 +- docs/                    Durable references, changelog, and active work records
@@ -169,11 +169,12 @@ local_stack_control/
 `- browser_suite_developer.py    Browser-suite developer operations
 
 deploy/opentofu/
-`- DATABASE_PROVISIONING.md      Production database-provisioning runbook
+`- DATABASE_PROVISIONING.md      Future database-provisioning design runbook
 ```
 
 The migrator image contains the base manifest, installation-data manifest, and forward migrations.
 Runtime API and worker images do not carry the PostgreSQL client or DDL authority.
+OpenTofu is not a current cloud deployment or acceptance path.
 
 `devel/webwork_render_probe.py` is a one-time connected renderer-evidence tool.
 It accepts explicit PG/PGML input or temporary input, records opaque document,

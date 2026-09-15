@@ -634,6 +634,7 @@ fn assessment_content_view(
         })
         .collect::<Result<Vec<_>, RouteLoadError>>()?;
     Ok(BlueprintAssessmentContentView {
+        assessment_type: content.assessment_type,
         title: content.title.clone(),
         instructions: content.instructions.clone(),
         entries,

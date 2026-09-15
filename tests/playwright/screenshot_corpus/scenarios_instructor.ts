@@ -110,9 +110,6 @@ async function instructorLibrary(runtime: ScenarioRuntime): Promise<void> {
   const session = await runtime.open(runtime.record(scenario, "library_default"));
   try {
     await enterInstructor(session.page);
-    await session.page
-      .getByRole("heading", { name: "Peptide bond rotation", exact: true })
-      .waitFor();
     await captureCheckpoint(runtime, scenario, "library_default", session);
     await session.page.getByLabel("Search published questions").fill("rotation");
     await session.page
@@ -125,6 +122,19 @@ async function instructorLibrary(runtime: ScenarioRuntime): Promise<void> {
     await result.getByRole("link", { name: "Open question", exact: true }).click();
     await session.page.getByRole("region", { name: "Question prompt", exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, "published_question_detail", session);
+    await session.page
+      .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+      .getByRole("link", { name: "Questions", exact: true })
+      .click();
+    await session.page
+      .getByRole("navigation", { name: "Ribbon tasks", exact: true })
+      .getByRole("link", { name: "Browse Question Library", exact: true })
+      .click();
+    await session.page
+      .getByRole("heading", { name: "Browse Question Library", exact: true })
+      .waitFor();
+    await session.page.getByRole("heading", { name: "Subjects", exact: true }).waitFor();
+    await captureCheckpoint(runtime, scenario, "library_browse", session);
   } finally {
     await runtime.close(session);
   }
@@ -306,7 +316,12 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
   },
   {
     id: "instructor_library",
-    checkpoints: ["library_default", "library_filtered", "published_question_detail"],
+    checkpoints: [
+      "library_default",
+      "library_filtered",
+      "published_question_detail",
+      "library_browse",
+    ],
     run: instructorLibrary,
   },
   {

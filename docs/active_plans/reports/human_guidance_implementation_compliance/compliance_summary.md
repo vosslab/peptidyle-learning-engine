@@ -24,15 +24,15 @@ checklist, gap map, and active plan.
 | Development principles | 14 | 4 | 4 | 23 | 41 |
 | Product vocabulary | 2 | 10 | 10 | 0 | 12 |
 | Accounts and roles | 24 | 19 | 19 | 8 | 51 |
-| Interface design | 88 | 132 | 132 | 1 | 221 |
+| Interface design | 91 | 129 | 129 | 1 | 221 |
 | Data and history | 30 | 38 | 37 | 0 | 68 |
 | Questions | 55 | 84 | 83 | 2 | 141 |
 | Courses | 31 | 70 | 64 | 4 | 105 |
 | Assessments | 81 | 58 | 55 | 0 | 139 |
-| **Total** | **325** | **415** | **404** | **43** | **783** |
+| **Total** | **328** | **412** | **401** | **43** | **783** |
 
-The current checklist contains 783 HG bullets: 325 verified, 415 open, and 43 N/A.
-Eleven later duplicate open bullets carry an `Owner:` pointer, leaving 404 owning-open records.
+The current checklist contains 783 HG bullets: 328 verified, 412 open, and 43 N/A.
+Eleven later duplicate open bullets carry an `Owner:` pointer, leaving 401 owning-open records.
 
 Bulk Published Question shared metadata now has accepted bounded source and PostgreSQL evidence,
 not a closure. The closed `tags`/`subject`/`topic` DTO, generated 1,000-item bound, canonical-ID
@@ -43,11 +43,17 @@ null elements before database/publication/object side effects and preserves an e
 successor Revision. C366/C368 remain open after accepted temporary compiled Chromium component and
 strict-client evidence for the selected replace/clear and stale/ambiguous-refresh workflow; it used
 mock/injected transport, not a connected server. Connected HTTP and discovery/search projection
-execution remain blocked by the known AWS Smithy server-build incompatibility. C58 now has accepted
+execution remain unverified; `source source_me.sh && cargo test -p server_core --lib` now passes,
+but the connected HTTP/search projection has not been run. C58 now has accepted
 actual-source parser evidence for ordinary words, quotes, minus, PLE fields, literal unknown tokens,
 empty fields matching nothing, and exact-ID-plus-filter behavior, but its connected HTTP/search projection remains open;
 the 13k cleanup remains open as well. C59's native Search tips disclosure now makes the grammar
 discoverable without obscuring the normal controls; expert large-library narrowing remains open.
+C57 closes the three Search-landing and return-state bullets with accepted one-time compiled-browser
+evidence: idle Search did not fetch or show filters/results; entering a query showed results; and
+visible return and browser Back restored query, filter, 80 rows, and virtual-list position while a
+changed session returned to the empty landing. The temporary harness and screenshots remain outside
+the repository during review.
 C61's independently accepted actual Ribbon/page proof closes only the required Assessments labels
 and reusable Template-design rows. Due Soon state rows and connected Template delivery remain open.
 

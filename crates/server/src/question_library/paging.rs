@@ -141,6 +141,9 @@ mod tests {
             },
             prompt: Vec::new(),
             authored_by_current_account: false,
+            used_in_current_account_courses: false,
+            subject: None,
+            topic: None,
         }
     }
 

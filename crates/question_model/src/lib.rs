@@ -235,8 +235,9 @@ pub use crate::question_library::{
     QuestionSearchBackendFacet, QuestionSearchCapabilityFacet, QuestionSearchCourseUse,
     QuestionSearchCourseUseFacet, QuestionSearchFacets, QuestionSearchFilter, QuestionSearchPage,
     QuestionSearchQuestionLicenseFacet, QuestionSearchRequest, QuestionSearchRequestError,
-    QuestionSearchResult, QuestionSearchTagFacet, QuestionStatistics, QuestionSummary,
-    QuestionTypeFacet, QuestionUseDetails, QuestionUseSummary,
+    QuestionSearchResult, QuestionSearchSubjectFacet, QuestionSearchTagFacet,
+    QuestionSearchTopicFacet, QuestionStatistics, QuestionSummary, QuestionTypeFacet,
+    QuestionUseDetails, QuestionUseSummary, normalized_question_search_group_value,
 };
 pub use crate::question_license::QuestionLicense;
 pub use crate::question_pool_library::{

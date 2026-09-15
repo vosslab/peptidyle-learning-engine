@@ -597,10 +597,12 @@ PLE product or code behavior.
 
 - [x] **Search Question Library** helps Instructors find specific Questions in a large library.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` supplies the searchable published Question Library.
-- [ ] Search should begin with a prominent search box, similar to Google Search.
-  - Mismatch: `src/pages/library_page.tsx` places `Search published questions` before filters, but no rendered UX evidence establishes the required prominence or Google-like presentation.
-- [ ] The initial Search page should stay simple and focus attention on entering a search.
-  - Mismatch: `src/pages/library_page.tsx` presents seven filter controls alongside the initial search field.
+- [x] Search should begin with a prominent search box, similar to Google Search.
+  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` starts in `initial` state and applies `question-library-controls-initial` to the single `Search published questions` entry.
+  - Evidence (runtime): one-time accepted compiled-browser exercise of `src/pages/library_page.tsx` `LibraryPage` confirmed idle Search makes no fetch and shows neither filters nor result rows; the temporary harness and landing screenshot were removed after the accepted proof.
+- [x] The initial Search page should stay simple and focus attention on entering a search.
+  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` renders filters and results only outside `initial` state, while `changeQuery` begins the current Search after input.
+  - Evidence (runtime): one-time accepted compiled-browser exercise of `src/pages/library_page.tsx` `LibraryPage` confirmed the initial single-entry landing, then filters and 50 loaded results after entering `genetics`; the temporary harness and screenshots were removed after the accepted proof.
 - [x] Search should assume the Instructor has some idea what they want to find.
   - Evidence (source): `src/pages/library_page.tsx` search input placeholder `Title or concept` directs a known-item search.
 - [x] Question Library search should work well with ordinary words by default.
@@ -618,44 +620,45 @@ PLE product or code behavior.
 - [ ] Search should support Google-like syntax for more precise queries.
   - Evidence (source): `crates/server/src/question_library/search_query.rs` `QuestionTextQuery::parse` accepts ordinary AND words, quoted phrases, minus exclusions, PLE field tags, and exact Question IDs with filters.
   - Evidence (test): an accepted temporary actual-source `rustc` harness covered those forms, including unknown tokens as literals and empty fields matching nothing; the harness was removed.
-  - Mismatch: the C58 connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
+  - Verification pending: `source source_me.sh && cargo test -p server_core --lib` now passes; the C58 connected HTTP/API search projection has not been run.
 - [ ] Quoted text should search for an exact phrase.
   - Evidence (source): `crates/server/src/question_library/search_query.rs` `term_value` retains quoted text as one exact phrase term.
   - Evidence (test): the accepted temporary actual-source `rustc` harness covered quoted phrases; it was removed.
-  - Mismatch: the connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
+  - Verification pending: `source source_me.sh && cargo test -p server_core --lib` now passes; the connected HTTP/API search projection has not been run.
 - [ ] A minus sign should exclude matching terms.
   - Evidence (source): `crates/server/src/question_library/search_query.rs` `exclusion_prefix` records a leading minus as an excluded search term.
   - Evidence (test): the accepted temporary actual-source `rustc` harness covered excluded terms; it was removed.
-  - Mismatch: the connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
+  - Verification pending: `source source_me.sh && cargo test -p server_core --lib` now passes; the connected HTTP/API search projection has not been run.
 - [ ] Search should support PubMed-like field tags such as `topic:genetics`.
   - Evidence (source): `crates/server/src/question_library/search_query.rs` `field_prefix` recognizes `topic` and `SearchTerm::matches` applies it to Question metadata.
   - Evidence (test): the accepted temporary actual-source `rustc` harness covered PLE field tags; it was removed.
-  - Mismatch: the connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
+  - Verification pending: `source source_me.sh && cargo test -p server_core --lib` now passes; the connected HTTP/API search projection has not been run.
 - [ ] Field tags should use PLE concepts and vocabulary.
   - Evidence (source): `crates/server/src/question_library/search_query.rs` limits field tags to PLE terms: `subject`, `topic`, `tags`, `type`, and `author`.
   - Evidence (test): the accepted temporary actual-source `rustc` harness covered the closed field set and unknown-token literal behavior; it was removed.
-  - Mismatch: the connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
+  - Verification pending: `source source_me.sh && cargo test -p server_core --lib` now passes; the connected HTTP/API search projection has not been run.
 - [ ] Useful fields may include subject, topic, tags, Question Type, and author.
   - Evidence (source): `crates/server/src/question_library/search_query.rs` `SearchField` and `SearchTerm::matches` support `subject`, `topic`, `tags`, `type`, and `author`.
   - Evidence (test): the accepted temporary actual-source `rustc` harness covered every field; it was removed.
-  - Mismatch: the connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
+  - Verification pending: `source source_me.sh && cargo test -p server_core --lib` now passes; the connected HTTP/API search projection has not been run.
 - [ ] Simple and advanced searches should use the same search box.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` provides one Search input, and `crates/server/src/question_library.rs` passes its optional `text` query value to `QuestionTextQuery::parse` before matching.
   - Evidence (runtime): accepted C59 component proof confirms the visible Search box and its normal-flow Search tips.
-  - Mismatch: connected HTTP/API search projection is unverified because the server build remains blocked by the AWS Smithy dependency incompatibility.
+  - Verification pending: `source source_me.sh && cargo test -p server_core --lib` now passes; the connected HTTP/API search projection has not been run.
 - [x] Instructors should not need to learn search syntax to use Search Question Library.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` exposes ordinary search and labeled filter controls without syntax requirements.
 - [x] The interface should make useful search syntax discoverable when needed.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` renders `question-library-search-tips` as a native disclosure beside the ordinary Search box with words, quotes, minus, PLE fields, and examples.
   - Evidence (runtime): accepted corrected desktop `src/pages/library_page.tsx` `LibraryPage` component proof opened Search tips without obscuring filters or bulk controls; the full `./check_codebase.sh` gate passed.
 - [ ] Search syntax should help expert users quickly narrow a very large Question Library.
-  - Mismatch: the help is available, but connected search projection and large-library runtime evidence remain unverified because the server build is blocked by the AWS Smithy dependency incompatibility.
+  - Verification pending: help is implemented; connected search projection and large-library size evidence have not been run.
 - [x] Search terms and active filters should remain visible while reviewing results.
   - Evidence (source): `src/pages/library_page.tsx` `query` signal remains bound to the search input and filter selects while rows render.
 - [x] Clearing or changing part of a search should be quick.
   - Evidence (source): `src/pages/library_page.tsx` `changeQuery` updates the search session on each input or selection change.
-- [ ] Opening a result and returning should preserve the Instructor's search and position.
-  - Mismatch: `src/pages/library_page.tsx` keeps query and scroll state only in the mounted component; no route-return persistence exists.
+- [x] Opening a result and returning should preserve the Instructor's search and position.
+  - Evidence (source): `src/pages/library_page_model.ts` `saveQuestionLibraryReturnState` and `takeQuestionLibraryReturnState` retain one session-bound, single-use in-document snapshot; `src/pages/library_page.tsx` `LibraryPage` restores its query, server-validated loaded rows, filters, and clamped scroll position.
+  - Evidence (runtime): one-time accepted compiled-browser exercise of `src/pages/library_page.tsx` `LibraryPage` restored `genetics`, the `ple` filter, 80 loaded rows, and exact virtual-list scroll position through visible detail return and browser Back; a changed session returned to the empty landing. The temporary harness and screenshots were removed after the accepted proof.
 
 ##### Browse Question Library
 
@@ -683,10 +686,10 @@ PLE product or code behavior.
   - Evidence (runtime): accepted independent `src/ribbon/app_ribbon.tsx` `AppRibbon` and `src/ribbon/ribbon_contract.ts` `deriveRibbonModel` proof verified both actual Ribbon choices and routes.
 - [ ] **Assessments Due Soon** should emphasize Assessments that may need the Instructor's attention.
   - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `AssessmentsDueSoonPage` presents upcoming deadlines across Courses the Instructor teaches.
-  - Mismatch: no accepted runtime or visual receipt establishes the intended attention emphasis.
+  - Verification pending: the implemented source awaits runtime or visual evidence of the intended attention emphasis.
 - [ ] Assessment lists should make Course, release status, due date, and other important state easy to scan.
   - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `DueSoonAssessmentRow` presents Assessment status, Course, and due time.
-  - Mismatch: no accepted runtime or visual receipt establishes the required scanning behavior.
+  - Verification pending: the implemented source awaits runtime or visual evidence of the required scanning behavior.
 - [x] **My Assessment Templates** should emphasize reusable Assessment design rather than Course activity.
   - Evidence (source): `src/pages/assessment_templates_page.tsx` `AssessmentTemplatesSurface` foregrounds reusable Assessment settings and excludes Questions, Pools, and Course dates.
   - Evidence (runtime): accepted independent `src/pages/assessment_templates_page.tsx` `AssessmentTemplatesSurface` proof verified the heading, lede, legend, and normal Ribbon route without claiming HTTP, CRUD, or copy workflow acceptance.
@@ -712,10 +715,10 @@ PLE product or code behavior.
   - Mismatch: the implemented explanatory text uses Question and Assignment, not the required Assessment terminology.
 - [ ] **Assessments Due Soon** shows upcoming Assessments across the Courses an **Instructor** teaches.
   - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `AssessmentsDueSoonPage` calls `listAssessmentsDueSoon` and states its across-Courses scope.
-  - Mismatch: no accepted connected runtime receipt verifies authorized cross-Course results.
+  - Verification pending: the implemented source awaits connected runtime evidence of authorized cross-Course results.
 - [ ] Assessments Due Soon shows the Course and due time for each Assessment.
   - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `DueSoonAssessmentRow` renders `courseLongName` and a formatted due time.
-  - Mismatch: no accepted runtime or visual receipt verifies populated rows.
+  - Verification pending: the implemented source awaits runtime or visual evidence of populated rows.
 
 #### High-consequence actions
 

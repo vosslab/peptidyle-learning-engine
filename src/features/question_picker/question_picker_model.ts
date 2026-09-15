@@ -7,6 +7,7 @@ import type { QuestionFormat } from "../../../generated/api/QuestionFormat";
 import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
 import {
   EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
+  NO_QUESTION_LIBRARY_FACET_TRUNCATION,
   decodeQuestionLibraryBrowsePage,
   normalizeQuestionLibraryBrowseQuery,
   type QuestionLibraryBrowseRepository,
@@ -339,7 +340,12 @@ export function blueprintCourseQuestionPickerRepository(
       const items = matched.slice(offset, offset + PICKER_SOURCE_PAGE_SIZE);
       const nextOffset = offset + items.length;
       const nextCursor = nextOffset < matched.length ? String(nextOffset) : null;
-      return { items, aggregates: [], nextCursor };
+      return {
+        items,
+        aggregates: [],
+        nextCursor,
+        facetTruncation: NO_QUESTION_LIBRARY_FACET_TRUNCATION,
+      };
     },
   };
 }

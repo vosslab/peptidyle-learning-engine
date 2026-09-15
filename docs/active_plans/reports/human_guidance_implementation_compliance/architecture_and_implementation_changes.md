@@ -11,6 +11,27 @@ authority for each record's status.
 The authoritative exhaustive record is the
 [generated checklist](../../audits/human_guidance_implementation_checklist.md).
 
+## Storage composition receipt
+
+The object-storage cutover removes the direct `aws-config`/`aws.rs` fallback.
+Server composition accepts only explicit `disposable-local` MinIO configuration;
+the API/worker and publisher use separate configured credentials. The retained
+S3-compatible SDK graph follows the existing latest-first dependency policy and
+adds no dependency pin. This receipt changes no checklist status.
+
+Focused offline evidence passed: a fresh root `cargo test -p server_core --lib`
+ran 99 tests; `objects` with the `s3` feature ran 38 library tests, three
+conformance tests, and one archive test. The isolated
+`minio_object_store_conforms` run passed once against unique loopback MinIO.
+
+Container-composition evidence is separate from that object-store conformance
+result: the owned MinIO used a current locally available image with pull policy
+`never`, a read-only root, a data tmpfs, and zero persistent volumes. Its health
+check passed. Ordinary exact `stop --rm` cleanup removed the owned container and
+temporary secrets; no owned container or temporary secret remained, and the
+shared stack was untouched. This is not PLE HTTP, full-cloud, cloud IAM, or
+production-deployment evidence.
+
 ## Topical inventory
 
 ### Development principles -- Codebase development rules

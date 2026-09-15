@@ -121,6 +121,10 @@ function selectedPublicText(value: string | null): Array<string> {
   return value === null ? [] : [value];
 }
 
+function selectedPublicTexts(values: ReadonlyArray<string>): Array<string> {
+  return [...values];
+}
+
 function facets(
   page: Awaited<ReturnType<ApiClient["searchQuestionLibrary"]>>,
 ): ReadonlyArray<QuestionLibraryBrowseFacetAggregate> {
@@ -138,6 +142,16 @@ function facets(
     ...page.facets.tags.map((facet) => ({
       facet: "tag" as const,
       value: facet.tag,
+      count: facet.count,
+    })),
+    ...page.facets.subjects.map((facet) => ({
+      facet: "subject" as const,
+      value: facet.subject,
+      count: facet.count,
+    })),
+    ...page.facets.topics.map((facet) => ({
+      facet: "topic" as const,
+      value: facet.topic,
       count: facet.count,
     })),
     ...page.facets.questionTypes.map((facet) => ({
@@ -170,6 +184,8 @@ export function questionSearchRequest(
     author_names: selectedPublicText(query.authorName),
     backends: selectedBackend(query.backend),
     tags: selectedPublicText(query.tag),
+    subjects: selectedPublicTexts(query.subjects),
+    topics: selectedPublicTexts(query.topics),
     question_types: selectedQuestionType(query.questionType),
     capabilities: selectedCapability(query.capability),
     question_licenses: selectedQuestionLicense(query.questionLicense),
@@ -202,6 +218,12 @@ export function createQuestionLibraryRepository(
         })),
         nextCursor: page.nextCursor,
         aggregates: facets(page),
+        facetTruncation: {
+          authorNames: page.facets.authorNamesTruncated,
+          tags: page.facets.tagsTruncated,
+          subjects: page.facets.subjectsTruncated,
+          topics: page.facets.topicsTruncated,
+        },
       } satisfies QuestionLibraryBrowsePage;
     },
   };

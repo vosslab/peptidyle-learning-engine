@@ -29,10 +29,7 @@ use learning_data_access::{
         SysadminTotpSeedKeyId, SysadminTotpSeedKeyRing, local_development_pool, production_pool,
     },
 };
-use objects::{
-    minio::{EndpointConfig, client as minio_client},
-    s3::{BucketNames, S3ObjectStore},
-};
+use objects::s3::S3ObjectStore;
 use question_model::AccountId;
 use question_model::QuestionRendererVersion;
 use zeroize::Zeroize;
@@ -42,6 +39,10 @@ use crate::auth::{
     SeededDemoConfig, SeededDemoPersona, SessionConfig, live_demo_mfa_router, live_demo_router,
     session_router, sysadmin_totp_router,
 };
+
+mod object_storage;
+
+use self::object_storage::{ObjectStoragePrincipal, object_store_from_env};
 
 const LIVE_DEMO_ACCOUNT_ID_ENV: [(SeededDemoPersona, &str, &str); 5] = [
     (
@@ -395,33 +396,13 @@ pub fn question_id_issuer_from_env() -> Result<crate::question_publication::Hmac
 }
 
 /// Constructs the API-owned object reader used to compile answer-free Question
-/// Library views. The disposable topology may use its explicitly configured
-/// MinIO endpoint; production uses workload identity only.
+/// Library views. The supported topology requires its explicitly configured
+/// authenticated disposable MinIO endpoint.
 /// Builds the same policy-separated Question-source object store used by the
 /// application. Trusted installation publication reuses this boundary rather
 /// than accepting object-store paths or credentials as CLI arguments.
 pub async fn question_library_object_store_from_env() -> Result<S3ObjectStore> {
-    let buckets = BucketNames {
-        public_assets: required_env("PLE_PUBLIC_ASSETS_BUCKET")?,
-        private_content: required_env("PLE_PRIVATE_CONTENT_BUCKET")?,
-        student_records: required_env("PLE_STUDENT_RECORDS_BUCKET")?,
-        temp_processing: required_env("PLE_TEMP_PROCESSING_BUCKET")?,
-    };
-    let client =
-        if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local") {
-            minio_client(&EndpointConfig {
-                endpoint_url: required_env("PLE_S3_ENDPOINT")?,
-                region: required_env("PLE_S3_REGION")?,
-                access_key_id: required_env("AWS_ACCESS_KEY_ID")?,
-                secret_access_key: required_env("AWS_SECRET_ACCESS_KEY")?,
-            })
-        } else {
-            objects::aws::container_role_client(&objects::aws::ContainerRoleConfig {
-                region: required_env("PLE_S3_REGION")?,
-            })
-            .await
-        };
-    Ok(S3ObjectStore::new(client, buckets))
+    object_store_from_env(ObjectStoragePrincipal::ApiAndWorker)
 }
 
 /// Attests the one worker login without constructing an API router or listener.
@@ -550,27 +531,7 @@ pub async fn publish_one_public_asset_from_env() -> Result<bool> {
 }
 
 async fn public_asset_publisher_object_store_from_env() -> Result<S3ObjectStore> {
-    let buckets = BucketNames {
-        public_assets: required_env("PLE_PUBLIC_ASSETS_BUCKET")?,
-        private_content: required_env("PLE_PRIVATE_CONTENT_BUCKET")?,
-        student_records: required_env("PLE_STUDENT_RECORDS_BUCKET")?,
-        temp_processing: required_env("PLE_TEMP_PROCESSING_BUCKET")?,
-    };
-    let client =
-        if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local") {
-            minio_client(&EndpointConfig {
-                endpoint_url: required_env("PLE_S3_ENDPOINT")?,
-                region: required_env("PLE_S3_REGION")?,
-                access_key_id: required_env("PLE_PUBLISHER_S3_ACCESS_KEY_ID")?,
-                secret_access_key: required_env("PLE_PUBLISHER_S3_SECRET_ACCESS_KEY")?,
-            })
-        } else {
-            objects::aws::container_role_client(&objects::aws::ContainerRoleConfig {
-                region: required_env("PLE_S3_REGION")?,
-            })
-            .await
-        };
-    Ok(S3ObjectStore::new(client, buckets))
+    object_store_from_env(ObjectStoragePrincipal::PublicAssetPublisher)
 }
 
 /// The address the binary binds, parsed once at startup.

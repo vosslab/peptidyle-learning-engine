@@ -180,6 +180,20 @@
       "gallery": { "order": 220, "caption": "Filtered Question Library" }
     },
     {
+      "id": "instructor_question_library_browse_laptop",
+      "path": "instructor/question_library_browse_laptop.png",
+      "role": "instructor",
+      "routeId": "libraryBrowse",
+      "area": "question library",
+      "workflow": "question discovery",
+      "state": "browse overview",
+      "scenario": "instructor_library",
+      "checkpoint": "library_browse",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 225, "caption": "Browse Question Library" }
+    },
+    {
       "id": "instructor_published_question_detail_laptop",
       "path": "instructor/published_question_detail_laptop.png",
       "role": "instructor",
@@ -744,6 +758,11 @@
         "routeId": "library",
         "status": "captured",
         "captureIds": ["instructor_question_library_laptop"]
+      },
+      {
+        "routeId": "libraryBrowse",
+        "status": "captured",
+        "captureIds": ["instructor_question_library_browse_laptop"]
       },
       {
         "routeId": "questionDetail",

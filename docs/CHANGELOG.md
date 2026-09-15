@@ -7,8 +7,61 @@
 
 ## 2026-09-15
 
+### Behavior or Interface Changes
+
+- Corrected `./launchers/run_live_demo.sh --open` to prepare and start a fresh Live Demo before
+  opening it, matching `start --open`. The explicit `open` command continues to open only an
+  already-running fixed target, while the default and `--headless` continue to print the origin.
+
 ### Additions and New Features
 
+- Rebalanced the preliminary biome theme specification around demonstrated visual territory rather
+  than a fixed theme count. Five crowded palettes were replaced by Wildflower Meadow, Autumn
+  Woodland, Tropical Lagoon, Volcanic Field, and Red Rock Canyon; Glacier was added as a distinct
+  ice-cyan identity; and Taiga, Savanna, Heathland, and Kelp Forest were strengthened. All 20
+  changed or added light/dark Accent colors pass against their own Canvas and Surface at the
+  preferred 5.5:1 comfort target. The specification now requires role-specific contrast: 4.5:1 for
+  normal text, 3:1 for large text and meaningful non-text UI, and tested foreground tokens over
+  decorative Secondary colors. Lavender Field, Sunflower Meadow, and Cypress Swamp remain
+  render-gated candidates.
+- Documented the implementation contract needed to turn the preliminary biome palettes into PLE
+  Course Themes. The specification now states the current 15-ID, three-anchor, light-only runtime
+  gap; requires durable IDs and complete semantic tokens; separates Course Theme from display mode;
+  identifies the unresolved legacy-ID/default migration; lists the atomic Rust, PostgreSQL,
+  generated-TypeScript, browser, route, and seed cutover; and defines rendered accessibility and
+  visual acceptance evidence. This is documentation only and does not claim runtime theme support.
+- Established the target Course Theme palette model: every theme provides fixed Canvas, Surface,
+  Secondary, and Accent colors in both light and dark mode. Course data continues to store only the
+  stable theme ID; display mode selects one four-color set, and one shared tested projection derives
+  the remaining semantic tokens with only measured, named exceptions.
+- Recast the biome palette document as a normative specification sheet. It now separates scope,
+  compatibility, fixed data, runtime records, display mode, migration, rollout, acceptance, and
+  unresolved decisions; assigns explicit status to the 25-theme registry and deferred themes; and
+  removes exploratory language that could be mistaken for implementation authority.
+- Cut over server object-storage composition to the explicit disposable-local
+  MinIO topology, removing the direct `aws-config`/`aws.rs` fallback. API/worker
+  and publisher credentials remain separate, and the retained S3-compatible SDK
+  graph adds no dependency pin. Fresh `server_core` library evidence passed 99
+  tests; `objects` with `s3` passed 38 library tests, three conformance tests,
+  and one archive test. One isolated loopback-MinIO conformance run passed.
+  Separately, the owned container composition passed health with a read-only
+  root, data tmpfs, zero persistent volumes, and pull policy `never`; ordinary
+  exact cleanup left no owned container or temporary secret and did not touch the
+  shared stack. This does not claim PLE HTTP, full-cloud, or deployment evidence.
+- Closed C57's three bounded Question Library Search rows. The initial page foregrounds the one
+  Search entry and performs no request until input; the first query reveals filters and results.
+  A one-time compiled-browser receipt restored query, selected filter, 80 loaded rows, and
+  virtual-list position through visible detail return and browser Back, while a changed session
+  returned to the empty landing. The temporary harness/screenshots were removed after acceptance;
+  this is not connected HTTP evidence. Integrated codebase, pytest, and `server_core` library
+  checks passed.
+- Replaced the misleading `coral-crossing` provided-avatar artwork with an original decorative Coral reef tile: branching coral, a small fish, and a contained ocean wave. The stable catalog ID and asset path remain unchanged; the canonical manifest and generated Rust, TypeScript, and SQL registry facts now use the name "Coral reef" and its accurate description.
+- Accepted C8's source boundary after independent review and a fresh root PostgreSQL 17 rerun:
+  Course-fixed exact Pool members, stable IDs, authorization, and retired/inactive handling are
+  correct. Connected HTTP and Cargo execution remain pending the AWS Smithy dependency cutover.
+- Added `Verification pending:` as the open-checklist qualifier for implemented behavior awaiting
+  named proof; `Mismatch:` remains reserved for missing or incorrect behavior. The checklist
+  remains 325 verified, 415 open, 43 N/A, and 783 total.
 - Added bounded Question Library editing for `tags`, `subject`, and `topic`, with Keep/Replace/Clear
   and refresh-before-resubmit recovery. No-store current reads and atomic CAS updates validate
   canonical IDs; there are no replay receipts or automatic second writes. Native publication seeds
@@ -528,6 +581,7 @@
   treat the budget as an entire-checkout limit or recurring test threshold.
 - Repaired durable contract and archived release-readiness links after the Assessment source
   cutover, and restored the required rationale fields for three existing design decisions.
+- Synchronized shared style guides, tests, and repository support files from the starter template.
 - Synchronized shared style guides, tests, and repository support files from the starter template.
 
 ### Decisions and Failures

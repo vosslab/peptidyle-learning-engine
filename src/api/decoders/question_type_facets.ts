@@ -10,9 +10,12 @@ import type { QuestionLicense } from "../../../generated/api/QuestionLicense";
 import type { QuestionTypeFacet } from "../../../generated/api/QuestionTypeFacet";
 import type { QuestionSearchFacets } from "../../../generated/api/QuestionSearchFacets";
 import type { QuestionSearchTagFacet } from "../../../generated/api/QuestionSearchTagFacet";
+import type { QuestionSearchSubjectFacet } from "../../../generated/api/QuestionSearchSubjectFacet";
+import type { QuestionSearchTopicFacet } from "../../../generated/api/QuestionSearchTopicFacet";
 import type { QuestionSearchCourseUseFacet } from "../../../generated/api/QuestionSearchCourseUseFacet";
 import {
   DecodeError,
+  decodeBoolean,
   decodeNonemptyString,
   decodeNonnegativeInteger,
   decodeRecord,
@@ -28,7 +31,7 @@ import {
 } from "./shared";
 
 const MAX_QUESTION_SEARCH_BACKEND_FACETS = 5;
-const MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS = 8;
+export const MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS = 8;
 
 function decodeQuestionSearchFacetText(value: unknown, path: string, maximum: number): string {
   const decoded = decodeNonemptyString(value, path);
@@ -76,6 +79,27 @@ function decodeQuestionSearchTagFacet(value: unknown, path: string): QuestionSea
   requireOnlyFields(record, path, ["tag", "count"]);
   return {
     tag: decodeQuestionSearchFacetText(field(record, "tag", path), `${path}.tag`, 256),
+    count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
+  };
+}
+
+function decodeQuestionSearchSubjectFacet(
+  value: unknown,
+  path: string,
+): QuestionSearchSubjectFacet {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["subject", "count"]);
+  return {
+    subject: decodeQuestionSearchFacetText(field(record, "subject", path), `${path}.subject`, 256),
+    count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
+  };
+}
+
+function decodeQuestionSearchTopicFacet(value: unknown, path: string): QuestionSearchTopicFacet {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["topic", "count"]);
+  return {
+    topic: decodeQuestionSearchFacetText(field(record, "topic", path), `${path}.topic`, 256),
     count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
   };
 }
@@ -145,8 +169,14 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "authorNames",
+    "authorNamesTruncated",
     "backends",
     "tags",
+    "tagsTruncated",
+    "subjects",
+    "subjectsTruncated",
+    "topics",
+    "topicsTruncated",
     "questionTypes",
     "capabilities",
     "questionLicenses",
@@ -159,6 +189,10 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
       MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS,
       decodeQuestionSearchAuthorFacet,
     ),
+    authorNamesTruncated: decodeBoolean(
+      field(record, "authorNamesTruncated", path),
+      `${path}.authorNamesTruncated`,
+    ),
     backends: decodeBoundedArray(
       field(record, "backends", path),
       `${path}.backends`,
@@ -170,6 +204,27 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
       `${path}.tags`,
       MAX_QUESTION_SEARCH_TAG_FACETS,
       decodeQuestionSearchTagFacet,
+    ),
+    tagsTruncated: decodeBoolean(field(record, "tagsTruncated", path), `${path}.tagsTruncated`),
+    subjects: decodeBoundedArray(
+      field(record, "subjects", path),
+      `${path}.subjects`,
+      MAX_QUESTION_SEARCH_TAG_FACETS,
+      decodeQuestionSearchSubjectFacet,
+    ),
+    subjectsTruncated: decodeBoolean(
+      field(record, "subjectsTruncated", path),
+      `${path}.subjectsTruncated`,
+    ),
+    topics: decodeBoundedArray(
+      field(record, "topics", path),
+      `${path}.topics`,
+      MAX_QUESTION_SEARCH_TAG_FACETS,
+      decodeQuestionSearchTopicFacet,
+    ),
+    topicsTruncated: decodeBoolean(
+      field(record, "topicsTruncated", path),
+      `${path}.topicsTruncated`,
     ),
     questionTypes: decodeBoundedArray(
       field(record, "questionTypes", path),

@@ -1130,36 +1130,36 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 #### A4-13.1
 
 - HG bullet: "Search should begin with a prominent search box, similar to Google Search."
-- Current evidence and concrete mismatch: `src/pages/library_page.tsx` renders seven filters initially and holds query/scroll only in the mounted component; prominent simple start and route-return preservation are absent.
+- Current evidence: `src/pages/library_page.tsx` `LibraryPage` starts with its single Search entry and suppresses filters/results until input; accepted one-time compiled-browser evidence confirmed idle no-fetch and the rendered landing.
 - Owning source area: Question Library search frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
 - Dependencies: none.
 - Closure owner: C57.
-- Verification: Playwright initial-search visual check and result-detail-back check of query, filters, and scroll offset.
+- Closure receipt: accepted one-time compiled-browser check and landing screenshot; its temporary harness remains outside the repository during review. C58 and C59 remain open.
 
 #### A4-13.2
 
 - HG bullet: "The initial Search page should stay simple and focus attention on entering a search."
-- Current evidence and concrete mismatch: `src/pages/library_page.tsx` renders seven filters initially and holds query/scroll only in the mounted component; prominent simple start and route-return preservation are absent.
+- Current evidence: `src/pages/library_page.tsx` `LibraryPage` keeps its initial surface to the Search entry, then renders filters/results after query input; accepted one-time compiled-browser evidence confirmed the transition.
 - Owning source area: Question Library search frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
 - Dependencies: none.
 - Closure owner: C57.
-- Verification: Playwright initial-search visual check and result-detail-back check of query, filters, and scroll offset.
+- Closure receipt: accepted one-time compiled-browser check and results screenshot; its temporary harness remains outside the repository during review. C58 and C59 remain open.
 
 #### A4-13.3
 
 - HG bullet: "Opening a result and returning should preserve the Instructor's search and position."
-- Current evidence and concrete mismatch: `src/pages/library_page.tsx` renders seven filters initially and holds query/scroll only in the mounted component; prominent simple start and route-return preservation are absent.
+- Current evidence: `src/pages/library_page_model.ts` `saveQuestionLibraryReturnState` and `takeQuestionLibraryReturnState` preserve one session-bound in-document return snapshot, while `src/pages/library_page.tsx` `LibraryPage` restores it.
 - Owning source area: Question Library search frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
 - Dependencies: none.
 - Closure owner: C57.
-- Verification: Playwright initial-search visual check and result-detail-back check of query, filters, and scroll offset.
+- Closure receipt: accepted one-time compiled-browser check restored query, filters, 80 rows, and virtual-list position through visible return and browser Back; changed-session isolation also passed. Its temporary harness remains outside the repository during review. C58 and C59 remain open.
 
 ### A4-14 - Advanced Question Library grammar (A7 query parser/API; 7)
 
 The shared C58 receipt is source plus accepted temporary actual-source `rustc` coverage of ordinary
 AND words, quotes, minus, five PLE fields, literal unknown tokens, empty fields matching nothing,
-and exact ID plus filters. The harness was removed. Connected HTTP/API search projection remains
-open because the server build is blocked by the AWS Smithy dependency incompatibility.
+and exact ID plus filters. The harness was removed. `source source_me.sh && cargo test -p
+server_core --lib` now passes; the connected HTTP/API search projection remains unverified.
 
 #### A4-14.1
 

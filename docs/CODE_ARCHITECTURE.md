@@ -165,6 +165,11 @@ Typed object records bind logical identity, data class, owner scope, media type,
 and checksum. The server constructs physical paths and authorized delivery;
 browsers do not name buckets or raw keys.
 
+The current storage composition accepts only an explicitly configured,
+authenticated disposable-local MinIO topology through a typed S3-compatible
+adapter. It retains the four Object Storage Areas and separate publisher
+credentials, but does not implement cloud production support.
+
 The Course Instance becomes Inactive six months after creation. That limit caps
 Assessment deadline movement so Course reuse cannot indefinitely delay FERPA
 retention and deletion, but becoming Inactive does not itself delete Student

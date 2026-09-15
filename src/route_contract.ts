@@ -55,6 +55,7 @@ export interface RouteContract {
     | "assessmentAttempt"
     | "assessmentAttemptSummary"
     | "library"
+    | "libraryBrowse"
     | "questionDetail"
     | "questionDrafts"
     | "questionDraftEditor"
@@ -224,6 +225,18 @@ export const ROUTE_CONTRACT = [
     id: "library",
     path: "/library",
     surface: "Question Library",
+    requiredProductRoles: ["instructor"],
+    ribbon: {
+      scope: "product",
+      tab: "questions",
+      taskGroup: "instructorQuestions",
+      contentLayout: "fullWidth",
+    },
+  },
+  {
+    id: "libraryBrowse",
+    path: "/library/browse",
+    surface: "Browse Question Library",
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",

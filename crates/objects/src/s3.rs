@@ -1,8 +1,9 @@
-//! AWS S3 backend.
+//! S3-compatible object-store backend.
 //!
-//! The same implementation serves AWS and MinIO. It stays behind the `s3`
-//! feature so the memory backend does not pull the AWS SDK. No AWS type leaks
-//! through the [`crate::ObjectStore`] trait.
+//! The current supported server topology constructs this backend for an
+//! authenticated disposable MinIO service. It stays behind the `s3` feature so
+//! the memory backend does not pull the SDK. No SDK type leaks through the
+//! [`crate::ObjectStore`] trait.
 
 #[cfg(feature = "s3")]
 use std::collections::HashMap;
@@ -60,7 +61,7 @@ pub struct BucketNames {
     pub temp_processing: String,
 }
 
-/// Customer-managed KMS key ARNs for policy-separated production buckets.
+/// Customer-managed KMS key ARNs for policy-separated S3 buckets.
 #[cfg(feature = "s3")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KmsKeyNames {
@@ -137,7 +138,7 @@ impl BucketNames {
     }
 }
 
-/// Replica-safe object store backed by AWS S3 or an S3-compatible endpoint.
+/// Replica-safe object store backed by an S3-compatible endpoint.
 #[cfg(feature = "s3")]
 #[derive(Clone)]
 pub struct S3ObjectStore {
@@ -157,8 +158,8 @@ impl S3ObjectStore {
         }
     }
 
-    /// Builds a production store that requests and verifies SSE-KMS for every
-    /// object using the key assigned to its policy bucket.
+    /// Builds a store that requests and verifies SSE-KMS for every object using
+    /// the key assigned to its policy bucket.
     pub fn new_kms_encrypted(client: Client, buckets: BucketNames, kms_keys: KmsKeyNames) -> Self {
         Self {
             client,

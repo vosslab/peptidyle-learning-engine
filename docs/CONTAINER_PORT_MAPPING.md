@@ -74,51 +74,53 @@ recovery commands. The fixed production-auth browser, screenshot, and
 service-oracle owner uses its own HTTPS origin and lifecycle commands; it does
 not use this raw Compose inspection path.
 
-## AWS baseline mapping
+## Unimplemented OpenTofu design
 
-`deploy/opentofu/` defines this AWS mapping, but it is not live-deployment or
-acceptance evidence. The topology is described in
-[MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md#production-baseline-in-opentofu).
+There is no supported cloud port mapping. [deploy/opentofu](../deploy/opentofu)
+retains the following future AWS design; it is not a supported runtime,
+deployment, or acceptance evidence. A production implementation must define
+and verify its network exposure, provider identity, object-storage access,
+encryption, and recovery boundaries before it can adopt this mapping.
 
-| Boundary                         | Planned port | Exposure                              | Purpose                                                                       |
+| Boundary                         | Planned port | Planned exposure                      | Planned purpose                                                               |
 | -------------------------------- | ------------ | ------------------------------------- | ----------------------------------------------------------------------------- |
 | Internet to CloudFront/WAF       | `443`        | Public                                | HTTPS application entry point.                                                |
 | Internet to CloudFront/WAF       | `80`         | Optional edge redirect                | HTTPS redirect only, if configured.                                           |
-| CloudFront/WAF to ALB TLS origin | `443`        | Origin-facing CIDR plus secret header | Controlled TLS alias; ALB default rule denies absent/mismatched header.       |
+| CloudFront/WAF to ALB TLS origin | `443`        | Origin-facing CIDR plus secret header | Controlled TLS alias; deny absent or mismatched header.                      |
 | Private ALB to Fargate API       | `3000`       | Private target boundary               | Browser/API origin; no local gateway task.                                    |
-| API to renderer                  | `443`        | Optional private integration          | Disabled unless its separately attested external renderer feature is enabled. |
+| API to renderer                  | `443`        | Optional private integration          | Disabled unless its external renderer feature is separately attested.         |
 | API, worker, or publisher to RDS | `5432`       | Private security groups               | TLS PostgreSQL; RDS is never public.                                          |
 | API/worker/publisher to S3       | HTTPS `443`  | S3 VPC endpoint                       | No NAT route or object-storage console.                                       |
 | Worker Fargate task              | none         | Private                               | No listener or target group.                                                  |
 
-The public edge is CloudFront and WAF; the ALB, API, worker, publisher, RDS,
-and S3 access remain private. The local Caddy gateway is not carried into this
-topology. Private subnets have no NAT route; disabled integrations receive no
-API security-group egress rule.
+In this design, CloudFront and WAF would be the public edge; ALB, API, worker,
+publisher, RDS, and S3 access would remain private. The local Caddy gateway
+would not carry into this topology. Private subnets would have no NAT route;
+disabled integrations would receive no API security-group egress rule.
 
-| Security-group owner | Inbound rule                                                                                                                   |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Private ALB          | CloudFront origin-facing managed prefix list on `443`; listener additionally requires the secret origin header.                |
-| API                  | `3000` from the ALB security group only.                                                                                       |
-| External renderer    | Not managed by this baseline; its feature remains disabled pending independent ingress, TLS, image, and authority attestation. |
-| RDS                  | `5432` from API, worker, and publisher security groups only.                                                                   |
-| Worker               | No inbound rule.                                                                                                               |
-| Publisher            | No inbound rule.                                                                                                               |
-| S3                   | IAM and bucket policy with an S3 VPC endpoint; no application listener.                                                        |
+| Planned security-group owner | Planned inbound rule                                                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Private ALB                  | CloudFront origin-facing managed prefix list on `443`; listener also requires the secret origin header.                       |
+| API                          | `3000` from the ALB security group only.                                                                                       |
+| External renderer            | Not managed; disabled pending independent ingress, TLS, image, and authority attestation.                                    |
+| RDS                          | `5432` from API, worker, and publisher security groups only.                                                                   |
+| Worker                       | No inbound rule.                                                                                                               |
+| Publisher                    | No inbound rule.                                                                                                               |
+| S3                           | IAM and bucket policy with an S3 VPC endpoint; no application listener.                                                        |
 
-Repeated task-local `3000` listeners remain valid in AWS for the same reason
-they do in Podman: each task has its own network namespace. Private subnets,
-target groups, security groups, and service discovery define reachability. They
-replace local Compose networks; they do not make the renderer or worker public.
+Repeated task-local `3000` listeners would remain valid because each task has
+its own network namespace. Private subnets, target groups, security groups, and
+service discovery would define reachability; they would not make the renderer
+or worker public.
 
-S3 replaces local MinIO's loopback `9000` API and `9001` console. The baseline
-uses IAM and four SSE-KMS bucket domains rather than a host-published object
-storage administrator console. The ALB target group health-checks `/health` on
-API port `3000` and allows a 45-second drain, longer than the API's 30-second
-graceful request drain. Browser WebSocket behavior still needs separate
-acceptance evidence if introduced.
+In this future design, S3 would replace local MinIO's loopback `9000` API and
+`9001` console. It would use IAM and four encrypted bucket domains rather than
+a host-published object-storage administrator console. The planned ALB target
+group would health-check `/health` on API port `3000` and allow a 45-second
+drain, longer than the API's 30-second graceful request drain. Browser WebSocket
+behavior would still need separate acceptance evidence if introduced.
 
-### Primary AWS references
+### Future AWS references
 
 - [Application Load Balancer listeners](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html)
 - [Application Load Balancer redirect actions](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/rule-action-types.html)

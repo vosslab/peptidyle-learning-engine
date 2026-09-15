@@ -62,7 +62,7 @@ test.describe("instructor authoring on the production PLE stack", () => {
       const ribbonTasks = page.getByRole("navigation", { name: "Ribbon tasks", exact: true });
       await ribbonTasks.getByRole("link", { name: "Browse Question Library", exact: true }).click();
       await expect(
-        page.getByRole("heading", { name: "Question library", exact: true }),
+        page.getByRole("heading", { name: "Browse Question Library", exact: true }),
       ).toBeVisible();
       await ribbonTasks.getByRole("link", { name: "My Draft Questions", exact: true }).click();
       await expect(
@@ -88,7 +88,7 @@ test.describe("instructor authoring on the production PLE stack", () => {
 
       await page.getByRole("link", { name: "Open question library", exact: true }).click();
       await expect(
-        page.getByRole("heading", { name: "Question library", exact: true }),
+        page.getByRole("heading", { name: "Search Question Library", exact: true }),
       ).toBeVisible();
       const questionCard = page
         .getByRole("article")

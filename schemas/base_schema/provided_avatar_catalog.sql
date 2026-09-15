@@ -8,7 +8,7 @@ VALUES
     ('amber-arch', 'cc199a8e914cf3cd96b6a5bcd04110fed70e332e9addf9a0008d7acf7e4cf227', true),
     ('berry-bloom', 'eeab13136999db047f7e4e01ccd3eeda6840315b488a1a98be872bfc3d103ada', true),
     ('cobalt-circuit', 'e0e5dcc64e4a37a5c6a379f4bb8c32e9df1eb668eae0155a72e3fed71bea23e7', true),
-    ('coral-crossing', '3d0b1965b55749c7e011d738ba00389ad1be03516d8fff393546dc6ec8b16ddf', true),
+    ('coral-crossing', '07e74194c72e6cced43dbde4e1dbb385097379c8bb4aff32958d9a77e09aa3a2', true),
     ('fern-facet', '7004e480ee40cd24e52fb9e86ddec9a63d2369e7cc9fa8ecd4ff3d998777f2de', true),
     ('golden-garden', 'ac28141bdfddd1e5bf248337c63e7b5682d7f51629ec1571c04f97fa7052c635', true),
     ('indigo-island', '4566da9fdc624bf191b1333dc60eff0ebc509b006ade23ee9027c65c24502484', true),

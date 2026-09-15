@@ -98,10 +98,12 @@ Keeping them separate prevents a vendored codebase-gate refresh from silently re
 verification.
 
 Cargo features are capability boundaries, not a convention to enable globally. The server selects
-the production PostgreSQL, S3, and adapter capabilities in its manifest, while memory-oriented
-crates keep those dependencies optional. `./check_rust.sh` checks both the default production graph
-and the all-feature, all-target graph. For a change to an optional capability, also read the owning
-`Cargo.toml` and run the focused package command required by the bounded work item.
+the PostgreSQL, S3-compatible object-storage, and adapter capabilities in its manifest, while
+memory-oriented crates keep those dependencies optional. The only supported runtime storage
+topology is explicitly configured disposable-local MinIO; it is not a cloud deployment. `./check_rust.sh`
+checks both the default server graph and the all-feature, all-target graph. For a change to an
+optional capability, also read the owning `Cargo.toml` and run the focused package command required
+by the bounded work item.
 
 ## Generated outputs
 
@@ -238,7 +240,7 @@ rerun when a material change affects their declared boundary.
 Use the fixed owner when a work package needs the supported PostgreSQL, MinIO,
 API, gateway, private standalone WeBWorK PG renderer, and one internal worker
 Service Identity. The generic expiry worker shares the ordinary Attempt evaluator
-and runs a 60-second sweep. It reads immutable source only through S3 and the
+and runs a 60-second sweep. It reads immutable source only through object storage and the
 private WeBWorK renderer boundary; iMathAS keeps its separate session and result-verification
 boundary. This exposes no grading lifecycle:
 
@@ -263,7 +265,8 @@ the checkout through Git, sources the repository `source_me.sh`, runs `python3 l
 and delegates TypeScript dependency setup to `devel/setup_typescript.sh` before a start. It prints
 the ready HTTPS origin without
 opening a browser. Run `./launchers/run_live_demo.sh open` to open an already-running demo, or
-`./launchers/run_live_demo.sh start --open` to create a fresh demo and open it. Use it for a human demo; use
+`./launchers/run_live_demo.sh --open` (equivalent to `start --open`) to create a fresh demo and
+open it. Use it for a human demo; use
 `source source_me.sh && python3 local_stack.py <command>` directly when selecting a controller
 command or collecting diagnostics.
 

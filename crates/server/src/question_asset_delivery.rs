@@ -263,17 +263,17 @@ mod tests {
             HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes(std::array::from_fn(|index| {
                 index as u8
             })));
-        let reference = verified_question_revision(&issuer, "0000-X00N", "1")
+        let reference = verified_question_revision(&issuer, "0000-Q000", "1")
             .expect("documented issuer vector and positive revision");
-        assert_eq!(reference.question_id.to_string(), "0000-X00N");
+        assert_eq!(reference.question_id.to_string(), "0000-Q000");
         assert_eq!(reference.revision_number.get(), 1);
 
         for (question_id, revision_number) in [
-            ("0000-X00P", "1"),
+            ("0000-P000", "1"),
             ("0000-X000", "1"),
-            ("0000-X00N", "0"),
-            ("0000-X00N", "01"),
-            ("0000-X00N", "+1"),
+            ("0000-Q000", "0"),
+            ("0000-Q000", "01"),
+            ("0000-Q000", "+1"),
         ] {
             assert!(
                 verified_question_revision(&issuer, question_id, revision_number).is_none(),

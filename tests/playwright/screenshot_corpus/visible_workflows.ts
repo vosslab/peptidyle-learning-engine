@@ -91,7 +91,7 @@ export async function resumeStudentAssignmentAttempt(page: Page): Promise<void> 
 
 export async function enterInstructor(page: Page): Promise<void> {
   await choosePersona(page, "Elena Rivera");
-  await page.getByRole("heading", { name: "Question library", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Search Question Library", exact: true }).waitFor();
 }
 
 export async function enterSysadmin(page: Page): Promise<void> {

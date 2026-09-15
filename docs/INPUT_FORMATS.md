@@ -24,7 +24,7 @@ they are not browser formats merely because an Instructor can initiate the opera
 ## Live-demo operator input
 
 The supported front door is `./launchers/run_live_demo.sh` with `start`, `open`, and `stop`. `--open` is a
-compatible shorthand for `open`, while `start --open` creates and opens a fresh demo. `--headless`
+compatible shorthand for `start --open`, while `start --open` creates and opens a fresh demo. `--headless`
 remains an accepted explicit spelling of the default non-opening behavior. It uses a fixed disposable
 target and does not accept a caller-selected project, identity, environment, SMTP configuration, or
 skip-build option. See [USAGE.md](USAGE.md) and

@@ -13,6 +13,14 @@ The authoritative exhaustive record is the
 
 ## Evidence updates
 
+- C57 closes the three Question Library Search-landing and return-state rows. `LibraryPage` begins
+  with only the Search entry, then starts the result workflow after input. Its session-bound,
+  single-use in-document return snapshot restored query, filter, 80 loaded rows, and virtual-list
+  position through visible return and browser Back. Accepted one-time compiled-browser evidence also
+  confirmed idle no-fetch and changed-session isolation. The temporary harness and screenshots
+  remain outside the repository during review; this is not connected HTTP evidence. C58 and C59
+  remain open.
+
 - C77--C78 now have accepted source, strict TypeScript, focused projection-test, and compiled
   SolidJS/mock-API browser evidence. A fresh PostgreSQL 17 run also exercised the actual landing
   Store for Regular Assignment plus scheduled, expired unfinished, active resumable,
@@ -287,12 +295,6 @@ The authoritative exhaustive record is the
 - **Watched** should help Instructors follow Questions where changes or activity matter to them.
   - Source: `docs/HUMAN_GUIDANCE.md:303`
 
-- Search should begin with a prominent search box, similar to Google Search.
-  - Source: `docs/HUMAN_GUIDANCE.md:308`
-
-- The initial Search page should stay simple and focus attention on entering a search.
-  - Source: `docs/HUMAN_GUIDANCE.md:309`
-
 - Search should support Google-like syntax for more precise queries.
   - Source: `docs/HUMAN_GUIDANCE.md:317`
 
@@ -319,9 +321,6 @@ The authoritative exhaustive record is the
 
 - Search syntax should help expert users quickly narrow a very large Question Library.
   - Source: `docs/HUMAN_GUIDANCE.md:326`
-
-- Opening a result and returning should preserve the Instructor's search and position.
-  - Source: `docs/HUMAN_GUIDANCE.md:329`
 
 - **Browse Question Library** helps Instructors explore Questions without knowing what to search for.
   - Source: `docs/HUMAN_GUIDANCE.md:333`

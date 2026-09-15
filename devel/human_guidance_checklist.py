@@ -18,7 +18,7 @@ HEADING_PATTERN = re.compile(r"^(#{1,6}) (.+)$")
 SOURCE_BULLET_PATTERN = re.compile(r"^(\s*)- (.+)$")
 CHECKLIST_BULLET_PATTERN = re.compile(r"^(\s*)- \[([ x])\] (.+)$")
 NOT_APPLICABLE_PATTERN = re.compile(r"^(\s*)- N/A (.+)$")
-STATUS_LINE_PATTERN = re.compile(r"^\s*- (Evidence \((?:source|test|runtime)\)|Mismatch|Reason|Owner|Question|Decision|Generated evidence stale):")
+STATUS_LINE_PATTERN = re.compile(r"^\s*- (Evidence \((?:source|test|runtime)\)|Mismatch|Verification pending|Reason|Owner|Question|Decision|Generated evidence stale):")
 EVIDENCE_PATTERN = re.compile(r"^\s*- Evidence \((source|test|runtime)\): (.+)$")
 
 # Named source roots make missing, added, substituted, and reordered audit content a hard failure.
@@ -187,7 +187,7 @@ def checklist_header() -> str:
 		"Source: `docs/HUMAN_GUIDANCE.md`. Human Guidance remains authoritative. This file records\n"
 		"implementation status only.\n\n"
 		"- [x] Verified: implemented behavior matches the bullet. Evidence follows.\n"
-		"- [ ] Unverified, or implementation differs. Mismatch follows.\n"
+		"- [ ] Unverified: Mismatch identifies missing or incorrect behavior; Verification pending identifies implemented behavior awaiting named proof.\n"
 		"- N/A: audited and not an implementation requirement. Reason follows.\n\n")
 
 
@@ -546,8 +546,12 @@ def gate(part_name: str) -> None:
 				problems.append(f"Evidence lacks a real backticked repository path and stable symbol: {bullet_text}")
 			if needs_runtime_or_test(bullet_text) and not any(EVIDENCE_PATTERN.match(line).group(1) in ("runtime", "test") for line in evidence):
 				problems.append(f"Verified runtime-required bullet lacks runtime or test evidence: {bullet_text}")
-		if status == " " and not any(line.startswith("- Mismatch:") for line in status_lines):
-			problems.append(f"Unverified bullet lacks Mismatch: {bullet_text}")
+		if status == " " and not any(
+			(line.startswith("- Mismatch:") and line[11:].strip()) or
+			(line.startswith("- Verification pending:") and line[23:].strip())
+			for line in status_lines
+		):
+			problems.append(f"Unverified bullet lacks nonempty Mismatch or Verification pending: {bullet_text}")
 		if status == "N/A" and not inherits_reason and not any(line.startswith("- Reason:") and line[9:].strip() for line in status_lines):
 			problems.append(f"N/A bullet lacks Reason: {bullet_text}")
 	part_offset = sum(len(part_records(name)[1]) for name in PART_MANIFEST if name != part_name and

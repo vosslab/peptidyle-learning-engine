@@ -361,7 +361,7 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "browseQuestionLibrary",
     label: "Browse Question Library",
-    destination: { kind: "route", routeId: "library" },
+    destination: { kind: "route", routeId: "libraryBrowse" },
     requiredParams: [],
     taskGroup: "instructorQuestions",
     area: "instructorQuestions",

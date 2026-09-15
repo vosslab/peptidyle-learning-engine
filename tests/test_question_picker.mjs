@@ -81,14 +81,24 @@ test("picker session drops a stale source response before publishing it", async 
     {
       search: async (request) => {
         if (request.source.kind === "library") return await questionLibrary;
-        return { items: [row("2R5X-Z7YA", "Mine")], aggregates: [], nextCursor: null };
+        return {
+          items: [row("2R5X-Z7YA", "Mine")],
+          aggregates: [],
+          nextCursor: null,
+          facetTruncation: noTruncation(),
+        };
       },
     },
     (state) => states.push(state),
   );
   const first = session.reset({ kind: "library", label: "Question Library" }, { ...emptyQuery() });
   const second = session.reset({ kind: "mine", label: "My questions" }, { ...emptyQuery() });
-  resolveQuestionLibrary({ items: [row("7K3M-X9QP", "Stale")], aggregates: [], nextCursor: null });
+  resolveQuestionLibrary({
+    items: [row("7K3M-X9QP", "Stale")],
+    aggregates: [],
+    nextCursor: null,
+    facetTruncation: noTruncation(),
+  });
   await Promise.all([first, second]);
   assert.equal(states.at(-1)?.kind, "ready");
   assert.equal(states.at(-1)?.rows[0]?.questionTitle, "Mine");
@@ -105,6 +115,7 @@ test("picker selection remains ordered while a source and query change", async (
         items: [row(request.source.kind === "library" ? "3S8B-Z4DZ" : "4T9C-Z5EW")],
         aggregates: [],
         nextCursor: null,
+        facetTruncation: noTruncation(),
       }),
     },
     () => undefined,
@@ -127,7 +138,12 @@ test("pagination failure retains loaded rows while external selection remains us
     {
       search: async (request) => {
         if (request.cursor === null) {
-          return { items: [row("2R5X-Z7YA")], aggregates: [], nextCursor: "next" };
+          return {
+            items: [row("2R5X-Z7YA")],
+            aggregates: [],
+            nextCursor: "next",
+            facetTruncation: noTruncation(),
+          };
         }
         throw new Error("temporary source failure");
       },
@@ -147,10 +163,16 @@ function emptyQuery() {
     authorName: null,
     backend: null,
     tag: null,
+    subjects: [],
+    topics: [],
     questionType: null,
     capability: null,
     questionLicense: null,
     usedInMyCourses: null,
     authorship: "any",
   };
+}
+
+function noTruncation() {
+  return { authorNames: false, tags: false, subjects: false, topics: false };
 }

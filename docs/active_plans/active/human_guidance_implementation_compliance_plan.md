@@ -25,7 +25,8 @@ Prefer more, smaller milestones. Each milestone has one narrow outcome that is i
 verified, and closed independently.
 
 Adopted from the external reviewer: verbatim HG copy (headings, wording, intentional duplicates);
-three statuses `[x]`, `[ ]`, `N/A`; audit before repair; audit split into small parallel
+three statuses `[x]`, `[ ]`, `N/A`; an open `[ ]` uses `Mismatch:` for missing or incorrect
+behavior, or `Verification pending:` for implemented behavior awaiting named proof; audit before repair; audit split into small parallel
 milestones; correction milestones generated from the gap map; completion contract per milestone;
 evidence kinds (source, runtime, test); ownership convention for duplicate bullets; positive
 phrasing; incremental audit-to-repair handoff; deterministic closeout; checklist reconciliation
@@ -102,7 +103,8 @@ Source: `docs/HUMAN_GUIDANCE.md`. Human Guidance remains authoritative. This fil
 implementation status only.
 
 - [x] Verified: implemented behavior matches the bullet. Evidence follows.
-- [ ] Unverified, or implementation differs. Mismatch follows.
+- [ ] Unverified: `Mismatch:` identifies missing or incorrect behavior; `Verification pending:`
+  identifies implemented behavior awaiting named proof.
 - N/A: a positive audit result: the bullet makes no claim about implemented PLE behavior.
   A short reason follows, either on the bullet or as the inherited reason for its section.
 ```
@@ -150,8 +152,8 @@ a `:line` suffix is optional convenience.
 Behavior that requires `runtime` or `test` evidence for `[x]`: grading outcomes and scoring,
 Attempt expiry and resumption, retention transitions, authorization denials, backend rendering
 and grading, responsive Student layouts, keyboard-only operation, banner scaling. When the probe
-is still pending, the auditor marks `[ ]` with `Mismatch: needs runtime evidence` so a later pass
-runs it.
+is still pending, the auditor marks `[ ]` with `Verification pending: needs runtime evidence` so a
+later pass runs it.
 
 Ownership of duplicate bullets: the first HG occurrence owns the finding. Later occurrences carry
 the same status and a one-line `Owner: <section>` pointer. `--consistency` reports duplicates
@@ -203,7 +205,7 @@ Owner: manager. Scope: the generator script, the checklist file, and the plan co
      bullets; verify every bullet has exactly one of `[x]`, `[ ]`, `N/A`; every `[x]` has an
      `Evidence (kind):` line with a real in-repository backticked path and stable symbol; every
      exact runtime-required identity named in this plan has at least one `runtime` or `test`
-     evidence line; every `[ ]` has `Mismatch:`; every N/A has `Reason:`, except the five
+  evidence line; every `[ ]` has nonempty `Mismatch:` or `Verification pending:`; every N/A has `Reason:`, except the five
      `## How to use this guidance` bullets which inherit the section reason; and duplicate
      bullets have consistent status and ownership. Exit 1 on any miss.
 2. Run `--build`, then `--diff` (clean). The script prints HG and checklist bullet counts; equal.
@@ -521,6 +523,9 @@ confirmation clean; changelog entry.
 - Modules, tables, routes, and components: publication validation facts, Question/Pool library
   entries, and SQL authorization boundary; frontend presentation stays unchanged.
 - Dependencies: Accounts-and-roles vetting corrections from A2 are pending.
+- Current receipt: independent review and a fresh root PostgreSQL 17 rerun accepted Course-fixed
+  exact Pool members, stable IDs, authorization, and retired/inactive handling. Connected HTTP
+  and Cargo execution remain pending the AWS Smithy dependency cutover.
 - Focused gates: `source source_me.sh && cargo test -p server_core question_library`;
   `bash tests/e2e/e2e_live_demo_question_library.sh --api`;
   `source source_me.sh && ./launchers/run_fast_checks.sh`.
@@ -1231,7 +1236,7 @@ merely to obtain a passing result.
 | C54 | Centered responsive Course Banner accepts valid still 5:1 sources within independent safety bounds, preserves 5:1 delivery without crop, and treats 1280x256 as HG's recommended authoring size rather than a required minimum or exact rendition. | C814 inventories `crates/question_model/src/course_appearance.rs`, `crates/server/src/course_appearance.rs`, `crates/learning-data-access/src/course_banner.rs`, `crates/learning-data-access/src/postgres/course_banner.rs`, `crates/objects/{bucket,image_validation}.rs`, `schemas/base_schema/course_media.sql`, frontend, and test consumers; C815 owns normalization/delivery; C813 owns centered frontend. | Closes G-A4-10 (5). | C814 -> C815 -> C813. Exact fixed rendition dimensions remain an unlocked design requiring a recorded decision. | ignored small-valid-5:1, 1280x256, 2560x512, non-5:1 fixtures; `bash tests/e2e/e2e_live_demo_course_appearance.sh`; `npx playwright test tests/playwright/e2e/course_appearance_propagation.spec.ts` |
 | C55 | Course Editor has Assessment names and separate Question/Properties routes. | `src/pages/course_instance_page.tsx`, `src/pages/assignment_workspace/assignment_workspace_questions_page.tsx`, `src/pages/assignment_workspace/assignment_workspace_policies_page.tsx` | Closes G-A4-11 (6). | C7, C8, C12. | `node --test tests/test_assignment_workspace_questions.mjs tests/test_assignment_workspace_policy_model.mjs`; `bash tests/e2e/e2e_live_demo_course_instance.sh --browser` |
 | C56 | My Questions, Starred, Watched are working zero/nonzero personal lists. | `src/ribbon/ribbon_catalog.ts`, `src/pages/question_drafts_page.tsx`, `src/pages/library_page.tsx` | Closes G-A4-12 (4). | C8, C9, C11. | `node --test tests/test_question_picker.mjs`; `bash tests/e2e/e2e_live_demo_question_library.sh --browser` |
-| C57 | Initial Search foregrounds one entry; return restores query, filters, position. | `src/pages/library_page.tsx`, `src/pages/library_page_model.ts` | Closes G-A4-13 (3). | C8. | `node --test tests/test_question_availability_client.mjs`; `node tests/playwright/e2e_live_demo_question_library_browser.mjs` |
+| C57 | Initial Search foregrounds one entry; return restores query, filters, position. | `src/pages/library_page.tsx` `LibraryPage`; `src/pages/library_page_model.ts` `saveQuestionLibraryReturnState`/`takeQuestionLibraryReturnState`. | Closed G-A4-13 (3): accepted one-time compiled-browser evidence confirmed idle no-fetch, query-start transition, visible-return and Back restoration of query/filter/80 rows/scroll, and changed-session isolation. The temporary harness/screenshots remain outside the repository during review; this is not connected HTTP evidence. | C8. | `./check_codebase.sh`; `source source_me.sh && python3 -m pytest tests/`; `source source_me.sh && cargo test -p server_core --lib` |
 | C58 | One parser supports ordinary words, quotes, minus, PLE field tags. | `crates/server/src/question_library/search_query.rs`, composed by `crates/server/src/question_library.rs`. | Closes G-A4-14 (7). | C8; runtime HTTP/search projection. | `source source_me.sh && cargo test -p server_core question_library`; `bash tests/e2e/e2e_live_demo_question_library.sh --api` |
 | C59 | Help makes advanced grammar discoverable without burdening ordinary Search. | `src/pages/library_page.tsx` | Closes G-A4-15 (2). | C58. | `node tests/playwright/e2e_live_demo_question_library_browser.mjs` |
 | C60 | Browse is grouped/count-bearing distinct path with hierarchy, dense rows, Search handoff. | `src/pages/library_page.tsx`, `src/pages/library_page_model.ts` | Closes G-A4-16 (8). | C8, C58; pending A7 grouping API. | `node --test tests/test_question_availability_client.mjs`; `node tests/playwright/e2e_live_demo_question_library_browser.mjs` |
