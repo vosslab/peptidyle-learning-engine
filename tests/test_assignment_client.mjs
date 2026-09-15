@@ -1,28 +1,25 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { decodeStudentAssessmentDetail } from "../src/api/decoders/assessment_teaching_delivery.ts";
 import {
-  decodeInstructorStudentView,
-  decodeStudentAssignmentDetail,
-} from "../src/api/decoders/assignment_teaching_delivery.ts";
-import {
-  decodeCourseAssignments as decodeCourseAssignmentRows,
-  decodeCourseAssignmentSourceChoices,
-  decodeSaveLiveAssignmentInlineInput,
-  decodeSaveBaseAssignmentPolicyInput,
-} from "../src/api/decoders/assignment_release.ts";
+  decodeCourseAssessments,
+  decodeCourseAssessmentSourceChoices,
+  decodeSaveLiveAssessmentInlineInput,
+  decodeSaveBaseAssessmentPolicyInput,
+} from "../src/api/decoders/assessment_release.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
-import { LiveAssignmentWorkspaceConflictError } from "../src/api/http_client/assignment_release.ts";
+import { LiveAssessmentWorkspaceConflictError } from "../src/api/http_client/assessment_release.ts";
 import { createRecordingFetch } from "./http_client_test_support.mjs";
 
 function savedPolicyWorkspace() {
   return {
-    reference: "A-2",
+    reference: "A8H4N6P",
     editNumber: "4",
     status: "unreleased",
     source: {
-      blueprint_revision: { reference: "BP-1", revision: "1" },
-      blueprint_assignment_reference: "00000000-0000-0000-0000-000000000011",
+      blueprint_revision: { reference: "BP7K3M2Q", revision: "1" },
+      blueprint_assessment_reference: "00000000-0000-0000-0000-000000000011",
     },
     title: "Peptide bonds",
     instructions: "Read carefully.",
@@ -30,18 +27,18 @@ function savedPolicyWorkspace() {
     availableAt: null,
     closesAt: null,
     lateWorkRule: "reject",
-    assignmentAttemptTimeLimitSeconds: 60,
+    assessmentAttemptTimeLimitSeconds: 60,
     attemptLimit: null,
     activityRules: {
-      assignmentCompletionRule: { kind: "answerAll" },
-      assignmentAttemptGradeRule: "highest",
-      assignmentAttemptContinuationRule: { kind: "unlimited" },
+      assessmentCompletionRule: { kind: "answerAll" },
+      assessmentAttemptGradeRule: "highest",
+      assessmentAttemptContinuationRule: { kind: "unlimited" },
       questionPoolReuseRule: "reuseSelection",
       questionVariationRule: "newVariation",
-      assignmentAttemptResumeRule: "resumable",
-      assignmentQuestionDisplayRule: "oneQuestionAtATime",
-      assignmentNavigationRule: "freeNavigation",
-      assignmentQuestionOrderRule: "authoredOrder",
+      assessmentAttemptResumeRule: "resumable",
+      assessmentQuestionDisplayRule: "oneQuestionAtATime",
+      assessmentNavigationRule: "freeNavigation",
+      assessmentQuestionOrderRule: "authoredOrder",
     },
     studentFeedbackReleaseRule: {
       score: "after_submit",
@@ -58,25 +55,25 @@ function savedPolicyWorkspace() {
   };
 }
 
-function baseAssignmentPolicy() {
+function baseAssessmentPolicy() {
   return {
     instructions: "Read carefully.",
     dueAt: null,
     availableAt: null,
     closesAt: null,
     lateWorkRule: "reject",
-    assignmentAttemptTimeLimitSeconds: 60,
+    assessmentAttemptTimeLimitSeconds: 60,
     attemptLimit: null,
     activityRules: {
-      assignmentCompletionRule: { kind: "answerAll" },
-      assignmentAttemptGradeRule: "highest",
-      assignmentAttemptContinuationRule: { kind: "unlimited" },
+      assessmentCompletionRule: { kind: "answerAll" },
+      assessmentAttemptGradeRule: "highest",
+      assessmentAttemptContinuationRule: { kind: "unlimited" },
       questionPoolReuseRule: "reuseSelection",
       questionVariationRule: "newVariation",
-      assignmentAttemptResumeRule: "resumable",
-      assignmentQuestionDisplayRule: "oneQuestionAtATime",
-      assignmentNavigationRule: "freeNavigation",
-      assignmentQuestionOrderRule: "authoredOrder",
+      assessmentAttemptResumeRule: "resumable",
+      assessmentQuestionDisplayRule: "oneQuestionAtATime",
+      assessmentNavigationRule: "freeNavigation",
+      assessmentQuestionOrderRule: "authoredOrder",
     },
     studentFeedbackReleaseRule: {
       score: "after_submit",
@@ -90,10 +87,10 @@ function baseAssignmentPolicy() {
   };
 }
 
-test("Course Assignment rows require exact due and Instructor-zone display facts", () => {
-  const rows = decodeCourseAssignmentRows([
+test("Course Assessment rows require exact due and Instructor-zone display facts", () => {
+  const rows = decodeCourseAssessments([
     {
-      reference: "A-2",
+      reference: "A8H4N6P",
       title: "Peptide bonds",
       dueAt: "2026-09-11T14:30:00.000",
       displayTimeZone: "America/Chicago",
@@ -105,9 +102,9 @@ test("Course Assignment rows require exact due and Instructor-zone display facts
   assert.equal(rows[0].displayTimeZone, "America/Chicago");
 
   assert.throws(() =>
-    decodeCourseAssignmentRows([
+    decodeCourseAssessments([
       {
-        reference: "A-2",
+        reference: "A8H4N6P",
         title: "Peptide bonds",
         displayTimeZone: "America/Chicago",
         status: "released",
@@ -116,9 +113,9 @@ test("Course Assignment rows require exact due and Instructor-zone display facts
     ]),
   );
   assert.throws(() =>
-    decodeCourseAssignmentRows([
+    decodeCourseAssessments([
       {
-        reference: "A-2",
+        reference: "A8H4N6P",
         title: "Peptide bonds",
         dueAt: "2026-09-11T14:30:00.000",
         displayTimeZone: "America/Chicago",
@@ -130,29 +127,29 @@ test("Course Assignment rows require exact due and Instructor-zone display facts
   );
 });
 
-test("inline Assignment row saves accept only title and a required nullable local due value", () => {
-  assert.deepEqual(decodeSaveLiveAssignmentInlineInput({ title: "Peptide bonds", dueAt: null }), {
+test("inline Assessment row saves accept only title and a required nullable local due value", () => {
+  assert.deepEqual(decodeSaveLiveAssessmentInlineInput({ title: "Peptide bonds", dueAt: null }), {
     title: "Peptide bonds",
     dueAt: null,
   });
-  assert.throws(() => decodeSaveLiveAssignmentInlineInput({ title: "Peptide bonds" }));
+  assert.throws(() => decodeSaveLiveAssessmentInlineInput({ title: "Peptide bonds" }));
   assert.throws(() =>
-    decodeSaveLiveAssignmentInlineInput({
+    decodeSaveLiveAssessmentInlineInput({
       title: "Peptide bonds",
       dueAt: "2026-09-11T14:30",
     }),
   );
 });
 
-test("Base Assignment Policy saves are closed and cannot carry title or Entries", () => {
-  const policy = baseAssignmentPolicy();
-  assert.deepEqual(decodeSaveBaseAssignmentPolicyInput(policy), policy);
+test("Base Assessment Policy saves are closed and cannot carry title or Entries", () => {
+  const policy = baseAssessmentPolicy();
+  assert.deepEqual(decodeSaveBaseAssessmentPolicyInput(policy), policy);
   assert.throws(() =>
-    decodeSaveBaseAssignmentPolicyInput({ ...policy, title: "must not cross boundary" }),
+    decodeSaveBaseAssessmentPolicyInput({ ...policy, title: "must not cross boundary" }),
   );
 });
 
-test("Base Assignment Policy save uses the current workspace boundary and exact replacement ETag", async () => {
+test("Base Assessment Policy save uses the current workspace boundary and exact replacement ETag", async () => {
   const { recordingFetch, requests } = createRecordingFetch(
     async () =>
       new Response(JSON.stringify(savedPolicyWorkspace()), {
@@ -160,10 +157,10 @@ test("Base Assignment Policy save uses the current workspace boundary and exact 
       }),
   );
 
-  const saved = await createHttpApiClient({ fetch: recordingFetch }).saveBaseAssignmentPolicy(
-    "C-1",
-    "A-2",
-    baseAssignmentPolicy(),
+  const saved = await createHttpApiClient({ fetch: recordingFetch }).saveBaseAssessmentPolicy(
+    "CI7K3M2Q",
+    "A8H4N6P",
+    baseAssessmentPolicy(),
     '"3"',
   );
 
@@ -171,14 +168,14 @@ test("Base Assignment Policy save uses the current workspace boundary and exact 
   assert.equal(saved.etag, '"4"');
   assert.equal(
     new URL(requests[0].url).pathname,
-    "/api/course-instances/C-1/assignments/A-2/policies",
+    "/api/course-instances/CI7K3M2Q/assessments/A8H4N6P/policies",
   );
   assert.equal(requests[0].method, "PUT");
   assert.equal(requests[0].headers.get("if-match"), '"3"');
-  assert.deepEqual(JSON.parse(await requests[0].text()), baseAssignmentPolicy());
+  assert.deepEqual(JSON.parse(await requests[0].text()), baseAssessmentPolicy());
 });
 
-test("Base Assignment Policy save requires a matching response ETag and maps an Edit Number conflict", async () => {
+test("Base Assessment Policy save requires a matching response ETag and maps an Edit Number conflict", async () => {
   const missingEtag = createRecordingFetch(
     async () =>
       new Response(JSON.stringify(savedPolicyWorkspace()), {
@@ -186,10 +183,10 @@ test("Base Assignment Policy save requires a matching response ETag and maps an 
       }),
   );
   await assert.rejects(
-    createHttpApiClient({ fetch: missingEtag.recordingFetch }).saveBaseAssignmentPolicy(
-      "C-1",
-      "A-2",
-      baseAssignmentPolicy(),
+    createHttpApiClient({ fetch: missingEtag.recordingFetch }).saveBaseAssessmentPolicy(
+      "CI7K3M2Q",
+      "A8H4N6P",
+      baseAssessmentPolicy(),
       '"3"',
     ),
     /ETag must match/u,
@@ -197,40 +194,40 @@ test("Base Assignment Policy save requires a matching response ETag and maps an 
 
   const conflict = createRecordingFetch(
     async () =>
-      new Response("Assignment Workspace changed", {
+      new Response("Assessment Workspace changed", {
         status: 412,
         headers: { "cache-control": "no-store" },
       }),
   );
   await assert.rejects(
-    createHttpApiClient({ fetch: conflict.recordingFetch }).saveBaseAssignmentPolicy(
-      "C-1",
-      "A-2",
-      baseAssignmentPolicy(),
+    createHttpApiClient({ fetch: conflict.recordingFetch }).saveBaseAssessmentPolicy(
+      "CI7K3M2Q",
+      "A8H4N6P",
+      baseAssessmentPolicy(),
       '"3"',
     ),
-    LiveAssignmentWorkspaceConflictError,
+    LiveAssessmentWorkspaceConflictError,
   );
 });
 
-test("Course Assignment source choices retain the Course-pinned exact Blueprint Revision", () => {
-  const choices = decodeCourseAssignmentSourceChoices([
+test("Course Assessment source choices retain the Course-pinned exact Blueprint Revision", () => {
+  const choices = decodeCourseAssessmentSourceChoices([
     {
       source: {
-        blueprint_revision: { reference: "BP-4", revision: "2" },
-        blueprint_assignment_reference: "00000000-0000-0000-0000-000000000005",
+        blueprint_revision: { reference: "BP7K3M2Q", revision: "2" },
+        blueprint_assessment_reference: "00000000-0000-0000-0000-000000000005",
       },
       label: "Genetics - Mendelian inheritance - Punnett squares",
     },
   ]);
-  assert.equal(choices[0].source.blueprint_revision.reference, "BP-4");
+  assert.equal(choices[0].source.blueprint_revision.reference, "BP7K3M2Q");
   assert.equal(choices[0].source.blueprint_revision.revision, "2");
   assert.equal(
-    choices[0].source.blueprint_assignment_reference,
+    choices[0].source.blueprint_assessment_reference,
     "00000000-0000-0000-0000-000000000005",
   );
   assert.throws(() =>
-    decodeCourseAssignmentSourceChoices([
+    decodeCourseAssessmentSourceChoices([
       {
         ...choices[0],
         source: { ...choices[0].source, unexpected: true },
@@ -238,7 +235,7 @@ test("Course Assignment source choices retain the Course-pinned exact Blueprint 
     ]),
   );
   assert.throws(() =>
-    decodeCourseAssignmentSourceChoices([
+    decodeCourseAssessmentSourceChoices([
       {
         ...choices[0],
         label: " ",
@@ -247,56 +244,10 @@ test("Course Assignment source choices retain the Course-pinned exact Blueprint 
   );
 });
 
-test("Instructor Student view accepts an empty draft and Question Pool redraw without identities", () => {
-  const view = decodeInstructorStudentView({
-    title: "Peptide bonds",
-    instructions: "Add questions before publishing.",
-    displayTimeZone: "America/Los_Angeles",
-    delivery: {
-      available_at: null,
-      due_at: null,
-      closes_at: null,
-      assignment_attempt_time_limit_seconds: null,
-      attempt_limit: null,
-      late_work_rule: "accept",
-    },
-    questionsPerAssignmentAttempt: 0,
-    questionPoolReuseRule: "selectAgain",
-    questionVariationRule: "newVariation",
-    studentFeedbackReleaseRule: {
-      score: "never",
-      per_item_correctness: "never",
-      submitted_response: "never",
-      question_feedback: "never",
-      question_answer: "never",
-      question_answer_explanation: "never",
-      class_statistics: "never",
-    },
-  });
-  assert.equal(view.questionsPerAssignmentAttempt, 0);
-  assert.equal(view.questionPoolReuseRule, "selectAgain");
-  assert.equal(view.questionVariationRule, "newVariation");
-  assert.equal(view.studentFeedbackReleaseRule.submitted_response, "never");
-  assert.equal(view.displayTimeZone, "America/Los_Angeles");
-  assert.equal("timeZone" in view, false);
-  assert.equal("studentLateWorkStatus" in view.delivery, false);
-  const { submitted_response: _submittedResponse, ...withoutSubmittedResponse } =
-    view.studentFeedbackReleaseRule;
-  assert.throws(() =>
-    decodeInstructorStudentView({
-      ...view,
-      studentFeedbackReleaseRule: withoutSubmittedResponse,
-    }),
-  );
-  assert.throws(() =>
-    decodeInstructorStudentView({ ...view, assignmentId: "00000000-0000-0000-0000-000000000001" }),
-  );
-});
-
-test("Student assignment detail accepts only its viewer-owned display zone", () => {
-  const detail = decodeStudentAssignmentDetail({
+test("Student Assessment detail accepts only its viewer-owned display zone", () => {
+  const detail = decodeStudentAssessmentDetail({
     id: "00000000-0000-0000-0000-000000000001",
-    reference: "A-1",
+    reference: "A9D2RX5",
     title: "Peptide bonds",
     instructions: "Use your notes.",
     display_time_zone: "America/New_York",
@@ -304,7 +255,7 @@ test("Student assignment detail accepts only its viewer-owned display zone", () 
       available_at: 1_768_502_800_000,
       due_at: 1_768_506_400_000,
       closes_at: null,
-      assignment_attempt_time_limit_seconds: null,
+      assessment_attempt_time_limit_seconds: null,
       attempt_limit: null,
       late_work_rule: "accept",
       student_late_work_status: "on_time",
@@ -313,6 +264,6 @@ test("Student assignment detail accepts only its viewer-owned display zone", () 
   });
   assert.equal(detail.display_time_zone, "America/New_York");
   assert.equal("time_zone" in detail, false);
-  assert.throws(() => decodeStudentAssignmentDetail({ ...detail, time_zone: "America/Chicago" }));
-  assert.throws(() => decodeStudentAssignmentDetail({ ...detail, accountId: "account-1" }));
+  assert.throws(() => decodeStudentAssessmentDetail({ ...detail, time_zone: "America/Chicago" }));
+  assert.throws(() => decodeStudentAssessmentDetail({ ...detail, accountId: "account-1" }));
 });

@@ -673,12 +673,12 @@ or product-decision exemption. C49, C64, C66, C72, C73, and C74 contribute prere
 flip no A4 bullet. The following are per-bullet records; each repeats its evidence,
 source, dependencies, closure owner, and verification rather than inheriting those fields.
 
-### A4-01 — Instructor navigation and empty states (frontend ribbon/shared collection UI; 7)
+### A4-01 - Instructor navigation and empty states (frontend ribbon/shared collection UI; 7)
 
 #### A4-01.1
 
-- HG bullet: “The Instructor interface should make frequent teaching tasks fast and easy to find.”
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and “Assignments”; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
+- HG bullet: "The Instructor interface should make frequent teaching tasks fast and easy to find."
+- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and "Assignments"; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
 - Owning source area: shared Instructor-navigation frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C12, C46, C56, and C61.
 - Closure owner: C44.
@@ -686,8 +686,8 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-01.2
 
-- HG bullet: “The Instructor menu has **Courses**, **Questions**, and **Assessments** in one dense top bar.”
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and “Assignments”; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
+- HG bullet: "The Instructor menu has **Courses**, **Questions**, and **Assessments** in one dense top bar."
+- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and "Assignments"; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
 - Owning source area: shared Instructor-navigation frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C12, C46, C56, and C61.
 - Closure owner: C44.
@@ -695,8 +695,8 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-01.3
 
-- HG bullet: “All required ribbon choices remain visible even when their collection is empty.”
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and “Assignments”; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
+- HG bullet: "All required ribbon choices remain visible even when their collection is empty."
+- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and "Assignments"; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
 - Owning source area: shared Instructor-navigation frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C12, C46, C56, and C61.
 - Closure owner: C44.
@@ -704,8 +704,8 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-01.4
 
-- HG bullet: “Empty collection pages should explain what the collection is for and provide an obvious action to create or add the first item when the user can do so.”
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and “Assignments”; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
+- HG bullet: "Empty collection pages should explain what the collection is for and provide an obvious action to create or add the first item when the user can do so."
+- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and "Assignments"; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
 - Owning source area: shared Instructor-navigation frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C12, C46, C56, and C61.
 - Closure owner: C44.
@@ -713,8 +713,8 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-01.5
 
-- HG bullet: “Similar pages should place similar actions in consistent locations.”
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and “Assignments”; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
+- HG bullet: "Similar pages should place similar actions in consistent locations."
+- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and "Assignments"; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
 - Owning source area: shared Instructor-navigation frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C12, C46, C56, and C61.
 - Closure owner: C44.
@@ -722,8 +722,8 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-01.6
 
-- HG bullet: “Instructor pages should be composed around the teaching task rather than collections of padded components.”
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and “Assignments”; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
+- HG bullet: "Instructor pages should be composed around the teaching task rather than collections of padded components."
+- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and "Assignments"; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
 - Owning source area: shared Instructor-navigation frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C12, C46, C56, and C61.
 - Closure owner: C44.
@@ -731,29 +731,29 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-01.7
 
-- HG bullet: “Instructor Course and Assessment lists should be dense and easy to scan, more like a spreadsheet than cards.”
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and “Assignments”; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
+- HG bullet: "Instructor Course and Assessment lists should be dense and easy to scan, more like a spreadsheet than cards."
+- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and "Assignments"; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
 - Owning source area: shared Instructor-navigation frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C12, C46, C56, and C61.
 - Closure owner: C44.
 - Verification: route tests for zero-record collections and desktop Playwright navigation/empty-state screenshots.
 
-### A4-02 — Student View read-only projection (preview route/server request contract; 1)
+### A4-02 - Student View read-only projection (preview route/server request contract; 1)
 
 #### A4-02.1
 
-- HG bullet: “Instructor **Student View** is an answer-free preview and does not create Student Work, Assessment Attempts, submissions, or grades.”
+- HG bullet: "Instructor **Student View** is an answer-free preview and does not create Student Work, Assessment Attempts, submissions, or grades."
 - Current evidence and concrete mismatch: `src/pages/assignment_preview_page.tsx` supplies Assignment preview text only; it does not establish answer-free Assessment projection or no writes.
 - Owning source area: Student View frontend: src/pages/assignment_preview_page.tsx.
 - Dependencies: C12, C74, and pending A9 no-write preview API.
 - Closure owner: C45.
 - Verification: seeded Student Work/Attempt fixture; browser preview; database/API assertion that no Attempt, submission, or grade is created and answer content is absent.
 
-### A4-03 — Course destinations and active/inactive lists (frontend Course routes/list state; 5)
+### A4-03 - Course destinations and active/inactive lists (frontend Course routes/list state; 5)
 
 #### A4-03.1
 
-- HG bullet: “The **Courses** ribbon must include: My Blueprint Courses, My Active Courses, My Inactive Courses, Search Public Blueprint Courses.”
+- HG bullet: "The **Courses** ribbon must include: My Blueprint Courses, My Active Courses, My Inactive Courses, Search Public Blueprint Courses."
 - Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` active/inactive/public-search routes; no active-only course view or upcoming Assessment activity surface exists.
 - Owning source area: Course destinations frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/course_instance_page.tsx.
 - Dependencies: pending A8 Course state; C47, C55.
@@ -762,7 +762,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-03.2
 
-- HG bullet: “My Active Courses and My Inactive Courses should both be available from the Courses area.”
+- HG bullet: "My Active Courses and My Inactive Courses should both be available from the Courses area."
 - Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` active/inactive/public-search routes; no active-only course view or upcoming Assessment activity surface exists.
 - Owning source area: Course destinations frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/course_instance_page.tsx.
 - Dependencies: pending A8 Course state; C47, C55.
@@ -771,7 +771,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-03.3
 
-- HG bullet: “**My Active Courses** should emphasize Course Instances the Instructor is currently teaching.”
+- HG bullet: "**My Active Courses** should emphasize Course Instances the Instructor is currently teaching."
 - Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` active/inactive/public-search routes; no active-only course view or upcoming Assessment activity surface exists.
 - Owning source area: Course destinations frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/course_instance_page.tsx.
 - Dependencies: pending A8 Course state; C47, C55.
@@ -780,7 +780,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-03.4
 
-- HG bullet: “Active Course Instances should make upcoming Assessments and important course activity easy to find.”
+- HG bullet: "Active Course Instances should make upcoming Assessments and important course activity easy to find."
 - Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` active/inactive/public-search routes; no active-only course view or upcoming Assessment activity surface exists.
 - Owning source area: Course destinations frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/course_instance_page.tsx.
 - Dependencies: pending A8 Course state; C47, C55.
@@ -789,18 +789,18 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-03.5
 
-- HG bullet: “**My Inactive Courses** should keep past Course Instances available without competing with active Course Instances.”
+- HG bullet: "**My Inactive Courses** should keep past Course Instances available without competing with active Course Instances."
 - Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` active/inactive/public-search routes; no active-only course view or upcoming Assessment activity surface exists.
 - Owning source area: Course destinations frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/course_instance_page.tsx.
 - Dependencies: pending A8 Course state; C47, C55.
 - Closure owner: C46.
 - Verification: route/list tests with zero, active, inactive fixtures; Playwright checks all four choices and separated lists.
 
-### A4-04 — Public Blueprint Course search (frontend public-Blueprint search route/query UI; 2)
+### A4-04 - Public Blueprint Course search (frontend public-Blueprint search route/query UI; 2)
 
 #### A4-04.1
 
-- HG bullet: “**Search Public Blueprint Courses** helps Instructors find a Blueprint Course they already have in mind.”
+- HG bullet: "**Search Public Blueprint Courses** helps Instructors find a Blueprint Course they already have in mind."
 - Current evidence and concrete mismatch: `searchPublicBlueprintCourses` is `future` in `src/ribbon/ribbon_catalog.ts`; no public Blueprint route/query controls can narrow a large collection.
 - Owning source area: Public Blueprint search frontend: new src/pages/blueprint_course_search_page.tsx and src/api/blueprint_course.ts.
 - Dependencies: pending A8 public discovery API; C46.
@@ -809,18 +809,18 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-04.2
 
-- HG bullet: “Public Blueprint Course search should support quickly narrowing a large collection.”
+- HG bullet: "Public Blueprint Course search should support quickly narrowing a large collection."
 - Current evidence and concrete mismatch: `searchPublicBlueprintCourses` is `future` in `src/ribbon/ribbon_catalog.ts`; no public Blueprint route/query controls can narrow a large collection.
 - Owning source area: Public Blueprint search frontend: new src/pages/blueprint_course_search_page.tsx and src/api/blueprint_course.ts.
 - Dependencies: pending A8 public discovery API; C46.
 - Closure owner: C47.
 - Verification: focused query-state tests and Playwright seeded large-collection search.
 
-### A4-05 — Blueprint Assessment editor surface (Blueprint Course frontend editor; 5)
+### A4-05 - Blueprint Assessment editor surface (Blueprint Course frontend editor; 5)
 
 #### A4-05.1
 
-- HG bullet: “Blueprint Course editing should follow Course Editor -> Blueprint Assessment Editor.”
+- HG bullet: "Blueprint Course editing should follow Course Editor -> Blueprint Assessment Editor."
 - Current evidence and concrete mismatch: `src/features/blueprint_course/blueprint_course_workspace.tsx` uses `setSelectedAssignment` and a Blueprint Assignment editor; `blueprint_assignment_content_editor.tsx` has no separate Properties editor. Required Assessment vocabulary, scope, and two-editor structure are absent.
 - Owning source area: Blueprint editor frontend: src/features/blueprint_course/blueprint_course_workspace.tsx and src/features/blueprint_course/blueprint_assignment_content_editor.tsx.
 - Dependencies: pending Assessment terminology/A8 Blueprint model; C50.
@@ -829,7 +829,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-05.2
 
-- HG bullet: “Selecting a Blueprint Assessment in the Course Editor opens the editor for that Blueprint Assessment.”
+- HG bullet: "Selecting a Blueprint Assessment in the Course Editor opens the editor for that Blueprint Assessment."
 - Current evidence and concrete mismatch: `src/features/blueprint_course/blueprint_course_workspace.tsx` uses `setSelectedAssignment` and a Blueprint Assignment editor; `blueprint_assignment_content_editor.tsx` has no separate Properties editor. Required Assessment vocabulary, scope, and two-editor structure are absent.
 - Owning source area: Blueprint editor frontend: src/features/blueprint_course/blueprint_course_workspace.tsx and src/features/blueprint_course/blueprint_assignment_content_editor.tsx.
 - Dependencies: pending Assessment terminology/A8 Blueprint model; C50.
@@ -838,7 +838,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-05.3
 
-- HG bullet: “Only the selected Blueprint Assessment's Questions should appear in its editor.”
+- HG bullet: "Only the selected Blueprint Assessment's Questions should appear in its editor."
 - Current evidence and concrete mismatch: `src/features/blueprint_course/blueprint_course_workspace.tsx` uses `setSelectedAssignment` and a Blueprint Assignment editor; `blueprint_assignment_content_editor.tsx` has no separate Properties editor. Required Assessment vocabulary, scope, and two-editor structure are absent.
 - Owning source area: Blueprint editor frontend: src/features/blueprint_course/blueprint_course_workspace.tsx and src/features/blueprint_course/blueprint_assignment_content_editor.tsx.
 - Dependencies: pending Assessment terminology/A8 Blueprint model; C50.
@@ -847,7 +847,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-05.4
 
-- HG bullet: “**Blueprint Assessment Question Editor**: Selects, adds, removes, and orders Questions in a Blueprint Assessment.”
+- HG bullet: "**Blueprint Assessment Question Editor**: Selects, adds, removes, and orders Questions in a Blueprint Assessment."
 - Current evidence and concrete mismatch: `src/features/blueprint_course/blueprint_course_workspace.tsx` uses `setSelectedAssignment` and a Blueprint Assignment editor; `blueprint_assignment_content_editor.tsx` has no separate Properties editor. Required Assessment vocabulary, scope, and two-editor structure are absent.
 - Owning source area: Blueprint editor frontend: src/features/blueprint_course/blueprint_course_workspace.tsx and src/features/blueprint_course/blueprint_assignment_content_editor.tsx.
 - Dependencies: pending Assessment terminology/A8 Blueprint model; C50.
@@ -856,18 +856,18 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-05.5
 
-- HG bullet: “**Blueprint Assessment Properties Editor**: Controls scoring, attempts, late work, and what **Students** can see.”
+- HG bullet: "**Blueprint Assessment Properties Editor**: Controls scoring, attempts, late work, and what **Students** can see."
 - Current evidence and concrete mismatch: `src/features/blueprint_course/blueprint_course_workspace.tsx` uses `setSelectedAssignment` and a Blueprint Assignment editor; `blueprint_assignment_content_editor.tsx` has no separate Properties editor. Required Assessment vocabulary, scope, and two-editor structure are absent.
 - Owning source area: Blueprint editor frontend: src/features/blueprint_course/blueprint_course_workspace.tsx and src/features/blueprint_course/blueprint_assignment_content_editor.tsx.
 - Dependencies: pending Assessment terminology/A8 Blueprint model; C50.
 - Closure owner: C48.
 - Verification: component plus Playwright test selects one of two Blueprint Assessments, shows only its Questions, reorders them, then opens Properties.
 
-### A4-06 — Blueprint Private/Public/Archived state machine (A8 schema/server lifecycle boundary; 8)
+### A4-06 - Blueprint Private/Public/Archived state machine (A8 schema/server lifecycle boundary; 8)
 
 #### A4-06.1
 
-- HG bullet: “Blueprint Courses follow the lifecycle **Private -> Public -> Archived**.”
+- HG bullet: "Blueprint Courses follow the lifecycle **Private -> Public -> Archived**."
 - Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
 - Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
 - Dependencies: C6, C19, C49, and C72.
@@ -876,7 +876,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-06.2
 
-- HG bullet: “New and forked Blueprint Courses start **Private**.”
+- HG bullet: "New and forked Blueprint Courses start **Private**."
 - Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
 - Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
 - Dependencies: C6, C19, C49, and C72.
@@ -885,7 +885,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-06.3
 
-- HG bullet: “Private Blueprint Courses are visible only to their owner.”
+- HG bullet: "Private Blueprint Courses are visible only to their owner."
 - Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
 - Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
 - Dependencies: C6, C19, C49, and C72.
@@ -894,7 +894,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-06.4
 
-- HG bullet: “Instructors may develop and use Private Blueprint Courses without publishing them.”
+- HG bullet: "Instructors may develop and use Private Blueprint Courses without publishing them."
 - Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
 - Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
 - Dependencies: C6, C19, C49, and C72.
@@ -903,7 +903,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-06.5
 
-- HG bullet: “Making a Blueprint Course **Public** adds it to the shared Blueprint Course collection.”
+- HG bullet: "Making a Blueprint Course **Public** adds it to the shared Blueprint Course collection."
 - Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
 - Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
 - Dependencies: C6, C19, C49, and C72.
@@ -912,7 +912,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-06.6
 
-- HG bullet: “A Public Blueprint Course with no adoptions may return to **Private**.”
+- HG bullet: "A Public Blueprint Course with no adoptions may return to **Private**."
 - Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
 - Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
 - Dependencies: C6, C19, C49, and C72.
@@ -921,7 +921,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-06.7
 
-- HG bullet: “A Public Blueprint Course with one or more adoptions remains **Public**.”
+- HG bullet: "A Public Blueprint Course with one or more adoptions remains **Public**."
 - Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
 - Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
 - Dependencies: C6, C19, C49, and C72.
@@ -930,29 +930,29 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-06.8
 
-- HG bullet: “Blueprint Courses do not have a separate Draft state.”
+- HG bullet: "Blueprint Courses do not have a separate Draft state."
 - Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
 - Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
 - Dependencies: C6, C19, C49, and C72.
 - Closure owner: C50.
 - Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
 
-### A4-07 — Public Blueprint fork transaction (A8 fork API; 1)
+### A4-07 - Public Blueprint fork transaction (A8 fork API; 1)
 
 #### A4-07.1
 
-- HG bullet: “Instructors may fork a Public Blueprint Course to continue development privately.”
+- HG bullet: "Instructors may fork a Public Blueprint Course to continue development privately."
 - Current evidence and concrete mismatch: no Public Blueprint fork action or Private fork lifecycle exists.
 - Owning source area: Blueprint fork server route: crates/server/src/blueprint_course.rs.
 - Dependencies: C72.
 - Closure owner: C51.
 - Verification: transaction/browser fixture proves source remains Public and editable fork starts Private.
 
-### A4-08 — Blueprint adoption projection (A8 adoption service/serialization; 2)
+### A4-08 - Blueprint adoption projection (A8 adoption service/serialization; 2)
 
 #### A4-08.1
 
-- HG bullet: “Creating a Course Instance from a Blueprint Course preserves its Assessments, Questions, pools, and settings.”
+- HG bullet: "Creating a Course Instance from a Blueprint Course preserves its Assessments, Questions, pools, and settings."
 - Current evidence and concrete mismatch: `tests/e2e/e2e_live_demo_course_instance.sh` adopts Blueprint Assignments, not the required Assessment-named contents/settings or unreleased/no-date initial state.
 - Owning source area: Blueprint adoption schema/server: schemas/base_schema/course_blueprint_adoption.sql and crates/server/src/course_instance.rs.
 - Dependencies: C6, C7, C12, C48, C49, C72, and C73.
@@ -961,29 +961,29 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-08.2
 
-- HG bullet: “Assessments created from a Blueprint Course start unreleased with dates unset.”
+- HG bullet: "Assessments created from a Blueprint Course start unreleased with dates unset."
 - Current evidence and concrete mismatch: `tests/e2e/e2e_live_demo_course_instance.sh` adopts Blueprint Assignments, not the required Assessment-named contents/settings or unreleased/no-date initial state.
 - Owning source area: Blueprint adoption schema/server: schemas/base_schema/course_blueprint_adoption.sql and crates/server/src/course_instance.rs.
 - Dependencies: C6, C7, C12, C48, C49, C72, and C73.
 - Closure owner: C52.
 - Verification: adoption E2E with Questions, pools, settings, release, and dates assertions.
 
-### A4-09 — Six-month Course Instance validation (A8 Course domain validation; 1)
+### A4-09 - Six-month Course Instance validation (A8 Course domain validation; 1)
 
 #### A4-09.1
 
-- HG bullet: “A Course Instance represents one teaching period and remains Active for at most six months from creation.”
+- HG bullet: "A Course Instance represents one teaching period and remains Active for at most six months from creation."
 - Current evidence and concrete mismatch: `crates/question_model/src/course_term.rs` `CourseTerm::new` checks only date order, not active duration from creation.
 - Owning source area: Course term domain validation: crates/question_model/src/course_term.rs.
 - Dependencies: pending A8 Course create/update API.
 - Closure owner: C53.
 - Verification: deterministic-clock boundary tests reject over-six-month Active state and accept the valid boundary.
 
-### A4-10 — Course banner presentation (course-appearance frontend CSS/guidance; 5)
+### A4-10 - Course banner presentation (course-appearance frontend CSS/guidance; 5)
 
 #### A4-10.1
 
-- HG bullet: “Course banners use a 5:1 aspect ratio.”
+- HG bullet: "Course banners use a 5:1 aspect ratio."
 - Current evidence and concrete mismatch: `COURSE_ENTRY_IDENTITY_STYLES` is 6:1; authoring guidance is 1200-by-200; existing Playwright evidence is one viewport and no high-resolution acceptance. Centered non-hero rendering is unproved.
 - Owning source area: Course appearance frontend: src/features/course_appearance/course_entry_identity.tsx and src/pages/course_appearance_page.tsx.
 - Dependencies: none.
@@ -995,7 +995,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-10.2
 
-- HG bullet: “1280 by 256 pixels is the recommended Course banner authoring size.”
+- HG bullet: "1280 by 256 pixels is the recommended Course banner authoring size."
 - Current evidence and concrete mismatch: `COURSE_ENTRY_IDENTITY_STYLES` is 6:1; authoring guidance is 1200-by-200; existing Playwright evidence is one viewport and no high-resolution acceptance. Centered non-hero rendering is unproved.
 - Owning source area: Course appearance frontend: src/features/course_appearance/course_entry_identity.tsx and src/pages/course_appearance_page.tsx.
 - Dependencies: none.
@@ -1005,7 +1005,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-10.3
 
-- HG bullet: “Higher-resolution 5:1 Course banner images are supported.”
+- HG bullet: "Higher-resolution 5:1 Course banner images are supported."
 - Current evidence and concrete mismatch: `COURSE_ENTRY_IDENTITY_STYLES` is 6:1; authoring guidance is 1200-by-200; existing Playwright evidence is one viewport and no high-resolution acceptance. Centered non-hero rendering is unproved.
 - Owning source area: Course appearance frontend: src/features/course_appearance/course_entry_identity.tsx and src/pages/course_appearance_page.tsx.
 - Dependencies: none.
@@ -1015,7 +1015,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-10.4
 
-- HG bullet: “PLE responsively scales Course banners while preserving their aspect ratio.”
+- HG bullet: "PLE responsively scales Course banners while preserving their aspect ratio."
 - Current evidence and concrete mismatch: `COURSE_ENTRY_IDENTITY_STYLES` is 6:1; authoring guidance is 1200-by-200; existing Playwright evidence is one viewport and no high-resolution acceptance. Centered non-hero rendering is unproved.
 - Owning source area: Course appearance frontend: src/features/course_appearance/course_entry_identity.tsx and src/pages/course_appearance_page.tsx.
 - Dependencies: none.
@@ -1024,18 +1024,18 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-10.5
 
-- HG bullet: “Course banners appear as small centered banners rather than full-width page heroes.”
+- HG bullet: "Course banners appear as small centered banners rather than full-width page heroes."
 - Current evidence and concrete mismatch: `COURSE_ENTRY_IDENTITY_STYLES` is 6:1; authoring guidance is 1200-by-200; existing Playwright evidence is one viewport and no high-resolution acceptance. Centered non-hero rendering is unproved.
 - Owning source area: Course appearance frontend: src/features/course_appearance/course_entry_identity.tsx and src/pages/course_appearance_page.tsx.
 - Dependencies: none.
 - Closure owner: C54.
 - Verification: C813's temporary viewport evidence proves centered non-hero presentation.
 
-### A4-11 — Course Instance Assessment editors (Course frontend workspace; 6)
+### A4-11 - Course Instance Assessment editors (Course frontend workspace; 6)
 
 #### A4-11.1
 
-- HG bullet: “The Course Editor should show the Course structure and its ordered Assessments without showing every Question at once.”
+- HG bullet: "The Course Editor should show the Course structure and its ordered Assessments without showing every Question at once."
 - Current evidence and concrete mismatch: `src/pages/course_instance_page.tsx` is an Assignment list rather than the required Course Editor; `AssignmentWorkspaceQuestionsPage` and `AssignmentWorkspacePoliciesPage` are Assignment-named, rather than separate Assessment Question and Properties editors.
 - Owning source area: Course/Assessment workspace frontend: src/pages/course_instance_page.tsx and src/pages/assignment_workspace/.
 - Dependencies: pending terminology; C52.
@@ -1044,7 +1044,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-11.2
 
-- HG bullet: “Selecting an Assessment in the Course Editor opens that Assessment for editing.”
+- HG bullet: "Selecting an Assessment in the Course Editor opens that Assessment for editing."
 - Current evidence and concrete mismatch: `src/pages/course_instance_page.tsx` is an Assignment list rather than the required Course Editor; `AssignmentWorkspaceQuestionsPage` and `AssignmentWorkspacePoliciesPage` are Assignment-named, rather than separate Assessment Question and Properties editors.
 - Owning source area: Course/Assessment workspace frontend: src/pages/course_instance_page.tsx and src/pages/assignment_workspace/.
 - Dependencies: pending terminology; C52.
@@ -1053,7 +1053,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-11.3
 
-- HG bullet: “Assessment content and Assessment properties should remain separate editing tasks.”
+- HG bullet: "Assessment content and Assessment properties should remain separate editing tasks."
 - Current evidence and concrete mismatch: `src/pages/course_instance_page.tsx` is an Assignment list rather than the required Course Editor; `AssignmentWorkspaceQuestionsPage` and `AssignmentWorkspacePoliciesPage` are Assignment-named, rather than separate Assessment Question and Properties editors.
 - Owning source area: Course/Assessment workspace frontend: src/pages/course_instance_page.tsx and src/pages/assignment_workspace/.
 - Dependencies: pending terminology; C52.
@@ -1062,7 +1062,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-11.4
 
-- HG bullet: “Course Instance Assessments have two editors:”
+- HG bullet: "Course Instance Assessments have two editors:"
 - Current evidence and concrete mismatch: `src/pages/course_instance_page.tsx` is an Assignment list rather than the required Course Editor; `AssignmentWorkspaceQuestionsPage` and `AssignmentWorkspacePoliciesPage` are Assignment-named, rather than separate Assessment Question and Properties editors.
 - Owning source area: Course/Assessment workspace frontend: src/pages/course_instance_page.tsx and src/pages/assignment_workspace/.
 - Dependencies: pending terminology; C52.
@@ -1071,7 +1071,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-11.5
 
-- HG bullet: “**Assessment Question Editor**: Selects, adds, removes, and orders Questions in an Assessment.”
+- HG bullet: "**Assessment Question Editor**: Selects, adds, removes, and orders Questions in an Assessment."
 - Current evidence and concrete mismatch: `src/pages/course_instance_page.tsx` is an Assignment list rather than the required Course Editor; `AssignmentWorkspaceQuestionsPage` and `AssignmentWorkspacePoliciesPage` are Assignment-named, rather than separate Assessment Question and Properties editors.
 - Owning source area: Course/Assessment workspace frontend: src/pages/course_instance_page.tsx and src/pages/assignment_workspace/.
 - Dependencies: pending terminology; C52.
@@ -1080,18 +1080,18 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-11.6
 
-- HG bullet: “**Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and what **Students** can see.”
+- HG bullet: "**Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and what **Students** can see."
 - Current evidence and concrete mismatch: `src/pages/course_instance_page.tsx` is an Assignment list rather than the required Course Editor; `AssignmentWorkspaceQuestionsPage` and `AssignmentWorkspacePoliciesPage` are Assignment-named, rather than separate Assessment Question and Properties editors.
 - Owning source area: Course/Assessment workspace frontend: src/pages/course_instance_page.tsx and src/pages/assignment_workspace/.
 - Dependencies: pending terminology; C52.
 - Closure owner: C55.
 - Verification: route/component and Playwright test changes Questions and Properties separately then reloads.
 
-### A4-12 — Personal Question collections (Question frontend routes; 4)
+### A4-12 - Personal Question collections (Question frontend routes; 4)
 
 #### A4-12.1
 
-- HG bullet: “The **Questions** ribbon must include: My Questions, My Draft Questions, Starred, Watched, Search Question Library, Browse Question Library.”
+- HG bullet: "The **Questions** ribbon must include: My Questions, My Draft Questions, Starred, Watched, Search Question Library, Browse Question Library."
 - Current evidence and concrete mismatch: `myQuestions`, `starred`, and `watched` remain `future` in `src/ribbon/ribbon_catalog.ts`; no collection views exist.
 - Owning source area: Question collection frontend: src/ribbon/ribbon_catalog.ts, src/pages/question_drafts_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C8, C9, and C11.
@@ -1100,7 +1100,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-12.2
 
-- HG bullet: “**My Questions** should make the Instructor's Published Questions easy to find and manage.”
+- HG bullet: "**My Questions** should make the Instructor's Published Questions easy to find and manage."
 - Current evidence and concrete mismatch: `myQuestions`, `starred`, and `watched` remain `future` in `src/ribbon/ribbon_catalog.ts`; no collection views exist.
 - Owning source area: Question collection frontend: src/ribbon/ribbon_catalog.ts, src/pages/question_drafts_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C8, C9, and C11.
@@ -1109,7 +1109,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-12.3
 
-- HG bullet: “**Starred** should provide a quick personal collection of Questions the Instructor wants to keep handy.”
+- HG bullet: "**Starred** should provide a quick personal collection of Questions the Instructor wants to keep handy."
 - Current evidence and concrete mismatch: `myQuestions`, `starred`, and `watched` remain `future` in `src/ribbon/ribbon_catalog.ts`; no collection views exist.
 - Owning source area: Question collection frontend: src/ribbon/ribbon_catalog.ts, src/pages/question_drafts_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C8, C9, and C11.
@@ -1118,18 +1118,18 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-12.4
 
-- HG bullet: “**Watched** should help Instructors follow Questions where changes or activity matter to them.”
+- HG bullet: "**Watched** should help Instructors follow Questions where changes or activity matter to them."
 - Current evidence and concrete mismatch: `myQuestions`, `starred`, and `watched` remain `future` in `src/ribbon/ribbon_catalog.ts`; no collection views exist.
 - Owning source area: Question collection frontend: src/ribbon/ribbon_catalog.ts, src/pages/question_drafts_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C8, C9, and C11.
 - Closure owner: C56.
 - Verification: route/query tests and zero/nonzero collection Playwright fixtures.
 
-### A4-13 — Search landing and return state (Question Library frontend state; 3)
+### A4-13 - Search landing and return state (Question Library frontend state; 3)
 
 #### A4-13.1
 
-- HG bullet: “Search should begin with a prominent search box, similar to Google Search.”
+- HG bullet: "Search should begin with a prominent search box, similar to Google Search."
 - Current evidence and concrete mismatch: `src/pages/library_page.tsx` renders seven filters initially and holds query/scroll only in the mounted component; prominent simple start and route-return preservation are absent.
 - Owning source area: Question Library search frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
 - Dependencies: none.
@@ -1138,7 +1138,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-13.2
 
-- HG bullet: “The initial Search page should stay simple and focus attention on entering a search.”
+- HG bullet: "The initial Search page should stay simple and focus attention on entering a search."
 - Current evidence and concrete mismatch: `src/pages/library_page.tsx` renders seven filters initially and holds query/scroll only in the mounted component; prominent simple start and route-return preservation are absent.
 - Owning source area: Question Library search frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
 - Dependencies: none.
@@ -1147,18 +1147,18 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-13.3
 
-- HG bullet: “Opening a result and returning should preserve the Instructor's search and position.”
+- HG bullet: "Opening a result and returning should preserve the Instructor's search and position."
 - Current evidence and concrete mismatch: `src/pages/library_page.tsx` renders seven filters initially and holds query/scroll only in the mounted component; prominent simple start and route-return preservation are absent.
 - Owning source area: Question Library search frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
 - Dependencies: none.
 - Closure owner: C57.
 - Verification: Playwright initial-search visual check and result-detail-back check of query, filters, and scroll offset.
 
-### A4-14 — Advanced Question Library grammar (A7 query parser/API; 7)
+### A4-14 - Advanced Question Library grammar (A7 query parser/API; 7)
 
 #### A4-14.1
 
-- HG bullet: “Search should support Google-like syntax for more precise queries.”
+- HG bullet: "Search should support Google-like syntax for more precise queries."
 - Current evidence and concrete mismatch: `src/pages/library_page_model.ts` exposes plain `search`; no exact phrase, minus, field-tag, subject/topic, or shared simple/advanced grammar exists.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
 - Dependencies: pending A7 subject/topic metadata.
@@ -1167,7 +1167,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-14.2
 
-- HG bullet: “Quoted text should search for an exact phrase.”
+- HG bullet: "Quoted text should search for an exact phrase."
 - Current evidence and concrete mismatch: `src/pages/library_page_model.ts` exposes plain `search`; no exact phrase, minus, field-tag, subject/topic, or shared simple/advanced grammar exists.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
 - Dependencies: pending A7 subject/topic metadata.
@@ -1176,7 +1176,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-14.3
 
-- HG bullet: “A minus sign should exclude matching terms.”
+- HG bullet: "A minus sign should exclude matching terms."
 - Current evidence and concrete mismatch: `src/pages/library_page_model.ts` exposes plain `search`; no exact phrase, minus, field-tag, subject/topic, or shared simple/advanced grammar exists.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
 - Dependencies: pending A7 subject/topic metadata.
@@ -1185,7 +1185,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-14.4
 
-- HG bullet: “Search should support PubMed-like field tags such as `topic:genetics`.”
+- HG bullet: "Search should support PubMed-like field tags such as `topic:genetics`."
 - Current evidence and concrete mismatch: `src/pages/library_page_model.ts` exposes plain `search`; no exact phrase, minus, field-tag, subject/topic, or shared simple/advanced grammar exists.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
 - Dependencies: pending A7 subject/topic metadata.
@@ -1194,7 +1194,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-14.5
 
-- HG bullet: “Field tags should use PLE concepts and vocabulary.”
+- HG bullet: "Field tags should use PLE concepts and vocabulary."
 - Current evidence and concrete mismatch: `src/pages/library_page_model.ts` exposes plain `search`; no exact phrase, minus, field-tag, subject/topic, or shared simple/advanced grammar exists.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
 - Dependencies: pending A7 subject/topic metadata.
@@ -1203,7 +1203,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-14.6
 
-- HG bullet: “Useful fields may include subject, topic, tags, Question Type, and author.”
+- HG bullet: "Useful fields may include subject, topic, tags, Question Type, and author."
 - Current evidence and concrete mismatch: `src/pages/library_page_model.ts` exposes plain `search`; no exact phrase, minus, field-tag, subject/topic, or shared simple/advanced grammar exists.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
 - Dependencies: pending A7 subject/topic metadata.
@@ -1212,18 +1212,18 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-14.7
 
-- HG bullet: “Simple and advanced searches should use the same search box.”
+- HG bullet: "Simple and advanced searches should use the same search box."
 - Current evidence and concrete mismatch: `src/pages/library_page_model.ts` exposes plain `search`; no exact phrase, minus, field-tag, subject/topic, or shared simple/advanced grammar exists.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
 - Dependencies: pending A7 subject/topic metadata.
 - Closure owner: C58.
 - Verification: parser/API fixture tests for ordinary words, quoted phrase, exclusion, tags, fields, and combined queries.
 
-### A4-15 — Advanced-query discovery (Question Library frontend help; 2)
+### A4-15 - Advanced-query discovery (Question Library frontend help; 2)
 
 #### A4-15.1
 
-- HG bullet: “The interface should make useful search syntax discoverable when needed.”
+- HG bullet: "The interface should make useful search syntax discoverable when needed."
 - Current evidence and concrete mismatch: search syntax and in-interface documentation do not exist, so expert large-library narrowing is unavailable.
 - Owning source area: Question Library search-help frontend: src/pages/library_page.tsx.
 - Dependencies: C58.
@@ -1232,18 +1232,18 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-15.2
 
-- HG bullet: “Search syntax should help expert users quickly narrow a very large Question Library.”
+- HG bullet: "Search syntax should help expert users quickly narrow a very large Question Library."
 - Current evidence and concrete mismatch: search syntax and in-interface documentation do not exist, so expert large-library narrowing is unavailable.
 - Owning source area: Question Library search-help frontend: src/pages/library_page.tsx.
 - Dependencies: C58.
 - Closure owner: C59.
 - Verification: Playwright checks discoverable help, ordinary search unchanged, and seeded expert narrowing.
 
-### A4-16 — Browse Question Library (Question frontend Browse route/state; 8)
+### A4-16 - Browse Question Library (Question frontend Browse route/state; 8)
 
 #### A4-16.1
 
-- HG bullet: “**Browse Question Library** helps Instructors explore Questions without knowing what to search for.”
+- HG bullet: "**Browse Question Library** helps Instructors explore Questions without knowing what to search for."
 - Current evidence and concrete mismatch: Browse and Search both route to undifferentiated `library`; there is no overview, subject-to-topic hierarchy, counts, distinct Browse results, or Browse-to-Search transition.
 - Owning source area: Question Library Browse frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
 - Dependencies: pending A7 grouping/count query; C58.
@@ -1252,7 +1252,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-16.2
 
-- HG bullet: “Browse should help Instructors understand what the Question Library contains.”
+- HG bullet: "Browse should help Instructors understand what the Question Library contains."
 - Current evidence and concrete mismatch: Browse and Search both route to undifferentiated `library`; there is no overview, subject-to-topic hierarchy, counts, distinct Browse results, or Browse-to-Search transition.
 - Owning source area: Question Library Browse frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
 - Dependencies: pending A7 grouping/count query; C58.
@@ -1261,7 +1261,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-16.3
 
-- HG bullet: “Browse should emphasize subjects, topics, tags, Question Types, and other useful groupings.”
+- HG bullet: "Browse should emphasize subjects, topics, tags, Question Types, and other useful groupings."
 - Current evidence and concrete mismatch: Browse and Search both route to undifferentiated `library`; there is no overview, subject-to-topic hierarchy, counts, distinct Browse results, or Browse-to-Search transition.
 - Owning source area: Question Library Browse frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
 - Dependencies: pending A7 grouping/count query; C58.
@@ -1270,7 +1270,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-16.4
 
-- HG bullet: “Browse should make moving from broad subjects to narrower topics easy.”
+- HG bullet: "Browse should make moving from broad subjects to narrower topics easy."
 - Current evidence and concrete mismatch: Browse and Search both route to undifferentiated `library`; there is no overview, subject-to-topic hierarchy, counts, distinct Browse results, or Browse-to-Search transition.
 - Owning source area: Question Library Browse frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
 - Dependencies: pending A7 grouping/count query; C58.
@@ -1279,7 +1279,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-16.5
 
-- HG bullet: “Browse should show useful counts where they help Instructors choose where to explore.”
+- HG bullet: "Browse should show useful counts where they help Instructors choose where to explore."
 - Current evidence and concrete mismatch: Browse and Search both route to undifferentiated `library`; there is no overview, subject-to-topic hierarchy, counts, distinct Browse results, or Browse-to-Search transition.
 - Owning source area: Question Library Browse frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
 - Dependencies: pending A7 grouping/count query; C58.
@@ -1288,7 +1288,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-16.6
 
-- HG bullet: “Browse results should use the same dense Question presentation used by Search where practical.”
+- HG bullet: "Browse results should use the same dense Question presentation used by Search where practical."
 - Current evidence and concrete mismatch: Browse and Search both route to undifferentiated `library`; there is no overview, subject-to-topic hierarchy, counts, distinct Browse results, or Browse-to-Search transition.
 - Owning source area: Question Library Browse frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
 - Dependencies: pending A7 grouping/count query; C58.
@@ -1297,7 +1297,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-16.7
 
-- HG bullet: “Instructors should be able to move from browsing into a more focused search.”
+- HG bullet: "Instructors should be able to move from browsing into a more focused search."
 - Current evidence and concrete mismatch: Browse and Search both route to undifferentiated `library`; there is no overview, subject-to-topic hierarchy, counts, distinct Browse results, or Browse-to-Search transition.
 - Owning source area: Question Library Browse frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
 - Dependencies: pending A7 grouping/count query; C58.
@@ -1306,18 +1306,18 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-16.8
 
-- HG bullet: “Search and Browse are different paths into the same **Question Library**.”
+- HG bullet: "Search and Browse are different paths into the same **Question Library**."
 - Current evidence and concrete mismatch: Browse and Search both route to undifferentiated `library`; there is no overview, subject-to-topic hierarchy, counts, distinct Browse results, or Browse-to-Search transition.
 - Owning source area: Question Library Browse frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
 - Dependencies: pending A7 grouping/count query; C58.
 - Closure owner: C60.
 - Verification: seeded hierarchy/count browser test and Playwright broad-subject-to-topic-to-search flow, asserting dense rows shared with Search.
 
-### A4-17 — Assessments navigation/list/Templates (Assessment frontend routes; 6)
+### A4-17 - Assessments navigation/list/Templates (Assessment frontend routes; 6)
 
 #### A4-17.1
 
-- HG bullet: “The **Assessments** ribbon must include: Assessments Due Soon, My Assessment Templates.”
+- HG bullet: "The **Assessments** ribbon must include: Assessments Due Soon, My Assessment Templates."
 - Current evidence and concrete mismatch: the ribbon and `src/pages/assignments_due_soon_page.tsx` use Assignment; template route is future. No compliant list exposes the required Assessment state.
 - Owning source area: Assessment navigation frontend: src/ribbon/ribbon_catalog.ts and src/pages/assignments_due_soon_page.tsx.
 - Dependencies: C12 and pending A9 template query.
@@ -1326,7 +1326,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-17.2
 
-- HG bullet: “**Assessments Due Soon** should emphasize Assessments that may need the Instructor's attention.”
+- HG bullet: "**Assessments Due Soon** should emphasize Assessments that may need the Instructor's attention."
 - Current evidence and concrete mismatch: the ribbon and `src/pages/assignments_due_soon_page.tsx` use Assignment; template route is future. No compliant list exposes the required Assessment state.
 - Owning source area: Assessment navigation frontend: src/ribbon/ribbon_catalog.ts and src/pages/assignments_due_soon_page.tsx.
 - Dependencies: C12 and pending A9 template query.
@@ -1335,7 +1335,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-17.3
 
-- HG bullet: “Assessment lists should make Course, release status, due date, and other important state easy to scan.”
+- HG bullet: "Assessment lists should make Course, release status, due date, and other important state easy to scan."
 - Current evidence and concrete mismatch: the ribbon and `src/pages/assignments_due_soon_page.tsx` use Assignment; template route is future. No compliant list exposes the required Assessment state.
 - Owning source area: Assessment navigation frontend: src/ribbon/ribbon_catalog.ts and src/pages/assignments_due_soon_page.tsx.
 - Dependencies: C12 and pending A9 template query.
@@ -1344,7 +1344,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-17.4
 
-- HG bullet: “**My Assessment Templates** should emphasize reusable Assessment design rather than Course activity.”
+- HG bullet: "**My Assessment Templates** should emphasize reusable Assessment design rather than Course activity."
 - Current evidence and concrete mismatch: the ribbon and `src/pages/assignments_due_soon_page.tsx` use Assignment; template route is future. No compliant list exposes the required Assessment state.
 - Owning source area: Assessment navigation frontend: src/ribbon/ribbon_catalog.ts and src/pages/assignments_due_soon_page.tsx.
 - Dependencies: C12 and pending A9 template query.
@@ -1353,7 +1353,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-17.5
 
-- HG bullet: “**Assessments Due Soon** shows upcoming Assessments across the Courses an **Instructor** teaches.”
+- HG bullet: "**Assessments Due Soon** shows upcoming Assessments across the Courses an **Instructor** teaches."
 - Current evidence and concrete mismatch: the ribbon and `src/pages/assignments_due_soon_page.tsx` use Assignment; template route is future. No compliant list exposes the required Assessment state.
 - Owning source area: Assessment navigation frontend: src/ribbon/ribbon_catalog.ts and src/pages/assignments_due_soon_page.tsx.
 - Dependencies: C12 and pending A9 template query.
@@ -1362,18 +1362,18 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-17.6
 
-- HG bullet: “Assessments Due Soon shows the Course and due time for each Assessment.”
+- HG bullet: "Assessments Due Soon shows the Course and due time for each Assessment."
 - Current evidence and concrete mismatch: the ribbon and `src/pages/assignments_due_soon_page.tsx` use Assignment; template route is future. No compliant list exposes the required Assessment state.
 - Owning source area: Assessment navigation frontend: src/ribbon/ribbon_catalog.ts and src/pages/assignments_due_soon_page.tsx.
 - Dependencies: C12 and pending A9 template query.
 - Closure owner: C61.
 - Verification: route/list tests and Playwright fixtures covering upcoming, release, due, Course, and template records.
 
-### A4-18 — Assessment editor shell and distinct tasks (Assessment frontend workspace; 5)
+### A4-18 - Assessment editor shell and distinct tasks (Assessment frontend workspace; 5)
 
 #### A4-18.1
 
-- HG bullet: “Assessment editing has two editors:”
+- HG bullet: "Assessment editing has two editors:"
 - Current evidence and concrete mismatch: existing Question/Policies editors are Assignment-named and the required Assessment Properties surface/task boundary is absent.
 - Owning source area: Assessment workspace frontend: src/pages/assignment_workspace/.
 - Dependencies: pending terminology; C61.
@@ -1382,7 +1382,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-18.2
 
-- HG bullet: “**Assessment Question Editor**: Selects, adds, removes, and orders Questions.”
+- HG bullet: "**Assessment Question Editor**: Selects, adds, removes, and orders Questions."
 - Current evidence and concrete mismatch: existing Question/Policies editors are Assignment-named and the required Assessment Properties surface/task boundary is absent.
 - Owning source area: Assessment workspace frontend: src/pages/assignment_workspace/.
 - Dependencies: pending terminology; C61.
@@ -1391,7 +1391,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-18.3
 
-- HG bullet: “**Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and other Assessment settings.”
+- HG bullet: "**Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and other Assessment settings."
 - Current evidence and concrete mismatch: existing Question/Policies editors are Assignment-named and the required Assessment Properties surface/task boundary is absent.
 - Owning source area: Assessment workspace frontend: src/pages/assignment_workspace/.
 - Dependencies: pending terminology; C61.
@@ -1400,7 +1400,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-18.4
 
-- HG bullet: “The two Assessment editors should remain clearly distinct.”
+- HG bullet: "The two Assessment editors should remain clearly distinct."
 - Current evidence and concrete mismatch: existing Question/Policies editors are Assignment-named and the required Assessment Properties surface/task boundary is absent.
 - Owning source area: Assessment workspace frontend: src/pages/assignment_workspace/.
 - Dependencies: pending terminology; C61.
@@ -1409,18 +1409,18 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-18.5
 
-- HG bullet: “Assessment Properties should group related settings so important settings are easy to find.”
+- HG bullet: "Assessment Properties should group related settings so important settings are easy to find."
 - Current evidence and concrete mismatch: existing Question/Policies editors are Assignment-named and the required Assessment Properties surface/task boundary is absent.
 - Owning source area: Assessment workspace frontend: src/pages/assignment_workspace/.
 - Dependencies: pending terminology; C61.
 - Closure owner: C62.
 - Verification: route/component and Playwright tests keep separate Assessment Question/Properties tasks and preserve their independent state.
 
-### A4-19 — Assessment Question Editor interaction (Assessment frontend Question editor; 3)
+### A4-19 - Assessment Question Editor interaction (Assessment frontend Question editor; 3)
 
 #### A4-19.1
 
-- HG bullet: “The Assessment Question Editor should make Question order easy to understand at a glance.”
+- HG bullet: "The Assessment Question Editor should make Question order easy to understand at a glance."
 - Current evidence and concrete mismatch: current editor neither links directly to Search/Browse nor permits pre-add inspection; ordering is not delivered in a compliant Assessment editor.
 - Owning source area: Assessment Question Editor frontend: src/pages/assignment_workspace/assignment_workspace_questions_page.tsx.
 - Dependencies: C62, C60.
@@ -1429,7 +1429,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-19.2
 
-- HG bullet: “Adding Questions should provide direct paths to Search and Browse Question Library.”
+- HG bullet: "Adding Questions should provide direct paths to Search and Browse Question Library."
 - Current evidence and concrete mismatch: current editor neither links directly to Search/Browse nor permits pre-add inspection; ordering is not delivered in a compliant Assessment editor.
 - Owning source area: Assessment Question Editor frontend: src/pages/assignment_workspace/assignment_workspace_questions_page.tsx.
 - Dependencies: C62, C60.
@@ -1438,18 +1438,18 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-19.3
 
-- HG bullet: “Instructors should be able to inspect a Question before adding it to an Assessment.”
+- HG bullet: "Instructors should be able to inspect a Question before adding it to an Assessment."
 - Current evidence and concrete mismatch: current editor neither links directly to Search/Browse nor permits pre-add inspection; ordering is not delivered in a compliant Assessment editor.
 - Owning source area: Assessment Question Editor frontend: src/pages/assignment_workspace/assignment_workspace_questions_page.tsx.
 - Dependencies: C62, C60.
 - Closure owner: C63.
 - Verification: Playwright with two Questions checks visible order, reorder, inspect-before-add, Search/Browse paths, save/reload.
 
-### A4-20 — Assessment randomization semantics (A9 policy/API plus Properties binding; 2)
+### A4-20 - Assessment randomization semantics (A9 policy/API plus Properties binding; 2)
 
 #### A4-20.1
 
-- HG bullet: “Instructors can randomize Question order for an Assessment.”
+- HG bullet: "Instructors can randomize Question order for an Assessment."
 - Current evidence and concrete mismatch: `assignment_workspace_policies_page.tsx` applies order randomization to Assignment and explanation uses Assignment; correct Assessment/Question ownership is not expressed or verified.
 - Owning source area: Assessment randomization domain/UI: crates/domain/src/effective_assignment_policy.rs and src/pages/assignment_workspace/assignment_workspace_policies_page.tsx.
 - Dependencies: C62, C64, and pending A7 Question-owned choice-randomization contract.
@@ -1458,19 +1458,19 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-20.2
 
-- HG bullet: “Answer-choice randomization belongs to the Question, not the Assessment.”
+- HG bullet: "Answer-choice randomization belongs to the Question, not the Assessment."
 - Current evidence and concrete mismatch: `assignment_workspace_policies_page.tsx` applies order randomization to Assignment and explanation uses Assignment; correct Assessment/Question ownership is not expressed or verified.
 - Owning source area: Assessment randomization domain/UI: crates/domain/src/effective_assignment_policy.rs and src/pages/assignment_workspace/assignment_workspace_policies_page.tsx.
 - Dependencies: C62, C64, and pending A7 Question-owned choice-randomization contract.
 - Closure owner: C65.
 - Verification: policy tests prove persisted Assessment order randomization and Question-owned choice randomization; browser copy test.
 
-### A4-21 — Assessment Unrelease danger transaction (A9 release API/confirmation UI; 2)
+### A4-21 - Assessment Unrelease danger transaction (A9 release API/confirmation UI; 2)
 
 #### A4-21.1
 
-- HG bullet: “Assessment Unrelease should explain that Student work will be deleted.”
-- Current evidence and concrete mismatch: current Danger Zone says “Unrelease assignment”; confirmation and deletion explanation are Assignment-named, not the required Assessment behavior.
+- HG bullet: "Assessment Unrelease should explain that Student work will be deleted."
+- Current evidence and concrete mismatch: current Danger Zone says "Unrelease assignment"; confirmation and deletion explanation are Assignment-named, not the required Assessment behavior.
 - Owning source area: Assessment release server/UI: crates/server/src/assignment_release.rs and src/pages/assignment_workspace/assignment_workspace_policies_page.tsx.
 - Dependencies: C12, C62, C66, and pending A9 Student Work deletion contract.
 - Closure owner: C67.
@@ -1478,18 +1478,18 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-21.2
 
-- HG bullet: “Assessment Unrelease should require typing the Assessment title before confirmation.”
-- Current evidence and concrete mismatch: current Danger Zone says “Unrelease assignment”; confirmation and deletion explanation are Assignment-named, not the required Assessment behavior.
+- HG bullet: "Assessment Unrelease should require typing the Assessment title before confirmation."
+- Current evidence and concrete mismatch: current Danger Zone says "Unrelease assignment"; confirmation and deletion explanation are Assignment-named, not the required Assessment behavior.
 - Owning source area: Assessment release server/UI: crates/server/src/assignment_release.rs and src/pages/assignment_workspace/assignment_workspace_policies_page.tsx.
 - Dependencies: C12, C62, C66, and pending A9 Student Work deletion contract.
 - Closure owner: C67.
 - Verification: seeded submitted-work transaction test proves exact-title confirmation and deletion only after confirmation; browser copy/action check.
 
-### A4-22 — Archive confirmation parity (Published Question/Blueprint frontend confirmations; 2)
+### A4-22 - Archive confirmation parity (Published Question/Blueprint frontend confirmations; 2)
 
 #### A4-22.1
 
-- HG bullet: “Danger Zone contains **Assessment Unrelease**, **Archive Published Question**, and **Archive Blueprint Course**.”
+- HG bullet: "Danger Zone contains **Assessment Unrelease**, **Archive Published Question**, and **Archive Blueprint Course**."
 - Current evidence and concrete mismatch: `blueprint_course_workspace.tsx` covers only Blueprint archive; Published Question archive and all-action shared-availability explanation/confirmation are unproved.
 - Owning source area: shared high-consequence action frontend: new src/features/high_consequence_actions/availability_archive_confirmation.tsx.
 - Dependencies: pending A7 Published Question archive semantics; C50.
@@ -1498,7 +1498,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 #### A4-22.2
 
-- HG bullet: “Archive actions should explain the effect on shared availability and require a clear confirmation.”
+- HG bullet: "Archive actions should explain the effect on shared availability and require a clear confirmation."
 - Current evidence and concrete mismatch: `blueprint_course_workspace.tsx` covers only Blueprint archive; Published Question archive and all-action shared-availability explanation/confirmation are unproved.
 - Owning source area: shared high-consequence action frontend: new src/features/high_consequence_actions/availability_archive_confirmation.tsx.
 - Dependencies: pending A7 Published Question archive semantics; C50.
@@ -1510,28 +1510,28 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 | A4 record | Owning bullets | Closure owner | Contributor |
 | --- | ---: | --- | --- |
-| A4-01 | 7 | C44 | — |
+| A4-01 | 7 | C44 | - |
 | A4-02 | 1 | C45 | C74 |
-| A4-03 | 5 | C46 | — |
-| A4-04 | 2 | C47 | — |
-| A4-05 | 5 | C48 | — |
+| A4-03 | 5 | C46 | - |
+| A4-04 | 2 | C47 | - |
+| A4-05 | 5 | C48 | - |
 | A4-06 | 8 | C50 | C49, C72 |
-| A4-07 | 1 | C51 | — |
+| A4-07 | 1 | C51 | - |
 | A4-08 | 2 | C52 | C73 |
-| A4-09 | 1 | C53 | — |
-| A4-10 | 5 | C54 | — |
-| A4-11 | 6 | C55 | — |
-| A4-12 | 4 | C56 | — |
-| A4-13 | 3 | C57 | — |
-| A4-14 | 7 | C58 | — |
-| A4-15 | 2 | C59 | — |
-| A4-16 | 8 | C60 | — |
-| A4-17 | 6 | C61 | — |
-| A4-18 | 5 | C62 | — |
-| A4-19 | 3 | C63 | — |
+| A4-09 | 1 | C53 | - |
+| A4-10 | 5 | C54 | - |
+| A4-11 | 6 | C55 | - |
+| A4-12 | 4 | C56 | - |
+| A4-13 | 3 | C57 | - |
+| A4-14 | 7 | C58 | - |
+| A4-15 | 2 | C59 | - |
+| A4-16 | 8 | C60 | - |
+| A4-17 | 6 | C61 | - |
+| A4-18 | 5 | C62 | - |
+| A4-19 | 3 | C63 | - |
 | A4-20 | 2 | C65 | C64 |
 | A4-21 | 2 | C67 | C66 |
-| A4-22 | 2 | C68 | — |
+| A4-22 | 2 | C68 | - |
 | **Total** | **87** | | |
 
 C68 owns the combined Danger Zone bullet because that behavior necessarily includes both archive
@@ -1751,7 +1751,7 @@ product-behavior records and two HG-unlocked Ribbon details (A5-S13, A5-Y13). Of
 records, 22 have an implementation closure owner and A5-Y10 is the sole product question. A5-S04
 is the sole N/A permission classification.
 
-## A6 Data and history — canonicalized 2026-09-14
+## A6 Data and history - canonicalized 2026-09-14
 
 Identifier allocation: C91 and later are reserved for A5's dynamic page-specific dispatches. A6
 uses the disjoint explicit range **C200-C216**; no earlier or reserved identifier is reused.
@@ -1901,11 +1901,11 @@ terminal privacy decision; `C814 -> C815 -> C813`; `C821 -> C822`; `{C818, C820,
 For the unresolved C14 non-U.S. case, retain: `Reason: product decision still unclear` and
 `Question: For a Student whose institution uses a non-US or non-.edu domain, what approved institutional-domain evidence or configuration authorizes roster import?`
 
-## A7 Questions — canonical dispatch map
+## A7 Questions - canonical dispatch map
 
 A7 owns exactly 76 unchecked product-behavior occurrences. The exact duplicate
-**“Privacy-safe aggregate Question statistics remain after the underlying Student records are
-deleted.”** remains A6 C208, not an A7 closure. C321 owns the distinct A7 aggregate-retention
+**"Privacy-safe aggregate Question statistics remain after the underlying Student records are
+deleted."** remains A6 C208, not an A7 closure. C321 owns the distinct A7 aggregate-retention
 requirement. C322 alone waits for unresolved A6 C205's disclosure threshold.
 
 The optional abandoned-Draft-cleanup sentence is an audited N/A, not a missing
@@ -1925,25 +1925,25 @@ named boundary. C317's 13,000-Question fixture is always temporary.
 
 | ID | Kind; occurrences; one boundary and outcome | Prerequisites / handoff | Exact focused gate and test lifetime |
 | --- | --- | --- | --- |
-| C300 | contributor; 0; evidence-only inventory of the former seed-bearing native path. It closes no HG occurrence and hands the approved seed-free vertical chain to C825. | Architect decision “Native PLE JSON attempt reproduction is seed-free”; no sentinel/fixed seed implementation. | Ignored inventory records the removed seed/hash surfaces and does not become a permanent test. |
-| C301 | closure; 2; `crates/adapters/ple/src/question_json/source_document.rs`: record reviewable native external resources. | —; hands C302,C305. | Create `tests/_temp/hg_a7_c301_resource_manifest_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c301_resource_manifest_probe.py`; remove. |
+| C300 | contributor; 0; evidence-only inventory of the former seed-bearing native path. It closes no HG occurrence and hands the approved seed-free vertical chain to C825. | Architect decision "Native PLE JSON attempt reproduction is seed-free"; no sentinel/fixed seed implementation. | Ignored inventory records the removed seed/hash surfaces and does not become a permanent test. |
+| C301 | closure; 2; `crates/adapters/ple/src/question_json/source_document.rs`: record reviewable native external resources. | -; hands C302,C305. | Create `tests/_temp/hg_a7_c301_resource_manifest_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c301_resource_manifest_probe.py`; remove. |
 | C302 | closure; 2; `crates/adapters/ple/src/question_json/source_document.rs`: declare author script/RDKit without seed. | C301; hands C303,C857. | Create `tests/_temp/hg_a7_c302_author_script_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c302_author_script_probe.py`; remove. |
 | C303 | contributor; 0; architectural handoff to the approved answer-free isolated-document boundary. It implements no adapter, route, frame, or proof and owns no HG occurrence. | C302; C857-C860 carry the implementation chain. | Record the durable decision and inspect the C857-C860 handoff; no permanent test. |
 | C304 | closure; 3; `src/components/question_response_controls/hotspot.tsx`: PLE-owned HOTSPOT input/assets and server-owned grading. | C831,C860. | Create `tests/_temp/hg_a7_c304_hotspot.spec.ts`; run `npx playwright test tests/_temp/hg_a7_c304_hotspot.spec.ts`; remove. |
 | C305 | contributor; 0; current `crates/adapters/ple/src/question_json/source_document.rs` validation of author-declared `cdnUrl`/`localPath` is not an approved inventory or delivery path. C899 removes it; no HG occurrence closes here. | C301; hands C899. | Record the false-closure audit; C899's ignored source-shape migration matrix replaces the old probe. No permanent test. |
-| C306 | contributor; 0; `schemas/base_schema/attempt_presentation.sql`: discover iMathAS binding seam only. | —; hands C361. H5P has no dispatchable binding before its product decision. | Create `tests/_temp/hg_a7_c306_backend_seam_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c306_backend_seam_probe.py`; remove. |
+| C306 | contributor; 0; `schemas/base_schema/attempt_presentation.sql`: discover iMathAS binding seam only. | -; hands C361. H5P has no dispatchable binding before its product decision. | Create `tests/_temp/hg_a7_c306_backend_seam_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c306_backend_seam_probe.py`; remove. |
 | C307 | contributor; 0; `crates/question_model/src/question_library.rs`: common adapter type foundation. | C306; hands C358,C325. | Create `tests/_temp/hg_a7_c307_contract_shape_probe.py`; run `source source_me.sh && cargo test -p question_model`; remove. |
 | C308 | contributor; 0; `crates/adapters/webwork/src/lib.rs`: opaque backend fixtures. | C307; hands C331-C333,C361. | Create `tests/_temp/hg_a7_c308_backend_fixture.sh`; lease-gated run `bash tests/_temp/hg_a7_c308_backend_fixture.sh`; remove. |
 | C309 | closure; 5; `crates/server/src/assignment_delivery/direct_finalization.rs`: synchronous immutable fraction and score derivation. | C362,C333; hands C310,C324. | Create `tests/_temp/hg_a7_c309_result_pipeline_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c309_result_pipeline_probe.py`; retain only if PYTEST_STYLE approves immutable public outcome contract. |
 | C310 | closure; 1; `crates/server/src/assignment_delivery/direct_finalization.rs`: reproject score when points change without backend call. | C309. | Create `tests/_temp/hg_a7_c310_rescore_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c310_rescore_probe.py`; remove. |
 | C311 | contributor; 0; inventory every biologyproblems.org WeBWorK family against bundled Genetics content and identify its canonical algorithmic author source, closed `source_format` (`pg` or `pgml`), matching extension, and generated static variants. `pgml` requires fully PGML-compliant source; traditional or mixed source remains `pg`. This is metadata only, not a runtime parser or separate backend. Any current same-question Genetics folder containing more than one `.pg` file is an incorrect static import to clean up. It supplies evidence for C840/C841 and closes no HG occurrence itself. | `docs/TODO.md`; `content/genetics/manifest.yaml`, `content/genetics/sources/`, `content/genetics/pg/`; hands C824. | Ignored family ledger records source format/extension, source hash/provenance/license, canonical author source, generated coverage, and source count; remove after C824 handoff. No adapter heuristic, runtime parser, separate backend, automatic Pool substitution, or permanent catalog snapshot. |
-| C312 | contributor; 0; `schemas/base_schema/question_pools.sql`: reusable published Pool root plus later-independent immutable Pool Revision/member physical foundation. It has no Assessment-local `question_pool_item` substitute. | —; hands C313,C354,C885. | Ignored fresh-schema root/member separation proof; remove. No table-inventory test is permanent. |
+| C312 | contributor; 0; `schemas/base_schema/question_pools.sql`: reusable published Pool root plus later-independent immutable Pool Revision/member physical foundation. It has no Assessment-local `question_pool_item` substitute. | -; hands C313,C354,C885. | Ignored fresh-schema root/member separation proof; remove. No table-inventory test is permanent. |
 | C313 | contributor; 0; `question_pools.sql`: immutable ordered Pool Revision members pin each member's exact Published Question ID and Revision, require a nonempty distinct member set, and retain an Instructor interchangeability attestation. Pool changes append a Revision under a Pool metadata ETag/CAS; they never mutate an earlier Revision. Membership is backend-neutral; C904 assigns selection count to the Assessment-owned fork, not the reusable Pool Revision. | C312; hands C354,C885,C905. | Ignored fresh-schema append/CAS/member-pin/backend-mix matrix; remove. Retain only a small immutable-revision or CAS outcome if every `PYTEST_STYLE.md` criterion passes. |
 | C314 | closure; 4; `schemas/base_schema/question_pools.sql`: import/fork a Pool for an Assessment while retaining member IDs. | C909,C362. | Create `tests/_temp/hg_a7_c314_pool_fork_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c314_pool_fork_probe.py`; remove. |
 | C315 | contributor; 0; `schemas/base_schema/attempt_access.sql`: persisted per-Attempt selection read/write. | C353; hands C334 and A6 C213. | Create `tests/_temp/hg_a7_c315_selection_probe.py`; run `source source_me.sh && cargo test -p learning-data-access`; remove. |
 | C316 | contributor; 0; `src/route_contract.ts`: Pool-library and Student-route candidates. | C354; hands C364,C336. | Create `tests/_temp/hg_a7_c316_access_manifest.mjs`; run `node tests/_temp/hg_a7_c316_access_manifest.mjs`; remove. |
 | C317 | contributor; 0; `crates/server/src/question_library/paging.rs`: 13k load fixture. | C58; hands C338. | Create `tests/_temp/hg_a7_c317_13k_fixture.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c317_13k_fixture.py`; remove, always temporary. |
-| C318 | contributor; 0; `crates/server/src/question_publication.rs`: identifier/collision seam. | —; hands C369,C319. | Create `tests/_temp/hg_a7_c318_identifier_seam_probe.py`; run `source source_me.sh && cargo test -p server_core`; remove. |
+| C318 | contributor; 0; `crates/server/src/question_publication.rs`: identifier/collision seam. | -; hands C369,C319. | Create `tests/_temp/hg_a7_c318_identifier_seam_probe.py`; run `source source_me.sh && cargo test -p server_core`; remove. |
 | C319 | contributor; 0; audit pointer: record that `question_lineages.sql` installs before authoring tables, so it cannot create a Draft or `draft_question_fork_source`. It owns no SQL source read/pin, Draft operation, or test; C876 is the one lineage implementation owner. | C211,C846; hands C876. | Record the install-order receipt; no implementation test or permanent inventory. |
 | C320 | contributor; 0; `crates/question_model/src/question_stewardship.rs`: stewardship-event vocabulary. | C359; hands C370,C372. | Create `tests/_temp/hg_a7_c320_stewardship_fixture.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c320_stewardship_fixture.py`; remove. |
 | C321 | closure; 3; `schemas/base_schema/statistics.sql`: revision-scoped aggregate counts survive Student deletion. | A6 C208,C211,C213; hands C322. | Create `tests/_temp/hg_a7_c321_aggregate_retention_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c321_aggregate_retention_probe.py`; remove. |
@@ -1996,7 +1996,7 @@ named boundary. C317's 13,000-Question fixture is always temporary.
 
 ### C825-C831: seed-free Native PLE JSON reproduction correction
 
-The recorded decision “Native PLE JSON attempt reproduction is seed-free” replaces C300's
+The recorded decision "Native PLE JSON attempt reproduction is seed-free" replaces C300's
 server-only sentinel approach. Native JSON has no random seed or generated-parameter hash in its
 public presentation, persisted native representation, or resume path. A nonce remains only for
 PLE-controlled response/choice order. Renderer-backed WeBWorK and iMathAS keep their server-only
@@ -2004,7 +2004,7 @@ seeded reproduction facts. C306 has no H5P mapping and is not a native-seed subs
 
 | ID | Kind; occurrence ownership; one boundary and outcome | Prerequisites / handoff | Exact focused gate and test lifetime |
 | --- | --- | --- | --- |
-| C825 | contributor; 0; `crates/question_model`: tagged reproduction evidence is `Static` or `Seeded { question_seed, generated_parameter_sha256 }`; native public presentation omits seed, descriptor checksum is v4, and nonce remains only for PLE-controlled response/choice order. | `docs/CONTRACTS.md` “Student Work and assessment evidence”; C300; hands C826,C827. | Ignored model/presentation fixture proves native seed absence and seeded-backend evidence shape; remove unless a stable public-representation contract earns promotion. |
+| C825 | contributor; 0; `crates/question_model`: tagged reproduction evidence is `Static` or `Seeded { question_seed, generated_parameter_sha256 }`; native public presentation omits seed, descriptor checksum is v4, and nonce remains only for PLE-controlled response/choice order. | `docs/CONTRACTS.md` "Student Work and assessment evidence"; C300; hands C826,C827. | Ignored model/presentation fixture proves native seed absence and seeded-backend evidence shape; remove unless a stable public-representation contract earns promotion. |
 | C826 | contributor; 0; `crates/adapters/ple`: `issue_question_json(&source)` has no seed or parameter hash. | C825; hands C829. WeBWorK/iMathAS interfaces retain seeds. | Focused adapter test plus ignored migration probe; retain no implementation-coupled call-order test. |
 | C827 | contributor; 0; base schema `attempts`, operations, interaction, presentation, and finalization persist nullable seed/hash pair with CHECK: PLE has both NULL; WeBWorK/iMathAS have both populated; triggers/APIs enforce. | C825; hands C828. Preproduction uses direct base correction and reinitialization, with no compatibility views. | Ignored fresh PostgreSQL 17 fixture proves accepted/rejected pairs and trigger/API enforcement; always temporary schema-migration proof. |
 | C828 | contributor; 0; LDA tagged types/codecs/read/write/resume preserve C827's backend distinction. | C827; hands C829. | Focused LDA codec/read-resume test; retain only if it protects stable externally meaningful resume behavior. |
@@ -2149,7 +2149,7 @@ A contract-only A8 row flips **no** checklist bullet. Its named recipient is the
 
 ## Atomic work and exact proof lifecycle
 
-Every A8 temporary path below is ignored, run directly, and removed at that row’s handoff. None is durable: each proves a one-time implementation integration; permanent coverage requires a separate PYTEST_STYLE decision.
+Every A8 temporary path below is ignored, run directly, and removed at that row's handoff. None is durable: each proves a one-time implementation integration; permanent coverage requires a separate PYTEST_STYLE decision.
 
 | ID | owning lines | A8 ownership / exact source | recipient and close condition | temporary proof; focused recipient gate |
 |---|---|---|---|---|
@@ -2174,7 +2174,7 @@ Every A8 temporary path below is ignored, run directly, and removed at that row�
 | C418 | 192,194 | Contract only: warning before six months, Active to Inactive exactly at six months, deadline cap at active_until, latest due date starts separate FERPA clock. | C206/C207/C208 sole retention writers; C53 term-cap writer; C46 UI recipient. No flip until their gates. | tests/_temp/hg_a8_c418_retention_contract_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c418_retention_contract_probe.py; source source_me.sh && python3 tests/_temp/hg_a6_c206_schedule_probe.py; source source_me.sh && python3 tests/_temp/hg_a6_c207_deadline_probe.py; remove after C208/C53. |
 | C419 | 197 | A8 sole writer: new schemas/base_schema/course_blueprint_publication.sql and CourseBlueprintPublicationStore/API. Publish reusable structure as a new Private Blueprint lineage; strip Students, dates, delivery settings, Work; only published Q/Pools; never convert/mutate source Instance. | C6 Blueprint boundary, C7 Instance read contract, C406 published predicate, C417 create/delivery. C73 omitted: publication does not consume adoption defaults. Backend result is contributor only until C420 browser UI succeeds. | tests/_temp/hg_a8_c419_publish_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c419_publish_probe.py; source source_me.sh && cargo test -p learning-data-access --test blueprint_course_postgres; remove after C420. |
 | C420 | 34 | UI only, new src/features/course_blueprint_publication/; calls C419 publish-new API and never calls conversion. | C48/C55 own editor shells. Close after leased browser gate. | tests/_temp/hg_a8_c420_publish_ui_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c420_publish_ui_probe.py; lease: npx playwright test tests/_temp/hg_a8_c420_publish_ui.spec.ts; remove after browser gate. |
-| C421 | contributor only | UI only, new src/features/blueprint_change_proposals/; C416 submit/accept/read API. | C48 owns editor shell. C416’s 6 bullet closure waits for this leased browser success. | tests/_temp/hg_a8_c421_proposal_ui_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c421_proposal_ui_probe.py; lease: npx playwright test tests/_temp/hg_a8_c421_proposal_ui.spec.ts; remove after C416 close. |
+| C421 | contributor only | UI only, new src/features/blueprint_change_proposals/; C416 submit/accept/read API. | C48 owns editor shell. C416's 6 bullet closure waits for this leased browser success. | tests/_temp/hg_a8_c421_proposal_ui_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c421_proposal_ui_probe.py; lease: npx playwright test tests/_temp/hg_a8_c421_proposal_ui.spec.ts; remove after C416 close. |
 | C422 | 245 | UI-only compact-name advisory component, no hard schema limit. | C30 human identity rule; A4 input owner. | tests/_temp/hg_a8_c422_short_name_hint_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c422_short_name_hint_probe.py; lease: npx playwright test tests/_temp/hg_a8_c422_short_name_hint.spec.ts; remove after UI gate. |
 | C423 | contributor to C409,C856 | UI only, new src/features/blueprint_stewardship/; consumes C408/C409/C856 server results and C47/C48 shells. The active vetted Instructor can Star/Unstar, Watch/Unwatch, see Star count, exact C856 names on Public/Archived Blueprint Star lists, and only their own Watch state. | C409,C856,C47,C48. Its browser success is required to close lines 94,96,100 through C409 and 102 through C856. | tests/_temp/hg_a8_c423_stewardship_ui_probe.py and tests/_temp/hg_a8_c423_stewardship.spec.ts; source source_me.sh && python3 tests/_temp/hg_a8_c423_stewardship_ui_probe.py; lease: npx playwright test tests/_temp/hg_a8_c423_stewardship.spec.ts; remove both after C409/C856 close; PYTEST_STYLE: temporary workflow proof only; do not promote a UI snapshot. |
 | C424 | contributor to C417 | UI only, new src/features/course_creation/; consumes C7/C52 API and C46/C47/C55 shells. Instructor explicitly chooses empty creation or a Public Blueprint adoption. | C7, C503, C52, C49, C72, C46, C47, C55. Browser success is required to close lines 182,184,186 through C417. | tests/_temp/hg_a8_c424_course_creation_ui_probe.py and tests/_temp/hg_a8_c424_course_creation.spec.ts; source source_me.sh && python3 tests/_temp/hg_a8_c424_course_creation_ui_probe.py; lease: npx playwright test tests/_temp/hg_a8_c424_course_creation.spec.ts; remove both after C417 close; PYTEST_STYLE: temporary workflow proof only. |

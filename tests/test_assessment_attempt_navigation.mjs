@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { decodeLiveAssignmentAccess } from "../src/api/decoders/assignment_attempt_issuance.ts";
+import { decodeLiveAssessmentAccess } from "../src/api/decoders/assessment_attempt_issuance.ts";
 import {
-  decodeStudentAssignmentAttemptContext,
-  decodeStudentAssignmentAttemptPresentation,
-  decodeStudentAssignmentAttemptProgress,
-  decodeStudentAssignmentAttemptSubmissionResult,
-} from "../src/api/decoders/assignment_attempt_navigation.ts";
+  decodeStudentAssessmentAttemptContext,
+  decodeStudentAssessmentAttemptPresentation,
+  decodeStudentAssessmentAttemptProgress,
+  decodeStudentAssessmentAttemptSubmissionResult,
+} from "../src/api/decoders/assessment_attempt_navigation.ts";
 import { ApiProtocolError, createHttpApiClient } from "../src/api/http_client.ts";
 import { ROUTE_CONTRACT } from "../src/route_contract.ts";
 
@@ -18,31 +18,31 @@ function noStoreJson(value, status = 200) {
   });
 }
 
-test("Assignment Attempt context retains one strict server expiry and display zone", () => {
+test("Assessment Attempt context retains one strict server expiry and display zone", () => {
   const context = {
-    assignmentAttempt: "R-12",
+    assessmentAttempt: "R-12",
     attemptNumber: 2,
     displayTimeZone: "America/Chicago",
     expiresAt: 1_768_507_200_000,
     timerRemainingMilliseconds: 15_000,
     course: {
-      reference: "C-1",
+      reference: "CI7K3M2Q",
       shortName: "BCHM 301",
       longName: "Biochemistry 301: Proteins and Peptides",
       theme: "grass",
     },
-    assignment: { reference: "A-1", title: "Peptide structure practice" },
+    assessment: { reference: "A7K3M2Q", title: "Peptide structure practice" },
   };
-  assert.deepEqual(decodeStudentAssignmentAttemptContext(context), context);
-  assert.throws(() => decodeStudentAssignmentAttemptContext({ ...context, expiresAt: -1 }));
+  assert.deepEqual(decodeStudentAssessmentAttemptContext(context), context);
+  assert.throws(() => decodeStudentAssessmentAttemptContext({ ...context, expiresAt: -1 }));
   assert.throws(() =>
-    decodeStudentAssignmentAttemptContext({ ...context, displayTimeZone: "not/a-zone" }),
+    decodeStudentAssessmentAttemptContext({ ...context, displayTimeZone: "not/a-zone" }),
   );
 });
 
-test("Student Assignment Attempt progress rejects answer-bearing and extra fields", () => {
+test("Student Assessment Attempt progress rejects answer-bearing and extra fields", () => {
   const projection = {
-    assignmentAttempt: "R-12",
+    assessmentAttempt: "R-12",
     questionCount: 2,
     recommendedPosition: 2,
     positions: [
@@ -53,19 +53,19 @@ test("Student Assignment Attempt progress rejects answer-bearing and extra field
     ],
   };
   projection.questionCount = 4;
-  assert.deepEqual(decodeStudentAssignmentAttemptProgress(projection), projection);
+  assert.deepEqual(decodeStudentAssessmentAttemptProgress(projection), projection);
   assert.throws(() =>
-    decodeStudentAssignmentAttemptProgress({ ...projection, answer: { correct: true } }),
+    decodeStudentAssessmentAttemptProgress({ ...projection, answer: { correct: true } }),
   );
   assert.throws(() =>
-    decodeStudentAssignmentAttemptProgress({
+    decodeStudentAssessmentAttemptProgress({
       ...projection,
       positions: [{ position: 1, responseState: "submitted", response: "secret" }],
     }),
   );
 });
 
-test("Assignment Access carries only its authorized answer-free facts and Attempt history", () => {
+test("Assessment Access carries only its authorized answer-free facts and Attempt history", () => {
   const decision = {
     availableAt: 1_000,
     dueAt: 2_000,
@@ -85,17 +85,17 @@ test("Assignment Access carries only its authorized answer-free facts and Attemp
     pointsPossible: 8,
     previousAttempts: [
       {
-        assignmentAttempt: "R-11",
+        assessmentAttempt: "R-11",
         attemptNumber: 1,
         state: "submitted",
         score: { pointsEarned: 6, pointsPossible: 8 },
       },
     ],
   };
-  const resumable = { activeAssignmentAttempt: "R-12", ...facts };
+  const resumable = { activeAssessmentAttempt: "R-12", ...facts };
   const startable = {
     ...resumable,
-    activeAssignmentAttempt: null,
+    activeAssessmentAttempt: null,
     decision: { ...decision, timeLimitSeconds: null },
   };
   const closedWithoutReleasedQuestions = {
@@ -103,47 +103,47 @@ test("Assignment Access carries only its authorized answer-free facts and Attemp
     decision: {
       ...startable.decision,
       startDecision: "closed",
-      publicReason: "This Assignment is closed for new work.",
+      publicReason: "This Assessment is closed for new work.",
     },
     questionCount: 0,
     pointsPossible: 0,
   };
-  assert.deepEqual(decodeLiveAssignmentAccess(resumable), resumable);
-  assert.deepEqual(decodeLiveAssignmentAccess(startable), startable);
+  assert.deepEqual(decodeLiveAssessmentAccess(resumable), resumable);
+  assert.deepEqual(decodeLiveAssessmentAccess(startable), startable);
   assert.deepEqual(
-    decodeLiveAssignmentAccess(closedWithoutReleasedQuestions),
+    decodeLiveAssessmentAccess(closedWithoutReleasedQuestions),
     closedWithoutReleasedQuestions,
   );
-  assert.throws(() => decodeLiveAssignmentAccess({ decision }));
-  assert.throws(() => decodeLiveAssignmentAccess({ ...resumable, activeAssignmentAttempt: "12" }));
-  assert.throws(() => decodeLiveAssignmentAccess({ ...resumable, attemptId: "private" }));
+  assert.throws(() => decodeLiveAssessmentAccess({ decision }));
+  assert.throws(() => decodeLiveAssessmentAccess({ ...resumable, activeAssessmentAttempt: "12" }));
+  assert.throws(() => decodeLiveAssessmentAccess({ ...resumable, attemptId: "private" }));
   assert.throws(() =>
-    decodeLiveAssignmentAccess({
+    decodeLiveAssessmentAccess({
       ...resumable,
       previousAttempts: [{ ...facts.previousAttempts[0], response: "secret" }],
     }),
   );
   assert.throws(() =>
-    decodeLiveAssignmentAccess({
+    decodeLiveAssessmentAccess({
       ...resumable,
       previousAttempts: [{ ...facts.previousAttempts[0], score: null }],
     }),
   );
-  assert.throws(() => decodeLiveAssignmentAccess({ ...resumable, answer: "secret" }));
+  assert.throws(() => decodeLiveAssessmentAccess({ ...resumable, answer: "secret" }));
   assert.throws(() =>
-    decodeLiveAssignmentAccess({
+    decodeLiveAssessmentAccess({
       ...resumable,
       decision: { ...decision, accommodationId: "private" },
     }),
   );
   assert.throws(() =>
-    decodeLiveAssignmentAccess({
+    decodeLiveAssessmentAccess({
       ...resumable,
       decision: { ...decision, publicReason: "Different browser-owned wording" },
     }),
   );
   assert.throws(() =>
-    decodeLiveAssignmentAccess({
+    decodeLiveAssessmentAccess({
       ...resumable,
       decision: { ...decision, availableAt: 2_500 },
     }),
@@ -160,26 +160,26 @@ test("selected presentation accepts only the exact existing public presentation 
     },
     savedResponse: null,
   };
-  assert.deepEqual(decodeStudentAssignmentAttemptPresentation(presentation), presentation);
+  assert.deepEqual(decodeStudentAssessmentAttemptPresentation(presentation), presentation);
   assert.throws(() =>
-    decodeStudentAssignmentAttemptPresentation({ ...presentation, checksum: "private" }),
+    decodeStudentAssessmentAttemptPresentation({ ...presentation, checksum: "private" }),
   );
   assert.deepEqual(
-    decodeStudentAssignmentAttemptPresentation({
+    decodeStudentAssessmentAttemptPresentation({
       ...presentation,
       savedResponse: { kind: "shortText", text: "student working answer" },
     }).savedResponse,
     { kind: "shortText", text: "student working answer" },
   );
   assert.throws(() =>
-    decodeStudentAssignmentAttemptPresentation({
+    decodeStudentAssessmentAttemptPresentation({
       ...presentation,
       savedResponse: { kind: "shortText", text: "student working answer", correct: true },
     }),
   );
 });
 
-test("Student Assignment Attempt save and final submission use closed no-store contracts", async () => {
+test("Student Assessment Attempt save and final submission use closed no-store contracts", async () => {
   const requests = [];
   const client = createHttpApiClient({
     fetch: async (input, init) => {
@@ -189,21 +189,21 @@ test("Student Assignment Attempt save and final submission use closed no-store c
       const path = new URL(request.url).pathname;
       if (path.endsWith("/submission")) {
         return noStoreJson({
-          assignmentAttempt: "R-12",
+          assessmentAttempt: "R-12",
           submissionState: "submitted",
           score: { pointsEarned: 1.34, pointsPossible: 2 },
         });
       }
-      return noStoreJson({ assignmentAttempt: "R-12", position: 2, responseState: "saved" });
+      return noStoreJson({ assessmentAttempt: "R-12", position: 2, responseState: "saved" });
     },
   });
 
-  await client.saveStudentAssignmentAttemptResponse("R-12", 2, {
+  await client.saveStudentAssessmentAttemptResponse("R-12", 2, {
     kind: "shortText",
     text: "student working answer",
   });
-  assert.deepEqual(await client.submitStudentAssignmentAttempt("R-12"), {
-    assignmentAttempt: "R-12",
+  assert.deepEqual(await client.submitStudentAssessmentAttempt("R-12"), {
+    assessmentAttempt: "R-12",
     submissionState: "submitted",
     score: { pointsEarned: 1.34, pointsPossible: 2 },
   });
@@ -211,7 +211,7 @@ test("Student Assignment Attempt save and final submission use closed no-store c
   assert.equal(requests[0].request.method, "PUT");
   assert.equal(
     requests[0].request.url,
-    "https://ple.example/api/assignment-attempts/R-12/responses/2",
+    "https://ple.example/api/assessment-attempts/R-12/responses/2",
   );
   assert.equal(requests[0].request.cache, "no-store");
   assert.deepEqual(JSON.parse(requests[0].body), {
@@ -220,7 +220,7 @@ test("Student Assignment Attempt save and final submission use closed no-store c
   assert.equal(requests[1].request.method, "POST");
   assert.equal(
     requests[1].request.url,
-    "https://ple.example/api/assignment-attempts/R-12/submission",
+    "https://ple.example/api/assessment-attempts/R-12/submission",
   );
   assert.equal(requests[1].request.cache, "no-store");
   assert.equal(requests[1].body, null);
@@ -228,60 +228,63 @@ test("Student Assignment Attempt save and final submission use closed no-store c
 
 test("final submission exposes either a current score or an explicit deferred score", () => {
   assert.deepEqual(
-    decodeStudentAssignmentAttemptSubmissionResult({
-      assignmentAttempt: "R-12",
+    decodeStudentAssessmentAttemptSubmissionResult({
+      assessmentAttempt: "R-12",
       submissionState: "submitted",
       score: null,
     }),
-    { assignmentAttempt: "R-12", submissionState: "submitted", score: null },
+    { assessmentAttempt: "R-12", submissionState: "submitted", score: null },
   );
   assert.throws(() =>
-    decodeStudentAssignmentAttemptSubmissionResult({
-      assignmentAttempt: "R-12",
+    decodeStudentAssessmentAttemptSubmissionResult({
+      assessmentAttempt: "R-12",
       submissionState: "submitted",
       score: { pointsEarned: 3, pointsPossible: 2 },
     }),
   );
 });
 
-test("Student Assignment Attempt mutations reject invalid requests and acknowledgements", async () => {
+test("Student Assessment Attempt mutations reject invalid requests and acknowledgements", async () => {
   const client = createHttpApiClient({
     fetch: () => Promise.reject(new Error("transport must not run")),
   });
   await assert.rejects(
-    client.saveStudentAssignmentAttemptResponse("R-0", 1, { kind: "shortText", text: "x" }),
+    client.saveStudentAssessmentAttemptResponse("R-0", 1, { kind: "shortText", text: "x" }),
     ApiProtocolError,
   );
   await assert.rejects(
-    client.saveStudentAssignmentAttemptResponse("R-12", 0, { kind: "shortText", text: "x" }),
+    client.saveStudentAssessmentAttemptResponse("R-12", 0, { kind: "shortText", text: "x" }),
     ApiProtocolError,
   );
   assert.throws(
-    () => client.getStudentAssignmentAttemptPresentation("R-12", 2.5),
+    () => client.getStudentAssessmentAttemptPresentation("R-12", 2.5),
     ApiProtocolError,
   );
 
   const mismatch = createHttpApiClient({
     fetch: () =>
       Promise.resolve(
-        noStoreJson({ assignmentAttempt: "R-13", position: 1, responseState: "saved" }),
+        noStoreJson({ assessmentAttempt: "R-13", position: 1, responseState: "saved" }),
       ),
   });
   await assert.rejects(
     () =>
-      mismatch.saveStudentAssignmentAttemptResponse("R-12", 1, { kind: "shortText", text: "x" }),
+      mismatch.saveStudentAssessmentAttemptResponse("R-12", 1, {
+        kind: "shortText",
+        text: "x",
+      }),
     /attempt does not match/u,
   );
 
   const positionMismatch = createHttpApiClient({
     fetch: () =>
       Promise.resolve(
-        noStoreJson({ assignmentAttempt: "R-12", position: 2, responseState: "saved" }),
+        noStoreJson({ assessmentAttempt: "R-12", position: 2, responseState: "saved" }),
       ),
   });
   await assert.rejects(
     () =>
-      positionMismatch.saveStudentAssignmentAttemptResponse("R-12", 1, {
+      positionMismatch.saveStudentAssessmentAttemptResponse("R-12", 1, {
         kind: "shortText",
         text: "x",
       }),
@@ -290,20 +293,20 @@ test("Student Assignment Attempt mutations reject invalid requests and acknowled
 
   const badFinalSubmission = createHttpApiClient({
     fetch: () =>
-      Promise.resolve(noStoreJson({ assignmentAttempt: "R-12", submissionState: "saved" })),
+      Promise.resolve(noStoreJson({ assessmentAttempt: "R-12", submissionState: "saved" })),
   });
   await assert.rejects(
-    () => badFinalSubmission.submitStudentAssignmentAttempt("R-12"),
+    () => badFinalSubmission.submitStudentAssessmentAttempt("R-12"),
     /submissionState/u,
   );
 });
 
-test("Student Assignment Attempt GET projections match their request", async () => {
+test("Student Assessment Attempt GET projections match their request", async () => {
   const progressMismatch = createHttpApiClient({
     fetch: () =>
       Promise.resolve(
         noStoreJson({
-          assignmentAttempt: "R-13",
+          assessmentAttempt: "R-13",
           questionCount: 1,
           recommendedPosition: 1,
           positions: [{ position: 1, responseState: "unanswered" }],
@@ -311,7 +314,7 @@ test("Student Assignment Attempt GET projections match their request", async () 
       ),
   });
   await assert.rejects(
-    () => progressMismatch.getStudentAssignmentAttemptProgress("R-12"),
+    () => progressMismatch.getStudentAssessmentAttemptProgress("R-12"),
     /progress does not match/u,
   );
 
@@ -330,13 +333,13 @@ test("Student Assignment Attempt GET projections match their request", async () 
       ),
   });
   await assert.rejects(
-    () => presentationPositionMismatch.getStudentAssignmentAttemptPresentation("R-12", 1),
+    () => presentationPositionMismatch.getStudentAssessmentAttemptPresentation("R-12", 1),
     /presentation position does not match/u,
   );
 });
 
 test("Attempt routes admit the Student product role", () => {
-  for (const routeId of ["assignmentAttempt", "assignmentAttemptSummary"]) {
+  for (const routeId of ["assessmentAttempt", "assessmentAttemptSummary"]) {
     const route = ROUTE_CONTRACT.find((candidate) => candidate.id === routeId);
     assert.deepEqual(route?.requiredProductRoles, ["student"]);
   }

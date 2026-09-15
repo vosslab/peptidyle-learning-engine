@@ -5,6 +5,7 @@
 //! store supplies a current banner projection.
 
 use std::{
+    str::FromStr,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -18,10 +19,13 @@ use axum::{
     routing::{get, post},
 };
 use learning_data_access::{
-    CourseBannerObjectMetadata, CourseBannerStore, CourseThemeStore,
+    CourseBannerObjectMetadata, CourseBannerStore, CourseInstanceStore, CourseThemeStore,
     FinalizedCourseBannerPromotion, PrepareCourseBannerPromotion, PreparedCourseBannerRemoval,
     SessionTokenHash, StageCourseBannerUpload, StoreError,
-    postgres::{PostgresCourseBannerStore, PostgresCourseThemeStore, PostgresSessionStore},
+    postgres::{
+        PostgresCourseBannerStore, PostgresCourseInstanceStore, PostgresCourseThemeStore,
+        PostgresSessionStore,
+    },
 };
 use objects::s3::S3ObjectStore;
 use objects::{
@@ -30,8 +34,8 @@ use objects::{
 };
 use question_model::{
     CourseAppearanceView, CourseBannerReference, CourseBannerRendition, CourseBannerUpdate,
-    CourseBannerUploadReceipt, CourseBannerUploadReference, CourseId, CourseThemeUpdate,
-    ProductRole, Timestamp,
+    CourseBannerUploadReceipt, CourseBannerUploadReference, CourseId, CourseInstanceReference,
+    CourseThemeUpdate, ProductRole, Timestamp,
 };
 use uuid::Uuid;
 
@@ -43,6 +47,7 @@ const MAX_BANNER_UPDATE_BYTES: usize = 1_024;
 #[derive(Clone)]
 struct RouteState {
     sessions: Arc<PostgresSessionStore>,
+    courses: PostgresCourseInstanceStore,
     themes: PostgresCourseThemeStore,
     banners: PostgresCourseBannerStore,
     objects: S3ObjectStore,
@@ -50,26 +55,27 @@ struct RouteState {
 
 /// Registers the browser-safe current Course Appearance reader.
 ///
-/// The route uses the internal Course UUID after the browser has resolved its
-/// visible Course reference.  The Store repeats exact Course Membership
-/// authorization against the installed session before it projects the theme.
+/// Each route resolves its canonical Course Instance reference through the
+/// installed session before the Appearance Stores repeat exact Course
+/// Membership authorization for the requested operation.
 pub fn course_appearance_router(
     sessions: Arc<PostgresSessionStore>,
+    courses: PostgresCourseInstanceStore,
     themes: PostgresCourseThemeStore,
     banners: PostgresCourseBannerStore,
     objects: S3ObjectStore,
 ) -> Router {
     Router::new()
         .route(
-            "/api/courses/{course}/appearance",
+            "/api/course-instances/{course}/appearance",
             get(read_appearance).put(update_theme),
         )
         .route(
-            "/api/courses/{course}/appearance/banner-uploads",
+            "/api/course-instances/{course}/appearance/banner-uploads",
             post(stage_banner_upload),
         )
         .route(
-            "/api/courses/{course}/appearance/banner",
+            "/api/course-instances/{course}/appearance/banner",
             axum::routing::put(promote_banner).delete(remove_banner),
         )
         .route(
@@ -78,6 +84,7 @@ pub fn course_appearance_router(
         )
         .with_state(RouteState {
             sessions,
+            courses,
             themes,
             banners,
             objects,
@@ -95,11 +102,15 @@ async fn update_theme(
     Path(course): Path<String>,
     request: Request,
 ) -> Response {
-    let course = match Uuid::parse_str(&course) {
-        Ok(value) => CourseId::from_uuid(value),
+    let reference = match CourseInstanceReference::from_str(&course) {
+        Ok(value) => value,
         Err(_) => return concealed(),
     };
     let session_hash = match instructor_session_hash(&state, request.headers()).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let course = match resolve_course(&state, session_hash, reference).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -165,13 +176,17 @@ async fn read_appearance(
     headers: HeaderMap,
     Path(course): Path<String>,
 ) -> Response {
-    let course = match Uuid::parse_str(&course) {
-        Ok(value) => CourseId::from_uuid(value),
+    let reference = match CourseInstanceReference::from_str(&course) {
+        Ok(value) => value,
         // ASVS 1.2.3 and 8.2.2: malformed identities receive the same
         // no-store concealment response as an authenticated nonmember.
         Err(_) => return concealed(),
     };
     let session_hash = match authenticated_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let course = match resolve_course(&state, session_hash, reference).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -198,11 +213,15 @@ async fn stage_banner_upload(
     Path(course): Path<String>,
     request: Request,
 ) -> Response {
-    let course = match Uuid::parse_str(&course) {
-        Ok(value) => CourseId::from_uuid(value),
+    let reference = match CourseInstanceReference::from_str(&course) {
+        Ok(value) => value,
         Err(_) => return concealed(),
     };
     let token = match instructor_session_hash(&state, request.headers()).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let course = match resolve_course(&state, token, reference).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -281,11 +300,15 @@ async fn promote_banner(
     Path(course): Path<String>,
     request: Request,
 ) -> Response {
-    let course = match Uuid::parse_str(&course) {
-        Ok(value) => CourseId::from_uuid(value),
+    let reference = match CourseInstanceReference::from_str(&course) {
+        Ok(value) => value,
         Err(_) => return concealed(),
     };
     let token = match instructor_session_hash(&state, request.headers()).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let course = match resolve_course(&state, token, reference).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -452,11 +475,15 @@ async fn remove_banner(
     Path(course): Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    let course = match Uuid::parse_str(&course) {
-        Ok(value) => CourseId::from_uuid(value),
+    let reference = match CourseInstanceReference::from_str(&course) {
+        Ok(value) => value,
         Err(_) => return concealed(),
     };
     let token = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let course = match resolve_course(&state, token, reference).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -830,6 +857,22 @@ async fn cleanup_address_with<S: CourseBannerStore, O: ObjectStore>(
             }
         }
     }
+}
+
+async fn resolve_course(
+    state: &RouteState,
+    token: SessionTokenHash,
+    reference: CourseInstanceReference,
+) -> Result<CourseId, Box<Response>> {
+    // ASVS 2.2.1, 8.2.2, and 8.3.1: the route accepts only a canonical public
+    // Course Instance reference, then resolves its private ID through the
+    // current session's active Course Membership before any Appearance read or
+    // mutation. Each Appearance Store repeats its operation-specific check.
+    state
+        .courses
+        .resolve_course_navigation(token, reference)
+        .await
+        .map_err(|error| Box::new(store_error_response(error)))
 }
 
 async fn authenticated_session_hash(

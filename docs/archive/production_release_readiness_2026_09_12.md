@@ -63,10 +63,10 @@ another broad claim that the whole application is either finished or unfinished.
 - [ ] Protect typed work when switching editor sections or leaving the page; extend the same
       review to Question and Blueprint Draft editors.
 
-Evidence: [assignment_workspace_policies_page.tsx](../../src/pages/assignment_workspace/assignment_workspace_policies_page.tsx)
+Evidence: [assessment_workspace_policies_page.tsx](../../src/pages/assessment_workspace/assessment_workspace_policies_page.tsx)
 holds policy inputs in local signals. `release()` uses the saved workspace ETag, not
 `currentInput()`, and the release button is not gated on unsaved changes. Release validation also
-checks saved state. [assignment_workspace_questions_page.tsx](../../src/pages/assignment_workspace/assignment_workspace_questions_page.tsx)
+checks saved state. [assessment_workspace_questions_page.tsx](../../src/pages/assessment_workspace/assessment_workspace_questions_page.tsx)
 holds edits locally and provides an ordinary link to Policies. No navigation/unload protection
 was found in the current `src` search. Save-conflict messages already preserve local input until
 the Instructor explicitly reloads; retain that useful behavior.
@@ -90,9 +90,9 @@ which policy actually took effect.
 
 Evidence: [capability_registry.ts](../../src/ribbon/capability_registry.ts) still marks
 `assignmentOverview` and `assignmentQuestions` unbacked, while
-[assignment_workspace_live_page.tsx](../../src/pages/assignment_workspace/assignment_workspace_live_page.tsx)
+[assessment_workspace_live_page.tsx](../../src/pages/assessment_workspace/assessment_workspace_live_page.tsx)
 mounts both against `getLiveAssignmentWorkspace` and the real
-[assignment_release.rs](../../crates/server/src/assignment_release.rs) router.
+[assessment_release.rs](../../crates/server/src/assessment_release.rs) router.
 [app_ribbon.tsx](../../src/ribbon/app_ribbon.tsx)::visibleControl omits unavailable controls.
 The pages remain reachable through in-page links, so this is navigation inconsistency, not
 absence of the editors or backend.
@@ -144,9 +144,9 @@ teaching walkthrough as a release decision requirement.
       check without representing it as a full preview.
 - [ ] Make the preview useful for both native PLE and supported WeBWorK Questions.
 
-Evidence: [assignment_workspace_student_view_page.tsx](../../src/pages/assignment_workspace/assignment_workspace_student_view_page.tsx)
+Evidence: [assessment_workspace_student_view_page.tsx](../../src/pages/assessment_workspace/assessment_workspace_student_view_page.tsx)
 explicitly renders "Student view unavailable".
-[assignment_preview_page.tsx](../../src/pages/assignment_preview_page.tsx) renders saved title,
+[assessment_preview_page.tsx](../../src/pages/assessment_preview_page.tsx) renders saved title,
 instructions, and Question descriptions; it does not display the actual Question interactions.
 Its "Assignment delivery check" label is appropriately narrower than a full preview.
 
@@ -167,14 +167,14 @@ grades. Until that exists, use a real disposable Student journey for content acc
 
 Evidence: [student_course_landing_page.tsx](../../src/pages/student_course_landing_page.tsx)
 shows Assignment title and progress but no deadlines.
-[assignment_overview_page.tsx](../../src/pages/assignment_overview_page.tsx) displays Question
+[assessment_overview_page.tsx](../../src/pages/assessment_overview_page.tsx) displays Question
 count, points, time limit, and generic start-decision messages. Its current
-[assignment_attempt_issuance.ts](../../src/api/assignment_attempt_issuance.ts) access type does
+[assessment_attempt_issuance.ts](../../src/api/assessment_attempt_issuance.ts) access type does
 not carry due/available/closing timestamps. These omissions are not proof that server deadline
 enforcement is absent; they are missing information at the learner's decision point.
 
 Also format the Instructor workspace's raw `dueAt` value into readable local date/time in
-[assignment_workspace_overview_page.tsx](../../src/pages/assignment_workspace/assignment_workspace_overview_page.tsx).
+[assessment_workspace_overview_page.tsx](../../src/pages/assessment_workspace/assessment_workspace_overview_page.tsx).
 Keep the authoritative time zone visible rather than asking users to interpret storage syntax.
 
 Completion check: without opening another page or asking the Instructor, a Student can say when

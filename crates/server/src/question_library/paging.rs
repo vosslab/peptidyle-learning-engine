@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     fn continuation_accepts_a_maximum_unicode_question_title() {
-        let maximum_title = "🧬".repeat(512);
+        let maximum_title = "\u{1F9EC}".repeat(512);
         validate_question_title(&maximum_title).expect("maximum title is valid");
         let entries = [
             entry(&maximum_title, "0000-X00N"),

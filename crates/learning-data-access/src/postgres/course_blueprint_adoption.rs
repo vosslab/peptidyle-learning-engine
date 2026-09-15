@@ -2,7 +2,8 @@
 
 use question_model::{
     AssessmentEditNumber, AssessmentEntry, AssessmentEntryAvailability, AssessmentEntryId,
-    AssessmentTitle, FixedQuestionAssessmentEntry,
+    AssessmentTitle, FixedQuestionAssessmentEntry, QuestionAttemptTimeLimit,
+    QuestionPoolSelectedQuestionOrder,
 };
 use serde_json::{Value, json};
 use sqlx::{Postgres, Row, Transaction, types::Json};
@@ -12,13 +13,14 @@ use super::assessment_workspace_save::{assessment_entries_json, assessment_value
 use super::connection::map_sqlx_error;
 use crate::blueprint_course::{StoredBlueprintAssessmentContent, StoredBlueprintAssessmentEntry};
 use crate::{
-    CourseInstanceCreationSource, CreateCourseInstanceInput, SaveLiveAssessmentInput, StoreError,
-    StoredBlueprintCourseContent,
+    CourseInstanceCreationSource, CourseInstancePoolIdIssuer, CreateCourseInstanceInput,
+    SaveLiveAssessmentInput, StoreError, StoredBlueprintCourseContent,
 };
 
 pub(super) async fn creation_assessments(
     transaction: &mut Transaction<'_, Postgres>,
     input: &CreateCourseInstanceInput,
+    pool_id_issuer: Option<&dyn CourseInstancePoolIdIssuer>,
 ) -> Result<Value, StoreError> {
     let (blueprint_course, blueprint_revision) = match &input.source {
         CourseInstanceCreationSource::Empty => return Ok(Value::Array(Vec::new())),
@@ -40,18 +42,58 @@ pub(super) async fn creation_assessments(
     if content.checksum()?.as_bytes() != checksum.as_slice() {
         return Err(invalid("Blueprint Content Checksum"));
     }
-    materialize(&content)
+    materialize(&content, pool_id_issuer)
 }
 
-fn materialize(content: &StoredBlueprintCourseContent) -> Result<Value, StoreError> {
+fn materialize(
+    content: &StoredBlueprintCourseContent,
+    pool_id_issuer: Option<&dyn CourseInstancePoolIdIssuer>,
+) -> Result<Value, StoreError> {
     let mut assessments = Vec::new();
     for module in &content.modules {
         for assessment in &module.assessments {
             let input = assessment_input(&assessment.content)?;
+            let mut entries = Vec::with_capacity(assessment.content.entries.len());
+            // ASVS 2.2.1 and 2.2.3: serialize each closed, typed source
+            // variant at its exact Blueprint position.  The database compares
+            // this complete ordered projection to the sealed Revision again.
+            for (position, entry) in assessment.content.entries.iter().enumerate() {
+                entries.push(match entry {
+                    StoredBlueprintAssessmentEntry::Fixed { .. } => {
+                        fixed_entry_json(position, entry)?
+                    }
+                    StoredBlueprintAssessmentEntry::Pool {
+                        question_pool_revision,
+                        selection_count,
+                        points_per_item,
+                        scoring_rule,
+                        selection_rule,
+                        question_attempt_limit,
+                        question_attempt_time_limit,
+                    } => {
+                        let issuer = pool_id_issuer.ok_or_else(|| {
+                            StoreError::Unavailable(
+                                "Question Pool fork identity issuer is unavailable".to_string(),
+                            )
+                        })?;
+                        pool_entry_json(
+                            position,
+                            question_pool_revision,
+                            *selection_count,
+                            points_per_item,
+                            *scoring_rule,
+                            selection_rule.selected_question_order,
+                            *question_attempt_limit,
+                            *question_attempt_time_limit,
+                            issuer.issue_question_pool_id()?,
+                        )?
+                    }
+                });
+            }
             assessments.push(json!({
                 "source": assessment.blueprint_assessment_reference,
                 "values": assessment_values_json(&input)?,
-                "entries": assessment_entries_json(&input.entries)?,
+                "entries": entries,
             }));
         }
     }
@@ -76,15 +118,25 @@ fn assessment_input(
         attempt_limit: content.defaults.attempt_limit,
         activity_rules: content.defaults.activity_rules,
         student_feedback_release_rule: content.defaults.student_feedback_release_rule,
-        entries: content
-            .entries
-            .iter()
-            .map(instantiate_entry)
-            .collect::<Result<Vec<_>, _>>()?,
+        entries: Vec::new(),
     })
 }
 
-fn instantiate_entry(
+fn fixed_entry_json(
+    position: usize,
+    entry: &StoredBlueprintAssessmentEntry,
+) -> Result<Value, StoreError> {
+    let encoded = assessment_entries_json(&[instantiate_fixed_entry(entry)?])?;
+    let Value::Array(mut encoded) = encoded else {
+        return Err(invalid("Assessment Entries"));
+    };
+    let mut encoded = encoded.pop().ok_or_else(|| invalid("Assessment Entries"))?;
+    encoded["authoredPosition"] =
+        json!(i32::try_from(position).map_err(|_| invalid("Assessment Entry position"))?);
+    Ok(encoded)
+}
+
+fn instantiate_fixed_entry(
     entry: &StoredBlueprintAssessmentEntry,
 ) -> Result<AssessmentEntry, StoreError> {
     let id = AssessmentEntryId::from_uuid(random_uuid()?);
@@ -105,17 +157,67 @@ fn instantiate_entry(
             question_attempt_limit: *question_attempt_limit,
             question_attempt_time_limit: *question_attempt_time_limit,
         }),
-        // Blueprint content carries historic Question pins, not a published
-        // Pool lineage/revision.  Converting those pins into an Assessment
-        // Pool here would fabricate a mutable local Pool substitute.  The
-        // adoption producer must instead supply a source Pool Revision to the
-        // dedicated atomic Assessment Pool fork-import command.
-        StoredBlueprintAssessmentEntry::Pool { .. } => {
-            return Err(StoreError::InvalidRecord(
-                "Blueprint Pool adoption requires an immutable source Pool Revision".to_owned(),
-            ));
-        }
+        StoredBlueprintAssessmentEntry::Pool { .. } => unreachable!("pool entries use fork import"),
     })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn pool_entry_json(
+    position: usize,
+    source: &question_model::QuestionPoolRevisionReference,
+    selection_count: std::num::NonZeroU32,
+    points_per_item: &question_model::AssessmentPointValue,
+    scoring_rule: question_model::AssessmentEntryScoringRule,
+    selected_question_order: QuestionPoolSelectedQuestionOrder,
+    question_attempt_limit: question_model::QuestionAttemptLimit,
+    question_attempt_time_limit: QuestionAttemptTimeLimit,
+    fork_public_question_pool_id: question_model::QuestionId,
+) -> Result<Value, StoreError> {
+    let position = i32::try_from(position).map_err(|_| invalid("Assessment Entry position"))?;
+    let (seconds, grace_seconds) = pool_time_limit(question_attempt_time_limit);
+    Ok(json!({
+        "assessmentEntryId": AssessmentEntryId::from_uuid(random_uuid()?).to_string(),
+        "authoredPosition": position,
+        "kind": "question_pool",
+        "availability": "available",
+        "sourceQuestionPoolId": source.question_pool_id.as_compact_str(),
+        "sourceQuestionPoolRevisionNumber": source.revision_number.get(),
+        "forkQuestionPoolId": random_uuid()?.to_string(),
+        "forkPublicQuestionPoolId": fork_public_question_pool_id.as_compact_str(),
+        "selectionCount": selection_count.get(),
+        "pointsPerItem": points_per_item.to_string(),
+        "scoringRule": pool_scoring_rule(scoring_rule),
+        "selectedQuestionOrder": pool_selected_question_order(selected_question_order),
+        "questionAttemptLimit": question_attempt_limit.max_attempts,
+        "questionAttemptTimeLimitSeconds": seconds,
+        "questionAttemptGraceSeconds": grace_seconds,
+    }))
+}
+
+fn pool_time_limit(value: QuestionAttemptTimeLimit) -> (Option<u32>, Option<u32>) {
+    match value {
+        QuestionAttemptTimeLimit::Unlimited => (None, None),
+        QuestionAttemptTimeLimit::Limited {
+            seconds,
+            grace_seconds,
+        } => (Some(seconds), Some(grace_seconds)),
+    }
+}
+
+fn pool_scoring_rule(value: question_model::AssessmentEntryScoringRule) -> &'static str {
+    match value {
+        question_model::AssessmentEntryScoringRule::Normal => "normal",
+        question_model::AssessmentEntryScoringRule::FullCredit => "full_credit",
+        question_model::AssessmentEntryScoringRule::ExtraCredit => "extra_credit",
+        question_model::AssessmentEntryScoringRule::Excluded => "excluded",
+    }
+}
+
+fn pool_selected_question_order(value: QuestionPoolSelectedQuestionOrder) -> &'static str {
+    match value {
+        QuestionPoolSelectedQuestionOrder::QuestionPoolOrder => "question_pool_order",
+        QuestionPoolSelectedQuestionOrder::RandomOrder => "random_order",
+    }
 }
 
 fn random_uuid() -> Result<Uuid, StoreError> {
@@ -126,87 +228,4 @@ fn random_uuid() -> Result<Uuid, StoreError> {
 
 fn invalid(field: &str) -> StoreError {
     StoreError::InvalidRecord(format!("invalid {field}"))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::blueprint_course::{StoredBlueprintAssessment, StoredBlueprintModule};
-    use question_model::{
-        AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
-        AssessmentPointValue, BlueprintAssessmentDefaults, BlueprintAssessmentReference,
-        BlueprintModuleReference, LateWorkRule, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-        QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, QuestionRevisionReference,
-        StudentFeedbackReleaseRule,
-    };
-
-    fn fixture() -> StoredBlueprintCourseContent {
-        let pins: Vec<QuestionRevisionReference> = [1, 2]
-            .into_iter()
-            .map(|revision| QuestionRevisionReference {
-                question_id: "ABCDXE12".parse().unwrap(),
-                revision_number: question_model::QuestionRevisionNumber::new(revision).unwrap(),
-            })
-            .collect();
-        let content = StoredBlueprintAssessmentContent {
-            title: "Quiz".into(),
-            instructions: AssessmentInstructions::try_new("Read first.".into()).unwrap(),
-            defaults: BlueprintAssessmentDefaults {
-                assessment_attempt_time_limit_seconds: std::num::NonZeroU32::new(1800),
-                attempt_limit: std::num::NonZeroU32::new(3),
-                late_work_rule: LateWorkRule::Reject,
-                activity_rules: AssessmentActivityRules::default(),
-                student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
-            },
-            entries: vec![
-                StoredBlueprintAssessmentEntry::Fixed {
-                    question_revision: pins[0].clone(),
-                    points_possible: AssessmentPointValue::from_whole(4),
-                    scoring_rule: AssessmentEntryScoringRule::ExtraCredit,
-                    question_attempt_limit: QuestionAttemptLimit {
-                        max_attempts: Some(2),
-                    },
-                    question_attempt_time_limit: QuestionAttemptTimeLimit::Limited {
-                        seconds: 60,
-                        grace_seconds: 5,
-                    },
-                },
-                StoredBlueprintAssessmentEntry::Pool {
-                    question_revisions: pins,
-                    selection_count: 1,
-                    points_per_item: AssessmentPointValue::from_whole(2),
-                    scoring_rule: AssessmentEntryScoringRule::Normal,
-                    selection_rule: QuestionPoolSelectionRule {
-                        selected_question_order: QuestionPoolSelectedQuestionOrder::RandomOrder,
-                    },
-                    question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
-                    question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-                },
-            ],
-        };
-        StoredBlueprintCourseContent {
-            modules: vec![StoredBlueprintModule {
-                blueprint_module_reference: BlueprintModuleReference::from_uuid(Uuid::from_u128(1)),
-                label: "Topic".into(),
-                assessments: [2, 3]
-                    .into_iter()
-                    .map(|id| StoredBlueprintAssessment {
-                        blueprint_assessment_reference: BlueprintAssessmentReference::from_uuid(
-                            Uuid::from_u128(id),
-                        ),
-                        content: content.clone(),
-                    })
-                    .collect(),
-            }],
-        }
-    }
-
-    #[test]
-    fn adoption_requires_a_real_immutable_pool_producer() {
-        assert!(matches!(
-            materialize(&fixture()),
-            Err(StoreError::InvalidRecord(message))
-                if message == "Blueprint Pool adoption requires an immutable source Pool Revision"
-        ));
-    }
 }

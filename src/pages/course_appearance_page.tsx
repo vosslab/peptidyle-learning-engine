@@ -3,6 +3,7 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from "solid-js";
 
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
+import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { CourseBannerAlternativeText } from "../../generated/api/CourseBannerAlternativeText";
 import type { CourseTheme } from "../../generated/api/CourseTheme";
 import { useApplicationApi } from "../api/application_api";
@@ -64,7 +65,7 @@ function ThemePalettePreview(props: { readonly theme: CourseTheme }): JSX.Elemen
 }
 
 function AppearanceThemeEditor(props: {
-  readonly courseId: string;
+  readonly courseReference: CourseInstanceReference;
   readonly storedAppearance: () => CourseAppearanceView;
 }): JSX.Element {
   const applicationApi = useApplicationApi();
@@ -98,10 +99,10 @@ function AppearanceThemeEditor(props: {
     setSaveState("saving");
     setMessage("");
     try {
-      const saved = await applicationApi.client.updateCourseTheme(props.courseId, {
+      const saved = await applicationApi.client.updateCourseTheme(props.courseReference, {
         theme: selectedTheme(),
       });
-      replaceCourseAppearance(props.courseId, saved);
+      replaceCourseAppearance(props.courseReference, saved);
       presentAppearance?.(undefined);
       setSelectedTheme(saved.theme);
       setThemeDraftDirty(false);
@@ -184,7 +185,7 @@ function BannerImage(props: {
 }
 
 function AppearanceBannerEditor(props: {
-  readonly courseId: string;
+  readonly courseReference: CourseInstanceReference;
   readonly courseLongName: string;
   readonly storedAppearance: () => CourseAppearanceView;
 }): JSX.Element {
@@ -266,12 +267,12 @@ function AppearanceBannerEditor(props: {
     setSaveState("saving");
     setMessage("");
     try {
-      const receipt = await applicationApi.client.uploadCourseBanner(props.courseId, image);
-      const saved = await applicationApi.client.setCourseBanner(props.courseId, {
+      const receipt = await applicationApi.client.uploadCourseBanner(props.courseReference, image);
+      const saved = await applicationApi.client.setCourseBanner(props.courseReference, {
         upload: receipt.upload,
         alternativeText: selectedAlternativeText(),
       });
-      replaceCourseAppearance(props.courseId, saved);
+      replaceCourseAppearance(props.courseReference, saved);
       clearLocalPreview();
       setFile(undefined);
       if (fileInput !== undefined) fileInput.value = "";
@@ -287,8 +288,8 @@ function AppearanceBannerEditor(props: {
     setSaveState("saving");
     setMessage("");
     try {
-      const saved = await applicationApi.client.removeCourseBanner(props.courseId);
-      replaceCourseAppearance(props.courseId, saved);
+      const saved = await applicationApi.client.removeCourseBanner(props.courseReference);
+      replaceCourseAppearance(props.courseReference, saved);
       setSaveState("saved");
       setMessage("Banner removed.");
     } catch {
@@ -468,9 +469,12 @@ export function CourseAppearancePage(): JSX.Element {
               <h1>Course Appearance</h1>
               <p>Choose the palette and banner used throughout this Course Instance.</p>
             </header>
-            <AppearanceThemeEditor courseId={summary.id} storedAppearance={appearance} />
+            <AppearanceThemeEditor
+              courseReference={summary.reference}
+              storedAppearance={appearance}
+            />
             <AppearanceBannerEditor
-              courseId={summary.id}
+              courseReference={summary.reference}
               courseLongName={summary.longName}
               storedAppearance={appearance}
             />

@@ -5,22 +5,22 @@ import test from "node:test";
 
 import { createHttpApiClient } from "../src/api/http_client.ts";
 import {
-  decodeAssignmentUnreleaseImpact,
-  decodeLiveAssignmentWorkspace,
-} from "../src/api/decoders/assignment_release.ts";
+  decodeAssessmentUnreleaseImpact,
+  decodeLiveAssessmentWorkspace,
+} from "../src/api/decoders/assessment_release.ts";
 import { createRecordingFetch } from "./http_client_test_support.mjs";
 
-const course = "C-1";
-const assignment = "A-2";
+const course = "CI7K3M2Q";
+const assessment = "A8H4N6P";
 
 function createdWorkspace(displayTimeZone = "America/Chicago") {
   return {
-    reference: assignment,
+    reference: assessment,
     editNumber: "1",
     status: "unreleased",
     source: {
-      blueprint_revision: { reference: "BP-1", revision: "1" },
-      blueprint_assignment_reference: "00000000-0000-0000-0000-000000000011",
+      blueprint_revision: { reference: "BP7K3M2Q", revision: "1" },
+      blueprint_assessment_reference: "00000000-0000-0000-0000-000000000011",
     },
     title: "Peptide bonds",
     instructions: "",
@@ -28,18 +28,18 @@ function createdWorkspace(displayTimeZone = "America/Chicago") {
     availableAt: null,
     closesAt: null,
     lateWorkRule: "reject",
-    assignmentAttemptTimeLimitSeconds: null,
+    assessmentAttemptTimeLimitSeconds: null,
     attemptLimit: null,
     activityRules: {
-      assignmentCompletionRule: { kind: "answerAll" },
-      assignmentAttemptGradeRule: "latest",
-      assignmentAttemptContinuationRule: { kind: "closed" },
+      assessmentCompletionRule: { kind: "answerAll" },
+      assessmentAttemptGradeRule: "latest",
+      assessmentAttemptContinuationRule: { kind: "closed" },
       questionPoolReuseRule: "selectAgain",
       questionVariationRule: "newVariation",
-      assignmentAttemptResumeRule: "resumable",
-      assignmentQuestionDisplayRule: "allQuestions",
-      assignmentNavigationRule: "freeNavigation",
-      assignmentQuestionOrderRule: "authoredOrder",
+      assessmentAttemptResumeRule: "resumable",
+      assessmentQuestionDisplayRule: "allQuestions",
+      assessmentNavigationRule: "freeNavigation",
+      assessmentQuestionOrderRule: "authoredOrder",
     },
     studentFeedbackReleaseRule: {
       score: "never",
@@ -90,7 +90,7 @@ function createdWorkspace(displayTimeZone = "America/Chicago") {
   };
 }
 
-test("Assignment Workspace accepts exact browser-supported zones and rejects invalid names", async () => {
+test("Assessment Workspace accepts exact browser-supported zones and rejects invalid names", async () => {
   const validFetch = createRecordingFetch(
     async () =>
       new Response(JSON.stringify(createdWorkspace("UTC")), {
@@ -105,8 +105,8 @@ test("Assignment Workspace accepts exact browser-supported zones and rejects inv
 
   const created = await createHttpApiClient({
     fetch: validFetch.recordingFetch,
-  }).createLiveAssignment(course, {
-    blueprintAssignmentReference: "00000000-0000-0000-0000-000000000011",
+  }).createLiveAssessment(course, {
+    blueprintAssessmentReference: "00000000-0000-0000-0000-000000000011",
     title: "Peptide bonds",
     instructions: "",
   });
@@ -125,8 +125,8 @@ test("Assignment Workspace accepts exact browser-supported zones and rejects inv
   );
 
   await assert.rejects(
-    createHttpApiClient({ fetch: invalidFetch.recordingFetch }).createLiveAssignment(course, {
-      blueprintAssignmentReference: "00000000-0000-0000-0000-000000000011",
+    createHttpApiClient({ fetch: invalidFetch.recordingFetch }).createLiveAssessment(course, {
+      blueprintAssessmentReference: "00000000-0000-0000-0000-000000000011",
       title: "Peptide bonds",
       instructions: "",
     }),
@@ -134,7 +134,7 @@ test("Assignment Workspace accepts exact browser-supported zones and rejects inv
   );
 });
 
-test("Assignment creation uses the Course Instance assignment boundary", async () => {
+test("Assessment creation uses the Course Instance Assessment boundary", async () => {
   const { recordingFetch, requests } = createRecordingFetch(
     async () =>
       new Response(JSON.stringify(createdWorkspace()), {
@@ -147,26 +147,26 @@ test("Assignment creation uses the Course Instance assignment boundary", async (
       }),
   );
 
-  await createHttpApiClient({ fetch: recordingFetch }).createLiveAssignment(course, {
-    blueprintAssignmentReference: "00000000-0000-0000-0000-000000000011",
+  await createHttpApiClient({ fetch: recordingFetch }).createLiveAssessment(course, {
+    blueprintAssessmentReference: "00000000-0000-0000-0000-000000000011",
     title: "Peptide bonds",
     instructions: "",
   });
 
   assert.equal(requests[0].method, "POST");
-  assert.equal(new URL(requests[0].url).pathname, "/api/course-instances/C-1/assignments");
+  assert.equal(new URL(requests[0].url).pathname, "/api/course-instances/CI7K3M2Q/assessments");
 });
 
-test("current Assignment workspace retains exact source and normalized fixed and pool pins", () => {
-  const workspace = decodeLiveAssignmentWorkspace(createdWorkspace());
-  assert.equal(workspace.source.blueprint_revision.reference, "BP-1");
+test("current Assessment workspace retains exact source and normalized fixed and pool pins", () => {
+  const workspace = decodeLiveAssessmentWorkspace(createdWorkspace());
+  assert.equal(workspace.source.blueprint_revision.reference, "BP7K3M2Q");
   assert.equal(workspace.entries[0].kind, "fixedQuestion");
   assert.equal(workspace.entries[1].kind, "questionPool");
   assert.equal(workspace.entries[1].items[0].reference.questionId, "2R5X-Z7YA");
-  assert.throws(() => decodeLiveAssignmentWorkspace({ ...createdWorkspace(), revisionNumber: 1 }));
+  assert.throws(() => decodeLiveAssessmentWorkspace({ ...createdWorkspace(), revisionNumber: 1 }));
 });
 
-test("release returns the complete current Assignment and its replacement ETag", async () => {
+test("release returns the complete current Assessment and its replacement ETag", async () => {
   const released = { ...createdWorkspace(), status: "released", editNumber: "2" };
   const { recordingFetch, requests } = createRecordingFetch(
     async () =>
@@ -179,9 +179,9 @@ test("release returns the complete current Assignment and its replacement ETag",
         },
       }),
   );
-  const result = await createHttpApiClient({ fetch: recordingFetch }).releaseLiveAssignment(
+  const result = await createHttpApiClient({ fetch: recordingFetch }).releaseLiveAssessment(
     course,
-    assignment,
+    assessment,
     '"1"',
   );
   assert.equal(result.workspace.status, "released");
@@ -191,7 +191,7 @@ test("release returns the complete current Assignment and its replacement ETag",
   assert.equal(requests[0].headers.get("if-match"), '"1"');
 });
 
-test("release readiness uses the current direct Assignment validation boundary", async () => {
+test("release readiness uses the current direct Assessment validation boundary", async () => {
   const { recordingFetch, requests } = createRecordingFetch(
     async () =>
       new Response(
@@ -210,7 +210,7 @@ test("release readiness uses the current direct Assignment validation boundary",
 
   const validation = await createHttpApiClient({
     fetch: recordingFetch,
-  }).validateLiveAssignmentRelease(course, assignment);
+  }).validateLiveAssessmentRelease(course, assessment);
 
   assert.deepEqual(validation, {
     canRelease: false,
@@ -220,11 +220,11 @@ test("release readiness uses the current direct Assignment validation boundary",
   assert.equal(requests[0].method, "GET");
   assert.equal(
     new URL(requests[0].url).pathname,
-    "/api/course-instances/C-1/assignments/A-2/release-validation",
+    "/api/course-instances/CI7K3M2Q/assessments/A8H4N6P/release-validation",
   );
 });
 
-test("Unrelease uses aggregate-only impact, exact title, and a replacement Assignment ETag", async () => {
+test("Unrelease uses aggregate-only impact, exact title, and a replacement Assessment ETag", async () => {
   const released = { ...createdWorkspace(), status: "released", editNumber: "2" };
   const unreleased = { ...createdWorkspace(), status: "unreleased", editNumber: "3" };
   const impact = {
@@ -241,7 +241,7 @@ test("Unrelease uses aggregate-only impact, exact title, and a replacement Assig
         headers: { "cache-control": "no-store", "content-type": "application/json; charset=utf-8" },
       });
     }
-    return new Response(JSON.stringify({ assignment: unreleased, deleted: impact }), {
+    return new Response(JSON.stringify({ assessment: unreleased, deleted: impact }), {
       status: 200,
       headers: {
         "cache-control": "no-store",
@@ -251,15 +251,15 @@ test("Unrelease uses aggregate-only impact, exact title, and a replacement Assig
     });
   });
   const client = createHttpApiClient({ fetch: recordingFetch });
-  const loadedImpact = await client.getLiveAssignmentUnreleaseImpact(course, assignment);
+  const loadedImpact = await client.getLiveAssessmentUnreleaseImpact(course, assessment);
   assert.deepEqual(loadedImpact, impact);
-  const result = await client.unreleaseLiveAssignment(
+  const result = await client.unreleaseLiveAssessment(
     course,
-    assignment,
+    assessment,
     loadedImpact.confirmationTitle,
     '"2"',
   );
-  assert.equal(result.result.assignment.status, "unreleased");
+  assert.equal(result.result.assessment.status, "unreleased");
   assert.equal(result.result.deleted.submissionCount, 6);
   assert.equal(result.etag, '"3"');
   assert.equal(requests[0].method, "GET");
@@ -279,7 +279,7 @@ test("Unrelease impact refuses Student detail and unknown fields", () => {
     submissionCount: 6,
     gradeCount: 3,
   };
-  assert.equal(decodeAssignmentUnreleaseImpact(impact).attemptCount, 4);
-  assert.throws(() => decodeAssignmentUnreleaseImpact({ ...impact, studentId: "student-1" }));
-  assert.throws(() => decodeAssignmentUnreleaseImpact({ ...impact, response: "secret" }));
+  assert.equal(decodeAssessmentUnreleaseImpact(impact).attemptCount, 4);
+  assert.throws(() => decodeAssessmentUnreleaseImpact({ ...impact, studentId: "student-1" }));
+  assert.throws(() => decodeAssessmentUnreleaseImpact({ ...impact, response: "secret" }));
 });

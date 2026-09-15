@@ -130,9 +130,3 @@ source source_me.sh && python3 devel/<script>.py
 
 Run individual scripts with `--help` for current options. Keep command details
 in script help output instead of duplicating them here.
-
-`webwork_render_probe.py` captures one-time connected renderer evidence from
-explicit PG/PGML sources or a temporary M0 matrix. It writes its renderer
-envelopes, document, asset classification, one-grade-request comparisons, and
-machine-readable `findings.json` to the selected output directory. It does not
-provide a tracked question corpus or permanent test fixture.

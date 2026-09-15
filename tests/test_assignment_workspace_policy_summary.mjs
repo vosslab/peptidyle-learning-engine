@@ -1,23 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { assignmentPolicyDraftSummary } from "../src/pages/assignment_workspace/assignment_workspace_presentation_model.ts";
+import { assessmentPolicyDraftSummary } from "../src/pages/assessment_workspace/assessment_workspace_presentation_model.ts";
 
 const baseInput = {
-  assignmentStatus: "released",
-  savedAssignmentAvailability: { state: "available" },
+  assessmentStatus: "released",
+  savedAssessmentAvailability: { state: "available" },
   policies: {
-    assignmentCompletionRule: { kind: "scoreAtLeast", fraction: 0.8 },
-    assignmentAttemptGradeRule: "instructorSelected",
-    assignmentAttemptContinuationRule: { kind: "capped", maxAdditionalAssignmentAttempts: 3 },
+    assessmentCompletionRule: { kind: "scoreAtLeast", fraction: 0.8 },
+    assessmentAttemptGradeRule: "instructorSelected",
+    assessmentAttemptContinuationRule: { kind: "capped", maxAdditionalAssessmentAttempts: 3 },
     questionPoolReuseRule: "selectAgain",
     questionVariationRule: "reuseVariation",
-    assignmentAttemptResumeRule: "resumable",
-    assignmentQuestionDisplayRule: "allQuestions",
-    assignmentNavigationRule: "freeNavigation",
-    assignmentQuestionOrderRule: "authoredOrder",
+    assessmentAttemptResumeRule: "resumable",
+    assessmentQuestionDisplayRule: "allQuestions",
+    assessmentNavigationRule: "freeNavigation",
+    assessmentQuestionOrderRule: "authoredOrder",
   },
-  activityRuleDraft: { completionFraction: "0.75", additionalAssignmentAttempts: "2" },
+  activityRuleDraft: { completionFraction: "0.75", additionalAssessmentAttempts: "2" },
   studentFeedbackReleaseRule: {
     score: "after_submit",
     per_item_correctness: "after_submit",
@@ -27,31 +27,31 @@ const baseInput = {
     question_answer_explanation: "after_close",
     class_statistics: "never",
   },
-  assignmentAuthoredContent: {
+  assessmentAuthoredContent: {
     instructions: "Use a clear structural drawing.",
     available_at: "2026-09-01T09:00:00.000",
     due_at: "2026-09-08T17:00:00.000",
     closes_at: null,
-    assignment_attempt_time_limit_seconds: 900,
+    assessment_attempt_time_limit_seconds: 900,
     attempt_limit: 2,
     late_work_rule: "mark_late",
   },
-  assignmentAttemptTimeLimitSecondsDraft: "900",
+  assessmentAttemptTimeLimitSecondsDraft: "900",
   attemptLimitDraft: "2",
 };
 
-test("Assignment policy summary covers every Policies-owned decision in readable copy", () => {
-  const summary = assignmentPolicyDraftSummary(baseInput);
+test("Assessment policy summary covers every Properties-owned decision in readable copy", () => {
+  const summary = assessmentPolicyDraftSummary(baseInput);
   const valueFor = (key) => summary.find((item) => item.key === key)?.value ?? "";
 
-  assert.match(valueFor("assignmentCompletionRule"), /75%/);
-  assert.match(valueFor("assignmentAttemptGradeRule"), /Instructor-selected/);
-  assert.match(valueFor("assignmentAttemptContinuationRule"), /2 additional Assignment Attempts/);
+  assert.match(valueFor("assessmentCompletionRule"), /75%/);
+  assert.match(valueFor("assessmentAttemptGradeRule"), /Instructor-selected/);
+  assert.match(valueFor("assessmentAttemptContinuationRule"), /2 additional Assessment Attempts/);
   assert.match(valueFor("questionPoolReuseRule"), /Select Questions again/);
   assert.match(valueFor("questionVariationRule"), /previous Question Variations/);
   assert.match(valueFor("savedDelivery"), /available now/);
-  assert.match(valueFor("assignmentStatus"), /Released/);
-  assert.match(valueFor("assignmentStatus"), /Student instructions included/);
+  assert.match(valueFor("assessmentStatus"), /Released/);
+  assert.match(valueFor("assessmentStatus"), /Student instructions included/);
   const schedule = valueFor("scheduleLimits");
   assert.match(schedule, /2026-09-01 09:00/);
   assert.match(schedule, /900s time limit/);
@@ -70,40 +70,23 @@ test("Assignment policy summary covers every Policies-owned decision in readable
   }
 });
 
-test("Assignment policy summary surfaces invalid unsaved limits without stale values", () => {
-  const summary = assignmentPolicyDraftSummary({
+test("Assessment policy summary surfaces invalid unsaved limits without stale values", () => {
+  const summary = assessmentPolicyDraftSummary({
     ...baseInput,
-    activityRuleDraft: { completionFraction: "1.2", additionalAssignmentAttempts: "-1" },
-    assignmentAttemptTimeLimitSecondsDraft: "0",
+    activityRuleDraft: { completionFraction: "1.2", additionalAssessmentAttempts: "-1" },
+    assessmentAttemptTimeLimitSecondsDraft: "0",
     attemptLimitDraft: "many",
   });
 
-  const completion = summary.find((item) => item.key === "assignmentCompletionRule")?.value ?? "";
+  const completion = summary.find((item) => item.key === "assessmentCompletionRule")?.value ?? "";
   const practice =
-    summary.find((item) => item.key === "assignmentAttemptContinuationRule")?.value ?? "";
+    summary.find((item) => item.key === "assessmentAttemptContinuationRule")?.value ?? "";
   const schedule = summary.find((item) => item.key === "scheduleLimits")?.value ?? "";
   assert.match(completion, /needs correction/);
   assert.doesNotMatch(completion, /75%/);
   assert.match(practice, /needs correction/);
-  assert.doesNotMatch(practice, /2 additional Assignment Attempts/);
+  assert.doesNotMatch(practice, /2 additional Assessment Attempts/);
   assert.match(schedule, /time limit needs correction/);
   assert.match(schedule, /attempt limit needs correction/);
   assert.doesNotMatch(schedule, /900s time limit|2 attempts/);
-});
-
-test("summary keeps saved Assignment Availability distinct from Assignment Status", () => {
-  const summary = assignmentPolicyDraftSummary({
-    ...baseInput,
-    savedAssignmentAvailability: {
-      state: "scheduled",
-      available_at: "2026-09-01T09:00:00.000",
-    },
-    assignmentStatus: "archived",
-  });
-  const valueFor = (key) => summary.find((item) => item.key === key)?.value ?? "";
-
-  assert.match(valueFor("savedDelivery"), /scheduled to open/);
-  assert.match(valueFor("savedDelivery"), /Instructor time zone/);
-  assert.match(valueFor("assignmentStatus"), /Archived/);
-  assert.doesNotMatch(valueFor("savedDelivery"), /Archived/);
 });

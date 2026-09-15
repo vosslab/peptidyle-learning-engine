@@ -29,7 +29,7 @@ pub(super) fn assessment_values_json(input: &SaveLiveAssessmentInput) -> Result<
     Ok(json!({
         "assessment_title": input.title.as_str(), "assessment_instructions": input.instructions.as_str(),
         "available_at": Value::Null, "due_at": Value::Null, "closes_at": Value::Null,
-        "assessment_attempt_time_limit_seconds": input.assessment_attempt_time_limit_seconds.map(|value| value.get()), "attempt_limit": input.attempt_limit.map(|value| value.get()), "late_work_rule": late_work_rule(&input.late_work_rule),
+        "assessment_attempt_time_limit_seconds": input.assessment_attempt_time_limit_seconds.map(|value| value.get()), "assessment_attempt_limit": input.attempt_limit.map(|value| value.get()), "late_work_rule": late_work_rule(&input.late_work_rule),
         "assessment_completion_rule": activity[0], "assessment_completion_score_threshold": completion_threshold, "assessment_attempt_grade_rule": activity[1], "assessment_attempt_continuation_rule": activity[2], "max_additional_assessment_attempts": additional_attempts,
         "question_pool_reuse_rule": activity[3], "question_variation_rule": activity[4], "assessment_attempt_resume_rule": activity[5], "assessment_question_display_rule": activity[6], "assessment_navigation_rule": activity[7], "assessment_question_order_rule": activity[8],
         "feedback_score": feedback[0], "feedback_per_item_correctness": feedback[1], "feedback_submitted_response": feedback[2], "feedback_question_feedback": feedback[3], "feedback_question_answer": feedback[4], "feedback_question_answer_explanation": feedback[5], "feedback_class_statistics": feedback[6]
@@ -43,7 +43,7 @@ pub(super) fn base_assessment_policy_values_json(input: &SaveBaseAssessmentPolic
     let feedback = feedback_rule_values(&input.student_feedback_release_rule);
     json!({
         "assessment_instructions": input.instructions.as_str(), "available_at": Value::Null, "due_at": Value::Null, "closes_at": Value::Null,
-        "assessment_attempt_time_limit_seconds": input.assessment_attempt_time_limit_seconds.map(|value| value.get()), "attempt_limit": input.attempt_limit.map(|value| value.get()), "late_work_rule": late_work_rule(&input.late_work_rule),
+        "assessment_attempt_time_limit_seconds": input.assessment_attempt_time_limit_seconds.map(|value| value.get()), "assessment_attempt_limit": input.attempt_limit.map(|value| value.get()), "late_work_rule": late_work_rule(&input.late_work_rule),
         "assessment_completion_rule": activity[0], "assessment_completion_score_threshold": completion_threshold, "assessment_attempt_grade_rule": activity[1], "assessment_attempt_continuation_rule": activity[2], "max_additional_assessment_attempts": additional_attempts,
         "question_pool_reuse_rule": activity[3], "question_variation_rule": activity[4], "assessment_attempt_resume_rule": activity[5], "assessment_question_display_rule": activity[6], "assessment_navigation_rule": activity[7], "assessment_question_order_rule": activity[8],
         "feedback_score": feedback[0], "feedback_per_item_correctness": feedback[1], "feedback_submitted_response": feedback[2], "feedback_question_feedback": feedback[3], "feedback_question_answer": feedback[4], "feedback_question_answer_explanation": feedback[5], "feedback_class_statistics": feedback[6]

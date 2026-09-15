@@ -1,12 +1,11 @@
 // Question Library, course, and assessment browser-visible API DTOs.
 
 import type { AssessmentEntryAvailability } from "../../../generated/api/AssessmentEntryAvailability";
-import type { QuestionPoolItemAvailability } from "../../../generated/api/QuestionPoolItemAvailability";
 import type { FixedQuestionAssessmentEntrySummary as FixedQuestionAssessmentEntry } from "../../../generated/api/FixedQuestionAssessmentEntrySummary";
 import type { AssessmentEntrySummary } from "../../../generated/api/AssessmentEntrySummary";
 import type { AssessmentEntryScoringRule } from "../../../generated/api/AssessmentEntryScoringRule";
-import type { QuestionPoolItemSummary as QuestionPoolItem } from "../../../generated/api/QuestionPoolItemSummary";
 import type { QuestionPoolAssessmentEntrySummary as QuestionPoolAssessmentEntry } from "../../../generated/api/QuestionPoolAssessmentEntrySummary";
+import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
 import type { AssessmentSummary } from "../../../generated/api/AssessmentSummary";
 import type { QuestionStatistics } from "../../../generated/api/QuestionStatistics";
 import type { QuestionSearchResult } from "../../../generated/api/QuestionSearchResult";
@@ -26,11 +25,7 @@ import type { AssessmentPointValue } from "../../../generated/api/AssessmentPoin
 import type { AssessmentActivityRules } from "../../../generated/api/AssessmentActivityRules";
 import type { QuestionPoolSelectedQuestionOrder } from "../../../generated/api/QuestionPoolSelectedQuestionOrder";
 import type { QuestionPoolSelectionRule } from "../../../generated/api/QuestionPoolSelectionRule";
-import type {
-  AssessmentContentInput,
-  AssessmentEditorEntryInput,
-  CourseRouteView,
-} from "../contracts";
+import type { AssessmentContentInput, AssessmentEditorEntryInput } from "../contracts";
 import {
   DecodeError,
   decodeArray,
@@ -63,6 +58,7 @@ import {
   decodeIdentifier,
   decodeQuestionMetadata,
   decodeQuestionId,
+  decodePositiveQuestionRevisionNumber,
   decodeTimestamp,
   field,
   kind,
@@ -75,7 +71,6 @@ import {
   decodeQuestionContentBlock,
 } from "./question_model";
 import { decodeStudentFeedbackReleaseRule } from "./assessment_policy";
-import { decodeCourseAppearanceView } from "./course_appearance";
 import { decodeQuestionSearchFacets } from "./question_type_facets";
 
 // Reuse the Question Library course import surface while course-term owns its decoding rules.
@@ -484,15 +479,6 @@ export function decodeCourseSummary(value: unknown, path = "response"): CourseSu
   return decoded;
 }
 
-export function decodeCourseRouteView(value: unknown, path: string): CourseRouteView {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["summary", "appearance"]);
-  return {
-    summary: decodeCourseSummary(field(record, "summary", path), `${path}.summary`),
-    appearance: decodeCourseAppearanceView(field(record, "appearance", path), `${path}.appearance`),
-  };
-}
-
 function decodeAssessmentPointValue(value: unknown, path: string): AssessmentPointValue {
   const decoded = decodeString(value, path);
   if (!/^(?:0|[1-9][0-9]{0,9})(?:\.[0-9]{1,4})?$/u.test(decoded)) {
@@ -704,36 +690,21 @@ export function decodeAssessmentContentInput(
   };
 }
 
-function decodeQuestionPoolItem(value: unknown, path: string): QuestionPoolItem {
+function decodeQuestionPoolRevisionReference(
+  value: unknown,
+  path: string,
+): QuestionPoolRevisionReference {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, [
-    "id",
-    "questionId",
-    "questionTitle",
-    "backend",
-    "capabilities",
-    "availability",
-  ]);
+  requireOnlyFields(record, path, ["questionPoolId", "revisionNumber"]);
   return {
-    id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
-    questionTitle: decodeQuestionTitle(
-      field(record, "questionTitle", path),
-      `${path}.questionTitle`,
+    questionPoolId: decodeQuestionId(
+      field(record, "questionPoolId", path),
+      `${path}.questionPoolId`,
     ),
-    backend: decodeStringEnum(field(record, "backend", path), `${path}.backend`, [
-      "ple",
-      "webwork",
-      "imathas",
-    ]),
-    capabilities: decodeQuestionBackendCapabilities(
-      field(record, "capabilities", path),
-      `${path}.capabilities`,
+    revisionNumber: decodePositiveQuestionRevisionNumber(
+      field(record, "revisionNumber", path),
+      `${path}.revisionNumber`,
     ),
-    availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
-      "available",
-      "retired",
-    ] as const satisfies ReadonlyArray<QuestionPoolItemAvailability>),
   };
 }
 
@@ -760,6 +731,7 @@ function decodeQuestionPoolAssessmentEntry(
   requireOnlyFields(record, path, [
     "kind",
     "id",
+    "questionPoolRevision",
     "availability",
     "scoringRule",
     "selectionCount",
@@ -767,10 +739,13 @@ function decodeQuestionPoolAssessmentEntry(
     "selectionRule",
     "questionAttemptLimit",
     "questionAttemptTimeLimit",
-    "items",
   ]);
   return {
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
+    questionPoolRevision: decodeQuestionPoolRevisionReference(
+      field(record, "questionPoolRevision", path),
+      `${path}.questionPoolRevision`,
+    ),
     availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
       "available",
       "retired",
@@ -801,7 +776,6 @@ function decodeQuestionPoolAssessmentEntry(
       field(record, "questionAttemptTimeLimit", path),
       `${path}.questionAttemptTimeLimit`,
     ),
-    items: decodeArray(field(record, "items", path), `${path}.items`, decodeQuestionPoolItem),
   };
 }
 

@@ -10,7 +10,8 @@ use learning_data_access::{
     SessionLifetime, SysadminTotpSeed, SysadminTotpStore,
     postgres::{
         Pool, PostgresAccountAvatarStore, PostgresAccountTimeZoneStore,
-        PostgresAssessmentAttemptExpirySweepStore, PostgresAuthoringDraftStore,
+        PostgresAssessmentAttemptExpirySweepStore, PostgresAssessmentPoolForkStore,
+        PostgresAssessmentPoolSelectionCountStore, PostgresAuthoringDraftStore,
         PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
         PostgresBlueprintStewardshipStore, PostgresBulkPublishedQuestionMetadataStore,
         PostgresCourseBannerStore, PostgresCourseGradebookStore, PostgresCourseInstanceStore,
@@ -21,11 +22,10 @@ use learning_data_access::{
         PostgresLiveAssessmentStore, PostgresLiveStudentCourseLandingStore,
         PostgresPublicAssetPublicationStore, PostgresQuestionAssetDeliveryStore,
         PostgresQuestionForkStore, PostgresQuestionLibraryStore, PostgresQuestionPoolCreationStore,
-        PostgresQuestionStarStore, PostgresQuestionWatchNotificationStore,
-        PostgresQuestionWatchStore, PostgresSessionStore, PostgresSupportCapabilityStore,
-        PostgresAssessmentPoolForkStore,
-        PostgresSysadminTotpStore, ProductionLoginProfile, SysadminTotpSeedKeyId,
-        SysadminTotpSeedKeyRing, local_development_pool, production_pool,
+        PostgresQuestionPoolLibraryStore, PostgresQuestionStarStore,
+        PostgresQuestionWatchNotificationStore, PostgresQuestionWatchStore, PostgresSessionStore,
+        PostgresSupportCapabilityStore, PostgresSysadminTotpStore, ProductionLoginProfile,
+        SysadminTotpSeedKeyId, SysadminTotpSeedKeyRing, local_development_pool, production_pool,
     },
 };
 use objects::{
@@ -92,13 +92,13 @@ pub async fn production_router_from_env() -> Result<Router> {
     let question_library_store = PostgresQuestionLibraryStore::new(pool.clone());
     let question_bulk_metadata = PostgresBulkPublishedQuestionMetadataStore::new(pool.clone());
     let question_pool_creation = PostgresQuestionPoolCreationStore::new(pool.clone());
+    let question_pool_library = PostgresQuestionPoolLibraryStore::new(pool.clone());
     let question_forks = PostgresQuestionForkStore::new(pool.clone());
     let question_stars = PostgresQuestionStarStore::new(pool.clone());
     let question_watches = PostgresQuestionWatchStore::new(pool.clone());
     let blueprint_courses = PostgresBlueprintCourseStore::new(pool.clone());
     let blueprint_lineage = PostgresBlueprintLineageStore::new(pool.clone());
     let blueprint_stewardship = PostgresBlueprintStewardshipStore::new(pool.clone());
-    let course_instances = PostgresCourseInstanceStore::new(pool.clone());
     let course_themes = PostgresCourseThemeStore::new(pool.clone());
     let course_banners = PostgresCourseBannerStore::new(pool.clone());
     let course_roster = PostgresCourseRosterStore::new(pool.clone());
@@ -111,6 +111,8 @@ pub async fn production_router_from_env() -> Result<Router> {
     let profile_time_zones = PostgresAccountTimeZoneStore::new(pool.clone());
     let assessments = PostgresLiveAssessmentStore::new(pool.clone());
     let assessment_pool_forks = PostgresAssessmentPoolForkStore::new(pool.clone());
+    let assessment_pool_selection_counts =
+        PostgresAssessmentPoolSelectionCountStore::new(pool.clone());
     let assessment_delivery = PostgresLiveAssessmentDeliveryStore::new(pool.clone());
     let question_asset_delivery = PostgresQuestionAssetDeliveryStore::new(pool.clone());
     let authoring_drafts = PostgresAuthoringDraftStore::new(pool.clone());
@@ -119,6 +121,8 @@ pub async fn production_router_from_env() -> Result<Router> {
     let webwork_adapter = webwork_adapter_from_env()?;
     let webwork_asset_proxy = webwork_asset_proxy_from_env()?;
     let question_id_issuer = question_id_issuer_from_env()?;
+    let course_instances = PostgresCourseInstanceStore::new(pool.clone())
+        .with_question_pool_id_issuer(Arc::new(question_id_issuer.clone()));
     let browser_boundary = production_browser_boundary_from_env()?;
     let session_config = production_session_config();
     let readiness_router = Router::new()
@@ -150,6 +154,13 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::author_content_dependency_assets::author_content_dependency_asset_router())
         .merge(crate::question_library::question_library_router(
             Arc::clone(&sessions),
+            question_library_store.clone(),
+            question_library_objects.clone(),
+            question_id_issuer.clone(),
+        ))
+        .merge(crate::question_pool_library::question_pool_library_router(
+            Arc::clone(&sessions),
+            question_pool_library,
             question_library_store.clone(),
             question_library_objects.clone(),
             question_id_issuer.clone(),
@@ -208,10 +219,11 @@ pub async fn production_router_from_env() -> Result<Router> {
         ))
         .merge(crate::course_instance::course_instance_router(
             Arc::clone(&sessions),
-            course_instances,
+            course_instances.clone(),
         ))
         .merge(crate::course_appearance::course_appearance_router(
             Arc::clone(&sessions),
+            course_instances,
             course_themes,
             course_banners,
             question_library_objects.clone(),
@@ -262,6 +274,12 @@ pub async fn production_router_from_env() -> Result<Router> {
             assessment_pool_forks,
             question_id_issuer.clone(),
         ))
+        .merge(
+            crate::assessment_pool_selection_count::assessment_pool_selection_count_router(
+                Arc::clone(&sessions),
+                assessment_pool_selection_counts,
+            ),
+        )
         .merge(crate::assessment_delivery::assessment_delivery_router(
             Arc::clone(&sessions),
             assessment_delivery,

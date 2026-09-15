@@ -61,6 +61,8 @@ pub mod question_content;
 /// Shared Question Library metadata, visibility, lineage, and browse projections.
 pub mod question_library;
 pub mod question_license;
+/// Browser-safe reusable published Question Pool library read models.
+pub mod question_pool_library;
 /// Immutable Question Revision acceptance facts.
 pub mod question_revision;
 mod question_search;
@@ -141,8 +143,8 @@ pub use crate::capability::{
     QuestionBackendCapabilities,
 };
 pub use crate::course::{
-    AssessmentEntrySummary, AssessmentOverview, AssessmentSummary, CourseMembershipRole,
-    CourseSummary, FixedQuestionAssessmentEntrySummary, GradebookSummaryRow,
+    AssessmentEntrySummary, AssessmentOverview, AssessmentSummary, CourseInstanceRouteSummary,
+    CourseMembershipRole, CourseSummary, FixedQuestionAssessmentEntrySummary, GradebookSummaryRow,
     QuestionPoolAssessmentEntrySummary, StudentAssessmentDelivery, StudentAssessmentDetail,
     StudentAssessmentLandingSummary, StudentLateWorkStatus,
 };
@@ -228,6 +230,10 @@ pub use crate::question_library::{
     QuestionTypeFacet, QuestionUseDetails, QuestionUseSummary,
 };
 pub use crate::question_license::QuestionLicense;
+pub use crate::question_pool_library::{
+    AssessmentQuestionPoolForkView, AssessmentQuestionPoolSelectionCountReceipt,
+    QuestionPoolLibrarySummary, QuestionPoolRevisionMemberView, QuestionPoolRevisionView,
+};
 pub use crate::question_revision::{
     MAX_QUESTION_REVISION_REASON_UNICODE_SCALARS, QuestionRevisionReason,
 };

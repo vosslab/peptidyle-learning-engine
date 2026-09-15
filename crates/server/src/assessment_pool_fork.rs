@@ -6,7 +6,10 @@ use axum::{
     Json, Router,
     body::to_bytes,
     extract::{Path, Request, State},
-    http::{HeaderMap, StatusCode, header::IF_MATCH},
+    http::{
+        HeaderMap, StatusCode,
+        header::{ETAG, IF_MATCH},
+    },
     response::{IntoResponse, Response},
     routing::{post, put},
 };
@@ -44,6 +47,14 @@ pub fn assessment_pool_fork_router(
     forks: PostgresAssessmentPoolForkStore,
     issuer: HmacQuestionIdIssuer,
 ) -> Router {
+    assessment_pool_fork_router_with_store(sessions, Arc::new(forks), issuer)
+}
+
+pub(crate) fn assessment_pool_fork_router_with_store(
+    sessions: Arc<learning_data_access::postgres::PostgresSessionStore>,
+    forks: Arc<dyn AssessmentPoolForkStore>,
+    issuer: HmacQuestionIdIssuer,
+) -> Router {
     Router::new()
         .route(
             "/api/course-instances/{course}/assessments/{assessment}/question-pool-forks",
@@ -55,7 +66,7 @@ pub fn assessment_pool_fork_router(
         )
         .with_state(RouteState {
             sessions,
-            forks: Arc::new(forks),
+            forks,
             issuer,
         })
 }
@@ -92,6 +103,7 @@ struct ImportedForkResponse {
     assessment_entry_id: AssessmentEntryId,
     question_pool_id: String,
     revision_number: u64,
+    assessment_edit_number: AssessmentEditNumber,
 }
 
 #[derive(Debug, Serialize)]
@@ -100,7 +112,7 @@ struct AppendedForkResponse {
     assessment_entry_id: AssessmentEntryId,
     revision_number: u64,
     metadata_etag: Uuid,
-    assessment_edit_number: u64,
+    assessment_edit_number: AssessmentEditNumber,
 }
 
 async fn import_fork(
@@ -109,6 +121,10 @@ async fn import_fork(
     request: Request,
 ) -> Response {
     let (course, assessment) = match refs(&course, &assessment) {
+        Some(value) => value,
+        None => return concealed(),
+    };
+    let expected_assessment_edit_number = match edit_header(request.headers()) {
         Some(value) => value,
         None => return concealed(),
     };
@@ -134,6 +150,7 @@ async fn import_fork(
             course,
             assessment,
             assessment_entry: AssessmentEntryId::from_uuid(Uuid::now_v7()),
+            expected_assessment_edit_number,
             fork_question_pool_id: Uuid::now_v7(),
             fork_public_question_pool_id,
             source_public_question_pool_id: source_public_question_pool_id.clone(),
@@ -149,7 +166,7 @@ async fn import_fork(
             .await
         {
             Ok(result) => {
-                return crate::auth::no_store(
+                let mut response = crate::auth::no_store(
                     (
                         StatusCode::CREATED,
                         Json(ImportedForkResponse {
@@ -159,10 +176,16 @@ async fn import_fork(
                                 .question_pool_id
                                 .to_string(),
                             revision_number: result.question_pool_revision.revision_number.get(),
+                            assessment_edit_number: result.assessment_edit_number,
                         }),
                     )
                         .into_response(),
                 );
+                if let Ok(header) = format!("\"{}\"", result.assessment_edit_number.value()).parse()
+                {
+                    response.headers_mut().insert(ETAG, header);
+                }
+                return response;
             }
             // The candidate entry and fork UUIDs are fresh, so the only expected
             // uniqueness race is the HMAC public Pool identity.
@@ -218,18 +241,24 @@ async fn append_fork_revision(
         )
         .await
     {
-        Ok(result) => crate::auth::no_store(
-            (
-                StatusCode::OK,
-                Json(AppendedForkResponse {
-                    assessment_entry_id: result.assessment_entry,
-                    revision_number: result.question_pool_revision_number.get(),
-                    metadata_etag: result.metadata_etag,
-                    assessment_edit_number: result.assessment_edit_number.value(),
-                }),
-            )
-                .into_response(),
-        ),
+        Ok(result) => {
+            let mut response = crate::auth::no_store(
+                (
+                    StatusCode::OK,
+                    Json(AppendedForkResponse {
+                        assessment_entry_id: result.assessment_entry,
+                        revision_number: result.question_pool_revision_number.get(),
+                        metadata_etag: result.metadata_etag,
+                        assessment_edit_number: result.assessment_edit_number,
+                    }),
+                )
+                    .into_response(),
+            );
+            if let Ok(header) = format!("\"{}\"", result.assessment_edit_number.value()).parse() {
+                response.headers_mut().insert(ETAG, header);
+            }
+            response
+        }
         Err(error) => store_error(error),
     }
 }

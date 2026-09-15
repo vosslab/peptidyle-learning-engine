@@ -55,10 +55,7 @@ DECLARE
     source_content jsonb;
     source_entry jsonb;
     proposed_entry jsonb;
-    source_item jsonb;
-    proposed_item jsonb;
     entry_index integer;
-    item_index integer;
 BEGIN
     IF jsonb_typeof(p_assessments) IS DISTINCT FROM 'array' THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -159,6 +156,14 @@ BEGIN
                 IF proposed_entry ->> 'kind' <> 'question_pool'
                    OR proposed_entry ->> 'availability' <> 'available'
                    OR proposed_entry ->> 'authoredPosition' <> entry_index::text
+                   OR proposed_entry ->> 'sourceQuestionPoolId' IS DISTINCT FROM
+                        replace(source_entry #>> '{question_pool_revision,questionPoolId}', '-', '')
+                   OR proposed_entry ->> 'sourceQuestionPoolRevisionNumber' IS DISTINCT FROM
+                        source_entry #>> '{question_pool_revision,revisionNumber}'
+                   OR proposed_entry ->> 'forkQuestionPoolId' !~*
+                        '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+                   OR proposed_entry ->> 'forkPublicQuestionPoolId' !~
+                        '^[0-9A-HJKMNP-TV-Z]{8}$'
                    OR proposed_entry ->> 'selectionCount' IS DISTINCT FROM source_entry ->> 'selection_count'
                    OR proposed_entry ->> 'pointsPerItem' IS DISTINCT FROM source_entry ->> 'points_per_item'
                    OR proposed_entry ->> 'scoringRule' IS DISTINCT FROM (CASE (source_entry ->> 'scoring_rule')
@@ -172,26 +177,10 @@ BEGIN
                    OR proposed_entry ->> 'questionAttemptTimeLimitSeconds' IS DISTINCT FROM
                         source_entry #>> '{question_attempt_time_limit,seconds}'
                    OR proposed_entry ->> 'questionAttemptGraceSeconds' IS DISTINCT FROM
-                        source_entry #>> '{question_attempt_time_limit,graceSeconds}'
-                   OR jsonb_typeof(proposed_entry -> 'items') <> 'array'
-                   OR jsonb_array_length(proposed_entry -> 'items') <> jsonb_array_length(source_entry -> 'question_revisions') THEN
+                        source_entry #>> '{question_attempt_time_limit,graceSeconds}' THEN
                     RAISE EXCEPTION USING ERRCODE = '22023',
                         MESSAGE = 'Blueprint Question Pool differs from its exact Revision';
                 END IF;
-                FOR source_item, item_index IN
-                    SELECT value, ordinality::integer - 1
-                      FROM jsonb_array_elements(source_entry -> 'question_revisions') WITH ORDINALITY
-                LOOP
-                    proposed_item := proposed_entry -> 'items' -> item_index;
-                    IF proposed_item ->> 'availability' <> 'available'
-                       OR proposed_item ->> 'itemPosition' <> item_index::text
-                       OR proposed_item ->> 'questionId' IS DISTINCT FROM
-                            replace(source_item ->> 'questionId', '-', '')
-                       OR proposed_item ->> 'revisionNumber' IS DISTINCT FROM source_item ->> 'revisionNumber' THEN
-                        RAISE EXCEPTION USING ERRCODE = '22023',
-                            MESSAGE = 'Blueprint Question Pool pin differs from its exact Revision';
-                    END IF;
-                END LOOP;
             ELSE
                 RAISE EXCEPTION USING ERRCODE = '22023',
                     MESSAGE = 'Blueprint Assessment Entry is invalid';
@@ -208,8 +197,11 @@ RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE
     member jsonb;
+    entry_json jsonb;
     candidate ple_data.assessment%ROWTYPE;
     new_assessment_id uuid;
+    source_question_pool_id uuid;
+    forked record;
 BEGIN
     IF EXISTS (SELECT 1 FROM ple_data.assessment WHERE course_id = p_course_id)
        OR jsonb_typeof(p_assessments) IS DISTINCT FROM 'array' THEN
@@ -289,7 +281,68 @@ BEGIN
             candidate.feedback_question_answer_explanation,
             candidate.feedback_class_statistics
         );
-        PERFORM ple_data.replace_assessment_entries(new_assessment_id, member -> 'entries');
+        -- Fixed entries have no child lineage and can use the ordinary guarded
+        -- entry writer. Pool entries are created below through their distinct
+        -- immutable fork boundary; a normal save may never attach a published Pool.
+        PERFORM ple_data.replace_assessment_entries(
+            new_assessment_id,
+            COALESCE(
+                (
+                    SELECT jsonb_agg(value ORDER BY ordinality)
+                      FROM jsonb_array_elements(member -> 'entries') WITH ORDINALITY
+                     WHERE value ->> 'kind' = 'fixed_question'
+                ),
+                '[]'::jsonb
+            )
+        );
+        FOR entry_json IN
+            SELECT value FROM jsonb_array_elements(member -> 'entries')
+             WHERE value ->> 'kind' = 'question_pool'
+        LOOP
+            SELECT pool.question_pool_id INTO source_question_pool_id
+             FROM ple_data.question_pool AS pool
+             WHERE pool.public_question_pool_id = entry_json ->> 'sourceQuestionPoolId';
+            IF NOT FOUND THEN
+                RAISE EXCEPTION USING ERRCODE = '22023',
+                    MESSAGE = 'Blueprint Question Pool source is unavailable';
+            END IF;
+            SELECT * INTO forked FROM ple_data.fork_question_pool_revision_for_course_adoption(
+                (entry_json ->> 'forkQuestionPoolId')::uuid,
+                entry_json ->> 'forkPublicQuestionPoolId',
+                source_question_pool_id,
+                (entry_json ->> 'sourceQuestionPoolRevisionNumber')::bigint
+            );
+            IF (entry_json ->> 'selectionCount')::integer > (
+                SELECT member_count FROM ple_data.question_pool_revision
+                 WHERE question_pool_id = forked.question_pool_id AND revision_number = 1
+            ) THEN
+                RAISE EXCEPTION USING ERRCODE = '22023',
+                    MESSAGE = 'Blueprint Question Pool selection exceeds fork member count';
+            END IF;
+            INSERT INTO ple_data.assessment_entry (
+                assessment_entry_id, assessment_id, authored_position, entry_kind, availability,
+                scoring_rule, question_pool_id, question_pool_revision_number, selection_count,
+                points_per_item, selected_question_order, question_attempt_limit,
+                question_attempt_time_limit_seconds, question_attempt_grace_seconds
+            ) VALUES (
+                (entry_json ->> 'assessmentEntryId')::uuid, new_assessment_id,
+                (entry_json ->> 'authoredPosition')::integer, 'question_pool', 'available',
+                entry_json ->> 'scoringRule', forked.question_pool_id, 1,
+                (entry_json ->> 'selectionCount')::integer,
+                (entry_json ->> 'pointsPerItem')::numeric,
+                entry_json ->> 'selectedQuestionOrder',
+                NULLIF(entry_json ->> 'questionAttemptLimit', '')::integer,
+                NULLIF(entry_json ->> 'questionAttemptTimeLimitSeconds', '')::integer,
+                NULLIF(entry_json ->> 'questionAttemptGraceSeconds', '')::integer
+            );
+            INSERT INTO ple_data.assessment_question_pool_fork (
+                assessment_entry_id, assessment_id, question_pool_id,
+                origin_question_pool_revision_number
+            ) VALUES (
+                (entry_json ->> 'assessmentEntryId')::uuid, new_assessment_id,
+                forked.question_pool_id, 1
+            );
+        END LOOP;
     END LOOP;
 END
 $$;

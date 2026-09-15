@@ -53,6 +53,6 @@ python3 -m local_stack_control.disposable_stack_command assert-live-demo-absent 
 # The non-enumerating boundary remains public-facing when the fixed Demo Course
 # is omitted. The reference is never an ambient caller input.
 source "$repository_root/tests/e2e/e2e_live_demo_assignment_helpers.sh"
-assert_concealed "$(request '/api/course-instances/C-1')"
+assert_concealed "$(request '/api/course-instances/CI7K3M2Q')"
 
 echo "installation-data E2E: PASS"

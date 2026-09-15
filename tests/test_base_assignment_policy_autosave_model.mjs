@@ -2,15 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  allBaseAssignmentPolicyEditsPersisted,
-  baseAssignmentPolicyDraftChanged,
-  baseAssignmentPolicyReloaded,
-  baseAssignmentPolicyRequest,
-  baseAssignmentPolicyRetry,
-  baseAssignmentPolicySaveError,
-  baseAssignmentPolicySaveSucceeded,
-  createBaseAssignmentPolicyAutosaveState,
-} from "../src/pages/assignment_workspace/base_assignment_policy_autosave_model.ts";
+  allBaseAssessmentPolicyEditsPersisted,
+  baseAssessmentPolicyDraftChanged,
+  baseAssessmentPolicyReloaded,
+  baseAssessmentPolicyRequest,
+  baseAssessmentPolicyRetry,
+  baseAssessmentPolicySaveError,
+  baseAssessmentPolicySaveSucceeded,
+  createBaseAssessmentPolicyAutosaveState,
+} from "../src/pages/assessment_workspace/base_assessment_policy_autosave_model.ts";
 
 const draft = {
   instructions: "Read carefully.",
@@ -18,18 +18,18 @@ const draft = {
   availableAt: null,
   closesAt: null,
   lateWorkRule: "reject",
-  assignmentAttemptTimeLimitSeconds: 60,
+  assessmentAttemptTimeLimitSeconds: 60,
   attemptLimit: null,
   activityRules: {
-    assignmentCompletionRule: { kind: "answerAll" },
-    assignmentAttemptGradeRule: "highest",
-    assignmentAttemptContinuationRule: { kind: "unlimited" },
+    assessmentCompletionRule: { kind: "answerAll" },
+    assessmentAttemptGradeRule: "highest",
+    assessmentAttemptContinuationRule: { kind: "unlimited" },
     questionPoolReuseRule: "reuseSelection",
     questionVariationRule: "newVariation",
-    assignmentAttemptResumeRule: "resumable",
-    assignmentQuestionDisplayRule: "oneQuestionAtATime",
-    assignmentNavigationRule: "freeNavigation",
-    assignmentQuestionOrderRule: "authoredOrder",
+    assessmentAttemptResumeRule: "resumable",
+    assessmentQuestionDisplayRule: "oneQuestionAtATime",
+    assessmentNavigationRule: "freeNavigation",
+    assessmentQuestionOrderRule: "authoredOrder",
   },
   studentFeedbackReleaseRule: {
     score: "afterSubmit",
@@ -42,106 +42,106 @@ const draft = {
   },
 };
 
-test("Base Assignment Policy invalid drafts remain visible and block Release", () => {
-  const invalid = baseAssignmentPolicyDraftChanged(
-    createBaseAssignmentPolicyAutosaveState(draft),
+test("Base Assessment Policy invalid drafts remain visible and block Release", () => {
+  const invalid = baseAssessmentPolicyDraftChanged(
+    createBaseAssessmentPolicyAutosaveState(draft),
     { ...draft, attemptLimit: 0 },
     false,
   );
   assert.equal(invalid.persistence, "invalid");
-  assert.equal(allBaseAssignmentPolicyEditsPersisted(invalid), false);
+  assert.equal(allBaseAssessmentPolicyEditsPersisted(invalid), false);
   assert.equal(invalid.inFlightSeq, undefined);
 });
 
-test("Base Assignment Policy coalesces a later valid draft behind one request", () => {
-  const saving = baseAssignmentPolicyDraftChanged(
-    createBaseAssignmentPolicyAutosaveState(draft),
+test("Base Assessment Policy coalesces a later valid draft behind one request", () => {
+  const saving = baseAssessmentPolicyDraftChanged(
+    createBaseAssessmentPolicyAutosaveState(draft),
     draft,
     true,
   );
   const laterDraft = { ...draft, instructions: "Updated." };
-  const later = baseAssignmentPolicyDraftChanged(saving, laterDraft, true);
+  const later = baseAssessmentPolicyDraftChanged(saving, laterDraft, true);
   assert.equal(later.persistence, "saving");
   assert.equal(later.inFlightSeq, saving.inFlightSeq);
   assert.equal(later.pending.instructions, "Updated.");
-  assert.equal(allBaseAssignmentPolicyEditsPersisted(later), false);
-  const next = baseAssignmentPolicySaveSucceeded(later, saving.inFlightSeq, draft, true);
+  assert.equal(allBaseAssessmentPolicyEditsPersisted(later), false);
+  const next = baseAssessmentPolicySaveSucceeded(later, saving.inFlightSeq, draft, true);
   assert.equal(next.persistence, "saving");
-  assert.equal(baseAssignmentPolicyRequest(next)?.input.instructions, "Updated.");
-  const saved = baseAssignmentPolicySaveSucceeded(next, next.inFlightSeq, laterDraft, true);
+  assert.equal(baseAssessmentPolicyRequest(next)?.input.instructions, "Updated.");
+  const saved = baseAssessmentPolicySaveSucceeded(next, next.inFlightSeq, laterDraft, true);
   assert.equal(saved.persistence, "saved");
 });
 
 test("stale success retains a newer visible draft and stays unsaved", () => {
-  const saving = baseAssignmentPolicyDraftChanged(
-    createBaseAssignmentPolicyAutosaveState(draft),
+  const saving = baseAssessmentPolicyDraftChanged(
+    createBaseAssessmentPolicyAutosaveState(draft),
     draft,
     true,
   );
-  const later = baseAssignmentPolicyDraftChanged(
+  const later = baseAssessmentPolicyDraftChanged(
     saving,
     { ...draft, instructions: "Newer." },
     true,
   );
-  const stale = baseAssignmentPolicySaveSucceeded(later, saving.inFlightSeq + 1, draft, true);
+  const stale = baseAssessmentPolicySaveSucceeded(later, saving.inFlightSeq + 1, draft, true);
   assert.equal(stale, later);
   assert.equal(stale.draft.instructions, "Newer.");
   assert.equal(stale.persistence, "saving");
 });
 
 test("success while the visible draft is invalid advances accepted state but remains invalid", () => {
-  const saving = baseAssignmentPolicyDraftChanged(
-    createBaseAssignmentPolicyAutosaveState(draft),
+  const saving = baseAssessmentPolicyDraftChanged(
+    createBaseAssessmentPolicyAutosaveState(draft),
     draft,
     true,
   );
-  const invalid = baseAssignmentPolicyDraftChanged(saving, { ...draft, attemptLimit: 0 }, false);
-  const result = baseAssignmentPolicySaveSucceeded(invalid, saving.inFlightSeq, draft, false);
+  const invalid = baseAssessmentPolicyDraftChanged(saving, { ...draft, attemptLimit: 0 }, false);
+  const result = baseAssessmentPolicySaveSucceeded(invalid, saving.inFlightSeq, draft, false);
   assert.equal(result.persistence, "invalid");
   assert.equal(result.lastAccepted.instructions, draft.instructions);
-  assert.equal(allBaseAssignmentPolicyEditsPersisted(result), false);
+  assert.equal(allBaseAssessmentPolicyEditsPersisted(result), false);
 });
 
 test("a rejected save retains the visible draft and a later edit sends normally", () => {
-  const saving = baseAssignmentPolicyDraftChanged(
-    createBaseAssignmentPolicyAutosaveState(draft),
+  const saving = baseAssessmentPolicyDraftChanged(
+    createBaseAssessmentPolicyAutosaveState(draft),
     draft,
     true,
   );
-  const rejected = baseAssignmentPolicySaveError(saving, saving.inFlightSeq, "rejected");
+  const rejected = baseAssessmentPolicySaveError(saving, saving.inFlightSeq, "rejected");
   assert.equal(rejected.persistence, "rejected");
-  const edited = baseAssignmentPolicyDraftChanged(
+  const edited = baseAssessmentPolicyDraftChanged(
     rejected,
     { ...draft, instructions: "Revised." },
     true,
   );
-  assert.equal(baseAssignmentPolicyRequest(edited)?.input.instructions, "Revised.");
+  assert.equal(baseAssessmentPolicyRequest(edited)?.input.instructions, "Revised.");
 });
 
 test("a failed save retries the current visible draft", () => {
-  const saving = baseAssignmentPolicyDraftChanged(
-    createBaseAssignmentPolicyAutosaveState(draft),
+  const saving = baseAssessmentPolicyDraftChanged(
+    createBaseAssessmentPolicyAutosaveState(draft),
     draft,
     true,
   );
-  const edited = baseAssignmentPolicyDraftChanged(
+  const edited = baseAssessmentPolicyDraftChanged(
     saving,
     { ...draft, instructions: "Current." },
     true,
   );
-  const failed = baseAssignmentPolicySaveError(edited, saving.inFlightSeq, "failed");
-  const retried = baseAssignmentPolicyRetry(failed, true);
-  assert.equal(baseAssignmentPolicyRequest(retried)?.input.instructions, "Current.");
+  const failed = baseAssessmentPolicySaveError(edited, saving.inFlightSeq, "failed");
+  const retried = baseAssessmentPolicyRetry(failed, true);
+  assert.equal(baseAssessmentPolicyRequest(retried)?.input.instructions, "Current.");
 });
 
 test("a conflict retains the draft until reload replaces it with server state", () => {
-  const saving = baseAssignmentPolicyDraftChanged(
-    createBaseAssignmentPolicyAutosaveState(draft),
+  const saving = baseAssessmentPolicyDraftChanged(
+    createBaseAssessmentPolicyAutosaveState(draft),
     { ...draft, instructions: "Local." },
     true,
   );
-  const conflict = baseAssignmentPolicySaveError(saving, saving.inFlightSeq, "conflict");
-  const reloaded = baseAssignmentPolicyReloaded(conflict, { ...draft, instructions: "Server." });
+  const conflict = baseAssessmentPolicySaveError(saving, saving.inFlightSeq, "conflict");
+  const reloaded = baseAssessmentPolicyReloaded(conflict, { ...draft, instructions: "Server." });
   assert.equal(conflict.persistence, "conflict");
   assert.equal(conflict.draft.instructions, "Local.");
   assert.equal(reloaded.persistence, "saved");

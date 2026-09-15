@@ -1,12 +1,12 @@
-// test_assignment_attempt_response_state.mjs - exact-position save eligibility regressions.
+// test_assessment_attempt_response_state.mjs - exact-position save eligibility regressions.
 
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AssignmentAttemptResponseState } from "../src/pages/assignment_attempt_response_state.ts";
+import { AssessmentAttemptResponseState } from "../src/pages/assessment_attempt_response_state.ts";
 
 test("a delayed Question validation cannot make another Question response saveable", () => {
-  const state = new AssignmentAttemptResponseState();
+  const state = new AssessmentAttemptResponseState();
   const questionOne = { kind: "shortText", text: "first" };
   const questionTwo = { kind: "shortText", text: "second" };
 
@@ -23,7 +23,7 @@ test("a delayed Question validation cannot make another Question response saveab
 });
 
 test("a rejected format retains raw input but keeps it ineligible for save", () => {
-  const state = new AssignmentAttemptResponseState();
+  const state = new AssessmentAttemptResponseState();
   const rawBlankNumeric = { kind: "numeric", value: Number.NaN };
   const revision = state.edit(1, rawBlankNumeric);
 

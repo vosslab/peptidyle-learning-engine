@@ -16,6 +16,7 @@ import { createCourseInstanceClient } from "./http_client/course_instance";
 import { createLiveCourseRosterClient } from "./http_client/course_roster";
 import { createLiveInvitationExportClient } from "./http_client/invitation_export";
 import { createLiveAssessmentReleaseClient } from "./http_client/assessment_release";
+import { createAssessmentPoolForkClient } from "./http_client/assessment_pool_fork";
 import { createLiveAssessmentAttemptIssuanceClient } from "./http_client/assessment_attempt_issuance";
 import { createStudentAssessmentAttemptHistoryClient } from "./http_client/assessment_attempt_history";
 import { createStudentAssessmentAttemptNavigationClient } from "./http_client/assessment_attempt_navigation";
@@ -25,6 +26,7 @@ import { createLiveStudentCourseLandingClient } from "./http_client/live_student
 import { createQuestionAvailabilityClient } from "./http_client/question_availability";
 import { createQuestionWatchClient } from "./http_client/question_watch";
 import { createQuestionStarClient } from "./http_client/question_star";
+import { createQuestionPoolLibraryClient } from "./http_client/question_pool_library";
 
 export {
   ApiProtocolError,
@@ -52,6 +54,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createLiveCourseRosterClient(fetchImplementation, basePath),
     createLiveInvitationExportClient(fetchImplementation, basePath),
     createLiveAssessmentReleaseClient(fetchImplementation, basePath),
+    createAssessmentPoolForkClient(fetchImplementation, basePath),
     createLiveAssessmentAttemptIssuanceClient(fetchImplementation, basePath),
     createStudentAssessmentAttemptHistoryClient(fetchImplementation, basePath),
     createStudentAssessmentAttemptNavigationClient(fetchImplementation, basePath),
@@ -61,6 +64,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createQuestionAvailabilityClient(fetchImplementation, basePath),
     createQuestionWatchClient(fetchImplementation, basePath),
     createQuestionStarClient(fetchImplementation, basePath),
+    createQuestionPoolLibraryClient({ fetch: fetchImplementation, basePath }),
     responses,
     requests,
   );

@@ -20,9 +20,7 @@ import type {
 } from "./contracts";
 import {
   resolveAssessmentAttemptIdentity,
-  resolveCourseIdentity,
   type ResolvedAssessmentAttemptIdentity,
-  type ResolvedCourseIdentity,
 } from "../navigation/resolved_route";
 import type {
   AssessmentAttemptRouteReference,
@@ -46,7 +44,7 @@ export interface ApplicationApi<Client extends ApiClient = ApiClient> {
     readonly assessments: QueryFunction<[CourseId], CursorPage<StudentAssessmentLandingSummary>>;
     readonly assessment: QueryFunction<[AssessmentId], StudentAssessmentDetail>;
     readonly assessmentSummary: QueryFunction<[AssessmentId], StudentAssessmentProgress>;
-    readonly courseScope: QueryFunction<[CourseId], CourseRouteView>;
+    readonly courseScope: QueryFunction<[CourseInstanceRouteReference], CourseRouteView>;
     readonly assessmentAttemptHistory: QueryFunction<
       [AssessmentAttemptRouteReference],
       StudentAssessmentAttemptHistory
@@ -56,8 +54,6 @@ export interface ApplicationApi<Client extends ApiClient = ApiClient> {
       [AssessmentAttemptRouteReference],
       StudentAssessmentAttemptContext
     >;
-    /** Public-reference keyed scope identity; not an authorization result. */
-    readonly resolveCourse: QueryFunction<[CourseInstanceRouteReference], ResolvedCourseIdentity>;
     /** Public-reference keyed attempt scope identity; not an authorization result. */
     readonly resolveAssessmentAttempt: QueryFunction<
       [AssessmentAttemptRouteReference],
@@ -94,12 +90,12 @@ export function createApplicationApi<Client extends ApiClient>(
         (assessmentId: AssessmentId) => client.getAssessmentSummary(assessmentId),
         "assessment-summary",
       ),
-      courseScope: query(async (courseId: CourseId) => {
+      courseScope: query(async (reference: CourseInstanceRouteReference) => {
         const [summary, appearance] = await Promise.all([
-          client.getCourse(courseId),
-          client.getCourseAppearanceView(courseId),
+          client.getCourseInstanceRouteSummary(reference),
+          client.getCourseAppearanceView(reference),
         ]);
-        if (summary.id !== courseId) {
+        if (summary.reference !== reference) {
           throw new Error("Course scope response does not match the requested course");
         }
         return { summary, appearance };
@@ -113,10 +109,6 @@ export function createApplicationApi<Client extends ApiClient>(
         (reference: AssessmentAttemptRouteReference) =>
           client.getStudentAssessmentAttemptContext(reference),
         "assessment-attempt-scope",
-      ),
-      resolveCourse: query(
-        (reference: CourseInstanceRouteReference) => resolveCourseIdentity(client, reference),
-        "resolve-course",
       ),
       resolveAssessmentAttempt: query(
         (reference: AssessmentAttemptRouteReference) =>

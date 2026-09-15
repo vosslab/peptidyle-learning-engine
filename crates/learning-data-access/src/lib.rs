@@ -10,6 +10,7 @@ mod account_time_zone;
 mod assessment_attempt;
 mod assessment_delivery;
 mod assessment_pool_fork;
+mod assessment_pool_selection_count;
 mod assessment_release;
 mod attempt_expiry;
 mod authentication_ceremony;
@@ -36,6 +37,7 @@ mod question_bulk_metadata;
 mod question_fork;
 mod question_library;
 mod question_pool_creation;
+mod question_pool_library;
 mod question_source;
 mod question_star;
 mod question_watch;
@@ -78,6 +80,9 @@ pub use assessment_delivery::{
 pub use assessment_pool_fork::{
     AppendAssessmentPoolForkRevisionInput, AppendedAssessmentPoolForkRevision,
     AssessmentPoolForkStore, ImportAssessmentPoolForkInput, ImportedAssessmentPoolFork,
+};
+pub use assessment_pool_selection_count::{
+    AssessmentPoolSelectionCountInput, AssessmentPoolSelectionCountStore,
 };
 pub use assessment_release::{
     AssessmentPreview, AssessmentQuestionPickerEntry, AssessmentReleaseIssue,
@@ -127,8 +132,9 @@ pub use course_banner::{
     StageCourseBannerUpload, StagedCourseBannerUpload,
 };
 pub use course_instance::{
-    CourseCreationInstructor, CourseInstanceCreationSource, CourseInstanceStore,
-    CourseInstanceSummary, CourseInstanceView, CreateCourseInstanceInput, CreatedCourseInstance,
+    CourseCreationInstructor, CourseInstanceCreationSource, CourseInstancePoolIdIssuer,
+    CourseInstanceStore, CourseInstanceSummary, CourseInstanceView, CreateCourseInstanceInput,
+    CreatedCourseInstance,
 };
 pub use course_roster::{
     ClaimedCourseInvitation, CourseRosterEntry, CourseRosterEntryState, CourseRosterImportEntry,
@@ -190,6 +196,9 @@ pub use question_library::{
 pub use question_pool_creation::{
     CreateQuestionPoolError, CreateQuestionPoolInput, CreatedQuestionPool,
     QuestionPoolCreationStore,
+};
+pub use question_pool_library::{
+    AssessmentQuestionPoolForkRecord, PublishedQuestionPoolRevision, QuestionPoolLibraryStore,
 };
 pub use question_source::{
     DraftQuestionEditNumber, DraftQuestionPublicationSourceStore, DraftQuestionSourceBindingInput,

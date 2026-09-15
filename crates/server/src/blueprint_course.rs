@@ -32,8 +32,8 @@ use question_model::{
     BlueprintCourseView, BlueprintMetadataEtag, BlueprintMetadataState, BlueprintModuleView,
     BlueprintRevision, BlueprintRevisionReference, CreateBlueprintCourseInput, QuestionId,
     QuestionRevisionReference, QuestionSearchResult, RenameBlueprintCourseInput,
-    ReplaceBlueprintCourseContentInput, RequestChecksum, ReusablePoolView,
-    ReusableQuestionPoolItemView, ReusableQuestionView, ReusableSelectionAvailability,
+    ReplaceBlueprintCourseContentInput, RequestChecksum, ReusablePoolView, ReusableQuestionView,
+    ReusableSelectionAvailability,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -579,13 +579,11 @@ fn content_question_revisions(
         .iter()
         .flat_map(|module| module.assessments.iter())
         .flat_map(|assessment| assessment.content.entries.iter())
-        .flat_map(|entry| match entry {
+        .filter_map(|entry| match entry {
             StoredBlueprintAssessmentEntry::Fixed {
                 question_revision, ..
-            } => std::slice::from_ref(question_revision).iter(),
-            StoredBlueprintAssessmentEntry::Pool {
-                question_revisions, ..
-            } => question_revisions.iter(),
+            } => Some(question_revision),
+            StoredBlueprintAssessmentEntry::Pool { .. } => None,
         })
         .cloned()
         .collect()
@@ -617,7 +615,7 @@ fn assessment_content_view(
                 question_attempt_time_limit: *question_attempt_time_limit,
             }),
             StoredBlueprintAssessmentEntry::Pool {
-                question_revisions,
+                question_pool_revision,
                 selection_count,
                 points_per_item,
                 scoring_rule,
@@ -625,18 +623,7 @@ fn assessment_content_view(
                 question_attempt_limit,
                 question_attempt_time_limit,
             } => Ok(BlueprintAssessmentEntryView::Pool(ReusablePoolView {
-                items: question_revisions
-                    .iter()
-                    .map(|reference| {
-                        Ok(ReusableQuestionPoolItemView {
-                            question_library: question_search_result(reference, questions)?,
-                            selection_availability: selection_availability(
-                                reference,
-                                current_question_revisions,
-                            ),
-                        })
-                    })
-                    .collect::<Result<Vec<_>, RouteLoadError>>()?,
+                question_pool_revision: question_pool_revision.clone(),
                 selection_count: *selection_count,
                 points_per_item: *points_per_item,
                 scoring_rule: *scoring_rule,
@@ -715,16 +702,16 @@ fn valid_assessment_question_ids(
     issuer: &HmacQuestionIdIssuer,
     input: &question_model::BlueprintAssessmentContentInput,
 ) -> bool {
-    input
-        .entries
-        .iter()
-        .flat_map(|entry| match entry {
-            question_model::BlueprintAssessmentEntryInput::Fixed(value) => {
-                std::slice::from_ref(&value.question_id).iter()
-            }
-            question_model::BlueprintAssessmentEntryInput::Pool(value) => value.items.iter(),
-        })
-        .all(|question_id| issuer.validates_question_id(question_id))
+    input.entries.iter().all(|entry| match entry {
+        question_model::BlueprintAssessmentEntryInput::Fixed(value) => {
+            issuer.validates_question_id(&value.question_id)
+        }
+        // ASVS 2.2.1/2.2.2: validate the public Pool identity before the Store resolves
+        // its current published Revision.
+        question_model::BlueprintAssessmentEntryInput::Pool(value) => {
+            issuer.validates_question_id(&value.question_pool_id)
+        }
+    })
 }
 
 pub(super) fn parse_reference(value: &str) -> Result<BlueprintCourseReference, Box<Response>> {

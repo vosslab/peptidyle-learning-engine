@@ -2,14 +2,21 @@
 
 //! Connected PostgreSQL oracle for immutable Blueprint Revision persistence.
 
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
+};
 
 use learning_data_access::postgres::{
     PostgresBlueprintCourseStore, PostgresCourseInstanceStore, lazy_pool,
 };
 use learning_data_access::{
-    BlueprintCourseStore, CourseInstanceCreationSource, CourseInstanceStore,
-    CreateCourseInstanceInput, SessionTokenHash, StoreError, StoredBlueprintCourseContent,
+    BlueprintCourseStore, CourseInstanceCreationSource, CourseInstancePoolIdIssuer,
+    CourseInstanceStore, CreateCourseInstanceInput, SessionTokenHash, StoreError,
+    StoredBlueprintCourseContent,
 };
 use question_model::{
     AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
@@ -31,200 +38,6 @@ mod blueprint_course_postgres_support;
 use blueprint_course_postgres_support::*;
 #[path = "blueprint_course_postgres/adoption.rs"]
 mod blueprint_course_postgres_adoption;
-
-async fn authenticate_application_transaction(
-    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-) {
-    sqlx::query("SET LOCAL ROLE ple_auth")
-        .execute(&mut **transaction)
-        .await
-        .expect("authentication role");
-    let installed: Option<Uuid> = sqlx::query_scalar(
-        "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-    )
-    .bind(token().to_string())
-    .fetch_optional(&mut **transaction)
-    .await
-    .expect("session resolution");
-    assert_eq!(installed, Some(id(SESSION)), "fixture session installs");
-    sqlx::query("SET LOCAL ROLE ple_app")
-        .execute(&mut **transaction)
-        .await
-        .expect("application role");
-}
-
-async fn create(
-    url: &str,
-    blueprint_id: Uuid,
-    checksum: Vec<u8>,
-    content: &StoredBlueprintCourseContent,
-) -> (i64, i64) {
-    let mut connection = PgConnection::connect(url)
-        .await
-        .expect("application connection");
-    let mut transaction = connection.begin().await.expect("application transaction");
-    authenticate_application_transaction(&mut transaction).await;
-    let row = sqlx::query(
-        "SELECT reference_number, blueprint_revision_number \
-         FROM ple_api.create_blueprint_course($1, $2, 'REV-ACC', \
-              'Revision acceptance Blueprint', $3, $4)",
-    )
-    .bind(blueprint_id)
-    .bind(checksum)
-    .bind(serde_json::to_value(content).expect("content JSON"))
-    .bind(
-        content
-            .checksum()
-            .expect("content checksum")
-            .as_bytes()
-            .to_vec(),
-    )
-    .fetch_one(&mut *transaction)
-    .await
-    .expect("Blueprint creation");
-    transaction
-        .commit()
-        .await
-        .expect("Blueprint creation commit");
-    (
-        row.try_get("reference_number")
-            .expect("Blueprint reference"),
-        row.try_get("blueprint_revision_number")
-            .expect("Blueprint Revision"),
-    )
-}
-
-async fn save(
-    url: &str,
-    reference: i64,
-    expected_revision: i64,
-    checksum: Vec<u8>,
-    content: &StoredBlueprintCourseContent,
-) -> Result<(i64, bool), sqlx::Error> {
-    let mut connection = PgConnection::connect(url)
-        .await
-        .expect("application connection");
-    let mut transaction = connection.begin().await.expect("application transaction");
-    authenticate_application_transaction(&mut transaction).await;
-    let result = sqlx::query(
-        "SELECT resulting_blueprint_revision_number, changed \
-         FROM ple_api.save_blueprint_course($1, $2, $3, $4, $5)",
-    )
-    .bind(reference)
-    .bind(expected_revision)
-    .bind(checksum)
-    .bind(serde_json::to_value(content).expect("content JSON"))
-    .bind(
-        content
-            .checksum()
-            .expect("content checksum")
-            .as_bytes()
-            .to_vec(),
-    )
-    .fetch_one(&mut *transaction)
-    .await
-    .map(|row| {
-        (
-            row.try_get("resulting_blueprint_revision_number")
-                .expect("result Revision"),
-            row.try_get("changed").expect("change flag"),
-        )
-    });
-    match result {
-        Ok(value) => {
-            transaction.commit().await.expect("Blueprint Save commit");
-            Ok(value)
-        }
-        Err(error) => Err(error),
-    }
-}
-
-async fn transition_blueprint_availability(
-    url: &str,
-    reference: i64,
-    expected_metadata_etag: Uuid,
-    availability: &'static str,
-    archive_confirmation_long_name: Option<&str>,
-) -> Result<(BlueprintAvailability, Uuid), sqlx::Error> {
-    let mut connection = PgConnection::connect(url)
-        .await
-        .expect("Blueprint lifecycle application connection");
-    let mut transaction = connection
-        .begin()
-        .await
-        .expect("Blueprint lifecycle application transaction");
-    authenticate_application_transaction(&mut transaction).await;
-    let result = sqlx::query(
-        "SELECT availability, metadata_etag FROM ple_api.set_blueprint_availability($1, $2, $3, $4)",
-    )
-    .bind(reference)
-    .bind(expected_metadata_etag)
-    .bind(availability)
-    .bind(archive_confirmation_long_name)
-    .fetch_one(&mut *transaction)
-    .await
-    .map(|row| {
-        let availability = match row
-            .try_get::<String, _>("availability")
-            .expect("Blueprint lifecycle availability")
-            .as_str()
-        {
-            "private" => BlueprintAvailability::Private,
-            "public" => BlueprintAvailability::Public,
-            "archived" => BlueprintAvailability::Archived,
-            value => panic!("unexpected Blueprint lifecycle availability: {value}"),
-        };
-        (
-            availability,
-            row.try_get("metadata_etag")
-                .expect("Blueprint lifecycle metadata ETag"),
-        )
-    });
-    match result {
-        Ok(value) => {
-            transaction
-                .commit()
-                .await
-                .expect("Blueprint lifecycle transition commit");
-            Ok(value)
-        }
-        Err(error) => Err(error),
-    }
-}
-
-async fn near_now_term(url: &str) -> question_model::CourseTerm {
-    let mut connection = PgConnection::connect(url)
-        .await
-        .expect("term-clock connection");
-    let (starts_on, ends_on): (String, String) =
-        sqlx::query_as("SELECT current_date::text, (current_date + 1)::text")
-            .fetch_one(&mut connection)
-            .await
-            .expect("database current term dates");
-    question_model::CourseTerm::from_parts(&starts_on, &ends_on).expect("near-now Course term")
-}
-
-fn error_code(error: &sqlx::Error) -> Option<String> {
-    match error {
-        sqlx::Error::Database(database) => database.code().map(|code| code.into_owned()),
-        _ => None,
-    }
-}
-
-async fn assert_immutable_child(
-    connection: &mut PgConnection,
-    sql: &'static str,
-    reference: i64,
-    revision: i64,
-) {
-    let error = sqlx::query(sql)
-        .bind(reference)
-        .bind(revision)
-        .execute(&mut *connection)
-        .await
-        .expect_err("sealed Revision child mutation must fail");
-    assert_eq!(error_code(&error).as_deref(), Some("55000"));
-}
 
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
@@ -316,7 +129,8 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         BlueprintAvailability::Public
     );
     let instance_store =
-        PostgresCourseInstanceStore::new(lazy_pool(&application_url).expect("adoption pool"));
+        PostgresCourseInstanceStore::new(lazy_pool(&application_url).expect("adoption pool"))
+            .with_question_pool_id_issuer(Arc::new(FixturePoolIdIssuer(AtomicUsize::new(0))));
     let adoption_term = near_now_term(&application_url).await;
     let adopted = instance_store
         .create_course_instance(

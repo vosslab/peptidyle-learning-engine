@@ -76,9 +76,9 @@ course_reference() {
     python3 -c 'import json,re,sys
 items=json.loads(sys.argv[1]).get("items",[])
 values=[x.get("reference") for x in items if isinstance(x,dict)]
-valid=[x for x in values if isinstance(x,str) and re.fullmatch(r"C-[1-9][0-9]{0,9}",x)]
+valid=[x for x in values if isinstance(x,str) and re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}",x)]
 if not valid: raise SystemExit("Gradebook prerequisite lacks a Course Instance")
-print(max(valid,key=lambda x:int(x[2:])))' "$1"
+print(valid[0])' "$1"
 }
 
 concealed() {
@@ -96,7 +96,7 @@ path="/api/course-instances/$course/gradebook"
 concealed "$(request "$path")"
 concealed "$(request "$path" "$student_cookie")"
 concealed "$(request "$path" "$sysadmin_cookie")"
-concealed "$(request '/api/course-instances/C-2147483647/gradebook' "$instructor_cookie")"
+concealed "$(request '/api/course-instances/CI8H4N6P/gradebook' "$instructor_cookie")"
 
 received="$(request "$path" "$instructor_cookie")"
 [ "$(status "$received")" = 200 ] || { echo "Current Course Instructor could not read Gradebook" >&2; exit 1; }
@@ -108,23 +108,23 @@ rows=value["studentWork"]
 if not isinstance(rows,list) or not rows:
     raise SystemExit("Gradebook projection lacks active Student Work")
 for row in rows:
-    if set(row)!={"rosterId","assignmentReference","assignmentAttemptCompletion","expiredSubmitting","score"}:
+    if set(row)!={"rosterId","assessmentReference","assessmentAttemptCompletion","expiredSubmitting","score"}:
         raise SystemExit("Gradebook projection exposed an unapproved field")
     if not isinstance(row["rosterId"],str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}",row["rosterId"]):
         raise SystemExit("Gradebook roster projection is invalid")
-    if not isinstance(row["assignmentReference"],str) or not re.fullmatch(r"A-[1-9][0-9]{0,9}",row["assignmentReference"]):
-        raise SystemExit("Gradebook Assignment projection is invalid")
-    if row["assignmentAttemptCompletion"] not in (None,"inProgress","completed"):
-        raise SystemExit("Gradebook Assignment Attempt completion is invalid")
+    if not isinstance(row["assessmentReference"],str) or not re.fullmatch(r"A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}",row["assessmentReference"]):
+        raise SystemExit("Gradebook Assessment projection is invalid")
+    if row["assessmentAttemptCompletion"] not in (None,"inProgress","completed"):
+        raise SystemExit("Gradebook Assessment Attempt completion is invalid")
     if not isinstance(row["expiredSubmitting"],bool):
         raise SystemExit("Gradebook expiry projection is invalid")
     score=row["score"]
     if score is not None:
         if set(score)!={"pointsEarned","pointsPossible"} or not all(isinstance(score[k],(int,float)) and not isinstance(score[k],bool) for k in ("pointsEarned","pointsPossible")) or not 0 <= score["pointsEarned"] <= score["pointsPossible"]:
             raise SystemExit("Gradebook points projection is invalid")
-    if row["assignmentAttemptCompletion"] is None and (score is not None or row["expiredSubmitting"]):
+    if row["assessmentAttemptCompletion"] is None and (score is not None or row["expiredSubmitting"]):
         raise SystemExit("Gradebook not-started row exposes work totals")
-    if row["expiredSubmitting"] and (row["assignmentAttemptCompletion"] != "inProgress" or score is not None):
+    if row["expiredSubmitting"] and (row["assessmentAttemptCompletion"] != "inProgress" or score is not None):
         raise SystemExit("Gradebook expired submission projection is invalid")
 serialized=json.dumps(value).lower()
 if any(word in serialized for word in ("studentresponse","answerkey","sourceobject","checksum","grader")):

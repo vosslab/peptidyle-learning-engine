@@ -224,7 +224,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     ), released_assessment_attempt AS (
         SELECT owned.*,
                (
-                   owned.feedback_submitted_response = 'during_assessment_attempt'
+                   owned.feedback_submitted_response = 'during_attempt'
                    OR (owned.feedback_submitted_response = 'after_submit'
                        AND owned.assessment_submitted_at IS NOT NULL)
                    OR (owned.feedback_submitted_response = 'after_due'
@@ -235,7 +235,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                        AND pg_catalog.statement_timestamp() >= owned.closes_at)
                ) AS submitted_response_is_released,
                (
-                   owned.feedback_question_feedback = 'during_assessment_attempt'
+                   owned.feedback_question_feedback = 'during_attempt'
                    OR (owned.feedback_question_feedback = 'after_submit'
                        AND owned.assessment_submitted_at IS NOT NULL)
                    OR (owned.feedback_question_feedback = 'after_due'
@@ -244,7 +244,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                    OR (owned.feedback_question_feedback = 'after_close'
                        AND owned.closes_at IS NOT NULL
                        AND pg_catalog.statement_timestamp() >= owned.closes_at)
-                   OR owned.feedback_question_answer = 'during_assessment_attempt'
+                   OR owned.feedback_question_answer = 'during_attempt'
                    OR (owned.feedback_question_answer = 'after_submit'
                        AND owned.assessment_submitted_at IS NOT NULL)
                    OR (owned.feedback_question_answer = 'after_due'
@@ -253,7 +253,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                    OR (owned.feedback_question_answer = 'after_close'
                        AND owned.closes_at IS NOT NULL
                        AND pg_catalog.statement_timestamp() >= owned.closes_at)
-                   OR owned.feedback_question_answer_explanation = 'during_assessment_attempt'
+                   OR owned.feedback_question_answer_explanation = 'during_attempt'
                    OR (owned.feedback_question_answer_explanation = 'after_submit'
                        AND owned.assessment_submitted_at IS NOT NULL)
                    OR (owned.feedback_question_answer_explanation = 'after_due'

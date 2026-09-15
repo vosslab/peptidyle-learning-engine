@@ -9,6 +9,7 @@ import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import type { CourseId } from "../../generated/api/CourseId";
+import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import type { CourseThemeUpdate } from "../../generated/api/CourseThemeUpdate";
 import type { CourseBannerReference } from "../../generated/api/CourseBannerReference";
@@ -50,6 +51,7 @@ import type { CourseInstanceClient } from "./course_instance";
 import type { LiveCourseRosterClient } from "./course_roster";
 import type { LiveInvitationExportClient } from "./invitation_export";
 import type { LiveAssessmentReleaseClient } from "./assessment_release";
+import type { AssessmentPoolForkClient } from "./assessment_pool_fork";
 import type { LiveAssessmentAttemptIssuanceClient } from "./assessment_attempt_issuance";
 import type { StudentAssessmentAttemptHistoryClient } from "./assessment_attempt_history";
 import type { StudentAssessmentAttemptNavigationClient } from "./assessment_attempt_navigation";
@@ -59,6 +61,7 @@ import type { LiveStudentCourseLandingClient } from "./live_student_course_landi
 import type { QuestionAvailabilityClient } from "./question_availability";
 import type { QuestionWatchClient } from "./question_watch";
 import type { QuestionStarClient } from "./question_star";
+import type { QuestionPoolLibraryClient } from "./question_pool_library";
 /** Browser-safe client contract implemented by the current same-origin HTTP transport. */
 export interface ApiClient
   extends
@@ -67,6 +70,7 @@ export interface ApiClient
     LiveCourseRosterClient,
     LiveInvitationExportClient,
     LiveAssessmentReleaseClient,
+    AssessmentPoolForkClient,
     LiveAssessmentAttemptIssuanceClient,
     StudentAssessmentAttemptHistoryClient,
     StudentAssessmentAttemptNavigationClient,
@@ -75,7 +79,8 @@ export interface ApiClient
     LiveStudentCourseLandingClient,
     QuestionAvailabilityClient,
     QuestionWatchClient,
-    QuestionStarClient {
+    QuestionStarClient,
+    QuestionPoolLibraryClient {
   /** Reads only the authenticated Account's role-neutral Profile settings. */
   readonly getProfile: () => Promise<ProfileSettings>;
   /** Reads only the authenticated Account's Account Settings preference. */
@@ -112,26 +117,29 @@ export interface ApiClient
   /** Gets the safe immutable Question Details View, never a complete Question Revision. */
   readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
   readonly listCourses: (cursor?: string) => Promise<CursorPage<CourseSummary>>;
-  readonly getCourse: (courseId: CourseId) => Promise<CourseSummary>;
   /** Gets only the authorized current Course Appearance View. */
-  readonly getCourseAppearanceView: (courseId: CourseId) => Promise<CourseAppearanceView>;
+  readonly getCourseAppearanceView: (
+    courseReference: CourseInstanceReference,
+  ) => Promise<CourseAppearanceView>;
   /** Saves one independent Course Theme and returns the current aggregate appearance. */
   readonly updateCourseTheme: (
-    courseId: CourseId,
+    courseReference: CourseInstanceReference,
     update: CourseThemeUpdate,
   ) => Promise<CourseAppearanceView>;
   /** Stages raw verified banner bytes for this exact Instructor and Course. */
   readonly uploadCourseBanner: (
-    courseId: CourseId,
+    courseReference: CourseInstanceReference,
     image: Blob,
   ) => Promise<CourseBannerUploadReceipt>;
   /** Promotes one staged banner independently of the Course Theme. */
   readonly setCourseBanner: (
-    courseId: CourseId,
+    courseReference: CourseInstanceReference,
     update: CourseBannerUpdate,
   ) => Promise<CourseAppearanceView>;
   /** Removes only the current Course Banner. */
-  readonly removeCourseBanner: (courseId: CourseId) => Promise<CourseAppearanceView>;
+  readonly removeCourseBanner: (
+    courseReference: CourseInstanceReference,
+  ) => Promise<CourseAppearanceView>;
   readonly listAssessments: (
     courseId: CourseId,
     cursor?: string,

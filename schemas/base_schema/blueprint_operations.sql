@@ -1,0 +1,440 @@
+SET LOCAL ROLE ple_api_owner;
+
+CREATE FUNCTION ple_api.create_blueprint_course(
+    p_blueprint_id uuid, p_request_checksum bytea, p_short_name text, p_long_name text,
+    p_content jsonb, p_content_checksum bytea
+)
+RETURNS TABLE (
+    public_reference text, blueprint_revision_number bigint, metadata_etag uuid,
+    accepted_at timestamp with time zone
+)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private
+AS $$
+DECLARE
+    v_actor uuid;
+    v_now timestamp with time zone;
+    v_metadata_etag uuid;
+    v_reference_number bigint;
+BEGIN
+    IF p_blueprint_id IS NULL OR octet_length(p_request_checksum) <> 32
+       OR p_short_name IS NULL OR p_short_name <> btrim(p_short_name)
+       OR char_length(p_short_name) NOT BETWEEN 1 AND 500
+       OR p_long_name IS NULL OR p_long_name <> btrim(p_long_name)
+       OR char_length(p_long_name) NOT BETWEEN 1 AND 500
+       OR octet_length(p_content_checksum) <> 32
+       OR NOT ple_api.current_session_account_is_instructor() THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Blueprint Course creation is invalid';
+    END IF;
+    v_actor := ple_api.current_session_account_id();
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+        pg_catalog.format('ple:blueprint-course-create:%s:%s', v_actor,
+            pg_catalog.encode(p_request_checksum, 'hex')), 0));
+    SELECT course.public_reference, receipt.blueprint_revision_number,
+           receipt.metadata_etag, receipt.accepted_at
+      INTO public_reference, blueprint_revision_number, metadata_etag, accepted_at
+      FROM ple_data.blueprint_course_create_receipt AS receipt
+      JOIN ple_data.blueprint_course AS course
+        ON course.reference_number = receipt.blueprint_course_reference_number
+     WHERE receipt.actor_account_id = v_actor AND receipt.request_checksum = p_request_checksum;
+    IF FOUND THEN RETURN NEXT; RETURN; END IF;
+    PERFORM ple_data.validate_blueprint_content(p_content);
+    PERFORM ple_data.validate_blueprint_question_selection(NULL, NULL, p_content);
+    v_now := pg_catalog.clock_timestamp();
+    v_metadata_etag := pg_catalog.gen_random_uuid();
+    INSERT INTO ple_data.blueprint_course AS course (
+        blueprint_id, owner_account_id, short_name, long_name, metadata_etag, created_at
+    ) VALUES (
+        p_blueprint_id, v_actor, p_short_name, p_long_name, v_metadata_etag, v_now
+    ) RETURNING course.reference_number INTO v_reference_number;
+    blueprint_revision_number := 1;
+    INSERT INTO ple_data.blueprint_course_revision (
+        blueprint_course_reference_number, blueprint_revision_number,
+        content, content_checksum, saved_at
+    ) VALUES (
+        v_reference_number, blueprint_revision_number, p_content, p_content_checksum, v_now
+    );
+    INSERT INTO ple_data.blueprint_revision_question_pin
+    SELECT v_reference_number, blueprint_revision_number, pins.content_path,
+           pins.question_id, pins.question_revision_number
+      FROM ple_data.blueprint_content_question_pins(p_content) AS pins;
+    INSERT INTO ple_data.blueprint_revision_module
+    SELECT v_reference_number, blueprint_revision_number,
+           modules.blueprint_module_reference, modules.module_position
+      FROM ple_data.blueprint_content_modules(p_content) AS modules;
+    INSERT INTO ple_data.blueprint_revision_assessment
+    SELECT v_reference_number, blueprint_revision_number,
+           assessments.blueprint_module_reference,
+           assessments.blueprint_assessment_reference, assessments.assessment_position
+      FROM ple_data.blueprint_content_assessments(p_content) AS assessments;
+    INSERT INTO ple_data.blueprint_revision_event (
+        blueprint_course_reference_number, blueprint_revision_number, actor_account_id,
+        request_checksum, occurred_at
+    ) VALUES (
+        v_reference_number, blueprint_revision_number, v_actor, p_request_checksum, v_now
+    );
+    INSERT INTO ple_data.blueprint_metadata_event (
+        blueprint_course_reference_number, actor_account_id, short_name, long_name,
+        availability, metadata_etag, occurred_at
+    ) VALUES (
+        v_reference_number, v_actor, p_short_name, p_long_name,
+        'private', v_metadata_etag, v_now
+    );
+    INSERT INTO ple_data.blueprint_course_create_receipt
+    VALUES (
+        v_actor, p_request_checksum, v_reference_number, blueprint_revision_number,
+        v_metadata_etag, v_now
+    );
+    SELECT course.public_reference INTO public_reference
+      FROM ple_data.blueprint_course AS course
+     WHERE course.reference_number = v_reference_number;
+    metadata_etag := v_metadata_etag; accepted_at := v_now;
+    RETURN NEXT;
+END
+$$;
+
+CREATE FUNCTION ple_api.save_blueprint_course(
+    p_reference text, p_expected_blueprint_revision_number bigint,
+    p_request_checksum bytea, p_content jsonb, p_content_checksum bytea
+)
+RETURNS TABLE (
+    resulting_blueprint_revision_number bigint, changed boolean,
+    accepted_at timestamp with time zone
+)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private
+AS $$
+DECLARE
+    v_actor uuid;
+    v_course ple_data.blueprint_course%ROWTYPE;
+    v_prior ple_data.blueprint_course_revision%ROWTYPE;
+    v_now timestamp with time zone;
+    v_reference_number bigint;
+BEGIN
+    IF p_reference !~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+       OR p_expected_blueprint_revision_number <= 0
+       OR octet_length(p_request_checksum) <> 32
+       OR octet_length(p_content_checksum) <> 32
+       OR NOT ple_api.current_session_account_is_instructor() THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint Course Save is invalid';
+    END IF;
+    v_actor := ple_api.current_session_account_id();
+    SELECT course.reference_number INTO v_reference_number
+      FROM ple_data.blueprint_course AS course
+     WHERE course.public_reference = p_reference;
+    SELECT * INTO v_course
+      FROM ple_data.blueprint_course
+     WHERE reference_number = v_reference_number AND owner_account_id = v_actor
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Course is not available';
+    END IF;
+    SELECT receipt.resulting_blueprint_revision_number, receipt.changed, receipt.accepted_at
+      INTO resulting_blueprint_revision_number, changed, accepted_at
+      FROM ple_data.blueprint_course_save_receipt AS receipt
+     WHERE receipt.blueprint_course_reference_number = v_reference_number
+       AND receipt.actor_account_id = v_actor
+       AND receipt.request_checksum = p_request_checksum;
+    IF FOUND THEN RETURN NEXT; RETURN; END IF;
+    IF v_course.current_blueprint_revision_number
+       <> p_expected_blueprint_revision_number THEN
+        RAISE EXCEPTION USING ERRCODE = '40001',
+            MESSAGE = 'Blueprint Revision precondition is stale';
+    END IF;
+    PERFORM ple_data.validate_blueprint_content(p_content);
+    PERFORM ple_data.validate_blueprint_question_selection(
+        v_reference_number, p_expected_blueprint_revision_number, p_content
+    );
+    SELECT * INTO STRICT v_prior
+      FROM ple_data.blueprint_course_revision
+     WHERE blueprint_course_reference_number = v_reference_number
+       AND blueprint_revision_number = p_expected_blueprint_revision_number;
+    v_now := pg_catalog.clock_timestamp();
+    changed := v_prior.content IS DISTINCT FROM p_content
+        OR v_prior.content_checksum IS DISTINCT FROM p_content_checksum;
+    IF changed THEN
+        resulting_blueprint_revision_number := p_expected_blueprint_revision_number + 1;
+        INSERT INTO ple_data.blueprint_course_revision (
+            blueprint_course_reference_number, blueprint_revision_number,
+            content, content_checksum, saved_at
+        ) VALUES (
+            v_reference_number, resulting_blueprint_revision_number,
+            p_content, p_content_checksum, v_now
+        );
+        INSERT INTO ple_data.blueprint_revision_question_pin
+        SELECT v_reference_number, resulting_blueprint_revision_number, pins.content_path,
+               pins.question_id, pins.question_revision_number
+          FROM ple_data.blueprint_content_question_pins(p_content) AS pins;
+        INSERT INTO ple_data.blueprint_revision_module
+        SELECT v_reference_number, resulting_blueprint_revision_number,
+               modules.blueprint_module_reference, modules.module_position
+          FROM ple_data.blueprint_content_modules(p_content) AS modules;
+        INSERT INTO ple_data.blueprint_revision_assessment
+        SELECT v_reference_number, resulting_blueprint_revision_number,
+               assessments.blueprint_module_reference,
+               assessments.blueprint_assessment_reference, assessments.assessment_position
+          FROM ple_data.blueprint_content_assessments(p_content) AS assessments;
+        INSERT INTO ple_data.blueprint_revision_event (
+            blueprint_course_reference_number, blueprint_revision_number, actor_account_id,
+            request_checksum, occurred_at
+        ) VALUES (
+            v_reference_number, resulting_blueprint_revision_number,
+            v_actor, p_request_checksum, v_now
+        );
+        UPDATE ple_data.blueprint_course
+           SET current_blueprint_revision_number = resulting_blueprint_revision_number
+         WHERE reference_number = v_reference_number;
+    ELSE
+        resulting_blueprint_revision_number := p_expected_blueprint_revision_number;
+    END IF;
+    INSERT INTO ple_data.blueprint_course_save_receipt
+    VALUES (
+        v_reference_number, v_actor, p_request_checksum,
+        resulting_blueprint_revision_number, changed, v_now
+    );
+    accepted_at := v_now; RETURN NEXT;
+END
+$$;
+
+CREATE FUNCTION ple_api.rename_blueprint_course(
+    p_reference text, p_expected_metadata_etag uuid,
+    p_short_name text, p_long_name text
+)
+RETURNS TABLE (
+    short_name text, long_name text, availability text, metadata_etag uuid
+)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private
+AS $$
+DECLARE
+    v_actor uuid;
+    v_course ple_data.blueprint_course%ROWTYPE;
+    v_next uuid;
+    v_reference_number bigint;
+BEGIN
+    IF p_reference !~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+       OR p_expected_metadata_etag IS NULL
+       OR p_short_name IS NULL OR p_short_name <> btrim(p_short_name)
+       OR char_length(p_short_name) NOT BETWEEN 1 AND 500
+       OR p_long_name IS NULL OR p_long_name <> btrim(p_long_name)
+       OR char_length(p_long_name) NOT BETWEEN 1 AND 500
+       OR NOT ple_api.current_session_account_is_instructor() THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Blueprint Course rename is invalid';
+    END IF;
+    v_actor := ple_api.current_session_account_id();
+    SELECT course.reference_number INTO v_reference_number
+      FROM ple_data.blueprint_course AS course
+     WHERE course.public_reference = p_reference;
+    SELECT * INTO v_course FROM ple_data.blueprint_course
+     WHERE reference_number = v_reference_number AND owner_account_id = v_actor FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Course is not available';
+    END IF;
+    IF v_course.metadata_etag <> p_expected_metadata_etag THEN
+        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint metadata ETag is stale';
+    END IF;
+    IF v_course.short_name = p_short_name AND v_course.long_name = p_long_name THEN
+        RETURN QUERY SELECT v_course.short_name, v_course.long_name,
+            v_course.availability, v_course.metadata_etag;
+        RETURN;
+    END IF;
+    v_next := pg_catalog.gen_random_uuid();
+    UPDATE ple_data.blueprint_course AS course
+       SET short_name = p_short_name, long_name = p_long_name, metadata_etag = v_next
+     WHERE course.reference_number = v_reference_number;
+    INSERT INTO ple_data.blueprint_metadata_event (
+        blueprint_course_reference_number, actor_account_id, short_name, long_name,
+        availability, metadata_etag, occurred_at
+    ) VALUES (
+        v_reference_number, v_actor, p_short_name, p_long_name,
+        v_course.availability, v_next, pg_catalog.clock_timestamp()
+    );
+    RETURN QUERY SELECT p_short_name, p_long_name, v_course.availability, v_next;
+END
+$$;
+
+CREATE FUNCTION ple_api.set_blueprint_availability(
+    p_reference text, p_expected_metadata_etag uuid, p_availability text,
+    p_archive_confirmation_long_name text
+)
+RETURNS TABLE (
+    short_name text, long_name text, availability text, metadata_etag uuid
+)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private
+AS $$
+DECLARE
+    v_actor uuid;
+    v_course ple_data.blueprint_course%ROWTYPE;
+    v_next uuid;
+    v_reference_number bigint;
+BEGIN
+    IF p_reference !~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+       OR p_expected_metadata_etag IS NULL
+       OR p_availability NOT IN ('private', 'public', 'archived')
+       OR NOT ple_api.current_session_account_is_instructor() THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Blueprint availability change is invalid';
+    END IF;
+    v_actor := ple_api.current_session_account_id();
+    SELECT course.reference_number INTO v_reference_number
+      FROM ple_data.blueprint_course AS course
+     WHERE course.public_reference = p_reference;
+    SELECT * INTO v_course FROM ple_data.blueprint_course
+     WHERE reference_number = v_reference_number AND owner_account_id = v_actor FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Course is not available';
+    END IF;
+    IF v_course.metadata_etag <> p_expected_metadata_etag THEN
+        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint metadata ETag is stale';
+    END IF;
+    -- Reusable content advances through one directed lifecycle. A Public
+    -- lineage may become Private only before its first daughter Course
+    -- Instance; otherwise its adopted source remains Public. Every accepted
+    -- transition is recorded below as an immutable metadata event.
+    IF (v_course.availability = 'private' AND p_availability <> 'public')
+       OR (v_course.availability = 'public' AND p_availability = 'private'
+           AND EXISTS (
+               SELECT 1 FROM ple_data.course_instance AS adoption
+                WHERE adoption.blueprint_course_reference_number = v_reference_number
+           ))
+       OR (v_course.availability = 'public'
+           AND p_availability NOT IN ('private', 'archived'))
+       OR (v_course.availability = 'archived' AND p_availability <> 'public') THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'Blueprint lifecycle transition is not permitted';
+    END IF;
+    IF p_availability = 'archived'
+       AND p_archive_confirmation_long_name IS DISTINCT FROM v_course.long_name THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Archive Blueprint requires exact long name confirmation';
+    END IF;
+    IF v_course.availability = p_availability THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'Blueprint availability already has that state';
+    END IF;
+    v_next := pg_catalog.gen_random_uuid();
+    UPDATE ple_data.blueprint_course AS course
+       SET availability = p_availability, metadata_etag = v_next
+     WHERE course.reference_number = v_reference_number;
+    INSERT INTO ple_data.blueprint_metadata_event (
+        blueprint_course_reference_number, actor_account_id, short_name, long_name,
+        availability, metadata_etag, occurred_at
+    ) VALUES (
+        v_reference_number, v_actor, v_course.short_name, v_course.long_name,
+        p_availability, v_next, pg_catalog.clock_timestamp()
+    );
+    RETURN QUERY SELECT v_course.short_name, v_course.long_name, p_availability, v_next;
+END
+$$;
+
+CREATE FUNCTION ple_api.list_blueprint_courses()
+RETURNS TABLE (
+    public_reference text, short_name text, long_name text, availability text,
+    metadata_etag uuid, current_blueprint_revision_number bigint, is_owner boolean,
+    total_adoptions bigint, total_students_ever_enrolled bigint
+)
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private
+AS $$
+BEGIN
+    RETURN QUERY SELECT course.public_reference, course.short_name, course.long_name,
+           course.availability, course.metadata_etag,
+           course.current_blueprint_revision_number,
+           course.owner_account_id = ple_api.current_session_account_id(),
+           (SELECT count(*) FROM ple_data.course_instance AS adoption
+             WHERE adoption.blueprint_course_reference_number = course.reference_number),
+           (SELECT count(DISTINCT (membership.course_id, membership.account_id))
+              FROM ple_data.course_instance AS adoption
+              JOIN ple_data.course_membership AS membership ON membership.course_id = adoption.course_id
+             WHERE adoption.blueprint_course_reference_number = course.reference_number
+               AND membership.role = 'student')
+      FROM ple_data.blueprint_course AS course
+     WHERE ple_api.current_session_account_is_instructor()
+       AND (
+           course.owner_account_id = ple_api.current_session_account_id()
+           OR course.availability = 'public'
+       )
+     ORDER BY course.long_name, course.reference_number;
+END
+$$;
+
+CREATE FUNCTION ple_api.load_blueprint_course(p_reference text)
+RETURNS TABLE (
+    public_reference text, short_name text, long_name text, availability text,
+    metadata_etag uuid, current_blueprint_revision_number bigint,
+    content jsonb, content_checksum bytea, is_owner boolean
+)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private
+AS $$
+    SELECT course.public_reference, course.short_name, course.long_name,
+           course.availability, course.metadata_etag,
+           course.current_blueprint_revision_number,
+           revision.content, revision.content_checksum,
+           course.owner_account_id = ple_api.current_session_account_id()
+      FROM ple_data.blueprint_course AS course
+      JOIN ple_data.blueprint_course_revision AS revision
+        ON revision.blueprint_course_reference_number = course.reference_number
+       AND revision.blueprint_revision_number = course.current_blueprint_revision_number
+     WHERE p_reference ~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+       AND course.public_reference = p_reference
+       AND ple_api.current_session_account_is_instructor()
+       AND (
+           course.owner_account_id = ple_api.current_session_account_id()
+           OR course.availability IN ('public', 'archived')
+       )
+$$;
+
+-- Exact historical provenance remains resolvable after later Saves or archive.
+CREATE FUNCTION ple_api.load_blueprint_revision(
+    p_reference text, p_blueprint_revision_number bigint
+)
+RETURNS TABLE (
+    content jsonb, content_checksum bytea, saved_at timestamp with time zone
+)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private
+AS $$
+    SELECT revision.content, revision.content_checksum, revision.saved_at
+      FROM ple_data.blueprint_course_revision AS revision
+      JOIN ple_data.blueprint_course AS course
+        ON course.reference_number = revision.blueprint_course_reference_number
+     WHERE p_reference ~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+       AND p_blueprint_revision_number > 0
+       AND course.public_reference = p_reference
+       AND revision.blueprint_revision_number = p_blueprint_revision_number
+       AND ple_api.current_session_account_is_instructor()
+       AND (
+           course.owner_account_id = ple_api.current_session_account_id()
+           OR course.availability IN ('public', 'archived')
+       )
+$$;
+
+REVOKE ALL PRIVILEGES ON FUNCTION
+    ple_api.create_blueprint_course(uuid, bytea, text, text, jsonb, bytea),
+    ple_api.save_blueprint_course(text, bigint, bytea, jsonb, bytea),
+    ple_api.rename_blueprint_course(text, uuid, text, text),
+    ple_api.set_blueprint_availability(text, uuid, text, text),
+    ple_api.list_blueprint_courses(), ple_api.load_blueprint_course(text),
+    ple_api.load_blueprint_revision(text, bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION
+    ple_api.create_blueprint_course(uuid, bytea, text, text, jsonb, bytea),
+    ple_api.save_blueprint_course(text, bigint, bytea, jsonb, bytea),
+    ple_api.rename_blueprint_course(text, uuid, text, text),
+    ple_api.set_blueprint_availability(text, uuid, text, text),
+    ple_api.list_blueprint_courses(), ple_api.load_blueprint_course(text),
+    ple_api.load_blueprint_revision(text, bigint) TO ple_app;
+
+SET LOCAL ROLE ple_data_owner;
+
+COMMENT ON TABLE ple_data.blueprint_course IS
+    'Stable reusable Blueprint Course lineage with names, availability, metadata ETag, and current Revision.';
+COMMENT ON TABLE ple_data.blueprint_course_revision IS
+    'Immutable complete Blueprint Revision; exact references remain valid after later Saves or archive.';
+COMMENT ON TABLE ple_data.blueprint_revision_assessment IS
+    'Durable Blueprint Assessment identity and Revision membership retained for provenance and comparison.';
+
+RESET ROLE;

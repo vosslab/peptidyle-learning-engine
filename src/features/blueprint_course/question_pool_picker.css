@@ -1,0 +1,104 @@
+/* Published Question Pool picker: compact list-detail selection at desktop and narrow widths. */
+
+.question-pool-picker-dialog {
+  width: min(70rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-inset);
+  color: var(--ple-text);
+  background: var(--ple-card-surface);
+  box-shadow: var(--ple-shadow);
+}
+
+.question-pool-picker-dialog::backdrop {
+  background: rgb(13 29 46 / 0.58);
+}
+
+.question-pool-picker-header,
+.question-pool-picker-footer {
+  display: flex;
+  gap: var(--ple-layout-gap);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.question-pool-picker-header p {
+  max-width: 65ch;
+  color: var(--ple-muted);
+}
+
+.question-pool-picker-status {
+  min-height: 1.5rem;
+  color: var(--ple-muted);
+  font-weight: 650;
+}
+
+.question-pool-picker-layout {
+  display: grid;
+  grid-template-columns: minmax(16rem, 0.8fr) minmax(20rem, 1.2fr);
+  gap: var(--ple-section-gap);
+}
+
+.question-pool-picker-layout > section {
+  min-width: 0;
+  padding: var(--ple-panel-padding);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-inset);
+}
+
+.question-pool-picker-results,
+.question-pool-picker-members {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 var(--ple-layout-gap);
+  padding: 0;
+  list-style: none;
+}
+
+.question-pool-picker-results label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: start;
+  padding: 0.75rem;
+  border-radius: calc(var(--ple-radius-inset) - 0.2rem);
+  background: color-mix(in srgb, var(--ple-page-background) 50%, transparent);
+  cursor: pointer;
+}
+
+.question-pool-picker-results small,
+.question-pool-picker-members span {
+  display: block;
+  color: var(--ple-muted);
+}
+
+.question-pool-picker-members li {
+  padding-block: 0.5rem;
+  border-bottom: 1px solid var(--ple-border);
+}
+
+.question-pool-picker-footer {
+  align-items: center;
+  margin-top: var(--ple-section-gap);
+  padding-top: var(--ple-layout-gap);
+  border-top: 1px solid var(--ple-border);
+}
+
+@media (max-width: 48rem) {
+  .question-pool-picker-dialog {
+    width: calc(100vw - 1rem);
+    max-height: calc(100vh - 1rem);
+  }
+
+  .question-pool-picker-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .question-pool-picker-header,
+  .question-pool-picker-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

@@ -1,5 +1,12 @@
 # Design decisions
 
+<!-- VENDORED HEADER: START -->
+Record each durable decision about how this code and repository are shaped, once it is settled, with
+the reasoning a later reader needs. Guidance Neil Voss states belongs in
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), dated history in `docs/CHANGELOG.md`, open discussion in
+`docs/active_plans/decisions/`. [PROPAGATED HEADER - ENTRIES BELOW ARE YOURS]
+<!-- VENDORED HEADER: END -->
+
 This file records the durable rationale that supports
 [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md). Human Guidance is the authority for
 current product intent. Code, schemas, screenshots, tests, changelogs, and old
@@ -115,8 +122,8 @@ a specific Human Guidance-compatible need. Generic auditability is not enough.
 ### BiologyProblems.org algorithmic WeBWorK migration is forward-only
 
 **Decision.** Each BiologyProblems.org WeBWorK Problem family records one
-canonical algorithmic author source—an official PG/PGML file or its author
-generator—and exactly one canonical algorithmic PG/PGML file and normal
+canonical algorithmic author source-an official PG/PGML file or its author
+generator-and exactly one canonical algorithmic PG/PGML file and normal
 Published Question lineage. It replaces generated static variants, including
 the HLA family's 199 static variants. Algorithmic Questions ordinarily stand
 alone, though an Instructor may deliberately group distinct similar algorithms
@@ -568,6 +575,9 @@ receives that allowance. This narrow WASM exception replaces `connect-src
 For the closed `libraries: []` branch, the document instead has no runtime
 tags, `connect-src 'none'`, nonce-only `script-src`, and no `'unsafe-eval'`.
 
+**Why.** One reviewed local dependency keeps executable chemistry support inspectable,
+reproducible, and isolated from author-controlled or network-resolved runtime code.
+
 **Update workflow.** A review refreshes the current official release, license,
 integrity, and two reviewed file hashes from a clean download, checks browser
 compatibility and the isolated-frame behavior, then regenerates the local
@@ -595,6 +605,9 @@ non-assessment only?** The [H5P xAPI event documentation](https://h5p.org/docume
 and [contract documentation](https://h5p.org/documentation/developers/contracts), plus the
 [Lumi status record](https://github.com/Lumieducation/H5P-Nodejs-library/blob/master/docs/development/status.md),
 are the primary source references.
+
+**Why.** H5P combines third-party executable content with outcome reporting, so PLE needs exact
+supported content, dependency, and grading semantics before it can define a safe runtime boundary.
 
 **Consequence.** C870 removes all dormant H5P placeholder seams now. After a
 product answer only, C863-C869 may dispatch: immutable package/policy binding;
@@ -1056,6 +1069,9 @@ background processing because they must complete without a connected browser.
 Bounded asset preparation may use an operation-specific background mechanism.
 A generic worker framework does not authorize grading
 queues, recovery states, audit machinery, or compatibility jobs.
+
+**Why.** Expiry and retention obligations must complete without a connected browser, while other
+background mechanisms need their own demonstrated product requirement before adding durable state.
 
 ### Retention notification delivery is a separate least-privilege boundary
 

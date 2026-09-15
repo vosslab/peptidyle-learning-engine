@@ -2,13 +2,12 @@
 // RouteScopeProvider tests.
 
 import type { CourseRouteView } from "../../src/api/contracts";
-import type { StudentAssignmentAttemptContext } from "../../src/api/assignment_attempt_navigation";
-import type { StudentAssignmentAttemptHistory } from "../../src/api/assignment_attempt_history";
+import type { StudentAssessmentAttemptContext } from "../../src/api/assessment_attempt_navigation";
+import type { StudentAssessmentAttemptHistory } from "../../src/api/assessment_attempt_history";
 
 export function courseRouteData(reference: string): CourseRouteView {
   return {
     summary: {
-      id: `course-${reference}`,
       reference,
       shortName: `CRS ${reference}`,
       longName: `Course ${reference}: Molecular Biology`,
@@ -19,10 +18,10 @@ export function courseRouteData(reference: string): CourseRouteView {
   } satisfies CourseRouteView;
 }
 
-/** UUID-free display context for the live Student Assignment Attempt route. */
-export function assignmentAttemptContext(reference: string): StudentAssignmentAttemptContext {
+/** UUID-free display context for the live Student Assessment Attempt route. */
+export function assignmentAttemptContext(reference: string): StudentAssessmentAttemptContext {
   return {
-    assignmentAttempt: "R-1",
+    assessmentAttempt: "R-1",
     attemptNumber: 1,
     displayTimeZone: "America/Chicago",
     expiresAt: 1_768_507_200_000,
@@ -33,14 +32,14 @@ export function assignmentAttemptContext(reference: string): StudentAssignmentAt
       longName: `Course ${reference}: Molecular Biology`,
       theme: "grass",
     },
-    assignment: { reference: "A9D2RX5", title: "Assignment one" },
-  } satisfies StudentAssignmentAttemptContext;
+    assessment: { reference: "A9D2RX5", title: "Assessment one" },
+  } satisfies StudentAssessmentAttemptContext;
 }
 
 /** Complete direct-consumer record for an Attempt history route. */
-export function assignmentAttemptHistoryData(reference: string): StudentAssignmentAttemptHistory {
+export function assignmentAttemptHistoryData(reference: string): StudentAssessmentAttemptHistory {
   return {
-    assignmentAttempt: "R-1",
+    assessmentAttempt: "R-1",
     attemptNumber: 1,
     course: {
       reference,
@@ -48,8 +47,8 @@ export function assignmentAttemptHistoryData(reference: string): StudentAssignme
       longName: `Course ${reference}: Molecular Biology`,
       theme: "grass",
     },
-    assignment: { reference: "A9D2RX5", title: "Assignment one" },
+    assessment: { reference: "A9D2RX5", title: "Assessment one" },
     state: "submitted",
     questions: [],
-  } satisfies StudentAssignmentAttemptHistory;
+  } satisfies StudentAssessmentAttemptHistory;
 }

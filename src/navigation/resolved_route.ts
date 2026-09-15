@@ -9,7 +9,6 @@ import {
   parseAssessmentAttemptReference,
   parseAssessmentReference,
   parseAuthoringWorkspaceReference,
-  parseCourseInstanceReference,
 } from "./public_route";
 
 function publicReference<Reference extends string>(
@@ -26,27 +25,10 @@ function publicReference<Reference extends string>(
   return reference;
 }
 
-export interface ResolvedCourseIdentity {
-  readonly courseId: CourseId;
-}
-
 export interface ResolvedAssessmentAttemptIdentity {
   readonly courseId: CourseId;
   readonly assessmentId: AssessmentId;
   readonly assessmentAttemptId: AssessmentAttemptId;
-}
-
-/** Resolves a public Course Instance reference to the minimum scope identity. */
-export async function resolveCourseIdentity(
-  client: ApiClient,
-  raw: string | undefined,
-): Promise<ResolvedCourseIdentity> {
-  const resolved = await client.resolveNavigation(
-    publicReference(raw, "CI", "Course", parseCourseInstanceReference),
-  );
-  if (resolved.kind !== "course")
-    throw new Error("Course Instance reference resolved to another resource");
-  return Object.freeze({ courseId: resolved.courseId });
 }
 
 /** Resolves a public Assessment Attempt reference to the minimum scope identity. */
@@ -65,13 +47,6 @@ export async function resolveAssessmentAttemptIdentity(
     assessmentId: resolved.assessmentId,
     assessmentAttemptId: resolved.assessmentAttemptId,
   });
-}
-
-export async function resolveCourseRoute(
-  client: ApiClient,
-  raw: string | undefined,
-): Promise<CourseId> {
-  return (await resolveCourseIdentity(client, raw)).courseId;
 }
 
 export async function resolveAssessmentRoute(

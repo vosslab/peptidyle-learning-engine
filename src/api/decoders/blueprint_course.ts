@@ -1,9 +1,7 @@
 // Strict browser decoding and local command validation for reusable Blueprint Courses.
 
-import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import { MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/api/MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS";
 import { MAX_ASSESSMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSESSMENT_ORDERED_ENTRIES";
-import { MAX_ASSESSMENT_QUESTION_POOL_ITEMS } from "../../../generated/api/MAX_ASSESSMENT_QUESTION_POOL_ITEMS";
 import { MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
@@ -74,6 +72,11 @@ function questionId(value: unknown, path: string): string {
   return canonicalQuestionId;
 }
 
+function questionPoolId(value: unknown, path: string): string {
+  const decoded = questionId(value, path);
+  return decoded;
+}
+
 function pointValue(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
   if (!/^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,4})?$/u.test(decoded)) {
@@ -126,7 +129,7 @@ function defaults(value: unknown, path: string): unknown {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "assessment_attempt_time_limit_seconds",
-    "attempt_limit",
+    "assessment_attempt_limit",
     "late_work_rule",
     "activity_rules",
     "student_feedback_release_rule",
@@ -149,9 +152,9 @@ function defaults(value: unknown, path: string): unknown {
       `${path}.assessment_attempt_time_limit_seconds`,
       decodePositiveInteger,
     ),
-    attempt_limit: decodeNullable(
-      field(record, "attempt_limit", path),
-      `${path}.attempt_limit`,
+    assessment_attempt_limit: decodeNullable(
+      field(record, "assessment_attempt_limit", path),
+      `${path}.assessment_attempt_limit`,
       decodePositiveInteger,
     ),
     late_work_rule: decodeStringEnum(
@@ -211,10 +214,7 @@ function defaults(value: unknown, path: string): unknown {
   };
 }
 
-function assessmentEntry(
-  value: unknown,
-  path: string,
-): { kind: "fixed" | "pool"; questionPoolItems: string[] } {
+function assessmentEntry(value: unknown, path: string): { kind: "fixed" | "pool" } {
   const record = decodeRecord(value, path);
   const kind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, ["fixed", "pool"]);
   if (kind === "fixed") {
@@ -244,11 +244,11 @@ function assessmentEntry(
       `${path}.question_attempt_time_limit`,
       true,
     );
-    return { kind, questionPoolItems: [] };
+    return { kind };
   }
   requireOnlyFields(record, path, [
     "kind",
-    "items",
+    "question_pool_id",
     "selection_count",
     "points_per_item",
     "scoring_rule",
@@ -256,26 +256,8 @@ function assessmentEntry(
     "question_attempt_limit",
     "question_attempt_time_limit",
   ]);
-  const questionPoolItems = decodeBoundedArray(
-    field(record, "items", path),
-    `${path}.items`,
-    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
-    questionId,
-  );
-  const selectionCount = decodePositiveInteger(
-    field(record, "selection_count", path),
-    `${path}.selection_count`,
-  );
-  if (
-    questionPoolItems.length === 0 ||
-    selectionCount > questionPoolItems.length ||
-    new Set(questionPoolItems).size !== questionPoolItems.length
-  ) {
-    throw new DecodeError(
-      path,
-      "a nonempty Question Pool with distinct Question Pool Items and a valid selection count",
-    );
-  }
+  questionPoolId(field(record, "question_pool_id", path), `${path}.question_pool_id`);
+  decodePositiveInteger(field(record, "selection_count", path), `${path}.selection_count`);
   pointValue(field(record, "points_per_item", path), `${path}.points_per_item`);
   selectionRule(field(record, "selection_rule", path), `${path}.selection_rule`);
   decodeQuestionAttemptLimit(
@@ -288,17 +270,16 @@ function assessmentEntry(
     `${path}.question_attempt_time_limit`,
     true,
   );
-  return { kind, questionPoolItems };
+  return { kind };
 }
 
 function selectionRule(value: unknown, path: string): void {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["selected_question_order"]);
-  decodeStringEnum(
-    field(record, "selected_question_order", path),
-    `${path}.selected_question_order`,
-    ["questionPoolOrder", "randomOrder"],
-  );
+  requireOnlyFields(record, path, ["selectedQuestionOrder"]);
+  decodeStringEnum(field(record, "selectedQuestionOrder", path), `${path}.selectedQuestionOrder`, [
+    "questionPoolOrder",
+    "randomOrder",
+  ]);
 }
 
 function assessmentContent(value: unknown, path: string): unknown {
@@ -314,15 +295,6 @@ function assessmentContent(value: unknown, path: string): unknown {
     assessmentEntry,
   );
   if (entries.length === 0) throw new DecodeError(`${path}.entries`, "at least one ordered entry");
-  const questionPoolItemCount = entries.reduce(
-    (total, entry) => total + entry.questionPoolItems.length,
-    0,
-  );
-  if (questionPoolItemCount > MAX_ASSESSMENT_QUESTION_POOL_ITEMS)
-    throw new DecodeError(
-      `${path}.entries`,
-      "Question Pool Items within the Assessment total bound",
-    );
   defaults(field(record, "defaults", path), `${path}.defaults`);
   return value;
 }
@@ -461,7 +433,7 @@ function contentView(value: unknown, path: string): void {
       } else {
         requireOnlyFields(entry, entryPath, [
           "kind",
-          "items",
+          "question_pool_revision",
           "selection_count",
           "points_per_item",
           "scoring_rule",
@@ -469,12 +441,22 @@ function contentView(value: unknown, path: string): void {
           "question_attempt_limit",
           "question_attempt_time_limit",
         ]);
-        decodeBoundedArray(
-          field(entry, "items", entryPath),
-          `${entryPath}.items`,
-          MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
-          questionView,
+        questionPoolRevisionReference(
+          field(entry, "question_pool_revision", entryPath),
+          `${entryPath}.question_pool_revision`,
         );
+        decodePositiveInteger(
+          field(entry, "selection_count", entryPath),
+          `${entryPath}.selection_count`,
+        );
+        pointValue(field(entry, "points_per_item", entryPath), `${entryPath}.points_per_item`);
+        decodeStringEnum(field(entry, "scoring_rule", entryPath), `${entryPath}.scoring_rule`, [
+          "normal",
+          "fullCredit",
+          "extraCredit",
+          "excluded",
+        ]);
+        selectionRule(field(entry, "selection_rule", entryPath), `${entryPath}.selection_rule`);
         decodeQuestionAttemptLimit(
           field(entry, "question_attempt_limit", entryPath),
           `${entryPath}.question_attempt_limit`,
@@ -489,6 +471,13 @@ function contentView(value: unknown, path: string): void {
       return entryValue;
     },
   );
+}
+
+function questionPoolRevisionReference(value: unknown, path: string): void {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["questionPoolId", "revisionNumber"]);
+  questionPoolId(field(record, "questionPoolId", path), `${path}.questionPoolId`);
+  decodePositiveInteger(field(record, "revisionNumber", path), `${path}.revisionNumber`);
 }
 
 function availability(value: unknown, path: string): BlueprintAvailability {

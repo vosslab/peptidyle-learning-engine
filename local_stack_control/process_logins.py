@@ -158,8 +158,8 @@ BEGIN
 	-- removed above.  ASVS 8.2.1 and 13.2.2.
 	FOR selected_schema IN
 		SELECT namespace.nspname
-		  FROM pg_catalog.pg_namespace AS namespace
-		 WHERE namespace.nspname LIKE 'ple\\_%' ESCAPE '\\'
+		FROM pg_catalog.pg_namespace AS namespace
+		WHERE namespace.nspname LIKE 'ple\\_%' ESCAPE '\\'
 	LOOP
 		EXECUTE format('REVOKE ALL PRIVILEGES ON SCHEMA %I FROM {login}', selected_schema.nspname);
 		EXECUTE format('REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA %I FROM {login}', selected_schema.nspname);

@@ -7,6 +7,10 @@
 
 /// Student Assessment Access and answer-free initial delivery routes.
 pub(crate) mod assessment_delivery;
+/// Closed Instructor commands for Assessment-owned immutable Question Pool forks.
+mod assessment_pool_fork;
+/// Count-only Instructor command for an Assessment-owned Question Pool entry.
+mod assessment_pool_selection_count;
 /// Direct-Instructor Assessment Workspace and immutable release routes.
 pub(crate) mod assessment_release;
 /// Authentication, sessions, and the first-party browser boundary.
@@ -64,8 +68,8 @@ mod question_fork;
 mod question_library;
 /// Active-Instructor reusable Published Question Pool creation.
 mod question_pool_creation;
-/// Closed Instructor commands for Assessment-owned immutable Question Pool forks.
-mod assessment_pool_fork;
+/// Published Pool Library browse/current detail and owned fork detail routes.
+mod question_pool_library;
 /// Server-only verified Question Publication coordination.
 pub mod question_publication;
 /// Vetted-Instructor Question Star state and aggregate endorsement routes.

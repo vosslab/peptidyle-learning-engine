@@ -128,7 +128,7 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
            END,
            CASE WHEN evidence.score_is_current
                      AND CASE assessment_attempt.feedback_score
-                         WHEN 'during_assessment_attempt' THEN true
+                         WHEN 'during_attempt' THEN true
                          WHEN 'after_submit' THEN submission.assessment_attempt_id IS NOT NULL
                          WHEN 'after_due' THEN assessment_attempt.due_at IS NOT NULL AND p_now >= assessment_attempt.due_at
                          WHEN 'after_close' THEN assessment_attempt.closes_at IS NOT NULL AND p_now >= assessment_attempt.closes_at
@@ -137,7 +137,7 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
                 THEN evidence.points_earned ELSE NULL END,
            CASE WHEN evidence.score_is_current
                      AND CASE assessment_attempt.feedback_score
-                         WHEN 'during_assessment_attempt' THEN true
+                         WHEN 'during_attempt' THEN true
                          WHEN 'after_submit' THEN submission.assessment_attempt_id IS NOT NULL
                          WHEN 'after_due' THEN assessment_attempt.due_at IS NOT NULL AND p_now >= assessment_attempt.due_at
                          WHEN 'after_close' THEN assessment_attempt.closes_at IS NOT NULL AND p_now >= assessment_attempt.closes_at

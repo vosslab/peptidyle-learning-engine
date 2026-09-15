@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from "solid-js";
 
-import type { CourseId } from "../../../generated/api/CourseId";
+import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { CourseAppearanceView } from "../../../generated/api/CourseAppearanceView";
 import type { CourseRouteView } from "../../api/contracts";
 import type { StudentAssessmentAttemptContext } from "../../api/assessment_attempt_navigation";
@@ -27,9 +27,9 @@ export function courseRouteView(data: CourseThemeRouteData): CourseRouteView {
     case "course":
       return data.course;
     case "assessmentAttempt":
-      throw new Error("Assessment Attempt context has no UUID-backed Course Route View");
+      throw new Error("Assessment Attempt context has no Course Route View");
     case "assessmentAttemptHistory":
-      throw new Error("Assessment Attempt history has no UUID-backed Course Route View");
+      throw new Error("Assessment Attempt history has no Course Route View");
   }
 }
 
@@ -40,6 +40,6 @@ export function useCourseThemePresentation(): CourseThemePresentation | undefine
 
 /** Replaces a saved Course Appearance in the presentation cache for its Course. */
 export type ReplaceCourseAppearance = (
-  courseId: CourseId,
+  courseReference: CourseInstanceReference,
   appearance: CourseAppearanceView,
 ) => void;

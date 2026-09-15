@@ -14,14 +14,27 @@ use axum::{
     routing::get,
 };
 use learning_data_access::{
-    CourseInstanceStore, CreateCourseInstanceInput, SessionTokenHash, StoreError,
+    CourseInstancePoolIdIssuer, CourseInstanceStore, CreateCourseInstanceInput, SessionTokenHash,
+    StoreError,
     postgres::{PostgresCourseInstanceStore, PostgresSessionStore},
 };
-use question_model::{CourseId, CourseInstanceReference, ProductRole};
+use question_model::{CourseInstanceReference, CourseInstanceRouteSummary, ProductRole};
 use serde::Serialize;
-use uuid::Uuid;
 
-use crate::auth::{AuthError, resolve_session};
+use crate::{
+    auth::{AuthError, resolve_session},
+    question_publication::{HmacQuestionIdIssuer, QuestionIdIssuer},
+};
+
+impl CourseInstancePoolIdIssuer for HmacQuestionIdIssuer {
+    fn issue_question_pool_id(&self) -> Result<question_model::QuestionId, StoreError> {
+        self.issue_question_id().map_err(|_| {
+            StoreError::Unavailable(
+                "Question Pool fork identity issuance is unavailable".to_string(),
+            )
+        })
+    }
+}
 
 #[derive(Clone)]
 struct CourseInstanceRouteState {
@@ -43,7 +56,10 @@ pub fn course_instance_router(
             "/api/course-instances/{reference}",
             get(load_course_instance),
         )
-        .route("/api/courses/{course}", get(read_course_summary))
+        .route(
+            "/api/course-instances/{reference}/summary",
+            get(read_course_summary),
+        )
         .route(
             "/api/course-instance-creation/instructors",
             get(list_course_creation_instructors),
@@ -123,22 +139,42 @@ async fn load_course_instance(
 async fn read_course_summary(
     State(state): State<CourseInstanceRouteState>,
     headers: HeaderMap,
-    Path(course): Path<String>,
+    Path(reference): Path<String>,
 ) -> Response {
-    let course = match Uuid::parse_str(&course) {
-        Ok(value) => CourseId::from_uuid(value),
+    let reference = match CourseInstanceReference::from_str(&reference) {
+        Ok(value) => value,
         Err(_) => return concealed(),
     };
     let session_hash = match authenticated_session_hash(&state, &headers).await {
         Ok(value) => value,
         Err(response) => return *response,
     };
+    // ASVS 2.2.1, 8.2.2, and 8.3.1: the positively validated public
+    // reference is resolved only through this session's current active Course
+    // Membership. The resulting private Course ID never enters the response.
+    let course = match state
+        .courses
+        .resolve_course_navigation(session_hash, reference)
+        .await
+    {
+        Ok(value) => value,
+        Err(error) => return store_error_response(error),
+    };
     match state
         .courses
         .read_course_summary(session_hash, course)
         .await
     {
-        Ok(summary) => crate::auth::no_store(Json(summary).into_response()),
+        Ok(summary) => crate::auth::no_store(
+            Json(CourseInstanceRouteSummary {
+                reference: summary.reference,
+                short_name: summary.short_name,
+                long_name: summary.long_name,
+                term: summary.term,
+                role: summary.role,
+            })
+            .into_response(),
+        ),
         Err(error) => store_error_response(error),
     }
 }

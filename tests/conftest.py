@@ -58,6 +58,8 @@ collect_ignore = ["e2e", "playwright", "test_checkout_disk_budget.py"]
 # The executable disposable E2E runners are documented whole-system acceptance
 # commands, not small reusable shell utilities. Keep their other hygiene scans;
 # only the 100-line Bash size rule does not apply to that subtree.
+# Canonical PGML Question sources are vendored instructional content rather than
+# PLE-owned code modules, so they do not use the source-file line-limit gate.
 # Cross-overlay doc references (a template doc naming a doc that ships from a
 # different overlay or the universal docs/ tree) use a backticked name, not a
 # markdown link: no single relative link is valid both in the split template
@@ -70,6 +72,7 @@ collect_ignore = ["e2e", "playwright", "test_checkout_disk_budget.py"]
 #   }
 REPO_HYGIENE_FILTERS = {
 	"bash_script_line_limit": ["tests/e2e/**"],
+	"source_file_line_limit": ["*.pgml"],
 }
 
 

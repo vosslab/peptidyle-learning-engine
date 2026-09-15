@@ -7,7 +7,7 @@
 use async_trait::async_trait;
 use question_model::{
     AccountReference, BlueprintCourseReference, BlueprintRevision, CourseId,
-    CourseInstanceReference, CourseSummary, CourseTerm, CourseTheme,
+    CourseInstanceReference, CourseSummary, CourseTerm, CourseTheme, QuestionId,
 };
 use serde::{Deserialize, Serialize};
 
@@ -105,6 +105,14 @@ pub struct CourseCreationInstructor {
 pub struct CreatedCourseInstance {
     /// Newly allocated Course Instance identity.
     pub course: CourseInstanceSummary,
+}
+
+/// Server-only issuer for the fresh public identity of each Assessment-owned
+/// Question Pool fork created while adopting a Blueprint.  The browser never
+/// supplies this value and persistence never receives the HMAC capability.
+pub trait CourseInstancePoolIdIssuer: Send + Sync {
+    /// Issues one candidate canonical Question Pool public ID.
+    fn issue_question_pool_id(&self) -> Result<QuestionId, StoreError>;
 }
 
 /// Persistence contract for the Course Instance and initial Teaching Team boundary.

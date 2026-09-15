@@ -9,10 +9,10 @@ import type { BlueprintAssessmentContentInput } from "../../../generated/api/Blu
 import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
 import type { BlueprintAssessmentEntryInput } from "../../../generated/api/BlueprintAssessmentEntryInput";
 import type { BlueprintAssessmentEntryView } from "../../../generated/api/BlueprintAssessmentEntryView";
+import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionPickerSelection } from "../question_picker";
 
 export const MAX_REUSABLE_ENTRIES = 1024;
-export const MAX_QUESTION_POOL_ITEMS = 1024;
 export const MAX_REUSABLE_TITLE_LENGTH = 200;
 
 export type ReusableEntryDirection = -1 | 1;
@@ -104,7 +104,7 @@ export function blueprintCourseContinuationPresentation(
 function defaultDefaults(): BlueprintAssessmentDefaults {
   return {
     assessment_attempt_time_limit_seconds: null,
-    attempt_limit: null,
+    assessment_attempt_limit: null,
     late_work_rule: "reject",
     activity_rules: {
       assessmentCompletionRule: { kind: "answerAll" },
@@ -167,10 +167,10 @@ function fixedEntry(questionId: string): BlueprintAssessmentEntryInput {
   };
 }
 
-function poolEntry(questionPoolItems: ReadonlyArray<string>): BlueprintAssessmentEntryInput {
+function poolEntry(questionPoolId: QuestionId): BlueprintAssessmentEntryInput {
   return {
     kind: "pool",
-    items: [...questionPoolItems],
+    question_pool_id: questionPoolId,
     selection_count: 1,
     points_per_item: "1",
     scoring_rule: "normal",
@@ -194,12 +194,9 @@ export function appendPickedFixedEntries(
 /** Appends one Question Pool with Question Pool Item order selected by the Instructor. */
 export function appendPickedPool(
   content: BlueprintAssessmentContentInput,
-  selection: QuestionPickerSelection,
+  questionPoolId: QuestionId,
 ): BlueprintAssessmentContentInput {
-  const questionPoolItems = uniqueQuestionIds(selection);
-  return questionPoolItems.length === 0
-    ? content
-    : { ...content, entries: [...content.entries, poolEntry(questionPoolItems)] };
+  return { ...content, entries: [...content.entries, poolEntry(questionPoolId)] };
 }
 
 export function moveReusableEntry(
@@ -234,6 +231,7 @@ export function updateReusablePoolSelectionCount(
   index: number,
   selectionCount: number,
 ): BlueprintAssessmentContentInput {
+  if (!Number.isSafeInteger(selectionCount) || selectionCount < 1) return content;
   const entry = content.entries[index];
   if (entry === undefined || entry.kind !== "pool") return content;
   const entries = [...content.entries];
@@ -273,23 +271,10 @@ export function validateReusableContent(
   }
   for (const entry of content.entries) {
     if (entry.kind !== "pool") continue;
-    if (entry.items.length === 0 || entry.items.length > MAX_QUESTION_POOL_ITEMS) {
+    if (!Number.isSafeInteger(entry.selection_count) || entry.selection_count < 1) {
       return {
         valid: false,
-        message: "Each Question Pool needs from 1 through 1024 Question Pool Items.",
-      };
-    }
-    if (new Set(entry.items).size !== entry.items.length) {
-      return { valid: false, message: "Each Question Pool Item must appear only once." };
-    }
-    if (
-      !Number.isSafeInteger(entry.selection_count) ||
-      entry.selection_count < 1 ||
-      entry.selection_count > entry.items.length
-    ) {
-      return {
-        valid: false,
-        message: "Choose a whole selection count between 1 and this Question Pool's Item count.",
+        message: "Choose a positive whole Question Pool selection count.",
       };
     }
   }
@@ -339,7 +324,7 @@ function entryInputFromView(entry: BlueprintAssessmentEntryView): BlueprintAsses
   if (entry.kind === "pool") {
     return {
       kind: "pool",
-      items: entry.items.map((item) => item.question_library.summary.questionId),
+      question_pool_id: entry.question_pool_revision.questionPoolId,
       selection_count: entry.selection_count,
       points_per_item: entry.points_per_item,
       scoring_rule: entry.scoring_rule,

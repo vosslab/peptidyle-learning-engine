@@ -41,12 +41,19 @@ def test_origin_receipt_accepts_only_the_expected_https_gateway(tmp_path: pathli
 	"""Chromium evidence accepts the exact production HTTPS gateway for pages and requests."""
 	path = tmp_path / "origin.json"
 	path.write_text(
-		json.dumps({"pageOrigins": ["https://localhost:55001"], "requestOrigins": ["https://localhost:55001"]}),
+		json.dumps(
+			{
+				"pageOrigins": ["https://localhost:55001"],
+				"requestOrigins": ["https://localhost:55001"],
+				"contexts": None,
+			}
+		),
 		encoding="ascii",
 	)
 	receipt = browser_suite_oracles.origin_receipt_from_file(path, "https://localhost:55001/")
 	assert receipt.expected_origin == "https://localhost:55001"
 	assert receipt.observed_page_origins == ("https://localhost:55001",)
+	assert receipt.observed_contexts is None
 
 
 #============================================
@@ -54,7 +61,13 @@ def test_origin_receipt_refuses_a_mixed_browser_origin(tmp_path: pathlib.Path) -
 	"""A page or request outside the gateway fails the visible-browser receipt."""
 	path = tmp_path / "origin.json"
 	path.write_text(
-		json.dumps({"pageOrigins": ["https://localhost:55001"], "requestOrigins": ["https://example.test"]}),
+		json.dumps(
+			{
+				"pageOrigins": ["https://localhost:55001"],
+				"requestOrigins": ["https://example.test"],
+				"contexts": None,
+			}
+		),
 		encoding="ascii",
 	)
 	with pytest.raises(browser_suite_oracles.BrowserSuiteOracleError, match="outside"):

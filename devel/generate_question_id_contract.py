@@ -101,7 +101,7 @@ def render_typescript(
 		f"export const QUESTION_ID_IDENTIFIER_LENGTH = {numbers['QUESTION_ID_IDENTIFIER_LENGTH']};",
 		f"export const QUESTION_ID_COMPACT_LENGTH = {numbers['QUESTION_ID_COMPACT_LENGTH']};",
 		("export const QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX = "
-		 f"{numbers['QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX']};"),
+		f"{numbers['QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX']};"),
 		f"export const QUESTION_ID_DISPLAY_HYPHEN_INDEX = {numbers['QUESTION_ID_DISPLAY_HYPHEN_INDEX']};",
 		f"export const QUESTION_ID_NORMALIZATION_ALIASES = {{ {alias_object} }} as const;",
 		"",

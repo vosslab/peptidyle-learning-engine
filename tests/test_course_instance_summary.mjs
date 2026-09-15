@@ -10,7 +10,7 @@ import { courseThemeTokens } from "../src/features/course_appearance/course_them
 
 function courseSummary(theme = "forest") {
   return {
-    reference: "C-7",
+    reference: "CI6F2R8T",
     shortName: "Mol Bio",
     longName: "Molecular Biology",
     term: {
@@ -61,7 +61,7 @@ test("dense Instructor rows remain scoped away from Student cards and product th
   assert.match(courseList, /class="instructor-list__row instructor-list__row--course"/u);
   assert.match(courseList, /Theme: \{theme\.name\}/u);
   assert.doesNotMatch(courseList, /CourseThemeVariables/u);
-  assert.match(courseWorkspace, /class="instructor-list__row instructor-list__row--assignment"/u);
+  assert.match(courseWorkspace, /class="instructor-list__row instructor-list__row--assessment"/u);
   assert.match(styles, /--ple-list-row-min-block-size/u);
   assert.match(styles, /@media \(forced-colors: active\)/u);
   const instructorListStyles = styles.slice(

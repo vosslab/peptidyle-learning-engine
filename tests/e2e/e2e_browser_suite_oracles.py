@@ -110,7 +110,7 @@ class OriginReceipt:
 	expected_origin: str
 	observed_page_origins: tuple[str, ...]
 	observed_request_origins: tuple[str, ...]
-	observed_contexts: tuple["ContextOriginReceipt", ...] = ()
+	observed_contexts: tuple["ContextOriginReceipt", ...] | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -319,10 +319,7 @@ def origin_receipt_from_file(path: pathlib.Path, expected_origin: str) -> Origin
 		value = json.loads(contents)
 	except json.JSONDecodeError as error:
 		raise BrowserSuiteOracleError("browser-suite origin receipt is not valid JSON") from error
-	if not isinstance(value, dict) or set(value) not in (
-		{"pageOrigins", "requestOrigins"},
-		{"pageOrigins", "requestOrigins", "contexts"},
-	):
+	if not isinstance(value, dict) or set(value) != {"pageOrigins", "requestOrigins", "contexts"}:
 		raise BrowserSuiteOracleError("browser-suite origin receipt has an invalid shape")
 	page_origins = value["pageOrigins"]
 	request_origins = value["requestOrigins"]
@@ -338,7 +335,7 @@ def origin_receipt_from_file(path: pathlib.Path, expected_origin: str) -> Origin
 	observed_pages = tuple(sorted(set(page_origins)))
 	observed_requests = tuple(sorted(set(request_origins)))
 	_validate_observed_origins(observed_pages, observed_requests, expected)
-	contexts = _decode_context_origins(value.get("contexts"), expected)
+	contexts = _decode_context_origins(value["contexts"], expected)
 	result = OriginReceipt(expected, observed_pages, observed_requests, contexts)
 	return result
 
@@ -346,10 +343,10 @@ def origin_receipt_from_file(path: pathlib.Path, expected_origin: str) -> Origin
 def _decode_context_origins(
 	value: object,
 	expected: str,
-) -> tuple[ContextOriginReceipt, ...]:
-	"""Validate optional per-context evidence while retaining legacy receipt compatibility."""
+) -> tuple[ContextOriginReceipt, ...] | None:
+	"""Validate explicit aggregate-only or per-context browser-origin evidence."""
 	if value is None:
-		return ()
+		return None
 	if not isinstance(value, dict) or not value:
 		raise BrowserSuiteOracleError("browser-suite origin receipt has an invalid shape")
 	result: list[ContextOriginReceipt] = []

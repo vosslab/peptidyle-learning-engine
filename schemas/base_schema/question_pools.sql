@@ -163,11 +163,16 @@ CREATE POLICY question_pool_private_owner_lookup ON ple_data.question_pool
     FOR SELECT TO ple_private_owner USING (true);
 CREATE POLICY question_pool_api_owner_lookup ON ple_data.question_pool
     FOR SELECT TO ple_api_owner USING (true);
+CREATE POLICY question_pool_revision_private_owner_lookup ON ple_data.question_pool_revision
+    FOR SELECT TO ple_private_owner USING (true);
+CREATE POLICY question_pool_revision_api_owner_lookup ON ple_data.question_pool_revision
+    FOR SELECT TO ple_api_owner USING (true);
 CREATE POLICY question_pool_revision_member_private_owner_lookup ON ple_data.question_pool_revision_member
     FOR SELECT TO ple_private_owner USING (true);
 CREATE POLICY question_pool_revision_member_api_owner_lookup ON ple_data.question_pool_revision_member
     FOR SELECT TO ple_api_owner USING (true);
-GRANT SELECT ON ple_data.question_pool, ple_data.question_pool_revision_member
+GRANT SELECT ON ple_data.question_pool, ple_data.question_pool_revision,
+    ple_data.question_pool_revision_member
     TO ple_private_owner, ple_api_owner;
 
 COMMENT ON TABLE ple_data.question_pool IS
@@ -283,10 +288,10 @@ BEGIN
 END
 $$;
 
--- Importing a reusable Pool into an Assessment never aliases the published
--- lineage.  The trusted server supplies a fresh HMAC-validated Pool identity;
--- this boundary copies the source's exact immutable Revision as revision 1.
-CREATE FUNCTION ple_data.fork_question_pool_revision(
+-- This private construction primitive has no application/API grant. Its
+-- authorized wrappers retain the source Revision's actual interchangeability
+-- attestation; creating a fork does not re-attest the source member set.
+CREATE FUNCTION ple_data.construct_question_pool_revision_fork(
     p_question_pool_id uuid,
     p_public_question_pool_id text,
     p_source_question_pool_id uuid,
@@ -296,26 +301,25 @@ CREATE FUNCTION ple_data.fork_question_pool_revision(
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE actor_id uuid; created_at timestamptz := pg_catalog.clock_timestamp(); next_etag uuid;
+DECLARE created_at timestamptz := pg_catalog.clock_timestamp(); next_etag uuid;
 DECLARE source_revision ple_data.question_pool_revision%ROWTYPE;
 BEGIN
     IF p_question_pool_id IS NULL OR p_public_question_pool_id IS NULL
        OR p_public_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
-       OR p_source_question_pool_id IS NULL OR p_source_question_pool_revision_number IS NULL
-       OR NOT ple_api.current_session_account_is_instructor() THEN
-        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question Pool fork is unavailable';
+       OR p_source_question_pool_id IS NULL OR p_source_question_pool_revision_number IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Pool fork is invalid';
     END IF;
     SELECT revision.* INTO source_revision
       FROM ple_data.question_pool AS source_pool
       JOIN ple_data.question_pool_revision AS revision
         ON revision.question_pool_id = source_pool.question_pool_id
      WHERE source_pool.question_pool_id = p_source_question_pool_id
-       AND source_pool.source_question_pool_id IS NULL
        AND revision.revision_number = p_source_question_pool_revision_number;
     IF NOT FOUND THEN
-        RAISE EXCEPTION USING ERRCODE = '23503', MESSAGE = 'Question Pool source Revision does not exist';
+        RAISE EXCEPTION USING ERRCODE = '23503',
+            MESSAGE = 'Question Pool source Revision does not exist';
     END IF;
-    actor_id := ple_api.current_session_account_id();
     next_etag := pg_catalog.gen_random_uuid();
     INSERT INTO ple_data.question_pool(
         question_pool_id, public_question_pool_id, metadata_etag, current_revision_number,
@@ -327,7 +331,11 @@ BEGIN
     INSERT INTO ple_data.question_pool_revision(
         question_pool_id, revision_number, member_count, interchangeability_attested_by_account_id,
         interchangeability_attested_at, created_at
-    ) VALUES (p_question_pool_id, 1, source_revision.member_count, actor_id, created_at, created_at);
+    ) VALUES (
+        p_question_pool_id, 1, source_revision.member_count,
+        source_revision.interchangeability_attested_by_account_id,
+        source_revision.interchangeability_attested_at, created_at
+    );
     INSERT INTO ple_data.question_pool_revision_member(
         question_pool_id, revision_number, member_position, question_id, question_revision_number
     )
@@ -337,8 +345,61 @@ BEGIN
      WHERE member.question_pool_id = p_source_question_pool_id
        AND member.revision_number = p_source_question_pool_revision_number
      ORDER BY member.member_position;
-    RETURN QUERY SELECT pool.question_pool_id, pool.public_question_pool_id, 1::bigint, pool.metadata_etag
+    RETURN QUERY SELECT pool.question_pool_id, pool.public_question_pool_id, 1::bigint,
+                        pool.metadata_etag
       FROM ple_data.question_pool AS pool WHERE pool.question_pool_id = p_question_pool_id;
+END
+$$;
+
+-- Importing a reusable Pool into an Assessment never aliases the published
+-- lineage. The ordinary route remains Instructor-only.
+CREATE FUNCTION ple_data.fork_question_pool_revision(
+    p_question_pool_id uuid,
+    p_public_question_pool_id text,
+    p_source_question_pool_id uuid,
+    p_source_question_pool_revision_number bigint
+) RETURNS TABLE (
+    question_pool_id uuid, public_question_pool_id text, revision_number bigint, metadata_etag uuid
+)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+BEGIN
+    IF p_question_pool_id IS NULL OR p_public_question_pool_id IS NULL
+       OR p_public_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+       OR p_source_question_pool_id IS NULL OR p_source_question_pool_revision_number IS NULL
+       OR NOT ple_api.current_session_account_is_instructor() THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question Pool fork is unavailable';
+    END IF;
+    RETURN QUERY SELECT * FROM ple_data.construct_question_pool_revision_fork(
+        p_question_pool_id, p_public_question_pool_id, p_source_question_pool_id,
+        p_source_question_pool_revision_number
+    );
+END
+$$;
+
+-- Course adoption is the one additional internal context where a Sysadmin may
+-- create a Course for an assigned Instructor. It has no standalone API grant:
+-- the already-authorized atomic Course creation boundary is its only caller.
+CREATE FUNCTION ple_data.fork_question_pool_revision_for_course_adoption(
+    p_question_pool_id uuid,
+    p_public_question_pool_id text,
+    p_source_question_pool_id uuid,
+    p_source_question_pool_revision_number bigint
+) RETURNS TABLE (
+    question_pool_id uuid, public_question_pool_id text, revision_number bigint, metadata_etag uuid
+)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+BEGIN
+    IF NOT (ple_api.current_session_account_is_instructor()
+            OR ple_api.current_session_account_is_sysadmin()) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Course adoption Question Pool fork is unavailable';
+    END IF;
+    RETURN QUERY SELECT * FROM ple_data.construct_question_pool_revision_fork(
+        p_question_pool_id, p_public_question_pool_id, p_source_question_pool_id,
+        p_source_question_pool_revision_number
+    );
 END
 $$;
 REVOKE ALL ON FUNCTION ple_data.reject_question_pool_immutable_change() FROM PUBLIC;
@@ -347,6 +408,8 @@ REVOKE ALL ON FUNCTION ple_data.validate_question_pool_lineage_update(),
     ple_data.validate_question_pool_revision_member_insert() FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_data.create_question_pool(uuid, text, text[], integer[], boolean) FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_data.append_question_pool_revision(uuid, uuid, text[], integer[], boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.construct_question_pool_revision_fork(uuid, text, uuid, bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.fork_question_pool_revision_for_course_adoption(uuid, text, uuid, bigint) FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_data.fork_question_pool_revision(uuid, text, uuid, bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_data.create_question_pool(uuid, text, text[], integer[], boolean) TO ple_api_owner;
 RESET ROLE;
@@ -448,9 +511,9 @@ REVOKE ALL ON FUNCTION ple_api.list_published_content_identities() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.list_published_content_identities() TO ple_app;
 
 -- The server resolves an author-visible reusable Pool identity once, under
--- the installed Instructor session.  It never accepts a caller-selected
--- Revision and deliberately conceals unknown or already-owned child Pools.
-CREATE FUNCTION ple_api.resolve_current_root_question_pool(p_public_question_pool_id text)
+-- the installed Instructor session. It never accepts a caller-selected
+-- Revision; every published Pool lineage, including a child fork, is reusable.
+CREATE FUNCTION ple_api.resolve_current_published_question_pool(p_public_question_pool_id text)
 RETURNS TABLE (question_pool_id uuid, current_revision_number bigint)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -459,9 +522,57 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
      WHERE ple_api.current_session_account_is_instructor()
        AND ple_data.canonical_public_crockford_display(pool.public_question_pool_id)
            = p_public_question_pool_id
-       AND pool.source_question_pool_id IS NULL
-       AND pool.source_question_pool_revision_number IS NULL
 $$;
-REVOKE ALL ON FUNCTION ple_api.resolve_current_root_question_pool(text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.resolve_current_root_question_pool(text) TO ple_app;
+REVOKE ALL ON FUNCTION ple_api.resolve_current_published_question_pool(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.resolve_current_published_question_pool(text) TO ple_app;
+
+-- ASVS V1.2/V2.2/V8.3: parameters remain typed SQL values, bounds are
+-- enforced at the capability boundary, and active-Instructor authorization is
+-- checked before globally published Pool facts are projected.
+CREATE FUNCTION ple_api.list_published_question_pools(p_after text, p_page_size integer)
+RETURNS TABLE (
+    public_question_pool_id text,
+    revision_number bigint,
+    member_count integer
+) LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+    SELECT ple_data.canonical_public_crockford_display(pool.public_question_pool_id),
+           pool.current_revision_number, revision.member_count
+      FROM ple_data.question_pool AS pool
+      JOIN ple_data.question_pool_revision AS revision
+        ON revision.question_pool_id = pool.question_pool_id
+       AND revision.revision_number = pool.current_revision_number
+     WHERE ple_api.current_session_account_is_instructor()
+       AND p_page_size BETWEEN 1 AND 100
+       AND (p_after IS NULL OR pool.public_question_pool_id > replace(p_after, '-', ''))
+       AND (p_after IS NULL OR p_after ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$')
+     ORDER BY pool.public_question_pool_id
+     LIMIT p_page_size + 1
+$$;
+
+CREATE FUNCTION ple_api.read_current_published_question_pool(p_public_question_pool_id text)
+RETURNS TABLE (
+    public_question_pool_id text,
+    revision_number bigint,
+    member_position integer,
+    question_id text,
+    question_revision_number integer
+) LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+    SELECT ple_data.canonical_public_crockford_display(pool.public_question_pool_id),
+           pool.current_revision_number, member.member_position,
+           ple_data.canonical_public_crockford_display(member.question_id),
+           member.question_revision_number
+      FROM ple_data.question_pool AS pool
+      JOIN ple_data.question_pool_revision_member AS member
+        ON member.question_pool_id = pool.question_pool_id
+       AND member.revision_number = pool.current_revision_number
+     WHERE ple_api.current_session_account_is_instructor()
+       AND pool.public_question_pool_id = p_public_question_pool_id
+     ORDER BY member.member_position
+$$;
+REVOKE ALL ON FUNCTION ple_api.list_published_question_pools(text, integer),
+    ple_api.read_current_published_question_pool(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.list_published_question_pools(text, integer),
+    ple_api.read_current_published_question_pool(text) TO ple_app;
 RESET ROLE;

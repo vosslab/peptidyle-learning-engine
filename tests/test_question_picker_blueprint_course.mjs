@@ -20,23 +20,35 @@ function questionLibraryEntry(questionId, questionTitle) {
 
 function content() {
   return {
+    title: "Blueprint Assessment",
+    instructions: "Select the fixed questions.",
     entries: [
       {
         kind: "fixed",
-        question: { question_library: questionLibraryEntry("7K3M-X9QP", "First fixed") },
+        question: {
+          question_library: questionLibraryEntry("7K3M-X9QP", "First fixed"),
+          selection_availability: "available",
+        },
       },
       {
         kind: "pool",
-        items: [
-          { question_library: questionLibraryEntry("2R5X-Z7YA", "Pool first") },
-          { question_library: questionLibraryEntry("3S8B-Z4DZ", "Pool second") },
-        ],
+        question_pool_revision: { questionPoolId: "2R5X-Z7YA", revisionNumber: 1 },
+        selection_count: 1,
+        points_per_item: "1",
+        scoring_rule: "normal",
+        selection_rule: { selectedQuestionOrder: "questionPoolOrder" },
+        question_attempt_limit: { maxAttempts: null },
+        question_attempt_time_limit: { kind: "unlimited" },
       },
       {
         kind: "fixed",
-        question: { question_library: questionLibraryEntry("4T9C-Z5EW", "Final fixed") },
+        question: {
+          question_library: questionLibraryEntry("4T9C-Z5EW", "Final fixed"),
+          selection_availability: "available",
+        },
       },
     ],
+    defaults: {},
   };
 }
 
@@ -54,18 +66,20 @@ const query = {
 
 function revision(revisionNumber = "2") {
   return {
-    blueprintRevision: { reference: "BP-7", revision: revisionNumber },
-    title: "Reusable Blueprint",
+    blueprintRevision: { reference: "BP7K3MX9", revision: revisionNumber },
     modules: [
       {
         blueprint_module_reference: "module-7",
-        assignments: [{ blueprint_assignment_reference: "assignment-7", content: content() }],
+        label: "Module 1",
+        assessments: [
+          { blueprint_assessment_reference: "assessment-7", content: content() },
+        ],
       },
     ],
   };
 }
 
-test("Blueprint Assignment picker preserves Fixed Question and Question Pool Assignment Entry order", async () => {
+test("Blueprint Assessment picker presents fixed Questions in authored order", async () => {
   const resolved = [];
   const source = blueprintCourseQuestionPickerRepository({
     getBlueprintRevision: async (reference, revisionNumber) => {
@@ -75,12 +89,12 @@ test("Blueprint Assignment picker preserves Fixed Question and Question Pool Ass
   });
   const result = await source.search({
     source: {
-      kind: "blueprintCourseAssignment",
+      kind: "blueprintCourseAssessment",
       source: {
-        blueprint_revision: { reference: "BP-7", revision: "2" },
-        blueprint_assignment_reference: "assignment-7",
+        blueprint_revision: { reference: "BP7K3MX9", revision: "2" },
+        blueprint_assessment_reference: "assessment-7",
       },
-      label: "Blueprint Course assignment",
+      label: "Blueprint Assessment",
     },
     query,
     cursor: null,
@@ -88,24 +102,24 @@ test("Blueprint Assignment picker preserves Fixed Question and Question Pool Ass
 
   assert.deepEqual(
     result.items.map((row) => row.displayId),
-    ["7K3M-X9QP", "2R5X-Z7YA", "3S8B-Z4DZ", "4T9C-Z5EW"],
+    ["7K3M-X9QP", "4T9C-Z5EW"],
   );
-  assert.deepEqual(resolved, [{ reference: "BP-7", revisionNumber: "2" }]);
+  assert.deepEqual(resolved, [{ reference: "BP7K3MX9", revisionNumber: "2" }]);
 });
 
-test("Blueprint Assignment picker refuses a Blueprint Course revision that changed before access", async () => {
+test("Blueprint Assessment picker refuses a Blueprint Course revision that changed before access", async () => {
   const source = blueprintCourseQuestionPickerRepository({
     getBlueprintRevision: async () => revision("3"),
   });
   await assert.rejects(
     source.search({
       source: {
-        kind: "blueprintCourseAssignment",
+        kind: "blueprintCourseAssessment",
         source: {
-          blueprint_revision: { reference: "BP-7", revision: "2" },
-          blueprint_assignment_reference: "assignment-7",
+          blueprint_revision: { reference: "BP7K3MX9", revision: "2" },
+          blueprint_assessment_reference: "assessment-7",
         },
-        label: "Stale Blueprint Course assignment",
+        label: "Stale Blueprint Assessment",
       },
       query,
       cursor: null,

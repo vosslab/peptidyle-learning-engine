@@ -5,12 +5,12 @@ import { decodeCourseGradebook } from "../src/api/decoders/live_gradebook.ts";
 
 test("Gradebook distinguishes an expired submission still awaiting outcomes from zero credit", () => {
   const gradebook = {
-    courseReference: "C-1",
+    courseReference: "CI7K3M2Q",
     studentWork: [
       {
         rosterId: "student-1",
-        assignmentReference: "A-1",
-        assignmentAttemptCompletion: "inProgress",
+        assessmentReference: "A7K3M2Q",
+        assessmentAttemptCompletion: "inProgress",
         expiredSubmitting: true,
         score: null,
       },

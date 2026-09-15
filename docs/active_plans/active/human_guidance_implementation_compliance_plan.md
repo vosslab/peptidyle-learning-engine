@@ -585,9 +585,10 @@ confirmation clean; changelog entry.
   where it encodes the retired product model; migrate Question Editor and Properties Editor pages,
   paths, models, and browser clients together.
 - Dependencies: C7 for enrollment behavior; A9 Assessment behavior corrections are pending.
-- Focused gates: `node --test tests/test_assignment_workspace_questions.mjs tests/test_assignment_workspace_policy_model.mjs tests/test_assignment_workspace_student_view.mjs`;
+- Focused gates: `node --test tests/test_assignment_workspace_questions.mjs tests/test_assignment_workspace_policy_model.mjs`;
   `bash tests/e2e/e2e_live_demo_course_instance.sh --browser`;
   `source source_me.sh && ./launchers/run_fast_checks.sh`.
+  Student View remains unavailable and is verified by C45/C74 rather than by a deleted test.
 
 ### C13: Make Live Demo entry authentication explicit
 
@@ -1218,7 +1219,7 @@ merely to obtain a passing result.
 | Contract | Expected behavior | Exact owned boundary | Closure / contribution | Dependencies | Focused gate |
 | --- | --- | --- | --- | --- | --- |
 | C44 | Dense Instructor ribbon and zero-record collections expose available tasks, first actions, and consistent placement. | `src/ribbon/ribbon_catalog.ts`, `src/pages/course_list_page.tsx`, `src/pages/library_page.tsx` | Closes A4-01 (7). | C12; C46, C56, C61. | `node --test tests/test_ribbon_catalog.mjs tests/test_ribbon_route_contract.mjs`; `node tests/e2e/e2e_ribbon_destination_ledger.mjs` |
-| C45 | Student View presents the server-authorized answer-free/no-write projection. | `src/pages/assignment_preview_page.tsx` | Closes A4-02 (1). | C12, C74; pending A9 no-write preview API. | `node --test tests/test_assignment_workspace_student_view.mjs`; `bash tests/e2e/e2e_live_demo_course_instance.sh --browser` |
+| C45 | Student View presents the server-authorized answer-free/no-write projection. | `src/pages/assessment_workspace/assessment_workspace_student_view_page.tsx` | Closes A4-02 (1) only after the unavailable route becomes the required projection. | C12, C74; pending A9 no-write preview API. | Required future verification after implementation: use a seeded Instructor/Student Work fixture to prove the projection contains no answers and creates no Student Work, Attempt, submission, or grade. Retain a permanent external-contract test only if it earns status under `docs/PYTEST_STYLE.md`; browser proof then exercises the implemented route. |
 | C46 | Courses offers distinct active/inactive/public-search destinations and teaching activity. | `src/ribbon/ribbon_catalog.ts`, `src/pages/course_list_page.tsx`, `src/pages/course_instance_page.tsx` | Closes A4-03 (5). | C7; C12; C47, C55. | `node --test tests/test_course_instance_summary.mjs tests/test_ribbon_route_contract.mjs`; `bash tests/e2e/e2e_live_demo_course_instance.sh --browser` |
 | C47 | Instructor can query and narrow Public Blueprint Courses. | `src/pages/blueprint_course_search_page.tsx`, `src/api/blueprint_course.ts` | Closes G-A4-04 (2). | C19; pending A8 search-query API. | `node --test tests/test_blueprint_course_client.mjs tests/test_blueprint_course_ui.mjs`; `bash tests/e2e/e2e_live_demo_blueprint_course.sh --browser` |
 | C48 | Blueprint Editor selects one Assessment and supplies separate Question/Properties editors. | `src/features/blueprint_course/blueprint_course_workspace.tsx`, `src/features/blueprint_course/blueprint_assignment_content_editor.tsx` | Closes G-A4-05 (5). | C12; C6; pending A8 Blueprint Assessment API. | `node --test tests/test_blueprint_course_ui.mjs tests/test_blueprint_course_model.mjs`; `bash tests/e2e/e2e_live_demo_blueprint_course.sh --browser` |

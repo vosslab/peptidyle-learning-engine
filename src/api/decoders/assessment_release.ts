@@ -2,8 +2,6 @@
 
 import { MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/api/MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS";
 import { MAX_ASSESSMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSESSMENT_ORDERED_ENTRIES";
-import { MAX_ASSESSMENT_QUESTION_POOL_ITEMS } from "../../../generated/api/MAX_ASSESSMENT_QUESTION_POOL_ITEMS";
-import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import type { AssessmentActivityRules } from "../../../generated/api/AssessmentActivityRules";
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentEntryAvailability } from "../../../generated/api/AssessmentEntryAvailability";
@@ -14,8 +12,7 @@ import type { BlueprintCourseReference } from "../../../generated/api/BlueprintC
 import type { BlueprintRevision } from "../../../generated/api/BlueprintRevision";
 import type { LateWorkRule } from "../../../generated/api/LateWorkRule";
 import type { LocalDateAndTime } from "../../../generated/api/LocalDateAndTime";
-import type { QuestionPoolItem } from "../../../generated/api/QuestionPoolItem";
-import type { QuestionPoolItemAvailability } from "../../../generated/api/QuestionPoolItemAvailability";
+import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
 import type { QuestionPoolSelectedQuestionOrder } from "../../../generated/api/QuestionPoolSelectedQuestionOrder";
 import type {
   AssessmentPreview,
@@ -57,6 +54,8 @@ import {
   decodeCourseName,
   decodeIdentifier,
   decodeQuestionDescription,
+  decodeQuestionId,
+  decodePositiveQuestionRevisionNumber,
   decodeQuestionRevisionReference,
   field,
   requireOnlyFields,
@@ -272,20 +271,21 @@ function pointValue(value: unknown, path: string): AssessmentPointValue {
   return decoded;
 }
 
-function poolItem(value: unknown, path: string): QuestionPoolItem {
+function questionPoolRevisionReference(
+  value: unknown,
+  path: string,
+): QuestionPoolRevisionReference {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["id", "reference", "availability"]);
+  requireOnlyFields(record, path, ["questionPoolId", "revisionNumber"]);
   return {
-    id: decodeIdentifier(field(record, "id", path), `${path}.id`),
-    reference: decodeQuestionRevisionReference(
-      field(record, "reference", path),
-      `${path}.reference`,
-      true,
+    questionPoolId: decodeQuestionId(
+      field(record, "questionPoolId", path),
+      `${path}.questionPoolId`,
     ),
-    availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
-      "available",
-      "retired",
-    ] as const satisfies ReadonlyArray<QuestionPoolItemAvailability>),
+    revisionNumber: decodePositiveQuestionRevisionNumber(
+      field(record, "revisionNumber", path),
+      `${path}.revisionNumber`,
+    ),
   };
 }
 
@@ -354,6 +354,7 @@ function assessmentEntry(value: unknown, path: string): AssessmentEntry {
   requireOnlyFields(record, path, [
     "kind",
     "id",
+    "questionPoolRevision",
     "availability",
     "scoringRule",
     "selectionCount",
@@ -361,23 +362,18 @@ function assessmentEntry(value: unknown, path: string): AssessmentEntry {
     "selectionRule",
     "questionAttemptLimit",
     "questionAttemptTimeLimit",
-    "items",
   ]);
-  const items = decodeBoundedArray(
-    field(record, "items", path),
-    `${path}.items`,
-    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
-    poolItem,
-  );
   const selectionCount = decodePositiveInteger(
     field(record, "selectionCount", path),
     `${path}.selectionCount`,
   );
-  if (selectionCount > items.length)
-    throw new DecodeError(`${path}.selectionCount`, "no greater than the Question Pool Item count");
   return {
     kind,
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
+    questionPoolRevision: questionPoolRevisionReference(
+      field(record, "questionPoolRevision", path),
+      `${path}.questionPoolRevision`,
+    ),
     availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
       "available",
       "retired",
@@ -401,19 +397,11 @@ function assessmentEntry(value: unknown, path: string): AssessmentEntry {
       `${path}.questionAttemptTimeLimit`,
       true,
     ),
-    items,
   };
 }
 
 function entries(value: unknown, path: string): ReadonlyArray<AssessmentEntry> {
-  const decoded = decodeBoundedArray(value, path, MAX_ASSESSMENT_ORDERED_ENTRIES, assessmentEntry);
-  const poolItems = decoded.reduce(
-    (count, entry) => count + (entry.kind === "questionPool" ? entry.items.length : 0),
-    0,
-  );
-  if (poolItems > MAX_ASSESSMENT_QUESTION_POOL_ITEMS)
-    throw new DecodeError(path, "the supported total number of Question Pool Items");
-  return decoded;
+  return decodeBoundedArray(value, path, MAX_ASSESSMENT_ORDERED_ENTRIES, assessmentEntry);
 }
 
 function pickerEntry(value: unknown, path: string): AssessmentQuestionPickerEntry {

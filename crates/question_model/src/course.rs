@@ -7,9 +7,10 @@ use crate::{
     AssessmentEntryScoringRule, AssessmentGrade, AssessmentId, AssessmentInstructions,
     AssessmentPointValue, AssessmentProgressRecord, AssessmentQuestionVariationRule,
     AssessmentReference, AssessmentScoringState, AssessmentTitle, CourseId,
-    CourseInstanceReference, LateWorkRule, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-    QuestionBackend, QuestionBackendCapabilities, QuestionId, QuestionPoolRevisionReference,
-    QuestionPoolSelectionRule, StudentFeedbackReleaseRule, StudentRecordId, Timestamp,
+    CourseInstanceReference, CourseTerm, LateWorkRule, QuestionAttemptLimit,
+    QuestionAttemptTimeLimit, QuestionBackend, QuestionBackendCapabilities, QuestionId,
+    QuestionPoolRevisionReference, QuestionPoolSelectionRule, StudentFeedbackReleaseRule,
+    StudentRecordId, Timestamp,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -40,6 +41,25 @@ pub struct CourseSummary {
     pub long_name: String,
     /// Required inclusive term bounds.
     pub term: crate::CourseTerm,
+    /// Signed-in Account's Course Membership Role for this Course Instance.
+    pub role: CourseMembershipRole,
+}
+
+/// Closed Course Instance identity and teaching-period data for course routes.
+///
+/// This projection deliberately contains no durable Course identity. Route authorization resolves
+/// the signed-in Account's membership role before constructing it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CourseInstanceRouteSummary {
+    /// Stable Course Instance Reference used in application navigation.
+    pub reference: CourseInstanceReference,
+    /// Compact Course Instance name for constrained navigation.
+    pub short_name: String,
+    /// Descriptive Course Instance name for headings and breadcrumbs.
+    pub long_name: String,
+    /// Required inclusive term bounds.
+    pub term: CourseTerm,
     /// Signed-in Account's Course Membership Role for this Course Instance.
     pub role: CourseMembershipRole,
 }

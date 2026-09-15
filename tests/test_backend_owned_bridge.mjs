@@ -11,7 +11,7 @@ import {
   classifyBackendOwnedResponseMessage,
   isBackendOwnedResponseMessage,
 } from "../src/components/question_response_controls/backend_owned_document.tsx";
-import { saveCapturedBackendOwnedResponse } from "../src/pages/assignment_attempt_finish.ts";
+import { saveCapturedBackendOwnedResponse } from "../src/pages/assessment_attempt_finish.ts";
 
 const bridgeSource = readFileSync(new URL("../src/public/ple_bridge.js", import.meta.url), "utf8");
 
@@ -172,7 +172,7 @@ test("only the matching capture reply can advance Finish past queued bridge subm
 test("parent accepts only the bridge message and builds only the current document route", () => {
   assert.equal(
     backendOwnedDocumentPath("R-42", 3),
-    "/api/assignment-attempts/R-42/questions/3/document",
+    "/api/assessment-attempts/R-42/questions/3/document",
   );
   assert.equal(backendOwnedDocumentPath("question-attempt-42", 3), null);
   assert.equal(backendOwnedDocumentPath("R-42", 0), null);
@@ -192,7 +192,7 @@ test("parent accepts only the bridge message and builds only the current documen
   );
 });
 
-test("Finish Assignment captures the active backend document, saves it, then finalizes", async () => {
+test("Finish Assessment captures the active backend document, saves it, then finalizes", async () => {
   const events = [];
   const result = await saveCapturedBackendOwnedResponse(
     async () => {

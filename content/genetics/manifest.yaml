@@ -120,6 +120,20 @@ parameterized_sources:
   canonical_author_source_sha256: 7210902151c9c74559c34e6954952f7c417a74136d156d6c54aedb8186989f05
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
+- source_id: topic02-chargaff-dna-percent-5-choices
+  topic_slug: topic02
+  replaces_static_bank_slug: chargaff-dna-percent-5-choices
+  question_title: Chargaff base composition in double-stranded DNA
+  question_description: Determine the three unreported DNA-base percentages from one reported percentage using Chargaff's rules.
+  question_type: multipleChoice
+  source_format: pgml
+  pg_source: pg/topic02/chargaff_dna_percent-5_choices.pgml
+  pg_sha256: 7194f21f9412ccd731090e8b99cb1e0c1f3852138d49d9bc8174b286b954325e
+  webwork_pg_path: genetics/topic02/chargaff_dna_percent-5_choices.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems/blob/8e3560d05a40cbf2981004207ae4ec374b7cfd86/problems/molecular_biology-problems/chargaff_dna_percent.py
+  canonical_author_source_sha256: 64b84f1b028014714312d4eb72f96c2b57c43e357638b7be8e69ecd77cafa863
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
 - source_id: topic03-english-palindromes
   topic_slug: topic03
   replaces_static_bank_slug: tfms-english-palindromes

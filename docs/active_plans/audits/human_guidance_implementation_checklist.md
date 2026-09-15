@@ -205,9 +205,8 @@ PLE product or code behavior.
   - Mismatch: `crates/server/src/blueprint_course.rs` authorizes current Instructor sessions but has no public-or-archived Blueprint Course browse policy.
 - [x] **Instructors** log in only with a passkey or email code; no passwords.
   - Evidence (source): `schemas/base_schema/authentication.sql` `consume_email_authentication` and `consume_passkey_authentication`.
-- [x] **Instructors** should have a clearly labeled, answer-free **Student** view without changing their identity.
-  - Evidence (source): `src/pages/assignment_workspace/assignment_workspace_student_view_model.ts` `STUDENT_VIEW_CUE`.
-  - Evidence (test): `tests/test_assignment_workspace_student_view.mjs` `Student view presentation stays answer-free and preserves live delivery facts`.
+- [ ] **Instructors** should have a clearly labeled, answer-free **Student** view without changing their identity.
+  - Mismatch: `src/pages/assessment_workspace/assessment_workspace_student_view_page.tsx` `AssessmentWorkspaceStudentViewPage` renders "Student view unavailable" and states that the direct Assessment workspace has no answer-free Student-view projection.
 
 ### Student role
 
@@ -712,7 +711,7 @@ PLE product or code behavior.
 - [ ] Each Coursework item should clearly show its Assessment Type using its label and Type icon.
   - Mismatch: `src/pages/student_course_landing_page.tsx` `AssignmentCard` has no type label or icon.
 - [x] The Student interface should make the next useful action easy to find.
-  - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssignmentCard` presents the primary "Open Assignment" action.
+  - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` presents the primary "Open Assessment" action.
 - [ ] The Student menu is simpler than the Instructor menu.
   - Mismatch: `src/ribbon/ribbon_catalog.ts` `RIBBON_TASK_CATALOG` does not define a complete Student menu for comparison.
 - [ ] Student workflows should work well on laptops, portrait tablets, narrow phones, and square displays.
@@ -734,28 +733,26 @@ PLE product or code behavior.
 - [ ] Before starting Coursework, Students should see its title, Type, Question count, points possible, time limit, and previous Attempts.
   - Mismatch: `src/components/student_assignment_presentation.tsx` `StudentAssignmentStartFacts` has some delivery facts, but does not establish the complete required Type and previous-Attempts presentation.
 - [x] Students see one Question at a time while completing Coursework.
-  - Evidence (source): `src/pages/assignment_attempt_page.tsx` `AssignmentAttemptPage` renders one keyed `currentPresentation` question card.
-  - Evidence (test): `tests/playwright/e2e_live_demo_course_seed_browser.mjs` `expectAttempt` asserts one `article.question-card`.
+  - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders one keyed current presentation in one `article.question-card`.
 - [x] While completing Coursework, navigation should show every Question, its saved status, and allow Students to jump directly between Questions.
-  - Evidence (source): `src/components/student_assignment_attempt_navigation.tsx` `StudentAssignmentAttemptNavigation` renders every position, saved-status label, and position button.
-  - Evidence (test): `tests/test_student_assignment_attempt_navigation.mjs` `Student Question navigation renders ordered, answer-free states with one current Question`.
+  - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` renders every position, saved-status label, and position button.
+  - Evidence (test): `tests/test_student_assessment_attempt_navigation.mjs` `Student Question navigation renders ordered, answer-free states with one current Question`.
 - [x] Leaving a Question and returning should preserve its saved response.
-  - Evidence (source): `src/pages/assignment_attempt_page.tsx` `activatePosition` saves before loading another position and `loadPresentation` restores `savedResponse`.
-  - Evidence (test): `tests/playwright/e2e_live_demo_webwork_submission_browser.mjs` reload assertion verifies persisted `savedResponse`.
+  - Evidence (source): `src/pages/assessment_attempt_page.tsx` `activatePosition` saves before changing position; `src/pages/assessment_attempt_page.tsx` `loadPresentation` restores the persisted `savedResponse` when the Student returns.
 - [x] The current Question and overall progress should remain easy to see.
-  - Evidence (source): `src/pages/assignment_attempt_page.tsx` `AssignmentAttemptPage` renders the current position and total question count beside the navigation.
+  - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders "Question" with the current position and overall question count immediately before the Question navigation.
 - [x] The timer should be subtle and keep the focus on the Questions.
-  - Evidence (source): `src/pages/assignment_attempt_page.tsx` `assignment-attempt-header` keeps `calm-status` timer in the header outside the question card.
+  - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` places the `calm-status` timer in the Assessment Attempt header, outside the Question card.
 - [x] For timed Coursework, the remaining time should stay visible while moving between Questions.
-  - Evidence (source): `src/pages/assignment_attempt_page.tsx` `remainingMilliseconds` is header state independent of `currentPresentation`.
+  - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders `remainingMilliseconds` in the persistent header while keyed Question presentations change below it.
 - [x] Submission status should be obvious and use plain language.
-  - Evidence (source): `src/pages/assignment_attempt_page.tsx` `submissionState` renders "Your answers were accepted" and saved-response submission text.
+  - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders "Submitting Assessment...", "Your answers were accepted", and plain-language save or submission errors from the submission state.
 - [x] Scores and feedback should appear where the Coursework settings allow them.
-  - Evidence (source): `src/components/student_assignment_presentation.tsx` `StudentAssignmentPresentation` conditions scores and feedback on `studentFeedbackReleaseRule`.
+  - Evidence (source): `crates/server/src/assessment_delivery/history.rs` `project_history` applies the server-owned feedback-release decision before projecting scores and per-Question feedback; `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent` renders only the released fields present in that projection.
 - [x] Completed Coursework should remain easy to find and review.
-  - Evidence (source): `src/pages/assignment_attempt_summary_page.tsx` `AssignmentAttemptSummaryPage` presents previous attempt score and recorded work.
+  - Evidence (source): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` lists and links previous Attempts; `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent` presents the selected Attempt's score and recorded work.
 - [x] Student content entry should use the response controls provided by Questions and other Student activities.
-  - Evidence (source): `src/pages/assignment_attempt_page.tsx` `QuestionPresentationResponseControl` receives the Question presentation response format.
+  - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` passes the current Question presentation's response format to `QuestionPresentationResponseControl`.
 - [ ] The complete Student Ribbon task layout does not have a locked-in design yet.
   - Reason: HG: no locked-in design.
   - Mismatch: no complete Student Ribbon task layout can be verified until the design is locked.
@@ -790,8 +787,8 @@ PLE product or code behavior.
   - Mismatch: `src/ribbon/ribbon_catalog.ts` has no system-settings destination. The guidance could require a page for actual platform settings, or no page until implemented system-owned settings exist; current evidence cannot select between those readings.
 - [x] Everyday navigation should emphasize frequently used administrative tasks.
   - Evidence (source): `src/ribbon/ribbon_catalog.ts` `instructorAccounts` is a primary critical task while `supportRoster` is supporting normal priority.
-- [x] Rare installation and configuration tasks should remain available through secondary navigation.
-  - Evidence (source): `src/ribbon/ribbon_catalog.ts` `supportRoster` is the supporting `Scoped Support` administrative task.
+- [ ] Rare installation and configuration tasks should remain available through secondary navigation.
+  - Mismatch: `src/ribbon/ribbon_catalog.ts` `TAB_CATALOG` contains only the primary Instructor Accounts Sysadmin destination; no rare installation or configuration task is available through secondary Sysadmin navigation.
 - [ ] High-consequence administrative actions should have a visually distinct area.
   - Mismatch: `src/pages/instructor_accounts_page.tsx` `Deactivate Instructor Account` uses the ordinary `quiet-action` styling with no distinct high-consequence area.
 - [ ] Confirmation for destructive actions should clearly state what will happen.
@@ -1165,8 +1162,8 @@ PLE product or code behavior.
   - Mismatch: no Question Pool fork model exists; current Question IDs use a different display grouping.
 - [ ] Question Pools work the same way regardless of the Question Backend.
   - Mismatch: incomplete secondary backend delivery leaves this unverified.
-- [x] **Instructors** choose the contents of a Question Pool and how many Questions are selected.
-  - Evidence (source): `src/pages/assessment_pool_editor.tsx` `AssessmentPoolEditor` edits item IDs and selection count.
+- [ ] **Instructors** choose the contents of a Question Pool and how many Questions are selected.
+  - Mismatch: canonical Instructor Question Pool authoring and selection-count workflow integration remains pending.
 - [x] PLE selects from the Question Pool; the selected Question Backend controls the Question interaction.
   - Evidence (source): `crates/domain/src/question_pool_selection.rs` `select_question_pool_items` performs server-owned selection.
 - [x] Question Pool selection and backend-native randomization are separate forms of variation.

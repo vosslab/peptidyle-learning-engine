@@ -4,25 +4,25 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  assignmentRouteReference,
+  assessmentRouteReference,
   courseInstanceRouteReference,
-  parseAssignmentReference,
+  parseAssessmentReference,
   parseCourseInstanceReference,
   parseQuestionRouteReference,
   parsePublicRouteReference,
-  parseAssignmentAttemptReference,
+  parseAssessmentAttemptReference,
   parseAuthoringWorkspaceReference,
   parseDraftQuestionReference,
   questionRouteReference,
-  assignmentAttemptRouteReference,
+  assessmentAttemptRouteReference,
   authoringWorkspaceRouteReference,
   draftQuestionRouteReference,
 } from "../src/navigation/public_route.ts";
 import {
-  resolveAssignmentRoute,
+  resolveAssessmentRoute,
   resolveCourseRoute,
-  resolveAssignmentAttemptRoute,
-  resolveAssignmentAttemptIdentity,
+  resolveAssessmentAttemptRoute,
+  resolveAssessmentAttemptIdentity,
   resolveCourseIdentity,
   resolveWorkspaceRoute,
 } from "../src/navigation/resolved_route.ts";
@@ -30,8 +30,8 @@ import { isAssignmentReference, isCourseInstanceReference } from "./support/publ
 
 test("human route references are compact, typed, and bounded", () => {
   assert.equal(courseInstanceRouteReference("CI7K3M2Q"), "CI7K3M2Q");
-  assert.equal(assignmentRouteReference("A9D2RX5"), "A9D2RX5");
-  assert.equal(assignmentAttemptRouteReference("R-30"), "R-30");
+  assert.equal(assessmentRouteReference("A9D2RX5"), "A9D2RX5");
+  assert.equal(assessmentAttemptRouteReference("R-30"), "R-30");
   assert.equal(authoringWorkspaceRouteReference("W-40"), "W-40");
   assert.equal(draftQuestionRouteReference("D-50"), "D-50");
   assert.equal(questionRouteReference("7K3M-X9QP"), "7K3M-X9QP");
@@ -45,8 +45,8 @@ test("human route references are compact, typed, and bounded", () => {
   }
   for (const [parser, valid, rejected] of [
     [parseCourseInstanceReference, "CI7K3M2Q", ["C-1", "CI7K3M2", "CI7K3M2I"]],
-    [parseAssignmentReference, "A9D2RX5", ["A-1", "A9D2RX", "A9D2RXI"]],
-    [parseAssignmentAttemptReference, "R"],
+    [parseAssessmentReference, "A9D2RX5", ["A-1", "A9D2RX", "A9D2RXI"]],
+    [parseAssessmentAttemptReference, "R"],
     [parseAuthoringWorkspaceReference, "W"],
     [parseDraftQuestionReference, "D"],
   ]) {
@@ -75,8 +75,8 @@ test("human route references are compact, typed, and bounded", () => {
 test("route resolution recovers protected API identities without weakening reference kinds", async () => {
   const fixture = {
     course: { reference: "CI7K3M2Q", id: "course-id" },
-    assignment: { reference: "A9D2RX5", id: "assignment-id" },
-    assignmentAttempt: { reference: "R-1", id: "assignment-attempt-id" },
+    assessment: { reference: "A9D2RX5", id: "assessment-id" },
+    assessmentAttempt: { reference: "R-1", id: "assessment-attempt-id" },
     workspace: { reference: "W-1", id: "workspace-id" },
   };
   const client = {
@@ -84,16 +84,16 @@ test("route resolution recovers protected API identities without weakening refer
       const values = {
         CI7K3M2Q: { kind: "course", courseId: fixture.course.id },
         A9D2RX5: {
-          kind: "assignment",
+          kind: "assessment",
           courseId: fixture.course.id,
-          assignmentId: fixture.assignment.id,
+          assessmentId: fixture.assessment.id,
         },
         "R-1": {
-          kind: "assignmentAttempt",
+          kind: "assessmentAttempt",
           courseId: fixture.course.id,
-          assignmentId: fixture.assignment.id,
+          assessmentId: fixture.assessment.id,
           studentRecordId: "student-record-id",
-          assignmentAttemptId: fixture.assignmentAttempt.id,
+          assessmentAttemptId: fixture.assessmentAttempt.id,
         },
         "W-1": { kind: "workspace", workspaceId: fixture.workspace.id },
       };
@@ -105,23 +105,23 @@ test("route resolution recovers protected API identities without weakening refer
   const courseIdentity = await resolveCourseIdentity(client, fixture.course.reference);
   assert.deepEqual(courseIdentity, { courseId: fixture.course.id });
   assert.equal(Object.isFrozen(courseIdentity), true);
-  assert.deepEqual(await resolveAssignmentRoute(client, fixture.assignment.reference), {
-    kind: "assignment",
+  assert.deepEqual(await resolveAssessmentRoute(client, fixture.assessment.reference), {
+    kind: "assessment",
     courseId: fixture.course.id,
-    assignmentId: fixture.assignment.id,
+    assessmentId: fixture.assessment.id,
   });
   assert.equal(
-    await resolveAssignmentAttemptRoute(client, fixture.assignmentAttempt.reference),
-    fixture.assignmentAttempt.id,
+    await resolveAssessmentAttemptRoute(client, fixture.assessmentAttempt.reference),
+    fixture.assessmentAttempt.id,
   );
-  const attemptIdentity = await resolveAssignmentAttemptIdentity(
+  const attemptIdentity = await resolveAssessmentAttemptIdentity(
     client,
-    fixture.assignmentAttempt.reference,
+    fixture.assessmentAttempt.reference,
   );
   assert.deepEqual(attemptIdentity, {
     courseId: fixture.course.id,
-    assignmentId: fixture.assignment.id,
-    assignmentAttemptId: fixture.assignmentAttempt.id,
+    assessmentId: fixture.assessment.id,
+    assessmentAttemptId: fixture.assessmentAttempt.id,
   });
   assert.equal(Object.isFrozen(attemptIdentity), true);
   assert.equal(
@@ -132,9 +132,9 @@ test("route resolution recovers protected API identities without weakening refer
   const wrongKindClient = {
     resolveNavigation: () =>
       Promise.resolve({
-        kind: "assignment",
+        kind: "assessment",
         courseId: fixture.course.id,
-        assignmentId: fixture.assignment.id,
+        assessmentId: fixture.assessment.id,
       }),
   };
   await assert.rejects(resolveCourseRoute(wrongKindClient, fixture.course.reference), {
@@ -146,13 +146,13 @@ test("route resolution recovers protected API identities without weakening refer
   await assert.rejects(resolveCourseIdentity(client, "CI7K3M2"), {
     message: "Course reference is invalid",
   });
-  await assert.rejects(resolveAssignmentAttemptIdentity(client, "CI7K3M2Q"), {
-    message: "Assignment Attempt route is incomplete",
+  await assert.rejects(resolveAssessmentAttemptIdentity(client, "CI7K3M2Q"), {
+    message: "Assessment Attempt route is incomplete",
   });
-  await assert.rejects(resolveAssignmentAttemptIdentity(client, "R-01"), {
-    message: "Assignment Attempt reference is invalid",
+  await assert.rejects(resolveAssessmentAttemptIdentity(client, "R-01"), {
+    message: "Assessment Attempt reference is invalid",
   });
-  await assert.rejects(resolveAssignmentAttemptIdentity(wrongKindClient, "R-1"), {
-    message: "Assignment Attempt reference resolved to another resource",
+  await assert.rejects(resolveAssessmentAttemptIdentity(wrongKindClient, "R-1"), {
+    message: "Assessment Attempt reference resolved to another resource",
   });
 });

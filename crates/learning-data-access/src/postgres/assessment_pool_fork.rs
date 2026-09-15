@@ -2,8 +2,8 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AssessmentEntryScoringRule, QuestionPoolRevisionNumber, QuestionPoolRevisionReference,
-    QuestionPoolSelectedQuestionOrder,
+    AssessmentEditNumber, AssessmentEntryScoringRule, QuestionPoolRevisionNumber,
+    QuestionPoolRevisionReference, QuestionPoolSelectedQuestionOrder,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -58,6 +58,12 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
         session_token_hash: SessionTokenHash,
         input: ImportAssessmentPoolForkInput,
     ) -> Result<ImportedAssessmentPoolFork, StoreError> {
+        let expected_next_edit = input
+            .expected_assessment_edit_number
+            .checked_next()
+            .ok_or_else(|| invalid("Assessment Edit Number successor"))?;
+        let expected_edit = i64::try_from(input.expected_assessment_edit_number.value())
+            .map_err(|_| invalid("Assessment Edit Number"))?;
         let authored_position = i32::try_from(input.authored_position)
             .map_err(|_| invalid("Assessment Entry position"))?;
         let selection_count = i32::try_from(input.selection_count.get())
@@ -73,7 +79,7 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
         // source Revision pin.
         let source = sqlx::query(
             "SELECT question_pool_id, current_revision_number \
-             FROM ple_api.resolve_current_root_question_pool($1)",
+             FROM ple_api.resolve_current_published_question_pool($1)",
         )
         .bind(input.source_public_question_pool_id.to_string())
         .fetch_optional(&mut *transaction)
@@ -87,11 +93,12 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
             .map_err(map_sqlx_error)?;
         let row = sqlx::query(
             "SELECT * FROM ple_api.import_assessment_question_pool_fork_for_reference(\
-             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
         )
         .bind(input.course.as_string())
         .bind(input.assessment.as_string())
         .bind(input.assessment_entry.as_uuid())
+        .bind(expected_edit)
         .bind(input.fork_question_pool_id)
         .bind(input.fork_public_question_pool_id.as_compact_str())
         .bind(source_question_pool_id)
@@ -126,6 +133,17 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
         if revision_number.get() != 1 {
             return Err(invalid("Assessment Pool fork Revision"));
         }
+        let assessment_edit_number = AssessmentEditNumber::new(
+            u64::try_from(
+                row.try_get::<i64, _>("assessment_edit_number")
+                    .map_err(map_sqlx_error)?,
+            )
+            .map_err(|_| invalid("Assessment Edit Number"))?,
+        )
+        .ok_or_else(|| invalid("Assessment Edit Number"))?;
+        if assessment_edit_number != expected_next_edit {
+            return Err(invalid("Assessment Pool fork import receipt"));
+        }
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(ImportedAssessmentPoolFork {
             assessment_entry,
@@ -133,6 +151,7 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
                 question_pool_id: input.fork_public_question_pool_id,
                 revision_number,
             },
+            assessment_edit_number,
         })
     }
 

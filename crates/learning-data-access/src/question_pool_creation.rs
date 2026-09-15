@@ -1,8 +1,8 @@
 //! Atomic creation of one reusable Published Question Pool Revision.
 //!
-//! Selection-count policy deliberately does not cross this boundary. The
-//! unresolved Pool-selection product decision is separate from immutable Pool
-//! membership and its Instructor attestation.
+//! Selection-count policy deliberately does not cross this boundary. It belongs
+//! to the Assessment Entry, separate from immutable Pool membership and its
+//! Instructor attestation.
 
 use std::collections::BTreeSet;
 

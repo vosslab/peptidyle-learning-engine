@@ -90,11 +90,11 @@ if set(value)!={"theme","banner"} or value.get("theme") != expected or value.get
 assert_course_summary() {
 	python3 -c '
 import json, re, sys
-value=json.loads(sys.argv[1]); course_id, reference, role=sys.argv[2:]
-if set(value)!={"id","reference","shortName","longName","term","role"}:
+value=json.loads(sys.argv[1]); reference, role=sys.argv[2:]
+if set(value)!={"reference","shortName","longName","term","role"}:
     raise SystemExit("Course Summary response is not closed")
-if value.get("id") != course_id or value.get("reference") != reference or value.get("role") != role:
-    raise SystemExit("Course Summary did not retain exact identity and caller membership role")
+if value.get("reference") != reference or value.get("role") != role:
+    raise SystemExit("Course Summary did not retain exact reference and caller membership role")
 for key in ("shortName", "longName"):
     if not isinstance(value.get(key),str) or not value[key].strip():
         raise SystemExit(f"Course Summary {key} is invalid")
@@ -103,25 +103,16 @@ if not isinstance(term,dict) or set(term)!={"startDate","endDate"}:
     raise SystemExit("Course Summary term is invalid")
 if not all(isinstance(term.get(key),str) and term[key] for key in term):
     raise SystemExit("Course Summary term fields are invalid")
-' "$1" "$2" "$3" "$4"
+' "$1" "$2" "$3"
 }
 
 assert_same_course_summary_identity() {
 	python3 -c '
 import json, sys
 left=json.loads(sys.argv[1]); right=json.loads(sys.argv[2])
-for key in ("id","reference","shortName","longName","term"):
+for key in ("reference","shortName","longName","term"):
     if left.get(key) != right.get(key):
         raise SystemExit("Instructor and enrolled Student Course Summaries differ")
-' "$1" "$2"
-}
-
-assert_course_navigation() {
-	python3 -c '
-import json, sys
-value=json.loads(sys.argv[1]); expected=sys.argv[2]
-if value != {"kind":"course", "courseId":expected}:
-    raise SystemExit("Course navigation response is not the exact Course resolution")
 ' "$1" "$2"
 }
 
@@ -189,7 +180,7 @@ matches=[item for item in value["items"] if isinstance(item,dict) and item.get("
 if len(matches)!=1 or set(matches[0])!={"reference","shortName","longName","term","theme"}:
     raise SystemExit("Live Demo Course is absent, duplicated, or malformed")
 reference=matches[0]["reference"]
-if not isinstance(reference,str) or not re.fullmatch(r"C-[1-9][0-9]{0,9}",reference):
+if not isinstance(reference,str) or not re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}",reference):
     raise SystemExit("Live Demo Course has no canonical public reference")
 print(reference)
 ' "$1" "$live_demo_course_long_name"
@@ -198,7 +189,7 @@ print(reference)
 course_uuid() {
 	local reference="$1" postgres sql output
 	postgres="$(service_id postgres)"
-	sql="SELECT course_id FROM ple_data.course_instance WHERE reference_number = ${reference#C-};"
+	sql="SELECT course_id FROM ple_data.course_instance WHERE public_reference = '$reference';"
 	output="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "$sql")"
 	[ "$(printf '%s\n' "$output" | sed '/^$/d' | wc -l | tr -d '[:space:]')" = "1" ] ||
 		fail "could not resolve exactly one internal Course identity for accepted setup"
@@ -218,7 +209,7 @@ find_foreign_course_uuid() {
 foreign_course_reference() {
 	local course="$1" postgres sql output
 	postgres="$(service_id postgres)"
-	sql="SELECT 'C-' || reference_number FROM ple_data.course_instance WHERE course_id = '$course';"
+	sql="SELECT public_reference FROM ple_data.course_instance WHERE course_id = '$course';"
 	output="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "$sql")"
 	[ "$(printf '%s\n' "$output" | sed '/^$/d' | wc -l | tr -d '[:space:]')" = "1" ] ||
 		fail "could not resolve exactly one foreign Course reference"
@@ -264,24 +255,22 @@ course_public_reference="$(course_reference "$(body "$course_list")")"
 course="$(course_uuid "$course_public_reference")"
 trap restore_original_theme_on_exit EXIT
 inactive_member_cookie="$(synthetic_concealed_cookie inactive_member "$course")"
-path="/api/courses/$course/appearance"
-summary_path="/api/courses/$course"
-navigation_path="/api/navigation/$course_public_reference"
+path="/api/course-instances/$course_public_reference/appearance"
+summary_path="/api/course-instances/$course_public_reference/summary"
+course_instance_path="/api/course-instances/$course_public_reference"
+
+instructor_course_instance="$(request "$course_instance_path" "$instructor_cookie")"
+student_course_instance="$(request "$course_instance_path" "$student_cookie")"
+assert_no_store "$instructor_course_instance" 200
+assert_no_store "$student_course_instance" 404
 
 instructor_summary="$(request "$summary_path" "$instructor_cookie")"
 student_summary="$(request "$summary_path" "$student_cookie")"
 assert_no_store "$instructor_summary" 200
 assert_no_store "$student_summary" 200
-assert_course_summary "$(body "$instructor_summary")" "$course" "$course_public_reference" instructor
-assert_course_summary "$(body "$student_summary")" "$course" "$course_public_reference" student
+assert_course_summary "$(body "$instructor_summary")" "$course_public_reference" instructor
+assert_course_summary "$(body "$student_summary")" "$course_public_reference" student
 assert_same_course_summary_identity "$(body "$instructor_summary")" "$(body "$student_summary")"
-
-instructor_navigation="$(request "$navigation_path" "$instructor_cookie")"
-student_navigation="$(request "$navigation_path" "$student_cookie")"
-assert_no_store "$instructor_navigation" 200
-assert_no_store "$student_navigation" 200
-assert_course_navigation "$(body "$instructor_navigation")" "$course"
-assert_course_navigation "$(body "$student_navigation")" "$course"
 
 instructor_read="$(request "$path" "$instructor_cookie")"
 student_read="$(request "$path" "$student_cookie")"
@@ -297,16 +286,20 @@ fi
 
 anonymous="$(request "$path")"
 sysadmin="$(request "$path" "$sysadmin_cookie")"
-foreign="$(request "/api/courses/$foreign_course/appearance" "$instructor_cookie")"
+foreign="$(request "/api/course-instances/$foreign_reference/appearance" "$instructor_cookie")"
+blueprint="$(request "/api/course-instances/BP7K3M2Q/appearance" "$instructor_cookie")"
 assert_no_store "$anonymous" 404
 assert_no_store "$sysadmin" 404
 assert_no_store "$foreign" 404
-[ "$(body "$anonymous")" = "$(body "$sysadmin")" ] && [ "$(body "$anonymous")" = "$(body "$foreign")" ] ||
-	fail "anonymous, nonmember, and foreign-Instructor responses differ"
+assert_no_store "$blueprint" 404
+[ "$(body "$anonymous")" = "$(body "$sysadmin")" ] && \
+	[ "$(body "$anonymous")" = "$(body "$foreign")" ] && \
+	[ "$(body "$anonymous")" = "$(body "$blueprint")" ] ||
+	fail "anonymous, nonmember, foreign-Instructor, and Blueprint responses differ"
 
 summary_anonymous="$(request "$summary_path")"
 summary_sysadmin="$(request "$summary_path" "$sysadmin_cookie")"
-summary_foreign="$(request "/api/courses/$foreign_course" "$instructor_cookie")"
+summary_foreign="$(request "/api/course-instances/$foreign_reference/summary" "$instructor_cookie")"
 summary_inactive_member="$(request "$summary_path" "$inactive_member_cookie")"
 assert_no_store "$summary_anonymous" 404
 assert_no_store "$summary_sysadmin" 404
@@ -316,23 +309,6 @@ assert_no_store "$summary_inactive_member" 404
 	[ "$(body "$summary_anonymous")" = "$(body "$summary_foreign")" ] && \
 	[ "$(body "$summary_anonymous")" = "$(body "$summary_inactive_member")" ] ||
 fail "Course Summary concealed caller responses differ"
-
-navigation_anonymous="$(request "$navigation_path")"
-navigation_sysadmin="$(request "$navigation_path" "$sysadmin_cookie")"
-navigation_foreign="$(request "/api/navigation/$foreign_reference" "$instructor_cookie")"
-navigation_inactive_member="$(request "$navigation_path" "$inactive_member_cookie")"
-navigation_malformed="$(request "/api/navigation/C-0" "$instructor_cookie")"
-navigation_non_course="$(request "/api/navigation/R-1" "$instructor_cookie")"
-for response in "$navigation_anonymous" "$navigation_sysadmin" "$navigation_foreign" \
-	"$navigation_inactive_member" "$navigation_malformed" "$navigation_non_course"; do
-	assert_no_store "$response" 404
-done
-[ "$(body "$navigation_anonymous")" = "$(body "$navigation_sysadmin")" ] && \
-	[ "$(body "$navigation_anonymous")" = "$(body "$navigation_foreign")" ] && \
-	[ "$(body "$navigation_anonymous")" = "$(body "$navigation_inactive_member")" ] && \
-	[ "$(body "$navigation_anonymous")" = "$(body "$navigation_malformed")" ] && \
-	[ "$(body "$navigation_anonymous")" = "$(body "$navigation_non_course")" ] ||
-	fail "Course navigation concealed caller responses differ"
 
 updated="$(request "$path" "$instructor_cookie" PUT "$(theme_payload "$target_theme")")"
 assert_no_store "$updated" 200

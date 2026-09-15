@@ -8,7 +8,7 @@ import {
 } from "../support/ribbon_test_support.ts";
 import { createHttpApiClient } from "../../src/api/http_client.ts";
 import {
-  assignmentAttemptRouteReference,
+  assessmentAttemptRouteReference,
   courseInstanceRouteReference,
 } from "../../src/navigation/public_route.ts";
 
@@ -48,8 +48,7 @@ assert.equal(harness.countRequests("/api/auth/session"), 1);
 
 const identity = {
   courseOne: "00000000-0000-4000-8000-000000000011",
-  courseTwo: "00000000-0000-4000-8000-000000000012",
-  assignment: "00000000-0000-4000-8000-000000000013",
+  assessment: "00000000-0000-4000-8000-000000000013",
   student: "00000000-0000-4000-8000-000000000014",
   attempt: "00000000-0000-4000-8000-000000000015",
 };
@@ -57,24 +56,33 @@ const resolvingClient = createHttpApiClient({
   fetch(input) {
     const pathname = typeof input === "string" ? input : new URL(input.url).pathname;
     const responseByPath = {
-      "/api/navigation/CI7K3M2Q": { kind: "course", courseId: identity.courseOne },
-      "/api/navigation/CI4W8QF9": { kind: "course", courseId: identity.courseTwo },
-      "/api/navigation/R-1": {
-        kind: "assignmentAttempt",
-        courseId: identity.courseOne,
-        assignmentId: identity.assignment,
-        studentRecordId: identity.student,
-        assignmentAttemptId: identity.attempt,
+      "/api/course-instances/CI7K3M2Q/summary": {
+        reference: "CI7K3M2Q",
+        shortName: "BIO 301",
+        longName: "Molecular Biology",
+        term: { startDate: "2026-01-12", endDate: "2026-05-08" },
+        role: "instructor",
       },
-      "/api/navigation/CI9P6R4V": {
-        kind: "assignment",
+      "/api/course-instances/CI7K3M2Q/appearance": { theme: "grass", banner: null },
+      "/api/course-instances/CI4W8QF9/summary": {
+        reference: "CI4W8QF9",
+        shortName: "BIO 302",
+        longName: "Genetics",
+        term: { startDate: "2026-08-24", endDate: "2026-12-11" },
+        role: "student",
+      },
+      "/api/course-instances/CI4W8QF9/appearance": { theme: "forest", banner: null },
+      "/api/navigation/R-1": {
+        kind: "assessmentAttempt",
         courseId: identity.courseOne,
-        assignmentId: identity.assignment,
+        assessmentId: identity.assessment,
+        studentRecordId: identity.student,
+        assessmentAttemptId: identity.attempt,
       },
       "/api/navigation/R-9": {
-        kind: "assignment",
+        kind: "assessment",
         courseId: identity.courseOne,
-        assignmentId: identity.assignment,
+        assessmentId: identity.assessment,
       },
     };
     const payload = responseByPath[pathname];
@@ -82,7 +90,7 @@ const resolvingClient = createHttpApiClient({
       payload === undefined
         ? new Response("not found", { status: 404, statusText: "Not Found" })
         : new Response(JSON.stringify(payload), {
-            headers: { "content-type": "application/json" },
+            headers: { "cache-control": "no-store", "content-type": "application/json" },
           }),
     );
   },
@@ -90,57 +98,61 @@ const resolvingClient = createHttpApiClient({
 const resolutionApi = createApplicationApi(resolvingClient);
 const courseOne = courseInstanceRouteReference("CI7K3M2Q");
 const courseTwo = courseInstanceRouteReference("CI4W8QF9");
-const attemptOne = assignmentAttemptRouteReference("R-1");
-const attemptTwo = assignmentAttemptRouteReference("R-2");
+const attemptOne = assessmentAttemptRouteReference("R-1");
+const attemptTwo = assessmentAttemptRouteReference("R-2");
 
 assert.equal(
-  resolutionApi.queries.resolveCourse.keyFor(courseOne),
-  resolutionApi.queries.resolveCourse.keyFor(courseOne),
+  resolutionApi.queries.courseScope.keyFor(courseOne),
+  resolutionApi.queries.courseScope.keyFor(courseOne),
 );
 assert.notEqual(
-  resolutionApi.queries.resolveCourse.keyFor(courseOne),
-  resolutionApi.queries.resolveCourse.keyFor(courseTwo),
+  resolutionApi.queries.courseScope.keyFor(courseOne),
+  resolutionApi.queries.courseScope.keyFor(courseTwo),
 );
 assert.notEqual(
-  resolutionApi.queries.resolveCourse.keyFor(courseOne),
-  resolutionApi.queries.resolveAssignmentAttempt.keyFor(attemptOne),
+  resolutionApi.queries.courseScope.keyFor(courseOne),
+  resolutionApi.queries.resolveAssessmentAttempt.keyFor(attemptOne),
 );
 assert.equal(
-  resolutionApi.queries.resolveAssignmentAttempt.keyFor(attemptOne),
-  resolutionApi.queries.resolveAssignmentAttempt.keyFor(attemptOne),
+  resolutionApi.queries.resolveAssessmentAttempt.keyFor(attemptOne),
+  resolutionApi.queries.resolveAssessmentAttempt.keyFor(attemptOne),
 );
 assert.notEqual(
-  resolutionApi.queries.resolveAssignmentAttempt.keyFor(attemptOne),
-  resolutionApi.queries.resolveAssignmentAttempt.keyFor(attemptTwo),
+  resolutionApi.queries.resolveAssessmentAttempt.keyFor(attemptOne),
+  resolutionApi.queries.resolveAssessmentAttempt.keyFor(attemptTwo),
 );
-assert.match(resolutionApi.queries.resolveCourse.keyFor(courseOne), /CI7K3M2Q/u);
-assert.match(resolutionApi.queries.resolveAssignmentAttempt.keyFor(attemptOne), /R-1/u);
+assert.match(resolutionApi.queries.courseScope.keyFor(courseOne), /CI7K3M2Q/u);
+assert.match(resolutionApi.queries.resolveAssessmentAttempt.keyFor(attemptOne), /R-1/u);
 
-assert.deepEqual(await resolutionApi.queries.resolveCourse(courseOne), {
-  courseId: identity.courseOne,
-});
-assert.deepEqual(await resolutionApi.queries.resolveAssignmentAttempt(attemptOne), {
-  courseId: identity.courseOne,
-  assignmentId: identity.assignment,
-  assignmentAttemptId: identity.attempt,
-});
-await resolutionApi.queries.resolveCourse(courseOne);
-assert.deepEqual(await resolutionApi.queries.resolveCourse(courseTwo), {
-  courseId: identity.courseTwo,
-});
-await assert.rejects(resolutionApi.queries.resolveCourse("CI7K3M2"), {
-  message: "Course reference is invalid",
-});
-await assert.rejects(
-  resolutionApi.queries.resolveCourse(courseInstanceRouteReference("CI9P6R4V")),
-  {
-    message: "Course Instance reference resolved to another resource",
+assert.deepEqual(await resolutionApi.queries.courseScope(courseOne), {
+  summary: {
+    reference: "CI7K3M2Q",
+    shortName: "BIO 301",
+    longName: "Molecular Biology",
+    term: { startDate: "2026-01-12", endDate: "2026-05-08" },
+    role: "instructor",
   },
-);
-await assert.rejects(resolutionApi.queries.resolveAssignmentAttempt("R-01"), {
-  message: "Assignment Attempt reference is invalid",
+  appearance: { theme: "grass", banner: null },
+});
+assert.deepEqual(await resolutionApi.queries.resolveAssessmentAttempt(attemptOne), {
+  courseId: identity.courseOne,
+  assessmentId: identity.assessment,
+  assessmentAttemptId: identity.attempt,
+});
+assert.deepEqual(await resolutionApi.queries.courseScope(courseTwo), {
+  summary: {
+    reference: "CI4W8QF9",
+    shortName: "BIO 302",
+    longName: "Genetics",
+    term: { startDate: "2026-08-24", endDate: "2026-12-11" },
+    role: "student",
+  },
+  appearance: { theme: "forest", banner: null },
+});
+await assert.rejects(resolutionApi.queries.resolveAssessmentAttempt("R-01"), {
+  message: "Assessment Attempt reference is invalid",
 });
 await assert.rejects(
-  resolutionApi.queries.resolveAssignmentAttempt(assignmentAttemptRouteReference("R-9")),
-  { message: "Assignment Attempt reference resolved to another resource" },
+  resolutionApi.queries.resolveAssessmentAttempt(assessmentAttemptRouteReference("R-9")),
+  { message: "Assessment Attempt reference resolved to another resource" },
 );

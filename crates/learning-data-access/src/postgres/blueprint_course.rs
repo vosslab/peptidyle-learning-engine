@@ -146,7 +146,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         let pins = resolve_current_question_pins(&mut transaction, requested).await?;
         let requested_pools = StoredBlueprintCourseContent::requested_pool_ids_from_create(&input);
         let pool_revisions =
-            resolve_current_root_pool_revisions(&mut transaction, requested_pools).await?;
+            resolve_current_published_pool_revisions(&mut transaction, requested_pools).await?;
         let content = StoredBlueprintCourseContent::from_create(input, &pins, &pool_revisions)?;
         let encoded = encode_content(&content)?;
         let row = sqlx::query(
@@ -200,7 +200,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         let pins = resolve_revision_question_pins(&mut transaction, requested, &prior).await?;
         let requested_pools = StoredBlueprintCourseContent::requested_pool_ids_from_replace(&input);
         let pool_revisions =
-            resolve_current_root_pool_revisions(&mut transaction, requested_pools).await?;
+            resolve_current_published_pool_revisions(&mut transaction, requested_pools).await?;
         let content =
             StoredBlueprintCourseContent::from_replace(input, &prior, &pins, &pool_revisions)?;
         let encoded = encode_content(&content)?;
@@ -398,9 +398,10 @@ async fn resolve_current_question_pins(
     requested: Vec<QuestionId>,
 ) -> Result<BTreeMap<QuestionId, QuestionRevisionReference>, StoreError> {
     let requested = requested.into_iter().collect::<BTreeSet<_>>();
-    if requested.is_empty() {
-        return Err(invalid("Blueprint Course without Published Questions"));
-    }
+    // ASVS 2.2.1 and 2.2.3: an Assessment's aggregate validator requires
+    // reusable content, while this resolver validates only its fixed-Question
+    // subset. A Pool-only Blueprint therefore has a valid empty subset here;
+    // the distinct root-Pool resolver validates its complete Pool selection.
     let identifiers = requested
         .iter()
         .map(|question_id| question_id.as_compact_str().to_owned())
@@ -443,7 +444,7 @@ async fn resolve_current_question_pins(
     Ok(pins)
 }
 
-async fn resolve_current_root_pool_revisions(
+async fn resolve_current_published_pool_revisions(
     transaction: &mut Transaction<'_, Postgres>,
     requested: Vec<QuestionId>,
 ) -> Result<BTreeMap<QuestionId, QuestionPoolRevisionReference>, StoreError> {
@@ -451,7 +452,7 @@ async fn resolve_current_root_pool_revisions(
     for question_pool_id in requested.into_iter().collect::<BTreeSet<_>>() {
         let row = sqlx::query(
             "SELECT question_pool_id, current_revision_number \
-                 FROM ple_api.resolve_current_root_question_pool($1)",
+                 FROM ple_api.resolve_current_published_question_pool($1)",
         )
         .bind(question_pool_id.to_string())
         .fetch_optional(&mut **transaction)

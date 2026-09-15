@@ -321,7 +321,7 @@ mod tests {
     #[test]
     fn content_and_policy_requests_use_closed_camel_case_contracts() {
         let content = serde_json::from_str::<ReplaceAssessmentContentRequest>(
-            r#"{"baseEditNumber":"1","title":"Protein folding","entries":[{"kind":"questionPool","questionIds":["7K3M-X9QP"],"availability":"available","scoringRule":"normal","selectionCount":1,"pointsPerItem":"1","selectionRule":{"selectedQuestionOrder":"questionPoolOrder"},"questionAttemptLimit":{"maxAttempts":null},"questionAttemptTimeLimit":{"kind":"unlimited"}}]}"#,
+            r#"{"baseEditNumber":"1","title":"Protein folding","entries":[{"kind":"questionPool","questionPoolId":"7K3M-X9QP","availability":"available","scoringRule":"normal","selectionCount":1,"pointsPerItem":"1","selectionRule":{"selectedQuestionOrder":"questionPoolOrder"},"questionAttemptLimit":{"maxAttempts":null},"questionAttemptTimeLimit":{"kind":"unlimited"}}]}"#,
         );
         assert!(content.is_ok());
         assert!(

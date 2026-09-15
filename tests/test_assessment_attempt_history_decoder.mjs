@@ -2,19 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
-import { decodeStudentAssignmentAttemptHistory } from "../src/api/decoders/assignment_attempt_history.ts";
+import { decodeStudentAssessmentAttemptHistory } from "../src/api/decoders/assessment_attempt_history.ts";
 
 function history() {
   return {
-    assignmentAttempt: "R-12",
+    assessmentAttempt: "R-12",
     attemptNumber: 2,
     course: {
-      reference: "C-3",
+      reference: "CI7K3M2Q",
       shortName: "Mol Bio",
       longName: "Molecular biology",
       theme: "forest",
     },
-    assignment: { reference: "A-7", title: "Protein folding practice" },
+    assessment: { reference: "A7K3M2Q", title: "Protein folding practice" },
     state: "submitted",
     questions: [
       {
@@ -27,7 +27,7 @@ function history() {
 }
 
 test("selected history independently accepts disclosed aggregate and per-position grades", () => {
-  const decoded = decodeStudentAssignmentAttemptHistory({
+  const decoded = decodeStudentAssessmentAttemptHistory({
     ...history(),
     score: { pointsEarned: 0, pointsPossible: 2 },
     questions: [
@@ -47,10 +47,10 @@ test("selected history independently accepts disclosed aggregate and per-positio
 });
 
 test("selected history keeps protected grade fields absent and rejects partial disclosures", () => {
-  assert.deepEqual(decodeStudentAssignmentAttemptHistory(history()), history());
+  assert.deepEqual(decodeStudentAssessmentAttemptHistory(history()), history());
   assert.throws(
     () =>
-      decodeStudentAssignmentAttemptHistory({
+      decodeStudentAssessmentAttemptHistory({
         ...history(),
         questions: [
           {
@@ -68,10 +68,10 @@ test("selected history keeps protected grade fields absent and rejects partial d
 test("selected history rejects a Course context outside the established route contract", () => {
   assert.throws(
     () =>
-      decodeStudentAssignmentAttemptHistory({
+      decodeStudentAssessmentAttemptHistory({
         ...history(),
         course: {
-          reference: "C-3",
+          reference: "CI7K3M2Q",
           shortName: "Mol Bio",
           longName: "Molecular biology",
           theme: "unknown",
@@ -82,7 +82,7 @@ test("selected history rejects a Course context outside the established route co
 });
 
 test("selected history accepts readable recorded response blocks without grading", () => {
-  const decoded = decodeStudentAssignmentAttemptHistory({
+  const decoded = decodeStudentAssessmentAttemptHistory({
     ...history(),
     questions: [
       {
@@ -99,7 +99,7 @@ test("selected history accepts readable recorded response blocks without grading
 });
 
 test("selected history independently accepts a correct answer without a response or grade", () => {
-  const decoded = decodeStudentAssignmentAttemptHistory({
+  const decoded = decodeStudentAssessmentAttemptHistory({
     ...history(),
     questions: [
       {
@@ -116,7 +116,7 @@ test("selected history independently accepts a correct answer without a response
 });
 
 test("selected history accepts recorded outcome feedback and omits unavailable explanation", () => {
-  const decoded = decodeStudentAssignmentAttemptHistory({
+  const decoded = decodeStudentAssessmentAttemptHistory({
     ...history(),
     questions: [
       {

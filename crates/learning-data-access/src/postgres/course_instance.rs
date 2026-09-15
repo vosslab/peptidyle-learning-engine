@@ -1,5 +1,7 @@
 //! PostgreSQL persistence for Course Instance creation and initial teaching team.
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use question_model::{
     AccountReference, CourseId, CourseInstanceReference, CourseMembershipRole, CourseSummary,
@@ -10,21 +12,38 @@ use sqlx::{Postgres, Row, Transaction};
 use super::Pool;
 use super::connection::map_sqlx_error;
 use crate::{
-    CourseCreationInstructor, CourseInstanceCreationSource, CourseInstanceStore,
-    CourseInstanceSummary, CourseInstanceView, CreateCourseInstanceInput, CreatedCourseInstance,
-    SessionTokenHash, StoreError,
+    CourseCreationInstructor, CourseInstanceCreationSource, CourseInstancePoolIdIssuer,
+    CourseInstanceStore, CourseInstanceSummary, CourseInstanceView, CreateCourseInstanceInput,
+    CreatedCourseInstance, SessionTokenHash, StoreError,
 };
+
+const ADOPTION_POOL_IDENTITY_ATTEMPTS: usize = 8;
 
 /// PostgreSQL Store for Course Instance creation and current Teaching Team reads.
 #[derive(Clone)]
 pub struct PostgresCourseInstanceStore {
     pool: Pool,
+    pool_id_issuer: Option<Arc<dyn CourseInstancePoolIdIssuer>>,
 }
 
 impl PostgresCourseInstanceStore {
     /// Binds the attested API pool to Course Instance procedures.
     pub fn new(pool: Pool) -> Self {
-        Self { pool }
+        Self {
+            pool,
+            pool_id_issuer: None,
+        }
+    }
+
+    /// Adds the process-held issuer required only when a Blueprint contains a
+    /// reusable Question Pool.  Empty and fixed-Question-only Course creation
+    /// deliberately remain independent of this capability.
+    pub fn with_question_pool_id_issuer(
+        mut self,
+        pool_id_issuer: Arc<dyn CourseInstancePoolIdIssuer>,
+    ) -> Self {
+        self.pool_id_issuer = Some(pool_id_issuer);
+        self
     }
 
     async fn begin_authenticated_application_transaction(
@@ -140,33 +159,37 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         input: CreateCourseInstanceInput,
     ) -> Result<CreatedCourseInstance, StoreError> {
         input.validate()?;
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
-        let assessments =
-            super::course_blueprint_adoption::creation_assessments(&mut transaction, &input)
+        for attempt in 0..ADOPTION_POOL_IDENTITY_ATTEMPTS {
+            let mut transaction = self
+                .begin_authenticated_application_transaction(session_token_hash.clone())
                 .await?;
-        let (source_kind, blueprint_reference, blueprint_revision) = match &input.source {
-            CourseInstanceCreationSource::Empty => ("empty", None, None),
-            CourseInstanceCreationSource::Adopted {
-                blueprint_course,
-                blueprint_revision,
-            } => (
-                "adopted",
-                Some(blueprint_course.to_string()),
-                Some(
-                    i64::try_from(blueprint_revision.value())
-                        .map_err(|_| invalid("Blueprint Revision"))?,
+            let assessments = super::course_blueprint_adoption::creation_assessments(
+                &mut transaction,
+                &input,
+                self.pool_id_issuer.as_deref(),
+            )
+            .await?;
+            let (source_kind, blueprint_reference, blueprint_revision) = match &input.source {
+                CourseInstanceCreationSource::Empty => ("empty", None, None),
+                CourseInstanceCreationSource::Adopted {
+                    blueprint_course,
+                    blueprint_revision,
+                } => (
+                    "adopted",
+                    Some(blueprint_course.to_string()),
+                    Some(
+                        i64::try_from(blueprint_revision.value())
+                            .map_err(|_| invalid("Blueprint Revision"))?,
+                    ),
                 ),
-            ),
-        };
-        let row = sqlx::query(
+            };
+            let row = sqlx::query(
             "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on \
              FROM ple_api.create_course_instance(\
              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11::date, $12, $13)",
         )
-        .bind(random_uuid()?)
+            .bind(random_uuid()?)
         .bind(random_uuid()?)
         .bind(random_uuid()?)
         .bind(random_uuid()?)
@@ -183,25 +206,40 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                 .map(|reference| reference.as_string()),
         )
         .bind(assessments)
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        let record = CreatedCourseInstance {
-            course: CourseInstanceSummary {
-                reference: course_reference(
-                    row.try_get("public_reference").map_err(map_sqlx_error)?,
-                )?,
-                short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
-                long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
-                term: term(
-                    row.try_get("term_starts_on").map_err(map_sqlx_error)?,
-                    row.try_get("term_ends_on").map_err(map_sqlx_error)?,
-                )?,
-                theme: CourseTheme::default(),
-            },
-        };
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(record)
+            .fetch_one(&mut *transaction)
+            .await;
+            let row = match row {
+                Ok(row) => row,
+                Err(error) => {
+                    let error = map_sqlx_error(error);
+                    if matches!(error, StoreError::AlreadyExists)
+                        && attempt + 1 < ADOPTION_POOL_IDENTITY_ATTEMPTS
+                    {
+                        continue;
+                    }
+                    return Err(error);
+                }
+            };
+            let record = CreatedCourseInstance {
+                course: CourseInstanceSummary {
+                    reference: course_reference(
+                        row.try_get("public_reference").map_err(map_sqlx_error)?,
+                    )?,
+                    short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
+                    long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
+                    term: term(
+                        row.try_get("term_starts_on").map_err(map_sqlx_error)?,
+                        row.try_get("term_ends_on").map_err(map_sqlx_error)?,
+                    )?,
+                    theme: CourseTheme::default(),
+                },
+            };
+            transaction.commit().await.map_err(map_sqlx_error)?;
+            return Ok(record);
+        }
+        Err(StoreError::Unavailable(
+            "Question Pool fork identity collision retries were exhausted".to_string(),
+        ))
     }
 
     async fn add_course_instructor(

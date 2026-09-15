@@ -22,6 +22,7 @@ pub struct ImportAssessmentPoolForkInput {
     pub course: CourseInstanceReference,
     pub assessment: AssessmentReference,
     pub assessment_entry: AssessmentEntryId,
+    pub expected_assessment_edit_number: AssessmentEditNumber,
     pub fork_question_pool_id: Uuid,
     pub fork_public_question_pool_id: QuestionId,
     pub source_public_question_pool_id: QuestionId,
@@ -37,6 +38,7 @@ pub struct ImportAssessmentPoolForkInput {
 pub struct ImportedAssessmentPoolFork {
     pub assessment_entry: AssessmentEntryId,
     pub question_pool_revision: QuestionPoolRevisionReference,
+    pub assessment_edit_number: AssessmentEditNumber,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

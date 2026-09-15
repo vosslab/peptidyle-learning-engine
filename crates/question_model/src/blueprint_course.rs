@@ -65,6 +65,7 @@ pub struct BlueprintAssessmentDefaults {
     /// Whole Assessment Attempt time limit, if the reusable content establishes one.
     pub assessment_attempt_time_limit_seconds: Option<std::num::NonZeroU32>,
     /// Number of Assessment Attempts, if the reusable content establishes one.
+    #[serde(rename = "assessment_attempt_limit")]
     pub attempt_limit: Option<std::num::NonZeroU32>,
     /// Late-work treatment copied into the future assessment policy.
     pub late_work_rule: LateWorkRule,
@@ -570,23 +571,34 @@ mod tests {
 
     #[test]
     fn ordered_content_validation_uses_vector_order_and_pool_meaning() {
-        let content = input();
+        let mut content = input();
+        content.defaults.attempt_limit = NonZeroU32::new(3);
         assert!(content.validate().is_ok());
         let wire = serde_json::to_value(&content).expect("content serializes");
         assert_eq!(wire["entries"][0]["kind"], "fixed");
         assert_eq!(wire["entries"][0]["question_id"], "7K3M-X9QX");
         assert_eq!(wire["entries"][0]["points_possible"], "3");
         assert_eq!(wire["entries"][1]["kind"], "pool");
-        assert!(wire["entries"][1]["items"].is_array());
-        assert!(wire["entries"][1].get("entries").is_none());
+        assert_eq!(wire["entries"][1]["question_pool_id"], "12A4-XBCZ");
         assert_eq!(wire["entries"][1]["points_per_item"], "2");
         assert!(wire["defaults"].is_object());
+        assert_eq!(wire["defaults"]["assessment_attempt_limit"], 3);
+        assert!(wire["defaults"].get("attempt_limit").is_none());
         assert!(wire.get("schedule").is_none());
         assert_eq!(
             serde_json::from_value::<BlueprintAssessmentContentInput>(wire)
                 .expect("content round trips"),
             content
         );
+        let mut legacy_wire = serde_json::to_value(&content).expect("content serializes");
+        let defaults = legacy_wire["defaults"]
+            .as_object_mut()
+            .expect("defaults is an object");
+        let attempt_limit = defaults
+            .remove("assessment_attempt_limit")
+            .expect("canonical key is present");
+        defaults.insert("attempt_limit".to_string(), attempt_limit);
+        assert!(serde_json::from_value::<BlueprintAssessmentContentInput>(legacy_wire).is_err());
         assert!(content.validate().is_ok());
         let blueprint = CreateBlueprintCourseInput {
             short_name: "Biochemistry".to_string(),
@@ -680,12 +692,20 @@ mod tests {
             wire["modules"][0]["assessments"][0]["content"]["entries"][1]["kind"],
             "pool"
         );
-        assert!(
-            wire.pointer("/modules/0/assessments/0/content/entries/1/items/0/question_library")
-                .is_some()
+        assert_eq!(
+            wire.pointer(
+                "/modules/0/assessments/0/content/entries/1/question_pool_revision/questionPoolId"
+            ),
+            Some(&serde_json::Value::String("12A4-XBCZ".to_string()))
+        );
+        assert_eq!(
+            wire.pointer(
+                "/modules/0/assessments/0/content/entries/1/question_pool_revision/revisionNumber"
+            ),
+            Some(&serde_json::Value::Number(1.into()))
         );
         assert!(
-            wire.pointer("/modules/0/assessments/0/content/entries/1/items/0/revision")
+            wire.pointer("/modules/0/assessments/0/content/entries/1/items")
                 .is_none()
         );
     }

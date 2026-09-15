@@ -1,6 +1,7 @@
 // Strict decoding for the Course Instance creation and Teaching Team boundary.
 
 import type { AccountReference } from "../../../generated/api/AccountReference";
+import type { CourseInstanceRouteSummary } from "../../../generated/api/CourseInstanceRouteSummary";
 import { COURSE_THEME_VALUES } from "../../../generated/api/CourseTheme";
 import type {
   CourseCreationInstructor,
@@ -45,6 +46,23 @@ function summary(value: unknown, path: string): CourseInstanceSummary {
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
     theme: decodeStringEnum(field(record, "theme", path), `${path}.theme`, COURSE_THEME_VALUES),
+  };
+}
+
+/** Strictly decodes the closed member-safe Course Instance route projection. */
+export function decodeCourseInstanceRouteSummary(
+  value: unknown,
+  path = "response",
+): CourseInstanceRouteSummary {
+  // ASVS 1.5.2 and 2.2.1: accept only the generated public response shape.
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["reference", "shortName", "longName", "term", "role"]);
+  return {
+    reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
+    shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
+    longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
+    term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
+    role: decodeStringEnum(field(record, "role", path), `${path}.role`, ["student", "instructor"]),
   };
 }
 

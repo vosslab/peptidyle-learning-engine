@@ -3,7 +3,7 @@
 import { createEffect, createMemo, createSignal, type JSX } from "solid-js";
 
 import type { CourseAppearanceView } from "../../../generated/api/CourseAppearanceView";
-import type { CourseId } from "../../../generated/api/CourseId";
+import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import { useRouteScopeData } from "../../ribbon/route_scope_context";
 import {
   CourseThemePresentationContext,
@@ -19,7 +19,7 @@ export interface CourseThemeVariablesProps {
 }
 
 interface CourseThemePresentationOverride {
-  readonly courseId: CourseId;
+  readonly courseReference: CourseInstanceReference;
   readonly appearance: CourseAppearanceView;
 }
 
@@ -97,13 +97,13 @@ function appearanceFor(data: CourseThemeRouteData | undefined): CourseAppearance
  */
 export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Element {
   const routeData = useRouteScopeData();
-  const currentCourseId = createMemo(() => {
+  const currentCourseReference = createMemo(() => {
     const data = routeData();
     return data === undefined ||
       data.kind === "assessmentAttempt" ||
       data.kind === "assessmentAttemptHistory"
       ? undefined
-      : courseRouteView(data).summary.id;
+      : courseRouteView(data).summary.reference;
   });
   const [presentationOverride, setPresentationOverride] =
     createSignal<CourseThemePresentationOverride>();
@@ -112,19 +112,20 @@ export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Elem
       setPresentationOverride(undefined);
       return;
     }
-    const courseId = currentCourseId();
-    if (courseId === undefined) return;
-    setPresentationOverride({ courseId, appearance });
+    const courseReference = currentCourseReference();
+    if (courseReference === undefined) return;
+    setPresentationOverride({ courseReference, appearance });
   };
   const appearance = createMemo(() => {
     const override = presentationOverride();
-    if (override !== undefined && override.courseId === currentCourseId())
+    if (override !== undefined && override.courseReference === currentCourseReference())
       return override.appearance;
     return appearanceFor(routeData());
   });
 
   createEffect(() => {
-    if (presentationOverride()?.courseId !== currentCourseId()) setPresentationOverride(undefined);
+    if (presentationOverride()?.courseReference !== currentCourseReference())
+      setPresentationOverride(undefined);
   });
 
   const themeStyle = createMemo(() => {

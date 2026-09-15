@@ -3,6 +3,7 @@
 import type { AccountReference } from "../../generated/api/AccountReference";
 import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseInstanceRouteSummary } from "../../generated/api/CourseInstanceRouteSummary";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { CourseTheme } from "../../generated/api/CourseTheme";
 
@@ -52,5 +53,9 @@ export interface CourseInstanceClient {
     input: CreateCourseInstanceInput,
   ) => Promise<CreatedCourseInstance>;
   readonly getCourseInstance: (reference: CourseInstanceReference) => Promise<CourseInstanceView>;
+  /** Reads the closed member-safe identity used by Course Instance routes. */
+  readonly getCourseInstanceRouteSummary: (
+    reference: CourseInstanceReference,
+  ) => Promise<CourseInstanceRouteSummary>;
   readonly listCourseCreationInstructors: () => Promise<ReadonlyArray<CourseCreationInstructor>>;
 }

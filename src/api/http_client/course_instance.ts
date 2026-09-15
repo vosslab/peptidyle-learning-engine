@@ -6,6 +6,7 @@ import type { CourseInstanceClient } from "../course_instance";
 import {
   decodeCourseCreationInstructors,
   decodeCourseInstanceList,
+  decodeCourseInstanceRouteSummary,
   decodeCourseInstanceView,
   decodeCreateCourseInstanceInput,
   decodeCreatedCourseInstance,
@@ -15,10 +16,11 @@ import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 import { parseCourseInstanceReference } from "../../navigation/public_route";
 
-function courseInstancePath(reference: CourseInstanceReference): string {
+export function courseInstancePath(reference: CourseInstanceReference): string {
   if (parseCourseInstanceReference(reference) === null) {
     throw new ApiProtocolError("Course Instance reference must be canonical");
   }
+  // ASVS 1.2.2 and 2.2.1: positively validate, then path-encode route input.
   return `/api/course-instances/${encodeURIComponent(reference)}`;
 }
 
@@ -76,6 +78,13 @@ export function createCourseInstanceClient(
         basePath,
         courseInstancePath(reference),
         decodeCourseInstanceView,
+      ),
+    getCourseInstanceRouteSummary: (reference) =>
+      courseInstanceJson(
+        fetchImplementation,
+        basePath,
+        `${courseInstancePath(reference)}/summary`,
+        decodeCourseInstanceRouteSummary,
       ),
     listCourseCreationInstructors: () =>
       courseInstanceJson(

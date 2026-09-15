@@ -5,6 +5,7 @@ import { For, Match, Show, Switch, createSignal, onMount, type JSX } from "solid
 
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
+import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
 import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/ReplaceBlueprintCourseContentInput";
 import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
@@ -870,12 +871,17 @@ export function BlueprintCourseDetailWorkspace(
                       current()?.content.modules[selection.moduleIndex]?.assessments[
                         selection.assessmentIndex
                       ]?.content;
+                    const savedContent = (): BlueprintAssessmentContentView | undefined =>
+                      current()?.view.modules[selection.moduleIndex]?.assessments[
+                        selection.assessmentIndex
+                      ]?.content;
                     return (
                       <Show when={content()}>
                         {(assessmentContent) => (
                           <section class="blueprint-course-content-card">
                             <BlueprintAssessmentContentEditor
                               content={assessmentContent()}
+                              savedContent={savedContent()}
                               editable={
                                 editing() && loaded().view.read_access === "blueprint_course_owner"
                               }

@@ -3,6 +3,9 @@
 import { For, Show, createSignal, type JSX } from "solid-js";
 
 import type { BlueprintAssessmentContentInput } from "../../../generated/api/BlueprintAssessmentContentInput";
+import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
+import type { QuestionPoolLibraryClient } from "../../api/question_pool_library";
+import { createQuestionPoolLibraryClient } from "../../api/http_client/question_pool_library";
 import {
   QuestionPicker,
   type QuestionPickerSource,
@@ -18,24 +21,34 @@ import {
   updateReusableText,
   type ReusableEntryDirection,
 } from "./blueprint_course_model";
+import { QuestionPoolPicker, type QuestionPoolPickerSelection } from "./question_pool_picker";
 
 export interface BlueprintAssessmentContentEditorProps {
   readonly content: BlueprintAssessmentContentInput;
+  /** Saved server view used only to present exact immutable Pool Revision pins. */
+  readonly savedContent?: BlueprintAssessmentContentView;
   readonly editable: boolean;
   readonly pickerRepository: QuestionPickerSourceRepository;
   readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
+  readonly questionPoolClient?: QuestionPoolLibraryClient;
   readonly onChange: (content: BlueprintAssessmentContentInput, message: string) => void;
 }
-
-type PickerIntent = "fixed" | "pool";
 
 function plural(count: number, singular: string): string {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
 
-function entrySummary(entry: BlueprintAssessmentContentInput["entries"][number]): string {
+function entrySummary(
+  entry: BlueprintAssessmentContentInput["entries"][number],
+  savedEntry: BlueprintAssessmentContentView["entries"][number] | undefined,
+): string {
   if (entry.kind === "fixed") return `Fixed Question ${entry.question_id}`;
-  return `Question Pool: select ${entry.selection_count} from ${plural(entry.items.length, "Item")}`;
+  const savedRevision =
+    savedEntry?.kind === "pool" &&
+    savedEntry.question_pool_revision.questionPoolId === entry.question_pool_id
+      ? `, Revision ${savedEntry.question_pool_revision.revisionNumber}`
+      : "";
+  return `Question Pool ${entry.question_pool_id}${savedRevision}: select ${entry.selection_count}`;
 }
 
 function lateWorkRuleFromValue(
@@ -61,8 +74,11 @@ function assessmentAttemptGradeRuleFromValue(
 export function BlueprintAssessmentContentEditor(
   props: BlueprintAssessmentContentEditorProps,
 ): JSX.Element {
-  const [pickerIntent, setPickerIntent] = createSignal<PickerIntent>();
-  let pickerTrigger: HTMLButtonElement | undefined;
+  const [fixedPickerOpen, setFixedPickerOpen] = createSignal(false);
+  const [poolPickerOpen, setPoolPickerOpen] = createSignal(false);
+  const questionPoolClient = props.questionPoolClient ?? createQuestionPoolLibraryClient();
+  let fixedPickerTrigger: HTMLButtonElement | undefined;
+  let poolPickerTrigger: HTMLButtonElement | undefined;
 
   function changeText(field: "title" | "instructions", value: string): void {
     const change = field === "title" ? { title: value } : { instructions: value };
@@ -73,7 +89,7 @@ export function BlueprintAssessmentContentEditor(
   }
 
   function changeNumber(
-    field: "assessment_attempt_time_limit_seconds" | "attempt_limit",
+    field: "assessment_attempt_time_limit_seconds" | "assessment_attempt_limit",
     value: string,
   ): void {
     const parsed = value.trim() === "" ? null : Number(value);
@@ -97,23 +113,21 @@ export function BlueprintAssessmentContentEditor(
     );
   }
 
-  function confirmPicker(selection: Parameters<typeof appendPickedFixedEntries>[1]): void {
-    const intent = pickerIntent();
-    const next =
-      intent === "pool"
-        ? appendPickedPool(props.content, selection)
-        : appendPickedFixedEntries(props.content, selection);
-    setPickerIntent(undefined);
-    const kind = intent === "pool" ? "a pool" : "fixed entries";
+  function confirmFixedQuestions(selection: Parameters<typeof appendPickedFixedEntries>[1]): void {
+    const next = appendPickedFixedEntries(props.content, selection);
+    setFixedPickerOpen(false);
     props.onChange(
       next,
-      `Added ${plural(selection.questionIds.length, "selected question")} as ${kind}. Set Question Pool selection count or continue arranging the content.`,
+      `Added ${plural(selection.questionIds.length, "selected question")} as fixed entries. Continue arranging the content or save the Blueprint Course.`,
     );
   }
 
-  function openPicker(intent: PickerIntent, trigger: HTMLButtonElement): void {
-    pickerTrigger = trigger;
-    setPickerIntent(intent);
+  function confirmQuestionPool(selection: QuestionPoolPickerSelection): void {
+    setPoolPickerOpen(false);
+    props.onChange(
+      appendPickedPool(props.content, selection.questionPoolId),
+      `Added Question Pool ${selection.questionPoolId} with ${plural(selection.memberCount, "published member")}. Set its selection count or save the Blueprint Course.`,
+    );
   }
 
   return (
@@ -152,13 +166,22 @@ export function BlueprintAssessmentContentEditor(
           </div>
           <Show when={props.editable}>
             <div class="blueprint-course-inline-actions">
-              <button type="button" onClick={(event) => openPicker("fixed", event.currentTarget)}>
+              <button
+                type="button"
+                onClick={(event) => {
+                  fixedPickerTrigger = event.currentTarget;
+                  setFixedPickerOpen(true);
+                }}
+              >
                 Add fixed questions
               </button>
               <button
                 type="button"
                 class="quiet-action"
-                onClick={(event) => openPicker("pool", event.currentTarget)}
+                onClick={(event) => {
+                  poolPickerTrigger = event.currentTarget;
+                  setPoolPickerOpen(true);
+                }}
               >
                 Add a pool
               </button>
@@ -178,14 +201,13 @@ export function BlueprintAssessmentContentEditor(
               {(entry, index) => (
                 <li>
                   <div>
-                    <strong>{entrySummary(entry)}</strong>
+                    <strong>{entrySummary(entry, props.savedContent?.entries[index()])}</strong>
                     <Show when={entry.kind === "pool"}>
                       <label class="blueprint-course-small-field">
                         Draw each Assessment Attempt
                         <input
                           type="number"
                           min="1"
-                          max={entry.kind === "pool" ? entry.items.length : 1}
                           value={entry.kind === "pool" ? entry.selection_count : 1}
                           disabled={!props.editable}
                           onInput={(event) => {
@@ -196,7 +218,7 @@ export function BlueprintAssessmentContentEditor(
                                 index(),
                                 selectionCount,
                               ),
-                              "Question Pool selection count updated. It must not exceed the entry count.",
+                              "Question Pool selection count updated. The server validates it against the selected Pool Revision.",
                             );
                           }}
                         />
@@ -263,12 +285,14 @@ export function BlueprintAssessmentContentEditor(
             />
           </label>
           <label>
-            Attempt limit
+            Assessment Attempt limit
             <input
               type="number"
               min="1"
-              value={props.content.defaults.attempt_limit ?? ""}
-              onInput={(event) => changeNumber("attempt_limit", event.currentTarget.value)}
+              value={props.content.defaults.assessment_attempt_limit ?? ""}
+              onInput={(event) =>
+                changeNumber("assessment_attempt_limit", event.currentTarget.value)
+              }
             />
           </label>
           <label>
@@ -320,20 +344,26 @@ export function BlueprintAssessmentContentEditor(
         </div>
       </fieldset>
 
-      <Show when={pickerIntent()} keyed>
-        {(intent) => (
-          <QuestionPicker
-            repository={props.pickerRepository}
-            sources={props.pickerSources}
-            mode="many"
-            maximumSelection={1024}
-            trigger={pickerTrigger}
-            title={intent === "pool" ? "Choose Question Pool Items" : "Choose fixed Questions"}
-            confirmLabel={intent === "pool" ? "Add pool" : "Add fixed questions"}
-            onConfirm={confirmPicker}
-            onCancel={() => setPickerIntent(undefined)}
-          />
-        )}
+      <Show when={fixedPickerOpen()}>
+        <QuestionPicker
+          repository={props.pickerRepository}
+          sources={props.pickerSources}
+          mode="many"
+          maximumSelection={1024}
+          trigger={fixedPickerTrigger}
+          title="Choose fixed Questions"
+          confirmLabel="Add fixed questions"
+          onConfirm={confirmFixedQuestions}
+          onCancel={() => setFixedPickerOpen(false)}
+        />
+      </Show>
+      <Show when={poolPickerOpen()}>
+        <QuestionPoolPicker
+          client={questionPoolClient}
+          trigger={poolPickerTrigger}
+          onConfirm={confirmQuestionPool}
+          onCancel={() => setPoolPickerOpen(false)}
+        />
       </Show>
     </section>
   );

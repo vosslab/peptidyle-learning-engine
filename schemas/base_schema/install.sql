@@ -15,9 +15,13 @@
 \ir question_watch_notifications.sql
 \ir object_records.sql
 \ir question_authoring_state.sql
+\ir question_publication_operations.sql
+\ir question_library_operations.sql
 \ir question_authoring_operations.sql
+\ir published_question_metadata_operations.sql
 \ir question_assets.sql
 \ir blueprints.sql
+\ir blueprint_operations.sql
 \ir blueprint_lineage.sql
 \ir blueprint_fork_sync.sql
 \ir blueprint_stewardship.sql
@@ -31,6 +35,7 @@
 \ir course_media.sql
 \ir profile_media.sql
 \ir assessments.sql
+\ir assessment_pool_selection.sql
 \ir course_blueprint_adoption.sql
 \ir assessment_operations.sql
 \ir assessment_attempts.sql

@@ -191,8 +191,8 @@
   - Mismatch: no Question Pool fork model exists; current Question IDs use a different display grouping.
 - [ ] Question Pools work the same way regardless of the Question Backend.
   - Mismatch: incomplete secondary backend delivery leaves this unverified.
-- [x] **Instructors** choose the contents of a Question Pool and how many Questions are selected.
-  - Evidence (source): `src/pages/assessment_pool_editor.tsx` `AssessmentPoolEditor` edits item IDs and selection count.
+- [ ] **Instructors** choose the contents of a Question Pool and how many Questions are selected.
+  - Mismatch: canonical Instructor Question Pool authoring and selection-count workflow integration remains pending.
 - [x] PLE selects from the Question Pool; the selected Question Backend controls the Question interaction.
   - Evidence (source): `crates/domain/src/question_pool_selection.rs` `select_question_pool_items` performs server-owned selection.
 - [x] Question Pool selection and backend-native randomization are separate forms of variation.

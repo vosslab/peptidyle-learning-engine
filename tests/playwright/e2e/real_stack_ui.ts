@@ -37,13 +37,13 @@ export function writeOriginReceipt(pageOrigins: Set<string>, requestOrigins: Set
   const value = {
     pageOrigins: [...pageOrigins].sort(),
     requestOrigins: [...requestOrigins].sort(),
+    contexts: null,
   };
   writeOriginReceiptValue(value);
 }
 
 export function writeContextOriginReceipt(
   contexts: Readonly<Record<string, ObservedOrigins>>,
-  includeContexts = true,
 ): void {
   for (const name of Object.keys(contexts)) {
     if (!/^[a-z][a-z0-9_]{0,31}$/u.test(name)) {
@@ -65,16 +65,11 @@ export function writeContextOriginReceipt(
       },
     ]),
   );
-  const value = includeContexts
-    ? {
-        pageOrigins: [...pageOrigins].sort(),
-        requestOrigins: [...requestOrigins].sort(),
-        contexts: contextValues,
-      }
-    : {
-        pageOrigins: [...pageOrigins].sort(),
-        requestOrigins: [...requestOrigins].sort(),
-      };
+  const value = {
+    pageOrigins: [...pageOrigins].sort(),
+    requestOrigins: [...requestOrigins].sort(),
+    contexts: contextValues,
+  };
   writeOriginReceiptValue(value);
 }
 

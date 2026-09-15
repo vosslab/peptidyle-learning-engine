@@ -4,7 +4,7 @@ import { createEffect, createMemo, createSignal, type Accessor } from "solid-js"
 
 import type { ApplicationApi } from "../api/application_api";
 import type { OrdinaryBrowserApiClient } from "../api/client";
-import type { CourseId } from "../../generated/api/CourseId";
+import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import {
   courseRouteView,
@@ -16,7 +16,7 @@ import { routeScopeKey, type RouteScopeKey } from "../navigation/route_params";
 
 export type RouteScopeQueries = Pick<
   ApplicationApi<OrdinaryBrowserApiClient>["queries"],
-  "resolveCourse" | "courseScope" | "assessmentAttemptScope" | "assessmentAttemptHistory"
+  "courseScope" | "assessmentAttemptScope" | "assessmentAttemptHistory"
 >;
 
 type ScopeDataEntry =
@@ -88,21 +88,10 @@ export function createRouteScopeController(
   const identity = createMemo(() => routeScopeKey(currentPathname()));
   const [cacheVersion, setCacheVersion] = createSignal(0);
   const entries = new Map<string, ScopeDataEntry>();
-  const courseIdentities = new Map<string, ReturnType<RouteScopeQueries["resolveCourse"]>>();
   const assessmentAttemptScopes = new Map<
     string,
     ReturnType<RouteScopeQueries["assessmentAttemptScope"]>
   >();
-
-  const resolveCourse = (
-    reference: Parameters<RouteScopeQueries["resolveCourse"]>[0],
-  ): ReturnType<RouteScopeQueries["resolveCourse"]> => {
-    const cached = courseIdentities.get(reference);
-    if (cached !== undefined) return cached;
-    const request = queries.resolveCourse(reference);
-    courseIdentities.set(reference, request);
-    return request;
-  };
 
   const assessmentAttemptScope = (
     reference: Parameters<RouteScopeQueries["assessmentAttemptScope"]>[0],
@@ -120,8 +109,8 @@ export function createRouteScopeController(
     let request: Promise<CourseThemeRouteData>;
     switch (scope.kind) {
       case "courseInstance":
-        request = resolveCourse(scope.courseReference)
-          .then((resolved) => queries.courseScope(resolved.courseId))
+        request = queries
+          .courseScope(scope.courseReference)
           .then((course) => ({ kind: "course", course }));
         break;
       case "assessmentAttempt":
@@ -188,7 +177,6 @@ export function createRouteScopeController(
     // owner evicts only this public route scope before issuing its fresh read.
     switch (scope.kind) {
       case "courseInstance":
-        courseIdentities.delete(scope.courseReference);
         break;
       case "assessmentAttempt":
         if (!isAssessmentAttemptSummary(pathnameForScope)) {
@@ -205,7 +193,7 @@ export function createRouteScopeController(
   };
 
   const replaceCourseAppearance: ReplaceCourseAppearance = (
-    courseId: CourseId,
+    courseReference: CourseInstanceReference,
     appearance: CourseAppearanceView,
   ): void => {
     let changed = false;
@@ -213,7 +201,7 @@ export function createRouteScopeController(
       if (
         entry.state !== "resolved" ||
         entry.data.kind === "assessmentAttempt" ||
-        courseRouteView(entry.data).summary.id !== courseId
+        courseRouteView(entry.data).summary.reference !== courseReference
       )
         continue;
       entries.set(key, { state: "resolved", data: withCourseAppearance(entry.data, appearance) });

@@ -27,6 +27,8 @@ mod assessment_delivery_start;
 #[cfg(feature = "postgres")]
 mod assessment_pool_fork;
 #[cfg(feature = "postgres")]
+mod assessment_pool_selection_count;
+#[cfg(feature = "postgres")]
 mod assessment_release;
 #[cfg(feature = "postgres")]
 mod assessment_workspace_policy;
@@ -84,6 +86,8 @@ mod question_library;
 #[cfg(feature = "postgres")]
 mod question_pool_creation;
 #[cfg(feature = "postgres")]
+mod question_pool_library;
+#[cfg(feature = "postgres")]
 mod question_source;
 #[cfg(feature = "postgres")]
 mod question_star;
@@ -115,6 +119,8 @@ pub use assessment_attempt::PostgresAssessmentAttemptStore;
 pub use assessment_delivery::PostgresLiveAssessmentDeliveryStore;
 #[cfg(feature = "postgres")]
 pub use assessment_pool_fork::PostgresAssessmentPoolForkStore;
+#[cfg(feature = "postgres")]
+pub use assessment_pool_selection_count::PostgresAssessmentPoolSelectionCountStore;
 #[cfg(feature = "postgres")]
 pub use assessment_release::PostgresLiveAssessmentStore;
 #[cfg(feature = "postgres")]
@@ -169,6 +175,8 @@ pub use question_fork::PostgresQuestionForkStore;
 pub use question_library::PostgresQuestionLibraryStore;
 #[cfg(feature = "postgres")]
 pub use question_pool_creation::PostgresQuestionPoolCreationStore;
+#[cfg(feature = "postgres")]
+pub use question_pool_library::PostgresQuestionPoolLibraryStore;
 #[cfg(feature = "postgres")]
 pub use question_source::PostgresDraftQuestionSourceBindingStore;
 #[cfg(feature = "postgres")]

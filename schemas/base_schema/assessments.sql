@@ -74,25 +74,25 @@ CREATE TABLE ple_data.assessment (
         assessment_question_order_rule IN ('authored_order', 'shuffled')
     ),
     feedback_score text NOT NULL CHECK (
-        feedback_score IN ('during_assessment_attempt', 'after_submit', 'after_due', 'after_close', 'never')
+        feedback_score IN ('during_attempt', 'after_submit', 'after_due', 'after_close', 'never')
     ),
     feedback_per_item_correctness text NOT NULL CHECK (
-        feedback_per_item_correctness IN ('during_assessment_attempt', 'after_submit', 'after_due', 'after_close', 'never')
+        feedback_per_item_correctness IN ('during_attempt', 'after_submit', 'after_due', 'after_close', 'never')
     ),
     feedback_submitted_response text NOT NULL CHECK (
-        feedback_submitted_response IN ('during_assessment_attempt', 'after_submit', 'after_due', 'after_close', 'never')
+        feedback_submitted_response IN ('during_attempt', 'after_submit', 'after_due', 'after_close', 'never')
     ),
     feedback_question_feedback text NOT NULL CHECK (
-        feedback_question_feedback IN ('during_assessment_attempt', 'after_submit', 'after_due', 'after_close', 'never')
+        feedback_question_feedback IN ('during_attempt', 'after_submit', 'after_due', 'after_close', 'never')
     ),
     feedback_question_answer text NOT NULL CHECK (
-        feedback_question_answer IN ('during_assessment_attempt', 'after_submit', 'after_due', 'after_close', 'never')
+        feedback_question_answer IN ('during_attempt', 'after_submit', 'after_due', 'after_close', 'never')
     ),
     feedback_question_answer_explanation text NOT NULL CHECK (
-        feedback_question_answer_explanation IN ('during_assessment_attempt', 'after_submit', 'after_due', 'after_close', 'never')
+        feedback_question_answer_explanation IN ('during_attempt', 'after_submit', 'after_due', 'after_close', 'never')
     ),
     feedback_class_statistics text NOT NULL CHECK (
-        feedback_class_statistics IN ('during_assessment_attempt', 'after_submit', 'after_due', 'after_close', 'never')
+        feedback_class_statistics IN ('during_attempt', 'after_submit', 'after_due', 'after_close', 'never')
     ),
     assessment_status text NOT NULL DEFAULT 'unreleased' CHECK (
         assessment_status IN ('unreleased', 'released', 'closed', 'archived')
@@ -453,6 +453,7 @@ $$;
 CREATE FUNCTION ple_data.import_assessment_question_pool_fork(
     p_assessment_id uuid,
     p_assessment_entry_id uuid,
+    p_expected_assessment_edit_number bigint,
     p_fork_question_pool_id uuid,
     p_fork_public_question_pool_id text,
     p_source_question_pool_id uuid,
@@ -462,13 +463,21 @@ CREATE FUNCTION ple_data.import_assessment_question_pool_fork(
     p_points_per_item numeric,
     p_selected_question_order text,
     p_scoring_rule text
-) RETURNS TABLE (assessment_entry_id uuid, question_pool_id uuid, question_pool_revision_number bigint)
+) RETURNS TABLE (
+    assessment_entry_id uuid,
+    question_pool_id uuid,
+    question_pool_revision_number bigint,
+    assessment_edit_number bigint
+)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE assessment_row ple_data.assessment%ROWTYPE;
 DECLARE forked record;
 BEGIN
     IF p_assessment_id IS NULL OR p_assessment_entry_id IS NULL
+       OR p_expected_assessment_edit_number IS NULL
+       OR p_expected_assessment_edit_number <= 0
+       OR p_expected_assessment_edit_number >= 9223372036854775807
        OR p_authored_position < 0 OR p_selection_count <= 0 OR p_points_per_item < 0
        OR p_selected_question_order NOT IN ('question_pool_order', 'random_order')
        OR p_scoring_rule NOT IN ('normal', 'full_credit', 'extra_credit', 'excluded') THEN
@@ -480,13 +489,17 @@ BEGIN
        OR NOT ple_api.current_session_account_is_course_instructor(assessment_row.course_id) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment Question Pool import is unavailable';
     END IF;
+    IF assessment_row.assessment_edit_number <> p_expected_assessment_edit_number THEN
+        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Assessment Question Pool import is stale';
+    END IF;
     SELECT * INTO forked FROM ple_data.fork_question_pool_revision(
         p_fork_question_pool_id, p_fork_public_question_pool_id,
         p_source_question_pool_id, p_source_question_pool_revision_number
     );
     IF p_selection_count > (
-        SELECT member_count FROM ple_data.question_pool_revision
-         WHERE question_pool_id = forked.question_pool_id AND revision_number = 1
+        SELECT pool_revision.member_count FROM ple_data.question_pool_revision AS pool_revision
+         WHERE pool_revision.question_pool_id = forked.question_pool_id
+           AND pool_revision.revision_number = 1
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Assessment Question Pool selection exceeds fork member count';
     END IF;
@@ -506,7 +519,8 @@ BEGIN
     UPDATE ple_data.assessment AS updated
        SET assessment_edit_number = updated.assessment_edit_number + 1,
            updated_at = pg_catalog.clock_timestamp()
-     WHERE updated.assessment_id = p_assessment_id;
+     WHERE updated.assessment_id = p_assessment_id
+     RETURNING updated.assessment_edit_number INTO assessment_edit_number;
     assessment_entry_id := p_assessment_entry_id;
     question_pool_id := forked.question_pool_id;
     question_pool_revision_number := 1;
@@ -585,17 +599,17 @@ BEGIN
         p_member_question_ids, p_member_revision_numbers, p_interchangeability_attested
     );
     IF entry_row.selection_count > (
-        SELECT member_count FROM ple_data.question_pool_revision
-         WHERE question_pool_id = entry_row.question_pool_id
-           AND revision_number = append_result.revision_number
+        SELECT pool_revision.member_count FROM ple_data.question_pool_revision AS pool_revision
+         WHERE pool_revision.question_pool_id = entry_row.question_pool_id
+           AND pool_revision.revision_number = append_result.revision_number
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Assessment Question Pool selection exceeds new fork member count';
     END IF;
-    UPDATE ple_data.assessment_entry
+    UPDATE ple_data.assessment_entry AS entry
        SET question_pool_revision_number = append_result.revision_number
-     WHERE assessment_entry_id = entry_row.assessment_entry_id
-       AND assessment_id = p_assessment_id;
+     WHERE entry.assessment_entry_id = entry_row.assessment_entry_id
+       AND entry.assessment_id = p_assessment_id;
     UPDATE ple_data.assessment AS assessment
        SET assessment_edit_number = assessment.assessment_edit_number + 1,
            updated_at = pg_catalog.clock_timestamp()
@@ -1094,7 +1108,7 @@ REVOKE ALL ON TABLE ple_data.assessment, ple_data.assessment_entry,
 REVOKE ALL ON FUNCTION ple_data.enforce_assessment_edit(),
     ple_data.validate_assessment_question_pool_fork(), ple_data.validate_assessment_release(uuid),
     ple_data.replace_assessment_entries(uuid, jsonb),
-    ple_data.import_assessment_question_pool_fork(uuid, uuid, uuid, text, uuid, bigint, integer, integer, numeric, text, text),
+    ple_data.import_assessment_question_pool_fork(uuid, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text),
     ple_data.append_assessment_question_pool_fork_revision(uuid, uuid, bigint, uuid, text[], integer[], boolean),
     ple_data.create_assessment(uuid, bigint, uuid, text, text),
     ple_data.save_assessment(bigint, bigint, bigint, jsonb, jsonb),
@@ -1108,7 +1122,7 @@ GRANT UPDATE (assessment_id) ON TABLE ple_data.assessment TO ple_private_owner;
 GRANT SELECT ON ple_data.assessment, ple_data.assessment_entry, ple_data.assessment_question_pool_fork
     TO ple_api_owner;
 GRANT EXECUTE ON FUNCTION ple_data.create_assessment(uuid, bigint, uuid, text, text),
-    ple_data.import_assessment_question_pool_fork(uuid, uuid, uuid, text, uuid, bigint, integer, integer, numeric, text, text),
+    ple_data.import_assessment_question_pool_fork(uuid, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text),
     ple_data.append_assessment_question_pool_fork_revision(uuid, uuid, bigint, uuid, text[], integer[], boolean),
     ple_data.save_assessment(bigint, bigint, bigint, jsonb, jsonb),
     ple_data.save_assessment_inline(bigint, bigint, bigint, text, timestamptz),
@@ -1119,16 +1133,21 @@ GRANT EXECUTE ON FUNCTION ple_data.create_assessment(uuid, bigint, uuid, text, t
 
 SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.import_assessment_question_pool_fork(
-    uuid, uuid, uuid, text, uuid, bigint, integer, integer, numeric, text, text
-) RETURNS TABLE (assessment_entry_id uuid, question_pool_id uuid, question_pool_revision_number bigint)
+    uuid, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text
+) RETURNS TABLE (
+    assessment_entry_id uuid,
+    question_pool_id uuid,
+    question_pool_revision_number bigint,
+    assessment_edit_number bigint
+)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT * FROM ple_data.import_assessment_question_pool_fork(
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
     )
 $$;
-REVOKE ALL ON FUNCTION ple_api.import_assessment_question_pool_fork(uuid, uuid, uuid, text, uuid, bigint, integer, integer, numeric, text, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.import_assessment_question_pool_fork(uuid, uuid, uuid, text, uuid, bigint, integer, integer, numeric, text, text) TO ple_app;
+REVOKE ALL ON FUNCTION ple_api.import_assessment_question_pool_fork(uuid, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.import_assessment_question_pool_fork(uuid, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text) TO ple_app;
 
 -- Public-route wrapper: the application resolves an authorized Course and
 -- Assessment by their opaque references inside this definer boundary.  It
@@ -1137,6 +1156,7 @@ CREATE FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(
     p_course_public_reference text,
     p_assessment_public_reference text,
     p_assessment_entry_id uuid,
+    p_expected_assessment_edit_number bigint,
     p_fork_question_pool_id uuid,
     p_fork_public_question_pool_id text,
     p_source_question_pool_id uuid,
@@ -1146,7 +1166,12 @@ CREATE FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(
     p_points_per_item numeric,
     p_selected_question_order text,
     p_scoring_rule text
-) RETURNS TABLE (assessment_entry_id uuid, question_pool_id uuid, question_pool_revision_number bigint)
+) RETURNS TABLE (
+    assessment_entry_id uuid,
+    question_pool_id uuid,
+    question_pool_revision_number bigint,
+    assessment_edit_number bigint
+)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE assessment_id_value uuid;
@@ -1161,15 +1186,63 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment Question Pool import is unavailable';
     END IF;
     RETURN QUERY SELECT * FROM ple_data.import_assessment_question_pool_fork(
-        assessment_id_value, p_assessment_entry_id, p_fork_question_pool_id,
+        assessment_id_value, p_assessment_entry_id, p_expected_assessment_edit_number,
+        p_fork_question_pool_id,
         p_fork_public_question_pool_id, p_source_question_pool_id,
         p_source_question_pool_revision_number, p_authored_position,
         p_selection_count, p_points_per_item, p_selected_question_order, p_scoring_rule
     );
 END
 $$;
-REVOKE ALL ON FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(text, text, uuid, uuid, text, uuid, bigint, integer, integer, numeric, text, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(text, text, uuid, uuid, text, uuid, bigint, integer, integer, numeric, text, text) TO ple_app;
+REVOKE ALL ON FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(text, text, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(text, text, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text) TO ple_app;
+
+-- ASVS V1.2/V2.2/V8.3: this typed read derives the exact Pool Revision from
+-- the Course-owned Assessment Entry under the installed Instructor session.
+-- No browser-selected Pool identity or Revision crosses this boundary.
+CREATE FUNCTION ple_api.read_assessment_question_pool_fork(
+    p_course_reference text,
+    p_assessment_reference text,
+    p_assessment_entry_id uuid
+) RETURNS TABLE (
+    assessment_entry_id uuid,
+    public_question_pool_id text,
+    revision_number bigint,
+    pool_metadata_etag uuid,
+    selection_count integer,
+    member_position integer,
+    question_id text,
+    question_revision_number integer
+) LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+    SELECT entry.assessment_entry_id,
+           ple_data.canonical_public_crockford_display(pool.public_question_pool_id),
+           entry.question_pool_revision_number,
+           pool.metadata_etag,
+           entry.selection_count,
+           member.member_position,
+           ple_data.canonical_public_crockford_display(member.question_id),
+           member.question_revision_number
+      FROM ple_data.course_instance AS course
+      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
+      JOIN ple_data.assessment_entry AS entry ON entry.assessment_id = assessment.assessment_id
+      JOIN ple_data.assessment_question_pool_fork AS owned
+        ON owned.assessment_entry_id = entry.assessment_entry_id
+       AND owned.assessment_id = assessment.assessment_id
+       AND owned.question_pool_id = entry.question_pool_id
+      JOIN ple_data.question_pool AS pool ON pool.question_pool_id = entry.question_pool_id
+      JOIN ple_data.question_pool_revision_member AS member
+        ON member.question_pool_id = entry.question_pool_id
+       AND member.revision_number = entry.question_pool_revision_number
+     WHERE course.public_reference = p_course_reference
+       AND assessment.public_reference = p_assessment_reference
+       AND entry.assessment_entry_id = p_assessment_entry_id
+       AND entry.entry_kind = 'question_pool'
+       AND ple_api.current_session_account_is_course_instructor(course.course_id)
+     ORDER BY member.member_position
+$$;
+REVOKE ALL ON FUNCTION ple_api.read_assessment_question_pool_fork(text, text, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.read_assessment_question_pool_fork(text, text, uuid) TO ple_app;
 
 CREATE FUNCTION ple_api.append_assessment_question_pool_fork_revision(
     uuid, uuid, bigint, uuid, text[], integer[], boolean

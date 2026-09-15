@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
-import { decodeDueSoonAssignments } from "../src/api/decoders/assignment_release.ts";
+import { decodeDueSoonAssessments } from "../src/api/decoders/assessment_release.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
 import { createRecordingFetch } from "./http_client_test_support.mjs";
 
@@ -10,11 +10,11 @@ function responseBody() {
   return {
     items: [
       {
-        courseReference: "C-2",
+        courseReference: "CI8H4N6P",
         courseLongName: "Molecular Biology",
-        assignmentReference: "A-3",
-        assignmentTitle: "DNA repair",
-        assignmentStatus: "released",
+        assessmentReference: "A9J5V7W",
+        assessmentTitle: "DNA repair",
+        assessmentStatus: "released",
         dueAtMillis: 1790971200125,
       },
     ],
@@ -34,24 +34,24 @@ test("Due Soon client reads the closed Account-zone cross-Course projection", as
       }),
   );
 
-  const result = await createHttpApiClient({ fetch: recordingFetch }).listAssignmentsDueSoon();
+  const result = await createHttpApiClient({ fetch: recordingFetch }).listAssessmentsDueSoon();
 
   assert.equal(result.displayTimeZone, "America/Chicago");
-  assert.equal(result.items[0]?.courseReference, "C-2");
+  assert.equal(result.items[0]?.courseReference, "CI8H4N6P");
   assert.equal(result.items[0]?.dueAtMillis, 1790971200125);
-  assert.equal(new URL(requests[0].url).pathname, "/api/assignments/due-soon");
+  assert.equal(new URL(requests[0].url).pathname, "/api/assessments/due-soon");
   assert.equal(requests[0].method, "GET");
   assert.equal(requests[0].cache, "no-store");
 });
 
 test("Due Soon decoder rejects hidden pagination and non-instant response fields", () => {
   assert.throws(
-    () => decodeDueSoonAssignments({ ...responseBody(), nextCursor: "next" }),
+    () => decodeDueSoonAssessments({ ...responseBody(), nextCursor: "next" }),
     DecodeError,
   );
   assert.throws(
     () =>
-      decodeDueSoonAssignments({
+      decodeDueSoonAssessments({
         ...responseBody(),
         items: [{ ...responseBody().items[0], studentIdentity: "must-not-cross" }],
       }),
@@ -59,7 +59,7 @@ test("Due Soon decoder rejects hidden pagination and non-instant response fields
   );
   assert.throws(
     () =>
-      decodeDueSoonAssignments({
+      decodeDueSoonAssessments({
         ...responseBody(),
         items: [{ ...responseBody().items[0], dueAtMillis: "1790971200125" }],
       }),

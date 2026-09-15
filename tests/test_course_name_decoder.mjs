@@ -7,7 +7,7 @@ import { decodeCourseSummary } from "../src/api/decoders.ts";
 function courseSummary(shortName, longName) {
   return {
     id: "00000000-0000-0000-0000-000000000001",
-    reference: "C-1",
+    reference: "CI7K3M2Q",
     shortName,
     longName,
     term: { startDate: "2026-01-01", endDate: "2026-05-01" },

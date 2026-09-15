@@ -4,6 +4,7 @@ import { normalizeQuestionIdSyntax } from "../../question_id";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import type { BlueprintAssessmentSource } from "../../api/assessment_release";
 import type { QuestionFormat } from "../../../generated/api/QuestionFormat";
+import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
 import {
   EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
   decodeQuestionLibraryBrowsePage,
@@ -291,29 +292,16 @@ function selectedBlueprintAssessment(
   );
 }
 
-function contentRows(content: {
-  readonly entries: ReadonlyArray<
-    | {
-        readonly kind: "fixed";
-        readonly question: {
-          readonly question_library: Parameters<typeof reusableQuestionLibraryRow>[0];
-        };
-      }
-    | {
-        readonly kind: "pool";
-        readonly items: ReadonlyArray<{
-          readonly question_library: Parameters<typeof reusableQuestionLibraryRow>[0];
-        }>;
-      }
-  >;
-}): ReadonlyArray<QuestionLibraryBrowseRow> {
+function contentRows(
+  content: BlueprintAssessmentContentView,
+): ReadonlyArray<QuestionLibraryBrowseRow> {
   const rows: QuestionLibraryBrowseRow[] = [];
   for (const assessmentEntry of content.entries) {
-    if (assessmentEntry.kind === "fixed")
+    // Pool members are selected through the published-Pool picker. This fixed-Question
+    // source exposes only Questions that the Blueprint Assessment stores as fixed entries.
+    if (assessmentEntry.kind === "fixed") {
       rows.push(reusableQuestionLibraryRow(assessmentEntry.question.question_library));
-    else
-      for (const questionPoolItem of assessmentEntry.items)
-        rows.push(reusableQuestionLibraryRow(questionPoolItem.question_library));
+    }
   }
   return rows;
 }

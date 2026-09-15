@@ -3,20 +3,20 @@ import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
 import {
-  decodeLiveStudentAssignmentLandings,
+  decodeLiveStudentAssessmentLandings,
   decodeLiveStudentCourseLandings,
 } from "../src/api/decoders/live_student_course_landing.ts";
 
 test("Student Course landing carries both Course Instance names", () => {
   const value = {
-    courses: [{ reference: "C-7", shortName: "Mol Bio", longName: "Molecular Biology" }],
+    courses: [{ reference: "CI6F2R8T", shortName: "Mol Bio", longName: "Molecular Biology" }],
   };
   assert.deepEqual(decodeLiveStudentCourseLandings(value), value.courses);
 });
 
-function assignment(overrides = {}) {
+function assessment(overrides = {}) {
   return {
-    reference: "A-7",
+    reference: "A5D9Q3X",
     title: "Peptide practice",
     decision: {
       availableAt: 1_000,
@@ -30,8 +30,8 @@ function assignment(overrides = {}) {
       startDecision: "may_start",
       publicReason: null,
     },
-    assignmentAttemptNumber: 1,
-    assignmentAttemptCompletion: "inProgress",
+    assessmentAttemptNumber: 1,
+    assessmentAttemptCompletion: "inProgress",
     gradedQuestionCount: 1,
     questionCount: 4,
     ...overrides,
@@ -39,29 +39,29 @@ function assignment(overrides = {}) {
 }
 
 test("Student Course landing accepts an omitted score while disclosure withholds it", () => {
-  const value = { assignments: [assignment()] };
-  assert.deepEqual(decodeLiveStudentAssignmentLandings(value), value.assignments);
+  const value = { assessments: [assessment()] };
+  assert.deepEqual(decodeLiveStudentAssessmentLandings(value), value.assessments);
 });
 
 test("Student Course landing accepts one complete released score pair", () => {
   const value = {
-    assignments: [
-      assignment({ gradedQuestionCount: 4, score: { pointsEarned: 1, pointsPossible: 2 } }),
+    assessments: [
+      assessment({ gradedQuestionCount: 4, score: { pointsEarned: 1, pointsPossible: 2 } }),
     ],
   };
-  assert.deepEqual(decodeLiveStudentAssignmentLandings(value), value.assignments);
+  assert.deepEqual(decodeLiveStudentAssessmentLandings(value), value.assessments);
 });
 
 test("Student Course landing rejects a partial, nullable, or stale score projection", () => {
   for (const candidate of [
-    assignment({ score: { pointsEarned: 1 } }),
-    assignment({ score: null }),
-    assignment({ score: { pointsEarned: 3, pointsPossible: 2 } }),
-    assignment({ score: { pointsEarned: 1, pointsPossible: 2 } }),
-    assignment({ pointsEarned: 1, pointsPossible: 2 }),
+    assessment({ score: { pointsEarned: 1 } }),
+    assessment({ score: null }),
+    assessment({ score: { pointsEarned: 3, pointsPossible: 2 } }),
+    assessment({ score: { pointsEarned: 1, pointsPossible: 2 } }),
+    assessment({ pointsEarned: 1, pointsPossible: 2 }),
   ]) {
     assert.throws(
-      () => decodeLiveStudentAssignmentLandings({ assignments: [candidate] }),
+      () => decodeLiveStudentAssessmentLandings({ assessments: [candidate] }),
       DecodeError,
     );
   }
@@ -70,11 +70,11 @@ test("Student Course landing rejects a partial, nullable, or stale score project
 test("Student Course landing requires the closed server decision summary", () => {
   assert.throws(
     () =>
-      decodeLiveStudentAssignmentLandings({
-        assignments: [
-          assignment({
+      decodeLiveStudentAssessmentLandings({
+        assessments: [
+          assessment({
             decision: {
-              ...assignment().decision,
+              ...assessment().decision,
               startDecision: "closed",
               publicReason: "This Assignment is closed for new work.",
               accommodationId: "private",

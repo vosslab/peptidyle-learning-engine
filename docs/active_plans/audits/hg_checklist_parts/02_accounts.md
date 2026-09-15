@@ -45,9 +45,8 @@
   - Mismatch: `crates/server/src/blueprint_course.rs` authorizes current Instructor sessions but has no public-or-archived Blueprint Course browse policy.
 - [x] **Instructors** log in only with a passkey or email code; no passwords.
   - Evidence (source): `schemas/base_schema/authentication.sql` `consume_email_authentication` and `consume_passkey_authentication`.
-- [x] **Instructors** should have a clearly labeled, answer-free **Student** view without changing their identity.
-  - Evidence (source): `src/pages/assignment_workspace/assignment_workspace_student_view_model.ts` `STUDENT_VIEW_CUE`.
-  - Evidence (test): `tests/test_assignment_workspace_student_view.mjs` `Student view presentation stays answer-free and preserves live delivery facts`.
+- [ ] **Instructors** should have a clearly labeled, answer-free **Student** view without changing their identity.
+  - Mismatch: `src/pages/assessment_workspace/assessment_workspace_student_view_page.tsx` `AssessmentWorkspaceStudentViewPage` renders "Student view unavailable" and states that the direct Assessment workspace has no answer-free Student-view projection.
 
 ### Student role
 

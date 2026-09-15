@@ -152,7 +152,35 @@ DECLARE course_id_value uuid;
 BEGIN
     SELECT assessment.course_id INTO course_id_value FROM ple_data.assessment AS assessment WHERE assessment.assessment_id = p_assessment_id;
     IF NOT FOUND OR NOT ple_api.current_session_account_owns_student_record(course_id_value, p_student_record_id) THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question Pool Selection is unavailable'; END IF;
-    RETURN QUERY WITH latest AS (SELECT selection.question_pool_selection_id FROM ple_private.question_pool_selection AS selection JOIN ple_private.assessment_attempt AS assessment_attempt ON assessment_attempt.assessment_attempt_id = selection.assessment_attempt_id WHERE assessment_attempt.student_record_id = p_student_record_id AND assessment_attempt.assessment_id = p_assessment_id AND selection.assessment_entry_id = p_assessment_entry_id ORDER BY assessment_attempt.assessment_attempt_number DESC, selection.created_at DESC, selection.question_pool_selection_id DESC LIMIT 1) SELECT selected.question_pool_selection_id, selected.selection_position, selection.question_pool_id, pool.public_question_pool_id, selection.question_pool_revision_number, selected.member_position, selected.question_id, selected.revision_number FROM latest JOIN ple_private.question_pool_selection AS selection ON selection.question_pool_selection_id = latest.question_pool_selection_id JOIN ple_data.question_pool AS pool ON pool.question_pool_id = selection.question_pool_id JOIN ple_private.question_pool_selected_item AS selected ON selected.question_pool_selection_id = latest.question_pool_selection_id ORDER BY selected.selection_position;
+    RETURN QUERY
+        WITH latest AS (
+            SELECT selection.question_pool_selection_id
+            FROM ple_private.question_pool_selection AS selection
+            JOIN ple_private.assessment_attempt AS assessment_attempt
+                ON assessment_attempt.assessment_attempt_id = selection.assessment_attempt_id
+            WHERE assessment_attempt.student_record_id = p_student_record_id
+                AND assessment_attempt.assessment_id = p_assessment_id
+                AND selection.assessment_entry_id = p_assessment_entry_id
+            ORDER BY assessment_attempt.assessment_attempt_number DESC,
+                selection.created_at DESC,
+                selection.question_pool_selection_id DESC
+            LIMIT 1
+        )
+        SELECT selected.question_pool_selection_id,
+            selected.selection_position,
+            selection.question_pool_id,
+            pool.public_question_pool_id,
+            selection.question_pool_revision_number,
+            selected.member_position,
+            selected.question_id,
+            selected.revision_number
+        FROM latest
+        JOIN ple_private.question_pool_selection AS selection
+            ON selection.question_pool_selection_id = latest.question_pool_selection_id
+        JOIN ple_data.question_pool AS pool ON pool.question_pool_id = selection.question_pool_id
+        JOIN ple_private.question_pool_selected_item AS selected
+            ON selected.question_pool_selection_id = latest.question_pool_selection_id
+        ORDER BY selected.selection_position;
 END $$;
 
 -- Pool-member selection is immutable Student Work evidence.  The start

@@ -8,48 +8,48 @@ import { createComponent } from "solid-js";
 import { renderToString } from "solid-js/web";
 
 import {
-  formatAssignmentAttemptTimeLimit,
-  formatAssignmentActivity,
-  formatAssignmentDeliveryTime,
-  toStudentAssignmentPresentationData,
-} from "../src/components/student_assignment_presentation.tsx";
+  formatAssessmentAttemptTimeLimit,
+  formatAssessmentActivity,
+  formatAssessmentDeliveryTime,
+  toStudentAssessmentPresentationData,
+} from "../src/components/student_assessment_presentation.tsx";
 
 async function loadDecisionDetailsForSsr() {
   const result = await build({
     bundle: true,
     entryPoints: [
-      new URL("../src/components/student_assignment_presentation.tsx", import.meta.url).pathname,
+      new URL("../src/components/student_assessment_presentation.tsx", import.meta.url).pathname,
     ],
     format: "esm",
-    outfile: "student_assignment_presentation.js",
+    outfile: "student_assessment_presentation.js",
     platform: "node",
     plugins: [solidPlugin({ solid: { generate: "ssr", hydratable: false } })],
     write: false,
   });
   const javascript = result.outputFiles.find((output) => output.path.endsWith(".js"));
   if (javascript === undefined)
-    throw new Error("Student Assignment decision SSR bundle is missing.");
+    throw new Error("Student Assessment decision SSR bundle is missing.");
   const encoded = Buffer.from(javascript.contents).toString("base64");
   const module = await import(`data:text/javascript;base64,${encoded}`);
-  if (typeof module.StudentAssignmentDecisionDetails !== "function") {
-    throw new Error("Student Assignment decision component export is missing.");
+  if (typeof module.StudentAssessmentDecisionDetails !== "function") {
+    throw new Error("Student Assessment decision component export is missing.");
   }
-  return module.StudentAssignmentDecisionDetails;
+  return module.StudentAssessmentDecisionDetails;
 }
 
 const instructorDelivery = {
   available_at: null,
   due_at: null,
   closes_at: null,
-  assignment_attempt_time_limit_seconds: 900,
+  assessment_attempt_time_limit_seconds: 900,
   attempt_limit: 2,
   late_work_rule: "accept",
 };
 
 test("Student detail adapts available entries and Question Pool selections without exposing source identities", () => {
-  const presentation = toStudentAssignmentPresentationData({
-    id: "assignment-1",
-    reference: "AS-1",
+  const presentation = toStudentAssessmentPresentationData({
+    id: "assessment-1",
+    reference: "A7K3M2Q",
     title: "Protein structure",
     instructions: "Use your notes.",
     display_time_zone: "America/New_York",
@@ -57,7 +57,7 @@ test("Student detail adapts available entries and Question Pool selections witho
       available_at: null,
       due_at: null,
       closes_at: null,
-      assignment_attempt_time_limit_seconds: 900,
+      assessment_attempt_time_limit_seconds: 900,
       attempt_limit: 2,
       late_work_rule: "accept",
       student_late_work_status: "on_time",
@@ -71,7 +71,7 @@ test("Student detail adapts available entries and Question Pool selections witho
     ],
   });
 
-  assert.equal(presentation.questionsPerAssignmentAttempt, 5);
+  assert.equal(presentation.questionsPerAssessmentAttempt, 5);
   assert.equal(presentation.delivery.studentLateWorkStatus, "on_time");
   assert.equal(presentation.displayTimeZone, "America/New_York");
   assert.equal("timeZone" in presentation, false);
@@ -79,12 +79,12 @@ test("Student detail adapts available entries and Question Pool selections witho
 });
 
 test("Instructor Student view keeps its explicit Question Variation Rule and disclosure data", () => {
-  const presentation = toStudentAssignmentPresentationData({
+  const presentation = toStudentAssessmentPresentationData({
     title: "Protein structure",
     instructions: "Use your notes.",
     displayTimeZone: "America/Los_Angeles",
     delivery: instructorDelivery,
-    questionsPerAssignmentAttempt: 4,
+    questionsPerAssessmentAttempt: 4,
     questionPoolReuseRule: "selectAgain",
     questionVariationRule: "newVariation",
     studentFeedbackReleaseRule: {
@@ -98,7 +98,7 @@ test("Instructor Student view keeps its explicit Question Variation Rule and dis
     },
   });
 
-  assert.equal(presentation.questionsPerAssignmentAttempt, 4);
+  assert.equal(presentation.questionsPerAssessmentAttempt, 4);
   assert.equal(presentation.questionPoolReuseRule, "selectAgain");
   assert.equal(presentation.questionVariationRule, "newVariation");
   assert.equal(presentation.studentFeedbackReleaseRule?.question_feedback, "after_due");
@@ -107,28 +107,28 @@ test("Instructor Student view keeps its explicit Question Variation Rule and dis
 });
 
 test("attempt-time copy stays readable across minute, hour, and second limits", () => {
-  assert.equal(formatAssignmentAttemptTimeLimit(3_600), "1 hour per attempt");
-  assert.equal(formatAssignmentAttemptTimeLimit(90), "90 seconds per attempt");
+  assert.equal(formatAssessmentAttemptTimeLimit(3_600), "1 hour per attempt");
+  assert.equal(formatAssessmentAttemptTimeLimit(90), "90 seconds per attempt");
 });
 
-test("assignment instants use the supplied viewer zone instead of the browser zone", () => {
+test("assessment instants use the supplied viewer zone instead of the browser zone", () => {
   const timestamp = Date.parse("2026-01-15T18:30:00Z");
   const newYork = "America/New_York";
   const losAngeles = "America/Los_Angeles";
   const options = { dateStyle: "medium", timeStyle: "short", timeZone: newYork };
   const expected = new Intl.DateTimeFormat(undefined, options).format(new Date(timestamp));
 
-  assert.equal(formatAssignmentDeliveryTime(timestamp, newYork), expected);
-  assert.equal(formatAssignmentActivity(timestamp, newYork), expected);
+  assert.equal(formatAssessmentDeliveryTime(timestamp, newYork), expected);
+  assert.equal(formatAssessmentActivity(timestamp, newYork), expected);
   assert.notEqual(
-    formatAssignmentDeliveryTime(timestamp, losAngeles),
+    formatAssessmentDeliveryTime(timestamp, losAngeles),
     expected,
     "fixed instant must render in the supplied viewer zone",
   );
 });
 
 test("decision presentation renders one server instant differently in two supplied zones", async () => {
-  const StudentAssignmentDecisionDetails = await loadDecisionDetailsForSsr();
+  const StudentAssessmentDecisionDetails = await loadDecisionDetailsForSsr();
   const dueAt = Date.parse("2026-01-15T18:30:00Z");
   const decision = {
     availableAt: Date.parse("2026-01-15T17:30:00Z"),
@@ -142,13 +142,13 @@ test("decision presentation renders one server instant differently in two suppli
     startDecision: "may_start",
     publicReason: null,
   };
-  const newYorkDue = formatAssignmentDeliveryTime(dueAt, "America/New_York");
-  const losAngelesDue = formatAssignmentDeliveryTime(dueAt, "America/Los_Angeles");
+  const newYorkDue = formatAssessmentDeliveryTime(dueAt, "America/New_York");
+  const losAngelesDue = formatAssessmentDeliveryTime(dueAt, "America/Los_Angeles");
   const newYorkHtml = renderToString(() =>
-    createComponent(StudentAssignmentDecisionDetails, { decision }),
+    createComponent(StudentAssessmentDecisionDetails, { decision }),
   );
   const losAngelesHtml = renderToString(() =>
-    createComponent(StudentAssignmentDecisionDetails, {
+    createComponent(StudentAssessmentDecisionDetails, {
       decision: { ...decision, displayTimeZone: "America/Los_Angeles" },
     }),
   );
@@ -160,9 +160,9 @@ test("decision presentation renders one server instant differently in two suppli
   assert.match(newYorkHtml, /Times are shown in your time zone: America\/New_York\./u);
   assert.doesNotMatch(newYorkHtml, /Cannot start/u);
 
-  const closedReason = "This Assignment is closed for new work.";
+  const closedReason = "This Assessment is closed for new work.";
   const closedHtml = renderToString(() =>
-    createComponent(StudentAssignmentDecisionDetails, {
+    createComponent(StudentAssessmentDecisionDetails, {
       decision: { ...decision, startDecision: "closed", publicReason: closedReason },
     }),
   );

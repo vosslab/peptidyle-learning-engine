@@ -3,6 +3,8 @@ import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js
 
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentEntryId } from "../../../generated/api/AssessmentEntryId";
+import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
+import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
 import type {
   AssessmentQuestionPickerEntry,
   LiveAssessmentWorkspace,
@@ -10,6 +12,8 @@ import type {
 } from "../../api/assessment_release";
 import { useApplicationApi } from "../../api/application_api";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
+import { AssessmentPoolForkConflictError } from "../../api/http_client/assessment_pool_fork";
+import { AssessmentPoolEntryEditor } from "./assessment_pool_entry_editor";
 import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
 import { assessmentWorkspacePath } from "./assessment_workspace_paths";
 import {
@@ -57,6 +61,12 @@ function entryId(): AssessmentEntryId {
   return crypto.randomUUID();
 }
 
+function questionPoolEntry(
+  entry: AssessmentEntry,
+): Extract<AssessmentEntry, { readonly kind: "questionPool" }> | undefined {
+  return entry.kind === "questionPool" ? entry : undefined;
+}
+
 function AssessmentEntrySummary(props: {
   readonly entry: AssessmentEntry;
   readonly description: (reference: AssessmentQuestionPickerEntry["reference"]) => string;
@@ -64,18 +74,8 @@ function AssessmentEntrySummary(props: {
   if (props.entry.kind === "questionPool") {
     return (
       <>
-        <strong>Question pool</strong> - {props.entry.selectionCount} selected from{" "}
-        {props.entry.items.length} pinned Questions
-        <ul>
-          <For each={props.entry.items}>
-            {(item) => (
-              <li data-question-pool-item={item.id}>
-                {item.reference.questionId} * Revision {item.reference.revisionNumber} (
-                {item.availability})
-              </li>
-            )}
-          </For>
-        </ul>
+        <strong>Question Pool</strong> - {props.entry.selectionCount} selected from its exact pinned
+        Pool Revision
       </>
     );
   }
@@ -100,6 +100,21 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   const [message, setMessage] = createSignal("");
   const [needsReload, setNeedsReload] = createSignal(false);
   const [dirty, setDirty] = createSignal(false);
+  const [poolForks, setPoolForks] = createSignal<
+    ReadonlyMap<AssessmentEntryId, AssessmentQuestionPoolForkView>
+  >(new Map());
+  const [availablePools, setAvailablePools] = createSignal<
+    ReadonlyArray<QuestionPoolLibrarySummary>
+  >([]);
+  const [poolToImport, setPoolToImport] = createSignal("");
+  const [poolSelectionCount, setPoolSelectionCount] = createSignal("1");
+  const [poolPointsPerItem, setPoolPointsPerItem] = createSignal("1");
+  const [poolSelectedQuestionOrder, setPoolSelectedQuestionOrder] = createSignal<
+    "questionPoolOrder" | "randomOrder"
+  >("randomOrder");
+  const [poolScoringRule, setPoolScoringRule] = createSignal<
+    "normal" | "fullCredit" | "extraCredit" | "excluded"
+  >("normal");
 
   const descriptions = createMemo(() => {
     const known = new Map<string, string>();
@@ -120,16 +135,49 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     ),
   );
 
-  onMount(() => void loadAvailable());
+  onMount(() => {
+    void loadAvailable();
+    void loadPoolForks(entries());
+  });
 
   async function loadAvailable(): Promise<void> {
     try {
-      setAvailable(
-        await applicationApi.client.listLiveAssessmentQuestionPicker(workspace.courseReference),
-      );
+      const [questions, pools] = await Promise.all([
+        applicationApi.client.listLiveAssessmentQuestionPicker(workspace.courseReference),
+        applicationApi.client.listQuestionPools(),
+      ]);
+      setAvailable(questions);
+      setAvailablePools(pools.items);
     } catch {
       setMessage(
-        "Available published Questions could not load. Existing Assessment Entries remain here.",
+        "Available published Questions or Question Pools could not load. Existing Assessment Entries remain here.",
+      );
+    }
+  }
+
+  async function loadPoolForks(currentEntries: ReadonlyArray<AssessmentEntry>): Promise<void> {
+    const poolEntries = currentEntries.filter(
+      (entry): entry is Extract<AssessmentEntry, { readonly kind: "questionPool" }> =>
+        entry.kind === "questionPool",
+    );
+    try {
+      const loaded = await Promise.all(
+        poolEntries.map(
+          async (entry) =>
+            [
+              entry.id,
+              await applicationApi.client.getAssessmentQuestionPoolFork(
+                workspace.courseReference,
+                workspace.assessmentReference,
+                entry.id,
+              ),
+            ] as const,
+        ),
+      );
+      setPoolForks(new Map(loaded));
+    } catch {
+      setMessage(
+        "Exact Question Pool members could not load. Reload the Assessment and try again.",
       );
     }
   }
@@ -190,10 +238,126 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       const latest = await workspace.reloadAssessment();
       setEntries(latest.workspace.entries);
       setTitle(latest.workspace.title);
+      await loadPoolForks(latest.workspace.entries);
       setNeedsReload(false);
       setMessage("Latest assessment loaded. Review its complete ordered Entries.");
     } catch {
       setMessage("The latest assessment could not load. Your current Entries remain here.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function refreshAfterPoolMutation(success: string): Promise<void> {
+    const latest = await workspace.reloadAssessment();
+    setEntries(latest.workspace.entries);
+    setTitle(latest.workspace.title);
+    await loadPoolForks(latest.workspace.entries);
+    setNeedsReload(false);
+    setMessage(success);
+  }
+
+  async function updatePoolSelectionCount(
+    entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>,
+    selectionCount: number,
+  ): Promise<void> {
+    if (dirty() || needsReload()) return;
+    setBusy(true);
+    try {
+      await applicationApi.client.updateAssessmentQuestionPoolSelectionCount(
+        workspace.courseReference,
+        workspace.assessmentReference,
+        entry.id,
+        selectionCount,
+        workspace.assessment().etag,
+      );
+      await refreshAfterPoolMutation("Question Pool selection count updated.");
+    } catch (error: unknown) {
+      const conflict = error instanceof AssessmentPoolForkConflictError;
+      setNeedsReload(conflict);
+      setMessage(
+        conflict
+          ? "This Assessment changed elsewhere. Reload latest Assessment before changing its Question Pool."
+          : "Question Pool selection count was not saved. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function replacePoolMembers(
+    entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>,
+    members: ReadonlyArray<AssessmentQuestionPickerEntry["reference"]>,
+  ): Promise<void> {
+    const fork = poolForks().get(entry.id);
+    if (dirty() || needsReload() || fork === undefined) return;
+    setBusy(true);
+    try {
+      await applicationApi.client.appendAssessmentQuestionPoolForkRevision(
+        workspace.courseReference,
+        workspace.assessmentReference,
+        entry.id,
+        {
+          expectedPoolMetadataEtag: fork.poolMetadataEtag,
+          members,
+          interchangeabilityAttested: true,
+        },
+        workspace.assessment().etag,
+      );
+      await refreshAfterPoolMutation("Assessment-owned Question Pool membership updated.");
+    } catch (error: unknown) {
+      const conflict = error instanceof AssessmentPoolForkConflictError;
+      setNeedsReload(conflict);
+      setMessage(
+        conflict
+          ? "This Assessment changed elsewhere. Reload latest Assessment before changing its Question Pool."
+          : "Question Pool membership was not saved. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function importPool(): Promise<void> {
+    if (dirty() || needsReload()) return;
+    const source = availablePools().find(
+      (pool) => pool.questionPoolRevision.questionPoolId === poolToImport(),
+    );
+    const selectionCount = Number(poolSelectionCount());
+    if (
+      source === undefined ||
+      !Number.isSafeInteger(selectionCount) ||
+      selectionCount < 1 ||
+      selectionCount > source.memberCount
+    ) {
+      setMessage("Choose a Question Pool and a selection count no greater than its member count.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await applicationApi.client.importAssessmentQuestionPoolFork(
+        workspace.courseReference,
+        workspace.assessmentReference,
+        {
+          sourceQuestionPoolId: source.questionPoolRevision.questionPoolId,
+          authoredPosition: entries().length,
+          selectionCount,
+          pointsPerItem: poolPointsPerItem(),
+          selectedQuestionOrder: poolSelectedQuestionOrder(),
+          scoringRule: poolScoringRule(),
+        },
+        workspace.assessment().etag,
+      );
+      setPoolToImport("");
+      await refreshAfterPoolMutation("Question Pool imported as an Assessment-owned fork.");
+    } catch (error: unknown) {
+      const conflict = error instanceof AssessmentPoolForkConflictError;
+      setNeedsReload(conflict);
+      setMessage(
+        conflict
+          ? "This Assessment changed elsewhere. Reload latest Assessment before importing a Question Pool."
+          : "Question Pool import was not saved. Try again.",
+      );
     } finally {
       setBusy(false);
     }
@@ -256,6 +420,23 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
                   >
                     Remove
                   </button>
+                  <Show when={questionPoolEntry(entry)}>
+                    {(poolEntry) => (
+                      <AssessmentPoolEntryEditor
+                        entry={poolEntry()}
+                        fork={poolForks().get(poolEntry().id)}
+                        availableQuestions={available()}
+                        mutationsEnabled={!dirty() && !needsReload()}
+                        busy={busy()}
+                        onSelectionCount={(selectionCount) =>
+                          void updatePoolSelectionCount(poolEntry(), selectionCount)
+                        }
+                        onReplaceMembers={(members) =>
+                          void replacePoolMembers(poolEntry(), members)
+                        }
+                      />
+                    )}
+                  </Show>
                 </li>
               )}
             </For>
@@ -288,6 +469,83 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
               )}
             </For>
           </ul>
+        </Show>
+      </section>
+      <section class="assessment-editor-panel" aria-labelledby="available-pools-heading">
+        <h2 id="available-pools-heading">Import a reusable Question Pool</h2>
+        <p class="assessment-editor-note">
+          Importing creates an Assessment-owned fork. It does not change the reusable Question Pool.
+        </p>
+        <fieldset disabled={busy() || dirty() || needsReload() || availablePools().length === 0}>
+          <label class="assessment-editor-field">
+            Published Question Pool
+            <select
+              value={poolToImport()}
+              onChange={(event) => setPoolToImport(event.currentTarget.value)}
+            >
+              <option value="">Choose a Question Pool</option>
+              <For each={availablePools()}>
+                {(pool) => (
+                  <option value={pool.questionPoolRevision.questionPoolId}>
+                    {pool.questionPoolRevision.questionPoolId} Revision{" "}
+                    {pool.questionPoolRevision.revisionNumber} ({pool.memberCount} Questions)
+                  </option>
+                )}
+              </For>
+            </select>
+          </label>
+          <label class="assessment-editor-field">
+            Questions selected for each Attempt
+            <input
+              type="number"
+              min="1"
+              value={poolSelectionCount()}
+              onInput={(event) => setPoolSelectionCount(event.currentTarget.value)}
+            />
+          </label>
+          <label class="assessment-editor-field">
+            Points per selected Question
+            <input
+              value={poolPointsPerItem()}
+              onInput={(event) => setPoolPointsPerItem(event.currentTarget.value)}
+            />
+          </label>
+          <label class="assessment-editor-field">
+            Selected Question order
+            <select
+              value={poolSelectedQuestionOrder()}
+              onChange={(event) =>
+                setPoolSelectedQuestionOrder(
+                  event.currentTarget.value as "questionPoolOrder" | "randomOrder",
+                )
+              }
+            >
+              <option value="randomOrder">Random order</option>
+              <option value="questionPoolOrder">Question Pool order</option>
+            </select>
+          </label>
+          <label class="assessment-editor-field">
+            Scoring
+            <select
+              value={poolScoringRule()}
+              onChange={(event) =>
+                setPoolScoringRule(
+                  event.currentTarget.value as "normal" | "fullCredit" | "extraCredit" | "excluded",
+                )
+              }
+            >
+              <option value="normal">Normal</option>
+              <option value="fullCredit">Full credit</option>
+              <option value="extraCredit">Extra credit</option>
+              <option value="excluded">Excluded</option>
+            </select>
+          </label>
+          <button type="button" disabled={poolToImport() === ""} onClick={() => void importPool()}>
+            Import Question Pool
+          </button>
+        </fieldset>
+        <Show when={availablePools().length === 0}>
+          <p>No reusable published Question Pools are available to import.</p>
         </Show>
       </section>
       <p class="assessment-editor-actions">

@@ -3,6 +3,7 @@
 import type { AssessmentSummary } from "../../generated/api/AssessmentSummary";
 import type { StudentAssessmentLandingSummary } from "../../generated/api/StudentAssessmentLandingSummary";
 import type { StudentAssessmentDetail } from "../../generated/api/StudentAssessmentDetail";
+import type { CourseInstanceRouteSummary } from "../../generated/api/CourseInstanceRouteSummary";
 import type { CourseSummary } from "../../generated/api/CourseSummary";
 import type { StudentQuestionAttemptView } from "../../generated/api/StudentQuestionAttemptView";
 import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
@@ -41,7 +42,7 @@ export interface AssessmentContentInput {
 
 /** One authorized Course Route View with its summary and browser-safe appearance. */
 export interface CourseRouteView {
-  readonly summary: CourseSummary;
+  readonly summary: CourseInstanceRouteSummary;
   readonly appearance: CourseAppearanceView;
 }
 

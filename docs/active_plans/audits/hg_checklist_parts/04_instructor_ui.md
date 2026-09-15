@@ -3,7 +3,7 @@
 - [ ] The Instructor interface should make frequent teaching tasks fast and easy to find.
   - Mismatch: the main Instructor task areas still contain deferred destinations and no end-to-end usability evidence establishes this broad workflow claim.
 - [ ] The Instructor menu has **Courses**, **Questions**, and **Assessments** in one dense top bar.
-  - Mismatch: `src/ribbon/ribbon_catalog.ts` labels the third tab “Assignments,” not the required “Assessments.”
+  - Mismatch: `src/ribbon/ribbon_catalog.ts` labels the third tab "Assignments," not the required "Assessments."
 - [x] Instructor Profile uses a generic user icon until the **Instructor** adds a Profile image.
   - Evidence (source): `src/features/instructor_profile/ribbon_profile_avatar.tsx` `RibbonProfileAvatar` falls back to `RibbonIcon` `circle-user` when no thumbnail URL exists.
 - [ ] All required ribbon choices remain visible even when their collection is empty.
@@ -47,7 +47,7 @@
 - [ ] Public Blueprint Course search should support quickly narrowing a large collection.
   - Mismatch: no Public Blueprint Course search route or query controls exist.
 - [x] A **Blueprint Course** should provide an obvious action for creating a **Course Instance** from it.
-  - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` renders “Create Course Instance from this Blueprint.”
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` renders "Create Course Instance from this Blueprint."
 - [ ] Blueprint Course editing should follow Course Editor -> Blueprint Assessment Editor.
   - Mismatch: `src/features/blueprint_course/blueprint_course_workspace.tsx` opens a Course Editor but names the selected editor a Blueprint Assignment editor, not a Blueprint Assessment Editor.
 - [x] The Course Editor should show the Blueprint Course structure without editing every Question on one page.
@@ -126,7 +126,7 @@
 - [ ] **My Questions** should make the Instructor's Published Questions easy to find and manage.
   - Mismatch: `myQuestions` is a `future` Ribbon destination.
 - [x] **My Draft Questions** should emphasize Questions that still need work before publication.
-  - Evidence (source): `src/pages/question_drafts_page.tsx` `QuestionDraftsPage` presents the current Instructor’s drafts.
+  - Evidence (source): `src/pages/question_drafts_page.tsx` `QuestionDraftsPage` presents the current Instructor's drafts.
 - [ ] **Starred** should provide a quick personal collection of Questions the Instructor wants to keep handy.
   - Mismatch: `starred` is a `future` Ribbon destination.
 - [ ] **Watched** should help Instructors follow Questions where changes or activity matter to them.
@@ -186,7 +186,7 @@
 - [ ] **Browse Question Library** helps Instructors explore Questions without knowing what to search for.
   - Mismatch: `browseQuestionLibrary` and Search share the same `library` route with no distinct browse workflow.
 - [ ] Browse should help Instructors understand what the Question Library contains.
-  - Mismatch: no browse landing surface explains the library’s content.
+  - Mismatch: no browse landing surface explains the library's content.
 - [ ] Browse should emphasize subjects, topics, tags, Question Types, and other useful groupings.
   - Mismatch: `src/pages/library_page.tsx` has some filters but no subject/topic browse hierarchy.
 - [ ] Browse should make moving from broad subjects to narrower topics easy.
@@ -203,7 +203,7 @@
 #### Assessments
 
 - [ ] The **Assessments** ribbon must include: Assessments Due Soon, My Assessment Templates.
-  - Mismatch: `src/ribbon/ribbon_catalog.ts` uses “Assignments Due Soon” and “My Assignment Templates”; templates are a `future` destination.
+  - Mismatch: `src/ribbon/ribbon_catalog.ts` uses "Assignments Due Soon" and "My Assignment Templates"; templates are a `future` destination.
 - [ ] **Assessments Due Soon** should emphasize Assessments that may need the Instructor's attention.
   - Mismatch: `src/pages/assignments_due_soon_page.tsx` implements the retired Assignment term rather than Assessments.
 - [ ] Assessment lists should make Course, release status, due date, and other important state easy to scan.
@@ -238,7 +238,7 @@
 #### High-consequence actions
 
 - [ ] Danger Zone contains **Assessment Unrelease**, **Archive Published Question**, and **Archive Blueprint Course**.
-  - Mismatch: the implemented UI names the first action “Unrelease assignment,” not Assessment Unrelease.
+  - Mismatch: the implemented UI names the first action "Unrelease assignment," not Assessment Unrelease.
 - [x] Danger Zone should be visually separate from ordinary editing actions.
   - Evidence (source): `src/pages/assignment_workspace/assignment_workspace_policies_page.tsx` `assignment-workspace-unrelease-danger-zone` is a separate danger section.
 - [ ] Assessment Unrelease should explain that Student work will be deleted.
