@@ -47,7 +47,6 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Use SQL directly to create the initial PostgreSQL database.
 - Before production, edit the main database design directly as the design changes.
 - After production, update existing databases without rebuilding them from scratch.
-
 - PLE is pre-production with no users or durable production data. Improve the design directly.
 - Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) for details.
 - Adaptability should be a focus so the software can evolve as requirements and insights change.
@@ -77,12 +76,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Published Question**: A validated question in the global **Question Library**, available to vetted **Instructors**.
 - **Draft Question**: A private question being developed by an **Instructor**. It must pass validation before publication.
 - **Question Library**: The global collection of Published Questions and published Question Pools available to vetted **Instructors**.
-
 - **User Roles**:
   - **Sysadmin**: A PLE administrator who manages the system, approves **Instructors**, creates accounts, and helps manage courses.
   - **Instructor**: An approved user who teaches courses and can browse, reuse, create, fork, and publish Questions.
   - **Student**: A user enrolled in a **Course Instance** who completes Assessments and other course activities.
-
 - **Assessment Question Editor**: The **Instructor** editor for selecting, adding, removing, and ordering Questions in an Assessment.
 - **Assessment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assessment, such as dates, scoring, attempts, late work, and what **Students** can see.
 
@@ -164,7 +161,6 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Role colors should be used consistently in role labels and other appropriate interface cues.
 - Demo role selection should clearly state both the user's role and name.
 - Instructor and **Sysadmin** workflows should work well in a 1280 by 800 desktop browser viewport.
-
 - Design around what users need to find and do.
 - Important information should stand out from supporting information.
 - Related information should be visually grouped and aligned.
